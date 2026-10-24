@@ -52,6 +52,24 @@ class TableHistoryControllerTest {
         }
     }
 
+    @Test fun predictedUndoRedoMoveLiveHistoryPositionWithoutPublishingAcceptedState() {
+        val data = GameplayFixture()
+        val replica = GameplayReplica()
+        assertTrue(replica.root(data.head()))
+        Harness().use { h ->
+            val actions = listOf(GameAction.Play(PlayAction.AdjustLife(data.actor, "1")), GameAction.Undo,
+                GameAction.Play(PlayAction.AdjustLife(data.actor, "2")), GameAction.Undo, GameAction.Redo)
+            actions.forEachIndexed { index, action ->
+                val command = data.command(PlayAction.AdjustLife(data.actor, "1")).copy(action = action)
+                assertTrue(replica.predict(command, data.actor))
+                h.history.update(replica.displayTree!!, "prediction-$index"); h.publish()
+                assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
+                assertEquals(replica.display!!.currentNodeId, h.history.playback!!.position.cursorId)
+                assertEquals(data.initial, replica.accepted)
+            }
+        }
+    }
+
     @Test fun continuationRequestPausesButOnlyConfirmationArmsTheCapturedBoundary() {
         Harness().use { h ->
             val tree = f.tap(f.root())

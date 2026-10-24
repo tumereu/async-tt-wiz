@@ -49,14 +49,14 @@ class HistoryRuntimeIntegrationTest {
         override fun disconnect() = Unit
         override fun close() = Unit
     }
-    private inner class Fixture(persistent: Boolean = true) : AutoCloseable {
+    private inner class Fixture(persistent: Boolean = true, initial: GameplayTree = f.root()) : AutoCloseable {
         val wire = Wire()
         val posts = LinkedBlockingQueue<() -> Unit>()
         val worker = Executors.newSingleThreadExecutor()
         val cache = TreeStoreFixture()
         var actor: String? = f.a
         var token: String? = "A".repeat(43)
-        var tree = f.root()
+        var tree = initial
         var revision = 1L
         val game = GameSummary(tree.initial.gameId, "Runtime", "2026-10-23T00:00:00Z", AccountIdentity(f.a, "A"),
             AccountIdentity(f.b, "B"), tree.initial.preparationRound, f.id(90), InvitationState.ACCEPTED,
@@ -103,6 +103,232 @@ class HistoryRuntimeIntegrationTest {
         }
         fun commands() = wire.frames.filterIsInstance<GameCommand>()
         override fun close() { session.close(); assertTrue(worker.awaitTermination(10, TimeUnit.SECONDS)) }
+    }
+
+    private fun untapRoot(): GameplayTree {
+        val initial = f.root().initial
+        return GameplayTree(initial.copy(board = initial.board.copy(
+            cards = initial.board.cards.map { if (it.owner == f.a) it.copy(tapped = true, covered = false,
+                placement = PlayPlacement(BoardPosition(0, 0), f.id(30))) else it },
+            containers = initial.board.containers.map { if (it.accountId == f.a) it.copy(zone = PlayZone.BATTLEFIELD) else it } +
+                listOf(PlayContainer(f.id(20), PlayZone.LIBRARY, f.a), PlayContainer(f.id(21), PlayZone.HAND, f.a)))))
+    }
+
+    @Test fun untapUndoUntapUndoRedoPredictImmediatelyAndReconcileWithoutAcknowledgementWaypoints() {
+        for (resultFirst in listOf(false, true)) Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            val initial = x.tree
+            val actions = TableActionController({ x.session.play(x.game) }, { true },
+                { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
+            fun untap() {
+                val play = x.session.play(x.game)!!
+                val quick = QuickActions.contextual(play, QuickContext(), actions).single { it.name == "Untap all" }
+                assertEquals(listOf(f.id(9)), (quick.intent as TableActionIntent.Untap).cardIds)
+                assertTrue(actions.perform(quick.intent))
+                assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
+            }
+            fun control(action: GameAction, tapped: Boolean) {
+                assertTrue(x.session.historyControl(x.game, f.a, action))
+                assertEquals(tapped, x.session.play(x.game)!!.board.cards.first().tapped)
+                assertEquals(x.session.play(x.game), x.session.displayTree(x.game.id)!!.let { it.stateAt(it.currentNodeId) })
+            }
+            untap(); control(GameAction.Undo, true)
+            assertEquals(initial.currentNodeId, x.session.play(x.game)!!.currentNodeId)
+            untap(); control(GameAction.Undo, true); control(GameAction.Redo, false)
+            val originals = x.commands()
+            assertEquals(5, originals.size, "Every original is sent before any acknowledgement")
+            assertEquals(initial.initial, x.session.acceptedPlay(x.game))
+            val predicted = x.session.play(x.game)
+            val predictedTree = x.session.displayTree(x.game.id)
+            for (command in originals) {
+                val update = x.execute(command)
+                val result = GameResult(command.requestId, command.scope, "accepted", ingressOrdinal = "1",
+                    commitRevision = update.resultRevision)
+                if (resultFirst) x.message(result)
+                assertEquals(predicted, x.session.play(x.game))
+                x.message(update)
+                if (!resultFirst) x.message(result)
+                x.message(update); x.message(result)
+                assertEquals(predicted, x.session.play(x.game), "No accepted-prefix flash")
+            }
+            assertEquals(predictedTree, x.session.retainedTree(x.game.id))
+            assertEquals(predicted, x.session.acceptedPlay(x.game))
+            assertFalse(x.session.pending(x.game.id))
+        }
+    }
+
+    @Test fun rejectedAndAdmissionRefusedControlsRollBackAndKeepExistingExplanations() {
+        for (admission in listOf(false, true)) Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), false)))
+            val untap = x.commands().last()
+            x.message(x.execute(untap))
+            x.message(GameResult(untap.requestId, untap.scope, "accepted", ingressOrdinal = "1", commitRevision = "2"))
+            val accepted = x.session.acceptedPlay(x.game)
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            val undo = x.commands().last()
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            if (admission) x.message(GameAdmissionError("invalidInput", false, undo.requestId, x.game.id))
+            else x.message(GameResult(undo.requestId, undo.scope, "rejected", "referenceBlocked", ingressOrdinal = "2"))
+            assertEquals(accepted, x.session.play(x.game))
+            assertEquals(accepted, x.session.acceptedPlay(x.game))
+            assertTrue(x.session.error!!.startsWith("Can't undo:"))
+            if (!admission) assertTrue("later event refers" in x.session.error!!)
+            assertFalse(x.session.pending(x.game.id))
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), true)))
+        }
+    }
+
+    @Test fun recoveryCorrelatesAnAcceptedPrefixBeforeReplayingPendingControlsRegardlessOfStatusOrder() {
+        Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            fun untap() = assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), false)))
+            fun control(action: GameAction) = assertTrue(x.session.historyControl(x.game, f.a, action))
+            untap(); control(GameAction.Undo); untap(); control(GameAction.Undo); control(GameAction.Redo)
+            val commands = x.commands()
+            val predicted = x.session.play(x.game)
+            val updates = commands.take(2).map { x.execute(it) } // Lose both accepted envelopes/results.
+            x.message(x.head())
+            val statuses = commands.mapIndexed { index, command ->
+                if (index >= 2) GameRequestStatus(command.requestId, "pending")
+                else GameRequestStatus(command.requestId, "final", GameResult(command.requestId, command.scope,
+                    "accepted", ingressOrdinal = "1", commitRevision = updates[index].resultRevision))
+            }.reversed()
+            x.publish(statuses)
+            assertTrue(x.session.ready(x.game.id))
+            assertEquals(predicted, x.session.play(x.game))
+            commands.drop(2).forEach { x.message(x.execute(it)) }
+            assertEquals(predicted, x.session.acceptedPlay(x.game))
+            assertEquals(predicted, x.session.play(x.game))
+        }
+    }
+
+    @Test fun rejectedRedoRollsBackToUndoneBoard() {
+        Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), false)))
+            x.message(x.execute(x.commands().last()))
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            x.message(x.execute(x.commands().last()))
+            val accepted = x.session.acceptedPlay(x.game)
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Redo))
+            val redo = x.commands().last()
+            assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
+            x.message(GameResult(redo.requestId, redo.scope, "rejected", "missingAnchor", ingressOrdinal = "3"))
+            assertEquals(accepted, x.session.play(x.game))
+            assertTrue("original place" in x.session.error!!)
+        }
+    }
+
+    @Test fun interveningRemotePlayWithdrawsTerminalPredictionAndFencesFollowingOverlaysUntilReconciliation() {
+        Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), false)))
+            x.message(x.execute(x.commands().last()))
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            val undo = x.commands().last()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "3")))
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            val remote = undo.copy(requestId = f.id(981), action = GameAction.Play(PlayAction.AdjustLife(f.b, "1")))
+            x.message(x.execute(remote, f.b))
+            assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
+            assertEquals("20", x.session.play(x.game)!!.board.players.first().life)
+            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            x.message(x.execute(undo)) // Server correctly performs selective Undo with the remote suffix.
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            assertEquals("23", x.session.play(x.game)!!.board.players.first().life)
+            x.message(x.execute(x.commands().last()))
+            assertEquals(x.session.acceptedPlay(x.game), x.session.play(x.game))
+        }
+    }
+
+    @Test fun withdrawingAnEarlierOriginalNeverRetargetsPredictedUndoToAnOlderAcceptedEvent() {
+        Fixture().use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            x.message(x.execute(x.commands().last()))
+            val accepted = x.session.acceptedPlay(x.game)
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "2")))
+            val earlier = x.commands().last()
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            assertEquals(accepted!!.board, x.session.play(x.game)!!.board)
+            x.session.withdrawGameplayPrediction(x.game.id, earlier.requestId)
+            assertEquals(accepted, x.session.play(x.game), "Do not undo the older +1 when +2 is still uncertain")
+            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            x.message(x.execute(earlier))
+            x.message(x.execute(x.commands().last()))
+            assertEquals(accepted.board, x.session.play(x.game)!!.board)
+        }
+    }
+
+    @Test fun predictedStepUndoRestoresContextualQuickActionsBeforeTheServerResponds() {
+        Fixture(initial = untapRoot()).use { x ->
+            x.connect(); x.publish()
+            val actions = TableActionController({ x.session.play(x.game) }, { true },
+                { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
+            fun quickNames() = QuickActions.contextual(x.session.play(x.game)!!, QuickContext(), actions).map { it.name }
+            val initial = quickNames()
+            assertTrue("Untap all" in initial)
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.NextStep))
+            assertTrue(quickNames().isEmpty())
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            assertEquals(initial, quickNames())
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Redo))
+            assertTrue(quickNames().isEmpty())
+            assertEquals(3, x.commands().size)
+        }
+    }
+
+    @Test fun selectiveAndRevealBlockedControlsRemainServerOnlyAndKeepCaptureBarrier() {
+        for (revealed in listOf(false, true)) Fixture().use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, if (revealed)
+                PlayAction.ShowContents(f.id(10), ContentsSelection.ALL, reveal = true) else PlayAction.AdjustLife(f.a, "1")))
+            x.message(x.execute(x.commands().last()))
+            if (!revealed) {
+                val remote = GameCommand(f.id(980), GameScope(x.game.id, playId = x.tree.initial.id),
+                    GameAction.Play(PlayAction.AdjustLife(f.b, "1")), f.id(14), "1")
+                x.message(x.execute(remote, f.b))
+            }
+            val before = x.session.play(x.game)
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            assertEquals(before, x.session.play(x.game))
+            assertEquals(GameAction.Undo, x.commands().last().action)
+            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            if (revealed) {
+                val undo = x.commands().last()
+                x.message(GameResult(undo.requestId, undo.scope, "rejected", "revealingTarget", ingressOrdinal = "2"))
+                assertTrue("revealed hidden information" in x.session.error!!)
+            } else {
+                x.message(x.execute(x.commands().last()))
+                assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.play(x.game))
+            }
+        }
+    }
+
+    @Test fun referenceBearingLatestEventIsNotPredictedAndAnExplorerOpenedDuringPredictionUsesAcceptedBoundary() {
+        Fixture().use { x ->
+            x.connect(); x.publish()
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            val accepted = x.session.retainedTree(x.game.id)!!
+            val predictedCursor = x.session.play(x.game)!!.currentNodeId
+            val explorer = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() }, { true }, { _, _ -> false })
+            try {
+                explorer.update(accepted, openingNodeId = accepted.resolveCursor(predictedCursor))
+                assertNull(explorer.state.error)
+                assertEquals(accepted.currentNodeId, explorer.state.selectedNodeId)
+            } finally { explorer.close() }
+            x.message(x.execute(x.commands().last()))
+            val reference = EventReference(x.tree.initial.id, x.tree.currentNodeId)
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.EventComment(reference, "An exact event reference")))
+            x.message(x.execute(x.commands().last()))
+            val before = x.session.play(x.game)
+            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
+            assertEquals(before, x.session.play(x.game))
+            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            x.message(x.execute(x.commands().last()))
+            assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.play(x.game))
+        }
     }
 
     @Test fun actualSessionUsesI26WorkerPublicationTypedInflightControlsAndOriginalRecovery() {

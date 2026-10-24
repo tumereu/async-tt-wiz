@@ -39,7 +39,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         val generation = ++epoch
         worker.execute {
             val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version,
-                texts = historyTexts(value, viewer, names))
+                texts = historyTexts(value, viewer, names), containers = value.initial.board.containers)
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation

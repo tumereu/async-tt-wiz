@@ -13,7 +13,7 @@ data class HistoryPosition(val cursorId: String, val mode: HistoryMode = History
  * coherent accepted tree and a version of its already-rebased live target (not an acknowledgement revision). */
 class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sharedHeadId: String,
     val liveVersion: String, val versions: Map<String, String> = emptyMap(),
-    val texts: Map<String, HistoryText> = emptyMap()) {
+    val texts: Map<String, HistoryText> = emptyMap(), val containers: List<PlayContainer> = emptyList()) {
     val nodes = mutations.associateBy { it.id }
     init {
         require(nodes.size == mutations.size && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))
@@ -36,7 +36,7 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
     }
     fun groups(path: List<String>): Map<String, GameplayGroup> {
         var previous: GameplayGroup? = null
-        return path.drop(1).associateWith { id -> GameplayHistory.append(previous, nodes.getValue(id)).also { previous = it } }
+        return path.drop(1).associateWith { id -> GameplayHistory.append(previous, nodes.getValue(id), containers).also { previous = it } }
     }
     fun version(id: String) = if (id == sharedHeadId) liveVersion else versions[id] ?: id
 }

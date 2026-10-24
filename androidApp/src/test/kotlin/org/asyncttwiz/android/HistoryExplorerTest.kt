@@ -8,6 +8,31 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class HistoryExplorerTest {
+    @Test fun diagnosticsDistinguishMissingCursorReplayFailureAndLayoutException() {
+        val failures = mutableListOf<Pair<String, Throwable>>()
+        val controller = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, _ -> false },
+            { context, failure -> failures.add(context to failure) })
+        try {
+            controller.update(GameplayTree(root()))
+            controller.select(id(999))
+            assertTrue(failures.last().second.message!!.contains("Cannot resolve retained cursor"))
+            val first = play(GameplayTree(root()), 100)
+            val node = first.nodes.values.single()
+            val corrupt = first.copy(nodes = mapOf(node.id to node.copy(transition = GameplayTransition())))
+            controller.update(corrupt, openingNodeId = node.id)
+            controller.select(node.id)
+            assertTrue(failures.last().second.message!!.contains("Cannot reconstruct retained boundary"))
+            // A malformed offshoot must report a topology failure, not masquerade as a missing cursor.
+            val orphan = node.copy(id = id(998), parentId = id(997))
+            controller.update(first.copy(nodes = first.nodes + (orphan.id to orphan)))
+            controller.select(first.initial.root.id)
+            assertEquals("Unavailable retained ancestry", failures.last().second.message)
+            assertTrue(failures.last().first.contains("game=${root().gameId}"))
+            assertTrue(failures.last().first.contains("nodes=2"))
+            assertEquals("History unavailable", controller.state.error)
+        } finally { controller.close() }
+    }
+
     @Test fun missingBoundaryInNewTreeShowsUnavailableWithoutThrowingOrActivating() {
         val queue = Queue()
         val controller = HistoryExplorerController(queue, { it() }, { true }, { _, _ -> error("unexpected activation") })

@@ -219,7 +219,7 @@ class TableScreenshotTest {
         if (kind == "action-tooltip") {
             compose.mainClock.advanceTimeBy(350)
             compose.onNodeWithContentDescription("Inspect", useUnmergedTree = false).performTouchInput {
-                down(center); advanceEventTime(700); moveBy(Offset.Zero)
+                advanceEventTime(350); down(center); advanceEventTime(700); moveBy(Offset.Zero)
             }
             compose.mainClock.advanceTimeBy(700)
             compose.onNodeWithText("Inspect").assertExists()
@@ -305,8 +305,7 @@ class TableScreenshotTest {
 
     @Test fun graveyardMoveClosesMenu() {
         val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Graveyard · Alice").performScrollTo()
+        compose.ringPage(4)
         compose.onNodeWithContentDescription("Graveyard · Alice").performClick()
         assertTrue(sent.any { it is PlayAction.MoveCard })
         assertEquals(null, toolkit.manual.scope)
@@ -350,10 +349,10 @@ class TableScreenshotTest {
         compose.onNodeWithText("Return Hand → Shuffle → Draw Hand size −1").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun moreKeepsTheFullDestinationInventoryReachable() {
+    @Test fun movePageKeepsStackDestinationReachable() {
         val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Move to Stack").performScrollTo().performClick()
+        compose.ringPage(4)
+        compose.onNodeWithContentDescription("Move to Stack").performClick()
         assertEquals(null, toolkit.manual.scope)
         assertTrue(sent.any { it is PlayAction.Stack && it.action is StackAction.AddEffect })
         assertTrue(sent.none { it is PlayAction.MoveCard && it.destination.containerId == "stack" })

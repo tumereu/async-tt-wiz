@@ -56,14 +56,13 @@ class TableInteractionsScreenshotTest {
         }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         capture("menu-${width.toInt()}x${height.toInt()}-font$font")
-        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Move to Stack")) {
+        for ((page, label) in listOf(1 to "Set corner", 3 to "Set gray counter", 2 to "Decrease gray counter", 4 to "Move to Stack")) {
             compose.ringPage(page)
-            if (page == 3) compose.onNodeWithContentDescription(label).performScrollTo()
             compose.onNodeWithContentDescription(label).assertIsDisplayed()
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label retains its touch target")
         }
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font-scrolled")
+        capture("menu-${width.toInt()}x${height.toInt()}-font$font-move")
         assertTrue(sent.isEmpty())
     }
 

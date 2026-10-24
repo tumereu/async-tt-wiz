@@ -90,9 +90,14 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertNull(toolkit.manual.scope); assertTrue(sent.isEmpty()) }
         compose.runOnIdle { val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id))) }
         compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(sourcePoint("1/2")) }
+        val another = f.source(f.b, "2/3").id
+        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
+        val point = scene.items.single { it.cardId == another }.visible.first().center
+        val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
+        assertFalse(square.contains(Offset(point.x, point.y)), "The second card must be outside the reserved square")
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(point.x, point.y)) }
         compose.runOnIdle {
-            assertEquals(f.source(f.a, "1/2").id, toolkit.manual.scope?.contextId)
+            assertEquals(another, toolkit.manual.scope?.contextId)
             assertTrue(sent.isEmpty())
         }
     }
@@ -131,7 +136,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertTrue(toolkit.layoutState.value.camera.zoom > 1f); assertTrue(sent.isEmpty()) }
     }
 
-    @Test fun wholeCornerPillAdjustsBothPartsForEverySelectedSourceAndValueOpensEditor() {
+    @Test fun cornerCellsAdjustBothPartsForEverySelectedSourceAndValueOpensEditor() {
         val toolkit = render(multi = true)
         compose.ringPage(1)
         compose.onNodeWithContentDescription("Increase corner").performClick()
@@ -142,7 +147,7 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
     }
 
-    @Test fun counterPillKeepsAllThreeControlsOnThePage() {
+    @Test fun counterCellsKeepSetAndAdjustmentCallbacks() {
         val toolkit = render()
         compose.ringPage(2)
         compose.onNodeWithContentDescription("Decrease blue counter").performClick()
@@ -156,28 +161,39 @@ class CardRingInteractionTest {
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {
         val toolkit = render()
         compose.ringPage(2)
-        compose.onNode(hasContentDescription("Action page 2 of 3", substring = true)).performTouchInput { swipeLeft() }
-        compose.onNode(hasContentDescription("Action page 3 of 3", substring = true)).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action grid").performTouchInput { swipeLeft() }
+        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
+        compose.ringPage(4)
         compose.runOnIdle { toolkit.dismiss() }
         compose.waitForIdle()
         compose.runOnIdle {
             val another = f.source(f.a, "1/2").id
             toolkit.openCard(TableScope(another, listOf(another)))
         }
-        compose.onNode(hasContentDescription("Action page 3 of 3", substring = true)).assertIsDisplayed()
+        compose.onNode(hasContentDescription("Action page 4 of ", substring = true)).assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
 
-    @Test fun verticalGridDragScrollsWithoutSwitchingPagesAndEveryMoveRemainsReachable() {
+    @Test fun verticalDragDoesNotSwitchPagesAndMovePageNeedsNoScrolling() {
         render()
-        compose.ringPage(3)
+        compose.ringPage(4)
         val grid = compose.onNodeWithContentDescription("Card action grid")
-        val before = grid.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange].value()
         grid.performTouchInput { swipeUp() }
-        compose.onNode(hasContentDescription("Action page 3 of 3", substring = true)).assertIsDisplayed()
-        val after = grid.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange].value()
-        assertTrue(after > before)
-        compose.onNodeWithContentDescription("Move to Stack").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasContentDescription("Action page 4 of ", substring = true)).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move to Stack").assertIsDisplayed()
         assertTrue(sent.isEmpty())
+    }
+
+    @Test fun tabsAndSwipesKeepTheSameSquareAndDisabledActionsStayDisabled() {
+        render()
+        compose.ringPage(1)
+        val bounds = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
+        for (page in 2..4) {
+            compose.ringPage(page)
+            assertEquals(bounds, compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot)
+        }
+        compose.ringPage(3)
+        compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()
     }
 }

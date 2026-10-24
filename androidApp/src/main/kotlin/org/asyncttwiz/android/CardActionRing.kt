@@ -2,14 +2,11 @@ package org.asyncttwiz.android
 
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,12 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,8 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
-/** Change just this flag for icon-only bubbles. Accessible names and hold tooltips remain. */
-internal const val CardRingLabels = true
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
 private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?) -> Unit> { { _, _ -> } }
 
@@ -51,16 +44,25 @@ internal data class RingCompound(val value: String, val minus: MenuControl, val 
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
     val compound: RingCompound? = null, val fill: Color? = null)
 
+/** Wide pills become three independent cells without changing their gameplay callbacks. */
+internal fun ringCells(entries: List<RingEntry>): List<RingEntry> = entries.flatMap { entry ->
+    val compound = entry.compound
+    if (compound == null) listOf(entry) else listOf(
+        RingEntry("${entry.id}/minus", "− ${entry.label}", compound.minus, fill = entry.fill),
+        entry.copy(label = "${entry.label} ${compound.value}", compound = null),
+        RingEntry("${entry.id}/plus", "+ ${entry.label}", compound.plus, fill = entry.fill))
+}
+
 internal fun ringShortLabel(name: String): String = when (name) {
-    "Declare + tap" -> "Declare\n+ tap"
+    "Declare + tap" -> "Decl+tap"
     "Declare without tapping" -> "Declare"
     "Ping / Unping" -> "Ping"
     "Add Stack effect" -> "Effect"
     "Select / deselect" -> "Select"
-    "Remove Stack effect" -> "Remove\neffect"
-    "Remove from combat" -> "Remove\ncombat"
+    "Remove Stack effect" -> "Rm effect"
+    "Remove from combat" -> "Rm combat"
     "Source actions" -> "Source"
-    else -> name.removePrefix("Move to ").removePrefix("Move ").replace(" · ", "\n")
+    else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 }
 
 @Composable
@@ -69,13 +71,14 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
     var page by remember(viewer, game) { mutableIntStateOf(store.read()) }
-    val pages = CardRingPages.resolve(entries.map { it.id })
-    val shown = pages[page].actions.mapNotNull { id -> entries.firstOrNull { it.id == id } }
+    val cells = ringCells(entries)
+    val pages = CardRingPages.resolve(cells.map { it.id })
+    val selectedPage = page.coerceIn(pages.indices)
+    val shown = pages[selectedPage].actions.mapNotNull { id -> cells.firstOrNull { it.id == id } }
     val anchor = LocalCardRingAnchors.current[viewId]
     val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
-    var targets by remember { mutableStateOf(emptyList<TableBounds>()) }
-    var gridMode by remember { mutableStateOf(false) }
-    val switchPage: (Int) -> Unit = { delta -> page = (page + delta).mod(3); store.write(page) }
+    val selectPage: (Int) -> Unit = { page = it; store.write(it) }
+    val switchPage: (Int) -> Unit = { delta -> selectPage((selectedPage + delta).mod(pages.size)) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
     val inputTargets = remember { mutableMapOf<Any, TableBounds>() }
@@ -93,87 +96,67 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     }
     BackHandler(onBack = dismiss)
     CompositionLocalProvider(LocalRingInputTargets provides registerTarget) {
-    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }
-        .pointerInput(guard) {
+    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }) {
+        val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
+        // Capture the opening anchor/viewport only: neither sync nor a page switch moves this square.
+        val placement = remember(identity, viewId) { CardRingGeometry.place(maxWidth.value, maxHeight.value, card, own) }
+        if (placement == null) {
+            LaunchedEffect(identity, viewId) { dismiss() }
+            return@BoxWithConstraints
+        }
+        val square = placement.square
+        // Standalone fallback; the stable table host relays outside presses before they reach here.
+        Box(Modifier.fillMaxSize().pointerInput(dismiss) { detectTapGestures(onTap = { dismiss() }) })
+        Surface(Modifier.offset(square.x.dp, square.y.dp).size(square.width.dp, square.height.dp)
+            .ringInputTarget().semantics { contentDescription = "Card action grid" }
+            .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 // The relay alone can replace the first tap with the table's double-tap action.
                 if (!down.isConsumed) {
-                    val point = TablePoint(down.position.x / density, down.position.y / density)
-                    val blocked = targets.any { it.contains(point) } && !guard.accepts(down.uptimeMillis)
+                    val blocked = !guard.accepts(down.uptimeMillis)
                     var swipe = false
-                    var delta = androidx.compose.ui.geometry.Offset.Zero
+                    var delta = Offset.Zero
                     if (blocked) down.consume()
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id }
                         if (change != null) {
                             delta = change.position - down.position
-                            // Vertical drags in a fallback grid scroll its rows, not its pages.
-                            if (delta.getDistance() > 32.dp.toPx() && (!gridMode || abs(delta.x) > abs(delta.y) * 1.5f)) swipe = true
+                            if (abs(delta.x) > 32.dp.toPx() && abs(delta.x) > abs(delta.y) * 1.5f) swipe = true
                         }
                         if (blocked || swipe) event.changes.forEach { it.consume() }
                     } while (event.changes.any { it.pressed })
-                    if (swipe && !blocked) currentSwitch(if (if (abs(delta.x) >= abs(delta.y)) delta.x < 0 else delta.y < 0) 1 else -1)
+                    if (swipe && !blocked) currentSwitch(if (delta.x < 0) 1 else -1)
                 }
             }
-        }) {
-        // Standalone fallback; the stable table host relays outside presses before they reach here.
-        Box(Modifier.fillMaxSize().pointerInput(dismiss) { detectTapGestures(onTap = { dismiss() }) })
-        val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
-        val font = LocalDensity.current.fontScale
-        val side = ringBubbleSide(font)
-        val pill = 144f + (side - 56f)
-        val sizes = shown.map { RingSize(if (it.compound != null) pill else side, side) } + RingSize(88f, 48f)
-        val placement = remember(maxWidth, maxHeight, card, sizes, own) { CardRingGeometry.place(maxWidth.value, maxHeight.value, card, sizes, own) }
-        SideEffect { targets = placement.grid?.let(::listOf) ?: placement.bubbles; gridMode = placement.grid != null }
-        val pageControl = MenuControl("Action page ${page + 1} of 3, ${pages[page].name}; next page") { switchPage(1) }
-        val indicator: @Composable (Modifier) -> Unit = { modifier ->
-            RingPress(pageControl, modifier, ownerColor, RoundedCornerShape(24.dp)) {
-                Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    for (i in 0..2) {
-                        if (i > 0) Text("·", color = MenuBorder, fontSize = 10.sp)
-                        Text("${i + 1}", color = if (i == page) ownerColor else MenuInk.copy(alpha = .5f),
-                            fontSize = 12.sp, fontWeight = if (i == page) FontWeight.Black else FontWeight.Normal)
+        }, shape = RoundedCornerShape(8.dp), color = Color.White,
+            border = BorderStroke(1.dp, ownerColor), shadowElevation = 4.dp) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                Row(Modifier.width(CardRingGeometry.gridSide.dp).height(16.dp).semantics {
+                    contentDescription = "Action page ${selectedPage + 1} of ${pages.size}, ${pages[selectedPage].name}"
+                }) {
+                    pages.forEachIndexed { index, tab ->
+                        RingPress(MenuControl("${tab.name} page", selected = index == selectedPage) { selectPage(index) },
+                            Modifier.weight(1f).fillMaxHeight(), ownerColor, fill = if (index == selectedPage) ownerColor.copy(alpha = .18f) else Color.White,
+                            role = Role.Tab) {
+                            Text(tab.name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = MenuInk, fontWeight = if (index == selectedPage) FontWeight.Bold else FontWeight.Normal)
+                        }
                     }
                 }
-            }
-        }
-        key(identity, viewId, page) {
-            if (placement.grid == null) {
-                for ((index, entry) in shown.withIndex()) {
-                    val b = placement.bubbles[index]
-                    SpeechBubbleTail(card, b, (entry.control.color ?: ownerColor).copy(alpha = .65f))
-                    RingBubble(entry, ownerColor, Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).ringEntrance(index))
-                }
-                val b = placement.bubbles.last()
-                indicator(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).ringEntrance(shown.size))
-            } else {
-                val region = placement.grid
-                val width = minOf(region.width, 408f)
-                val rows = ringGridRows(sizes.dropLast(1), width)
-                val visibleRows = ((region.height - 48f) / (side + 8f)).toInt().coerceIn(1, minOf(4, rows.size.coerceAtLeast(1)))
-                val viewportHeight = visibleRows * (side + 8f) - 8f
-                val height = viewportHeight + 56f
-                val x = (card.center.x - width / 2).coerceIn(region.x, (region.right - width).coerceAtLeast(region.x))
-                val y = (if (region.bottom <= card.y) region.bottom - height else if (region.y >= card.bottom) region.y else card.center.y - height / 2)
-                    .coerceIn(region.y, (region.bottom - height).coerceAtLeast(region.y))
-                Column(Modifier.offset(x.dp, y.dp).size(width.dp, height.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.height(viewportHeight.dp).ringInputTarget().verticalScroll(rememberScrollState()).semantics { contentDescription = "Card action grid" },
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        var index = 0
-                        for (row in rows) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (size in row) {
-                                val at = index++
-                                RingBubble(shown[at], ownerColor, Modifier.size(size.width.dp, size.height.dp).ringEntrance(at))
+                key(identity, viewId, selectedPage) {
+                    Column(Modifier.size(CardRingGeometry.gridSide.dp)) {
+                        repeat(4) { row ->
+                            Row {
+                                repeat(4) { column ->
+                                    val entry = shown.getOrNull(row * 4 + column)
+                                    if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
+                                    else RingCell(entry, ownerColor, Modifier.size(CardRingGeometry.cell.dp))
+                                }
                             }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        indicator(Modifier.size(88.dp, 48.dp))
-                        if (rows.size > visibleRows && width >= 184f) Text("Scroll for more", color = ownerColor, fontSize = 9.sp, letterSpacing = 0.sp)
-                    }
                 }
             }
         }
@@ -181,63 +164,28 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     }
 }
 
-internal fun ringGridRows(sizes: List<RingSize>, width: Float): List<List<RingSize>> {
-    val rows = mutableListOf<MutableList<RingSize>>()
-    var used = 0f
-    for (size in sizes) {
-        if (rows.isEmpty() || used + 8 + size.width > width) { rows += mutableListOf<RingSize>(); used = 0f }
-        rows.last() += size
-        used += size.width + if (used > 0) 8 else 0
-    }
-    return rows
-}
-
 @Composable
-private fun Modifier.ringEntrance(index: Int): Modifier {
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
-    val progress by animateFloatAsState(if (entered) 1f else 0f, tween(150, delayMillis = minOf(index * 8, 48)), label = "Bubble entrance")
-    return graphicsLayer { alpha = progress; scaleX = .65f + .35f * progress; scaleY = scaleX }
-}
-
-@Composable
-private fun RingBubble(entry: RingEntry, owner: Color, modifier: Modifier) {
-    val compound = entry.compound
-    if (compound == null) RingPress(entry.control, modifier, entry.control.color ?: owner, CircleShape) {
+private fun RingCell(entry: RingEntry, owner: Color, modifier: Modifier) {
+    RingPress(entry.control, modifier, entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            if (entry.id.startsWith("corner/")) Text(entry.label, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f))
-            else MenuIcon(entry.control.name, tint = (entry.control.color ?: owner).copy(alpha = if (entry.control.enabled) 1f else .35f))
-            if (CardRingLabels && !entry.id.startsWith("corner/")) Text(entry.label, Modifier.padding(horizontal = 4.dp).clearAndSetSemantics {},
-                fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            MenuIcon(entry.control.name, tint = (entry.control.color ?: owner).copy(alpha = if (entry.control.enabled) 1f else .35f))
+            Text(entry.label.replace('\n', ' '), Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {},
+                fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 letterSpacing = 0.sp, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f), fontWeight = FontWeight.Medium)
-        }
-    } else Surface(modifier, shape = RoundedCornerShape(40.dp), color = entry.fill ?: Color.White,
-        border = BorderStroke(1.dp, entry.control.color ?: owner.copy(alpha = .5f)), shadowElevation = 3.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RingPress(compound.minus, Modifier.width(48.dp).fillMaxHeight(), owner, CircleShape, paint = false) { Text("−", fontSize = 22.sp, color = MenuInk.copy(alpha = if (compound.minus.enabled) 1f else .3f)) }
-            RingPress(entry.control, Modifier.weight(1f).fillMaxHeight(), owner, CircleShape, paint = false) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(compound.value, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MenuInk)
-                    if (CardRingLabels) Text(entry.label, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, color = MenuInk)
-                }
-            }
-            RingPress(compound.plus, Modifier.width(48.dp).fillMaxHeight(), owner, CircleShape, paint = false) { Text("+", fontSize = 22.sp, color = MenuInk.copy(alpha = if (compound.plus.enabled) 1f else .3f)) }
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RingPress(control: MenuControl, modifier: Modifier, color: Color, shape: androidx.compose.ui.graphics.Shape,
-    paint: Boolean = true, content: @Composable () -> Unit) {
+private fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
+    fill: Color = Color.White, role: Role = Role.Button, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
-    Surface(modifier.ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
-        .combinedClickable(enabled = control.enabled, role = Role.Button, hapticFeedbackEnabled = false,
+    Surface(modifier.semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
+        .combinedClickable(enabled = control.enabled, role = role, hapticFeedbackEnabled = false,
             onLongClick = { tooltip = true }, onClick = control.click),
-        shape = shape, color = if (paint) Color.White else Color.Transparent,
-        border = if (paint) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = .65f)) else null,
-        shadowElevation = if (paint) 3.dp else 0.dp) {
+        shape = RoundedCornerShape(3.dp), color = if (control.enabled) fill else fill.copy(alpha = .4f),
+        border = BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f))) {
         Box(contentAlignment = Alignment.Center) {
             content()
             if (tooltip) HoldTooltip(control.name)

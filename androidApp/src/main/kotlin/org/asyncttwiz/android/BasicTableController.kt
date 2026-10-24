@@ -30,7 +30,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             is TableIntent.Move -> move(state, intent, invocation)
             is TableIntent.Submit -> {
                 val action = intent.action
-                val lowered = if (action is PlayAction.MoveCard && state.board.containers.any {
+                val lowered = if (action is PlayAction.MoveCard && action.removeStackEntryId == null && state.board.containers.any {
                         it.id == action.destination.containerId && it.zone == PlayZone.STACK })
                     projection(state, action) ?: return false else action
                 submit(lowered, intent.invocationId ?: invocation)
@@ -39,7 +39,32 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         }
     }
 
-    private fun move(state: PlayState, intent: TableIntent.Move, invocation: String): Boolean {
+    private fun move(state: PlayState, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
+        val stack = CombatStackRules.stack(state.board)
+        if (intent.scope.cardIds.any { it in stack.cards }) {
+            val entry = intent.scope.cardIds.singleOrNull() ?: return false
+            if (entry != stack.cards.firstOrNull()) return false
+            val effect = state.board.stackEffects.singleOrNull { it.id == entry }
+            val destination = when (val d = intent.destination) {
+                is TableDestination.Container -> state.board.containers.singleOrNull { it.id == d.id && it.zone == d.zone }
+                is TableDestination.Grid -> state.board.containers.singleOrNull { it.id == d.containerId && it.zone == PlayZone.BATTLEFIELD }
+                is TableDestination.CardPile -> state.board.containers.singleOrNull { it.id == d.source?.containerId && it.zone == PlayZone.BATTLEFIELD }
+                is TableDestination.Combat -> null
+            } ?: return false
+            if (destination.zone == PlayZone.STACK) return false
+            if (effect != null) {
+                val card = CombatStackRules.liveSource(state.board, entry) ?: return false
+                val captured = intent.sources[entry] ?: return false
+                if (captured.sourceId != null && captured.sourceId != card.id) return false
+                val source = captured.source() ?: return false
+                if (source.containerId != card.containerId || source.placement != card.placement) return false
+                // A zone drop onto the source's current zone dismisses only this projection.
+                if (state.board.containers.single { it.id == card.containerId }.zone == destination.zone)
+                    return submit(StackMenuActions.remove(entry), invocation)
+                return move(state, intent.copy(scope = TableScope(card.id, listOf(card.id)),
+                    sources = mapOf(card.id to captured)), invocation, entry)
+            }
+        }
         val ids = ordered(state, intent.scope.cardIds)
         if (ids.isEmpty() || ids.size != intent.scope.cardIds.distinct().size) return false
         // Compare semantic locations, not animated pixels, and never repair a stale source by recapture.
@@ -123,7 +148,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
             }
             val source = sources.getValue(id)
-            val action = PlayAction.MoveCard(id, source, destination)
+            val action = PlayAction.MoveCard(id, source, destination, removeStackEntryId = stackEntryId)
             if (target.zone == PlayZone.HAND && source.containerId == target.id && destination.insertion == MoveInsertion.GAP) {
                 val members = currentTarget.cards
                 val reduced = members.filter { it != id }
@@ -180,6 +205,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
 
     companion object {
         fun projection(state: PlayState, action: PlayAction.MoveCard): PlayAction.Stack? {
+            if (action.removeStackEntryId != null) return null
             val card = state.board.cards.singleOrNull { it.id == action.cardId } ?: return null
             if (!CombatStackRules.canProject(state.board, card) || card.containerId != action.source.containerId ||
                 card.placement != action.source.placement) return null

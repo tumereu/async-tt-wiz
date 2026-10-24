@@ -1,0 +1,119 @@
+package org.asyncttwiz.android
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import org.asyncttwiz.protocol.*
+
+/** Identity-bound menu lowering. Reordering uses live neighbors, never a stale numeric index. */
+internal object StackMenuActions {
+    fun remove(entryId: String): PlayAction = PlayAction.Stack(StackAction.RemoveEffect(entryId))
+    fun mark(entryId: String, index: Int?): PlayAction = PlayAction.Stack(StackAction.MarkText(entryId, index))
+    fun reorder(board: BoardState, entryId: String, delta: Int): PlayAction? {
+        val order = CombatStackRules.stack(board).cards
+        val at = order.indexOf(entryId)
+        if (at < 0 || at + delta !in order.indices || delta !in listOf(-1, 1)) return null
+        val remaining = order - entryId
+        val to = at + delta
+        return PlayAction.Stack(StackAction.ReorderEffect(entryId,
+            IdentityGap(order.getOrNull(at - 1), order.getOrNull(at + 1)),
+            IdentityGap(remaining.getOrNull(to - 1), remaining.getOrNull(to))))
+    }
+    fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
+        require(entryId == CombatStackRules.stack(state.board).cards.firstOrNull())
+        require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
+        val source = CombatStackRules.liveSource(state.board, entryId)
+        if (state.board.stackEffects.any { it.id == entryId } && source != null &&
+            state.board.containers.single { it.id == source.containerId }.zone == zone) return listOf(remove(entryId))
+        return StackQuickActions.actions(state, entryId, zone)
+    }
+}
+
+/** Exceptional Stack edits stay in one compact, live shared-state view. */
+@Composable
+internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
+    perform: (TableIntent) -> Unit, cardActions: (String) -> Unit) {
+    val order = CombatStackRules.stack(state.board).cards
+    if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
+    val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
+    var marking by remember { mutableStateOf<String?>(null) }
+    var inspection by remember { mutableStateOf<ManualInspection?>(null) }
+    var peeking by remember { mutableStateOf(false) }
+    fun inspect(id: String, hold: Boolean) {
+        val card = CombatStackRules.inspection(state.board, id) ?: return
+        peeking = hold
+        inspection = ManualInspection(state.gameId, state.id, id,
+            ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
+            snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
+    }
+    TableMenuPanel(dismiss, title = "Manage Stack · ${order.size}") {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
+                val id = entry.cardId
+                val card = CombatStackRules.inspection(state.board, id)
+                val source = CombatStackRules.liveSource(state.board, id)
+                val projection = state.board.stackEffects.any { it.id == id }
+                val owner = if (card?.owner == viewer) OwnTableColor else OpponentTableColor
+                Column {
+                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
+                        inspect = { inspect(id, false) }, peek = { held -> if (held) inspect(id, true) else if (peeking) inspection = null }),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val definition = state.definitions.find { it.digest == card?.definition }?.definition
+                        val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
+                        val art = if (entry.faceVisible && definition != null && face >= 0)
+                            InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
+                        Box(Modifier.size(32.dp, 44.dp).cardFrame(card?.token == true, owner, projection)
+                            .semantics { contentDescription = if (card?.owner == viewer) "Your Stack entry" else "Opponent Stack entry" },
+                            contentAlignment = Alignment.Center) {
+                            if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
+                            else MenuIcon("Inspect")
+                        }
+                        Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}", Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                        StackMarkChip(state.board.stackTextMarks[id], Modifier.semantics {
+                            contentDescription = state.board.stackTextMarks[id]?.let { "Text mark ${it + 1}" } ?: "No text mark"
+                        })
+                    }
+                    Row {
+                        TextButton({ perform(TableIntent.Submit(StackMenuActions.remove(id), null)) }, enabled = enabled && projection) { Text("Remove from Stack") }
+                        TextButton({ StackMenuActions.reorder(state.board, id, -1)?.let { perform(TableIntent.Submit(it, null)) } },
+                            modifier = Modifier.semantics { contentDescription = "Move up" },
+                            enabled = enabled && projection && index > 0) { Text("↑") }
+                        TextButton({ StackMenuActions.reorder(state.board, id, 1)?.let { perform(TableIntent.Submit(it, null)) } },
+                            modifier = Modifier.semantics { contentDescription = "Move down" },
+                            enabled = enabled && projection && index < order.lastIndex) { Text("↓") }
+                    }
+                    Row {
+                        Box {
+                            TextButton({ marking = id }, enabled = enabled) { Text("Mark text") }
+                            DropdownMenu(marking == id, { marking = null }) {
+                                DropdownMenuItem(text = { Text("Clear text mark") }, onClick = {
+                                    marking = null; perform(TableIntent.Submit(StackMenuActions.mark(id, null), null))
+                                })
+                                stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
+                                    DropdownMenuItem(text = { Text("${option + 1} — ${text.text}", maxLines = 3) }, onClick = {
+                                        marking = null; perform(TableIntent.Submit(StackMenuActions.mark(id, option), null))
+                                    })
+                                }
+                            }
+                        }
+                        TextButton({ source?.let { cardActions(it.id) } }, enabled = source != null) { Text("Card actions") }
+                    }
+                    if (index == 0) Row {
+                        TextButton({ perform(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)) }, enabled = enabled) { Text("Put to battlefield") }
+                        TextButton({ perform(TableIntent.StackDestination(id, PlayZone.GRAVEYARD)) }, enabled = enabled) { Text("Put to graveyard") }
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
+    }
+    inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }, peek = peeking) }
+}

@@ -334,7 +334,7 @@ class TableGesturesTest {
         }
     }
 
-    @Test fun stackSingleTapOpensBubblesDoubleTapActionsHoldInspectsAndBadgeOpensContents() {
+    @Test fun stackSingleTapOpensBubblesDoubleTapActionsHoldInspectsAndBadgeRequiresDoubleTap() {
         val f = TableStatesFixture
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
@@ -345,7 +345,9 @@ class TableGesturesTest {
         val top = scene.items.last { it.id.startsWith("stackDrawing/") && it.visible.isNotEmpty() }
         val badge = TablePoint(stack.bounds.x + 10, stack.bounds.y + 10)
         gesture.down(badge, 0); gesture.up(badge, 20)
-        assertEquals(listOf<TableIntent>(TableIntent.Actions(stack.id, null)), events)
+        assertTrue(events.isEmpty())
+        gesture.down(badge, 50); gesture.up(badge, 70)
+        assertEquals(listOf<TableIntent>(TableIntent.DismissTapUi, TableIntent.Actions(stack.id, null)), events)
         events.clear()
         val point = TablePoint(top.bounds.center.x, top.bounds.bottom - 8)
         gesture.down(point, 100); gesture.up(point, 120); gesture.tick(500)

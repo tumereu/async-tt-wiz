@@ -128,7 +128,7 @@ data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val
 
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
-internal val TableScene.animationTargets get() = items.associate { it.animationId to it.bounds }
+internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to it.bounds }
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -159,13 +159,38 @@ class HistorySceneAnimation(initial: TableScene) {
         }
         start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.animationId }
         end = target.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
+        for (projection in destination.stackProjections) if (!target.stackContains(projection.cardId) && projection.animationId !in start) {
+            start = start + (projection.animationId to HistoryAnimatedItem(projection, projection.bounds, 1f))
+        }
+        for (projection in target.stackProjections) if (!destination.stackContains(projection.cardId) && projection.animationId !in end) {
+            end = end + (projection.animationId to HistoryAnimatedItem(projection, projection.bounds, 0f))
+        }
         // Hidden library instances have no individual scene item. Seed every newly drawn card
         // from its former pile, using stable instance identity (also covers multi-card draws).
         val arrivals = end.values.filter { it.item.kind == TableItemKind.CARD && it.item.animationId !in start }
         for (arrival in arrivals) {
+            val item = arrival.item
+            if (item.zone == org.asyncttwiz.protocol.PlayZone.STACK && item.projection &&
+                !destination.stackContains(item.cardId)) {
+                destination.realCardBounds(item.sourceId)?.let { bounds ->
+                    start = start + (item.animationId to arrival.copy(bounds = bounds, alpha = 1f))
+                }
+                continue
+            }
             val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
             val bounds = TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, 28f, 40f)
             start = start + (arrival.item.animationId to arrival.copy(bounds = bounds))
+        }
+        // A removed occurrence flies home independently of the real card, which stays drawn in place.
+        // Membership (not the top-three drawings) distinguishes removal from a newly covered peek.
+        for (departure in start.values.filter { it.item.kind == TableItemKind.CARD && it.item.projection &&
+            it.item.zone == org.asyncttwiz.protocol.PlayZone.STACK && !target.stackContains(it.item.cardId) &&
+            it.item.animationId !in end }) {
+            val source = departure.item.sourceId
+            if (destination.sources[source] != target.sources[source]) continue
+            target.realCardBounds(source)?.let { bounds ->
+                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
+            }
         }
         destination = target
         return true
@@ -174,4 +199,13 @@ class HistorySceneAnimation(initial: TableScene) {
         it.alpha > 0f && x >= it.bounds.x && x <= it.bounds.x + it.bounds.width &&
             y >= it.bounds.y && y <= it.bounds.y + it.bounds.height
     }?.item
+
+    private fun TableScene.stackContains(id: String?) = items.any {
+        it.zone == org.asyncttwiz.protocol.PlayZone.STACK && it.kind == TableItemKind.PILE && id in it.cards
+    }
+    private fun TableScene.realCardBounds(source: String?): TableBounds? {
+        items.firstOrNull { it.kind == TableItemKind.CARD && !it.projection && it.cardId == source }?.let { return it.bounds }
+        val pile = items.firstOrNull { it.kind == TableItemKind.PILE && source in it.cards } ?: return null
+        return TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, cardWidth, cardHeight)
+    }
 }

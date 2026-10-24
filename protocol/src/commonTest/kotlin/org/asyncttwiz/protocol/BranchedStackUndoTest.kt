@@ -132,10 +132,10 @@ class BranchedStackUndoTest {
                     val next = play(tree, action)
                     if (next === tree) continue // A default corner reset is a no-op, not another mutation.
                     mutations++
-                    assertUndoRedo(tree, next) // Each individual mutation, not an atomic invocation Undo.
+                    assertUndoRedo(tree, next) // Projection destinations now have one atomic mutation.
                     tree = next
                 }
-                assertEquals(if (projection && zone == PlayZone.GRAVEYARD) 2 else 1, mutations)
+                assertEquals(1, mutations)
                 repeat(mutations) { tree = step(tree, GameAction.Undo) }
                 assertEquals(onStack.nodes, tree.nodes)
             }

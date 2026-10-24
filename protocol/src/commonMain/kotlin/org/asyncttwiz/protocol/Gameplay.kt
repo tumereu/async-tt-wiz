@@ -43,7 +43,9 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("moveCard") data class MoveCard(val cardId: String, val source: MoveSource,
         val destination: MoveDestination, val expectedStackDigest: String? = null,
         /** Null uses zone-entry defaults; only Battlefield-to-Battlefield preserves explicit covering. */
-        @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null) : PlayAction
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null,
+        /** Pulling a top Stack projection moves its source and removes the projection in ONE Undo. */
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
     @Serializable @SerialName("shuffleLibrary") data class ShuffleLibrary(val containerId: String,
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
@@ -68,7 +70,7 @@ import kotlinx.serialization.json.*
     /** Explicit disclosure binds the requested face AND region, never whichever card/side is now there. */
     @Serializable @SerialName("inspectFace") data class InspectFace(val cardId: String, val faceId: String,
         val containerId: String) : Manual
-    /** Entry conveniences lower to separate requests, not hidden multi-field move effects. */
+    /** Ordinary entry conveniences lower to separate requests; projection pulls are explicitly atomic. */
     @Serializable @SerialName("clearCardCounter") data class ClearCardCounter(val cardId: String, val color: CounterColor) : PlayAction
     @Serializable @SerialName("createToken") data class CreateToken(val definition: SubmittedDefinition) : PlayAction
     @Serializable @SerialName("cloneToken") data class CloneToken(val cardId: String) : PlayAction
@@ -114,7 +116,8 @@ object GameplayRules {
                 action.destination.pendingIds.none { it in listOf(action.cardId, action.destination.afterId,
                     action.destination.beforeId, action.destination.targetCardId) })) &&
             (action.destination.insertion == MoveInsertion.PILE_GAP || action.destination.targetCardId == null) &&
-            (action.expectedStackDigest == null || DeckValidation.digest(action.expectedStackDigest))
+            (action.expectedStackDigest == null || DeckValidation.digest(action.expectedStackDigest)) &&
+            (action.removeStackEntryId == null || DeckValidation.uuid(action.removeStackEntryId))
         is PlayAction.ShuffleLibrary -> DeckValidation.uuid(action.containerId) && action.algorithm == "shuffle-v1" &&
             runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.ShowContents -> DeckValidation.uuid(action.containerId) && action.count >= 0
@@ -226,6 +229,7 @@ object GameplayRules {
 
     /** Callers send these constituents in order, each with its own request ID and ordinary outcome. */
     fun moveActions(state: PlayState, action: PlayAction.MoveCard): List<PlayAction> {
+        if (action.removeStackEntryId != null) return listOf(action) // Defaults are part of the atomic Stack pull.
         val target = state.board.containers.singleOrNull { it.id == action.destination.containerId }
         val card = state.board.cards.singleOrNull { it.id == action.cardId }
         if (target == null || card == null) return listOf(action)
@@ -245,10 +249,45 @@ object GameplayRules {
     }
 
     private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
+    private fun moveProjection(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
+        coverRulesVersion: Int): GameplayChange {
+        val board = state.board
+        val entry = action.removeStackEntryId!!
+        val effect = board.stackEffects.singleOrNull { it.id == entry } ?: return GameplayChange(reason = "missingReference")
+        if (CombatStackRules.stack(board).cards.firstOrNull() != entry) return GameplayChange(reason = "stackChanged")
+        val card = CombatStackRules.liveSource(board, entry) ?: return GameplayChange(reason = "missingReference")
+        if (card.id != action.cardId || effect.sourceId != card.id || card.containerId != action.source.containerId ||
+            card.placement != action.source.placement) return GameplayChange(reason = "movementConflict")
+        val target = board.containers.singleOrNull { it.id == action.destination.containerId }
+            ?: return GameplayChange(reason = "missingReference")
+        if (target.zone == PlayZone.STACK) return GameplayChange(state)
+        val source = board.containers.single { it.id == card.containerId }
+        var candidate = state
+        var transition = GameplayTransition()
+        if (source.zone != target.zone) {
+            val move = action.copy(removeStackEntryId = null)
+            val moved = move(state, actor, command.copy(action = GameAction.Play(move)), move, coverRulesVersion)
+            if (moved.reason != null) return moved
+            candidate = moved.state!!
+            transition = moved.mutation?.transition ?: GameplayTransition()
+            // Reuse ordinary zone-entry defaults, but keep their effects inside this one mutation.
+            for (reset in moveActions(state, move).drop(1)) {
+                val changed = change(candidate, actor, command.copy(action = GameAction.Play(reset)))
+                if (changed.reason != null) return changed
+                candidate = changed.state!!
+                transition = transition.copy(fields = transition.fields + changed.mutation?.transition?.fields.orEmpty())
+            }
+        }
+        val next = candidate.board.copy(stackEffects = candidate.board.stackEffects.filterNot { it.id == entry },
+            containers = candidate.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = it.cards - entry) else it })
+        return record(state, actor, command, next, transition)
+    }
+
     private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
         // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility.
         // Old recorded disclosures must still replay using the visibility rules they were made under.
         coverRulesVersion: Int = 4): GameplayChange {
+        if (action.removeStackEntryId != null) return moveProjection(state, actor, command, action, coverRulesVersion)
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
         val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")

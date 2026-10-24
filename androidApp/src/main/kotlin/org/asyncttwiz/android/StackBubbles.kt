@@ -8,13 +8,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.TableRows
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
@@ -45,9 +50,15 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
             val top = if (above.intersection(anchor) != null) bounds(beside, below.y) else above
             val bottom = if (below.intersection(anchor) != null) bounds(beside, above.y) else below
             val handle = bounds(toward, anchor.center.y - side / 2)
-            val controls = listOf("battlefield" to top, "graveyard" to bottom, "mark" to handle).map { (kind, b) ->
+            val remove = sequenceOf(bounds(toward, above.y), bounds(toward, above.y - side - 8),
+                bounds(toward + (if (toward < anchor.x) -1 else 1) * (side + 8), above.y),
+                bounds(toward, below.bottom + 8)).first { candidate ->
+                listOf(top, bottom, handle, anchor).none { it.intersection(candidate) != null }
+            }
+            val controls = listOf("battlefield" to top, "graveyard" to bottom, "remove" to remove, "mark" to handle).map { (kind, b) ->
                 TableItem("stackBubble/$kind", b, when (kind) {
-                    "battlefield" -> "Put to battlefield"; "graveyard" -> "Put to graveyard"; else -> "Mark text · drag up or down"
+                    "battlefield" -> "Put to battlefield"; "graveyard" -> "Put to graveyard"
+                    "remove" -> "Remove from Stack"; else -> "Mark text · drag up or down"
                 }, entryId)
             }
             return StackBubbleGeometry(entryId, anchor, controls, selected, count)
@@ -59,11 +70,22 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
 @Composable
 internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<StackTextOption>, ownerColor: Color,
     preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
+    val entrance = remember(geometry.entryId) { Animatable(0f) }
+    LaunchedEffect(entrance) { entrance.animateTo(1f, tween(240)) }
+    val density = LocalDensity.current.density
     for (item in geometry.controls) {
         val b = item.bounds
         val marker = item.id.endsWith("/mark")
-        SpeechBubbleTail(geometry.anchor, b, ownerColor)
-        Surface(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).semantics {
+        Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).graphicsLayer {
+            val t = entrance.value
+            alpha = t
+            scaleX = .35f + .65f * t; scaleY = scaleX
+            translationX = (geometry.anchor.center.x - b.center.x) * (1f - t) * density
+            translationY = (geometry.anchor.center.y - b.center.y) * (1f - t) * density
+        }) {
+        SpeechBubbleTail(geometry.anchor.copy(x = geometry.anchor.x - b.x, y = geometry.anchor.y - b.y),
+            b.copy(x = 0f, y = 0f), ownerColor)
+        Surface(Modifier.fillMaxSize().semantics {
             contentDescription = item.label
             if (!enabled) disabled()
             if (marker) {
@@ -74,15 +96,18 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
                     if (enabled) perform(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(geometry.entryId, null)), null)); enabled
                 }
             } else onClick(item.label) {
-                if (enabled) perform(TableIntent.StackDestination(geometry.entryId,
-                    if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD)); enabled
+                if (enabled) perform(if (item.id.endsWith("/remove")) TableIntent.Submit(StackMenuActions.remove(geometry.entryId), null)
+                    else TableIntent.StackDestination(geometry.entryId,
+                        if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD)); enabled
             }
         }, shape = RoundedCornerShape(10.dp), color = ownerColor, contentColor = Color.White, shadowElevation = 3.dp) {
             Box(contentAlignment = Alignment.Center) { Icon(when {
                 marker -> Icons.Outlined.BorderColor
+                item.id.endsWith("/remove") -> Icons.Outlined.Close
                 item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
                 else -> Icons.Outlined.Inventory2
             }, null, Modifier.size(22.dp)) }
+        }
         }
     }
     if (preview.marking) {

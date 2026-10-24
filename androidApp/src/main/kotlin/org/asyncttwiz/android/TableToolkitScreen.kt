@@ -28,6 +28,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } }) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
+        "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
+            perform = { toolkit.handle(it) }, cardActions = { id -> toolkit.openCard(TableScope(id, listOf(id))) })
         "table" -> {
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,

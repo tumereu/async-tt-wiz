@@ -24,6 +24,7 @@ touch "androidApp/build/outputs/apk/$variant/androidApp-$variant.apk"
 """)
         self.write_executable("adb", """#!/usr/bin/env bash
 printf 'adb %s\\n' "$*" >> "$TEST_LOG"
+while [[ ${1:-} == -H || ${1:-} == -P ]]; do shift 2; done
 if [[ $1 == devices ]]; then printf '%s\\n' "$TEST_DEVICES"; fi
 """)
         self.env = dict(os.environ, ATW_API_ORIGIN="https://tabletop.example:10000",
@@ -77,6 +78,23 @@ if [[ $1 == devices ]]; then printf '%s\\n' "$TEST_DEVICES"; fi
         self.assertNotEqual(0, result.returncode)
         self.assertNotIn(" install ", self.log())
         self.assertNotIn(" push ", self.log())
+
+    def test_windows_adb_uses_its_port_and_translates_the_apk_path(self):
+        shutil.copy(self.root / "adb", self.root / "adb.exe")
+        self.write_executable("wslpath", "#!/bin/sh\nprintf 'C:\\\\APK output\\\\app.apk\\n'\n")
+        self.env.update(ATW_ADB=str(self.root / "adb.exe"), ATW_ADB_PORT="15138",
+                        PATH=str(self.root) + os.pathsep + self.env["PATH"])
+        result = self.run_script("debug")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("adb -H 127.0.0.1 -P 15138 devices", self.log())
+        self.assertIn("-s phone push C:\\APK output\\app.apk", self.log())
+        self.assertIn("-s phone install -r C:\\APK output\\app.apk", self.log())
+
+    def test_explicit_unauthorized_device_never_builds(self):
+        self.env["TEST_DEVICES"] = "phone unauthorized\nother device"
+        result = self.run_script("debug", "phone")
+        self.assertNotEqual(0, result.returncode)
+        self.assertNotIn("assemble", self.log())
 
     def test_invalid_variant_or_insecure_origin_never_touches_device(self):
         self.assertEqual(2, self.run_script("invalid").returncode)

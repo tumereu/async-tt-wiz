@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -324,6 +325,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
                     val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
                     contentDescription = "${player.username} Battlefield, ${play.board.containers.single { it.id == field.containerId }.cards.size} cards"
+                    stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
                     if (runtime.ping != null && runtime.controlsConnected == true) customActions = annotations.locations(field).map { (target, _) ->
                         val captured = tablePingIntent(play, pingReference, target)
                         val position = requireNotNull(target.position)
@@ -469,11 +471,27 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
     var overflow by remember { mutableStateOf(false) }
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
+    val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
     Row(Modifier.align(Alignment.TopStart).height(48.dp)
         .fillMaxWidth(if (landscape) .366f else 1f), verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
-        Text(game.gameName, Modifier.weight(1f).padding(horizontal = if (compact) 6.dp else 8.dp), fontSize = if (compact) 12.sp else 13.sp,
-            lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+            Text(game.gameName, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            ActionSquare(attention.label, "", attention.enabled,
+                Modifier.fillMaxWidth().height(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(15.dp)),
+                fill = attention.color.copy(alpha = .12f), ink = attention.color,
+                icon = {
+                    Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (attention.own) Text("Your move", fontSize = 11.sp, maxLines = 1)
+                        else {
+                            Text(attention.name, Modifier.weight(1f, fill = false), fontSize = 11.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("'s move", fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
+        }
         if (!landscape) Spacer(Modifier.width(if (compact) 240.dp else TablePresentation.TOOLBAR.dp))
     }
     val buttonWidth = 48f
@@ -677,6 +695,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         val lands = f.landsBounds(f.owner == viewer, scene.camera)
         drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3),
             xy(lands.x, lands.y), size(lands.width, lands.height))
+        if (f.holdsAttention) drawRect((if (f.owner == viewer) OwnTableColor else OpponentTableColor).copy(alpha = .12f),
+            xy(viewport.x, viewport.y), size(viewport.width, viewport.height))
         }
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {

@@ -102,6 +102,9 @@ object TableActions {
             fields += GameplayFieldChange(state.id, GameplayField.TURN_PLAYER, from.accountId, to.accountId)
             fields += GameplayFieldChange(state.id, GameplayField.TURN_NUMBER, from.number, to.number)
         }
-        return GameplayRules.record(state, actor, command, board.copy(turn = to), GameplayTransition(fields))
+        val holder = if (TurnPosition.of(to) == TurnPosition.DECLARE_BLOCKERS)
+            board.players.single { it.accountId != to.accountId }.accountId else to.accountId
+        return GameplayRules.record(state, actor, command, board.copy(turn = to, attentionHolder = holder),
+            GameplayTransition(fields, attention = AttentionChange(board.attentionHolder, holder)))
     }
 }

@@ -267,10 +267,12 @@ class GameService(private val runtime: ServiceRuntime) {
             // Record within THIS execution transaction, never from a delivery timer or a retry.
             mutation?.let { mutation ->
                 val group = requireNotNull(play?.currentGroup)
-                check(group.author == mutation.author)
+                // Passing joins the preceding display group even when the other player made it.
+                // Activity still belongs to the player who performed this individual event.
+                check(group.author == mutation.author || mutation.action == PlayAction.PassAttention)
                 val opponent = if (mutation.author == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(group.id), uuid(group.author))
+                    game.id!!, uuid(group.id), uuid(mutation.author))
             }
         }
         val created = when {

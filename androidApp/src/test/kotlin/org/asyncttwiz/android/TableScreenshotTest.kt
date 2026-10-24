@@ -15,6 +15,9 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -367,10 +370,22 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
             if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue
             if (kotlin.math.abs(y - lands.y) < 1 || kotlin.math.abs(y - lands.bottom) < 1) continue
             val inBand = lands.contains(TablePoint(x.toFloat(), y.toFloat()))
-            val expected = if (field.owner == viewer) {
+            val base = if (field.owner == viewer) {
                 if (inBand) 0xffc4dcd0.toInt() else 0xffe2efe6.toInt()
             } else if (inBand) 0xffe9d1d3.toInt() else 0xfff4e8ea.toInt()
-            assertEquals(expected, image.getRGB(x, y), "${field.owner} battlefield at ($x, $y)")
+            val expected = if (field.holdsAttention) {
+                val tint = if (field.owner == viewer) OwnTableColor else OpponentTableColor
+                tint.copy(alpha = .12f).compositeOver(Color(base)).toArgb()
+            } else base
+            val actual = image.getRGB(x, y)
+            val message = "${field.owner} battlefield at ($x, $y)"
+            if (field.holdsAttention) {
+                // Native Canvas uses premultiplied 8-bit alpha, unlike Color's float blend.
+                // Allow its single-channel rounding, but still verify every tinted pixel.
+                for (shift in listOf(0, 8, 16)) assertTrue(kotlin.math.abs(
+                    ((expected shr shift) and 255) - ((actual shr shift) and 255)) <= 1, message)
+                assertEquals(255, actual ushr 24, message)
+            } else assertEquals(expected, actual, message)
         }
     }
 }

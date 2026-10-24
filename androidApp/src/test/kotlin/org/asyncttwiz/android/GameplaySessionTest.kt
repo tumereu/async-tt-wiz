@@ -43,6 +43,23 @@ class GameplaySessionTest {
         fun gameplay(action: PlayAction) = session.gameplay(data.game, data.actor, action)
         fun commands() = wire.frames.filterIsInstance<GameCommand>()
     }
+    @Test fun passIsPredictedImmediatelyAndAuthoritativeAcceptanceKeepsTheSameHolder() {
+        val f = Fixture(); val d = f.data; f.connect()
+        val initialHolder = d.initial.board.effectiveAttentionHolder
+        val other = d.initial.board.players.single { it.accountId != initialHolder }.accountId
+        assertTrue(f.gameplay(PlayAction.PassAttention))
+        val command = f.commands().single()
+        assertEquals(other, f.session.play(d.game)!!.board.effectiveAttentionHolder)
+        assertEquals(initialHolder, f.session.acceptedPlay(d.game)!!.board.effectiveAttentionHolder)
+        f.message(d.update(d.initial, command, "1", "2"))
+        f.message(d.result(command, "2"))
+        assertEquals(other, f.session.acceptedPlay(d.game)!!.board.effectiveAttentionHolder)
+        assertEquals(other, f.session.play(d.game)!!.board.effectiveAttentionHolder)
+        assertTrue(f.gameplay(PlayAction.PassAttention))
+        assertEquals(initialHolder, f.session.play(d.game)!!.board.effectiveAttentionHolder)
+        f.session.close()
+    }
+
     @Test fun actualSessionSendsMultipleInflightAndResultDeltaOrdersNeverAnimateAcknowledgement() {
         val f = Fixture(); val d = f.data
         assertFalse(f.gameplay(PlayAction.AdjustLife(d.actor, "1"))); f.connect()

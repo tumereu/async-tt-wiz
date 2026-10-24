@@ -67,7 +67,8 @@ data class TableItem(
     val inTransit: Boolean = false
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
-    val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID) {
+    val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
+    val holdsAttention: Boolean = false) {
     fun landsBounds(atBottom: Boolean, camera: TableCamera = TableCamera()) = gridBounds.copy(
         y = if (atBottom) gridBounds.bottom + (camera.y - rowHeight) * camera.zoom
             else gridBounds.y - camera.y * camera.zoom,
@@ -171,7 +172,7 @@ object TablePresentation {
             // Keep all three rows, including lands, inside the visible field even when
             // combat/review consumes height. This changes row spacing, not card scale.
             TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
-                rowHeight = bounds.height / 3)
+                rowHeight = bounds.height / 3, holdsAttention = player.accountId == play.board.effectiveAttentionHolder)
         }
         val sidebarBounds = TableBounds(0f, boardTop, sidebar, (boardBottom - boardTop).coerceAtLeast(0f))
         val sidebarRow = dockRow + counterHeight

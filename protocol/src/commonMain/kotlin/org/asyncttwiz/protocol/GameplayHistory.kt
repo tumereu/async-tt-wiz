@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
 /** Accepted information exposure, not a whole-card snapshot or a local inspection permission. */
 @Serializable data class GameplayDisclosure(val cardId: String, val faceId: String, val containerId: String,
     val viewers: List<String>)
+@Serializable data class AttentionChange(val from: String?, val to: String)
 @Serializable data class GameplayTransition(val fields: List<GameplayFieldChange> = emptyList(),
     val movement: GameplayMoveChange? = null, val libraryOrder: LibraryOrderChange? = null,
     val contents: ContentsDisplayChange? = null, val random: GameplayRandomResult? = null,
@@ -24,7 +25,7 @@ import kotlinx.serialization.Serializable
     val disclosures: List<GameplayDisclosure> = emptyList(), val tokens: List<TokenChange> = emptyList(),
     val links: List<LinkChange> = emptyList(), val cloneRead: CloneRead? = null,
     val tokenMoveRead: TokenMoveRead? = null, val combatStack: CombatStackTransition? = null,
-    val resultSuggestion: ResultSuggestionChange? = null)
+    val resultSuggestion: ResultSuggestionChange? = null, val attention: AttentionChange? = null)
 @Serializable enum class RandomTool { DIE, COIN }
 @Serializable data class GameplayRandomResult(val tool: RandomTool, val value: String, val sides: String? = null)
 @Serializable data class GameplayMutation(val id: String, val parentId: String, val branchId: String,
@@ -39,7 +40,7 @@ import kotlinx.serialization.Serializable
 internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + reads.size + disclosures.size +
     tokens.size + links.size + listOfNotNull(movement, libraryOrder, contents, random, annotation, cloneRead, tokenMoveRead).size +
     (libraryOrder?.from?.size ?: 0) + (libraryOrder?.to?.size ?: 0) +
-    (contents?.from?.cardIds?.size ?: 0) + (contents?.to?.cardIds?.size ?: 0) +
+    (contents?.from?.cardIds?.size ?: 0) + (contents?.to?.cardIds?.size ?: 0) + (if (attention == null) 0 else 1) +
     (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size +
         listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this)
 /** Compact prefix context, not a recursive history or client-assigned group. */
@@ -62,10 +63,18 @@ object GameplayHistory {
         val command = GameCommand(mutation.requestId, GameScope(state.gameId, playId = state.id),
             GameAction.Play(mutation.action), state.id, "0", invocationId = mutation.invocationId)
         val execution = state.copy(currentBranchId = mutation.branchId)
-        val candidate = when (mutation.action) {
+        var candidate = when (mutation.action) {
             is PlayAction.Manual -> ManualEditRules.replay(execution, mutation, command)
             is PlayAction.MoveCard -> GameplayRules.replayMove(execution, mutation, command)
             else -> GameplayRules.change(execution, mutation.author, command, references)
+        }
+        // Old step events predate the attention rule. Keep their recorded transition and the
+        // legacy fallback, rather than retroactively passing to the defender during cold replay.
+        if (mutation.transition.attention == null && mutation.action.let {
+                it == PlayAction.NextStep || it == PlayAction.EndTurn || it is PlayAction.ChooseStep }) {
+            candidate = candidate.copy(mutation = candidate.mutation?.let {
+                it.copy(transition = it.transition.copy(attention = null)) },
+                state = candidate.state?.let { it.copy(board = it.board.copy(attentionHolder = state.board.attentionHolder)) })
         }
         return if (mutation.schemaVersion == 1 && candidate.mutation?.transition == mutation.transition &&
             (mutation.grouping == null || candidate.mutation.grouping == mutation.grouping)) {
@@ -95,6 +104,10 @@ object GameplayHistory {
             if (value != read.value) return null
         }
         var board = state.board
+        transition.attention?.let {
+            if (board.attentionHolder != it.to) return null
+            board = board.copy(attentionHolder = it.from)
+        }
         for (field in mutation.transition.fields.asReversed()) {
             when (field.field) {
                 GameplayField.LIFE -> {

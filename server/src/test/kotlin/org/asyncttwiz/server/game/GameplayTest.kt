@@ -172,6 +172,24 @@ class GameplayTest {
                     val undoAgain = control(GameAction.Undo)
                     verify(undoAgain, tapped.currentNodeId, moved)
                     assertEquals(beforeRetry.nodes, accepted.tree.nodes)
+                    // A non-holder may take attention, then flip it away again. Both sockets,
+                    // durable HTTP history and cold replay observe the same individual events.
+                    var attentionState = moved
+                    for ((socket, stream, actor) in listOf(Triple(alice, ast, a), Triple(alice, ast, a), Triple(bob, bst, b))) {
+                        val pass = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
+                            GameAction.Play(PlayAction.PassAttention), stream.streamId, stream.generation)
+                        val expected = GameplayRules.change(attentionState, actor.account.accountId, pass)
+                        socket.send(pass)
+                        val result = socket.result(pass.requestId)
+                        assertEquals("accepted", result.outcome, result.reason)
+                        assertEquals(expected.mutation, result.mutation)
+                        attentionState = apply(pass)
+                        assertEquals(expected.state, attentionState)
+                        val history = json.decodeFromString<GameplayHistoryPage>(request(settings, "GET",
+                            "/v1/games/${game.id}/plays/${root.id}/mutations?after=0", a.token).body())
+                        assertEquals(expected.mutation, history.mutations.last())
+                        assertEquals(attentionState, accepted.tree.copy().stateAt(accepted.tree.currentNodeId))
+                    }
                 } }
             }
         }

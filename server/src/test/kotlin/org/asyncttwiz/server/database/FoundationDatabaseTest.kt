@@ -48,8 +48,8 @@ class FoundationDatabaseTest {
             db.start()
             val (exit, output) = command(db.settings, "migrate")
             assertEquals(0, exit)
-            // Fifteen migrations through V17; V10 and V12 are not in the registry.
-            assertTrue(output.contains("applied=15"))
+            // Sixteen migrations through V18; V10 and V12 are not in the registry.
+            assertTrue(output.contains("applied=16"))
             assertEquals(0, epoch(db))
             val flyway = FoundationMigrations.flyway(db.settings)
             assertTrue(flyway.validateWithResult().validationSuccessful)
@@ -126,7 +126,7 @@ class FoundationDatabaseTest {
             val migration = withExtraMigration(db, "CREATE TABLE rollback_probe (id integer); UPDATE service_writer SET epoch = 55; SELECT 1 / 0;")
             assertThrows(FlywayException::class.java) { migration.migrate() }
             assertEquals(0, epoch(db))
-            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             db.connection().use { connection ->
                 assertNull(DSL.using(connection, SQLDialect.POSTGRES).fetchValue("SELECT to_regclass('public.rollback_probe')"))
             }
@@ -158,7 +158,7 @@ class FoundationDatabaseTest {
             assertEquals(1, withExtraMigration(db, "CREATE TABLE future_probe (id integer); UPDATE service_writer SET epoch = 7;")
                 .migrate().migrationsExecuted)
             assertEquals(1, command(db.settings, "migrate").first)
-            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "999"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18", "999"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             assertEquals(7, epoch(db))
             println("PASS unsupported future schema rejected with retained rows/history")
         }

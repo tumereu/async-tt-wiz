@@ -5,6 +5,33 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun closingSameCardRingSuppressesOnlySingleTapAndStillAllowsDoubleDragAndPeek() {
+        val f = Fixture()
+        val point = f.point()
+        f.tap(0); f.gestures.tick(400); f.events.clear()
+        f.gestures.down(point, 500, f.item().cardId); f.gestures.up(point, 520)
+        assertTrue(f.events.isEmpty())
+        f.gestures.down(point, 600); f.gestures.up(point, 620)
+        assertEquals(1, f.events.filterIsInstance<TableIntent.Rotate>().size)
+        assertTrue(f.events.none { it is TableIntent.Actions })
+        f.events.clear()
+        val end = TablePoint(350f, f.scene.fields.last().bounds.center.y)
+        f.gestures.down(point, 1000, f.item().cardId); f.gestures.move(end, 1080); f.gestures.up(end, 1100)
+        assertEquals(1, f.events.filterIsInstance<TableIntent.Move>().size)
+        f.events.clear()
+        f.gestures.down(point, 1500, f.item().cardId); f.gestures.tick(1849)
+        assertTrue(f.events.isEmpty())
+        f.gestures.tick(1850)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek(f.item().cardId)), f.events)
+    }
+
+    @Test fun dismissingRingDoesNotSuppressAnotherCardsActions() {
+        val f = Fixture()
+        f.gestures.down(f.point("a/BATTLEFIELD/1"), 500, f.item().cardId)
+        f.gestures.up(f.point("a/BATTLEFIELD/1"), 520)
+        assertEquals("card/a/BATTLEFIELD/1", f.events.filterIsInstance<TableIntent.Actions>().single().itemId)
+    }
+
     @Test fun sharedSingleTapKeepsWaitingAndDoubleDoesNotPerformOrDismissIt() {
         val scene = TableFixture.scene()
         val point = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center

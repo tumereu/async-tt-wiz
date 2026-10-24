@@ -9,19 +9,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.PlayZone
 
+internal const val CardPeekHoldMillis = 350L
+
 /** Rows share the table's instant local taps and release-bound peek; scrolling still wins on slop. */
 internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Unit,
     double: (() -> Unit)?, inspect: () -> Unit, peek: (Boolean) -> Unit): Modifier = composed {
     val parent = LocalTableTapRelay.current
     val density = LocalDensity.current.density
-    val holdMillis = LocalViewConfiguration.current.longPressTimeoutMillis
+    val holdMillis = CardPeekHoldMillis
     val currentActions by rememberUpdatedState(actions)
     val currentDouble by rememberUpdatedState(double)
     val currentPeek by rememberUpdatedState(peek)
@@ -54,7 +55,7 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
             awaitEachGesture {
                 val down = awaitFirstDown()
                 coordinator.down(coordinator.pointFromPixels(down.position.x, down.position.y), down.uptimeMillis)
-                val hold = launch { delay(viewConfiguration.longPressTimeoutMillis); coordinator.tick(down.uptimeMillis + viewConfiguration.longPressTimeoutMillis) }
+                val hold = launch { delay(holdMillis); coordinator.tick(down.uptimeMillis + holdMillis) }
                 try {
                     var cancelled = false
                     do {

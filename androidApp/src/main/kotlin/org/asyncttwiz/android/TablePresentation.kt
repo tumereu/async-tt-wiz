@@ -44,6 +44,13 @@ data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1
 data class TablePlacement(val column: Float, val row: Float, val pileIndex: Int = 0, val pileId: String? = null) {
     constructor(column: Int, row: Int, pileIndex: Int = 0, pileId: String? = null) : this(column.toFloat(), row.toFloat(), pileIndex, pileId)
 }
+
+/** Reserve the same footprint for either orientation and all three top-left peeks. */
+internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, pileIndex: Int, zoom: Float): TableBounds {
+    val peek = pileIndex.coerceIn(0, 2) * 4f
+    return TableBounds(footprint.x + (8f - peek) * zoom,
+        footprint.y + (footprint.height - height) / 2 + (4f - peek) * zoom, width, height)
+}
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap())
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
@@ -218,11 +225,10 @@ object TablePresentation {
                     val dy = (p.row * field.rowHeight - camera.y) * zoom
                     val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
                     val y = rowY + (rowHeight - envelope) / 2
-                    val peek = p.pileIndex.coerceIn(0, 2) * 4f * zoom
                     val cardHeight = if (c.tapped) cw else ch
-                    val b = TableBounds(x + peek, y + peek + (envelope - cardHeight) / 2 - 2f * zoom,
-                        if (c.tapped) ch else cw, cardHeight)
-                    card(c, b, TableBounds(x, y, envelope, envelope), player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
+                    val footprint = TableBounds(x, y, envelope, envelope)
+                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, zoom)
+                    card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * GRID
             port(battlefield.id, field.bounds, logicalWidth * zoom)

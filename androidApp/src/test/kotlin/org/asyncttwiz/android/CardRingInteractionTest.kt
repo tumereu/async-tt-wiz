@@ -49,7 +49,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertNotNull(toolkit.inspection) }
     }
 
-    @Test fun outsideTapIsSwallowedAndCannotActivateTableChromeOrSelection() {
+    @Test fun outsideTapDismissesWithoutActivatingTableChrome() {
         val toolkit = render()
         compose.ringPage(1)
         val selection = toolkit.selectionState.value
@@ -58,6 +58,77 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithText("Normal").assertDoesNotExist()
         compose.runOnIdle { assertEquals(selection, toolkit.selectionState.value); assertTrue(sent.isEmpty()); assertNull(toolkit.manual.scope) }
+    }
+
+    private fun sourcePoint(corner: String = "1/3"): Offset {
+        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
+        val point = scene.items.single { it.cardId == f.source(f.a, corner).id }.visible.first().center
+        return Offset(point.x, point.y)
+    }
+
+    @Test fun delayedDoubleTapThroughOpenRingTapsCardOnceWithoutReopeningRing() {
+        val toolkit = render()
+        val point = sourcePoint()
+        compose.runOnIdle { toolkit.dismiss() }
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(point) }
+        compose.onNodeWithContentDescription("Card action ring").assertExists()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { doubleClick(point) }
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.runOnIdle {
+            assertNull(toolkit.manual.scope)
+            assertEquals(listOf<PlayAction>(PlayAction.SetTapped(f.source(f.a, "1/3").id, true)), sent)
+        }
+    }
+
+    @Test fun sameCardSingleTapOnlyClosesRingAndAnotherCardTapOpensItsRing() {
+        val toolkit = render()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(sourcePoint()) }
+        compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.runOnIdle { assertNull(toolkit.manual.scope); assertTrue(sent.isEmpty()) }
+        compose.runOnIdle { val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id))) }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(sourcePoint("1/2")) }
+        compose.runOnIdle {
+            assertEquals(f.source(f.a, "1/2").id, toolkit.manual.scope?.contextId)
+            assertTrue(sent.isEmpty())
+        }
+    }
+
+    @Test fun outsideDragSurvivesRingDismissalAndMovesCard() {
+        render()
+        compose.mainClock.advanceTimeBy(600)
+        val point = sourcePoint()
+        val field = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false).fields.last().bounds
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            swipe(point, Offset(field.right - 24f, field.center.y), 160)
+        }
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.runOnIdle { assertIs<PlayAction.MoveCard>(sent.single()) }
+    }
+
+    @Test fun outsideRectangleAndPinchRemainTableGestures() {
+        val toolkit = render()
+        compose.mainClock.advanceTimeBy(600)
+        val point = sourcePoint()
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            swipe(point + Offset(-25f, -35f), point + Offset(5f, 5f), 160)
+        }
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.runOnIdle {
+            assertTrue(f.source(f.a, "1/3").id in toolkit.selectionState.value.ids)
+            val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id)))
+        }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            down(0, point); down(1, point + Offset(20f, 0f))
+            moveTo(0, point - Offset(10f, 0f)); moveTo(1, point + Offset(30f, 0f))
+            up(0); up(1)
+        }
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(toolkit.layoutState.value.camera.zoom > 1f); assertTrue(sent.isEmpty()) }
     }
 
     @Test fun wholeCornerPillAdjustsBothPartsForEverySelectedSourceAndValueOpensEditor() {
@@ -85,7 +156,7 @@ class CardRingInteractionTest {
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {
         val toolkit = render()
         compose.ringPage(2)
-        compose.onNodeWithContentDescription("Card action ring").performTouchInput { swipeLeft() }
+        compose.onNode(hasContentDescription("Action page 2 of 3", substring = true)).performTouchInput { swipeLeft() }
         compose.onNode(hasContentDescription("Action page 3 of 3", substring = true)).assertIsDisplayed()
         compose.runOnIdle { toolkit.dismiss() }
         compose.waitForIdle()

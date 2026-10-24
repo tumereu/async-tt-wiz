@@ -31,11 +31,11 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
-                perform = toolkit::perform, blankToken = {
+                perform = toolkit::perform, names = names, blankToken = {
                     toolkit.tokens.catalog(); toolkit.tokens.create(TokenCatalog.blank); !toolkit.tokens.showingCatalog
                 })
         }
-        "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss)
+        "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         "library" -> toolkit.library?.let { library -> ToolkitDialog(toolkit::dismiss, "Library") {
             LibraryActions(library.controller, play.board, library.handIds, initialTool = library.tool,
                 names = names, onComplete = toolkit::dismiss)

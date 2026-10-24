@@ -23,6 +23,35 @@ class TableHistoryControllerTest {
     private fun view(tree: GameplayTree) = DownloadedHistoryState(1L, tree.currentNodeId,
         state = tree.stateAt(tree.currentNodeId))
 
+    @Test fun continueAtCurrentHeadReturnsLiveWithoutConfirmationOrArming() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            h.history.select(tree.currentNodeId); h.history.displayPosition()
+            h.reviews.removeFirst()(view(tree))
+            assertTrue(h.history.requestContinuation(tree.currentNodeId))
+            assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
+            assertNull(h.history.continuationTarget)
+            assertNull(h.history.armed)
+            assertFalse(h.history.provisional)
+        }
+    }
+
+    @Test fun staleHeadCannotBypassConfirmationAfterLivePlayAdvances() {
+        Harness().use { h ->
+            val root = f.root()
+            h.history.update(root, "v1"); h.publish()
+            h.history.select(root.currentNodeId); h.history.displayPosition()
+            h.reviews.removeFirst()(view(root))
+            val next = f.tap(root)
+            h.history.update(next, "v2"); h.publish()
+            h.history.displayPosition(); h.reviews.removeFirst()(view(root))
+            assertTrue(h.history.requestContinuation(root.currentNodeId))
+            assertEquals(root.currentNodeId, h.history.continuationTarget)
+            assertEquals(HistoryMode.PLAYBACK, h.history.playback!!.position.mode)
+        }
+    }
+
     @Test fun continuationRequestPausesButOnlyConfirmationArmsTheCapturedBoundary() {
         Harness().use { h ->
             val tree = f.tap(f.root())

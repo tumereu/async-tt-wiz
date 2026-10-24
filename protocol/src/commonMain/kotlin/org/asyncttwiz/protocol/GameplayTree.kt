@@ -228,7 +228,7 @@ import kotlin.concurrent.Volatile
             work?.effects(node.transition.effectUnits())
             work?.metadata(GameplayHistory.projectionLinkReferences(node.transition).size.toLong())
             state = if (node.transition.annotation != null) state.copy(currentNodeId = node.id,
-                currentGroup = GameplayHistory.append(state.currentGroup, node), currentBranchId = node.branchId)
+                currentGroup = GameplayHistory.append(state.currentGroup, node, state.board.containers), currentBranchId = node.branchId)
             else GameplayHistory.replay(state, node).state ?: return null
         }
         return state

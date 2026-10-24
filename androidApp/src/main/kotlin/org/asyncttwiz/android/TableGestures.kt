@@ -15,7 +15,7 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
-    private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = 500,
+    private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
     private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY }
 ) {
@@ -27,7 +27,8 @@ class TableGestureCoordinator(
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
-        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false)
+        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false,
+        val suppressTapUi: Boolean = false)
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var pending: Tap? = null
@@ -52,7 +53,7 @@ class TableGestureCoordinator(
         if (p?.capture?.item != null && scene.items.none { it.id == p.capture.item.id }) pending = null
     }
     private fun order() = scene.items.filter { it.kind == TableItemKind.CARD }.mapNotNull { it.cardId }
-    fun down(point: TablePoint, time: Long) {
+    fun down(point: TablePoint, time: Long, dismissedRingCard: String? = null) {
         if (capture != null) cancel()
         tick(time)
         val item = scene.hit(point)
@@ -64,7 +65,8 @@ class TableGestureCoordinator(
         val scope = id?.let { selection.scope(it, order()) }
         val next = Capture(item, point, time, selection, scope, scene.viewport(point),
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }, bubble = scene.stackBubbles,
-            phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS)
+            phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
+            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard)
         val old = pending
         if (old != null) {
             if (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id &&
@@ -245,6 +247,9 @@ class TableGestureCoordinator(
             if (writable) emit(TableIntent.Ping(item?.id, c.start))
         } else if (!explicit && c.selection.mode == TableMode.SELECT && item?.cardId != null) {
             emit(TableIntent.Selection(c.selection.toggle(item.cardId)))
+        } else if (!explicit && c.suppressTapUi) {
+            // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
+            return
         } else if (!explicit && item?.kind == TableItemKind.CARD && item.zone == PlayZone.STACK) {
             emit(TableIntent.StackBubbles(item.cardId))
         } else if (item == null || item.kind == TableItemKind.HAND) {

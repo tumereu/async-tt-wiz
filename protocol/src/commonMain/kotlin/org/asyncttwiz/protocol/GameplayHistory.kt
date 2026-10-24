@@ -50,9 +50,9 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     val groups: List<GameplayGroup>, val throughRevision: String, val next: String? = null)
 
 object GameplayHistory {
-    fun append(previous: GameplayGroup?, mutation: GameplayMutation): GameplayGroup {
+    fun append(previous: GameplayGroup?, mutation: GameplayMutation, containers: List<PlayContainer> = emptyList()): GameplayGroup {
         return HistoryGrouping.append(previous, mutation.id, mutation.requestId, mutation.author,
-            mutation.grouping ?: HistoryGrouping.classify(mutation.action))
+            mutation.grouping ?: HistoryGrouping.classify(mutation.action, containers, mutation.transition))
     }
 
     /** Recorded replay never accepts a different relevant transition, including changed numeric inputs. */
@@ -71,7 +71,7 @@ object GameplayHistory {
             (mutation.grouping == null || candidate.mutation.grouping == mutation.grouping)) {
             // Tree edits change topology, not logical identities/recorded choices or authorship.
             candidate.copy(mutation = mutation, state = candidate.state!!.copy(currentNodeId = mutation.id,
-                currentGroup = append(state.currentGroup, mutation), currentBranchId = mutation.branchId))
+                currentGroup = append(state.currentGroup, mutation, state.board.containers), currentBranchId = mutation.branchId))
         } else GameplayChange(reason = "replayBlocked")
     }
 

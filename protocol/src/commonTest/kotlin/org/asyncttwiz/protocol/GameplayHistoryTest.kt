@@ -3,6 +3,20 @@ package org.asyncttwiz.protocol
 import kotlin.test.*
 
 class GameplayHistoryTest {
+    @Test fun versionOneMovementWithoutOptionalGroupingReplaysWithRetainedZoneContext() {
+        val root = gameplayFixture()
+        val library = root.board.containers[0]; val hand = root.board.containers[1]
+        val draw = gameplayChange(root, PlayAction.MoveCard(library.cards.first(),
+            MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)), 100)
+        val legacy = draw.mutation!!.copy(grouping = null)
+        val replay = GameplayHistory.replay(root, legacy)
+        assertEquals(draw.state, replay.state)
+        assertEquals(legacy, replay.mutation)
+        val cold = GameplayTree(root, mapOf(legacy.id to legacy), legacy.id)
+        assertEquals(draw.state, cold.stateAt(legacy.id))
+        assertEquals("download", cold.stateAt(legacy.id)!!.currentGroup!!.representative!!.semantic.icon)
+    }
+
     @Test fun multiplePilesRetainCanonicalInventoryAndExactInverseWithoutUnrelatedOrderLocks() {
         val root = gameplayFixture(); val cards = root.board.cards; val library = root.board.containers[0]; val field = root.board.containers[2]
         fun place(index: Int, x: Int) = PlayAction.MoveCard(cards[index].id, MoveSource(library.id),

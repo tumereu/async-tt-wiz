@@ -176,11 +176,31 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val relay = remember(coordinator) { TableTapRelay(
         accepts = { p, t -> coordinator.replacesTap(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
         down = { p, t -> coordinator.down(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
-        up = { p, t -> coordinator.up(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
-        cancel = coordinator::cancel,
-        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }) }
+        up = { p, t ->
+            coordinator.up(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t)
+            pointerTime = t; clockEpoch++; preview = coordinator.preview; pressedPing = null
+        },
+        cancel = { coordinator.cancel(); preview = coordinator.preview; pressedPing = null },
+        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null },
+        ringDown = { p, t, card ->
+            val point = coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y)
+            val state = currentPlay
+            val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
+            pressedPing = presentation?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
+            coordinator.down(point, t, card)
+            pointerTime = t; clockEpoch++; preview = coordinator.preview
+        },
+        move = { p, t ->
+            coordinator.move(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t)
+            pointerTime = t; clockEpoch++; preview = coordinator.preview
+        },
+        transform = { pan, scale, center ->
+            coordinator.transform(coordinator.pointFromPixels(pan.x, pan.y), scale,
+                coordinator.pointFromPixels(center.x - screenOrigin.x, center.y - screenOrigin.y))
+            preview = coordinator.preview
+        }) }
     CompositionLocalProvider(LocalTableTapRelay provides relay) {
-    BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }
+    BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -257,7 +277,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }.pointerInput(coordinator) {
             try {
                 awaitEachGesture {
-                    val first = awaitFirstDown(requireUnconsumed = false)
+                    val first = awaitFirstDown()
                     val point = coordinator.pointFromPixels(first.position.x, first.position.y)
                     val state = currentPlay
                     val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
@@ -461,12 +481,11 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
     val buttonWidth = 48f
     Row(Modifier.align(Alignment.TopEnd).height(48.dp).padding(end = if (compact) 0.dp else 8.dp),
         horizontalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        ActionSquare("Turn ${play.board.turn.number}, ${play.board.turn.phase}, ${play.board.turn.step}. Choose phase/step",
+        val turnPlayer = if (play.board.turn.accountId == game.inviter.accountId) game.inviter else game.recipient
+        ActionSquare("Turn ${play.board.turn.number}, ${turnPlayer.username}'s turn, ${turnStepName(play.board.turn)}. Choose phase/step",
             "", toolkit != null && !runtime.reviewing,
             Modifier.width(buttonWidth.dp).border(2.dp, turnColor), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
-            icon = { Box(Modifier.size(22.dp).border(1.dp, turnColor), contentAlignment = Alignment.Center) {
-                Text(play.board.turn.number, fontSize = 15.sp, lineHeight = 16.sp, modifier = Modifier.clearAndSetSemantics {})
-            } },
+            icon = { TurnStepIcon(play.board.turn) },
             onClick = { toolkit?.phasePicker() })
         if (runtime.reviewing) {
             ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White),

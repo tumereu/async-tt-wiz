@@ -23,17 +23,20 @@ class HistoryUiSpineTest {
         val lobby = model.lobby
         app.waitUntil(30_000) { lobby.retainedTree() != null && lobby.history.playback != null }
         val accepted = lobby.state.acceptedPlay!!
-        app.onNodeWithText("‹ Previous").performClick()
-        app.onNodeWithText("Paused").assertExists()
+        app.onNodeWithContentDescription("History", substring = false).performClick()
+        app.onNodeWithContentDescription("Previous").performClick()
+        app.onNodeWithText("Auto: off").assertExists()
         app.waitUntil(10_000) { lobby.history.playback?.position?.cursorId?.let(lobby.history::canArm) == true }
-        app.onNodeWithText("Continue playing from here").assertIsEnabled().performClick()
-        app.onNodeWithText("Cancel continuation").assertExists().performClick()
+        app.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
+        app.onNodeWithContentDescription("Cancel continuation").assertExists().performClick()
         assertEquals(accepted, lobby.state.acceptedPlay)
-        app.onNodeWithContentDescription("History").performClick()
-        app.onNodeWithText("Make current").assertExists()
+        app.onNodeWithContentDescription("History", substring = false).performClick()
+        app.onNodeWithContentDescription("Open game tree").performClick()
+        app.onNodeWithContentDescription("Game history group tree").assertExists()
+        app.onNodeWithText("Make current").assertDoesNotExist()
         app.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        app.onNodeWithText("Return to current").performClick()
-        app.onNodeWithText("Live").assertExists()
+        app.onNodeWithContentDescription("Return to current").performClick()
+        app.onNodeWithText("Auto: off").assertDoesNotExist()
         app.onNodeWithContentDescription("Undo").assertExists()
         app.onNodeWithContentDescription("Interaction mode").performClick()
         app.onNodeWithText("Redo").assertExists()

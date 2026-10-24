@@ -18,6 +18,45 @@ import kotlin.test.*
 class HistoryModeReworkTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun autoButtonShowsStateAndTogglesFromBothStates() {
+        val tree = TableStatesFixture.history()
+        val player = TableStatesFixture.playback(tree)
+        player.scrub(tree.initial.root.id)
+        compose.setContent { MaterialTheme {
+            HistoryTransport(player.position, false, true, true, player::previous, { player.next() }, player::play, player::pause, {})
+        } }
+        val auto = compose.onNodeWithContentDescription("Auto advance")
+        auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))
+        compose.onNodeWithText("Auto: off").assertIsDisplayed()
+        compose.onNodeWithText("Tap to toggle auto advance · Hold to branch").assertIsDisplayed()
+        auto.performClick()
+        compose.runOnIdle { assertTrue(player.position.playing) }
+        auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: on"))
+        compose.onNodeWithText("Auto: on").assertIsDisplayed()
+        auto.performTouchInput { click() }
+        compose.runOnIdle { assertFalse(player.position.playing) }
+        compose.onNodeWithText("Auto: off").assertIsDisplayed()
+    }
+
+    @Test fun runningAutoButtonHoldPausesAndBranchesAtOriginalCursorWithoutToggling() {
+        val tree = TableStatesFixture.history()
+        val player = TableStatesFixture.playback(tree)
+        val cursor = tree.initial.root.id
+        player.scrub(cursor)
+        player.play()
+        val continued = mutableListOf<String>()
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(player, tree.currentNodeId, TableStatesFixture.a, true, 60_000, { continued += it })
+        } }
+        compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
+        compose.runOnIdle {
+            assertEquals(listOf(cursor), continued)
+            assertFalse(player.position.playing)
+        }
+        compose.onNode(isDialog()).assertDoesNotExist()
+        compose.onNodeWithText("Auto: off").assertIsDisplayed()
+    }
+
     @Test fun playbackWaitsForAnimationThenFullPauseAndReadsSettingChangesLive() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val settings = HistoryPlaybackPreferences(context, "timing")

@@ -10,7 +10,7 @@ import kotlin.test.*
 class HistoryExplorerTest {
     @Test fun diagnosticsDistinguishMissingCursorReplayFailureAndLayoutException() {
         val failures = mutableListOf<Pair<String, Throwable>>()
-        val controller = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, _ -> false },
+        val controller = HistoryExplorerController(Executor { it.run() }, { it() },
             { context, failure -> failures.add(context to failure) })
         try {
             controller.update(GameplayTree(root()))
@@ -35,31 +35,29 @@ class HistoryExplorerTest {
 
     @Test fun missingBoundaryInNewTreeShowsUnavailableWithoutThrowingOrActivating() {
         val queue = Queue()
-        val controller = HistoryExplorerController(queue, { it() }, { true }, { _, _ -> error("unexpected activation") })
+        val controller = HistoryExplorerController(queue, { it() })
         try {
             controller.update(GameplayTree(root())); queue.drain()
             controller.select(id(999)); queue.drain()
             assertFalse(controller.state.busy)
             assertEquals("History unavailable", controller.state.error)
-            assertNull(controller.captureMakeCurrent())
             controller.select(root().root.id); queue.drain()
             assertNull(controller.state.error)
             assertNotNull(controller.state.reviewed)
         } finally { controller.close() }
     }
-    @Test fun archivedSelectedBoundaryRemainsExactlyReviewableAndRequiresExplicitRestoreBeforeActivation() {
+    @Test fun archivedSelectedBoundaryRemainsExactlyReviewable() {
         val original = play(GameplayTree(root()), 100)
         val alternative = assertNotNull(original.play(b, command(101).copy(continuation = Continuation(root().root.id, true))).tree)
         val archived = assertNotNull(HistoryContinuation.change(alternative, a, command(102).copy(
             action = GameAction.BranchArchive(BranchArchiveIntent.Archive(original.currentBranchId)))).tree)
         val queue = Queue()
-        val controller = HistoryExplorerController(queue, { it() }, { true }, { _, _ -> error("No implicit activation") })
+        val controller = HistoryExplorerController(queue, { it() })
         try {
             controller.update(archived, openingNodeId = original.currentNodeId, showHidden = false); queue.drain()
             assertEquals(original.currentNodeId, controller.state.selectedNodeId)
             assertEquals(original.currentNodeId, controller.state.reviewed!!.currentNodeId)
             assertTrue(controller.state.archivedSelection)
-            assertNull(controller.captureMakeCurrent())
             assertTrue(original.currentNodeId in controller.state.graph!!.positions)
             assertEquals(2, archived.nodes.size, "Filtering never removes retained data")
         } finally { controller.close() }
@@ -97,13 +95,13 @@ class HistoryExplorerTest {
         assertEquals(2, suffixes.size)
         assertEquals(setOf(third.currentNodeId, branch.currentNodeId), suffixes.map { it.targetId }.toSet())
         assertNotEquals(suffixes[0].position.y, suffixes[1].position.y)
-        assertNotEquals(graph.positions[second.currentNodeId], graph.positions[third.currentNodeId])
+        assertEquals(graph.positions[second.currentNodeId], graph.positions[third.currentNodeId])
         val suffix = graph.ranges.single { second.currentNodeId in it.nodeIds }
         val parent = graph.ranges.single { it.id == suffix.parentRangeId }
         val interior = graph.positions.getValue(second.currentNodeId)
-        assertEquals((parent.position.x + suffix.position.x) / 2, interior.x)
+        assertEquals(parent.position.x + 24f, interior.x)
         assertEquals(suffix.position.y, interior.y) // Events stay on parallel lanes after the fork.
-        assertEquals(24f, suffix.position.x - interior.x)
+        assertEquals(suffix.position, interior)
         assertEquals(setOf(root().root.id, first.currentNodeId, second.currentNodeId), graph.activeNodeIds)
         assertEquals(internal.nodes.size + 1, graph.ranges.sumOf { it.nodeIds.size })
     }
@@ -118,12 +116,21 @@ class HistoryExplorerTest {
         assertEquals(3, events.drop(1).map { it.groupId }.distinct().size)
         assertEquals(1, events.sumOf { it.alternatives })
         val graph = HistoryGraphLayout.build(tree)
-        val reveal = graph.ranges.single { it.glyph == HistoryGlyph.INSPECT }
+        for (event in events.drop(1)) {
+            assertEquals(event.groupId, graph.ranges.single { event.id in it.nodeIds }.groupId)
+        }
+        for (range in graph.ranges.drop(1)) {
+            val last = tree.nodes.getValue(range.targetId)
+            assertEquals(last.author, range.author)
+            assertEquals(last.grouping!!.icon, range.glyph.icon)
+        }
+        val reveal = graph.ranges.single { tree.nodes[it.targetId]?.action is PlayAction.EventComment }
+        assertEquals(HistoryGlyph.COMMENT, reveal.glyph)
         assertEquals(PlayAction.EventComment::class, tree.nodes.getValue(reveal.targetId).action::class)
         assertTrue(tree.stateAt(reveal.targetId)!!.board.contentsDisplays.isNotEmpty())
     }
 
-    @Test fun groupingUsesSharedProcessorAndLiteralRepresentativeNotActionTarget() {
+    @Test fun groupingUsesSharedProcessorAndLastEventForGlyphAndTarget() {
         val tap = play(GameplayTree(root()), 100, action = PlayAction.SetTapped(id(9), true))
         val life = play(tap, 101)
         val graph = HistoryGraphLayout.build(life)
@@ -132,64 +139,57 @@ class HistoryExplorerTest {
         assertEquals(life.currentNodeId, graph.ranges.last().representativeId)
         val more = play(life, 102)
         val updated = HistoryGraphLayout.build(more)
-        assertEquals(life.currentNodeId, updated.ranges.last().representativeId) // first equal-rank event
+        assertEquals(more.currentNodeId, updated.ranges.last().representativeId)
         assertEquals(more.currentNodeId, updated.ranges.last().targetId)
         assertEquals(a, updated.ranges.last().author)
         assertEquals(HistoryGlyph.ROOT, updated.ranges.first().glyph)
         assertNull(updated.ranges.first().representativeId)
     }
 
-    @Test fun localExactSelectionAndCapturedActivationSurviveGrowthAndReranking() {
+    @Test fun localExactSelectionSurvivesGroupGrowthAndReopeningUsesReviewCursor() {
         val queue = Queue()
-        val submissions = mutableListOf<Pair<GameScope, GameAction>>()
-        var online = true
-        val controller = HistoryExplorerController(queue, { it() }, { online }, { scope, action ->
-            submissions.add(scope to action); true
-        })
+        val controller = HistoryExplorerController(queue, { it() })
         val tap = play(GameplayTree(root()), 100, action = PlayAction.SetTapped(id(9), true))
         controller.update(tap, openingNodeId = root().root.id)
-        assertTrue(submissions.isEmpty()); queue.drain()
+        queue.drain()
         assertEquals(root().root.id, controller.state.selectedNodeId)
         controller.select(tap.currentNodeId); queue.drain()
-        val captured = assertNotNull(controller.captureMakeCurrent())
         val grown = play(tap, 101)
         controller.update(grown); queue.drain()
         assertEquals(tap.currentNodeId, controller.state.selectedNodeId)
         assertEquals(tap.currentNodeId, controller.state.reviewed!!.currentNodeId)
         assertEquals(HistoryGlyph.LIFE, controller.state.graph!!.ranges.last().glyph)
-        assertTrue(submissions.isEmpty()) // review/growth/pan/arming never activate
-        assertNotNull(controller.armContinuation(id(800)))
-        assertTrue(submissions.isEmpty())
-        online = false; assertFalse(controller.makeCurrent(captured))
-        online = true; assertTrue(controller.makeCurrent(captured))
-        assertEquals(GameAction.MakeCurrent(tap.currentNodeId), submissions.single().second)
-        assertEquals(grown.currentNodeId, controller.state.graph!!.currentNodeId) // submit never changes shared current locally
-        controller.close(); assertFalse(controller.makeCurrent(captured))
+        controller.update(grown, openingNodeId = root().root.id); queue.drain()
+        assertEquals(root().root.id, controller.state.selectedNodeId)
+        val graph = controller.state.graph!!
+        for ((width, height) in listOf(412f to 780f, 892f to 300f)) {
+            val pan = graph.centeredOn(controller.state.selectedNodeId!!, width, height)
+            val cursor = graph.positions.getValue(root().root.id)
+            assertEquals(width / 2, cursor.x + pan.x)
+            assertEquals(height / 2, cursor.y + pan.y)
+            assertNotEquals(width / 2, graph.positions.getValue(grown.currentNodeId).x + pan.x)
+        }
+        controller.close()
     }
 
-    @Test fun removedReviewFallsBackButCapturedActionNeverRetargetsAndScopesAreFenced() {
+    @Test fun removedReviewFallsBackAndScopesAreFenced() {
         val queue = Queue()
-        val submissions = mutableListOf<GameAction>()
-        val controller = HistoryExplorerController(queue, { it() }, { true }, { _, action -> submissions.add(action); true })
+        val controller = HistoryExplorerController(queue, { it() })
         val first = play(GameplayTree(root()), 100)
         controller.update(first); queue.drain()
-        val captured = controller.captureMakeCurrent()!!
         val removed = assertNotNull(SelectiveUndo.change(first, a,
             command(101).copy(action = GameAction.Undo)).tree)
         controller.update(removed); queue.drain()
         assertEquals(root().root.id, controller.state.selectedNodeId)
-        assertTrue(controller.makeCurrent(captured))
-        assertEquals(GameAction.MakeCurrent(first.currentNodeId), submissions.single())
         controller.update(GameplayTree(root().copy(id = id(30))))
         assertNull(controller.state.reviewed); assertNull(controller.state.graph)
-        assertFalse(controller.makeCurrent(captured))
         controller.close(); queue.drain(); assertNull(controller.state.reviewed)
     }
 
     @Test fun selectionWhileWorkIsPendingIsNotOverwrittenBySyncOrOldCallbacks() {
         val queue = Queue()
         val posts = ArrayDeque<() -> Unit>()
-        val controller = HistoryExplorerController(queue, { posts.addLast(it) }, { true }, { _, _ -> error("unexpected submit") })
+        val controller = HistoryExplorerController(queue, { posts.addLast(it) })
         val first = play(GameplayTree(root()), 100)
         controller.update(first); queue.drain() // result posted but not applied
         controller.select(root().root.id)
@@ -240,7 +240,7 @@ class HistoryExplorerTest {
             var workerThread: String? = null
             val controller = HistoryExplorerController(Executor { task -> worker.execute {
                 workerThread = Thread.currentThread().name; task.run()
-            } }, { posted.add(it) }, { false }, { _, _ -> false })
+            } }, { posted.add(it) })
             controller.update(cold)
             assertTrue(controller.state.busy)
             assertNull(controller.state.reviewed)
@@ -248,7 +248,6 @@ class HistoryExplorerTest {
             assertEquals("history-reconstruction", workerThread)
             assertEquals("2075", controller.state.reviewed!!.board.players[0].life)
             assertEquals(2, controller.state.graph!!.ranges.size)
-            assertFalse(controller.makeCurrent())
             controller.close()
         } finally { worker.shutdown(); assertTrue(worker.awaitTermination(30, TimeUnit.SECONDS)) }
     }

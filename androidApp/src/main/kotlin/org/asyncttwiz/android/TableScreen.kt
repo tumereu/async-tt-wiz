@@ -62,22 +62,18 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
-    var advanced by remember(game.id, live?.id) { mutableStateOf(false) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val playbackPause by playbackPreferences.pauseState()
     var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
-    val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }, { game.id !in controller.state.reconnectingGames }, { scope, action ->
-        controller.state.detail?.playId == scope.playId && controller.historyControl(action)
-    }) }
+    val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
     LaunchedEffect(tree, explorerOpen, showHidden) {
-        // The live timeline includes provisional nodes; the explorer's activation/review targets
+        // The live timeline includes provisional nodes; the explorer's review targets
         // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
         if (explorerOpen && tree != null) {
-            explorer.update(tree, openingNodeId = position?.cursorId?.let(tree::resolveCursor), showHidden = showHidden)
-            if (position != null) explorer.select(tree.resolveCursor(position.cursorId) ?: tree.currentNodeId)
+            explorer.update(tree, showHidden = showHidden)
         }
     }
     var appliedActivity by remember(history) { mutableStateOf<ActivityTarget?>(null) }
@@ -161,7 +157,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
     val selection = toolkit.selectionState.value
-    val overlay = toolkit.hasBackOverlay || explorerOpen || advanced || history.continuationTarget != null || state.chatOpen
+    val overlay = toolkit.hasBackOverlay || explorerOpen || history.continuationTarget != null || state.chatOpen
     LaunchedEffect(overlay, reviewing, history.armed, selection) {
         if (overlay || reviewing || history.armed != null || selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty()) back.reset()
     }
@@ -171,7 +167,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             TableBackAction.CLOSE_OVERLAY -> when {
                 state.chatOpen -> controller.closeChat()
                 history.continuationTarget != null -> history.dismissContinuation()
-                advanced -> advanced = false
                 explorerOpen -> explorerOpen = false
                 else -> toolkit.dismissBackOverlay()
             }
@@ -225,8 +220,14 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                   interactive, playbackPause, { history.requestContinuation(it) },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
-                                 onTree = { playback.pause(); explorerOpen = true },
-                                continuationReady = position?.cursorId?.let(history::canArm) == true,
+                                  onTree = {
+                                      playback.pause()
+                                      tree?.let {
+                                          explorer.update(it, openingNodeId = it.resolveCursor(playback.position.cursorId), showHidden = showHidden)
+                                          explorerOpen = true
+                                      }
+                                  },
+                                 continuationReady = position?.cursorId?.let(history::canRequestContinuation) == true,
                                 overlay = true, landscape = landscape, menuContent = {
                                      HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                                     DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
@@ -245,15 +246,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         HistoryContinueConfirmation(interactive && history.foreground && history.canArm(target),
              history::dismissContinuation, { history.confirmContinuation() }, history::current)
     }
-    if (explorerOpen && tree != null) HistoryExplorer(explorer, interactive,
+    if (explorerOpen && tree != null) HistoryExplorer(explorer,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
         showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
-        onAdvanced = { advanced = true }, texts = playback?.tree?.texts.orEmpty(),
-        continuationReady = explorer.state.selectedNodeId?.let(history::canRequestContinuation) == true,
-        onContinue = { if (history.requestContinuation(it)) explorerOpen = false })
-    if (advanced && tree != null) HistoryAdvanced(history, tree, position?.cursorId ?: tree.currentNodeId,
-        game, accountId, landscape, interactive, { advanced = false })
+        texts = playback?.tree?.texts.orEmpty())
     if (history.gate?.suggestionId != dismissedResult) ResultAcceptanceDialog(game, state.acceptedPlay, accountId,
         history.gate, interactive,
         dismiss = { dismissedResult = history.gate?.suggestionId }, accept = { controller.acceptResult(it) })

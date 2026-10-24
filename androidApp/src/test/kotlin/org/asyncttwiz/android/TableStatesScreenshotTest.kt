@@ -73,7 +73,7 @@ class TableStatesScreenshotTest {
         if (kind.startsWith("stack-menu")) toolkit.selectionState.value = TableSelection(mode = TableMode.SELECT)
         if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
         if (kind in listOf("stack-bubbles", "stack-preview")) toolkit.showStackBubbles(f.id("effect"))
-        val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> activations += action; true })
+        val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
         explorer.update(tree, openingNodeId = tree.nodes.values.first { it.requestId == f.id("request5") }.id)
         compose.setContent {
             MaterialTheme {
@@ -96,7 +96,7 @@ class TableStatesScreenshotTest {
                     }
                     if (history.continuationTarget != null) HistoryContinueConfirmation(true,
                          history::dismissContinuation, { history.confirmContinuation() }, history::current)
-                    if (kind == "tree-viewer") HistoryExplorer(explorer, true, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
+                    if (kind == "tree-viewer") HistoryExplorer(explorer, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
                         false, {}, {}, { playback.scrub(it.currentNodeId) }, texts = playback.tree.texts)
                 }
             }
@@ -128,7 +128,7 @@ class TableStatesScreenshotTest {
                  compose.onNodeWithContentDescription(if (kind == "continue") "Continue playing from here" else "Return to current").performClick()
                  if (kind == "continue") {
                     compose.onNodeWithContentDescription("Interaction mode").assertExists()
-                    compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+                    compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
                      compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
                      compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
                      compose.onNode(isDialog()).assertDoesNotExist()
@@ -152,6 +152,16 @@ class TableStatesScreenshotTest {
             }
             "history-start" -> compose.onNodeWithContentDescription("Previous").assertIsNotEnabled()
             "history-end" -> compose.onNodeWithContentDescription("Next").assertIsNotEnabled()
+        }
+        if (kind.startsWith("history")) {
+            compose.onNodeWithText("Timeline mode").assertIsDisplayed()
+            compose.onNodeWithText(if (kind == "history-playing") "Auto: on" else "Auto: off").assertIsDisplayed()
+            compose.onNodeWithText("Tap to toggle auto advance · Hold to branch").assertIsDisplayed()
+        }
+        if (kind == "tree-viewer") {
+            compose.onNodeWithText("Make current").assertDoesNotExist()
+            compose.onNodeWithText("Continue from here").assertDoesNotExist()
+            compose.onNodeWithText("Branch details…").assertDoesNotExist()
         }
         compose.waitForIdle()
         assertTrue(sent.isEmpty()); assertTrue(activations.isEmpty())
@@ -353,7 +363,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
         compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Play", substring = false).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Auto advance", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
         // The latest live position has a hand card moved onto the battlefield, unlike the armed boundary.
         val tree = f.history()
@@ -377,12 +387,12 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Set red counter, no value").assertExists()
     }
 
-     @Test fun pausedPlayHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
+      @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
          render("history-paused", false)
-         compose.onNodeWithContentDescription("Play").performTouchInput { longClick() }
+          compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
          compose.onNode(isDialog()).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
-         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+          compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
          compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
      }
 
@@ -391,7 +401,7 @@ class TableStatesScreenshotTest {
          compose.onNodeWithText("Continue from here").performClick()
          compose.onNode(isDialog()).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
-         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+          compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
          compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
      }
 
@@ -407,7 +417,7 @@ class TableStatesScreenshotTest {
          render("continue-confirmation", false)
          compose.onNode(isDialog()).performTouchInput { click(androidx.compose.ui.geometry.Offset(4f, 4f)) }
          compose.onNode(isDialog()).assertDoesNotExist()
-         compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+          compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
          compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
          compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
      }
@@ -416,7 +426,7 @@ class TableStatesScreenshotTest {
          render("continue-confirmation", false)
          androidx.test.espresso.Espresso.pressBack()
          compose.onNode(isDialog()).assertDoesNotExist()
-         compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+          compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
          compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
      }
 
@@ -424,46 +434,51 @@ class TableStatesScreenshotTest {
          render("history-end", false)
          compose.onNodeWithContentDescription("Return to current").performClick()
          compose.onNode(isDialog()).assertDoesNotExist()
-         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+          compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
          compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
      }
 
-    @Test fun treeHoldExposesBranchActionsAndTapMovesReviewCursorThenClosesWithoutSubmitting() {
+    @Test fun treeCentersReviewGroupAndTapSelectsLastEventThenCloses() {
         val tree = f.history()
-        val submissions = mutableListOf<GameAction>()
-        val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> submissions += action; true })
-        explorer.update(tree)
-        val range = explorer.state.graph!!.ranges.single { it.nodeIds.any { id -> tree.nodes[id]?.requestId == f.id("request5") } }
-        assertNotEquals(range.representativeId, range.targetId)
+        val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
+        val range = HistoryGraphLayout.build(tree).ranges.single { it.nodeIds.any { id -> tree.nodes[id]?.requestId == f.id("request5") } }
+        val reviewCursor = range.nodeIds.first()
+        assertNotEquals(reviewCursor, range.targetId)
+        assertEquals(range.representativeId, range.targetId)
+        explorer.update(tree, openingNodeId = reviewCursor)
         val texts = f.playback(tree).tree.texts
         var open by mutableStateOf(true)
         var cursor = tree.currentNodeId
         compose.setContent { MaterialTheme {
-            if (open) HistoryExplorer(explorer, true, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
+            if (open) HistoryExplorer(explorer, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
                 false, {}, { open = false }, { cursor = it.currentNodeId }, texts = texts)
         } }
         val group = compose.onNodeWithContentDescription(texts.getValue(range.targetId).description)
+        val viewport = compose.onNodeWithContentDescription("Game history group tree").fetchSemanticsNode().boundsInRoot
+        val chip = group.fetchSemanticsNode().boundsInRoot
+        assertEquals(viewport.center.x, chip.center.x, .5f)
+        assertEquals(viewport.center.y, chip.center.y, .5f)
+        compose.onNodeWithContentDescription(texts.getValue(reviewCursor).description).assertDoesNotExist()
+        compose.onNodeWithText("Make current").assertDoesNotExist()
+        compose.onNodeWithText("Continue from here").assertDoesNotExist()
+        compose.onNodeWithText("Branch details…").assertDoesNotExist()
         val before = group.fetchSemanticsNode().positionInRoot
         compose.onNodeWithContentDescription("Game history group tree").performTouchInput {
             swipe(center, center + androidx.compose.ui.geometry.Offset(-30f, 20f), 200)
         }
         compose.runOnIdle {
-            assertEquals(tree.currentNodeId, explorer.state.selectedNodeId)
-            assertTrue(submissions.isEmpty())
+            assertEquals(reviewCursor, explorer.state.selectedNodeId)
         }
         assertNotEquals(before, group.fetchSemanticsNode().positionInRoot)
         group.performTouchInput { longClick() }
         compose.runOnIdle {
             assertEquals(range.targetId, explorer.state.selectedNodeId)
-            assertTrue(submissions.isEmpty())
         }
-        compose.onNodeWithContentDescription("Make current").performClick()
-        compose.runOnIdle { assertEquals(listOf<GameAction>(GameAction.MakeCurrent(range.targetId)), submissions) }
         group.performClick()
         compose.runOnIdle {
             assertEquals(range.targetId, cursor)
             assertFalse(open)
-            assertEquals(1, submissions.size)
+            assertEquals(tree.currentNodeId, explorer.state.graph!!.currentNodeId)
         }
         compose.onNodeWithText("Game tree ▾").assertDoesNotExist()
         explorer.close()

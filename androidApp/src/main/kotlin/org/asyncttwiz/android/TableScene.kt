@@ -477,7 +477,20 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 } else if (currentWritable) callback?.invoke(intent)
             }
         }
+        if (runtime.reviewing) scene.world?.viewport?.let { board ->
+            // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
+            Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
+                .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CompositionLocalProvider(LocalContentColor provides Color(0xff253d44).copy(alpha = .38f)) {
+                        TableChromeIcon("history")
+                        Text("Timeline mode", style = MaterialTheme.typography.titleMedium, color = LocalContentColor.current)
+                    }
+                }
+            }
+        }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
+        if (runtime.reviewing) Box(Modifier.fillMaxWidth().height(48.dp).background(Color.Black.copy(alpha = .14f)))
         if (runtime.reviewing) runtime.reviewPanel?.invoke()
         if (toolkit != null) {
             val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor

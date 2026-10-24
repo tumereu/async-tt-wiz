@@ -127,6 +127,33 @@ class TableGesturesTest {
         }
     }
 
+    @Test fun heldPointerScrollsInspectionIncrementallyInDpWithoutMovingCardsAndStopsOnRelease() {
+        for (density in listOf(1f, 2.625f)) {
+            val events = mutableListOf<TableIntent>()
+            val scrolls = mutableListOf<Float>()
+            val scene = TableFixture.scene()
+            val gestures = TableGestureCoordinator(events::add, density = density, onPeekScroll = scrolls::add)
+            gestures.update(scene, TableSelection(), false) // Inspection also works while read-only.
+            val start = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
+            fun point(dx: Float = 0f, dy: Float = 0f) = gestures.pointFromPixels((start.x + dx) * density, (start.y + dy) * density)
+            gestures.down(point(), 0)
+            gestures.move(point(dy = -4f), 40)
+            assertTrue(scrolls.isEmpty())
+            gestures.tick(400)
+            assertTrue(gestures.peeking)
+            gestures.move(point(dx = 100f, dy = -44f), 420)
+            gestures.move(point(dx = -100f, dy = -44f), 440) // Horizontal motion does not scroll.
+            gestures.move(point(dy = -24f), 460)
+            gestures.up(point(dy = -24f), 480)
+            gestures.move(point(dy = -100f), 500)
+            assertFalse(gestures.peeking)
+            assertEquals(2, scrolls.size)
+            assertEquals(40f, scrolls[0], .001f)
+            assertEquals(-20f, scrolls[1], .001f)
+            assertEquals(listOf<TableIntent>(TableIntent.Peek("a/BATTLEFIELD/0"), TableIntent.Peek(null)), events)
+        }
+    }
+
     @Test fun handInsertionExcludesDraggedMembersAndUsesSamePreviewAndReleaseGap() {
         val f = Fixture(TableFixture.scene(TableFixture.play(board = 1, hand = 5)))
         val hand = f.scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }

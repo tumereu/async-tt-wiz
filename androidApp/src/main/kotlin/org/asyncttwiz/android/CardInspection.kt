@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
@@ -28,33 +30,36 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
     markedOption: Pair<Int, StackTextOption>? = null,
-    token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false) {
+    token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false,
+    peekScroll: ScrollState? = null) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
+    val localScroll = key(card, state.face) { rememberScrollState() }
+    val contentScroll = if (peek) peekScroll ?: localScroll else localScroll
     val content: @Composable () -> Unit = {
         Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.94f)
             .semantics { paneTitle = "Card inspection" }, shape = MaterialTheme.shapes.large,
             color = Color.White, contentColor = MenuInk) {
             Column(Modifier.padding(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (!peek) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.definition.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (!peek) ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
+                    ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
                 }
-                if (card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (!peek && card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     MenuButton("Previous face", Modifier.weight(1f), enabled = state.face > 0) { controller.face(state.face - 1) }
                     Text("${state.face + 1} / ${card.definition.faces.size}", Modifier.padding(horizontal = 8.dp))
                     MenuButton("Next face", Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { controller.face(state.face + 1) }
                 }
                 key(card, state.face) {
-                    val artwork: @Composable () -> Unit = {
+                    val artwork: @Composable (Dp) -> Unit = { heightLimit ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                val width = minOf(maxWidth, 320.dp)
+                                val width = minOf(maxWidth, 320.dp, if (peek) heightLimit / 1.4f else 320.dp)
                                 val height = width * 1.4f
                                 val density = LocalDensity.current
-                                val scale = if (state.enlarged) 2 else 1
+                                val scale = if (!peek && state.enlarged) 2 else 1
                                 Box(Modifier.fillMaxWidth().height(height)
                                     .horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
                                     .semantics { contentDescription = "Card artwork viewport" },
@@ -66,11 +71,11 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                             .then(if (owner != null) Modifier.cardFrame(token, owner, projection) else Modifier))
                                 }
                             }
-                            MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
+                            if (!peek) MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
                         }
                     }
                     val text: @Composable () -> Unit = {
-                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (peek) 4.dp else 12.dp)) {
                             annotation?.let { Text(it) }
                             val marked = markedOption?.takeIf { it.second.faceId == face.faceId }
                             @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
@@ -79,11 +84,11 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                     RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (selected != null) StackMarkChip(selected.first)
-                                    Text(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
+                                    CardText(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
                                 }
                             }
                             markedText(face.name, null, title = true)
-                            if (face.manaCost.isNotEmpty()) Text(face.manaCost)
+                            if (face.manaCost.isNotEmpty()) CardText(face.manaCost)
                             if (face.typeLine.isNotEmpty()) Text(face.typeLine)
                             face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
                                 markedText(paragraph, index)
@@ -96,15 +101,20 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                         }
                     }
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                        val availableHeight = maxHeight
                         if (maxWidth > maxHeight && maxWidth >= 480.dp) {
                             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) { artwork() }
-                                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+                                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) { artwork(availableHeight) }
+                                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(contentScroll)
                                     .semantics { contentDescription = "Card inspection content" }) { text() }
                             }
-                        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                            .semantics { contentDescription = "Card inspection content" }) {
-                            artwork(); Spacer(Modifier.height(12.dp)); text(); Spacer(Modifier.height(12.dp))
+                        } else {
+                            val artworkHeight = if (peek) maxHeight * .45f else maxHeight
+                            Column(Modifier.fillMaxSize().verticalScroll(contentScroll)
+                                .semantics { contentDescription = "Card inspection content" }) {
+                                artwork(artworkHeight); Spacer(Modifier.height(if (peek) 4.dp else 12.dp))
+                                text(); Spacer(Modifier.height(if (peek) 4.dp else 12.dp))
+                            }
                         }
                     }
                 }
@@ -122,7 +132,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
 /** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
 @Composable
 internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
-    names: Map<String, String> = emptyMap(), peek: Boolean = false) {
+    names: Map<String, String> = emptyMap(), peek: Boolean = false, peekScroll: ScrollState? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
@@ -151,12 +161,15 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
         if (controller.state != null) CardInspection(controller,
-            (if (inspection.provisional) "Provisional inspection · awaiting shared result\n" else "") +
-                "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}\n${card.corner}\n" +
-                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}",
+            listOfNotNull(
+                "Provisional inspection · awaiting shared result".takeIf { inspection.provisional },
+                "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
+                card.corner.takeIf(String::isNotBlank),
+                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
+                card.note.takeIf(String::isNotBlank)).joinToString("\n"),
             markedOption = mark,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
-            projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek)
+            projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

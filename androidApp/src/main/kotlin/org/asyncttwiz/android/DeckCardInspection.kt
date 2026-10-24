@@ -42,9 +42,9 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
             }
             Column(Modifier.fillMaxWidth().semantics { contentDescription = "Card inspection content" }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(face.name, style = MaterialTheme.typography.titleLarge)
-                if (face.manaCost.isNotBlank()) Text(face.manaCost)
+                if (face.manaCost.isNotBlank()) CardText(face.manaCost)
                 if (face.typeLine.isNotBlank()) Text(face.typeLine)
-                if (face.rulesText.isNotBlank()) Text(face.rulesText)
+                if (face.rulesText.isNotBlank()) CardText(face.rulesText)
                 if (face.corner.isNotBlank()) Text(face.corner, Modifier.align(Alignment.End))
                 else if (face.power.isNotBlank() || face.toughness.isNotBlank()) Text("${face.power} / ${face.toughness}")
                 if (face.loyalty.isNotBlank()) Text("Loyalty: ${face.loyalty}")

@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,7 +15,7 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
     landscape: Boolean, selection: TableSelection, select: (String) -> Unit,
-    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null) {
+    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -108,7 +109,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     LinkEndpointPicker(toolkit.tokens, play, names, enabled = enabled, onPick = { toolkit.batch { toolkit.tokens.pick(it) } })
     LinksListDialog(toolkit.tokens, play, names, enabled = enabled)
     toolkit.inspection?.let { GameplayCardInspection(play, toolkit.viewer, it, toolkit::closeInspection, names) }
-    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true) }
+    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true, peekScroll = peekScroll) }
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
 }
 

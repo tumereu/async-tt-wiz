@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -28,7 +29,8 @@ class StackContentsGesturesTest {
         val f = TableStatesFixture
         val play = f.combat().let { p ->
             val definitions = p.definitions.associate { old ->
-                val definition = old.definition.copy(faces = old.definition.faces.map { it.copy(rulesText = "First paragraph\nSecond paragraph") })
+                val definition = old.definition.copy(faces = old.definition.faces.map { it.copy(rulesText =
+                    "First paragraph\nSecond paragraph\n" + (1..30).joinToString("\n") { n -> "Ability $n: {T}: Add {W/U}." }) })
                 old.digest to SubmittedDefinition(DeckJson.digest(definition), definition)
             }
             p.copy(definitions = definitions.values.toList(), board = p.board.copy(cards = p.board.cards.map {
@@ -82,6 +84,14 @@ class StackContentsGesturesTest {
         compose.mainClock.autoAdvance = false
         row.performTouchInput { down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithText("First paragraph").assertExists()
+        compose.onNodeWithText("Enlarge artwork").assertDoesNotExist()
+        val content = compose.onNodeWithContentDescription("Card inspection content")
+        val before = content.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
+        row.performTouchInput { moveBy(Offset(0f, -120f)) }
+        compose.waitForIdle()
+        val after = content.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
+        assertTrue(after > before)
         compose.onNodeWithText("First paragraph").assertExists()
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true

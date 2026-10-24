@@ -100,7 +100,7 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
                 color = Color.White, shadowElevation = 5.dp) {
                 Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StackMarkChip(index)
-                    Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 5)
+                    CardText(text, style = MaterialTheme.typography.bodyMedium, maxLines = 5)
                 }
             }
         }

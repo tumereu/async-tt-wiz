@@ -17,7 +17,8 @@ class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
     private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
-    private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY }
+    private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY },
+    private val onPeekScroll: (Float) -> Unit = {} // Incremental content scroll in dp; positive reveals lower text.
 ) {
     init { require(density.isFinite() && density > 0f) }
     private val markStepDp = 28f
@@ -39,6 +40,7 @@ class TableGestureCoordinator(
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
     val busy get() = capture != null || pending != null
+    val peeking get() = capture?.let { it.phase == Phase.HOLD && it.item?.cardId != null } == true
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
             distance(point, it.capture.start) <= slopDp * 2
@@ -96,8 +98,13 @@ class TableGestureCoordinator(
     fun move(point: TablePoint, time: Long) {
         val c = capture ?: return
         val changed = c.point != point
+        val scrollDelta = c.point.y - point.y
         c.point = point
-        if (c.phase == Phase.HOLD || c.phase == Phase.TRANSFORM) return
+        if (c.phase == Phase.HOLD) {
+            if (peeking && scrollDelta != 0f) onPeekScroll(scrollDelta)
+            return
+        }
+        if (c.phase == Phase.TRANSFORM) return
         val dx = point.x - c.start.x; val dy = point.y - c.start.y
         if (c.phase == Phase.PRESS && hypot(dx, dy) > slopDp) {
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.

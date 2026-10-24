@@ -32,6 +32,7 @@ class LibraryActionsUiTest {
                 LibraryActions(controller, play.board, hand.cards, onComplete = { completed++ })
             }
         } }
+        compose.waitForIdle()
     }
 
     private fun click(label: String) = compose.onNodeWithContentDescription(label).performClick()
@@ -88,13 +89,17 @@ class LibraryActionsUiTest {
 
     @Test fun valueTapEditsNAndMulligansKeepSevenAndHandMinusOneIndependentOfN() {
         render()
+        click("Set N")
+        // Let the nested dialog attach and lay out before pausing Compose's clock.
+        val input = compose.onNode(hasSetTextAction()).assertIsDisplayed().assertTextEquals("1")
         // Keep the text field's cursor animation on a controlled clock while editing.
         compose.mainClock.autoAdvance = false
-        click("Set N")
-        compose.mainClock.advanceTimeBy(160)
-        compose.onNode(hasSetTextAction()).performTextReplacement("3")
-        compose.onNodeWithText("Set").performClick()
+        input.performTextReplacement("3")
+        compose.mainClock.advanceTimeByFrame()
+        click("Set")
         compose.mainClock.autoAdvance = true
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Set N").assertTextEquals("3")
         click("Draw N")
         assertEquals(3, sent.filterIsInstance<PlayAction.MoveCard>().size)
         for ((label, count) in listOf("Draw 7" to 7, "Draw one fewer" to hand.cards.size - 1)) {

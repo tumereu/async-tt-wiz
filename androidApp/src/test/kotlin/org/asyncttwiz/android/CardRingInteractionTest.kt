@@ -177,27 +177,17 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
     }
 
-    @Test fun counterValueDragDuringOpeningGuardUsesDominantAxisAndCommitsOnlyOnRelease() {
+    @Test fun counterValueDragDuringOpeningGuardIsInert() {
         CardRingPageStore(ApplicationProvider.getApplicationContext(), f.a, f.game.id).write(1)
-        compose.mainClock.autoAdvance = false
         val toolkit = render()
-        // Settle the table anchor/layout without advancing past the 280ms opening guard.
-        compose.mainClock.advanceTimeBy(64)
         val value = compose.onNodeWithContentDescription("Set blue counter")
-        value.performTouchInput { down(center); moveBy(Offset(20f, -40f)) }
-        compose.mainClock.advanceTimeBy(32)
         val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
-        compose.onNodeWithText(valueDragLabel(initial, 4)).assertExists()
-        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
-        value.performTouchInput { up() }
-        compose.mainClock.advanceTimeBy(32)
-        compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "4")), sent)
-            assertNull(toolkit.manual.editor)
-        }
+        // Rendering settles well within the 280ms guard; the opening gesture's tail stays inert.
+        value.performTouchInput { down(center); moveBy(Offset(20f, -40f)) }
         compose.onNodeWithText(valueDragLabel(initial, 4)).assertDoesNotExist()
+        value.performTouchInput { up() }
+        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
         compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
-        compose.mainClock.autoAdvance = true
     }
 
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {

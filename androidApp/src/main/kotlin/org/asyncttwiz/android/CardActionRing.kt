@@ -124,7 +124,8 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 if (!down.isConsumed) {
                     val screen = origin + down.position
                     val valueDrag = dragTargets.values.any { it.contains(TablePoint(screen.x, screen.y)) }
-                    val blocked = !valueDrag && !guard.accepts(down.uptimeMillis)
+                    // The opening gesture's tail must not adjust a counter either, so value drags respect the guard.
+                    val blocked = !guard.accepts(down.uptimeMillis)
                     var swipe = false
                     var delta = Offset.Zero
                     if (blocked) down.consume()

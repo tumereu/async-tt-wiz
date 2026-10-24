@@ -73,8 +73,9 @@ class StackProjectionJourneyTest {
             assertEquals(prediction, f.play.board)
         }
         fun control(action: GameAction) {
+            sync()
             assertTrue(f.lobby.historyControl(action))
-            // Controls intentionally do not predict a new board.
+            // Selective/disclosing controls may deliberately wait for the accepted tree.
             val command = f.commands().last()
             val before = tree
             val change = HistoryContinuation.change(before, f.actor, command)
@@ -212,6 +213,24 @@ class StackProjectionJourneyTest {
         }
     }
 
+    @Test fun pendingStackRingMovesAndTerminalUndoRedoShareOnePredictedQueue() {
+        for (legacy in listOf(false, true)) Journey().use { j ->
+            assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
+            if (legacy) assertTrue(j.f.legacyStack(40)) else assertNotNull(j.drag(listOf(j.f.id(40))))
+            val entry = if (legacy) j.f.id(40) else j.f.play.board.stackEffects.single().id
+            j.ring(entry, PlayZone.GRAVEYARD)
+            val graveyard = j.f.play.board
+            assertTrue(j.f.lobby.historyControl(GameAction.Undo))
+            assertEquals(j.f.container(if (legacy) PlayZone.STACK else PlayZone.BATTLEFIELD), j.f.card(40).containerId)
+            assertTrue(j.f.lobby.historyControl(GameAction.Redo))
+            assertEquals(graveyard, j.f.play.board)
+            // Move again before any result/revision, using the predecessor predicted by Redo.
+            j.ring(j.f.id(40), PlayZone.HAND)
+            j.sync()
+            assertEquals(j.f.container(PlayZone.HAND), j.f.card(40).containerId)
+        }
+    }
+
     @Test fun mixedSourceMultiDragProjectsEachCardAndEveryBubbleRequestCanBeUndoneAndRedone() = Journey(defaults = false).use { j ->
         val zones = listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND)
         zones.forEachIndexed { index, zone -> assertTrue(j.move(j.f.id(40 + index), zone)) }
@@ -337,14 +356,18 @@ class StackProjectionJourneyTest {
                                     (it.cardId == card.id || card.id == it.cards.firstOrNull()) &&
                                         it.visible.any { bounds -> bounds.contains(it.bounds.center) } }) j.drag(listOf(card.id))
                             10, 11 -> {
+                                j.sync()
                                 val action = if (random.nextBoolean()) GameAction.Undo else GameAction.Redo
                                 val probe = j.f.data.command(PlayAction.NextStep).copy(action = action)
                                 if (HistoryContinuation.change(j.tree, j.f.actor, probe).outcome == "accepted") j.control(action)
                             }
                             else -> j.move(card.id, PlayZone.entries.filter { it != PlayZone.STACK }.random(random))
                         }
-                        j.sync()
+                        // Keep short bursts unacknowledged so later gestures/rings capture the
+                        // production queue's prediction, not just the last accepted server board.
+                        if (random.nextInt(4) == 0) j.sync()
                         if (random.nextInt(8) == 0 && j.tree.nodes.isNotEmpty()) {
+                            j.sync()
                             // Do not submit controls that the real UI would disable for disclosure.
                             val probe = j.f.data.command(PlayAction.NextStep).copy(action = GameAction.Undo)
                             if (HistoryContinuation.change(j.tree, j.f.actor, probe).outcome == "accepted") j.undoRedo()

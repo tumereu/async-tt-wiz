@@ -391,8 +391,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             if (!runtime.reviewing) runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                 Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
-            TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
-                tokenCatalog = runtime.tokenCatalog)
         }
         FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
@@ -412,6 +410,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     onClick = { modeMenu = false; redo() }) }
             }
         }
+        CompositionLocalProvider(LocalCardRingAnchors provides scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
+            item.cardId?.let { it to item.bounds }
+        }.toMap()) {
+        if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
+            tokenCatalog = runtime.tokenCatalog)
         actions?.let { captured ->
             val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
                 play.board.cards.singleOrNull { it.id == id }?.let { card ->
@@ -431,6 +434,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     // The normal production request adapter also handles player Set editors.
                     if (currentWritable) callback?.invoke(TableIntent.Submit(action, invocation)) == true else false
                 })
+        }
         }
     }
     CardInspection(inspector, token = inspectedCard?.token == true,

@@ -28,23 +28,23 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     val container = play.board.containers.singleOrNull { it.id == item.id }
     // Browser card entries are real IDs, even when not independently drawn on the Canvas.
     if (context != null && card == null) { SideEffect(dismiss); return }
-    TableMenuPanel(dismiss, title = if (card == null) "Contents" else null) {
-                if (card != null) {
-                    val scope = requireNotNull(captured.scope)
-                    // Do not use own-area hold permission to expose a covered face in Actions.
-                    Text(if (card.covered) "Covered card" else play.definitions.singleOrNull { it.digest == card.definition }
-                        ?.definition?.faces?.singleOrNull { it.faceId == card.faceId }?.name ?: "Card unavailable")
-                    Text("${scope.cardIds.size} captured targets · ${if (card.tapped) "tapped" else "untapped"}")
-                    Row {
-                        ManualActionSquare("Inspect", "", enabled = true, onClick = { inspect(card.id) })
-                        ManualActionSquare("Select / deselect", "", enabled = true, selected = card.id in selection.ids, onClick = { select(card.id) })
-                        if (selection.mode == TableMode.SELECT && item.zone != PlayZone.STACK) {
-                            ManualActionSquare("Tap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, true))) dismiss() })
-                            ManualActionSquare("Untap selected scope", "", enabled, onClick = { if (request(TableIntent.Rotate(scope, false))) dismiss() })
-                        }
-                    }
-                    BasicMoveControls(play, names, enabled, scope, captured.sources, request, dismiss)
-                } else if (container != null) {
+    if (card != null) {
+        val manual = remember(play.id, captured) { ManualActions().apply { cards(play, card.id, requireNotNull(captured.scope).cardIds) } }
+        if (manual.scope == null) { SideEffect(dismiss); return }
+        val rotate = if (selection.mode == TableMode.SELECT && item.zone != PlayZone.STACK) listOf(true, false).map { tapped ->
+            MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
+                if (request(TableIntent.Rotate(requireNotNull(captured.scope), tapped))) dismiss()
+            }
+        } else emptyList()
+        val tools = listOf(MenuControl("Select / deselect", selected = card.id in selection.ids) { select(card.id) }) + rotate +
+            basicMoveTools(play, names, enabled, requireNotNull(captured.scope), captured.sources, request, dismiss)
+        ManualActionsHost(play, viewer, manual, enabled, landscape, names, tools = tools, inspect = { inspect(card.id) }) {
+            submit(it, UUID.randomUUID().toString())
+        }
+        return
+    }
+    TableMenuPanel(dismiss, title = "Contents") {
+                if (container != null) {
                     Text(item.label)
                     if (container.zone == PlayZone.LIBRARY) {
                         // Full-library View is logged and not implemented by the pinned processor.
@@ -77,40 +77,48 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
 @Composable
 internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false) {
-    for (player in play.board.players) {
+    val controls = remember(scope, sources, enabled) { basicMoveTools(play, names, enabled, scope, sources, request, dismiss, topCard) }
+    for ((index, player) in play.board.players.withIndex()) {
         Text(names[player.accountId].orEmpty(), style = MaterialTheme.typography.labelSmall)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
-                val target = play.board.containers.single { it.accountId == player.accountId && it.zone == zone }
-                val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
-                for (bottom in choices) {
-                    val label = "Move ${if (topCard) "top card " else ""}to ${names[player.accountId]} ${zone.name.lowercase()}" +
-                        if (zone == PlayZone.LIBRARY) if (bottom) " bottom" else " top" else ""
-                    // The destination cell is captured by this rendered control, not recomputed in a later callback.
-                    val destination = remember(scope, sources, target.id, bottom) {
-                        if (zone == PlayZone.BATTLEFIELD) {
-                            val occupied = play.board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
-                            val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
-                            TableDestination.Grid(target.id, column, 0)
-                        } else TableDestination.Container(target.id, zone, bottom)
-                    }
-                    ManualActionSquare(label, "", enabled, onClick = { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
-                }
+            for (control in controls.drop(index * 6).take(6)) control.Square()
+        }
+    }
+    for (control in controls.drop(play.board.players.size * 6)) control.Square()
+}
+
+internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
+    sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false): List<MenuControl> = buildList {
+    for (player in play.board.players) {
+        for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+            val target = play.board.containers.single { it.accountId == player.accountId && it.zone == zone }
+            val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
+            for (bottom in choices) {
+                val label = "Move ${if (topCard) "top card " else ""}to ${names[player.accountId]} ${zone.name.lowercase()}" +
+                    if (zone == PlayZone.LIBRARY) if (bottom) " bottom" else " top" else ""
+                // The destination cell is captured by this rendered control, not recomputed in a later callback.
+                val destination = if (zone == PlayZone.BATTLEFIELD) {
+                    val occupied = play.board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
+                    val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
+                    TableDestination.Grid(target.id, column, 0)
+                } else TableDestination.Container(target.id, zone, bottom)
+                add(MenuControl(label, enabled) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
             }
         }
     }
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
-    ManualActionSquare("Move to Stack", "", enabled, onClick = {
+    add(MenuControl("Move to Stack", enabled) {
         if (request(TableIntent.Move(scope, TableDestination.Container(stack.id, stack.zone), sources))) dismiss()
     })
     // Snapshot the same real-card destination used by dragging; sync must not replace an open choice.
-    val piles = remember(scope, sources) { basicPileDestinations(play, scope) }
+    val piles = basicPileDestinations(play, scope)
     for (destination in piles) {
         val source = requireNotNull(destination.source)
         val position = requireNotNull(source.placement)
         val owner = play.board.containers.singleOrNull { it.id == source.containerId }?.accountId
-        ManualActionSquare("Move to ${names[owner] ?: "Player"} pile (${position.column.toInt()}, ${position.row.toInt()})", "", enabled,
-            onClick = { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
+        add(MenuControl("Move to ${names[owner] ?: "Player"} pile (${position.column.toInt()}, ${position.row.toInt()})", enabled) {
+            if (request(TableIntent.Move(scope, destination, sources))) dismiss()
+        })
     }
 }
 

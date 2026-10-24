@@ -56,21 +56,7 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
     for (item in geometry.controls) {
         val b = item.bounds
         val marker = item.id.endsWith("/mark")
-        Canvas(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)) {
-            val a = geometry.anchor.center
-            val dx = a.x - b.center.x; val dy = a.y - b.center.y
-            val path = Path()
-            if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
-                val x = if (dx > 0) size.width else 0f
-                path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + (if (dx > 0) 8 else -8).dp.toPx(), size.height / 2)
-                path.lineTo(x, size.height / 2 + 6.dp.toPx())
-            } else {
-                val y = if (dy > 0) size.height else 0f
-                path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2, y + (if (dy > 0) 8 else -8).dp.toPx())
-                path.lineTo(size.width / 2 + 6.dp.toPx(), y)
-            }
-            path.close(); drawPath(path, ownerColor)
-        }
+        SpeechBubbleTail(geometry.anchor, b, ownerColor)
         Surface(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).semantics {
             contentDescription = item.label
             if (!enabled) disabled()
@@ -113,6 +99,26 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
             }
         }
     }
+}
+
+/** Shared pointer toward a card, used by both the Stack shortcuts and the action ring. */
+@Composable
+internal fun SpeechBubbleTail(anchor: TableBounds, b: TableBounds, color: Color) {
+        Canvas(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)) {
+            val a = anchor.center
+            val dx = a.x - b.center.x; val dy = a.y - b.center.y
+            val path = Path()
+            if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                val x = if (dx > 0) size.width else 0f
+                path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + (if (dx > 0) 8 else -8).dp.toPx(), size.height / 2)
+                path.lineTo(x, size.height / 2 + 6.dp.toPx())
+            } else {
+                val y = if (dy > 0) size.height else 0f
+                path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2, y + (if (dy > 0) 8 else -8).dp.toPx())
+                path.lineTo(size.width / 2 + 6.dp.toPx(), y)
+            }
+            path.close(); drawPath(path, color)
+        }
 }
 
 @Composable

@@ -76,12 +76,13 @@ class MainActivity : ComponentActivity() {
         auth.controller.foreground()
         // AuthViewModel owns socket/reconnect maintenance across configuration changes.
         // Resume only nudges that owner; it must never create a UI-owned connection.
-        if (auth.controller.state.account != null) auth.lobby.foreground()
+        auth.lobby.foreground()
         auth.activity.foreground()
     }
 
     override fun onPause() {
         resumed = false
+        ViewModelProvider(this)[AuthViewModel::class.java].lobby.background()
         AndroidActivityDelivery.get(this).display(null, false)
         super.onPause()
     }

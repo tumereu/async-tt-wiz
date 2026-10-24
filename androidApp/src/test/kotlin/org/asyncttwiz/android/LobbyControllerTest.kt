@@ -132,6 +132,84 @@ class LobbyControllerTest {
             assertEquals(listOf(recipient), controller.state.results)
             failing = false; controller.sync(); deliver()
             assertFalse(controller.state.busy)
+            assertNull(controller.state.error)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun lifecycleInterruptionsAreSilentButOrdinaryAndTerminalErrorsAreNot() {
+        for (failure in listOf(kotlinx.coroutines.CancellationException("Backgrounded"),
+            java.net.SocketException("Socket closed"), LobbyFailure("network"))) {
+            assertTrue(lobbyLifecycleInterruption(failure, interrupted = true))
+            assertFalse(lobbyLifecycleInterruption(failure, interrupted = false))
+        }
+        assertFalse(lobbyLifecycleInterruption(LobbyFailure("authentication_required"), interrupted = true))
+        assertFalse(lobbyLifecycleInterruption(LobbyFailure("invalid_response"), interrupted = true))
+    }
+
+    @Test fun cancellationDuringBackgroundIsSilentAndResumeRetriesWithoutAnIndicator() {
+        val worker = Worker(); var calls = 0
+        lateinit var controller: LobbyController
+        val api = object : Api() {
+            override suspend fun contacts(token: String, after: String?): ContactList {
+                if (++calls == 1) {
+                    controller.background()
+                    throw kotlinx.coroutines.CancellationException("App backgrounded")
+                }
+                return super.contacts(token, after)
+            }
+        }
+        controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.refresh(); worker.drain()
+            assertNull(controller.state.error)
+            assertFalse(controller.state.busy)
+            controller.sync(); worker.drain()
+            assertEquals(1, calls)
+            controller.foreground()
+            assertTrue(controller.state.backgroundLoading)
+            worker.drain()
+            assertEquals(2, calls)
+            assertEquals(listOf(recipient), controller.state.contacts)
+            assertNull(controller.state.error)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun signedOutResumeAllowsRefreshAfterLogin() {
+        val worker = Worker(); var token: String? = null
+        val controller = LobbyController(Api(), { token }, worker, { it() })
+        try {
+            controller.background(); controller.foreground(); worker.drain()
+            assertFalse(controller.state.busy)
+            assertFalse(controller.state.loaded)
+            token = "token"
+            controller.refresh(); worker.drain()
+            assertTrue(controller.state.loaded)
+            assertEquals(listOf(recipient), controller.state.contacts)
+            assertNull(controller.state.error)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun resumeFencesLateFailuresAndDoesNotLetAnOldBusyLoadBlockTheRetry() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = true
+        val api = object : Api() {
+            override suspend fun contacts(token: String, after: String?): ContactList {
+                if (failing) throw kotlinx.coroutines.CancellationException("Old request cancelled")
+                return super.contacts(token, after)
+            }
+        }
+        val controller = LobbyController(api, { "token" }, worker, { posts.add(it) })
+        try {
+            controller.refresh(); worker.drain()
+            assertTrue(controller.state.busy)
+            controller.background(); failing = false; controller.foreground()
+            posts.removeFirst()()
+            assertNull(controller.state.error)
+            assertTrue(controller.state.busy)
+            assertTrue(controller.state.backgroundLoading)
+            worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()
+            assertFalse(controller.state.busy)
+            assertTrue(controller.state.loaded)
+            assertNull(controller.state.error)
         } finally { controller.close(); worker.drain() }
     }
 

@@ -2,6 +2,9 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.test.*
 
 class QuickContinueTest {
@@ -35,5 +38,31 @@ class QuickContinueTest {
         assertEquals(listOf("early", "late"), quickContinueGames(listOf(late, early), "a").map { it.id })
         val tied = listOf(game("z", 1), game("b", 1), game("a", 1), game("c", 1))
         assertEquals(listOf("a", "b", "c"), quickContinueGames(tied, "a").map { it.id })
+    }
+
+    @Test fun sharedRowHighlightsOnlyTheViewerWhoseMoveFlag() {
+        val own = game("own", 1, "a")
+        assertEquals(GameRowMove("Your move", true), gameRowMove(own, "a"))
+        assertEquals(GameRowMove("Alice's move", false), gameRowMove(own, "b"))
+        assertEquals(GameRowMove("Bob's move", false), gameRowMove(game("other", 1), "a"))
+        assertEquals(GameRowMove("Move not available", false), gameRowMove(own.copy(attentionHolder = null), "a"))
+    }
+
+    @Test fun lastActivityUsesUpdatedAtAndLocalDayAndYear() {
+        val clock = Clock.fixed(Instant.parse("2026-10-24T12:00:00Z"), ZoneId.of("Europe/Helsinki"))
+        fun format(timestamp: String) = gameLastActivity(game("date", 1).copy(updatedAt = timestamp), clock)
+        assertEquals("14:05", format("2026-10-24T11:05:00Z"))
+        assertEquals("00:05", format("2026-10-23T21:05:00Z"))
+        assertEquals("23 Oct", format("2026-10-23T20:59:00Z"))
+        assertEquals("24 Sep", format("2026-09-24T11:05:00Z"))
+        assertEquals("24 Oct 2025", format("2025-10-24T11:05:00Z"))
+        assertEquals("", format("invalid"))
+    }
+
+    @Test fun localYearBoundaryDeterminesWhetherYearIsShown() {
+        val clock = Clock.fixed(Instant.parse("2026-12-31T23:00:00Z"), ZoneId.of("Europe/Helsinki"))
+        fun format(timestamp: String) = gameLastActivity(game("date", 1).copy(updatedAt = timestamp), clock)
+        assertEquals("00:05", format("2026-12-31T22:05:00Z"))
+        assertEquals("31 Dec 2026", format("2026-12-31T21:05:00Z"))
     }
 }

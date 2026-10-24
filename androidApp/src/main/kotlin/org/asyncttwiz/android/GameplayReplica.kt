@@ -18,13 +18,18 @@ class GameplayReplica {
         private set
     val retainedRecords get() = records.values.toList()
     val pendingIds get() = predictions.keys.toList()
+    /** Presentation only. Accepted review/storage continue to use tree. */
+    var displayTree: GameplayTree? = null
+        private set
+    fun predicted(requestId: String) = predictions[requestId]?.withdrawn == false
 
     fun predict(command: GameCommand, actor: String): Boolean {
         if (command.requestId in predictions) return false
         val base = display ?: return false
         val retained = displayTree
+        if (command.action !is GameAction.Play && predictions.values.any { it.withdrawn }) return false
         if (retained != null) {
-            if (HistoryContinuation.change(retained, actor, command).tree == null) return false
+            if (predictChange(retained, actor, command).tree == null) return false
         } else if (GameplayRules.change(base, actor, command).state == null) return false
         predictions[command.requestId] = Prediction(command, actor)
         rebase(); return true
@@ -32,6 +37,10 @@ class GameplayReplica {
     fun withdraw(requestId: String) { predictions[requestId]?.withdrawn = true; rebase() }
     fun retire(requestId: String) { predictions.remove(requestId); rebase() }
     fun result(result: GameResult) {
+        correlateResult(result)
+        rebase()
+    }
+    private fun correlateResult(result: GameResult) {
         val prediction = predictions[result.requestId] ?: return
         require(result.scope == prediction.command.scope)
         when (result.outcome) {
@@ -39,7 +48,6 @@ class GameplayReplica {
             "noOp", "rejected" -> predictions.remove(result.requestId)
             else -> error("Invalid result")
         }
-        rebase()
     }
     /** A root-only first head is already a complete current-tree snapshot in this engine. */
     fun root(head: GameHead): Boolean {
@@ -112,7 +120,7 @@ class GameplayReplica {
         tree = retained
         accepted = state; revision = at; records.clear(); records.putAll(staged)
         staged.values.forEach(::correlate)
-        for (status in baseline.statuses) if (status.status == "final") result(status.result!!)
+        for (status in baseline.statuses) if (status.status == "final") correlateResult(status.result!!)
         rebase(); return true
     }
     private fun correlate(update: GameRevision) {
@@ -121,25 +129,63 @@ class GameplayReplica {
             it.commitRevision = update.resultRevision
         }
     }
-    private var displayTree: GameplayTree? = null
+    /** Only terminal, non-revealing controls. No selective suffix, references or branch activation
+     * on the UI thread. The shared processor still checks exact replay, budgets and topology, so
+     * successful prediction has precisely the same board/queues/heads as server processing. */
+    private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
+        if (command.action is GameAction.Play) return HistoryContinuation.change(tree, actor, command)
+        val target = when (command.action) {
+            GameAction.Undo -> tree.nodes[tree.currentNodeId]?.takeIf {
+                it.author == actor && tree.nodes.values.none { node -> node.parentId == it.id }
+            }
+            GameAction.Redo -> tree.redoByAccount[actor]?.lastOrNull()?.takeIf {
+                it.successorId == null && it.mutation.parentId == tree.currentNodeId &&
+                    tree.nodes.values.none { node -> node.parentId == tree.currentNodeId }
+            }?.mutation
+            else -> null
+        } ?: return GameplayTreeChange(reason = "predictionUnavailable")
+        if (target.branchId != tree.currentBranchId || target.revealsInformation || target.references.isNotEmpty() ||
+            target.transition.annotation != null) return GameplayTreeChange(reason = "predictionUnavailable")
+        return HistoryContinuation.change(tree, actor, command)
+    }
+
     private fun rebase() {
         var next = accepted ?: return
         var nextTree = tree?.tree
         val at = revision!!
         predictions.entries.removeAll { (_, prediction) -> prediction.commitRevision?.let {
             GameWire.ordinal(at) >= GameWire.ordinal(it) } == true }
+        var controlBlocked = false
+        var uncertainOriginal = false
         for (prediction in predictions.values) {
-            if (prediction.withdrawn) continue
+            val control = prediction.command.action !is GameAction.Play
+            if (prediction.withdrawn) {
+                uncertainOriginal = true
+                if (control) controlBlocked = true
+                continue
+            }
+            // A control that no longer predicts must not leave later overlays on its old board.
+            if (controlBlocked) continue
+            if (control && uncertainOriginal) {
+                prediction.withdrawn = true; controlBlocked = true
+                continue
+            }
             if (nextTree != null) {
-                val change = HistoryContinuation.change(nextTree, prediction.actor, prediction.command)
-                if (change.tree == null) prediction.withdrawn = true else {
+                val change = predictChange(nextTree, prediction.actor, prediction.command)
+                if (change.tree == null) {
+                    prediction.withdrawn = true; uncertainOriginal = true
+                    if (control) controlBlocked = true
+                } else {
                     val predicted = requireNotNull(change.tree)
                     nextTree = predicted
                     next = requireNotNull(predicted.stateAt(predicted.currentNodeId))
                 }
             } else {
                 val change = GameplayRules.change(next, prediction.actor, prediction.command)
-                if (change.state == null) prediction.withdrawn = true else next = requireNotNull(change.state)
+                if (change.state == null) {
+                    prediction.withdrawn = true; uncertainOriginal = true
+                    if (control) controlBlocked = true
+                } else next = requireNotNull(change.state)
             }
         }
         displayTree = nextTree
@@ -155,7 +201,9 @@ class GameplayReplica {
         require(head.gameId == endpoint.gameId && head.play?.id == endpoint.id)
         this.tree = generation; accepted = endpoint; revision = at; records.clear()
         tail.forEach(::correlate)
-        for (status in statuses) if (status.status == "final") result(requireNotNull(status.result))
+        // Correlate the whole snapshot before replaying its remaining tail: status ordering must
+        // not temporarily replay already-accepted originals and permanently withdraw later controls.
+        for (status in statuses) if (status.status == "final") correlateResult(requireNotNull(status.result))
         rebase(); return true
     }
 }

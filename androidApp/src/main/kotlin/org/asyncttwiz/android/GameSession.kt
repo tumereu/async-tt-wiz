@@ -165,6 +165,7 @@ class GameSession(private val connection: GameConnection, private val credential
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
     fun play(game: GameSummary) = plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
     fun retainedTree(gameId: String) = plays[gameId]?.tree?.tree
+    fun displayTree(gameId: String) = plays[gameId]?.displayTree
     /** Personal read-only review, including offline. Cold replay and cursor persistence are worker
      * work; account/incarnation/clear fences are checked before disk and again before UI delivery. */
     fun review(gameId: String, nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean {
@@ -347,10 +348,10 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
             (account != null && account != actor)) return null
         val replica = plays[game.id] ?: return null
-        // Controls are processing-time operations, not predicted boards. A drag captured from the
-        // pre-Undo display must not follow that Undo with a now-invalid source/instance reference.
+        // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
+        // latest-head predictions allow rapid play/control sequences on the same original FIFO.
         if (action is GameAction.Play && resultIntents.values.any { it.command.scope.gameId == game.id &&
-                it.command.action !is GameAction.AcceptResult }) return null
+                it.command.action !is GameAction.AcceptResult && !replica.predicted(it.command.requestId) }) return null
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return null
         val stream = streams.getValue(game.id)
         val command = GameCommand(UUID.randomUUID().toString(), GameScope(game.id, playId = current.playId),
@@ -358,10 +359,11 @@ class GameSession(private val connection: GameConnection, private val credential
         if (!GameWire.valid(command)) return null
         // A control can become eligible after an already-inflight original. Failure to predict is
         // not authority to suppress the server's processing-time candidate.
-        // Selective controls can require a cold suffix replay. Do not run that server eligibility
-        // calculation on the UI thread or block a following original on its acknowledgement.
+        // Replica prediction is limited to exact terminal controls; selective suffixes stay server-only.
         // The accepted delta is prepared by the serial tree worker before publication.
         if (action is GameAction.Play && !replica.predict(command, actor)) return null
+        if (action !is GameAction.Play && resultIntents.values.none { it.command.scope.gameId == game.id &&
+                !replica.predicted(it.command.requestId) }) replica.predict(command, actor)
         pending[command.requestId] = command
         if (action !is GameAction.Play) resultIntents[command.requestId] = ResultIntent(command, actor)
         captured(command)

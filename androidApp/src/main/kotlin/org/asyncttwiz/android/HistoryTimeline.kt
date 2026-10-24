@@ -40,7 +40,7 @@ object HistoryTimelineLayout {
             val mutation = tree.nodes[id]
             val text = tree.texts[id] ?: historyText(mutation)
             HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
-                org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action).icon,
+                org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
                 text.description,
                 mutation?.author, groups[id]?.id, ((children[id] ?: 0) - 1).coerceAtLeast(0), text.label)
         }
@@ -205,6 +205,7 @@ fun HistoryEventIcon(icon: String) {
         "link" -> Icons.Outlined.Link
         "link_off" -> Icons.Outlined.LinkOff
         "remove_circle_outline" -> Icons.Outlined.RemoveCircleOutline
+        "format_ink_highlighter" -> Icons.Outlined.BorderColor
         else -> error("Unsupported history icon: $icon")
     }
     Icon(vector, null, Modifier.size(20.dp))
@@ -217,7 +218,7 @@ internal fun historyIconGlyph(icon: String): String = when (icon) {
     "outlined_flag" -> "⚐"; "emoji_events" -> "♜"; "sticky_note_2" -> "▧"; "delete" -> "×";
     "shuffle" -> "⤨"; "pageview" -> "▣"; "close" -> "✕"; "monetization_on" -> "◉";
     "settings_backup_restore" -> "↺"; "flip_camera_android" -> "▣"; "flip" -> "▧"; "flip_to_front" -> "▤";
-    "link" -> "∞"; "link_off" -> "∦"; "remove_circle_outline" -> "⊖";
+    "link" -> "∞"; "link_off" -> "∦"; "remove_circle_outline" -> "⊖"; "format_ink_highlighter" -> "▰";
     else -> error("Unsupported history icon: $icon")
 }
 

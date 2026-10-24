@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,10 +19,13 @@ enum class HistoryGlyph(val label: String, val icon: String) {
     REMOVE("Remove token", "delete"), LINK("Link", "link"), UNLINK("Remove link", "link_off"),
     COMBAT("Combat", "swords"), CLOSE("Close / remove Stack effect", "layers_clear"),
     OCCURRENCE_REMOVE("Remove occurrence", "remove_circle_outline"), STACK("Stack entry / removal", "layers"), DRAW("Draw", "download"),
-    RESULT("Result suggestion", "emoji_events");
+    TEXT_MARK("Mark Stack text", "format_ink_highlighter"), RESULT("Result suggestion", "emoji_events");
 
     val symbol: String get() = historyIconGlyph(icon)
-    companion object { fun fromIcon(icon: String) = entries.single { it.icon == icon } }
+    companion object {
+        fun fromIcon(icon: String) = entries.singleOrNull { it.icon == icon }
+            ?: error("Unsupported history icon: $icon")
+    }
 }
 data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<String>,
     val representativeId: String?, val glyph: HistoryGlyph, val author: String?,
@@ -67,7 +71,7 @@ object HistoryGraphLayout {
             require(seen.add(node.id)) { "Cyclic tree" }
             if (node.id !in visible) continue
             val parentSegment = segments.getValue(segmentOf.getValue(node.parentId))
-            val group = GameplayHistory.append(groups[node.parentId], node)
+            val group = GameplayHistory.append(groups[node.parentId], node, tree.initial.board.containers)
             groups[node.id] = group
             val groupId = membership[node.id] ?: group.id
             // A real fork ends the rendered range even if the automatic group continues through it.
@@ -130,7 +134,10 @@ data class HistoryExplorerState(val graph: HistoryGraph? = null, val selectedNod
  * Close/account changes fence queued work. It does not own/shutdown the application's worker.
  */
 class HistoryExplorerController(private val worker: Executor, private val post: (() -> Unit) -> Unit,
-    private val connected: () -> Boolean, private val submit: (GameScope, GameAction) -> Boolean) : AutoCloseable {
+    private val connected: () -> Boolean, private val submit: (GameScope, GameAction) -> Boolean,
+    private val logFailure: (String, Throwable) -> Unit = { context, failure ->
+        Log.e("HistoryExplorer", context, failure); Unit
+    }) : AutoCloseable {
     var state by mutableStateOf(HistoryExplorerState())
         private set
     private var tree: GameplayTree? = null
@@ -162,8 +169,8 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         worker.execute {
             if (generation != epoch) return@execute
             val result = runCatching {
-                val selected = value.resolveCursor(nodeId) ?: return@runCatching null
-                val reviewed = value.stateAt(selected) ?: return@runCatching null
+                val selected = checkNotNull(value.resolveCursor(nodeId)) { "Cannot resolve retained cursor $nodeId" }
+                val reviewed = checkNotNull(value.stateAt(selected)) { "Cannot reconstruct retained boundary $selected" }
                 val hidden = if (includeHidden) emptySet() else {
                     val comments = value.nodes.values.filter { it.action is PlayAction.EventComment }.map { it.id }.toSet()
                     value.branches.values.filter { branch ->
@@ -173,12 +180,13 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
                 }
                 Triple(HistoryGraphLayout.build(value, groups, (filter.filter { value.nodes[it]?.branchId !in hidden }.toSet() + selected)), selected, reviewed)
             }
+            result.exceptionOrNull()?.let { failure ->
+                // Diagnostics must not prevent the friendly error (including in host tests without Android).
+                runCatching { logFailure("Rebuild failed: game=${value.initial.gameId} play=${value.initial.id} " +
+                    "selected=$nodeId current=${value.currentNodeId} nodes=${value.nodes.size} branches=${value.branches.size}", failure) }
+            }
             post {
                 if (!closed && generation == epoch) result.fold({ resolved ->
-                    if (resolved == null) {
-                        state = state.copy(busy = false, error = "History unavailable")
-                        return@fold
-                    }
                     val (graph, selected, reviewed) = resolved
                     state = HistoryExplorerState(graph, selected, reviewed, archivedSelection =
                         (value.nodes[selected]?.branchId ?: value.initial.root.branchId) in value.branchArchives.archivedBranchIds)

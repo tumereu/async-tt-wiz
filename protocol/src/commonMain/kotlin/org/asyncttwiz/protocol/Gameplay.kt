@@ -213,7 +213,7 @@ object GameplayRules {
             command.action.action, relevant,
             grouping = HistoryGrouping.classify(command.action.action, state.board.containers, relevant),
             revealsInformation = relevant.disclosures.isNotEmpty() || relevant.contents?.to?.cardIds?.isNotEmpty() == true)
-        val group = GameplayHistory.append(state.currentGroup, mutation)
+        val group = GameplayHistory.append(state.currentGroup, mutation, state.board.containers)
         return GameplayChange(state.copy(board = closed, currentNodeId = mutation.id, currentGroup = group), mutation)
     }
 

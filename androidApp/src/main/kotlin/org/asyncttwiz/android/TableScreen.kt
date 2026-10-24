@@ -47,8 +47,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val live = state.play
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val tree = controller.retainedTree()
-    LaunchedEffect(tree, live?.currentNodeId, live?.board, game.revision) {
-        tree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
+    val displayTree = controller.displayTree()
+    LaunchedEffect(displayTree, live?.currentNodeId, live?.board, game.revision) {
+        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
     }
     val playback = history.playback
     val position = playback?.position
@@ -64,13 +65,16 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
     LaunchedEffect(tree, explorerOpen, showHidden) {
-        if (explorerOpen && tree != null) explorer.update(tree, openingNodeId = position?.cursorId, showHidden = showHidden)
+        // The live timeline includes provisional nodes; the explorer's activation/review targets
+        // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
+        if (explorerOpen && tree != null) explorer.update(tree,
+            openingNodeId = position?.cursorId?.let(tree::resolveCursor), showHidden = showHidden)
     }
     var appliedActivity by remember(history) { mutableStateOf<ActivityTarget?>(null) }
     val target = state.activityTarget
     val waitingActivity = target?.destination == ActivityDestination.GROUP && target != appliedActivity
-    val awaitingIndex = tree != null && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
-        playback?.tree?.sharedHeadId != tree.currentNodeId
+    val awaitingIndex = displayTree != null && displayTree === tree && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
+        playback?.tree?.sharedHeadId != displayTree.currentNodeId
     val endpoint = remember(history) { TableEndpointPresentation() }
     val play = if (waitingActivity) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex)

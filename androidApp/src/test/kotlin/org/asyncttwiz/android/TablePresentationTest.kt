@@ -108,6 +108,28 @@ class TablePresentationTest {
         }
     }
 
+    @Test fun groupsPeekTopLeftAndLandingPreviewsMatchDrawnCardsAndDropTargets() {
+        for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) for (tapped in listOf(false, true)) {
+            val p = TableFixture.play(board = 3)
+            val state = p.copy(board = p.board.copy(cards = p.board.cards.map { it.copy(tapped = tapped) }))
+            val ids = (0..2).map { "a/BATTLEFIELD/$it" }
+            val placements = ids.mapIndexed { index, id -> id to TablePlacement(1, 0, index) }.toMap()
+            val scene = TableFixture.scene(state, landscape, TableLayoutState(TableCamera(zoom = zoom)), placements)
+            val cards = ids.map { id -> scene.items.single { it.cardId == id } }
+            cards.zipWithNext().forEach { (top, lower) ->
+                assertEquals(top.bounds.x - 4 * zoom, lower.bounds.x, .001f)
+                assertEquals(top.bounds.y - 4 * zoom, lower.bounds.y, .001f)
+                assertEquals(top.footprint, lower.footprint)
+                assertEquals(lower.id, scene.hit(TablePoint(lower.bounds.x + zoom, lower.bounds.y + zoom))?.id)
+            }
+            val scope = TableScope(ids.first(), ids)
+            val landing = tableDragLanding(scene, TableGesturePreview(scope = scope, destination = TableDestination.CardPile(ids.first())))
+            assertEquals(cards.map { it.bounds }, landing.outlines)
+            val preview = tableDragLanding(scene, TableGesturePreview(scope = scope, destination = TableDestination.Grid("a/BATTLEFIELD", 1, 0)))
+            assertEquals(cards.mapNotNull { it.bounds.intersection(scene.fields.last().bounds) }, preview.outlines)
+        }
+    }
+
     @Test fun ownerIsNotFieldAndCoveredMetadataNeverLeaksThroughTableSemantics() {
         val p = TableFixture.play(board = 1, hand = 1)
         val changed = p.copy(board = p.board.copy(cards = p.board.cards.map { c ->
@@ -172,15 +194,16 @@ class TablePresentationTest {
         val p = TableFixture.play(board = 3)
         val positions = p.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { it.id to TablePlacement(0, 0, it.id.last().digitToInt()) }
         val scene = TableFixture.scene(p, placements = positions)
-        val under = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
-        val top = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }
+        val under = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }
+        val top = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
         assertTrue(under.visible.isNotEmpty())
         under.visible.forEach { b -> assertEquals(under.id, scene.hit(b.center)?.id); assertTrue(under.cardId in scene.rectangle(b)) }
         val insideTop = TableBounds(top.bounds.right - 4, top.bounds.bottom - 4, 2f, 2f)
         assertEquals(setOf(top.cardId), scene.rectangle(insideTop))
         val fullyHidden = TableFixture.scene(p, placements = positions.mapValues { TablePlacement(0, 0, 0) })
-        assertTrue(fullyHidden.items.single { it.cardId == under.cardId }.visible.isEmpty())
-        assertFalse(under.cardId in fullyHidden.rectangle(under.bounds))
+        val hidden = fullyHidden.items.single { it.cardId == top.cardId }
+        assertTrue(hidden.visible.isEmpty())
+        assertFalse(hidden.cardId in fullyHidden.rectangle(hidden.bounds))
     }
 
     @Test fun animatedDrawnBoundsNotDestinationBoundsOwnTargets() {

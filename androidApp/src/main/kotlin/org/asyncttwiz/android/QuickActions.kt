@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -11,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
@@ -103,7 +106,8 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             }
             repeat((QuickActions.contextualPositions - actions.size).coerceAtLeast(0)) { Spacer(Modifier.size(48.dp)) }
         }
-        ActionSquare("Next step", "↦", controller.enabled(scope), fill = endingPlayerColor, badge = "⇥",
+        ActionSquare("Next step", "↦", controller.enabled(scope), Modifier.background(Color.White).border(1.dp, endingPlayerColor),
+            ink = endingPlayerColor,
             holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
             gestureKey = scope,
             icon = { TableChromeIcon("next") },
@@ -118,7 +122,9 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
     gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
-    val hold by rememberUpdatedState(onHold)
+    val haptic = LocalHapticFeedback.current
+    val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
+    val currentPerformHold by rememberUpdatedState(performHold)
     var tooltip by remember(name) { mutableStateOf(false) }
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
     Box(modifier.size(48.dp).background(fill).onKeyEvent { event ->
@@ -133,7 +139,7 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         this.selected = selected
         onClick(name) { if (enabled) { click(); true } else false }
         if (holdName != null) customActions = listOf(CustomAccessibilityAction(holdName) {
-            if (enabled) { hold?.invoke(); true } else false
+            if (enabled) { currentPerformHold?.invoke(); true } else false
         })
     }.pointerInput(name) {
         awaitPointerEventScope {
@@ -143,13 +149,13 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
             }
         }
     }.pointerInput(name, enabled, holdName, gestureKey) {
-        var press = ActionPress(holdName != null)
+        var press = ActionPress(onHold != null)
         var capturedClick: (() -> Unit)? = null
         var capturedHold: (() -> Unit)? = null
         detectTapGestures(
             onPress = {
-                capturedClick = click; capturedHold = hold
-                press = ActionPress(holdName != null)
+                capturedClick = click; capturedHold = currentPerformHold
+                press = ActionPress(capturedHold != null)
                 if (!tryAwaitRelease()) press.cancel()
                 tooltip = false
             },

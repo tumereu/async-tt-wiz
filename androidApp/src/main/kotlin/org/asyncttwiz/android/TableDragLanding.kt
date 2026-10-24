@@ -33,8 +33,9 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 val dy = (p.y * field.rowHeight - scene.camera.y) * zoom
                 val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight * zoom - dy else field.gridBounds.y + dy
                 val baseY = rowY + (field.rowHeight * zoom - scene.footprint) / 2
-                val b = outline(id, x + n * 4 * zoom, 0f)
-                b.copy(y = baseY + n * 4 * zoom + (scene.footprint - b.height) / 2 - 2 * zoom).intersection(field.bounds)
+                val b = outline(id, 0f, 0f)
+                battlefieldCardBounds(TableBounds(x, baseY, scene.footprint, scene.footprint), b.width, b.height, n, zoom)
+                    .intersection(field.bounds)
             } }.filterNotNull()
             TableDragLanding(slots)
         }
@@ -57,8 +58,8 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
         is TableDestination.CardPile -> {
             val target = scene.items.firstOrNull { it.cardId == destination.cardId } ?: return TableDragLanding()
             TableDragLanding(ids.mapIndexed { n, id ->
-                val b = outline(id, target.footprint.x + n * 4 * zoom, 0f)
-                b.copy(y = target.footprint.y + n * 4 * zoom + (scene.footprint - b.height) / 2 - 2 * zoom)
+                val b = outline(id, 0f, 0f)
+                battlefieldCardBounds(target.footprint, b.width, b.height, n, zoom)
             })
         }
         is TableDestination.Combat -> {

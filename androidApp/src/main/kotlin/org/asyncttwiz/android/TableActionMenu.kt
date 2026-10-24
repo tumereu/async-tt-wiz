@@ -64,7 +64,8 @@ object TableActionMenus {
 @Composable
 fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, onDismiss: () -> Unit, pendingSuggestionId: String? = null, mayAccept: Boolean = false,
-    perform: (TableActionIntent) -> Boolean = controller::perform, blankToken: (() -> Boolean)? = null) {
+    perform: (TableActionIntent) -> Boolean = controller::perform, blankToken: (() -> Boolean)? = null,
+    names: Map<String, String> = emptyMap()) {
     val scope = TableActionScope(play.gameId, play.id)
     var sides by remember(scope) { mutableStateOf("6") }
     var picker by remember(scope) { mutableStateOf(false) }
@@ -97,7 +98,7 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
-    if (picker) PhaseStepPicker(play, viewerId, endingPlayerColor, controller, onDismiss = { picker = false }, onComplete = onDismiss)
+    if (picker) PhaseStepPicker(play, viewerId, endingPlayerColor, controller, onDismiss = { picker = false }, onComplete = onDismiss, names = names)
     if (die) TableMenuPanel({ die = false }, title = "Roll die") {
         OutlinedTextField(sides, { sides = it }, label = { Text("Die sides") }, singleLine = true,
             modifier = Modifier.fillMaxWidth(), isError = sides.toIntOrNull()?.let { it <= 0 } != false)

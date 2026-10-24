@@ -15,9 +15,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
@@ -32,6 +36,18 @@ import kotlin.math.abs
 /** Change just this flag for icon-only bubbles. Accessible names and hold tooltips remain. */
 internal const val CardRingLabels = true
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
+private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?) -> Unit> { { _, _ -> } }
+
+private fun Modifier.ringInputTarget(): Modifier = composed {
+    val register = LocalRingInputTargets.current
+    val key = remember { Any() }
+    DisposableEffect(register, key) { onDispose { register(key, null) } }
+    onGloballyPositioned {
+        val windowOrigin = it.localToScreen(Offset.Zero) - it.localToWindow(Offset.Zero)
+        val bounds = it.boundsInWindow()
+        register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height))
+    }
+}
 internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl)
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
     val compound: RingCompound? = null, val fill: Color? = null)
@@ -62,9 +78,24 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     var gridMode by remember { mutableStateOf(false) }
     val switchPage: (Int) -> Unit = { delta -> page = (page + delta).mod(3); store.write(page) }
     val currentSwitch by rememberUpdatedState(switchPage)
+    val relay = LocalTableTapRelay.current
+    val inputTargets = remember { mutableMapOf<Any, TableBounds>() }
+    val registerTarget = remember { { key: Any, bounds: TableBounds? ->
+        if (bounds == null) inputTargets.remove(key) else inputTargets.put(key, bounds)
+        Unit
+    } }
+    val currentDismiss by rememberUpdatedState(dismiss)
+    DisposableEffect(relay, identity, viewId) {
+        val input = TableRingInput(viewId, { screen ->
+            inputTargets.values.none { it.contains(TablePoint(screen.x, screen.y)) }
+        }, { currentDismiss() })
+        relay?.ring = input
+        onDispose { if (relay?.ring === input) relay.ring = null }
+    }
     BackHandler(onBack = dismiss)
+    CompositionLocalProvider(LocalRingInputTargets provides registerTarget) {
     BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }
-        .tableTapRelay().pointerInput(guard) {
+        .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 // The relay alone can replace the first tap with the table's double-tap action.
@@ -88,7 +119,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 }
             }
         }) {
-        // This hit surface has no paint/scrim. An outside tap is swallowed, never forwarded to the table.
+        // Standalone fallback; the stable table host relays outside presses before they reach here.
         Box(Modifier.fillMaxSize().pointerInput(dismiss) { detectTapGestures(onTap = { dismiss() }) })
         val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
         val font = LocalDensity.current.fontScale
@@ -129,7 +160,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 val y = (if (region.bottom <= card.y) region.bottom - height else if (region.y >= card.bottom) region.y else card.center.y - height / 2)
                     .coerceIn(region.y, (region.bottom - height).coerceAtLeast(region.y))
                 Column(Modifier.offset(x.dp, y.dp).size(width.dp, height.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.height(viewportHeight.dp).verticalScroll(rememberScrollState()).semantics { contentDescription = "Card action grid" },
+                    Column(Modifier.height(viewportHeight.dp).ringInputTarget().verticalScroll(rememberScrollState()).semantics { contentDescription = "Card action grid" },
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         var index = 0
                         for (row in rows) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,6 +178,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 }
             }
         }
+    }
     }
 }
 
@@ -201,8 +233,9 @@ private fun RingBubble(entry: RingEntry, owner: Color, modifier: Modifier) {
 private fun RingPress(control: MenuControl, modifier: Modifier, color: Color, shape: androidx.compose.ui.graphics.Shape,
     paint: Boolean = true, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
-    Surface(modifier.semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
-        .combinedClickable(enabled = control.enabled, role = Role.Button, onLongClick = { tooltip = true }, onClick = control.click),
+    Surface(modifier.ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
+        .combinedClickable(enabled = control.enabled, role = Role.Button, hapticFeedbackEnabled = false,
+            onLongClick = { tooltip = true }, onClick = control.click),
         shape = shape, color = if (paint) Color.White else Color.Transparent,
         border = if (paint) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = .65f)) else null,
         shadowElevation = if (paint) 3.dp else 0.dp) {

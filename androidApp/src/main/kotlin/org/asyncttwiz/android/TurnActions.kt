@@ -19,6 +19,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import kotlin.math.roundToLong
 
@@ -30,6 +31,45 @@ internal fun phaseColor(phase: String) = when (phase) {
     else -> Color(0xffe5e7e9)
 }
 
+internal fun phaseName(phase: String) = when (phase) {
+    "BEGINNING" -> "Beginning"
+    "PRECOMBAT_MAIN" -> "Precombat main"
+    "COMBAT" -> "Combat"
+    "POSTCOMBAT_MAIN" -> "Postcombat main"
+    "ENDING" -> "Ending"
+    else -> phase
+}
+
+internal val TurnPosition.shortCode: String get() = when (this) {
+    TurnPosition.UNTAP -> "UNT"
+    TurnPosition.UPKEEP -> "UPK"
+    TurnPosition.DRAW -> "DRW"
+    TurnPosition.PRECOMBAT_MAIN -> "M1"
+    TurnPosition.BEGIN_COMBAT -> "BOC"
+    TurnPosition.DECLARE_ATTACKERS -> "ATK"
+    TurnPosition.DECLARE_BLOCKERS -> "BLK"
+    TurnPosition.COMBAT_DAMAGE -> "DMG"
+    TurnPosition.END_COMBAT -> "EOC"
+    TurnPosition.POSTCOMBAT_MAIN -> "M2"
+    TurnPosition.END_STEP -> "END"
+    TurnPosition.CLEANUP -> "CLN"
+}
+
+internal fun turnStepName(turn: TurnState): String {
+    val position = TurnPosition.of(turn) ?: return "${phaseName(turn.phase)} · ${turn.step}"
+    val phase = phaseName(turn.phase)
+    return if (position.label == phase) phase else "$phase · ${position.label}"
+}
+
+@Composable
+internal fun TurnStepIcon(turn: TurnState) {
+    val position = TurnPosition.of(turn)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {}) {
+        MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(22.dp), tint = LocalContentColor.current)
+        Text(position?.shortCode ?: "?", fontSize = 8.sp, lineHeight = 9.sp)
+    }
+}
+
 /** Icon + phase background + turn-player border. Number is a separate badge, never priority. */
 @Composable
 fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Color,
@@ -38,7 +78,7 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("$turnPlayerName, ${position.label}. Choose phase/step", position.glyph, true,
             Modifier.border(2.dp, turnPlayerColor), fill = phaseColor(turn.phase), ink = Color(0xff25333b),
-            icon = { MenuIcon(position.label) }, onClick = onOpenPicker)
+            icon = { TurnStepIcon(turn) }, onClick = onOpenPicker)
         Text(turn.number, Modifier.padding(4.dp).semantics { contentDescription = "Turn ${turn.number}" },
             style = MaterialTheme.typography.labelSmall)
     }
@@ -46,30 +86,37 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
 
 @Composable
 fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
-    controller: TableActionController, onDismiss: () -> Unit, onComplete: () -> Unit = onDismiss) {
+    controller: TableActionController, onDismiss: () -> Unit, onComplete: () -> Unit = onDismiss,
+    names: Map<String, String> = emptyMap()) {
     val scope = TableActionScope(play.gameId, play.id)
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
-    TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = "Turn ${play.board.turn.number}",
+    val turn = play.board.turn
+    TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = turnStepName(turn),
         border = endingPlayerColor, gap = if (landscape) 4.dp else 8.dp, contentPadding = if (landscape) 8.dp else 12.dp) {
-                for ((phase, steps) in TurnPosition.entries.groupBy { it.phase }) {
-                    Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
-                        .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        for (step in steps) ManualActionSquare(step.label, "", controller.enabled(scope),
-                            iconTint = if (TurnPosition.of(play.board.turn) == step) endingPlayerColor else MenuInk,
-                            selected = TurnPosition.of(play.board.turn) == step,
-                            onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
-                    }
+        Text(names[turn.accountId]?.let { "$it's turn" } ?: if (turn.accountId == viewerId) "Your turn" else "Opponent's turn",
+            style = MaterialTheme.typography.bodySmall)
+        for ((phase, steps) in TurnPosition.entries.groupBy { it.phase }) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(phaseName(phase), style = MaterialTheme.typography.labelSmall, color = MenuInk.copy(alpha = .7f))
+                Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
+                    .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (step in steps) ManualActionSquare(step.label, "", controller.enabled(scope),
+                        iconTint = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
+                        selected = TurnPosition.of(turn) == step,
+                        onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
-                        if (controller.perform(TableActionIntent.Next(scope))) onComplete()
-                    }
-                    MenuButton(if (play.board.turn.accountId == viewerId) "End turn" else "End opponent's turn",
-                        Modifier.weight(1f), controller.enabled(scope), endingPlayerColor) {
-                        if (controller.perform(TableActionIntent.End(scope))) onComplete()
-                    }
-                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
+                if (controller.perform(TableActionIntent.Next(scope))) onComplete()
+            }
+            MenuButton(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",
+                Modifier.weight(1f), controller.enabled(scope), endingPlayerColor) {
+                if (controller.perform(TableActionIntent.End(scope))) onComplete()
+            }
+        }
     }
 }
 

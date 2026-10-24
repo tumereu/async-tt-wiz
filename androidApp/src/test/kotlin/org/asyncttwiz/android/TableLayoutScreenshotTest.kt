@@ -65,15 +65,16 @@ class TableLayoutScreenshotTest {
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         compose.onNodeWithContentDescription(stack.label).assertIsDisplayed().assertHasClickAction()
         if (!landscape) {
-            val boundary = scene.viewports.single { it.id == "dock/a" }.bounds.y
-            assertEquals(boundary, region.center.y)
-            assertEquals(boundary, stack.bounds.center.y)
+            assertEquals(image.height / 2f, region.center.y)
+            assertEquals(image.height / 2f, stack.bounds.center.y)
+            assertEquals(image.width.toFloat(), region.right)
             val topArea = scene.viewports.singleOrNull { it.id == "counters/b" }
                 ?: scene.viewports.single { it.id == "dock/b" }
-            assertEquals(boundary, topArea.bounds.bottom)
+            assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.y, topArea.bounds.bottom)
+            assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.bottom, scene.viewports.single { it.id == "dock/a" }.bounds.y)
             assertTrue(scene.items.filter { it.kind == TableItemKind.COUNTER || it.kind == TableItemKind.LIFE ||
                 it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
-                .flatMap { it.visible }.all { it.right <= region.x })
+                .flatMap { it.visible }.all { it.intersection(region) == null })
             if (!populated) {
                 // The empty Stack still has its purple slot outline, not just its badge.
                 assertTrue((stack.bounds.x.toInt() until stack.bounds.right.toInt()).any { x ->

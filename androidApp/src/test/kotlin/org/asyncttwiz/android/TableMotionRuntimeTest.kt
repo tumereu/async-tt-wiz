@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -71,4 +72,43 @@ class TableMotionRuntimeTest {
 
     @Test fun ownLibraryDrawMovesAcrossTheTableAndConfirmationDoesNotRestartClock() = draw("a")
     @Test fun opponentLibraryDrawMovesToCoveredHand() = draw("b")
+
+    @Test fun combatOpeningAndClosingAnimateWorldGeometryButNotHud() {
+        val initial = TableFixture.play(board = 1, hand = 1).let { play -> play.copy(board = play.board.copy(
+            cards = play.board.cards.map { if (it.containerId.endsWith("HAND")) it.copy(tapped = true) else it })) }
+        val state = mutableStateOf(initial)
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())
+        } }
+        compose.waitForIdle()
+        val home = TablePresentation.scene(TableFixture.game, initial, "a", 412f, 892f, false)
+        fun bounds(id: String) = compose.onNodeWithContentDescription(home.items.single { it.id == id }.label).fetchSemanticsNode().boundsInRoot
+        val cardBefore = bounds("card/a/BATTLEFIELD/0")
+        val handBefore = bounds("card/a/HAND/0")
+        val stackBefore = bounds("stack")
+        val opened = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
+        // Compose places semantics boxes on whole pixels, while world geometry remains fractional dp.
+        val finalTop = TablePresentation.scene(TableFixture.game, opened, "a", 412f, 892f, false)
+            .items.single { it.id == "card/a/BATTLEFIELD/0" }.bounds.y.roundToInt().toFloat()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { state.value = opened }
+        compose.mainClock.advanceTimeByFrame(); compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(80); compose.waitForIdle()
+        val during = bounds("card/a/BATTLEFIELD/0")
+        assertTrue(during.top > cardBefore.top)
+        assertTrue(during.top < finalTop)
+        assertEquals(cardBefore.width, during.width, .01f)
+        assertEquals(handBefore, bounds("card/a/HAND/0"))
+        assertEquals(stackBefore, bounds("stack"))
+        compose.mainClock.advanceTimeBy(240); compose.waitForIdle()
+        assertEquals(finalTop, bounds("card/a/BATTLEFIELD/0").top)
+        compose.runOnIdle { state.value = initial }
+        compose.mainClock.advanceTimeByFrame(); compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(80); compose.waitForIdle()
+        val closing = bounds("card/a/BATTLEFIELD/0")
+        assertTrue(closing.top > cardBefore.top && closing.top < finalTop)
+        compose.mainClock.advanceTimeBy(240); compose.waitForIdle()
+        assertEquals(cardBefore, bounds("card/a/BATTLEFIELD/0"))
+        compose.mainClock.autoAdvance = true
+    }
 }

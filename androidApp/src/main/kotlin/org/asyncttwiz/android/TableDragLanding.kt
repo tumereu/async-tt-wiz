@@ -29,10 +29,10 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
                     old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
             val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->
-                val x = field.gridBounds.x + (p.x * TablePresentation.GRID - scene.camera.x) * zoom + 16 * zoom
-                val dy = (p.y * field.rowHeight - scene.camera.y) * zoom
-                val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight * zoom - dy else field.gridBounds.y + dy
-                val baseY = rowY + (field.rowHeight * zoom - scene.footprint) / 2
+                val x = field.gridBounds.x + p.x * TablePresentation.GRID * zoom + 16 * zoom
+                val dy = p.y * field.rowHeight
+                val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight - dy else field.gridBounds.y + dy
+                val baseY = rowY + (field.rowHeight - scene.footprint) / 2
                 val b = outline(id, 0f, 0f)
                 battlefieldCardBounds(TableBounds(x, baseY, scene.footprint, scene.footprint), b.width, b.height, n, zoom)
                     .intersection(field.bounds)
@@ -44,15 +44,15 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
             if (destination.zone == PlayZone.HAND) {
                 val right = destination.handGap?.beforeId?.let { id -> scene.items.firstOrNull { it.cardId == id } }
                 val left = destination.handGap?.afterId?.let { id -> scene.items.firstOrNull { it.cardId == id } }
-                val x = right?.bounds?.x?.minus(2 * zoom) ?: left?.bounds?.right?.plus(2 * zoom) ?: item.bounds.center.x
+                val x = right?.bounds?.x?.minus(2) ?: left?.bounds?.right?.plus(2) ?: item.bounds.center.x
                 TableDragLanding(hand = item.bounds, insertionX = x.coerceIn(item.bounds.x + 2, item.bounds.right - 2))
             } else {
-                val step = if (destination.zone == PlayZone.STACK) scene.cardWidth * .12f else 4 * zoom
-                val x = item.bounds.x + if (destination.zone == PlayZone.STACK) 2 * step else 8 * zoom
-                val y = item.bounds.y + if (destination.zone == PlayZone.STACK) 2 * step else 8 * zoom
+                val step = if (destination.zone == PlayZone.STACK) 28f * .12f else 4f
+                val x = item.bounds.x + if (destination.zone == PlayZone.STACK) 2 * step else 8f
+                val y = item.bounds.y + if (destination.zone == PlayZone.STACK) 2 * step else 8f
                 val port = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds ?: item.bounds
                 TableDragLanding(ids.take(3).mapIndexedNotNull { n, _ -> TableBounds(x - n * step, y - n * step,
-                    scene.cardWidth, scene.cardHeight).intersection(port) })
+                    28f, 40f).intersection(port) })
             }
         }
         is TableDestination.CardPile -> {

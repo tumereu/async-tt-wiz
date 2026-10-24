@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import android.graphics.Paint
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -214,13 +215,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     }) {
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
-        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing) {
+        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f, 40f).height + 4f)
+        val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
+        var previousBand by remember { mutableFloatStateOf(bandHeight) }
+        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing)
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight)
+        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
@@ -249,7 +253,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
         val activePings = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }.orEmpty()
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
-        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
+        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
         SideEffect {
             presentation = scene
             var retained = selection.retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
@@ -268,8 +272,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, scene.fields.last().bounds.center); true },
                 CustomAccessibilityAction("Pan left") { layout = layout.copy(camera = layout.camera.copy(x = layout.camera.x - 84)); true },
                 CustomAccessibilityAction("Pan right") { layout = layout.copy(camera = layout.camera.copy(x = layout.camera.x + 84)); true },
-                CustomAccessibilityAction("Pan up") { layout = layout.copy(camera = layout.camera.copy(y = layout.camera.y + 84)); true },
-                CustomAccessibilityAction("Pan down") { layout = layout.copy(camera = layout.camera.copy(y = layout.camera.y - 84)); true },
+                 CustomAccessibilityAction("Pan up") { layout = layout.copy(camera = scene.camera.copy(y = scene.camera.y - 84)); true },
+                 CustomAccessibilityAction("Pan down") { layout = layout.copy(camera = scene.camera.copy(y = scene.camera.y + 84)); true },
+                 CustomAccessibilityAction("Fit table") { scene.world?.fit()?.let { layout = layout.copy(camera = it) }; true },
                 CustomAccessibilityAction("Clear selection") { selection = selection.copy(ids = emptySet()); true }
             ) + scene.viewports.filter { it.maxScrollY > 0 }.flatMap { p -> listOf(
                 CustomAccessibilityAction("Scroll docks up") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY - 68f).coerceAtLeast(0f))); true },
@@ -321,7 +326,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) { drawTable(scene, accountId, selection, preview, play.board.links,
                 frame.associate { it.item.id to it.alpha }, activePings,
                 play.board.projectionLinks, annotations, artwork) }
-            for (field in scene.fields) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
+            for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
                 .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
                     val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
                     contentDescription = "${player.username} Battlefield, ${play.board.containers.single { it.id == field.containerId }.cards.size} cards"
@@ -435,7 +440,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
         CompositionLocalProvider(LocalCardRingAnchors provides scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
-            item.cardId?.let { it to item.bounds }
+            item.cardId?.let { id -> id to if (item.visible.any { it.contains(item.bounds.center) }) item.bounds
+                else item.visible.maxBy { it.width * it.height } }
         }.toMap()) {
         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
             tokenCatalog = runtime.tokenCatalog)
@@ -621,9 +627,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawContext.canvas.nativeCanvas.drawText(value, x, baseline, paint)
     }
     fun emptySlot(i: TableItem, color: Color) {
-        val z = scene.camera.zoom
+        val z = 1f
         val x = i.bounds.x + 8f * z; val y = i.bounds.y + 8f * z
-        val w = scene.cardWidth; val h = scene.cardHeight
+        val w = 28f; val h = 40f
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
         val cx = x + w / 2; val cy = y + h / 2
@@ -660,33 +666,31 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
-        val z = scene.camera.zoom
-        val outline = cardSilhouette(scene.cardWidth * density, scene.cardHeight * density, i.token, x * density, y * density, 2 * density)
+        val z = if (i.kind == TableItemKind.CARD) (if (i.tapped) i.bounds.height else i.bounds.width) / 28f else 1f
+        val cardWidth = 28f * z; val cardHeight = 40f * z
+        val outline = cardSilhouette(cardWidth * density, cardHeight * density, i.token, x * density, y * density, 2 * density * z)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         drawPath(outline, color,
-            style = Stroke(1.5f * density, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density, 3 * density)) else null))
+            style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return
         paint.textSize = 7 * z * density; paint.isFakeBoldText = true
-        val titleInset = if (i.token) scene.cardWidth * .22f else 2 * z
-        fittedText(title, x + titleInset, y + 8 * z, scene.cardWidth - 2 * titleInset)
+        val titleInset = if (i.token) cardWidth * .22f else 2 * z
+        fittedText(title, x + titleInset, y + 8 * z, cardWidth - 2 * titleInset)
         paint.isFakeBoldText = false
         val art = i.artwork?.key?.let(artwork::get)
         if (art != null) drawImage(art, dstOffset = IntOffset(((x + 2 * z) * density).toInt(), ((y + 11 * z) * density).toInt()),
-            dstSize = IntSize(((scene.cardWidth - 4 * z) * density).toInt().coerceAtLeast(1), ((scene.cardHeight - 21 * z) * density).toInt().coerceAtLeast(1)))
+            dstSize = IntSize(((cardWidth - 4 * z) * density).toInt().coerceAtLeast(1), ((cardHeight - 21 * z) * density).toInt().coerceAtLeast(1)))
         else {
             paint.textSize = 17 * z * density
-            text(i.typeIcon, x + (scene.cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + scene.cardHeight * .7f, i.typeIcon.length)
+            text(i.typeIcon, x + (cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
         }
         paint.textSize = 7 * z * density
-        fittedText(i.corner, x + scene.cardWidth - titleInset, y + scene.cardHeight - 3 * z, scene.cardWidth - 2 * titleInset, right = true)
+        fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         paint.textSize = 11 * density
     }
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
         drawRect(Color.White, xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height))
         drawRect(Color(0xffb9cbc5), xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height), style = Stroke(density * .7f))
-    }
-    scene.stackRegion?.let { b ->
-        drawRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height))
     }
     for (f in scene.fields) {
         val b = f.gridBounds
@@ -701,6 +705,29 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             xy(viewport.x, viewport.y), size(viewport.width, viewport.height))
         }
     }
+    scene.viewports.firstOrNull { it.id == "combat" }?.bounds?.let { b ->
+        clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
+            drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
+            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
+        }
+    }
+    fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
+        if (endpoint.kind == LinkEndpointKind.CARD) item.cardId == endpoint.id else item.id == "life/${endpoint.id}"
+    }?.visibleAnchor
+    for (link in links) {
+        val a = endpoint(link.first); val b = endpoint(link.second)
+        if (a != null && b != null) drawLine(Color(0xff667b89), xy(a.x, a.y), xy(b.x, b.y), 2 * density)
+    }
+    for (link in projectionLinks) {
+        val first = scene.items.firstOrNull { it.cardId == link.first }?.visibleAnchor
+        val second = scene.items.firstOrNull { it.cardId == link.second }?.visibleAnchor
+        if (first != null && second != null) drawLine(Color(0xff667b89), xy(first.x, first.y), xy(second.x, second.y), 2 * density)
+    }
+    // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter.
+    for (port in scene.viewports.filter { it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
+        val b = port.bounds
+        drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
+    }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
         val b = hand.bounds
         if (hand.owner != viewer) drawRect(OpponentTableColor.copy(alpha = .16f), xy(b.x, b.y), size(b.width, b.height))
@@ -710,24 +737,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
-    scene.viewports.firstOrNull { it.id == "combat" }?.bounds?.let { b ->
-        clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
-            drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
-            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
-        }
-    }
-    fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
-        if (endpoint.kind == LinkEndpointKind.CARD) item.cardId == endpoint.id else item.id == "life/${endpoint.id}"
-    }?.takeIf { it.visible.isNotEmpty() }?.bounds?.center
-    for (link in links) {
-        val a = endpoint(link.first); val b = endpoint(link.second)
-        if (a != null && b != null) drawLine(Color(0xff667b89), xy(a.x, a.y), xy(b.x, b.y), 2 * density)
-    }
-    for (link in projectionLinks) {
-        val first = scene.items.firstOrNull { it.cardId == link.first && it.visible.isNotEmpty() }?.bounds?.center
-        val second = scene.items.firstOrNull { it.cardId == link.second && it.visible.isNotEmpty() }?.bounds?.center
-        if (first != null && second != null) drawLine(Color(0xff667b89), xy(first.x, first.y), xy(second.x, second.y), 2 * density)
-    }
+    scene.stackRegion?.let { b -> drawRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height)) }
     val focused = selection.ids + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     for (i in scene.items) for (part in i.visible) clipRect(part.x * density, part.y * density, part.right * density, part.bottom * density) {
@@ -761,31 +771,32 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                     if (i.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) emptySlot(i, color)
                 } else if (i.zone != PlayZone.STACK) {
                     for (peek in minOf(2, i.cards.size - 1) downTo 0) {
-                        val d = peek * 4 * scene.camera.zoom
+                        val d = peek * 4f
                         val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
-                        val x = b.x + 8 * scene.camera.zoom - d; val y = b.y + 8 * scene.camera.zoom - d
+                        val x = b.x + 8 - d; val y = b.y + 8 - d
                         if (peek == 0) cardFace(i, x, y, peekColor, i.note) else {
-                            drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density))
-                            drawRoundRect(peekColor, xy(x, y), size(scene.cardWidth, scene.cardHeight), CornerRadius(2 * density), style = Stroke(density))
+                            drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(28f, 40f), CornerRadius(2 * density))
+                            drawRoundRect(peekColor, xy(x, y), size(28f, 40f), CornerRadius(2 * density), style = Stroke(density))
                         }
                     }
                     if (i.covered) {
-                        paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * scene.camera.zoom * density
-                        text("✧", b.x + 16 * scene.camera.zoom, b.y + 34 * scene.camera.zoom, 1)
+                        paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * density
+                        text("✧", b.x + 16, b.y + 34, 1)
                         paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
                     }
                 }
             }
-            TableItemKind.CARD -> {
-                // Rotate the whole face, not just its outline. Actual dimensions remain common across zones.
-                rotate(if (i.tapped) 90f else 0f, xy(b.center.x, b.center.y)) {
-                    val x = b.center.x - scene.cardWidth / 2; val y = b.center.y - scene.cardHeight / 2
+             TableItemKind.CARD -> {
+                 val z = (if (i.tapped) b.height else b.width) / 28f
+                 val cardWidth = 28 * z; val cardHeight = 40 * z
+                 rotate(if (i.tapped) 90f else 0f, xy(b.center.x, b.center.y)) {
+                     val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
                     cardFace(i, x, y, color, i.value)
-                    paint.textSize = 7 * scene.camera.zoom * density
-                    if (i.note.isNotEmpty()) fittedText(i.note, x + 3, y + 20, scene.cardWidth - 6)
+                     paint.textSize = 7 * z * density
+                     if (i.note.isNotEmpty()) fittedText(i.note, x + 3 * z, y + 20 * z, cardWidth - 6 * z)
                      i.counters.entries.take(6).forEachIndexed { n, entry ->
-                         drawCircle(counterColor(entry.key), 5 * density, xy(x + 6 + n * 7, y + scene.cardHeight - 18))
-                         text(entry.value, x + 3 + n * 7, y + scene.cardHeight - 16, 3)
+                          drawCircle(counterColor(entry.key), 5 * z * density, xy(x + (6 + n * 7) * z, y + cardHeight - 18 * z))
+                          text(entry.value, x + (3 + n * 7) * z, y + cardHeight - 16 * z, 3)
                       }
                      paint.textSize = 11 * density
                  }

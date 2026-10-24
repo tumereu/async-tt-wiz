@@ -131,10 +131,24 @@ internal class LimitedInput(input: InputStream, private val maximum: Long) : Fil
     private fun add(size: Int) { count += size; check(count <= maximum) { "Catalog size limit" } }
 }
 
+enum class CatalogPhase { DOWNLOADING, INDEXING }
+
+/** Byte counts always refer to the compressed download, including during gzip decoding. */
+data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?, val records: Long = 0)
+
+internal class CountingInput(input: InputStream) : FilterInputStream(input) {
+    var count: Long = 0
+        private set
+    override fun read(): Int = `in`.read().also { if (it != -1) count++ }
+    override fun read(bytes: ByteArray, offset: Int, length: Int): Int =
+        `in`.read(bytes, offset, length).also { if (it > 0) count += it }
+    override fun skip(bytes: Long): Long = `in`.skip(bytes).also { count += it }
+}
+
 class CatalogInstaller(private val directory: File, private val repository: CatalogRepository,
     private val source: CatalogSource, private val freeBytes: () -> Long = { directory.usableSpace },
     private val decodedLimit: Long = HttpCatalogSource.MAX_BYTES) {
-    fun install(expected: CatalogMetadata, size: Long?, progress: (String) -> Unit = {}): CatalogMetadata {
+    fun install(expected: CatalogMetadata, size: Long?, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
         check(directory.isDirectory || directory.mkdirs())
         val reserve = 64L * 1024 * 1024
         val compressed = size ?: HttpCatalogSource.MAX_BYTES
@@ -143,21 +157,26 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
         try {
             val checksum = source.checksum()
             val digest = MessageDigest.getInstance("SHA-256")
+            progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, size))
             FileOutputStream(download).use { file ->
                 java.security.DigestOutputStream(file, digest).use { output ->
                     source.download(output) { bytes ->
                         check(freeBytes() >= reserve)
-                        progress("Downloading card records: ${bytes / 1024} KiB")
+                        progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, size))
                     }
                     output.flush(); file.fd.sync()
                 }
             }
             check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
+            val indexingTotal = size ?: download.length()
             return repository.stage { index ->
-                GZIPInputStream(FileInputStream(download), 64 * 1024).use { gzip ->
-                    MtgJsonCatalog().import(LimitedInput(gzip, decodedLimit), index, expected.copy(checksum = checksum)) { count ->
-                        check(freeBytes() >= reserve)
-                        progress("Indexing card records: $count")
+                progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
+                CountingInput(FileInputStream(download)).use { compressedInput ->
+                    GZIPInputStream(compressedInput, 64 * 1024).use { gzip ->
+                        MtgJsonCatalog().import(LimitedInput(gzip, decodedLimit), index, expected.copy(checksum = checksum)) { count ->
+                            check(freeBytes() >= reserve)
+                            progress(CatalogProgress(CatalogPhase.INDEXING, compressedInput.count, indexingTotal, count))
+                        }
                     }
                 }
             }

@@ -57,11 +57,13 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Async Tabletop Wizards", style = MaterialTheme.typography.headlineSmall)
                     Text("Specialized tabletop simulator for asynchronous wizardry", textAlign = TextAlign.Center)
-                    Text(state.message ?: "Checking saved login…")
+                    Box(Modifier.heightIn(min = 48.dp)) {
+                        if (state.restoreFailed) Text(state.message.orEmpty())
+                    }
                     if (state.restoreFailed) {
                         Button(onClick = controller::restore) { Text("Retry") }
                         TextButton(onClick = controller::logout) { EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout") }
-                    } else CircularProgressIndicator(Modifier.size(28.dp))
+                    }
                 }
                 state.page == AuthPage.REGISTER && landscape -> Row(Modifier.fillMaxSize().padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -86,6 +88,11 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                     }
                 }
             }
+            if (state.account == null && reset.state == null) FloatingBusyPill(when {
+                state.restoring && !state.restoreFailed -> state.message ?: "Checking saved login…"
+                state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
+                else -> null
+            }, modifier = Modifier.align(Alignment.BottomCenter))
         }
     }
 }
@@ -125,7 +132,7 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
                         }
                     })
             }
-            state.message?.let {
+            state.message?.takeUnless { state.busy }?.let {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (state.error) Icon(screenIcon("error"), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                     Text(it, Modifier.testTag("auth-message"), color = if (state.error) MaterialTheme.colorScheme.error else Teal,
@@ -135,7 +142,7 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
             ScreenButton(onClick = controller::submit, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 EntryIcon(null, if (state.page == AuthPage.REGISTER) "person" else "login")
                 Spacer(Modifier.width(8.dp))
-                Text(if (state.busy) "Please wait…" else if (state.page == AuthPage.REGISTER) "Create account" else "Sign in")
+                Text(if (state.page == AuthPage.REGISTER) "Create account" else "Sign in")
             }
             if (branded) HorizontalDivider()
             TextButton(onClick = { controller.page(if (state.page == AuthPage.REGISTER) AuthPage.LOGIN else AuthPage.REGISTER) },
@@ -161,6 +168,10 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
 private fun ResetEntry(controller: ResetController) {
     val state = controller.state ?: return
     var visible by remember(state.page) { mutableStateOf(false) }
+    ScreenBusyOverlay(if (state.checking && !state.checkFailed) "Checking reset link…"
+        else if (state.busy) {
+            if (state.page == ResetPage.REQUEST) "Sending reset link…" else "Updating password…"
+        } else null) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -175,7 +186,7 @@ private fun ResetEntry(controller: ResetController) {
                     if (state.page == ResetPage.REQUEST) {
                         EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email,
                             onValueChange = { controller.edit(email = it) })
-                    } else if (state.page == ResetPage.PASSWORD && !state.checking) {
+                    } else if (state.page == ResetPage.PASSWORD) {
                         Text("New password", fontWeight = FontWeight.SemiBold)
                         ScreenTextField(state.password, { controller.edit(password = it) },
                             Modifier.fillMaxWidth().testTag("password").semantics { contentDescription = "New password" },
@@ -186,19 +197,16 @@ private fun ResetEntry(controller: ResetController) {
                                 EntryIcon(if (visible) "Hide password" else "Show password", "eye")
                             } })
                     }
-                    if (state.checking && !state.checkFailed) {
-                        Text("Checking reset link…"); CircularProgressIndicator(Modifier.size(24.dp))
-                    }
                     when {
                         state.checkFailed -> TextButton(onClick = controller::checkLink, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                             Text("Retry")
                         }
                         state.page == ResetPage.INVALID -> TextButton(onClick = { controller.request() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Request another link") }
-                        !state.checking -> ScreenButton(onClick = controller::submit, enabled = !state.busy,
+                        else -> ScreenButton(onClick = controller::submit, enabled = !state.busy && !state.checking,
                             modifier = Modifier.fillMaxWidth()) {
                             EntryIcon(null, if (state.page == ResetPage.REQUEST) "email" else "key"); Spacer(Modifier.width(8.dp))
-                            Text(if (state.busy) "Please wait…" else if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
+                            Text(if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
                         }
                     }
                     state.message?.let {
@@ -227,6 +235,7 @@ private fun ResetEntry(controller: ResetController) {
                 form()
             }
         }
+    }
     }
 }
 

@@ -1,6 +1,9 @@
 package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,24 +45,29 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             while (true) { kotlinx.coroutines.delay(5_000); decks?.sync() }
         }
     }
+    val catalogBusy = !tabletop && catalog?.state?.progress != null
     val content: @Composable () -> Unit = {
-        if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
-            DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
-        } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null) {
-            LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
-                if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
+        ScreenBusyOverlay(if (catalogBusy) catalog.state.status else null, catalog?.state?.progress) {
+            CompositionLocalProvider(LocalBusySuppressed provides catalogBusy) {
+                if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
+                    DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+                } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null) {
+                    LaunchedEffect(lobby.state.picker?.importing, deckImport?.state?.active) {
+                        if (lobby.state.picker?.importing == true && deckImport?.state?.active != true) lobby.importedForPicker()
+                    }
+                    WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
+                        importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
+                } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
+                    DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+                } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {
+                    SavedDeckScreen(decks, if (!landscape) ({ controller.drawer(true) }) else null,
+                        importDeck = deckImport?.let { importer -> { summary -> decks.dismiss(); importer.openExisting(summary) } })
+                } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
+                    if (destination == ShellDestination.GAMES) lobby?.back()
+                    controller.navigate(destination)
+                }, catalog, deckImport, decks, lobby, state.account!!.accountId)
             }
-            WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
-                importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
-        } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
-            DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
-        } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {
-            SavedDeckScreen(decks, if (!landscape) ({ controller.drawer(true) }) else null,
-                importDeck = deckImport?.let { importer -> { summary -> decks.dismiss(); importer.openExisting(summary) } })
-        } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
-            if (destination == ShellDestination.GAMES) lobby?.back()
-            controller.navigate(destination)
-        }, catalog, deckImport, decks, lobby, state.account!!.accountId)
+        }
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
@@ -75,15 +83,20 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             // One source of truth for Back/Close/outside dismissal; no mirrored animated DrawerState.
             Box(Modifier.fillMaxSize()) {
                 Box(if (state.drawerOpen) Modifier.clearAndSetSemantics {} else Modifier) { content() }
-                if (state.drawerOpen) {
+                AnimatedVisibility(state.drawerOpen, enter = fadeIn(tween(250)), exit = fadeOut(tween(250))) {
                     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .2f))
                         .clickable { controller.drawer(false) }.semantics { contentDescription = "Close navigation menu" })
+                }
+                AnimatedVisibility(state.drawerOpen,
+                    enter = slideInHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it },
+                    exit = slideOutHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it }) {
                     Surface(Modifier.widthIn(max = 280.dp).fillMaxWidth(.8f).fillMaxHeight()
                         .semantics { paneTitle = "Navigation menu" }, color = Color.White) {
                         Navigation(controller, close = true, lobby)
                     }
-                    BackHandler { controller.drawer(false) }
                 }
+                // Register after route content so its own BackHandler cannot dismiss a draft/table first.
+                BackHandler(enabled = state.drawerOpen) { controller.drawer(false) }
             }
         }
     }
@@ -92,6 +105,11 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     if (lobby != null) {
         SetupCancellationDialogs(lobby)
         GameDeletionDialogs(lobby)
+    }
+    if (!tabletop && catalog != null && catalog.promptPolicy.shouldPrompt(catalog.state)) {
+        CatalogStartupDialog(catalog.state,
+            download = { catalog.promptPolicy.dismiss(catalog.state); catalog.consent() },
+            dismiss = { catalog.promptPolicy.dismiss(catalog.state) })
     }
 }
 

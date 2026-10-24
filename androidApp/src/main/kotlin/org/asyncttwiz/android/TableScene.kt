@@ -368,8 +368,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
             TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
                 tokenCatalog = runtime.tokenCatalog)
-            toolkit.error?.let { Text(it, Modifier.align(Alignment.BottomCenter).background(Color.White), color = MaterialTheme.colorScheme.error) }
         }
+        FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
+            { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
         if (!runtime.reviewing) Box(Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)) {
             ActionSquare("Interaction mode", "", true,

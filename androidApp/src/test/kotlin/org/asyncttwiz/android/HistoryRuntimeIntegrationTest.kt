@@ -140,7 +140,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun interleavedTreeDeltaCatchupPrunedRestartAndOfflineReviewNeverSendSharedCommands() {
+    @Test fun interleavedTreeDeltaCatchupPrunedRestartAndOfflineReviewWithGraceRequestWaitingForRecovery() {
         Fixture().use { x ->
             x.connect()
             val baseline = x.transfer()
@@ -160,9 +160,12 @@ class HistoryRuntimeIntegrationTest {
             assertEquals(x.tree.initial.root.id, reviewed!!.cursor); assertTrue(reviewed!!.reviewing)
             assertEquals(x.tree.initial.board, reviewed!!.state!!.board)
             assertEquals(frames, x.wire.frames.size)
-            assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
+            var waiting: GameCommand? = null
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1"), captured = { waiting = it }))
+            assertEquals(frames, x.wire.frames.size, "A grace-period original waits without sending on the old socket")
             // Fresh reconnect can replace all pruned envelopes from complete accepted records alone.
-            x.connect("2"); if (x.wire.reads.isNotEmpty() && !x.session.ready(x.game.id)) x.publish()
+            x.connect("2", listOf(GameRequestStatus(waiting!!.requestId, "notAdmitted")))
+            if (x.wire.reads.isNotEmpty() && !x.session.ready(x.game.id)) x.publish()
             assertEquals(x.tree, x.session.retainedTree(x.game.id))
         }
     }

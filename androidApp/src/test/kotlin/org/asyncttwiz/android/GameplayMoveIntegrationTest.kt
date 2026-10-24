@@ -18,14 +18,14 @@ class GameplayMoveIntegrationTest {
         override fun disconnect() = Unit
         override fun close() = Unit
     }
-    private class Fixture {
+    private class Fixture(handStarts: Boolean = false) {
         val data = GameplayFixture()
         // Board entity IDs are global: the Library must not alias any card in 9..11.
         val library = data.id(30); val hand = data.id(20); val field = data.id(21)
         val root = data.initial.copy(board = data.initial.board.copy(
-            cards = (9..11).map { data.initial.board.cards.single().copy(id = data.id(it), containerId = library) },
-            containers = listOf(PlayContainer(library, PlayZone.LIBRARY, data.actor, (9..11).map(data::id)),
-                PlayContainer(hand, PlayZone.HAND, data.actor), PlayContainer(field, PlayZone.BATTLEFIELD, data.actor),
+            cards = (9..11).map { data.initial.board.cards.single().copy(id = data.id(it), containerId = if (handStarts) hand else library) },
+            containers = listOf(PlayContainer(library, PlayZone.LIBRARY, data.actor, if (handStarts) emptyList() else (9..11).map(data::id)),
+                PlayContainer(hand, PlayZone.HAND, data.actor, if (handStarts) (9..11).map(data::id) else emptyList()), PlayContainer(field, PlayZone.BATTLEFIELD, data.actor),
                 PlayContainer(data.id(22), PlayZone.STACK))))
         val wire = Wire()
         val endpoints = mutableListOf<BoardState?>()
@@ -115,5 +115,64 @@ class GameplayMoveIntegrationTest {
         assertEquals(manual.play, f.session.acceptedPlay(f.data.game))
         assertFalse(f.session.pending(f.data.game.id)); assertEquals(commands, f.commands())
         assertEquals(listOf("rejected", "accepted", "accepted"), f.outcomes.map { it.outcome })
+    }
+
+    @Test fun rapidRepeatedDragsTapStackAndTokenMovesReplayColdWithoutMissingHistory() {
+        val f = Fixture(); f.connect()
+        val actions = mutableListOf<PlayAction>()
+        fun send(action: PlayAction) { actions.add(action); f.submit(action) }
+        repeat(6) { round ->
+            for (n in 9..11) {
+                var card = f.card(f.session.play(f.data.game), n)
+                send(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+                    MoveDestination(f.field, MoveInsertion.EMPTY, BoardPosition(n, round))))
+                send(PlayAction.SetTapped(card.id, true))
+                card = f.card(f.session.play(f.data.game), n)
+                send(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+                    MoveDestination(f.data.id(22), MoveInsertion.TOP), expectedStackDigest = GameplayRules.stackDigest(f.session.play(f.data.game)!!)))
+                send(PlayAction.MoveCard(card.id, MoveSource(f.data.id(22)), MoveDestination(f.hand, MoveInsertion.UNORDERED)))
+            }
+        }
+        send(PlayAction.CreateToken(TokenCatalog.blank))
+        val token = f.session.play(f.data.game)!!.board.cards.single { it.token }
+        send(PlayAction.SetTapped(token.id, true))
+        send(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
+            MoveDestination(f.library, MoveInsertion.TOP)))
+        assertTrue(f.session.play(f.data.game)!!.board.cards.none { it.id == token.id })
+        var tree = GameplayTree(f.root)
+        for ((index, command) in f.commands().withIndex()) {
+            val next = HistoryContinuation.change(tree.copy(), f.data.actor, command)
+            assertEquals("accepted", next.outcome, "${actions[index]}: ${next.reason}")
+            tree = assertNotNull(next.tree)
+            assertEquals(tree.stateAt(tree.currentNodeId), tree.copy().stateAt(tree.currentNodeId), "cold replay at $index")
+        }
+        assertEquals(f.session.play(f.data.game)!!.board, tree.stateAt(tree.currentNodeId)!!.board)
+        f.session.close()
+    }
+
+    @Test fun pendingUndoCannotBeFollowedByDragFromThePreUndoBoardEvenWhenResultArrivesBeforeDelta() {
+        val f = Fixture(handStarts = true); f.connect()
+        val draw = PlayAction.MoveCard(f.data.id(9), MoveSource(f.hand), MoveDestination(f.field, MoveInsertion.EMPTY, BoardPosition(1, 1)))
+        f.submit(draw)
+        val move = f.commands().single()
+        val moved = assertNotNull(HistoryContinuation.change(GameplayTree(f.root), f.data.actor, move).tree)
+        assertTrue(f.session.historyControl(f.data.game, f.data.actor, GameAction.Undo))
+        val undo = f.commands().last()
+        // This is the invalid original the old client could send while alone, without any opponent.
+        val staleDrag = PlayAction.MoveCard(f.data.id(9), MoveSource(f.field, f.card(f.session.play(f.data.game)).placement),
+            MoveDestination(f.hand, MoveInsertion.UNORDERED))
+        val undone = assertNotNull(HistoryContinuation.change(moved, f.data.actor, undo).tree)
+        assertEquals("movementConflict", HistoryContinuation.change(undone, f.data.actor, f.data.command(staleDrag)).reason)
+        assertFalse(f.session.gameplay(f.data.game, f.data.actor, staleDrag))
+        f.message(GameResult(undo.requestId, undo.scope, "accepted", ingressOrdinal = "2", commitRevision = "3"))
+        assertFalse(f.session.gameplay(f.data.game, f.data.actor, staleDrag))
+        val first = GameRevision(f.data.game.id, "1", "2", move.requestId, f.data.actor, move.scope,
+            f.data.game.copy(revision = "2"), treeDelta = TreeSync.delta(GameplayTree(f.root), moved))
+        f.message(first)
+        f.message(GameRevision(f.data.game.id, "2", "3", undo.requestId, f.data.actor, undo.scope,
+            f.data.game.copy(revision = "3"), treeDelta = TreeSync.delta(moved, undone)))
+        assertEquals(f.hand, f.card(f.session.play(f.data.game)).containerId)
+        f.submit(draw)
+        f.session.close()
     }
 }

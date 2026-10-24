@@ -39,11 +39,12 @@ class DeckManagementTest {
         var saved = SavedDeck(summary, entries)
         val updates = mutableListOf<UpdateDeck>(); val deletes = mutableListOf<DeleteDeck>()
         var fail = false; var missing = false; var reads = 0
+        var readFailure = false
         override suspend fun list(token: String, after: String?): DeckList {
             listReads++; afterList?.invoke()
             return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
         }
-        override suspend fun read(token: String, id: String): SavedDeck { reads++; if (missing) throw DeckFailure("not_found"); afterRead(); return saved }
+        override suspend fun read(token: String, id: String): SavedDeck { reads++; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
         override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
             definitionReads++; return SubmittedDefinition(digest, card)
         }
@@ -85,16 +86,36 @@ class DeckManagementTest {
         controller.dismiss(); api.missing = true; controller.sync(); worker.drain()
         assertNull(controller.state.selected); assertNull(controller.state.detail); assertTrue(controller.state.error!!.contains("deleted"))
     }
+    @Test fun resumeSupersedesOldReadFailuresAndBackgroundRetriesKeepAcceptedDeckAndNoError() {
+        val api = Api(); val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
+        val controller = DeckLibraryController(api, { "token" }, worker) { posts.add(it) }
+        fun deliver() { worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()() }
+        try {
+            controller.open(summary.id); deliver()
+            api.readFailure = true
+            controller.retry(); worker.drain() // Failure was captured before returning from background.
+            controller.foreground()
+            deliver()
+            assertNull(controller.state.error)
+            assertEquals(summary, controller.state.detail!!.saved.deck)
+            controller.sync(); deliver()
+            assertNull(controller.state.error)
+            assertFalse(controller.state.busy)
+            api.readFailure = false
+            controller.sync(); deliver()
+            assertEquals(summary, controller.state.detail!!.saved.deck)
+        } finally { controller.close(); worker.drain() }
+    }
     @Test fun uncertainMetadataRetryIsImmutableAndRefreshNeverInstallsAnOldOutcome() {
         val api = Api(); val worker = Worker(); val posts = mutableListOf<() -> Unit>()
         val controller = DeckLibraryController(api, { "token" }, worker) { posts += it }
         fun drain() { repeat(3) { worker.drain(); while (posts.isNotEmpty()) posts.removeAt(0)() } }
         controller.open(summary.id); drain(); controller.edit(DeckDialog.RENAME); controller.name(" Renamed 🧙 ")
         api.fail = true; controller.confirm(); controller.confirm(); drain()
-        assertEquals(1, api.updates.size); assertNotNull(controller.state.error)
+        assertEquals(3, api.updates.size); assertEquals(1, api.updates.distinct().size); assertNotNull(controller.state.error)
         assertEquals(" Renamed 🧙 ", controller.state.draftName); assertEquals("Accepted", controller.state.detail!!.saved.deck.name)
         controller.sync(); drain(); controller.confirm(); drain()
-        assertEquals(api.updates[0], api.updates[1])
+        assertEquals(6, api.updates.size); assertEquals(1, api.updates.distinct().size)
         api.fail = false; controller.confirm(); worker.drain()
         api.saved = api.saved.copy(deck = summary.copy(name = "Newer other-device edit", revision = "3"))
         while (posts.isNotEmpty()) posts.removeAt(0)(); drain()
@@ -107,7 +128,8 @@ class DeckManagementTest {
         fun deliver() { worker.drain(); while (posts.isNotEmpty()) posts.removeAt(0)() }
         controller.open(summary.id); deliver(); controller.edit(DeckDialog.RENAME); controller.name("First")
         api.fail = true; controller.confirm(); deliver(); controller.name("Second"); controller.confirm(); deliver()
-        assertNotEquals(api.updates[0].requestId, api.updates[1].requestId)
+        assertEquals(6, api.updates.size)
+        assertNotEquals(api.updates[0].requestId, api.updates[3].requestId)
         controller.dismiss(); controller.edit(DeckDialog.DELETE); controller.dismiss(); assertTrue(api.deletes.isEmpty())
         controller.edit(DeckDialog.DELETE); controller.confirm(); controller.clear(); deliver(); assertTrue(api.deletes.isEmpty())
         controller.open(summary.id); deliver(); controller.edit(DeckDialog.DELETE); api.fail = false; controller.confirm(); worker.drain()

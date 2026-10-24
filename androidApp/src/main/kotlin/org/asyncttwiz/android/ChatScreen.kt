@@ -69,9 +69,6 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
                 }
             }
         }
-        if (game.id !in state.connectedGames) Text("Disconnected · draft kept", Modifier.padding(horizontal = 12.dp))
-        state.connectionMessage?.let { Text(it, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.bodySmall) }
-        if (game.id !in state.connectedGames) TextButton(onClick = controller::reconnect) { Text("Reconnect") }
         if (chat.draft != null && chat.draft.playId != game.playId) {
             Text("This draft belongs to an earlier play.", Modifier.padding(horizontal = 12.dp))
             TextButton(onClick = { controller.composeChat("") }) { Text("Clear draft") }
@@ -79,10 +76,12 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f)
                 .semantics { contentDescription = "Chat message draft" }, singleLine = false, placeholder = "Message", maxLines = 4)
-            ScreenIconButton("Send", "send", controller::sendChat, enabled = chat.canSend(game, game.id in state.connectedGames))
+            ScreenIconButton("Send", "send", controller::sendChat, enabled = chat.canSend(game, game.id !in state.reconnectingGames))
         }
     }
     }
+    FloatingTransientError(state.connectionMessage, controller::dismissSessionError,
+        Modifier.align(Alignment.BottomCenter).imePadding().padding(bottom = 80.dp))
     }
     }
 }

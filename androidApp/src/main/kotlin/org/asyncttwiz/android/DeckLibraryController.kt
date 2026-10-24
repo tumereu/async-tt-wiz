@@ -56,19 +56,20 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
 
     /** Active-route/foreground refresh retains accepted content and all unfinished personal input. */
     fun sync() { if (!state.busy && !state.mutating) load(state.selected, background = true) }
+    fun foreground() { if (!state.mutating) load(state.selected, background = true) }
     private fun load(id: String?, background: Boolean = false) {
         if (closed || state.mutating) return
         val token = credential() ?: return
         val generation = ++epoch
         val known = state.detail?.takeIf { it.saved.deck.id == id }?.definitions.orEmpty()
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.deck.id == id },
-            busy = true, error = if (background) state.error else null)
+            busy = true, error = if (background && state.dialog != null) state.error else null)
         worker.execute {
             if (generation != epoch) return@execute
             try {
-                val result = runBlocking { if (id == null) null else detail(token, id, known, generation) }
+                val result = runBlocking { serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, known, generation) } }
                 if (id != null && result == null) return@execute
-                val decks = if (id == null) runBlocking { collection(token, generation) } ?: return@execute else null
+                val decks = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@execute else null
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
                     decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it }, busy = false, loaded = true) }
             } catch (failure: Exception) {
@@ -77,7 +78,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                         inspection.close(); pending = null
                         state = state.copy(selected = null, detail = null, dialog = null, busy = false,
                             decks = state.decks.filterNot { it.id == id }, error = "This saved deck was deleted on another device.")
-                    } else state = state.copy(busy = false, error = if (background && state.dialog != null) state.error else deckError(failure))
+                    } else state = state.copy(busy = false, error = if (background) state.error else deckError(failure))
                 } }
             }
         }
@@ -104,10 +105,10 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         worker.execute {
             if (generation != epoch) return@execute
             try {
-                runBlocking {
+                runBlocking { serviceRetry(current = { generation == epoch }) {
                     if (operation.delete != null) api.delete(token, operation.id, operation.delete)
                     else api.update(token, operation.id, operation.update!!)
-                }
+                } }
                 // The original retry outcome may precede another device's newer edit. Read current state,
                 // never install an old outcome over that state or reapply the mutation locally.
                 post { if (!closed && generation == epoch) {

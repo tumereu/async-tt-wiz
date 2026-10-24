@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -91,6 +92,42 @@ class TableScreenshotTest {
     }
 
     @Test fun livePortrait() = capture("live-portrait", false)
+    @Test fun floatingErrorAboveTableControls() {
+        val play = LiveTableFixture.play(5)
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.fillMaxSize()) {
+                TableSurface(LiveTableFixture.game, play, "a", false, Modifier.fillMaxSize(), connected = true,
+                    runtime = TableRuntimeHooks(errorMessage = "Can't undo: a later event refers to that action. Use History to review it, or keep playing.", dismissError = {}))
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Dismiss message").assertIsDisplayed()
+        val output = File("build/outputs/roborazzi/table-floating-error.png")
+        requireNotNull(output.parentFile).mkdirs()
+        compose.onRoot().captureRoboImage(output.path)
+        val image = ImageIO.read(output)
+        assertEquals(412, image.width)
+        assertEquals(892, image.height)
+    }
+    @Test fun floatingErrorCanBeDismissedAndExpiresWithoutChangingTheTable() {
+        val message = mutableStateOf<String?>("This action could not be used.")
+        val play = LiveTableFixture.play(5)
+        compose.setContent { MaterialTheme {
+            TableSurface(LiveTableFixture.game, play, "a", false, Modifier.fillMaxSize(), connected = true,
+                runtime = TableRuntimeHooks(errorMessage = message.value, dismissError = { message.value = null }))
+        } }
+        compose.onNodeWithContentDescription("Dismiss message").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("This action could not be used.").assertDoesNotExist()
+        compose.runOnIdle { message.value = "Another error" }
+        compose.onNodeWithText("Another error").assertIsDisplayed()
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(7_100)
+        compose.waitForIdle()
+        compose.onNodeWithText("Another error").assertDoesNotExist()
+    }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun liveLandscape() = capture("live-landscape", true)
     @Test fun pausedPortrait() = capture("paused-portrait", false, paused = true)

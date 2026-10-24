@@ -84,7 +84,7 @@ class DeckReauthenticationTest {
             val auth = AuthController(accounts, store, authWorker,
                 clearPrivateWork = { clears++; importer.exit(); library.clear() }, post = { it() })
             authWorker.drain(); auth.navigate(ShellDestination.DECKS); authWorker.drain()
-            var revoked = false; var loseReply = true; var effects = 0
+            var revoked = false; var lostReplies = 3; var effects = 0
             val mutationBodies = mutableListOf<String>(); val tokens = mutableListOf<String>()
             val identities = mutableSetOf<String>()
             var current = saved
@@ -101,8 +101,7 @@ class DeckReauthenticationTest {
                                 effects++
                                 current = saved.copy(entries = saved.entries.map { it.copy(quantity = if (merge) 6 else 4) })
                             }
-                            if (loseReply) {
-                                loseReply = false
+                            if (lostReplies-- > 0) {
                                 return@MockEngine respond("unavailable", HttpStatusCode.ServiceUnavailable)
                             }
                             DeckJson.format.encodeToString(current)
@@ -132,7 +131,7 @@ class DeckReauthenticationTest {
                 auth.authenticationRequired("A".repeat(43)); assertNotNull(auth.state.account)
                 revoked = false; importer.save(); worker.drain()
                 assertFalse(importer.state.active); assertEquals(1, effects)
-                assertEquals(2, mutationBodies.size); assertEquals(mutationBodies.first(), mutationBodies.last())
+                assertEquals(4, mutationBodies.size); assertEquals(1, mutationBodies.distinct().size)
                 assertEquals(if (merge) 6 else 4, library.state.detail!!.saved.entries.single().quantity)
                 assertTrue(tokens.contains("Bearer " + "B".repeat(43)))
             } finally { importer.close(); library.close(); worker.drain(); auth.close(); authWorker.drain() }

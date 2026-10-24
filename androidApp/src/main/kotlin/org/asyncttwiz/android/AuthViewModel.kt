@@ -63,7 +63,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 throw failure
             }
         }, treeCache = local::treeCache)
-    private val gameMaintenance = GameConnectionMaintenance({ controller.state.account != null }, lobby::sync, main)
+    private val gameMaintenance = GameConnectionMaintenance({ true }, {
+        controller.foreground()
+        if (controller.state.account != null) {
+            lobby.sync()
+            if (controller.state.destination == ShellDestination.DECKS) decks.sync()
+        }
+    }, main, lobby::tick)
     init {
         activity.authenticationRequired = ::authenticationRequired
         deckImport.connectSave(saveApi, controller::sessionToken, saved = { if (!lobby.importedForPicker()) decks.open(it.deck.id) })

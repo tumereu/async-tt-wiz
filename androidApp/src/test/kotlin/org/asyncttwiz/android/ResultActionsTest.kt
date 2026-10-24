@@ -74,15 +74,16 @@ class ResultActionsTest {
         assertFalse(f.session.pending(game.id)); assertEquals(prediction, f.session.play(active))
     }
 
-    @Test fun rejectionRemovesOnlySuggestionOverlayAndNoOfflineOrOldTargetRetargeting() = Fixture().use { f ->
+    @Test fun rejectionRemovesOnlySuggestionOverlayAndGraceWaitNeverRetargetsOldPlay() = Fixture().use { f ->
         assertFalse(f.session.suggestResult(active, a.accountId, target.copy(playId = id()), SuggestedResult.DRAW))
         assertTrue(f.session.suggestResult(active, a.accountId, target, SuggestedResult.DRAW))
         val command = f.commands().single()
         f.result(command, outcome = "rejected")
         assertEquals(initial, f.session.play(active)); assertFalse(f.session.pending(game.id))
         f.wire.listener.disconnected(false)
-        assertFalse(f.session.suggestResult(active, a.accountId, target, SuggestedResult.WIN))
+        assertTrue(f.session.suggestResult(active, a.accountId, target, SuggestedResult.WIN))
         assertEquals(1, f.commands().size)
+        assertTrue(f.session.pending(game.id)) // Captured during grace, not sent before recovery.
     }
 
     @Test fun otherPlayerAcceptsExactCapturedDialogOnceAndOnlyRevisionReturnsBothReadyCleared() = Fixture(b.accountId).use { f ->

@@ -62,7 +62,7 @@ class LobbyControllerTest {
         override suspend fun add(token: String, input: AddContact): AccountIdentity { adds.add(input); return recipient }
         override suspend fun create(token: String, input: CreateInvitation): GameSummary {
             creates.add(input); games = listOf(game)
-            if (loseReply) { loseReply = false; throw LobbyFailure("network") }
+            if (loseReply) throw LobbyFailure("network")
             return game.copy(gameName = input.gameName)
         }
         override fun close() = Unit
@@ -79,11 +79,12 @@ class LobbyControllerTest {
             controller.begin(recipient); controller.name(" \n "); controller.create(); worker.drain()
             assertTrue(api.creates.isEmpty()); assertEquals("Enter a game name.", controller.state.error)
             controller.name(" Exact edited name "); api.loseReply = true; controller.create(); worker.drain()
-            val original = api.creates.single(); assertTrue(controller.state.uncertain)
+            val original = api.creates.first(); assertEquals(3, api.creates.size); assertEquals(1, api.creates.distinct().size); assertTrue(controller.state.uncertain)
             controller.name("Do not change uncertain intent"); controller.reroll()
             assertEquals(original.gameName, controller.state.draft!!.name)
             controller.dismiss(); controller.begin(recipient); assertEquals(original.gameName, controller.state.draft!!.name)
-            controller.create(); worker.drain(); assertEquals(listOf(original, original), api.creates)
+            api.loseReply = false
+            controller.create(); worker.drain(); assertEquals(List(4) { original }, api.creates)
             assertEquals(recipient.accountId, original.recipient); assertEquals(1, opens)
             assertEquals(game.id, controller.state.selected); assertEquals(game.id, controller.state.detail!!.id)
             controller.back(); worker.drain(); assertNull(controller.state.selected)
@@ -103,6 +104,32 @@ class LobbyControllerTest {
             assertTrue(controller.state.contacts.isEmpty()); assertTrue(controller.state.games.isEmpty()); assertFalse(controller.state.loaded)
             controller.refresh(); controller.clear(); worker.drain()
             assertTrue(posts.isEmpty()) // worker-side fence stops even queued reads
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun resumeFencesInFlightReadErrorsAndBackgroundContactAndGameRefreshNeverPublishesNetworkErrors() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false
+        val api = object : Api() {
+            override suspend fun contacts(token: String, after: String?): ContactList {
+                if (failing) throw LobbyFailure("network")
+                return super.contacts(token, after)
+            }
+        }
+        val controller = LobbyController(api, { "token" }, worker, { posts.add(it) })
+        fun deliver() { worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()() }
+        try {
+            controller.refresh(); deliver()
+            failing = true
+            controller.refresh(); worker.drain()
+            controller.foreground(); deliver()
+            assertNull(controller.state.error)
+            assertEquals(listOf(recipient), controller.state.contacts)
+            controller.sync(); deliver()
+            assertNull(controller.state.error)
+            controller.query("Player"); controller.search(); deliver()
+            assertEquals(listOf(recipient), controller.state.results)
+            failing = false; controller.sync(); deliver()
+            assertFalse(controller.state.busy)
         } finally { controller.close(); worker.drain() }
     }
 
@@ -158,13 +185,13 @@ class LobbyControllerTest {
             lateinit var lobby: LobbyController
             val auth = AuthController(accounts, store, authWorker, clearPrivateWork = { clearCount++; lobby.clear() }, post = { it() })
             authWorker.drain(); auth.navigate(ShellDestination.CONTACTS)
-            val bodies = mutableListOf<String>(); var revoked = false; var loseReply = true
+            val bodies = mutableListOf<String>(); var revoked = false; var lostReplies = 3
             val api = LobbyApi("https://example.test", HttpClient(MockEngine { request ->
                 if (revoked) respond("revoked", HttpStatusCode.Unauthorized)
                 else {
                     if (request.method == HttpMethod.Post) {
                         bodies.add(request.body.toByteArray().decodeToString())
-                        if (loseReply) { loseReply = false; return@MockEngine respond("lost reply", HttpStatusCode.ServiceUnavailable) }
+                        if (lostReplies-- > 0) return@MockEngine respond("lost reply", HttpStatusCode.ServiceUnavailable)
                     }
                     respond(when (request.url.encodedPath) {
                         "/v1/contacts" -> DeckJson.format.encodeToString(ContactList(listOf(recipient)))
@@ -188,7 +215,7 @@ class LobbyControllerTest {
                 if (switch) { assertEquals(1, clearCount); assertNull(lobby.state.draft); assertTrue(lobby.state.contacts.isEmpty()) }
                 else {
                     assertEquals(0, clearCount); assertEquals(ShellDestination.CONTACTS, auth.state.destination)
-                    lobby.create(); drain(); assertEquals(2, bodies.size); assertEquals(bodies.first(), bodies.last())
+                    lobby.create(); drain(); assertEquals(4, bodies.size); assertEquals(1, bodies.distinct().size)
                 }
                 lobby.refresh(); worker.drain(); auth.logout(); authWorker.drain()
                 while (posts.isNotEmpty()) posts.removeFirst()()

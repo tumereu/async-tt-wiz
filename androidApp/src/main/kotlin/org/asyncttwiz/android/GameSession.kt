@@ -41,7 +41,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private val statusChanged: () -> Unit, private val installationId: String = UUID.randomUUID().toString(),
     private val accountId: () -> String? = { null },
     private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
-    private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor()) : AutoCloseable {
+    private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 }) : AutoCloseable {
     private val uiThread = Thread.currentThread()
     private val caches = ConcurrentHashMap<String, GameplayTreeStore>()
     private val observedPlays = ConcurrentHashMap<String, String>()
@@ -105,10 +106,31 @@ class GameSession(private val connection: GameConnection, private val credential
     @Volatile private var epoch = 0L
     private var connected = false
     private var welcome = false
+    private var lastCredential: String? = null
+    private var lastPing = 0L
+    private val connectionDemand = mutableMapOf<String, Long>()
+    private val historyDownloads = mutableSetOf<String>()
+    private val uncertainGames = mutableSetOf<String>()
     @Volatile private var closed = false
     var error: String? = null
         private set
     val ready get() = connected && welcome
+    fun reconnecting(gameId: String) = !ready(gameId) && connectionDemand[gameId]?.let { now() - it >= 3_000 } == true
+    fun dismissError() { error = null; statusChanged() }
+    fun foreground() { connectionDemand.clear(); tick() }
+    /** Only a previously authorized, retained active play may capture originals during a short
+     * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
+    private fun activeRequest(game: GameSummary): Boolean {
+        checkAccount()
+        if (ready(game.id)) { connectionDemand.remove(game.id); uncertainGames.remove(game.id); return true }
+        if (closed || !available(game.id) || credential() == null || credential() != lastCredential ||
+            streams[game.id]?.lastGeneration == null || acceptedPlay(game) == null) return false
+        val started = connectionDemand.getOrPut(game.id, now)
+        tick()
+        // Do not extend an uncertain old socket's predicted chain before its outcomes are known.
+        if (game.id in uncertainGames || game.id in recoveries) return false
+        return now() - started < 3_000
+    }
     fun available(gameId: String) = gameId !in unavailableGames && summaries[gameId]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)
     fun ready(gameId: String) = ready && available(gameId) && gameId !in recoveries && streams[gameId]?.let { it.generation != null && it.head } == true
     /** A negative ordinary read fences personal context, not uncertain admitted originals. */
@@ -201,7 +223,8 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Explicit read-only refresh uses the existing baseline/recovery operation, never a lazy branch API. */
     fun downloadHistory(game: GameSummary): Boolean {
         checkAccount()
-        if (closed || !ready || credential() != token || streams[game.id]?.generation == null) return false
+        if (closed || !activeRequest(game)) return false
+        if (!ready(game.id)) { historyDownloads.add(game.id); statusChanged(); return true }
         recover(game.id, summary(game).revision)
         return true
     }
@@ -253,8 +276,8 @@ class GameSession(private val connection: GameConnection, private val credential
         if (current != token) disconnect()
         if (current == null || streams.isEmpty()) return
         if (!connected) {
-            token = current; connected = true; val generation = ++epoch
-            error = "Connecting…"; statusChanged()
+            token = current; lastCredential = current; connected = true; lastPing = now(); val generation = ++epoch
+            statusChanged()
             connection.connect(current, object : GameConnection.Listener {
                 private fun deliver(action: () -> Unit) = post {
                     if (!closed && epoch == generation && credential() == current && sameAccount()) action()
@@ -268,7 +291,14 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (unauthorized) authenticationRequired(current)
                 }
             })
-        } else if (welcome) openStreams()
+        } else if (welcome) {
+            openStreams()
+            // The server's traffic lease counts protocol messages, not WebSocket control pings.
+            if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
+        }
+        connectionDemand.keys.removeAll { ready(it) }
+        uncertainGames.removeAll { ready(it) }
+        statusChanged()
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
@@ -279,7 +309,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
         return enqueue(game, action) != null
     }
-    /** Capture one original in memory and send immediately, without a prior-result barrier. */
+    /** Capture one original in memory; send now or after authorized reconnect recovery. */
     fun gameplay(game: GameSummary, actor: String, action: PlayAction, invocationId: String? = null,
         continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): Boolean =
         gameplayCommand(game, actor, GameAction.Play(action), invocationId, continuation, captured) != null
@@ -301,8 +331,8 @@ class GameSession(private val connection: GameConnection, private val credential
         return subscription
     }
 
-    /** Exact typed shared controls use the SAME original queue. No acknowledgement/animation gate,
-     * fixed Undo target, alternate endpoint, or offline command creation. */
+    /** Exact typed shared controls use the SAME original queue and processing-time target.
+     * No fixed Undo target, alternate endpoint, or durable offline command queue. */
     fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
         if (action != GameAction.Undo && action != GameAction.Redo && action !is GameAction.MakeCurrent &&
             action !is GameAction.BranchArchive) return false
@@ -313,14 +343,18 @@ class GameSession(private val connection: GameConnection, private val credential
         continuation: Continuation?, captured: (GameCommand) -> Unit = {}): GameCommand? {
         checkAccount()
         val current = summary(game)
-        if (closed || !ready(game.id) || credential() != token || pending.size >= 256 ||
+        if (closed || !activeRequest(current) || pending.size >= 256 ||
             current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
             (account != null && account != actor)) return null
         val replica = plays[game.id] ?: return null
+        // Controls are processing-time operations, not predicted boards. A drag captured from the
+        // pre-Undo display must not follow that Undo with a now-invalid source/instance reference.
+        if (action is GameAction.Play && resultIntents.values.any { it.command.scope.gameId == game.id &&
+                it.command.action !is GameAction.AcceptResult }) return null
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return null
         val stream = streams.getValue(game.id)
         val command = GameCommand(UUID.randomUUID().toString(), GameScope(game.id, playId = current.playId),
-            action, stream.id, stream.generation!!, invocationId = invocationId, continuation = continuation)
+            action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation)
         if (!GameWire.valid(command)) return null
         // A control can become eligible after an already-inflight original. Failure to predict is
         // not authority to suppress the server's processing-time candidate.
@@ -329,6 +363,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // The accepted delta is prepared by the serial tree worker before publication.
         if (action is GameAction.Play && !replica.predict(command, actor)) return null
         pending[command.requestId] = command
+        if (action !is GameAction.Play) resultIntents[command.requestId] = ResultIntent(command, actor)
         captured(command)
         error = null; flush(); statusChanged(); return command
     }
@@ -349,10 +384,11 @@ class GameSession(private val connection: GameConnection, private val credential
         return enqueueResult(command, actor)
     }
     private fun resultCommand(target: ResultTarget, action: GameAction): GameCommand? {
-        if (!ready(target.gameId) || credential() != token || pending.size >= 256) return null
+        val game = summaries[target.gameId] ?: return null
+        if (!activeRequest(game) || pending.size >= 256) return null
         val stream = streams.getValue(target.gameId)
         return GameCommand(UUID.randomUUID().toString(), GameScope(target.gameId, playId = target.playId),
-            action, stream.id, stream.generation!!).takeIf(GameWire::valid)
+            action, stream.id, stream.generation ?: stream.lastGeneration!!).takeIf(GameWire::valid)
     }
     private fun enqueueResult(command: GameCommand, actor: String): Boolean {
         resultIntents[command.requestId] = ResultIntent(command, actor)
@@ -400,13 +436,15 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Withdraw display only. Already sent originals still recover and can be accepted normally. */
     fun withdrawTransferPrediction(requestId: String) { transfers[requestId]?.withdrawn = true; statusChanged() }
     private fun command(game: GameSummary, action: GameAction): GameCommand? {
-        if (!ready(game.id) || (action !is GameAction.SendChat && pending(game.id)) || credential() != token || pending.size >= 256) return null
+        if (action is GameAction.SendChat) { if (!activeRequest(game)) return null }
+        else if (!ready(game.id) || credential() != token) return null
+        if ((action !is GameAction.SendChat && pending(game.id)) || pending.size >= 256) return null
         val stream = streams.getValue(game.id)
         val scope = if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
             else GameScope(game.id, game.preparationRound,
                 if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null)
         return GameCommand(UUID.randomUUID().toString(), scope,
-            action, stream.id, stream.generation!!)
+            action, stream.id, stream.generation ?: stream.lastGeneration!!)
     }
     private fun enqueue(game: GameSummary, action: GameAction): GameCommand? {
         val command = command(game, action) ?: return null
@@ -530,7 +568,7 @@ class GameSession(private val connection: GameConnection, private val credential
                         chatSubmissions[id]?.let { chatSubmissions[id] = it.copy(failure = "Not sent. This request could not be used.") }
                         pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; selections.remove(id); transfers.remove(id); readiness.remove(id); resultIntents.remove(id); sent.remove(id)
                     }
-                    error = historyControlFailure(original?.action, message.code)
+                    if (original != null) error = historyControlFailure(original.action, message.code)
                         ?: "This game changed or the request could not be used. Refresh and try again."
                 }
             }
@@ -701,6 +739,10 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun flush() {
         if (!ready || credential() != token) return
+        for (id in historyDownloads.toList()) if (ready(id)) {
+            historyDownloads.remove(id)
+            summaries[id]?.let { recover(id, it.revision) }
+        }
         // Keep the original protocol's 256-ID recovery window. Retain the entire captured tail
         // compactly in memory, preview it immediately and drain it as capacity becomes available.
         // No card is silently dropped and an acknowledgement is not a per-card sending barrier.
@@ -726,7 +768,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun send(message: GameClientMessage): Boolean {
         if (!connection.send(message)) { unavailable(); return false }; return true
     }
-    private fun unavailable() { disconnect(); error = "Disconnected. Requests are kept; reconnect to check their outcome."; statusChanged() }
+    private fun unavailable() { disconnect(); statusChanged() }
     private fun recover(gameId: String, through: String) {
         if (gameId in recoveries) return
         val stream = streams[gameId] ?: return
@@ -894,12 +936,14 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun sameAccount() = account == null || accountId() == null || accountId() == account
     private fun disconnect() {
+        uncertainGames.addAll(pending.values.map { it.scope.gameId })
+        uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear()
         recoveries.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); account = null; error = null; statusChanged() }
+        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); lastCredential = null; account = null; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

@@ -61,7 +61,7 @@ public final class GenerateJooq {
                     }
                     resolved.put(migration.getVersion().toString(), migration.getChecksum());
                 }
-                if (!resolved.keySet().equals(java.util.Set.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17"))) {
+                if (!resolved.keySet().equals(java.util.Set.of("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18"))) {
                     throw new IllegalStateException("Unexpected resolved migration inventory");
                 }
                 int migrated = migrations.migrate().migrationsExecuted;

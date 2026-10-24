@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
@@ -126,8 +127,12 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
     val currentPerformHold by rememberUpdatedState(performHold)
     var tooltip by remember(name) { mutableStateOf(false) }
+    var pressed by remember(name) { mutableStateOf(false) }
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
-    Box(modifier.size(48.dp).background(fill).onKeyEvent { event ->
+    Box(modifier.size(48.dp).background(fill).drawWithContent {
+        drawContent()
+        if (pressed && enabled) drawRect(foreground.copy(alpha = .18f))
+    }.onKeyEvent { event ->
         if (enabled && event.key in listOf(Key.Enter, Key.Spacebar, Key.DirectionCenter)) {
             if (event.type == KeyEventType.KeyUp) click()
             true
@@ -156,8 +161,9 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
             onPress = {
                 capturedClick = click; capturedHold = currentPerformHold
                 press = ActionPress(capturedHold != null)
-                if (!tryAwaitRelease()) press.cancel()
-                tooltip = false
+                pressed = enabled
+                try { if (!tryAwaitRelease()) press.cancel() }
+                finally { pressed = false; tooltip = false }
             },
             onTap = { if (enabled && press.release() == PressAction.TAP) capturedClick?.invoke() },
             onLongPress = {

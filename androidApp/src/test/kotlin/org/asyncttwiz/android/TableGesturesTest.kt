@@ -5,6 +5,60 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun panAndPinchRubberBandThenSpringBackOnBothAxesForLargeAndSmallContent() {
+        for (extent in listOf(100f, 800f)) for (pinch in listOf(false, true)) {
+            val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, extent, extent))
+            val scene = TableScene(emptyList(), emptyList(), world = world, camera = world.fit())
+            val events = mutableListOf<TableIntent>()
+            val gestures = TableGestureCoordinator(events::add)
+            gestures.update(scene, TableSelection(), true)
+            val start = world.viewport.center
+            if (pinch) {
+                gestures.down(start, 0)
+                repeat(20) { gestures.transform(TablePoint(40f, -40f), .98f, start) }
+                gestures.cancel() // production pinch release/cancellation path
+            } else {
+                gestures.down(start, 0); gestures.up(start, 20); gestures.down(start, 100)
+                val end = TablePoint(start.x + 800, start.y - 800)
+                gestures.move(end, 140); gestures.up(end, 160)
+            }
+            val released = events.filterIsInstance<TableIntent.Camera>().last().camera
+            val target = world.clamp(released)
+            assertNotEquals(target.x, released.x); assertNotEquals(target.y, released.y)
+            assertTrue(kotlin.math.abs(released.x - target.x) * released.zoom < 96f)
+            assertTrue(kotlin.math.abs(released.y - target.y) * released.zoom < 96f)
+            assertTrue(gestures.busy)
+            gestures.tick(200); gestures.tick(300)
+            val frame = events.filterIsInstance<TableIntent.Camera>().last().camera
+            assertTrue(kotlin.math.abs(frame.x - target.x) < kotlin.math.abs(released.x - target.x))
+            assertTrue(kotlin.math.abs(frame.y - target.y) < kotlin.math.abs(released.y - target.y))
+            gestures.tick(900)
+            assertEquals(target, events.filterIsInstance<TableIntent.Camera>().last().camera)
+            assertFalse(gestures.busy)
+        }
+    }
+
+    @Test fun incrementalTransformsDoNotCompoundRubberResistanceAndNewPressInterruptsSpring() {
+        val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 400f))
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(TableScene(emptyList(), emptyList(), world = world), TableSelection(), true)
+        repeat(20) { gestures.transform(TablePoint(20f, 0f), 1f, world.viewport.center) }
+        assertEquals(world.resist(TableCamera(-400f, 0f)), events.filterIsInstance<TableIntent.Camera>().last().camera)
+        gestures.cancel(); gestures.tick(0); gestures.tick(100)
+        gestures.down(world.viewport.center, 100)
+        val stopped = events.filterIsInstance<TableIntent.Camera>().last().camera
+        gestures.tick(1000)
+        assertEquals(stopped, events.filterIsInstance<TableIntent.Camera>().last().camera)
+        gestures.transform(TablePoint(0f, 0f), 1f, world.viewport.center)
+        assertEquals(stopped.x, events.filterIsInstance<TableIntent.Camera>().last().camera.x, .001f,
+            "Grabbing the spring must not compound resistance")
+        gestures.up(world.viewport.center, 1100)
+        gestures.tick(1200); gestures.tick(1900)
+        assertEquals(world.clamp(stopped), events.filterIsInstance<TableIntent.Camera>().last().camera,
+            "Even a stationary grab must resume spring-back on release")
+    }
+
     @Test fun emptySingleTapIsImmediateDoubleTapFitsAndDoubleTapHoldDragPansInsteadOfSelecting() {
         val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
         val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
@@ -536,7 +590,10 @@ class TableGesturesTest {
         f.gestures.down(p, 0); f.gestures.move(TablePoint(p.x + 30, p.y), 50)
         f.gestures.transform(TablePoint(20f, 0f), 1.5f, p)
         f.gestures.up(p, 150); f.gestures.tick(1000)
-        assertEquals(1.5f, f.events.filterIsInstance<TableIntent.Camera>().single().camera.zoom)
+        assertTrue(f.events.filterIsInstance<TableIntent.Camera>().all { it.camera.zoom == 1.5f })
+        f.gestures.tick(1700)
+        val settled = f.events.filterIsInstance<TableIntent.Camera>().last().camera
+        assertEquals(f.scene.world!!.clamp(settled), settled)
         assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Actions || it is TableIntent.Inspect })
         assertEquals(TableGesturePreview(), f.gestures.preview)
     }
@@ -640,7 +697,8 @@ class TableGesturesTest {
         val f = Fixture(); val point = f.scene.fields.last().bounds.center
         f.gestures.transform(TablePoint(-10f, 0f), 1f, point)
         f.gestures.transform(TablePoint(-10f, 0f), 1f, point)
-        assertEquals(20f, f.events.filterIsInstance<TableIntent.Camera>().last().camera.x)
+        assertEquals(f.scene.world!!.resist(TableCamera(20f, 0f)),
+            f.events.filterIsInstance<TableIntent.Camera>().last().camera)
     }
 
     @Test fun ordinaryPileCapacityRejectsWholeSelectionWithoutPartialMove() {

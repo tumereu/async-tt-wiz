@@ -131,7 +131,7 @@ class GameplayReplica {
             it.commitRevision = update.resultRevision
         }
     }
-    /** Only terminal, non-revealing controls. No selective suffix, references or branch activation
+    /** Only terminal controls. No selective suffix, references or branch activation
      * on the UI thread. The shared processor still checks exact replay, budgets and topology, so
      * successful prediction has precisely the same board/queues/heads as server processing. */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
@@ -146,7 +146,9 @@ class GameplayReplica {
             }?.mutation
             else -> null
         } ?: return GameplayTreeChange(reason = "predictionUnavailable")
-        if (target.branchId != tree.currentBranchId || target.revealsInformation || target.references.isNotEmpty() ||
+        // The shared processor decides disclosure eligibility (notably reversible own-Hand plays)
+        // rather than rejecting every revealing flag before that check can run.
+        if (target.branchId != tree.currentBranchId || target.references.isNotEmpty() ||
             target.transition.annotation != null) return GameplayTreeChange(reason = "predictionUnavailable")
         return HistoryContinuation.change(tree, actor, command)
     }

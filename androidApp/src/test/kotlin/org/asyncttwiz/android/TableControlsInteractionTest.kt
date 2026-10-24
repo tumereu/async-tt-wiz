@@ -5,6 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.github.takahirom.roborazzi.captureRoboImage
+import java.io.File
+import javax.imageio.ImageIO
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -17,12 +21,42 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
 
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class TableControlsInteractionTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun undoShowsPressFeedbackOnDownAndTapsOnReleaseWithoutWaitingForRedoHold() {
+        var undo = 0
+        var redo = 0
+        compose.setContent { MaterialTheme {
+            ActionSquare("Undo", "", true, fill = Color.White, ink = Color.Black,
+                holdName = "Redo", onHold = { redo++ }, onClick = { undo++ })
+        } }
+        val button = compose.onNodeWithContentDescription("Undo")
+        fun pixel(): Int {
+            val output = File("build/outputs/roborazzi/undo-press.png")
+            requireNotNull(output.parentFile).mkdirs()
+            button.captureRoboImage(output.path)
+            return ImageIO.read(output).getRGB(2, 2) and 0xff
+        }
+        val idle = pixel()
+        compose.mainClock.autoAdvance = false
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeByFrame()
+        val pressed = pixel()
+        assertTrue(pressed < idle, "Press must be visibly drawn before release")
+        assertEquals(0, undo); assertEquals(0, redo)
+        button.performTouchInput { advanceEventTime(50); up() }
+        compose.runOnIdle { assertEquals(1, undo); assertEquals(0, redo) }
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(idle, pixel())
+        compose.mainClock.autoAdvance = true
+    }
 
     @Test fun nextStepTapHasNoHapticAndEndTurnHoldTicksOnceWithoutNextOnRelease() {
         val play = TableToolFixture.play()

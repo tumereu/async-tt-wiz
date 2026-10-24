@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.PlayZone
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -36,10 +37,13 @@ class TableGestureCoordinator(
     private var scene = TableScene(emptyList(), emptyList())
     private var selection = TableSelection()
     private var writable = false
+    private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
+    private data class SpringReturn(val from: TableCamera, val to: TableCamera, var start: Long? = null)
+    private var spring: SpringReturn? = null
     var preview = TableGesturePreview(); private set
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
-    val busy get() = capture != null || pending != null
+    val busy get() = capture != null || pending != null || spring != null
     val peeking get() = capture?.let { it.phase == Phase.HOLD && it.item?.cardId != null } == true
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
@@ -58,6 +62,8 @@ class TableGestureCoordinator(
     fun down(point: TablePoint, time: Long, dismissedRingCard: String? = null) {
         if (capture != null) cancel()
         tick(time)
+        spring = null // a new gesture interrupts the return at its displayed position
+        navigationCamera = scene.world?.unresist(scene.camera) ?: scene.camera
         val item = scene.hit(point)
         if (scene.stackBubbles != null && item?.id?.startsWith("stackBubble/") != true)
             emit(TableIntent.StackBubbles(null))
@@ -68,7 +74,7 @@ class TableGestureCoordinator(
         val next = Capture(item, point, time, selection, scope, scene.viewport(point),
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }, bubble = scene.stackBubbles,
             phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
-            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard, camera = scene.camera)
+            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard, camera = navigationCamera ?: scene.camera)
         val old = pending
         if (old != null) {
             if (((item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
@@ -85,6 +91,15 @@ class TableGestureCoordinator(
         if (next.phase == Phase.MARK) preview = preview.copy(marking = true, markIndex = next.bubble?.selected)
     }
     fun tick(time: Long) {
+        spring?.let { s ->
+            val start = s.start ?: time.also { s.start = it }
+            val seconds = ((time - start).coerceAtLeast(0) / 1000f)
+            // Critically damped spring, zero release velocity. No overshoot past the opposite edge.
+            val remaining = (1f + 16f * seconds) * exp(-16f * seconds)
+            if (seconds >= .65f) { spring = null; publishCamera(s.to) }
+            else publishCamera(s.to.copy(x = s.to.x + (s.from.x - s.to.x) * remaining,
+                y = s.to.y + (s.from.y - s.to.y) * remaining))
+        }
         val p = pending
         if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
@@ -119,7 +134,7 @@ class TableGestureCoordinator(
             }
         }
         when (c.phase) {
-            Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom))
+            Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom), elastic = true)
             Phase.MARK -> {
                 val bubble = c.bubble ?: return
                 val index = ((bubble.selected ?: -1) + (dy / markStepDp).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
@@ -188,6 +203,7 @@ class TableGestureCoordinator(
             Phase.HOLD -> if (c.item?.cardId != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
+        settleCamera()
         preview = TableGesturePreview()
     }
     /** A second pointer cancels the single-pointer operation; lifting one never resumes a drag. */
@@ -211,7 +227,7 @@ class TableGestureCoordinator(
             emit(TableIntent.Scroll(sidebar.id, next, vertical = true))
             return
         }
-        val old = scene.camera
+        val old = navigationCamera ?: scene.camera
         if (!scene.worldInput(centroid)) return
         val zoom = (old.zoom * scale).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
         val center = requireNotNull(scene.world).viewport.center
@@ -220,16 +236,29 @@ class TableGestureCoordinator(
         // centroid is the CURRENT centroid; keep the previous centroid's world point under it.
         val next = TableCamera(old.x + (anchorX - pan.x) / old.zoom - anchorX / zoom,
             old.y + (anchorY - pan.y) / old.zoom - anchorY / zoom, zoom)
-        navigate(next)
+        navigate(next, elastic = true)
     }
-    private fun navigate(camera: TableCamera) {
-        val next = scene.world?.clamp(camera) ?: camera
-        scene = scene.copy(camera = next) // coalesce rapid pointer frames without losing personal navigation deltas
-        emit(TableIntent.Camera(next))
+    fun panBy(x: Float, y: Float) = navigate(scene.camera.copy(x = scene.camera.x + x, y = scene.camera.y + y))
+    private fun navigate(camera: TableCamera, elastic: Boolean = false) {
+        spring = null
+        navigationCamera = camera.takeIf { elastic }
+        val next = if (elastic) scene.world?.resist(camera) else scene.world?.clamp(camera)
+        publishCamera(next ?: camera)
+    }
+    private fun publishCamera(camera: TableCamera) {
+        scene = scene.copy(camera = camera) // coalesce rapid pointer frames without losing personal navigation deltas
+        emit(TableIntent.Camera(camera))
+    }
+    private fun settleCamera() {
+        if (navigationCamera == null) return
+        navigationCamera = null
+        val target = scene.world?.clamp(scene.camera) ?: return
+        if (target != scene.camera) spring = SpringReturn(scene.camera, target)
     }
     fun cancel() {
         if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
         capture = null; pending = null; preview = TableGesturePreview()
+        settleCamera()
     }
     fun actions(item: TableItem) {
         val id = item.cardId ?: item.cards.firstOrNull().takeIf { item.zone == PlayZone.LIBRARY }

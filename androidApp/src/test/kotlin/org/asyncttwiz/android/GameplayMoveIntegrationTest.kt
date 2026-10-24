@@ -150,7 +150,7 @@ class GameplayMoveIntegrationTest {
         f.session.close()
     }
 
-    @Test fun pendingUndoCannotBeFollowedByDragFromThePreUndoBoardEvenWhenResultArrivesBeforeDelta() {
+    @Test fun ownHandPlayUndoPredictsBeforeMoveAcknowledgementAndNeverAllowsAPreUndoDrag() {
         val f = Fixture(handStarts = true); f.connect()
         val draw = PlayAction.MoveCard(f.data.id(9), MoveSource(f.hand), MoveDestination(f.field, MoveInsertion.EMPTY, BoardPosition(1, 1)))
         f.submit(draw)
@@ -158,6 +158,10 @@ class GameplayMoveIntegrationTest {
         val moved = assertNotNull(HistoryContinuation.change(GameplayTree(f.root), f.data.actor, move).tree)
         assertTrue(f.session.historyControl(f.data.game, f.data.actor, GameAction.Undo))
         val undo = f.commands().last()
+        assertTrue(moved.nodes.getValue(moved.currentNodeId).revealsInformation,
+            "Playing an already-known Hand card reveals it to the opponent, but is still reversible")
+        assertEquals(f.hand, f.card(f.session.play(f.data.game)).containerId,
+            "Undo must publish its reverse-animation endpoint without either server acknowledgement")
         // This is the invalid original the old client could send while alone, without any opponent.
         val staleDrag = PlayAction.MoveCard(f.data.id(9), MoveSource(f.field, f.card(f.session.play(f.data.game)).placement),
             MoveDestination(f.hand, MoveInsertion.UNORDERED))
@@ -173,6 +177,29 @@ class GameplayMoveIntegrationTest {
             f.data.game.copy(revision = "3"), treeDelta = TreeSync.delta(moved, undone)))
         assertEquals(f.hand, f.card(f.session.play(f.data.game)).containerId)
         f.submit(draw)
+        f.session.close()
+    }
+
+    @Test fun acknowledgedOwnHandPlayUndoAndRedoPredictAndRejectionRestoresAcceptedBoard() {
+        val f = Fixture(handStarts = true); f.connect()
+        f.submit(PlayAction.MoveCard(f.data.id(9), MoveSource(f.hand),
+            MoveDestination(f.field, MoveInsertion.EMPTY, BoardPosition(1, 1))))
+        val move = f.commands().single()
+        val initial = GameplayTree(f.root)
+        val moved = assertNotNull(HistoryContinuation.change(initial, f.data.actor, move).tree)
+        f.message(GameRevision(f.data.game.id, "1", "2", move.requestId, f.data.actor, move.scope,
+            f.data.game.copy(revision = "2"), treeDelta = TreeSync.delta(initial, moved)))
+        val accepted = f.session.acceptedPlay(f.data.game)
+        assertTrue(f.session.historyControl(f.data.game, f.data.actor, GameAction.Undo))
+        val undo = f.commands().last()
+        assertEquals(f.hand, f.card(f.session.play(f.data.game)).containerId)
+        assertEquals(accepted, f.session.acceptedPlay(f.data.game))
+        f.message(GameResult(undo.requestId, undo.scope, "rejected", "referenceBlocked", ingressOrdinal = "2"))
+        assertEquals(accepted, f.session.play(f.data.game))
+        assertTrue(f.session.historyControl(f.data.game, f.data.actor, GameAction.Undo))
+        assertEquals(f.hand, f.card(f.session.play(f.data.game)).containerId)
+        assertTrue(f.session.historyControl(f.data.game, f.data.actor, GameAction.Redo))
+        assertEquals(accepted!!.board, f.session.play(f.data.game)!!.board)
         f.session.close()
     }
 }

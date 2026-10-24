@@ -863,7 +863,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
             drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
-            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)
+            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .22f), xy(from.x, from.y), xy(to.x, to.y), density)
             if (scene.combatDrops.isNotEmpty() && scene.items.none { it.viewport == "combat" }) {
                 paint.alpha = 110
                 fittedText("Drag cards here for combat", b.x + 8f, b.center.y + 4f, b.width - 16f)
@@ -890,11 +890,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
         val b = hand.bounds
-        if (hand.owner != viewer) drawRect(OpponentTableColor.copy(alpha = .16f), xy(b.x, b.y), size(b.width, b.height))
-        else {
-            drawRoundRect(Color.White, xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density))
-            drawRoundRect(OwnTableColor.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density), style = Stroke(density / 2))
-        }
+        val border = if (hand.owner == viewer) OwnTableColor else OpponentTableColor
+        drawRoundRect(Color.White, xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density))
+        drawRoundRect(border.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(5 * density), style = Stroke(density / 2))
         text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
     scene.stackRegion?.let { b ->
@@ -1008,6 +1006,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawRect(OwnTableColor, xy(b.x, b.y), size(b.width, b.height), style = Stroke(density))
     }
     val landing = tableDragLanding(scene, preview)
+    landing.combatInsertion?.let { (from, to) -> scene.world?.viewport?.let { port ->
+        clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            drawLine(Color.Black.copy(alpha = .18f), xy(from.x, from.y), xy(to.x, to.y), density)
+        }
+    } }
     for ((b, insertionX) in listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands) {
         drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))
         insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }

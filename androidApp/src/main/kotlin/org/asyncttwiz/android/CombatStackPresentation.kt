@@ -36,10 +36,18 @@ data class StackGeometry(val width: Float, val height: Float, val count: Int,
 
 /** dp scene geometry; the caller passes the exact current ordinary-table card dimensions. */
 object CombatStackPresentation {
+    fun cardGap(cardWidth: Float) = cardWidth * .04f
+    // The ordinary card outline is 1.5dp at 28dp card width; leave two outlines each side.
+    fun slotMargin(cardWidth: Float) = cardWidth * 3f / 28f
+    fun rowWidth(count: Int, cardWidth: Float) = count * cardWidth + cardGap(cardWidth) * (count - 1).coerceAtLeast(0)
+    fun slotWidth(blockers: Int, attackers: Int, cardWidth: Float) =
+        maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
+
     fun combat(board: BoardState, cardWidth: Float, cardHeight: Float): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
-        val margin = cardWidth * .04f
+        val margin = cardGap(cardWidth)
+        val padding = slotMargin(cardWidth)
         val rowHeight = cardHeight + margin * 2
         val cards = mutableListOf<OccurrenceDrawing>()
         val targets = mutableListOf<CombatDropRegion>()
@@ -51,21 +59,19 @@ object CombatStackPresentation {
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
                     TableBounds(at - if (left) 0f else if (right) margin else 12f, y, if (left || right) margin else 24f, rowHeight),
                     CombatDestination(area.id, role, pairGap = IdentityGap(after, before)), left, right,
-                    TablePoint(at + margin, y + rowHeight / 2))
+                    TablePoint(at, y + rowHeight / 2))
             }
         }
         for ((index, pair) in area.pairs.withIndex()) {
             if (index > 0) dividers += x
-            fun sideWidth(side: List<CombatOccurrence>) = side.size * cardWidth +
-                margin * (side.size - 1).coerceAtLeast(0)
-            val pairWidth = maxOf(sideWidth(pair.blockers), sideWidth(pair.attackers)) + margin * 2
+            val pairWidth = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth)
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                 val side = pair.side(role)
                 val y = if (role == CombatRole.BLOCKER) 0f else rowHeight
-                var left = x + margin
+                var left = x + (pairWidth - rowWidth(side.size, cardWidth)) / 2
                 targets += CombatDropRegion("Append ${role.name.lowercase()} to pair ${index + 1}",
                     TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id),
-                    landing = TablePoint(x + margin + side.size * (cardWidth + margin), y + rowHeight / 2))
+                    landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
                 for ((member, occurrence) in side.withIndex()) {
                     val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
                     cards += OccurrenceDrawing(occurrence.id, card,
@@ -80,8 +86,8 @@ object CombatStackPresentation {
             x += pairWidth
         }
         if (area.pairs.isEmpty()) {
-            x = cardWidth
-            insertion(null, null, 0f, left = true, right = true)
+            x = cardWidth + 2 * padding
+            insertion(null, null, x / 2, left = true, right = true)
         } else {
             dividers.forEachIndexed { index, at -> insertion(area.pairs[index].id, area.pairs[index + 1].id, at) }
             insertion(null, area.pairs.first().id, 0f, left = true)
@@ -150,21 +156,24 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
     face: @Composable (PlayCard, Modifier) -> Unit, modifier: Modifier = Modifier) {
     val scene = CombatStackPresentation.combat(state.board, cardWidth, cardHeight)
     if (state.board.combat == null) return
-    Box(modifier.horizontalScroll(rememberScrollState())) {
-        Box(Modifier.size(scene.width.dp, scene.height.dp)) {
-            Canvas(Modifier.fillMaxSize()) {
-                for (x in scene.dividers) drawLine(Color.Black.copy(alpha = .12f), Offset(x.dp.toPx(), 0f),
-                    Offset(x.dp.toPx(), size.height), 1.dp.toPx())
+    BoxWithConstraints(modifier) {
+        val laneWidth = maxWidth
+        Box(Modifier.horizontalScroll(rememberScrollState()).widthIn(min = laneWidth), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(scene.width.dp, scene.height.dp)) {
+                Canvas(Modifier.fillMaxSize()) {
+                    for (x in scene.dividers) drawLine(Color.Black.copy(alpha = .22f), Offset(x.dp.toPx(), 0f),
+                        Offset(x.dp.toPx(), size.height), 1.dp.toPx())
+                }
+                for (region in scene.destinations) {
+                    val b = region.bounds
+                    Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)
+                        .semantics { contentDescription = region.label }
+                        .clickable(enabled = placementEnabled) { onDestination(region.destination) })
+                }
+                for (drawing in scene.cards) OccurrenceCard(drawing, cardWidth, cardHeight, viewer,
+                    drawing.viewId in selected, drawing.viewId in related, CombatStackPresentation.label(state, drawing),
+                    { onCard(drawing.viewId) }, face)
             }
-            for (region in scene.destinations) {
-                val b = region.bounds
-                Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)
-                    .semantics { contentDescription = region.label }
-                    .clickable(enabled = placementEnabled) { onDestination(region.destination) })
-            }
-            for (drawing in scene.cards) OccurrenceCard(drawing, cardWidth, cardHeight, viewer,
-                drawing.viewId in selected, drawing.viewId in related, CombatStackPresentation.label(state, drawing),
-                { onCard(drawing.viewId) }, face)
         }
     }
 }

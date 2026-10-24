@@ -369,7 +369,9 @@ class TableGesturesTest {
         val bubble = StackBubbleGeometry.combat(play.board, card.cardId!!, card.bounds, 412f, 892f)
         assertTrue(bubble.controls.single { it.id.endsWith("/undeclare") }.bounds.bottom < card.bounds.y)
         assertTrue(bubble.controls.single { it.id.endsWith("/graveyard") }.bounds.y > card.bounds.bottom)
-        assertTrue(bubble.controls.single { it.id.endsWith("/ping") }.bounds.x > card.bounds.right)
+        val pingBounds = bubble.controls.single { it.id.endsWith("/ping") }.bounds
+        if (card.bounds.center.x > 412f / 2) assertTrue(pingBounds.right < card.bounds.x)
+        else assertTrue(pingBounds.x > card.bounds.right)
         val pingPoint = bubble.controls.single { it.id.endsWith("/ping") }.bounds.center
         val ping = TableAnnotationGeometry(scene.copy(combatBubbles = bubble), f.a)
             .capture(play, org.asyncttwiz.protocol.EventReference(play.id, play.currentNodeId), pingPoint)!!
@@ -396,9 +398,8 @@ class TableGesturesTest {
         val f = TableStatesFixture
         val play = f.combat()
         for (zoom in listOf(.65f, 1f, 2f)) {
-            val home = TablePresentation.scene(f.game, play, f.a, 892f, 412f, true)
             val base = TablePresentation.scene(f.game, play, f.a, 892f, 412f, true,
-                TableLayoutState(camera = TableCamera(x = -home.world!!.viewport.width / 2 + 50f / zoom, zoom = zoom)))
+                TableLayoutState(camera = TableCamera(x = -CombatStackPresentation.combat(play.board, 28f, 40f).width / 2 + 50f / zoom, zoom = zoom)))
             val world = base.world!!
             val scene = base.copy(world = world.copy(viewport = world.viewport.copy(x = -1e6f, width = 2e6f)))
             val occurrence = scene.items.first { it.viewport == "combat" && it.visible.isNotEmpty() }
@@ -419,7 +420,14 @@ class TableGesturesTest {
                 val landing = tableDragLanding(scene, gesture.preview).outlines.single()
                 assertEquals(scene.cardWidth, landing.width, .001f)
                 assertEquals(scene.cardHeight, landing.height, .001f)
-                assertEquals(region.landing.x, landing.x, .001f)
+                val prediction = CombatStackController.place(play, f.a, listOf(occurrence.cardId!!), region.destination) { action ->
+                    GameCommand(java.util.UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id),
+                        GameAction.Play(action), play.id, "1")
+                }.prediction
+                val expected = TablePresentation.scene(f.game, prediction, f.a, 892f, 412f, true,
+                    TableLayoutState(camera = scene.camera)).items.single { it.cardId == occurrence.cardId }.bounds
+                assertEquals(expected.x, landing.x, .001f)
+                assertEquals(expected.y, landing.y, .001f)
                 gesture.up(point, 100)
                 assertEquals(TableDestination.Combat(region.destination), events.filterIsInstance<TableIntent.Move>().single().destination)
             }

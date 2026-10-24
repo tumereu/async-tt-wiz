@@ -48,7 +48,7 @@ class CombatStackPresentationTest {
         assertEquals(1, geometry.dividers.size)
         val widths = listOf(geometry.dividers.single(), geometry.width - geometry.dividers.single())
         assertTrue(widths[0] > widths[1])
-        assertEquals(48f + 2 * 48f * .04f, widths[1], .001f)
+        assertEquals(48f + 2 * CombatStackPresentation.slotMargin(48f), widths[1], .001f)
         val blockers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.BLOCKER }
         val attackers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertTrue(blockers.maxOf { it.bounds.y + it.bounds.height } < attackers.minOf { it.bounds.y })
@@ -75,7 +75,7 @@ class CombatStackPresentationTest {
         val commands = CombatCommands()
         val opened = CombatStackController.single(state, combatId(8), PlayAction.Combat(CombatAction.Open), commands::command).prediction
         val scene = CombatStackPresentation.combat(opened.board, 48f, 68f)
-        assertEquals(48f, scene.width)
+        assertEquals(48f + 2 * CombatStackPresentation.slotMargin(48f), scene.width)
         assertEquals(2, scene.destinations.size)
         assertTrue(scene.cards.isEmpty())
         assertTrue(scene.dividers.isEmpty())
@@ -104,6 +104,48 @@ class CombatStackPresentationTest {
         val gap = geometry.destinations.single { it.destination.cardGap.beforeId == pair.blockers.last().id }
         assertEquals(gap.destination, target(gap.bounds.center))
         assertEquals(IdentityGap(pair.blockers.first().id, pair.blockers.last().id), gap.destination.cardGap)
+    }
+
+    @Test fun eachRowIsCenteredInItsSlotWithUnchangedCardGapsAndDividerPadding() {
+        val state = populated()
+        for (width in listOf(28f, 48f, 56f)) {
+            val geometry = CombatStackPresentation.combat(state.board, width, width * 40 / 28)
+            val pair = state.board.combat!!.pairs.first()
+            val blockers = geometry.cards.filter { card -> pair.blockers.any { it.id == card.viewId } }.map { it.bounds }
+            val attacker = geometry.cards.single { it.viewId == pair.attackers.single().id }.bounds
+            val slotCenter = geometry.dividers.single() / 2
+            assertEquals(slotCenter, attacker.center.x, .001f)
+            assertEquals(slotCenter, (blockers.first().x + blockers.last().right) / 2, .001f)
+            assertEquals(width * .04f, blockers.last().x - blockers.first().right, .001f)
+            assertEquals(CombatStackPresentation.slotMargin(width), geometry.dividers.single() - blockers.last().right, .001f)
+            val next = geometry.cards.single { it.viewId == state.board.combat!!.pairs.last().attackers.single().id }.bounds
+            assertEquals(CombatStackPresentation.slotMargin(width), next.x - geometry.dividers.single(), .001f)
+        }
+    }
+
+    @Test fun slotsRecenterOnAdditionAndRemovalInBothOrientationsWithoutResettingCamera() {
+        val f = TableStatesFixture
+        val initial = f.combat()
+        val area = initial.board.combat!!
+        for (landscape in listOf(false, true)) for (pairs in listOf(area.pairs, area.pairs.take(1), emptyList())) {
+            val state = initial.copy(board = initial.board.copy(combat = area.copy(pairs = pairs)))
+            val geometry = CombatStackPresentation.combat(state.board, 28f, 40f)
+            val home = TablePresentation.scene(f.game, state, f.a, if (landscape) 892f else 412f,
+                if (landscape) 412f else 892f, landscape)
+            val rows = home.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }
+            val center = if (rows.isEmpty()) home.combatDrops.first().landing.x else
+                (rows.minOf { it.bounds.x } + rows.maxOf { it.bounds.right }) / 2
+            assertEquals(home.world!!.viewport.center.x, center, .001f)
+            if (rows.isNotEmpty()) assertEquals(geometry.width, rows.maxOf { it.bounds.right } - rows.minOf { it.bounds.x }, .001f)
+            val camera = TableCamera(13f, 5f, 1.4f)
+            val moved = TablePresentation.scene(f.game, state, f.a, if (landscape) 892f else 412f,
+                if (landscape) 412f else 892f, landscape, TableLayoutState(camera = camera))
+            assertEquals(camera, moved.camera)
+            val movedRows = moved.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }
+            val movedCenter = if (movedRows.isEmpty()) moved.combatDrops.first().landing.x else
+                (movedRows.minOf { it.bounds.x } + movedRows.maxOf { it.bounds.right }) / 2
+            assertEquals(center - camera.x * camera.zoom, movedCenter, .001f)
+        }
     }
 
     @Test fun stackTopThreeDrawingAllOrderedContentsAndCountAtCommonScale() {

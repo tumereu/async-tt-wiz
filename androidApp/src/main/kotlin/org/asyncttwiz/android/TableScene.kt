@@ -373,6 +373,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                                     coordinator.accessibleMove(item, TableDestination.Grid(f.containerId, 0, 0)); true
                                 }
                                 for (dest in play.board.containers.filter { it.zone in listOf(PlayZone.LIBRARY, PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }) {
+                                    if (dest.zone == PlayZone.STACK && CombatStackRules.liveSource(play.board, item.cardId)?.let {
+                                            CombatStackRules.canProject(play.board, it) } != true) continue
                                     commands += CustomAccessibilityAction("Move to ${if (dest.accountId == accountId) "your" else if (dest.accountId == null) "shared" else "opponent"} ${dest.zone.name.lowercase()}") {
                                         coordinator.accessibleMove(item, TableDestination.Container(dest.id, dest.zone)); true
                                     }
@@ -398,7 +400,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         .semantics { contentDescription = "Stack text mark ${index + 1}" })
                 }
             }
-            if (bubble != null) StackBubbleOverlay(bubble, StackText.options(play, bubble.entryId),
+            if (bubble != null) StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, accountId),
                 if (bubbleCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
                 if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                 callback?.invoke(intent)

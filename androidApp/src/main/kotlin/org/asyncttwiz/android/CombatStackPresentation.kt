@@ -99,7 +99,7 @@ object CombatStackPresentation {
 
     fun label(state: PlayState, drawing: OccurrenceDrawing): String {
         val card = drawing.card
-        val hidden = if (drawing.frozen) card.covered else !CardVisibility.isVisibleFaceUp(card, PlayZone.STACK, null, "")
+        val hidden = if (drawing.frozen) card.covered else !CardVisibility.isVisibleFaceUp(state.board, card, "")
         val name = if (hidden) "Covered card" else state.definitions.find { it.digest == card.definition }?.definition
             ?.faces?.find { it.faceId == card.faceId }?.name ?: "Card"
         return when {

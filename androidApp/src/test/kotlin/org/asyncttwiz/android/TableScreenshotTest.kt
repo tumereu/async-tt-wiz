@@ -355,7 +355,8 @@ class TableScreenshotTest {
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Move to Stack").performScrollTo().performClick()
         assertEquals(null, toolkit.manual.scope)
-        assertTrue(sent.any { it is PlayAction.MoveCard && it.destination.containerId == "stack" })
+        assertTrue(sent.any { it is PlayAction.Stack && it.action is StackAction.AddEffect })
+        assertTrue(sent.none { it is PlayAction.MoveCard && it.destination.containerId == "stack" })
     }
 }
 

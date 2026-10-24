@@ -26,7 +26,7 @@ object StackQuickActions {
             listOf(PlayAction.Stack(StackAction.RemoveEffect(entryId))) else emptyList()
         val card = CombatStackRules.liveSource(state.board, entryId) ?: return remove
         val source = state.board.containers.single { it.id == card.containerId }
-        if (zone == PlayZone.BATTLEFIELD && source.zone == PlayZone.BATTLEFIELD) return remove
+        if (zone == PlayZone.BATTLEFIELD && source.zone == PlayZone.BATTLEFIELD && source.accountId == card.owner) return remove
         val target = state.board.containers.single { it.accountId == card.owner && it.zone == zone }
         // Coordinates run outwards-to-inwards for BOTH players. Row 0 is lands, row 1 the nearest main row.
         val destination = if (zone == PlayZone.BATTLEFIELD) {

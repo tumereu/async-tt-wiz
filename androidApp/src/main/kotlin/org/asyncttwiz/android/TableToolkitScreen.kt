@@ -141,7 +141,6 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
             }
         }
     val battlefield = play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
-    val effect = play.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE) }
     return moves + listOf(
         MenuControl("Clone", enabled && toolkit.tokens.scope != null) {
             toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
@@ -156,7 +155,6 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
                 if (sent) toolkit.dismiss()
             }
         },
-        MenuControl("Add Stack effect", enabled && effect) { if (toolkit.addEffects(bound.sourceIds)) toolkit.dismiss() },
         MenuControl("Declare without tapping", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, false)) toolkit.dismiss() },
         MenuControl("Declare + tap", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, true)) toolkit.dismiss() },
         MenuControl("Unlink", enabled) { toolkit.tokens.links(); toolkit.manual.close() }

@@ -71,6 +71,11 @@ object CombatStackRules {
     fun exists(board: BoardState, endpoint: ProjectionEndpoint) = endpoint.occurrenceId in projectionIds(board)
     fun projectionPair(first: String, second: String) = if (first <= second) first to second else second to first
     fun stack(board: BoardState) = board.containers.single { it.zone == PlayZone.STACK }
+    fun canProject(board: BoardState, card: PlayCard): Boolean {
+        val source = board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        return source.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE) ||
+            source.zone == PlayZone.HAND && source.accountId == card.owner
+    }
     /** Top first; the Stack container holds real card IDs AND independent effect occurrence IDs. */
     fun identities(board: BoardState): List<StackIdentity> = stack(board).cards.map { id ->
         val effect = board.stackEffects.singleOrNull { it.id == id }
@@ -199,8 +204,7 @@ object CombatStackRules {
                 is StackAction.AddEffect -> {
                     if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
                     val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
-                    if (board.containers.singleOrNull { it.id == source.containerId }?.zone !in
-                        setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)) return reject("inapplicable")
+                    if (!canProject(board, source)) return reject("inapplicable")
                     val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id)
                     if (effect.id in stack(board).cards || board.cards.any { it.id == effect.id }) return reject("invalidStructure")
                     board.copy(stackEffects = board.stackEffects + effect,
@@ -225,7 +229,12 @@ object CombatStackRules {
             else -> return reject("inapplicable")
         }
         if (next == board) return GameplayChange(state)
-        return GameplayRules.record(state, actor, command, next, GameplayTransition())
+        val source = ((playAction as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
+            ?.let { id -> board.cards.singleOrNull { it.id == id } }
+        val viewers = source?.let { CardVisibility.viewers(next, it) - CardVisibility.viewers(board, it).toSet() }.orEmpty()
+        return GameplayRules.record(state, actor, command, next, GameplayTransition(disclosures =
+            if (source != null && viewers.isNotEmpty()) listOf(GameplayDisclosure(source.id, source.faceId, source.containerId, viewers))
+            else emptyList()))
     }
 
     private fun empty(pair: CombatPair) = pair.attackers.isEmpty() && pair.blockers.isEmpty()

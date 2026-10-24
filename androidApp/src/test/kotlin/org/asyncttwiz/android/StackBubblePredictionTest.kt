@@ -64,8 +64,9 @@ class StackBubblePredictionTest {
                 up()
             }
             compose.onNodeWithContentDescription("Mark text · drag up or down").assertExists()
+            val entry = f.play.board.stackEffects.single().id
             compose.runOnIdle {
-                assertEquals(f.id(40), ui.stackBubbleEntry)
+                assertEquals(entry, ui.stackBubbleEntry)
                 assertEquals(before, f.lobby.state.acceptedPlay)
             }
             // Deliver the real accepted replacement, while the history index still renders the old
@@ -79,10 +80,10 @@ class StackBubblePredictionTest {
                 }
                 presented = before
             }
-            compose.runOnIdle { assertEquals(f.id(40), ui.stackBubbleEntry); presented = f.play }
+            compose.runOnIdle { assertEquals(entry, ui.stackBubbleEntry); presented = f.play }
             compose.onNodeWithContentDescription("Mark text · drag up or down").assertExists()
             compose.runOnIdle {
-                assertEquals(f.id(40), ui.stackBubbleEntry)
+                assertEquals(entry, ui.stackBubbleEntry)
                 assertEquals(f.play.board, f.lobby.state.acceptedPlay!!.board)
             }
         } finally { f.lobby.close(); f.worker.drain() }

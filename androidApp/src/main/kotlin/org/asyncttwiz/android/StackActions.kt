@@ -43,8 +43,7 @@ fun StackActions(state: PlayState, actor: String, targets: List<CombatStackTarge
     val effects = targets.filter { target -> state.board.stackEffects.any { it.id == target.viewId } }
     val canAdd = CombatStackController.sources(targets).any { source ->
         state.board.cards.find { it.id == source }?.let { card ->
-            state.board.containers.find { it.id == card.containerId }?.zone in
-                setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)
+            CombatStackRules.canProject(state.board, card)
         } == true
     }
     Column {

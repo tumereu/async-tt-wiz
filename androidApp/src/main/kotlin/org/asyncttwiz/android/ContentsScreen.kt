@@ -90,7 +90,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
         val anchor = rows[bubbleId]?.takeIf { bubbleId in entries.map { it.cardId } && it.width > 0 && it.height > 0 }
             ?.let { TableBounds((it.left - root.left) / density, (it.top - root.top) / density, it.width / density, it.height / density) }
         val bubble = if (stack && anchor != null) StackBubbleGeometry.create(requireNotNull(bubbleId), anchor,
-            maxWidth.value, maxHeight.value, state.board.stackTextMarks[bubbleId], StackText.options(state, requireNotNull(bubbleId)).size) else null
+            maxWidth.value, maxHeight.value, state.board.stackTextMarks[bubbleId], stackTextOptions(state, requireNotNull(bubbleId), viewer).size) else null
         val currentBubble by rememberUpdatedState(bubble)
         SideEffect {
             // The same production coordinator owns the bubble taps and mark-text drag as on the table.
@@ -129,7 +129,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
                     modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,
                     onRowBounds = { id, bounds -> rows[id] = bounds })
             }
-            if (bubble != null) StackBubbleOverlay(bubble, StackText.options(state, bubble.entryId),
+            if (bubble != null) StackBubbleOverlay(bubble, stackTextOptions(state, bubble.entryId, viewer),
                 if (CombatStackRules.inspection(state.board, bubble.entryId)?.owner == viewer) OwnTableColor else OpponentTableColor,
                 preview, stackWritable) { intent ->
                 if (intent is TableIntent.StackDestination) bubbleId = null
@@ -163,7 +163,7 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
             onInspect = { controller.inspection(state, it, viewer, hold = true,
                 displayFaceVisible = display.facesVisibleTo(viewer))?.let(onInspect) }, modifier = Modifier.weight(1f))
         selected?.let { id ->
-            LibraryDestinationPicker(state.board, destination, { destination = it }, names)
+            LibraryDestinationPicker(state.board, destination, { destination = it }, names, sourceIds = listOf(id))
             Row {
                 MenuButton("Move", Modifier.weight(1f), enabled = controller.available() && destination != null) {
                     destination?.let {

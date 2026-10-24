@@ -45,7 +45,9 @@ class LibraryController(
     }
     fun move(selection: ContentsSelection, count: Int, destination: MoveDestination): LibrarySubmission {
         val current = current()?.takeIf { available() && count >= 0 } ?: return LibrarySubmission(0, 1)
-        if (current.board.containers.any { it.id == destination.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }) {
+        val stack = current.board.containers.any { it.id == destination.containerId && it.zone == PlayZone.STACK }
+        if (stack && current.board.containers.any { it.id == libraryId && it.zone == PlayZone.LIBRARY }) return LibrarySubmission(0, 1)
+        if (stack || current.board.containers.any { it.id == destination.containerId && it.zone == PlayZone.BATTLEFIELD }) {
             val source = current.board.containers.single { it.id == libraryId }
             val ids = LibraryRules.slice(source.cards, selection, count)
             val sources = BasicTableController.sources(current, ids, top = selection == ContentsSelection.TOP).mapValues { (id, value) ->
@@ -65,8 +67,11 @@ class LibraryController(
     private fun moveAcross(current: PlayState, ids: List<String>, sources: Map<String, TableMoveSource>, destination: MoveDestination): LibrarySubmission {
         if (ids.isEmpty()) return LibrarySubmission(0, 0)
         val target = current.board.containers.single { it.id == destination.containerId }
-        val bound = if (target.zone == PlayZone.STACK) TableDestination.Container(target.id, target.zone)
-            else destination.position?.let { TableDestination.Grid(target.id, it.x, it.y) } ?: return LibrarySubmission(0, ids.size)
+        val bound = if (target.zone == PlayZone.STACK) {
+            if (ids.any { id -> current.board.cards.singleOrNull { it.id == id }?.let {
+                    CombatStackRules.canProject(current.board, it) } != true }) return LibrarySubmission(0, ids.size)
+            TableDestination.Container(target.id, target.zone)
+        } else destination.position?.let { TableDestination.Grid(target.id, it.x, it.y) } ?: return LibrarySubmission(0, ids.size)
         return moveRequest?.invoke(TableIntent.Move(TableScope(ids.first(), ids), bound, sources, UUID.randomUUID().toString()))
             ?: LibrarySubmission(0, ids.size)
     }

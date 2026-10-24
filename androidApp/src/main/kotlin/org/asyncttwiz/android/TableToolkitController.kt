@@ -117,6 +117,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Convenience defaults are explicit per-card requests with the SAME invocation as the move. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
+        if (action is PlayAction.MoveCard && play.board.containers.any {
+                it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
+            return enqueue(BasicTableController.projection(play, action) ?: return false,
+                invocationId ?: UUID.randomUUID().toString())
+        }
         if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
         val group = invocationId ?: UUID.randomUUID().toString()
         val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play, action) else listOf(action)
@@ -257,7 +262,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         request = { action, group -> submit(action, group) }, moveRequest = { intent ->
             var submitted = 0
             val adapter = BasicTableController(::current, ::enabled) { action, group ->
-                enqueue(action, group).also { if (it && action is PlayAction.MoveCard) submitted++ }
+                enqueue(action, group).also { if (it && (action is PlayAction.MoveCard ||
+                    (action as? PlayAction.Stack)?.action is StackAction.AddEffect)) submitted++ }
             }
             adapter.handle(intent)
             LibrarySubmission(submitted, intent.scope.cardIds.size - submitted)
@@ -351,7 +357,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun addEffects(ids: List<String>): Boolean = batch {
         var sent = false
         ids.distinct().forEach { id -> current()?.takeIf { play -> play.board.cards.any { card -> card.id == id &&
-            play.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE) } } }
+            CombatStackRules.canProject(play.board, card) } }
             ?.let { sent = submit(PlayAction.Stack(StackAction.AddEffect(id, CombatStackRules.stackDigest(it)))) || sent } }
         sent
     }

@@ -28,7 +28,13 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 intent.color?.let { PlayAction.AdjustCounter(CounterTarget.PLAYER, intent.accountId, it, intent.delta.toString()) }
                     ?: PlayAction.AdjustLife(intent.accountId, intent.delta.toString()), invocation)
             is TableIntent.Move -> move(state, intent, invocation)
-            is TableIntent.Submit -> submit(intent.action, intent.invocationId ?: invocation)
+            is TableIntent.Submit -> {
+                val action = intent.action
+                val lowered = if (action is PlayAction.MoveCard && state.board.containers.any {
+                        it.id == action.destination.containerId && it.zone == PlayZone.STACK })
+                    projection(state, action) ?: return false else action
+                submit(lowered, intent.invocationId ?: invocation)
+            }
             else -> false // Personal inspection/selection/navigation never become logged requests.
         }
     }
@@ -46,6 +52,15 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             is TableDestination.CardPile -> state.board.containers.singleOrNull { it.id == d.source?.containerId && it.zone == PlayZone.BATTLEFIELD }
             is TableDestination.Combat -> return false // Toolkit owns occurrence placement, not a real-card move.
         } ?: return false
+        if (target.zone == PlayZone.STACK) {
+            if (ids.any { !CombatStackRules.canProject(state.board, state.board.cards.single { card -> card.id == it }) }) return false
+            var sent = false
+            for (id in ids) {
+                val predecessor = play()?.takeIf { connected() && it.id == state.id } ?: break
+                sent = submit(PlayAction.Stack(StackAction.AddEffect(id, GameplayRules.stackDigest(predecessor))), invocation) || sent
+            }
+            return sent
+        }
         val pileTarget = (intent.destination as? TableDestination.CardPile)?.let { d ->
             val captured = d.source?.source()?.placement ?: return false
             val card = state.board.cards.singleOrNull { it.id == d.cardId } ?: return false
@@ -94,7 +109,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                         MoveDestination(target.id, MoveInsertion.PILE_BOTTOM, p.position, p.pileId)
                     }
                 }
-                target.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK) -> {
+                target.zone == PlayZone.LIBRARY -> {
                     val previous = prefix
                     if (previous == null) MoveDestination(target.id,
                         if ((intent.destination as TableDestination.Container).bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
@@ -108,8 +123,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
             }
             val source = sources.getValue(id)
-            val action = PlayAction.MoveCard(id, source, destination,
-                if (target.zone == PlayZone.STACK && source.containerId != target.id) GameplayRules.stackDigest(predecessor) else null)
+            val action = PlayAction.MoveCard(id, source, destination)
             if (target.zone == PlayZone.HAND && source.containerId == target.id && destination.insertion == MoveInsertion.GAP) {
                 val members = currentTarget.cards
                 val reduced = members.filter { it != id }
@@ -165,6 +179,13 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
     }
 
     companion object {
+        fun projection(state: PlayState, action: PlayAction.MoveCard): PlayAction.Stack? {
+            val card = state.board.cards.singleOrNull { it.id == action.cardId } ?: return null
+            if (!CombatStackRules.canProject(state.board, card) || card.containerId != action.source.containerId ||
+                card.placement != action.source.placement) return null
+            return PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(state)))
+        }
+
         fun sources(state: PlayState, ids: List<String>, top: Boolean = false): Map<String, TableMoveSource> =
             state.board.cards.filter { it.id in ids }.associate { c -> c.id to TableMoveSource(c.containerId,
                 c.placement?.let { TablePlacement(it.position.x, it.position.y, pileId = it.pileId) }, top) }

@@ -117,7 +117,7 @@ object TablePresentation {
             ?: return null
         val pile = scene.items.single { it.id == card.viewport }
         return StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
-            play.board.stackTextMarks[entryId], StackText.options(play, entryId).size)
+            play.board.stackTextMarks[entryId], if (card.covered) 0 else StackText.options(play, entryId).size)
     }
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
@@ -186,7 +186,8 @@ object TablePresentation {
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
             viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false) {
-            val hidden = !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
+            val hidden = if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
+                else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone != PlayZone.STACK && card.tapped

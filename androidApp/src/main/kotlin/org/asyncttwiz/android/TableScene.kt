@@ -92,7 +92,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var selection by selectionState
     var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
     var localStackBubble by remember(play.id, accountId) { mutableStateOf<String?>(null) }
-    var modeMenu by remember(play.id, accountId) { mutableStateOf(false) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
     var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
     var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
@@ -259,7 +258,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
         SideEffect {
             presentation = scene
-            var retained = selection.retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
+            var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
                 CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
             if (visitedGroup != play.currentGroup?.id && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
             visitedGroup = play.currentGroup?.id
@@ -364,7 +363,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                          if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                             if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                         }
-                         selected = item.cardId in selection.ids
+                         selected = item.cardId in (preview.rectangle?.let(scene::rectangle) ?: selection.ids)
                          if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
                              stateDescription = "Related source and projections share this source identity; selection is independent"
                         onClick("Actions") { coordinator.actions(item); true }
@@ -418,8 +417,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         if (runtime.reviewing) runtime.reviewPanel?.invoke()
         if (toolkit != null) {
             val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
-            if (!runtime.reviewing) QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack), toolkit.table, endingColor,
-                Modifier.align(Alignment.BottomEnd).padding(end = if (landscape) 82.dp else 112.dp, bottom = 4.dp), perform = toolkit::perform)
+            if (!runtime.reviewing) QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack, accountId), toolkit.table, endingColor,
+                Modifier.align(Alignment.BottomEnd), perform = toolkit::perform)
             if (!runtime.reviewing) runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                 Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
@@ -428,19 +427,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
             Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
-        if (!runtime.reviewing) Box(Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)) {
+        if (!runtime.reviewing) Box(Modifier.offset(
+            ((scene.world?.viewport?.right ?: maxWidth.value) - 56f).dp,
+            ((scene.world?.viewport?.bottom ?: (maxHeight.value - 56f)) - 56f).dp)) {
             ActionSquare("Interaction mode", "", true,
-                modifier = Modifier.width(66.dp).height(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
+                modifier = Modifier.size(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                     contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
                 }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
-                onClick = { coordinator.cancel(); modeMenu = true })
-            DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
-                for (mode in listOf(TableMode.NORMAL, TableMode.SELECT) + if (runtime.ping != null) listOf(TableMode.PING) else emptyList()) DropdownMenuItem(text = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) },
-                    onClick = { coordinator.cancel(); selection = selection.copy(mode = mode); modeMenu = false },
-                    modifier = Modifier.semantics { selected = selection.mode == mode })
-                runtime.redo?.let { redo -> DropdownMenuItem(text = { Text("Redo") }, enabled = runtime.controlsConnected ?: connected,
-                    onClick = { modeMenu = false; redo() }) }
-            }
+                onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
         }
         CompositionLocalProvider(LocalCardRingAnchors provides scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
             item.cardId?.let { id -> id to if (item.visible.any { it.contains(item.bounds.center) }) item.bounds
@@ -742,7 +736,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
     scene.stackRegion?.let { b -> drawRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height)) }
-    val focused = selection.ids + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
+    val highlighted = preview.rectangle?.let(scene::rectangle) ?: selection.ids
+    val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     for (i in scene.items) for (part in i.visible) clipRect(part.x * density, part.y * density, part.right * density, part.bottom * density) {
         drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(part.x * density, part.y * density,
@@ -808,7 +803,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         if (i.sourceId != null && i.sourceId in relatedSources) drawRect(Color(0xffbd982f), xy(b.x + 3, b.y + 3),
             size((b.width - 6).coerceAtLeast(0f), (b.height - 6).coerceAtLeast(0f)), style = Stroke(2 * density))
-        if (i.cardId in selection.ids) drawRect(Color(0xff397ccc), xy(b.x, b.y), size(b.width, b.height), style = Stroke(3 * density))
+        if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x, b.y), size(b.width, b.height), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x, b.y), size(b.width, b.height), style = Stroke(2 * density))
         } finally { drawContext.canvas.restore() }
     }

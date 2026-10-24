@@ -122,7 +122,7 @@ class HistoryRuntimeIntegrationTest {
                 { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
             fun untap() {
                 val play = x.session.play(x.game)!!
-                val quick = QuickActions.contextual(play, QuickContext(), actions).single { it.name == "Untap all" }
+                val quick = QuickActions.contextual(play, QuickContext(viewer = f.a), actions).single { it.name == "Untap all" }
                 assertEquals(listOf(f.id(9)), (quick.intent as TableActionIntent.Untap).cardIds)
                 assertTrue(actions.perform(quick.intent))
                 assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
@@ -266,15 +266,15 @@ class HistoryRuntimeIntegrationTest {
             x.connect(); x.publish()
             val actions = TableActionController({ x.session.play(x.game) }, { true },
                 { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
-            fun quickNames() = QuickActions.contextual(x.session.play(x.game)!!, QuickContext(), actions).map { it.name }
+            fun quickNames() = QuickActions.contextual(x.session.play(x.game)!!, QuickContext(viewer = f.a), actions).map { it.name }
             val initial = quickNames()
             assertTrue("Untap all" in initial)
             assertTrue(x.session.gameplay(x.game, f.a, PlayAction.NextStep))
-            assertTrue(quickNames().isEmpty())
+            assertEquals(listOf("Draw + go to main"), quickNames())
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
             assertEquals(initial, quickNames())
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Redo))
-            assertTrue(quickNames().isEmpty())
+            assertEquals(listOf("Draw + go to main"), quickNames())
             assertEquals(3, x.commands().size)
         }
     }

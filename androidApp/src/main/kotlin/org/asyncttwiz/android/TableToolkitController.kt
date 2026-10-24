@@ -320,7 +320,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             else -> basic.handle(intent)
         }
     }
-    fun perform(intent: TableActionIntent): Boolean = batch { table.perform(intent) }
+    fun perform(intent: TableActionIntent): Boolean = batch {
+        table.perform(intent).also { refreshAttackSelection() }
+    }
+    fun refreshAttackSelection() {
+        current()?.let { selectionState.value = selectionState.value.atStep(TurnPosition.of(it.board.turn)) }
+    }
+    override fun selectAttackers(intent: TableActionIntent.SelectAttackers) {
+        if (intent.advance && !submit(PlayAction.ChooseStep(TurnPosition.DECLARE_ATTACKERS))) return
+        selectionState.value = selectionState.value.selectAttackers()
+    }
 
     override fun library(intent: TableActionIntent.Library) {
         if (intent.tool == LibraryTool.MULLIGAN_MINUS_ONE) {
@@ -339,6 +348,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 submit(PlayAction.NextStep)
                 intent.areaId?.let { submit(PlayAction.Combat(CombatAction.Close(it))) }
             }
+            CombatTool.NO_ATTACK -> {
+                val combat = current()?.board?.combat
+                if (combat != null && combat.id == intent.areaId && CombatStackRules.occurrences(combat).isEmpty())
+                    submit(PlayAction.Combat(CombatAction.Close(combat.id)))
+                submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN))
+            }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
         }
     }
@@ -352,6 +367,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         var sent = false
         eligible.forEach { sent = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || sent }
         if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
+        if (sent) selectionState.value = selectionState.value.afterDeclare()
         sent
     }
     fun addEffects(ids: List<String>): Boolean = batch {

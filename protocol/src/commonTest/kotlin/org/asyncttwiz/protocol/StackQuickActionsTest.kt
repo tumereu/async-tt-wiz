@@ -24,8 +24,9 @@ class StackQuickActionsTest {
             listOf(SubmittedDefinition(card.definition, definition)), emptyList(), InitialStarter(StarterChoice(owner), owner))
     }
     private var request = 1000
+    // Separate presses (mark, clear, move, remove) must not share an undo invocation.
     private fun command(state: PlayState, action: GameAction) = GameCommand(id(request++), GameScope(state.gameId, playId = state.id),
-        action, id(9), "1", invocationId = id(500))
+        action, id(9), "1", invocationId = id(500 + request))
     private fun append(tree: GameplayTree, action: PlayAction): GameplayTree {
         val state = tree.stateAt(tree.currentNodeId)!!
         val cmd = command(state, GameAction.Play(action))

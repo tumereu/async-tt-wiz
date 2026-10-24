@@ -166,10 +166,10 @@ class TableGestureCoordinator(
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
                 if (c.item.zone == PlayZone.STACK) single(c, explicit = true)
                 else if (writable && c.scope != null && targetsExist(c.scope)) {
-                    emit(TableIntent.Selection(c.selection.orientation(c.scope.contextId)))
+                    emit(TableIntent.Selection(c.selection.afterDoubleTap(c.scope.contextId)))
                     emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources))
                 }
-            } else if (doubleTapEnabled && ((c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) ||
+            } else if (doubleTapEnabled && ((c.selection.mode != TableMode.PING && c.item?.kind == TableItemKind.CARD) ||
                 (c.selection.mode != TableMode.PING && c.item?.zone == PlayZone.LIBRARY))) {
                 // Shared single-tap routes (Library View, link picking) retain the decision window.
                 val local = singleTapIsLocal(requireNotNull(c.item))

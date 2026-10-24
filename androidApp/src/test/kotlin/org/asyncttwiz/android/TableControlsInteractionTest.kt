@@ -15,6 +15,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -56,6 +60,53 @@ class TableControlsInteractionTest {
         compose.mainClock.advanceTimeByFrame()
         assertEquals(idle, pixel())
         compose.mainClock.autoAdvance = true
+    }
+
+    @Test fun modeButtonCyclesWithoutAMenuAndLivesAboveBottomControls() {
+        val play = TableFixture.play(board = 2)
+        val ui = TableToolkitController("a", { play }, { true }, { _, _ -> true })
+        var pingAvailable by mutableStateOf(true)
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, play, "a", false, Modifier.fillMaxSize(), true, ui::handle, toolkit = ui,
+                runtime = TableRuntimeHooks(controlsConnected = true, ping = if (pingAvailable) ({ true }) else null,
+                    undo = { true }, redo = { true }))
+        } }
+        val mode = compose.onNodeWithContentDescription("Interaction mode")
+        mode.assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        val modeBounds = mode.fetchSemanticsNode().boundsInRoot
+        val nextBounds = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(root.right, nextBounds.right)
+        assertEquals(root.bottom, nextBounds.bottom)
+        assertTrue(modeBounds.bottom < nextBounds.top)
+        for (expected in listOf(TableMode.SELECT, TableMode.PING, TableMode.NORMAL)) {
+            mode.performTouchInput { click() }
+            compose.runOnIdle { assertEquals(expected, ui.selectionState.value.mode) }
+        }
+        compose.runOnIdle { pingAvailable = false }
+        mode.performClick(); mode.performClick()
+        compose.runOnIdle { assertEquals(TableMode.NORMAL, ui.selectionState.value.mode) }
+        compose.onNodeWithText("Redo").assertDoesNotExist()
+    }
+
+    @Test fun shortContextualRailHugsNextWithEmptySlotsOnTheLeft() {
+        val play = TableToolFixture.play(TurnPosition.END_STEP)
+        val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+        compose.setContent { MaterialTheme {
+            QuickActionStrip(play, QuickContext(viewer = play.board.turn.accountId), controller, OwnTableColor)
+        } }
+        val end = compose.onNodeWithContentDescription("End turn").fetchSemanticsNode().boundsInRoot
+        val next = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
+        assertEquals(96f, end.left)
+        assertEquals(end.right, next.left)
+    }
+
+    @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {
+        val position = HoldTooltipPosition(8)
+        val window = IntSize(412, 892)
+        val label = IntSize(160, 40)
+        assertEquals(IntOffset(0, 752), position.calculatePosition(IntRect(0, 800, 48, 848), window, LayoutDirection.Ltr, label))
+        assertEquals(IntOffset(252, 56), position.calculatePosition(IntRect(364, 0, 412, 48), window, LayoutDirection.Rtl, label))
     }
 
     @Test fun nextStepTapHasNoHapticAndEndTurnHoldTicksOnceWithoutNextOnRelease() {

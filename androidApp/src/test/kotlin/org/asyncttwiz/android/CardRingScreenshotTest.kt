@@ -68,28 +68,35 @@ class CardRingScreenshotTest {
                 val card = if (at == 2) f.source(f.b, "2/3") else f.source(f.a, "1/3")
                 toolkit.openCard(TableScope(card.id, listOf(card.id)))
             }
-            for (page in 0..2) {
+            var openingSquare: androidx.compose.ui.geometry.Rect? = null
+            for (page in 0..3) {
                 compose.mainClock.advanceTimeBy(350)
                 compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
                 compose.onAllNodes(isDialog()).assertCountEquals(0)
-                val indicator = compose.onNode(hasContentDescription("Action page ${page + 1} of 3", substring = true))
+                val indicator = compose.onNode(hasContentDescription("Action page ${page + 1} of ", substring = true))
                 indicator.assertIsDisplayed()
+                val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
+                if (openingSquare == null) openingSquare = square else assertEquals(openingSquare, square)
+                assertEquals(216f, square.width)
+                assertEquals(square.width, square.height)
                 if (page == 0) for (name in listOf("Inspect", "Set corner", "Clone", "Ping / Unping"))
                     compose.onNodeWithContentDescription(name).assertIsDisplayed()
-                if (page == 1) for (color in CounterColor.entries) for (prefix in listOf("Set", "Decrease", "Increase"))
+                if (page == 1) for (color in CounterColor.entries.dropLast(1)) for (prefix in listOf("Set", "Decrease", "Increase"))
                     compose.onNodeWithContentDescription("$prefix ${color.name.lowercase()} counter").assertIsDisplayed()
+                if (page == 2) for (prefix in listOf("Set", "Increase"))
+                    compose.onNodeWithContentDescription("$prefix gray counter").assertIsDisplayed()
                 val card = actualAnchor!!
-                val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring"))).fetchSemanticsNodes()
+                val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring")) and
+                    SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).fetchSemanticsNodes()
                 for (button in buttons) {
                     val b = button.boundsInRoot
-                    if (b.width == 0f || b.height == 0f) continue // off-screen rows in the scrolling More grid
                     assertTrue(b.width >= 47.9f && b.height >= 47.9f, "48dp target: ${button.config} $b")
-                    assertNull(TableBounds(b.left, b.top, b.width, b.height).intersection(card), "Bubble covers card: $b $card")
+                    assertNull(TableBounds(b.left, b.top, b.width, b.height).intersection(card), "Cell covers card: $b $card")
                 }
                 val file = File("build/outputs/roborazzi/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")
                 file.parentFile!!.mkdirs()
                 captureScreenRoboImage(file.path)
-                if (page < 2) indicator.performClick()
+                if (page < 3) compose.ringPage(page + 2)
             }
             compose.runOnIdle { toolkit.dismiss() }
             compose.waitForIdle()
@@ -106,9 +113,10 @@ class CardRingScreenshotTest {
 
 internal fun ComposeContentTestRule.ringPage(page: Int) {
     mainClock.advanceTimeBy(350)
-    repeat(3) {
-        if (onAllNodes(hasContentDescription("Action page $page of 3", substring = true)).fetchSemanticsNodes().isNotEmpty()) return
-        onNode(hasContentDescription("Action page ", substring = true)).performClick()
+    // Explicit event time keeps physical presses past the uptime guard without an entrance animation.
+    onNodeWithContentDescription("${listOf("Everyday", "Counters", "More", "Move")[page - 1]} page").performTouchInput {
+        advanceEventTime(350)
+        click()
     }
-    error("Card action page $page was not reachable")
+    onNode(hasContentDescription("Action page $page of ", substring = true)).assertIsDisplayed()
 }

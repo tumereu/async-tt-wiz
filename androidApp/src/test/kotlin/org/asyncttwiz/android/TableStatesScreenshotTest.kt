@@ -291,7 +291,7 @@ class TableStatesScreenshotTest {
         val sent = render("graveyard-contents", false)
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
-        compose.ringPage(3)
+        compose.ringPage(4)
         compose.onNodeWithContentDescription("Graveyard · Alice").assertExists()
         compose.onNodeWithContentDescription("Library top · Alice").assertExists()
         compose.onNodeWithContentDescription("Library bottom · Alice").assertExists()

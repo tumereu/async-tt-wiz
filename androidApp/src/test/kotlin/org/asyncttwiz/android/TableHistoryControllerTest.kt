@@ -37,7 +37,7 @@ class TableHistoryControllerTest {
         }
     }
 
-    @Test fun staleHeadCannotBypassConfirmationAfterLivePlayAdvances() {
+    @Test fun staleHeadArmsItsExactBoundaryAfterLivePlayAdvances() {
         Harness().use { h ->
             val root = f.root()
             h.history.update(root, "v1"); h.publish()
@@ -47,7 +47,8 @@ class TableHistoryControllerTest {
             h.history.update(next, "v2"); h.publish()
             h.history.displayPosition(); h.reviews.removeFirst()(view(root))
             assertTrue(h.history.requestContinuation(root.currentNodeId))
-            assertEquals(root.currentNodeId, h.history.continuationTarget)
+            assertNull(h.history.continuationTarget)
+            assertEquals(root.currentNodeId, h.history.armed)
             assertEquals(HistoryMode.PLAYBACK, h.history.playback!!.position.mode)
         }
     }
@@ -70,7 +71,7 @@ class TableHistoryControllerTest {
         }
     }
 
-    @Test fun continuationRequestPausesButOnlyConfirmationArmsTheCapturedBoundary() {
+    @Test fun continuationRequestPausesAndImmediatelyArmsTheCapturedBoundary() {
         Harness().use { h ->
             val tree = f.tap(f.root())
             h.history.update(tree, "v1"); h.publish()
@@ -83,12 +84,7 @@ class TableHistoryControllerTest {
             assertTrue(h.history.canRequestContinuation(root))
             assertTrue(h.history.requestContinuation(root))
             assertFalse(player.position.playing)
-            assertNull(h.history.armed)
-            assertEquals(root, h.history.continuationTarget)
-            h.history.dismissContinuation()
-            assertNull(h.history.armed)
-            assertTrue(h.history.requestContinuation(root))
-            assertTrue(h.history.confirmContinuation())
+            assertNull(h.history.continuationTarget)
             assertEquals(root, h.history.armed)
             assertEquals(tree.currentNodeId, player.tree.sharedHeadId)
             assertEquals(1, player.tree.nodes.size)
@@ -102,11 +98,78 @@ class TableHistoryControllerTest {
             val root = tree.initial.root.id
             h.history.select(root); h.history.displayPosition()
             h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
-            assertTrue(h.history.requestContinuation(root))
+            h.history.requestExitReview()
+            assertEquals(root, h.history.continuationTarget)
             if (background) h.history.updateForeground(false) else h.history.playback!!.scrub(tree.currentNodeId)
             assertFalse(h.history.confirmContinuation())
             assertNull(h.history.armed)
             assertNull(h.history.continuationTarget)
+        }
+    }
+
+    @Test fun toggleOffAwayFromHeadOffersContinueBackToLatestOrDismissWithoutMutation() {
+        for (choice in listOf("continue", "latest", "dismiss")) Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            val player = h.history.playback!!
+            val root = tree.initial.root.id
+            h.history.select(root); h.history.displayPosition()
+            h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
+            player.play()
+            h.history.requestExitReview()
+            assertEquals(root, h.history.continuationTarget)
+            assertNull(h.history.armed)
+            assertFalse(player.position.playing)
+            when (choice) {
+                "continue" -> {
+                    assertTrue(h.history.confirmContinuation())
+                    assertEquals(root, h.history.armed)
+                    assertFalse(player.position.playing)
+                }
+                "latest" -> {
+                    h.history.current()
+                    assertNull(h.history.armed)
+                    assertTrue(player.position.playing)
+                }
+                else -> {
+                    h.history.dismissContinuation()
+                    assertNull(h.history.armed)
+                    assertFalse(player.position.playing)
+                    assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+                }
+            }
+            assertNull(h.history.continuationTarget)
+            assertEquals(root, player.position.cursorId)
+            assertEquals(tree.currentNodeId, player.tree.sharedHeadId)
+        }
+    }
+
+    @Test fun toggleOffAtHeadLeavesReviewWithoutConfirmation() {
+        Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            h.history.select(tree.currentNodeId)
+            h.history.requestExitReview()
+            assertNull(h.history.continuationTarget)
+            assertNull(h.history.armed)
+            assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
+        }
+    }
+
+    @Test fun toggleOffWhenContinuationUnavailableSkipsConfirmationAndCatchesUp() {
+        for (unavailable in listOf("not downloaded", "background", "disconnected")) Harness().use { h ->
+            val tree = f.tap(f.root())
+            h.history.update(tree, "v1"); h.publish()
+            h.history.select(tree.initial.root.id)
+            if (unavailable != "not downloaded") {
+                h.history.displayPosition()
+                h.reviews.removeFirst()(DownloadedHistoryState(1L, tree.initial.root.id, state = tree.initial))
+            }
+            if (unavailable == "background") h.history.updateForeground(false)
+            h.history.requestExitReview(allowContinuation = unavailable != "disconnected")
+            assertNull(h.history.continuationTarget)
+            assertNull(h.history.armed)
+            assertTrue(h.history.playback!!.position.playing)
         }
     }
 
@@ -133,7 +196,6 @@ class TableHistoryControllerTest {
             h.history.select(root); h.history.displayPosition()
             h.reviews.removeFirst()(DownloadedHistoryState(1L, root, state = tree.initial))
             assertTrue(h.history.requestContinuation(root))
-            assertTrue(h.history.confirmContinuation())
             if (viaReturnCurrent) h.history.current() else h.history.cancelContinuation()
             assertNull(h.history.armed)
             assertNull(h.history.continuationTarget)

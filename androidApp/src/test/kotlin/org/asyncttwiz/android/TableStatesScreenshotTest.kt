@@ -89,14 +89,13 @@ class TableStatesScreenshotTest {
                                 undo = { true }, redo = { true },
                                 controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
                                 continueHere = if (reviewing) ({ history.requestContinuation(playback.position.cursorId) }) else null,
-                                returnCurrent = if (review) history::current else null,
+                                 returnCurrent = if (review) ({ history.requestExitReview() }) else null,
+                                 cancelContinuation = history::cancelContinuation,
                                 reviewPanel = if (reviewing) ({ HistoryPlaybackPanel(playback, tree.currentNodeId, f.a, true, 60_000L,
                                     { history.requestContinuation(it) }, overlay = true, landscape = landscape) }) else null))
-                        history.armed?.let { boundary -> HistoryArmedIndicator(playback.tree.texts.getValue(boundary).label,
-                            landscape, history::cancelContinuation) }
                     }
                     if (history.continuationTarget != null) HistoryContinueConfirmation(true,
-                        history::dismissContinuation, { history.confirmContinuation() })
+                         history::dismissContinuation, { history.confirmContinuation() }, history::current)
                     if (kind == "tree-viewer") HistoryExplorer(explorer, true, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
                         false, {}, {}, { playback.scrub(it.currentNodeId) }, texts = playback.tree.texts)
                 }
@@ -125,15 +124,18 @@ class TableStatesScreenshotTest {
                 val id = CombatStackRules.stack(current().board).cards[if (kind == "stack-menu-card") 1 else 0]
                 toolkit.openCard(TableScope(id, listOf(id)))
             }
-            "continue", "continue-confirmation" -> {
-                compose.onNodeWithContentDescription("Continue playing from here").performClick()
-                if (kind == "continue") {
-                    compose.onNodeWithText("Continue", substring = false).performClick()
+             "continue", "continue-confirmation" -> {
+                 compose.onNodeWithContentDescription(if (kind == "continue") "Continue playing from here" else "Return to current").performClick()
+                 if (kind == "continue") {
                     compose.onNodeWithContentDescription("Interaction mode").assertExists()
                     compose.onNodeWithContentDescription("Play").assertDoesNotExist()
-                    compose.onNodeWithContentDescription("History · continuation armed").assertIsDisplayed()
-                    compose.onNodeWithText("Continuing from Life · next action starts a new path").assertIsDisplayed()
-                    compose.onNodeWithText("Cancel", substring = false).assertIsDisplayed()
+                     compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
+                     compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
+                     compose.onNode(isDialog()).assertDoesNotExist()
+                 } else {
+                     compose.onNodeWithText("Leave history?").assertIsDisplayed()
+                     compose.onNodeWithText("Continue from here").assertIsDisplayed()
+                     compose.onNodeWithText("Back to latest").assertIsDisplayed()
                 }
             }
             "stack-contents" -> {
@@ -344,9 +346,12 @@ class TableStatesScreenshotTest {
 
     private fun cancelContinuation(landscape: Boolean) {
         val sent = render("continue", landscape)
-        compose.onNodeWithText("Cancel", substring = false).performClick()
+         val fork = compose.onNodeWithContentDescription("Cancel continuation")
+         fork.assertWidthIsAtLeast(androidx.compose.ui.unit.Dp(48f)).assertHeightIsAtLeast(androidx.compose.ui.unit.Dp(48f))
+         assertTrue(fork.fetchSemanticsNode().boundsInRoot.bottom <= 48f)
+         fork.performTouchInput { click() }
         compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
-        compose.onNodeWithContentDescription("History · continuation armed").assertDoesNotExist()
+         compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
         compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
         compose.onNodeWithContentDescription("Play", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
@@ -372,15 +377,56 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Set red counter, no value").assertExists()
     }
 
-    @Test fun pausedPlayHoldConsumesTapAndRequestsContinuation() {
-        render("history-paused", false)
-        compose.onNodeWithContentDescription("Play").performTouchInput { down(center) }
-        compose.mainClock.advanceTimeBy(700)
-        compose.onNodeWithContentDescription("Play").performTouchInput { up() }
-        compose.onNodeWithText("Continue playing from here?").assertExists()
-        compose.onNodeWithText("Cancel").performClick()
-        compose.onNodeWithText("Paused", substring = true).assertExists()
-    }
+     @Test fun pausedPlayHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
+         render("history-paused", false)
+         compose.onNodeWithContentDescription("Play").performTouchInput { longClick() }
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+         compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
+     }
+
+     @Test fun toggleOffAwayFromHeadCanContinueFromCursor() {
+         render("continue-confirmation", false)
+         compose.onNodeWithText("Continue from here").performClick()
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+         compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
+     }
+
+     @Test fun toggleOffAwayFromHeadCanReturnToLatest() {
+         render("continue-confirmation", false)
+         compose.onNodeWithText("Back to latest").performClick()
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
+         compose.onNodeWithText("Playing groups", substring = true).assertIsDisplayed()
+     }
+
+     @Test fun dismissToggleOffDialogOutsideStaysInHistory() {
+         render("continue-confirmation", false)
+         compose.onNode(isDialog()).performTouchInput { click(androidx.compose.ui.geometry.Offset(4f, 4f)) }
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
+         compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
+     }
+
+     @Test fun dismissToggleOffDialogWithBackStaysInHistory() {
+         render("continue-confirmation", false)
+         androidx.test.espresso.Espresso.pressBack()
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
+     }
+
+     @Test fun toggleOffAtHeadHasNoDialog() {
+         render("history-end", false)
+         compose.onNodeWithContentDescription("Return to current").performClick()
+         compose.onNode(isDialog()).assertDoesNotExist()
+         compose.onNodeWithContentDescription("Play").assertDoesNotExist()
+         compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
+     }
 
     @Test fun treeHoldExposesBranchActionsAndTapMovesReviewCursorThenClosesWithoutSubmitting() {
         val tree = f.history()

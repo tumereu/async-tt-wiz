@@ -186,6 +186,7 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
     onRowBounds: ((String, Rect) -> Unit)? = null) {
     if (entries.isEmpty()) { Box(modifier.padding(8.dp)) { Text("No cards") }; return }
     var peek by remember { mutableStateOf<ManualInspection?>(null) }
+    val peekScroll = rememberScrollState()
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
     Row(modifier.horizontalScroll(rememberScrollState())) {
         groups.forEach { (category, cards) ->
@@ -196,13 +197,14 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
                         .contentsCardGestures(entry.cardId, state.board.containers.firstOrNull {
                             entry.cardId in it.cards }?.zone ?: PlayZone.STACK, actions = { onActions(entry.cardId) },
                             double = onRotate?.let { rotate -> { rotate(entry.cardId) } }, inspect = { onInspect(entry.cardId) }, peek = { held ->
+                                if (held) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                                 peek = if (!held) null else CombatStackRules.inspection(state.board, entry.cardId)?.let { card ->
                                     val faces = if (entry.faceVisible) listOf(card.faceId) else
                                         ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }
                                     ManualInspection(state.gameId, state.id, entry.cardId, faces, explicit = entry.faceVisible,
                                         stackEntryId = entry.cardId.takeIf { it in CombatStackRules.stack(state.board).cards })
                                 }
-                            }).padding(vertical = 4.dp),
+                            }, scrollPeek = { peekScroll.dispatchRawDelta(it) }).padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val card = CombatStackRules.inspection(state.board, entry.cardId)
                         val definition = state.definitions.singleOrNull { it.digest == card?.definition }?.definition
@@ -224,5 +226,5 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
             }
         }
     }
-    peek?.let { GameplayCardInspection(state, viewer, it, { peek = null }, peek = true) }
+    peek?.let { GameplayCardInspection(state, viewer, it, { peek = null }, peek = true, peekScroll = peekScroll) }
 }

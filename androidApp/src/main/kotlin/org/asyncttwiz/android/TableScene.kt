@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -95,6 +96,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val inspector = remember(play.id, accountId) { CardInspectionController() }
     var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
     var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
+    val peekScroll = rememberScrollState()
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
@@ -112,6 +114,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             when (intent) {
                 TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
                 is TableIntent.Peek -> {
+                    if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                     if (toolkit != null) toolkit.peek(intent.cardId)
                     else peek = intent.cardId?.let { id ->
                         val state = currentPlay
@@ -157,7 +160,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }, density = density, singleTapIsLocal = {
             (toolkit == null || it.zone != PlayZone.LIBRARY) && toolkit?.tokens?.pickingLink != true
-        })
+        }, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -444,7 +447,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 else item.visible.maxBy { it.width * it.height } }
         }.toMap()) {
         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
-            tokenCatalog = runtime.tokenCatalog)
+            tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll)
         actions?.let { captured ->
             val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
                 play.board.cards.singleOrNull { it.id == id }?.let { card ->
@@ -469,7 +472,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     }
     CardInspection(inspector, token = inspectedCard?.token == true,
         owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
-    peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true) }
+    peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true, peekScroll = peekScroll) }
     }
 }
 

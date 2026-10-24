@@ -17,9 +17,10 @@ import org.asyncttwiz.protocol.PlayZone
 
 internal const val CardPeekHoldMillis = 350L
 
-/** Rows share the table's instant local taps and release-bound peek; scrolling still wins on slop. */
+/** Rows share the table's taps and release-bound peek; row scrolling wins on slop BEFORE the hold. */
 internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Unit,
-    double: (() -> Unit)?, inspect: () -> Unit, peek: (Boolean) -> Unit): Modifier = composed {
+    double: (() -> Unit)?, inspect: () -> Unit, peek: (Boolean) -> Unit,
+    scrollPeek: (Float) -> Unit = {}): Modifier = composed {
     val parent = LocalTableTapRelay.current
     val density = LocalDensity.current.density
     val holdMillis = CardPeekHoldMillis
@@ -27,6 +28,7 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
     val currentDouble by rememberUpdatedState(double)
     val currentPeek by rememberUpdatedState(peek)
     val currentInspect by rememberUpdatedState(inspect)
+    val currentScrollPeek by rememberUpdatedState(scrollPeek)
     var origin by remember { mutableStateOf(Offset.Zero) }
     val coordinator = remember(id, density, double != null, holdMillis) {
         TableGestureCoordinator({ intent -> when (intent) {
@@ -36,7 +38,8 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
             is TableIntent.Peek -> currentPeek(intent.cardId != null)
             TableIntent.DismissTapUi -> parent?.dismiss?.invoke()
             else -> Unit
-        } }, density = density, doubleTapEnabled = double != null, holdMillis = holdMillis)
+        } }, density = density, doubleTapEnabled = double != null, holdMillis = holdMillis,
+            onPeekScroll = { currentScrollPeek(it * density) })
     }
     val relay = remember(coordinator) { TableTapRelay(
         accepts = { p, t -> coordinator.replacesTap(coordinator.pointFromPixels(p.x - origin.x, p.y - origin.y), t) },
@@ -62,13 +65,16 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id }
                         if (change == null || change.isConsumed || event.changes.count { it.pressed } > 1 ||
-                            (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                            (!coordinator.peeking && (change.position - down.position).getDistance() > viewConfiguration.touchSlop)) {
                             hold.cancel(); coordinator.cancel(); cancelled = true
                         } else if (!change.pressed && !cancelled) {
                             hold.cancel()
                             parent?.replacement = relay
                             coordinator.up(coordinator.pointFromPixels(change.position.x, change.position.y), change.uptimeMillis)
                             change.consume()
+                        } else if (!cancelled) {
+                            coordinator.move(coordinator.pointFromPixels(change.position.x, change.position.y), change.uptimeMillis)
+                            if (coordinator.peeking) change.consume()
                         }
                     } while (event.changes.any { it.pressed })
                 } finally { hold.cancel(); currentPeek(false) }

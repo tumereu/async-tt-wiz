@@ -111,7 +111,7 @@ private fun PreparationHandle(label: String, glyph: String, enabled: Boolean, ca
     val currentOpposite by rememberUpdatedState(opposite)
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var dragging by remember { mutableStateOf(false) }
-    Surface(Modifier.width(24.dp).height(48.dp).onGloballyPositioned { origin = it.positionInRoot() }
+    Surface(Modifier.width(24.dp).height(48.dp).pressFeedback(enabled).onGloballyPositioned { origin = it.positionInRoot() }
         .semantics {
             contentDescription = label; role = Role.Button
             if (!enabled) disabled()

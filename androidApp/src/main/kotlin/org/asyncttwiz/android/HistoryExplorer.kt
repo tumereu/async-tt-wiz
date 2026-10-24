@@ -142,7 +142,7 @@ fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
                         onClick = { state.selectedNodeId?.let(onContinue) }) { Text("Continue from here") }
                     val canActivate by rememberUpdatedState(actionable && !state.archivedSelection)
                     var activation by remember { mutableStateOf<HistoryActivation?>(null) }
-                    Surface(Modifier.height(48.dp).padding(horizontal = 8.dp).semantics {
+                    Surface(Modifier.height(48.dp).padding(horizontal = 8.dp).pressFeedback(canActivate).border(1.dp, MenuBorder, MaterialTheme.shapes.extraSmall).semantics {
                         role = Role.Button; contentDescription = "Make current"
                         if (!canActivate) disabled()
                         onClick { if (canActivate) controller.makeCurrent() else false }
@@ -152,7 +152,9 @@ fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
                             tryAwaitRelease()
                         }, onTap = { if (canActivate) controller.makeCurrent(activation) })
                     }, color = Color.White, contentColor = if (canActivate) MenuInk else Color.Gray) {
-                        Box(contentAlignment = Alignment.Center) { Text("Make current") }
+                        Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            TableChromeIcon("current"); Spacer(Modifier.width(8.dp)); Text("Make current")
+                        }
                     }
                     if (onAdvanced != null) TextButton(onClick = onAdvanced) { Text("Branch details…") }
                 }

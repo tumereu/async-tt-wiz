@@ -113,7 +113,7 @@ data class TableItem(
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false, val note: String = "", val counters: Map<CounterColor, String> = emptyMap(),
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
-    val inTransit: Boolean = false
+    val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,

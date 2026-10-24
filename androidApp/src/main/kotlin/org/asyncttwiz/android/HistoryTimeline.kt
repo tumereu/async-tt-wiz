@@ -257,7 +257,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xff08716b))) { Text("Ⅱ Pause") }
             else {
                 var captured by remember { mutableStateOf<String?>(null) }
-                Surface(Modifier.weight(1f).heightIn(min = 48.dp).semantics {
+                Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
                     role = Role.Button; contentDescription = "Play"
                     onClick { onPlay(); true }
                     if (connected) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {

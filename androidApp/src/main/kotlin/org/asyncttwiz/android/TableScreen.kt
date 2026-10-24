@@ -14,6 +14,9 @@ import org.asyncttwiz.protocol.*
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +157,30 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
+    val back = remember(game.id) { TableBackStateMachine() }
+    val context = LocalContext.current
+    val selection = toolkit.selectionState.value
+    val overlay = toolkit.hasBackOverlay || explorerOpen || advanced || history.continuationTarget != null || state.chatOpen
+    LaunchedEffect(overlay, reviewing, history.armed, selection) {
+        if (overlay || reviewing || history.armed != null || selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty()) back.reset()
+    }
+    BackHandler {
+        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null,
+            selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty())) {
+            TableBackAction.CLOSE_OVERLAY -> when {
+                state.chatOpen -> controller.closeChat()
+                history.continuationTarget != null -> history.dismissContinuation()
+                advanced -> advanced = false
+                explorerOpen -> explorerOpen = false
+                else -> toolkit.dismissBackOverlay()
+            }
+            // Back abandons personal review immediately rather than playing the path back to live.
+            TableBackAction.EXIT_REVIEW -> history.cancelContinuation()
+            TableBackAction.CLEAR_SELECTION -> toolkit.selectionState.value = TableSelection()
+            TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
+            TableBackAction.LEAVE -> controller.back()
+        }
+    }
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
         if (play == null) {
             TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,

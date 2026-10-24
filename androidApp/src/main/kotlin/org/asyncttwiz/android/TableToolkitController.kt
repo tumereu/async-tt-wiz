@@ -138,6 +138,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
 
     fun dismiss() { panel = null; library = null; manual.close(); capture = null; libraryDisplayId = null; tapReturnPanel = null }
+    internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
+        manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
+        tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink
+    internal fun dismissBackOverlay() {
+        when {
+            inspection != null || manual.inspection != null -> closeInspection()
+            peek != null -> peek(null)
+            manual.editor != null -> manual.cancelEditor()
+            tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink -> tokens.close()
+            manual.scope != null || panel != null -> dismissTapUi()
+            stackBubbleEntry != null -> showStackBubbles(null)
+        }
+    }
     fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null; manual.closeInspection() }
     private fun loggedInspection(action: PlayAction.InspectFace): Boolean {
         val play = current() ?: return false

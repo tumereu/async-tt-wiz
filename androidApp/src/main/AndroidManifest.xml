@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
+        android:name=".TabletopApplication"
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"

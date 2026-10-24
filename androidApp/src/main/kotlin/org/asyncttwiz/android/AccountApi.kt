@@ -68,6 +68,17 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override suspend fun identity(token: String): AccountIdentity = decode(call(HttpMethod.Get, "/account", token = token))
     override suspend fun revoke(token: String) { call(HttpMethod.Delete, "/session", token = token) }
 
+    internal suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
+        if (!BuildConfig.DEBUG) return false
+        // Keep the complete trace locally, but don't send bodies the server would discard anyway.
+        val bytes = report.body.toByteArray(Charsets.UTF_8)
+        val body = Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.IGNORE)
+            .decode(java.nio.ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString()
+        call(HttpMethod.Post, "/debug/crash-reports", AccountJson.format.encodeToString(report.copy(body = body)), token,
+            discardRateLimited = true)
+        return true
+    }
+
     override suspend fun requestReset(email: String) {
         validateScalars(email, "email")
         call(HttpMethod.Post, "/password-reset-requests", AccountJson.format.encodeToString(RequestPasswordReset(email)))
@@ -84,7 +95,8 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
         call(HttpMethod.Post, "/password-resets", AccountJson.format.encodeToString(ResetPassword(token, password)))
     }
 
-    private suspend fun call(method: HttpMethod, path: String, body: String? = null, token: String? = null): String {
+    private suspend fun call(method: HttpMethod, path: String, body: String? = null, token: String? = null,
+        discardRateLimited: Boolean = false): String {
         if (origin.isEmpty()) throw AccountFailure("not_configured")
         if (token != null && !validToken(token)) throw AccountFailure("authentication_required")
         try {
@@ -97,6 +109,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
             val bytes = response.bodyAsChannel().readRemaining(16_385).readByteArray()
             if (bytes.size > 16_384) throw AccountFailure("invalid_response")
             val text = bytes.decodeToString(throwOnInvalidSequence = true)
+            if (discardRateLimited && response.status.value == 429) return ""
             if (response.status.value !in 200..299) {
                 val error = runCatching { AccountJson.format.decodeFromString<AccountError>(text) }.getOrNull()
                 throw AccountFailure(if (response.status.value == 401 && token != null) "authentication_required"

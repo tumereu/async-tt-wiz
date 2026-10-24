@@ -14,6 +14,8 @@ import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.ActionLatency
 import org.asyncttwiz.protocol.LatencyBatch
+import org.asyncttwiz.protocol.ReconnectEpisode
+import org.asyncttwiz.protocol.ReconnectStep
 import org.asyncttwiz.server.activity.ActivityFixture
 import org.asyncttwiz.server.activity.ActivityClock
 import org.junit.jupiter.api.Assertions.*
@@ -65,7 +67,14 @@ class CrashReportHttpTest {
                 assertEquals(400, post(body, kind = "other"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
 
-                repeat(59) { assertEquals(204, post(body, kind = "latency")) }
+                val episode = ReconnectEpisode("episode", "game", now.toString(), "socketClose:1001:Reconnect",
+                    listOf(ReconnectStep("socketConnectedHttpAuthenticated", 20, 20), ReconnectStep("ready", 70, 50)), 70, true)
+                val reconnectBody = AccountJson.format.encodeToString(LatencyBatch(emptyList(), listOf(episode)))
+                assertEquals(204, post(reconnectBody, kind = "latency"))
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE kind='latency' AND body='$reconnectBody'"))
+                assertEquals(400, post(AccountJson.format.encodeToString(LatencyBatch(emptyList(), listOf(episode.copy(durationMs = -1)))), kind = "latency"))
+                assertEquals(400, post(AccountJson.format.encodeToString(LatencyBatch(emptyList(), listOf(episode.copy(steps = List(33) { ReconnectStep("x", 0, 0) })))), kind = "latency"))
+                repeat(58) { assertEquals(204, post(body, kind = "latency")) }
                 assertEquals(429, post(body, kind = "latency"))
                 assertEquals(60L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='latency'"))
                 assertEquals(1L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='crash'"))

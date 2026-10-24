@@ -42,7 +42,9 @@ data class TableBounds(val x: Float, val y: Float, val width: Float, val height:
 
 data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f)
 /** One affine transform for the entire world. Camera offsets are world units from its home center. */
-data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds) {
+data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
+    val clipViewport: TableBounds? = null) {
+    val visibleViewport get() = clipViewport ?: viewport
     private val home get() = TablePoint(viewport.width / 2, viewport.height / 2)
     fun screen(p: TablePoint, camera: TableCamera) = TablePoint(
         viewport.center.x + (p.x - home.x - camera.x) * camera.zoom,
@@ -86,7 +88,7 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
         return c.copy(x = raw(c.x, edge.x), y = raw(c.y, edge.y))
     }
     fun horizontalBand(band: TableBounds) = TableBounds(viewport.x, band.y, viewport.width, band.height)
-        .intersection(viewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
+        .intersection(visibleViewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
     fun fit(): TableCamera = clamp(TableCamera(bounds.center.x - home.x, bounds.center.y - home.y,
         minOf(viewport.width / bounds.width, viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)))
 }
@@ -136,7 +138,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
     val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap()) {
-    fun worldInput(point: TablePoint) = world?.viewport?.contains(point) == true &&
+    fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
         combatBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
@@ -407,7 +409,7 @@ object TablePresentation {
         val clipped = ordered.map { i ->
             val viewport = viewports[i.viewport]
             val regions = listOfNotNull((if (i.inTransit) {
-                if (i.zone == PlayZone.BATTLEFIELD) scene.world?.viewport ?: screen else screen
+                if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen))
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
                 regions.flatMap { it.subtract(scene.stackRegion) } else regions)

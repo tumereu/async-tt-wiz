@@ -44,7 +44,10 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         BackHandler(enabled = reset.state == null && state.page == AuthPage.REGISTER && !state.restoring && state.account == null) {
             controller.page(AuthPage.LOGIN)
         }
-        Box(Modifier.fillMaxSize().background(ScreenBackground).windowInsetsPadding(WindowInsets.safeDrawing).imePadding()) {
+        // Transient bars can be visible for a frame on resume. They overlay an immersive table;
+        // only permanent cutouts (and the keyboard) may change its available geometry.
+        Box(Modifier.fillMaxSize().background(ScreenBackground)
+            .windowInsetsPadding(if (tabletop) WindowInsets.displayCutout else WindowInsets.safeDrawing).imePadding()) {
             when {
                 reset.state != null -> ResetEntry(reset)
                 state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)

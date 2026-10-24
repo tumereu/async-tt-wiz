@@ -344,6 +344,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun reconnect() { session?.tick(); refresh() }
     fun background() {
         inForeground = false
+        session?.background()
         lifecycleVersion++
         state = state.copy(backgroundLoading = state.busy)
     }

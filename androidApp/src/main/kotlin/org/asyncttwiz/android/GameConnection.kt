@@ -25,6 +25,7 @@ interface GameConnection : AutoCloseable {
         fun opened()
         fun message(message: GameServerMessage)
         fun disconnected(unauthorized: Boolean = false)
+        fun disconnected(unauthorized: Boolean, cause: String) = disconnected(unauthorized)
     }
     fun connect(token: String, listener: Listener)
     fun send(message: GameClientMessage): Boolean
@@ -47,7 +48,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
     }
     override fun connect(token: String, listener: GameConnection.Listener) {
         disconnect()
-        if (origin.isEmpty() || !AccountApi.validToken(token)) { listener.disconnected(); return }
+        if (origin.isEmpty() || !AccountApi.validToken(token)) { listener.disconnected(false, "invalidConnectionConfiguration"); return }
         this.token = token
         socket = client.newWebSocket(Request.Builder().url(origin + "/v1/socket")
             .header("Authorization", "Bearer $token").build(), object : WebSocketListener() {
@@ -57,11 +58,16 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     require(text.toByteArray().size <= 1048576)
                     GameWire.json.decodeFromString<GameServerMessage>(text)
                 }.getOrNull()
-                if (message == null) { webSocket.cancel(); listener.disconnected() } else listener.message(message)
+                if (message == null) { webSocket.cancel(); listener.disconnected(false, "invalidServerMessage") } else listener.message(message)
             }
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) { webSocket.cancel(); listener.disconnected() }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { webSocket.close(code, null); listener.disconnected() }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = listener.disconnected(response?.code == 401)
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) { webSocket.cancel(); listener.disconnected(false, "unexpectedBinaryMessage") }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, null)
+                listener.disconnected(false, "socketClose:$code:${reason.take(123)}")
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = listener.disconnected(response?.code == 401,
+                if (t is java.net.SocketTimeoutException && t.message?.contains("ping", ignoreCase = true) == true) "socketPingTimeout"
+                else "socketFailure:${t.javaClass.simpleName}:http=${response?.code}")
         })
     }
     override fun send(message: GameClientMessage) = socket?.send(GameWire.json.encodeToString(message)) == true

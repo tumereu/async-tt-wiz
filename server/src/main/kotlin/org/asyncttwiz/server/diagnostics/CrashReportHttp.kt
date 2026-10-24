@@ -52,9 +52,13 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
                 // Unlike stack traces, structured batches must not be silently truncated into invalid JSON.
                 if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
                 val batch = AccountJson.format.decodeFromString<LatencyBatch>(input.body)
-                if (batch.actions.isEmpty() || batch.actions.size > 200 || batch.actions.any { entry ->
+                if ((batch.actions.isEmpty() && batch.reconnects.isEmpty()) || batch.actions.size > 200 || batch.actions.any { entry ->
                         entry.historyNodeCount < 0 || entry.actionType.length > 100 || entry.gameId.length > 100 ||
                             listOfNotNull(entry.localApplyMs, entry.firstFrameMs, entry.serverResultMs).any { !it.isFinite() || it < 0 }
+                    } || batch.reconnects.size > 200 || batch.reconnects.any { entry ->
+                        entry.id.length > 100 || entry.gameId.length > 100 || entry.cause.length > 160 ||
+                            runCatching { Instant.parse(entry.startedAt) }.isFailure || entry.durationMs < 0 ||
+                            entry.steps.size > 32 || entry.steps.any { it.stage.length > 160 || it.elapsedMs < 0 || it.durationMs < 0 }
                     }) { response.status = 400; return true }
             }
             val accepted = store(UUID.fromString(principal.account.accountId), reported, input)

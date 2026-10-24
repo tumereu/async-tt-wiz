@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Face is an explicit provider face index, not a name search or first-face guess. */
 data class ArtworkReference(val printing: String?, val face: Int, val version: String,
     val size: String = "normal", val customUrl: String? = null) {
-    init { require(face in 0..15 && version.length <= 256 && size in listOf("small", "normal", "large", "png")) }
+    init { require(face in 0..15 && version.length <= 256 && size in listOf("small", "normal", "large", "png", "art_crop")) }
     val key: String get() = "$printing|$face|$size|$version|$customUrl"
     companion object {
         fun from(record: CatalogPrinting, version: String, size: String = "normal"): ArtworkReference? {

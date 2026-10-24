@@ -28,6 +28,61 @@ class ArtworkTest {
         HttpArtworkRepository(disk, transport, policy, "$origin/cards/", { clock })
     private fun png() = File(fixtures, "prism/v1/art/$id.png").readBytes()
 
+    @Test fun normalAndArtCropResolveExactFacesAndHaveIndependentPersistentCacheKeys() {
+        val card = """{"object":"card","id":"$id",
+            "image_uris":{"normal":"$origin/front","art_crop":"$origin/front-art"},
+            "card_faces":[{}, {"image_uris":{"normal":"$origin/back","art_crop":"$origin/back-art"}}]}""".toByteArray()
+        val urls = mutableListOf<String>()
+        val disk = cache()
+        val art = repository(ArtworkTransport { url, maximum, _, _ ->
+            urls += url
+            if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else {
+                assertEquals(HttpArtworkRepository.MAX_IMAGE, maximum)
+                ArtworkResponse(200, png() + url.toByteArray(), "image/png")
+            }
+        }, disk)
+        val references = listOf(ArtworkReference(id, 0, "v1"), ArtworkReference(id, 0, "v1", "art_crop"),
+            ArtworkReference(id, 1, "v1"), ArtworkReference(id, 1, "v1", "art_crop"))
+        val expectedUrls = listOf("$origin/front", "$origin/front-art", "$origin/back", "$origin/back-art")
+        assertEquals(4, references.map { it.key }.distinct().size)
+        references.zip(expectedUrls).forEach { (reference, url) ->
+            assertArrayEquals(png() + url.toByteArray(), art.load(reference))
+        }
+        assertEquals(listOf("$origin/cards/$id") + expectedUrls, urls)
+        val offline = repository(ArtworkTransport { _, _, _, _ -> error("offline") }, disk)
+        references.zip(expectedUrls).forEach { (reference, url) ->
+            assertArrayEquals(png() + url.toByteArray(), offline.load(reference))
+        }
+    }
+
+    @Test fun sizesRemainSeparateEvenWhenProviderReturnsTheSameImageUrl() {
+        val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image","art_crop":"$origin/image"}}""".toByteArray()
+        var imageCalls = 0
+        val art = repository(ArtworkTransport { url, _, _, _ ->
+            if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else {
+                imageCalls++
+                ArtworkResponse(200, png(), "image/png")
+            }
+        })
+        val normal = ArtworkReference(id, 0, "v1")
+        val crop = normal.copy(size = "art_crop")
+        repeat(2) { assertNotNull(art.load(normal)); assertNotNull(art.load(crop)) }
+        assertEquals(2, imageCalls)
+    }
+
+    @Test fun missingOrDisallowedArtCropNeverSubstitutesNormalOrBypassesPolicy() {
+        for (imageUris in listOf("""{"normal":"$origin/full"}""",
+            """{"normal":"$origin/full","art_crop":"http://169.254.169.254/art"}""")) {
+            var calls = 0
+            val art = repository(ArtworkTransport { _, _, _, _ ->
+                calls++
+                ArtworkResponse(200, """{"object":"card","id":"$id","image_uris":$imageUris}""".toByteArray(), "application/json")
+            }, cache("policy-${imageUris.length}"))
+            assertNull(art.load(ArtworkReference(id, 0, "v1", "art_crop")))
+            assertEquals(1, calls)
+        }
+    }
+
     @Test fun realCatalogBothFamiliesVersionsAndExactFacesWithoutEagerDownload() {
         for (family in listOf("prism", "quilt")) for (edition in 1..2) {
             val base = File(fixtures, "$family/v$edition")

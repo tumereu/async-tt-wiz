@@ -24,8 +24,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -35,8 +38,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.isActive
@@ -86,6 +87,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
     accepted: PlayState? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
+    PrefetchGameArtwork(play.definitions)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.id, accountId) { mutableStateOf(TableLayoutState()) }
     val selectionState: MutableState<TableSelection> = toolkit?.selectionState ?: remember(play.id, accountId) { mutableStateOf(TableSelection()) }
     var layout by layoutState
@@ -601,6 +603,18 @@ private fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     return images
 }
 
+/** Uniform scale and centered clipping, never independent width/height stretching. */
+private fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) {
+    val left = bounds.x * density; val top = bounds.y * density
+    val width = bounds.width * density; val height = bounds.height * density
+    val factor = maxOf(width / image.width, height / image.height)
+    clipRect(left, top, left + width, top + height) {
+        translate(left + (width - image.width * factor) / 2, top + (height - image.height * factor) / 2) {
+            scale(factor, factor, Offset.Zero) { drawImage(image) }
+        }
+    }
+}
+
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap()) {
@@ -673,16 +687,28 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         val cardWidth = 28f * z; val cardHeight = 40f * z
         val outline = cardSilhouette(cardWidth * density, cardHeight * density, i.token, x * density, y * density, 2 * density * z)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
+        val art = i.artwork?.key?.let(artwork::get)
+        val mode = tableArtworkMode(i.artwork, art != null)
+        if (!i.covered && mode == TableArtworkMode.CUSTOM_CARD) clipPath(outline) {
+            drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
+            if (i.corner.isNotEmpty()) {
+                paint.textSize = 7 * z * density
+                val badgeWidth = (paint.measureText(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
+                drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + cardHeight - 11 * z),
+                    size(badgeWidth, 10 * z), CornerRadius(z * density))
+                fittedText(i.corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
+            }
+        }
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return
+        if (mode == TableArtworkMode.CUSTOM_CARD) { paint.textSize = 11 * density; return }
         paint.textSize = 7 * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + 8 * z, cardWidth - 2 * titleInset)
         paint.isFakeBoldText = false
-        val art = i.artwork?.key?.let(artwork::get)
-        if (art != null) drawImage(art, dstOffset = IntOffset(((x + 2 * z) * density).toInt(), ((y + 11 * z) * density).toInt()),
-            dstSize = IntSize(((cardWidth - 4 * z) * density).toInt().coerceAtLeast(1), ((cardHeight - 21 * z) * density).toInt().coerceAtLeast(1)))
+        if (mode == TableArtworkMode.ART_CROP) drawTableArtwork(requireNotNull(art),
+            TableBounds(x + 2 * z, y + 11 * z, cardWidth - 4 * z, cardHeight - 21 * z))
         else {
             paint.textSize = 17 * z * density
             text(i.typeIcon, x + (cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)

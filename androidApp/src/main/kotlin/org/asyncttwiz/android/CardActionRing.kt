@@ -183,7 +183,8 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
         val numeric = if (compound.corner) cornerDragValue(compound.dragValue, 0) != null
             else TableActions.numeric(compound.dragValue)
         val drag = if (compound.drag != null) Modifier.ringInputTarget(draggable = true)
-            .valueDragGestures(entry.control.enabled && numeric, preview = { delta = it }, commit = compound.drag) else Modifier
+            .valueDragGestures(entry.control.enabled && numeric, preview = { delta = it },
+                side = ValueDragSide.TOP.takeIf { compound.corner }, commit = compound.drag) else Modifier
         RingPress(entry.control, Modifier.width(48.dp).fillMaxHeight().then(drag), color, fill, bordered = false) {
             Text(compound.value, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f), fontWeight = FontWeight.Bold)

@@ -36,7 +36,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
     val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
-    val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null,
+    val reviewPanel: (@Composable () -> Unit)? = null,
     val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null)
@@ -211,12 +211,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                          returnCurrent = if (reviewing || history.armed != null) ({ history.requestExitReview(interactive) }) else null,
                          cancelContinuation = history::cancelContinuation,
-                        menuContent = {
-                            if (history.armed != null) DropdownMenuItem(text = { Text("Cancel continuation") }, onClick = history::cancelContinuation)
-                            DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
-                                enabled = interactive)
-                             if (reviewing) HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
-                        }, reviewPanel = if (playback != null && reviewing && history.armed == null) ({
+                         reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                   interactive, playbackPause, { history.requestContinuation(it) },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,

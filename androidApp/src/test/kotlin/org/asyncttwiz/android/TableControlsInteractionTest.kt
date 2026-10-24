@@ -44,7 +44,7 @@ class TableControlsInteractionTest {
         } }
         val value = compose.onNodeWithContentDescription("Life, 20")
         value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(30f, 0f)) }
-        compose.onNodeWithText("+3 -> 23").assertExists()
+        compose.onNodeWithText("+3 → 23").assertExists()
         compose.runOnIdle { assertTrue(sent.isEmpty()) }
         value.performTouchInput { up() }
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "3")), sent) }

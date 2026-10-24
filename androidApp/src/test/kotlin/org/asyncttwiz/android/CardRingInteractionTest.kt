@@ -206,7 +206,7 @@ class CardRingInteractionTest {
         compose.mainClock.advanceTimeBy(600)
         val value = compose.onNodeWithContentDescription("Set corner")
         value.performTouchInput { down(center); moveBy(Offset(10f, -30f)) }
-        compose.onNodeWithText("+3 -> 4/6").assertExists()
+        compose.onNodeWithText("+3 → 4/6").assertExists()
         value.performTouchInput { up() }
         compose.runOnIdle {
             assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.source(f.a, "1/3").id, "4/6"),

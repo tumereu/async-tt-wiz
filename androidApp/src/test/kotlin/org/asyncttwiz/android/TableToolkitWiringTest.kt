@@ -172,7 +172,7 @@ class TableToolkitWiringTest {
                 assertEquals(container.cards, contents.cardIds)
                 assertFalse(contents.ordered)
             }
-            assertNull(ui.library); assertNull(ui.libraryDisplayId)
+            assertNull(ui.library)
             ui.dismiss()
             assertNull(ui.publicContents())
         }
@@ -457,14 +457,17 @@ class TableToolkitWiringTest {
     @Test fun fixedContentsReferencesLocalHoldLoggedInspectionAndDisconnectedGatingAreDifferent() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         ui.openLibrary(f.container(PlayZone.LIBRARY))
+        assertEquals("library", ui.panel)
+        assertTrue(f.play.board.contentsDisplays.isEmpty())
+        ui.showLibraryContents(ContentsSelection.ALL, 1, false)
         val display = f.play.board.contentsDisplays.single()
-        assertEquals(display.id, ui.libraryDisplayId)
+        assertEquals("display/${display.id}", ui.panel)
         val before = f.commands().size
         ui.inspect(f.id(40)); assertEquals(before, f.commands().size)
         assertFalse(ui.inspection!!.explicit)
         assertTrue(ui.submit(PlayAction.InspectFace(f.id(40), f.card(40).faceId, f.card(40).containerId)))
         assertTrue(ui.inspection!!.provisional); assertEquals(f.root, f.lobby.state.acceptedPlay)
-        ui.library!!.controller.draw()
+        ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))!!.draw()
         assertEquals(display.cardIds, f.play.board.contentsDisplays.single().cardIds)
         assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
         val sent = f.commands().size
@@ -472,6 +475,23 @@ class TableToolkitWiringTest {
         assertFalse(ui.submit(PlayAction.SetLife(f.actor, "50")))
         assertFalse(ui.perform(TableActionIntent.End(TableActionScope(f.game.id, f.play.id))))
         assertEquals(sent, f.commands().size)
+    }
+
+    @Test fun newViewsAndRevealsOpenOnceAndAreNotReopenedWithTheLibraryMenu() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        for (reveal in listOf(false, true)) {
+            ui.openLibrary(f.container(PlayZone.LIBRARY))
+            assertEquals("library", ui.panel)
+            ui.showLibraryContents(ContentsSelection.TOP, 1, reveal)
+            val display = f.play.board.contentsDisplays.last()
+            assertEquals("display/${display.id}", ui.panel)
+            assertEquals(reveal, display.reveal)
+            ui.dismiss()
+            assertNull(ui.panel)
+            ui.openLibrary(f.container(PlayZone.LIBRARY))
+            assertEquals("library", ui.panel)
+            assertEquals(display, f.play.board.contentsDisplays.last())
+        }
     }
 
     @Test fun capturedFieldReleaseSurvivesReflowButHoldAndCancelNeverAlsoTap() {
@@ -485,7 +505,7 @@ class TableToolkitWiringTest {
         assertTrue(f.commands().isEmpty())
         gesture.update(scene.copy(items = scene.items.map { it.copy(bounds = it.bounds.copy(x = it.bounds.x + 20)) }), TableSelection(), true)
         gesture.up(life.bounds.center.copy(y = life.bounds.center.y - 48), 30)
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(f.actor, "4")), f.actions())
+        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(f.actor, "-4")), f.actions())
         val press = ActionPress(true)
         assertEquals(PressAction.HOLD, press.hold()); assertNull(press.release())
         val tooltip = ActionPress(false)

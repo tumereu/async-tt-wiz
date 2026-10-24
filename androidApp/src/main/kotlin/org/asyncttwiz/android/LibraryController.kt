@@ -37,8 +37,9 @@ class LibraryController(
         }
         return LibrarySubmission(sent, refused)
     }
-    fun draw(count: Int = 1): LibrarySubmission {
+    fun draw(count: Int = 1, selection: ContentsSelection = ContentsSelection.TOP): LibrarySubmission {
         val current = current()?.takeIf { available() && count >= 0 } ?: return LibrarySubmission(0, 1)
+        if (selection == ContentsSelection.BOTTOM) return move(selection, count, MoveDestination(handId, MoveInsertion.UNORDERED))
         return send(SharedLibraryActions.draw(current.board, libraryId, handId, count))
     }
     fun show(selection: ContentsSelection = ContentsSelection.ALL, count: Int = 1, reveal: Boolean = false) =

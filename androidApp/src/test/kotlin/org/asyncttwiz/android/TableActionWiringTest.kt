@@ -90,8 +90,8 @@ class TableActionWiringTest {
         gestures.down(life, 0); gestures.move(TablePoint(life.x, life.y - 72), 100)
         assertTrue(f.commands().isEmpty()); assertEquals("20", f.play.board.players.first().life)
         gestures.up(TablePoint(life.x, life.y - 72), 150)
-        assertEquals(PlayAction.AdjustLife(f.actor, "7"), (f.commands().single().action as GameAction.Play).action)
-        assertEquals("27", f.play.board.players.first().life)
+        assertEquals(PlayAction.AdjustLife(f.actor, "-7"), (f.commands().single().action as GameAction.Play).action)
+        assertEquals("13", f.play.board.players.first().life)
         gestures.down(life, 200); gestures.move(TablePoint(life.x, life.y - 48), 250); gestures.cancel()
         assertEquals(1, f.commands().size)
         gestures.down(life, 300); gestures.move(TablePoint(life.x, life.y - 48), 350)
@@ -104,7 +104,7 @@ class TableActionWiringTest {
         gestures.down(counter.bounds.center, 500); gestures.move(TablePoint(counter.bounds.center.x, counter.bounds.center.y - 48), 550)
         gestures.update(scene(), TableSelection(), true)
         gestures.up(TablePoint(counter.bounds.center.x, counter.bounds.center.y - 48), 600)
-        assertEquals(PlayAction.AdjustCounter(CounterTarget.PLAYER, f.actor, CounterColor.BLUE, "4"),
+        assertEquals(PlayAction.AdjustCounter(CounterTarget.PLAYER, f.actor, CounterColor.BLUE, "-4"),
             (f.commands().last().action as GameAction.Play).action)
     }
 

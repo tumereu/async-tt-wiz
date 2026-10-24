@@ -23,16 +23,56 @@ class TableFeelTest {
 
     @Test fun dominantAxisCompleteTenDpStepsAndSigns() {
         for ((x, y, expected) in listOf(Triple(39f, 20f, 3L), Triple(-39f, -20f, -3L),
-            Triple(20f, -39f, 3L), Triple(-20f, 39f, -3L), Triple(10f, 0f, 1L),
-            Triple(0f, 10f, -1L), Triple(9.99f, 0f, 0L), Triple(-9.99f, 0f, 0L),
-            Triple(10f, 10f, -1L), Triple(100f, -99f, 10L), Triple(99f, 100f, -10L))) {
+            Triple(20f, -39f, -3L), Triple(-20f, 39f, 3L), Triple(10f, 0f, 1L),
+            Triple(0f, 10f, 1L), Triple(9.99f, 0f, 0L), Triple(-9.99f, 0f, 0L),
+            Triple(10f, 10f, 1L), Triple(100f, -99f, 10L), Triple(99f, 100f, 10L))) {
             assertEquals(expected, valueDragDelta(x, y), "displacement $x, $y")
         }
         assertEquals(3L, valueDragDelta(60f, 20f, 20f)) // Same 30dp at density 2.
         assertEquals(0L, valueDragDelta(Float.NaN, 20f))
-        assertEquals("+3 -> 23", valueDragLabel("20", 3))
-        assertEquals("-3 -> 17", valueDragLabel("20", -3))
-        assertEquals("+3 -> 3", valueDragLabel(null, 3))
+        assertEquals("+3 → 23", valueDragLabel("20", 3))
+        assertEquals("−3 → 17", valueDragLabel("20", -3))
+        assertEquals("+3 → 3", valueDragLabel(null, 3))
+        assertEquals(-3L, valueDragDelta(10f, 39f, side = ValueDragSide.TOP))
+        assertEquals(3L, valueDragDelta(-10f, -39f, side = ValueDragSide.TOP))
+        assertEquals(3L, valueDragDelta(39f, -10f, side = ValueDragSide.TOP))
+        assertEquals(-3L, valueDragDelta(-39f, 10f, side = ValueDragSide.TOP))
+    }
+
+    @Test fun lifeAndPlayerCountersSubtractTowardOtherPlayerInBothOrientations() {
+        val f = TableStatesFixture
+        for (landscape in listOf(false, true)) {
+            val scene = TablePresentation.scene(f.game, f.combat(), f.a,
+                if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape)
+            for (item in scene.items.filter { it.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) }) {
+                for ((dx, dy, expected) in listOf(Triple(35f, 1f, 3), Triple(-35f, 1f, -3),
+                    Triple(1f, if (item.owner == f.a) -35f else 35f, -3),
+                    Triple(1f, if (item.owner == f.a) 35f else -35f, 3))) {
+                    val sent = mutableListOf<TableIntent>()
+                    val gestures = TableGestureCoordinator(sent::add)
+                    gestures.update(scene, TableSelection(), true)
+                    val start = item.visible.first().center
+                    val end = TablePoint(start.x + dx, start.y + dy)
+                    gestures.down(start, 0); gestures.move(end, 20)
+                    assertEquals(expected, gestures.preview.delta)
+                    assertTrue(sent.isEmpty())
+                    gestures.up(end, 40)
+                    assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta(item.owner!!, item.counter, expected)), sent)
+                }
+            }
+        }
+    }
+
+    @Test fun cardCounterDirectionUsesControllerNotOwner() {
+        val board = TableStatesFixture.combat().board
+        val card = board.cards.first()
+        for (viewer in board.players.map { it.accountId }) {
+            val other = board.players.first { it.accountId != viewer }.accountId
+            val ownField = board.containers.single { it.accountId == viewer && it.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD }
+            val otherField = board.containers.single { it.accountId == other && it.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD }
+            assertEquals(ValueDragSide.BOTTOM, cardValueDragSide(board, card.copy(owner = other, containerId = ownField.id), viewer))
+            assertEquals(ValueDragSide.TOP, cardValueDragSide(board, card.copy(owner = viewer, containerId = otherField.id), viewer))
+        }
     }
 
     @Test fun backDismissesLayersBeforeReviewSelectionAndDoubleBackExit() {

@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -11,6 +12,7 @@ import org.asyncttwiz.protocol.*
 internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: ManualActions, enabled: Boolean,
     names: Map<String, String>, viewer: String = scope.contextId, submit: (PlayAction) -> Boolean) {
     val player = state.board.players.single { it.accountId == scope.contextId }
+    CompositionLocalProvider(LocalValueDragSide provides if (player.accountId == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP) {
     TableMenuPanel(actions::close, width = 400.dp, title = "Life / counters",
         titleDescription = "${names[player.accountId] ?: "Player"}, life / counters",
         titleColor = if (player.accountId == viewer) OwnTableColor else OpponentTableColor) {
@@ -27,5 +29,6 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
                 set = { actions.edit(ManualValue(ManualValueKind.COUNTER, it), state, player.accountId) },
                 applicable = { color, delta -> ManualText.add(player.counters[color] ?: "0", delta.toLong()) != null },
                 adjust = { color, delta -> submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, player.accountId, color, delta.toString())) })
+    }
     }
 }

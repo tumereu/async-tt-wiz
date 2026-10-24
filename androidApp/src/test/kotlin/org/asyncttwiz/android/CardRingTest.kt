@@ -98,7 +98,7 @@ class CardRingTest {
         assertEquals("15", cornerDragValue("12", 3))
         assertNull(cornerDragValue("*/3", 1))
         assertNull(cornerDragValue("${Long.MAX_VALUE}/3", 1))
-        assertEquals("-4 -> -2/3", cornerDragLabel("2/7", -4))
+        assertEquals("−4 → -2/3", cornerDragLabel("2/7", -4))
     }
 
     @Test fun squareFitsWithoutCoveringTheCardAtEdgesAndCorners() {

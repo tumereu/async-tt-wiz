@@ -137,10 +137,10 @@ class TableActionControllerTest {
             if (it.accountId == target.accountId) it.copy(life = "21") else it }))
         val release = drag.release()!!
         controller.adjust(release.target, release.delta)
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "3")), sent)
+        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "-3")), sent)
         val command = GameCommand(TableToolFixture.id(60), GameScope(play.gameId, playId = play.id),
             GameAction.Play(sent.single()), TableToolFixture.id(61), "1")
-        assertEquals("24", GameplayRules.change(play, TableToolFixture.id(8), command).state!!.board.players.first().life)
+        assertEquals("18", GameplayRules.change(play, TableToolFixture.id(8), command).state!!.board.players.first().life)
         assertNull(drag.release())
     }
 }

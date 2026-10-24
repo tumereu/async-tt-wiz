@@ -5,6 +5,26 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableWorldTest {
+    @Test fun panExposesThreeEmptyColumnsBeyondBothBattlefieldsWithoutChangingFitBounds() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val cards = play.board.cards.filter { c -> play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.BATTLEFIELD } }
+        val positions = cards.mapIndexed { i, c -> c.id to TablePlacement(if (i % 2 == 0) -4 else 12, 0) }.toMap()
+        for (landscape in listOf(false, true)) {
+            val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+                if (landscape) 412f else 892f, landscape, placements = positions)
+            val world = scene.world!!
+            assertTrue(world.panBounds.x <= -7 * TablePresentation.GRID)
+            assertTrue(world.panBounds.right >= 16 * TablePresentation.GRID)
+            for (zoom in listOf(.65f, 1f, 2f)) {
+                val left = world.clamp(TableCamera(-10000f, zoom = zoom))
+                val right = world.clamp(TableCamera(10000f, zoom = zoom))
+                assertEquals(world.viewport.x, world.screen(world.panBounds, left).x, .001f)
+                assertEquals(world.viewport.right, world.screen(world.panBounds, right).right, .001f)
+            }
+            assertTrue(world.bounds.width < world.panBounds.width)
+        }
+    }
     @Test fun boundsAlignContentEdgesForLargeSmallAndMixedAxesAtEveryZoom() {
         val viewport = TableBounds(20f, 30f, 200f, 100f)
         for (width in listOf(80f, 400f)) for (height in listOf(30f, 300f))

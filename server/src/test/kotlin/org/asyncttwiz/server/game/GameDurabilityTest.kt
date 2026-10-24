@@ -194,7 +194,7 @@ class GameDurabilityTest {
                 INSERT INTO invitation VALUES ('$invite','$game','PENDING');
                 INSERT INTO request_identity VALUES ('$request','$a','createInvitation','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained-original-create');""")
-            assertEquals(9, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(10, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             assertEquals(1, number(db, "SELECT count(*) FROM game WHERE current_invitation='$invite' AND preparation_round='$preparation' AND revision=0 AND next_ingress=1 AND game_name='Retained Spark'"))
             assertEquals(1, number(db, "SELECT count(*) FROM saved_deck WHERE revision=9"))
             assertEquals(1, number(db, "SELECT count(*) FROM account_request WHERE response='retained-original-create'"))

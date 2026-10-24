@@ -16,7 +16,8 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
     private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = 500,
-    private val density: Float = 1f
+    private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
+    private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY }
 ) {
     init { require(density.isFinite() && density > 0f) }
     private val markStepDp = 28f
@@ -26,8 +27,8 @@ class TableGestureCoordinator(
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
-        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null)
-    private data class Tap(val capture: Capture, val deadline: Long)
+        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false)
+    private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var pending: Tap? = null
     private var scene = TableScene(emptyList(), emptyList())
@@ -37,6 +38,10 @@ class TableGestureCoordinator(
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
     val busy get() = capture != null || pending != null
+    fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
+        it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
+            distance(point, it.capture.start) <= slopDp * 2
+    } == true
 
     fun update(scene: TableScene, selection: TableSelection, writable: Boolean) {
         this.scene = scene; this.selection = selection; this.writable = writable
@@ -65,22 +70,23 @@ class TableGestureCoordinator(
             if (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id &&
                 distance(point, old.capture.start) <= slopDp * 2 && time <= old.deadline) {
                 next.double = true
+                next.replacingLocal = old.shown
                 // The first press's stable scope wins even if sync/selection changed between taps.
                 capture = next.copy(scope = old.capture.scope, selection = old.capture.selection, sources = old.capture.sources)
                 pending = null
-            } else { pending = null; single(old.capture); capture = next }
+            } else { pending = null; if (!old.shown) single(old.capture); capture = next }
         } else capture = next
         preview = TableGesturePreview(pressedId = item?.id)
         if (next.phase == Phase.MARK) preview = preview.copy(marking = true, markIndex = next.bubble?.selected)
     }
     fun tick(time: Long) {
         val p = pending
-        if (p != null && time >= p.deadline) { pending = null; single(p.capture) }
+        if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
         if (c.phase == Phase.PRESS && time - c.time >= holdMillis) {
             c.phase = Phase.HOLD
             // A pile control is not an individual card and cannot implicitly View a Library.
-            c.item?.cardId?.let { emit(TableIntent.Inspect(it)) }
+            c.item?.cardId?.let { emit(TableIntent.Peek(it)) }
             preview = TableGesturePreview()
         }
     }
@@ -95,7 +101,7 @@ class TableGestureCoordinator(
             pending = null
             c.phase = when {
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
-                    (c.viewport.hand || c.item?.kind != TableItemKind.CARD) -> Phase.SCROLL
+                    c.item?.kind != TableItemKind.CARD -> Phase.SCROLL
                 c.item?.kind == TableItemKind.HAND || c.item == null -> Phase.RECTANGLE
                 c.scope != null || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
@@ -122,6 +128,7 @@ class TableGestureCoordinator(
         val c = capture ?: return
         move(point, time)
         capture = null
+        if (c.replacingLocal && c.phase == Phase.PRESS) emit(TableIntent.DismissTapUi)
         when (c.phase) {
             Phase.PRESS -> if (c.double && c.item?.zone == PlayZone.LIBRARY) {
                 val hand = c.item.drawHandId
@@ -133,9 +140,12 @@ class TableGestureCoordinator(
                     emit(TableIntent.Selection(c.selection.orientation(c.scope.contextId)))
                     emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources))
                 }
-            } else if ((c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) ||
-                (c.selection.mode != TableMode.PING && c.item?.zone == PlayZone.LIBRARY)) {
-                pending = Tap(c, time + doubleMillis)
+            } else if (doubleTapEnabled && ((c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) ||
+                (c.selection.mode != TableMode.PING && c.item?.zone == PlayZone.LIBRARY))) {
+                // Shared single-tap routes (Library View, link picking) retain the decision window.
+                val local = singleTapIsLocal(requireNotNull(c.item))
+                if (local) single(c)
+                pending = Tap(c, time + doubleMillis, local)
             } else single(c)
             Phase.MARK -> if (writable && c.bubble != null && preview.markIndex != c.bubble.selected &&
                 c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
@@ -157,6 +167,7 @@ class TableGestureCoordinator(
                 }
             }
             Phase.RECTANGLE -> emit(TableIntent.Selection(c.selection.copy(ids = scene.rectangle(rectangle(c.start, point)))))
+            Phase.HOLD -> if (c.item?.cardId != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
         preview = TableGesturePreview()
@@ -165,8 +176,16 @@ class TableGestureCoordinator(
     fun transform(pan: TablePoint, scale: Float, centroid: TablePoint) {
         if (!scale.isFinite() || scale <= 0f) return
         pending = null
+        if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
+        val hand = scene.viewports.firstOrNull { it.hand && it.bounds.contains(centroid) }
+        if (hand != null && scale in .98f..1.02f) {
+            val next = (hand.scroll - pan.x).coerceIn(0f, hand.maxScroll)
+            scene = scene.copy(viewports = scene.viewports.map { if (it.id == hand.id) it.copy(scroll = next) else it })
+            emit(TableIntent.Scroll(hand.id, next))
+            return
+        }
         val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" && it.bounds.contains(centroid) }
         if (sidebar != null && sidebar.maxScrollY > 0 && scale in .98f..1.02f) {
             val next = (sidebar.scrollY - pan.y).coerceIn(0f, sidebar.maxScrollY)
@@ -185,7 +204,10 @@ class TableGestureCoordinator(
         scene = scene.copy(camera = next) // coalesce rapid pointer frames without losing personal navigation deltas
         emit(TableIntent.Camera(next))
     }
-    fun cancel() { capture = null; pending = null; preview = TableGesturePreview() }
+    fun cancel() {
+        if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
+        capture = null; pending = null; preview = TableGesturePreview()
+    }
     fun actions(item: TableItem) {
         val id = item.cardId ?: item.cards.firstOrNull().takeIf { item.zone == PlayZone.LIBRARY }
         val scope = id?.let { selection.scope(it, order()) }
@@ -237,6 +259,13 @@ class TableGestureCoordinator(
         }
     }
     private fun destination(p: TablePoint, scope: TableScope?): TableDestination? {
+        scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(p) }?.let { hand ->
+            val cards = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.viewport == hand.id && it.cardId !in scope?.cardIds.orEmpty() }
+                .sortedBy { it.bounds.x }
+            val index = cards.indexOfFirst { p.x < it.bounds.center.x }.let { if (it < 0) cards.size else it }
+            return TableDestination.Container(hand.id, PlayZone.HAND, handGap = org.asyncttwiz.protocol.IdentityGap(
+                cards.getOrNull(index - 1)?.cardId, cards.getOrNull(index)?.cardId))
+        }
         // Stack drawings are faces of the container, not battlefield pile targets. Resolve the
         // entire visible pile before its top card (and independently of the count badge routing).
         scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&

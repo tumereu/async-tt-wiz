@@ -31,11 +31,12 @@ internal fun counterColor(color: CounterColor): Color = when (color) {
 }
 
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
     enabled: Boolean, landscape: Boolean, names: Map<String, String>, extras: @Composable () -> Unit = {},
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
-    submit: (PlayAction) -> Boolean) {
+    inspect: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
@@ -43,7 +44,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     var more by remember(scope) { mutableStateOf(false) }
     val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
     val controls = listOf(
-        MenuControl("Inspect") { actions.inspect(state, viewer) },
+        MenuControl("Inspect") { if (inspect != null) inspect() else actions.inspect(state, viewer) },
         MenuControl("Inspect other side", enabled && other != null) {
             other?.let { submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
         },
@@ -57,17 +58,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
             if (player.accountId == viewer) OwnTableColor else OpponentTableColor) { send { PlayAction.SetOwner(it.id, player.accountId) } }
     } + MenuControl("More actions", selected = more) { more = !more }
     val general: @Composable () -> Unit = {
-        Column(Modifier.horizontalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (row in controls.take(12).chunked(6)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        for (control in row) control.Square()
-                    }
-                }
-            }
-            for (row in controls.drop(12).chunked(7)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (control in row) control.Square()
+                for (control in controls) control.Square()
             }
             if (faces.size > 1) Row(Modifier.horizontalScroll(rememberScrollState())) {
                 for ((index, face) in faces.withIndex()) ManualActionSquare("Switch printed face ${index + 1}", "", enabled,
@@ -82,7 +76,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     val values: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ManualActionSquare("Set corner", card.corner, enabled, onClick = { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) })
                 val targets = scope.cardActions(state) { PlayAction.SetCorner(it.id, it.corner) }
                 val hasPair = targets.any { target -> state.board.cards.single { it.id == (target as PlayAction.SetCorner).cardId }.corner.contains('/') }
@@ -161,17 +155,24 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
 @Composable
 internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean, enabled: Boolean,
     set: (CounterColor) -> Unit, applicable: (CounterColor, Int) -> Boolean, adjust: (CounterColor, Int) -> Unit) {
-    for (pair in CounterColor.entries.chunked(2)) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        for ((index, color) in pair.withIndex()) {
-            if (index > 0) VerticalDivider(Modifier.height(36.dp))
-            val name = color.name.lowercase()
-            val value = values[color]
-            ManualActionSquare("Set $name counter, ${value?.takeIf { it.isNotEmpty() } ?: "no value"}",
-                if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value), enabled,
-                fill = counterColor(color), circle = true, tooltipName = "Set $name counter", iconTint = counterOutline(color), onClick = { set(color) })
-            for (delta in listOf(1, -1)) ManualActionSquare("${if (delta > 0) "Increase" else "Decrease"} $name counter",
-                if (delta > 0) "+" else "−", enabled && applicable(color, delta), onClick = { adjust(color, delta) })
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth >= 296.dp) 2 else 1
+        val horizontalOverflow = maxWidth < 144.dp
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (pair in CounterColor.entries.chunked(columns)) Row(Modifier.fillMaxWidth()
+                .then(if (horizontalOverflow) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                for ((index, color) in pair.withIndex()) {
+                    if (index > 0) VerticalDivider(Modifier.height(36.dp))
+                    val name = color.name.lowercase()
+                    val value = values[color]
+                    ManualActionSquare("Set $name counter, ${value?.takeIf { it.isNotEmpty() } ?: "no value"}",
+                        if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value), enabled,
+                        fill = counterColor(color), circle = true, tooltipName = "Set $name counter", iconTint = counterOutline(color), onClick = { set(color) })
+                    for (delta in listOf(1, -1)) ManualActionSquare("${if (delta > 0) "Increase" else "Decrease"} $name counter",
+                        if (delta > 0) "+" else "−", enabled && applicable(color, delta), onClick = { adjust(color, delta) })
+                }
+            }
         }
     }
 }

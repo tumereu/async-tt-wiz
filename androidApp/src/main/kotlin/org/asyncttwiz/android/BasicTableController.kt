@@ -77,6 +77,11 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             val predecessor = play()?.takeIf { it.id == state.id && it.gameId == state.gameId } ?: break
             val currentTarget = predecessor.board.containers.singleOrNull { it.id == target.id } ?: break
             val destination = when {
+                target.zone == PlayZone.HAND && (intent.destination as? TableDestination.Container)?.handGap != null -> {
+                    val gap = (intent.destination as TableDestination.Container).handGap!!
+                    MoveDestination(target.id, MoveInsertion.GAP, afterId = prefix ?: gap.afterId, beforeId = gap.beforeId,
+                        pendingIds = ids.drop(index + 1))
+                }
                 pileTarget != null -> MoveDestination(target.id, MoveInsertion.PILE_GAP, pileTarget.position, pileTarget.pileId,
                     afterId = prefix, beforeId = pileRight,
                     targetCardId = (intent.destination as TableDestination.CardPile).cardId, pendingIds = ids.drop(index + 1))
@@ -105,6 +110,19 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             val source = sources.getValue(id)
             val action = PlayAction.MoveCard(id, source, destination,
                 if (target.zone == PlayZone.STACK && source.containerId != target.id) GameplayRules.stackDigest(predecessor) else null)
+            if (target.zone == PlayZone.HAND && source.containerId == target.id && destination.insertion == MoveInsertion.GAP) {
+                val members = currentTarget.cards
+                val reduced = members.filter { it != id }
+                val projected = reduced.filterNot { it in destination.pendingIds }
+                val left = destination.afterId?.let { projected.indexOf(it) } ?: -1
+                val index = destination.afterId?.let { reduced.indexOf(it) + 1 } ?: 0
+                val card = predecessor.board.cards.single { it.id == id }
+                if ((destination.afterId == null || left >= 0) && projected.getOrNull(left + 1) == destination.beforeId &&
+                    members.indexOf(id) == index && card.covered && !card.explicitlyCovered) {
+                    prefix = id // A no-op Hand member must still anchor the next selected card.
+                    continue
+                }
+            }
             if (target.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK) && source.containerId == target.id) {
                 val card = predecessor.board.cards.singleOrNull { it.id == id }
                 val members = currentTarget.cards

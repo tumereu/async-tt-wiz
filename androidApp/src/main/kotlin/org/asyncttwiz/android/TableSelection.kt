@@ -17,7 +17,7 @@ data class TableSelection(val ids: Set<String> = emptySet(), val mode: TableMode
 
 sealed interface TableDestination {
     data class Container(val id: String, val zone: org.asyncttwiz.protocol.PlayZone,
-        val bottom: Boolean = false) : TableDestination
+        val bottom: Boolean = false, val handGap: org.asyncttwiz.protocol.IdentityGap? = null) : TableDestination
     data class CardPile(val cardId: String, val source: TableMoveSource? = null) : TableDestination
     data class Grid(val containerId: String, val column: Int, val row: Int) : TableDestination
     data class Combat(val destination: org.asyncttwiz.protocol.CombatDestination) : TableDestination
@@ -30,6 +30,8 @@ sealed interface TableIntent {
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
     data class Inspect(val cardId: String) : TableIntent
+    data class Peek(val cardId: String?) : TableIntent
+    data object DismissTapUi : TableIntent
     data class Draw(val libraryId: String, val handId: String, val topId: String) : TableIntent
     data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap()) : TableIntent
     data class Move(val scope: TableScope, val destination: TableDestination,

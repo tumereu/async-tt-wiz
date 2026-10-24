@@ -36,11 +36,27 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var library by mutableStateOf<ToolkitLibrary?>(null); private set
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
     var inspection by mutableStateOf<ManualInspection?>(null); private set
+    var peek by mutableStateOf<ManualInspection?>(null); private set
+    fun peek(id: String?) {
+        if (id == null) { peek = null; return }
+        val play = current() ?: return
+        val card = CombatStackRules.inspection(play.board, id) ?: return
+        peek = ManualInspection(play.gameId, play.id, id,
+            ManualDisclosure.permittedFaces(play, card, viewer, inspecting = true).map { it.faceId },
+            stackEntryId = id.takeIf { it in CombatStackRules.stack(play.board).cards })
+    }
     var error by mutableStateOf<String?>(null); private set
     var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
     var libraryDisplayId by mutableStateOf<String?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
+    private var tapReturnPanel: String? = null
+    fun dismissTapUi() {
+        val previous = tapReturnPanel
+        tapReturnPanel = null
+        dismiss(); showStackBubbles(null)
+        panel = previous
+    }
     private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String, val effect: Boolean)
     private var pendingStackBubble: PendingStackBubble? = null
     fun showStackBubbles(id: String?) { pendingStackBubble = null; stackBubbleEntry = id }
@@ -114,7 +130,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; libraryDisplayId = null }
+    fun dismiss() { panel = null; library = null; manual.close(); capture = null; libraryDisplayId = null; tapReturnPanel = null }
     fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null; manual.closeInspection() }
     private fun loggedInspection(action: PlayAction.InspectFace): Boolean {
         val play = current() ?: return false
@@ -174,7 +190,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
+        val previous = panel?.takeIf { it.startsWith("contents/") || it.startsWith("display/") }
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
+        tapReturnPanel = previous
         explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
             val context = StackContexts.context(play, scope.contextId)
             when (context.kind) {
@@ -280,7 +298,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 val bound = bind(intent.scope, intent.sources) ?: return@batch false
                 if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)
                 else if (bound.sourceIds.isEmpty()) false else basic.handle(intent.copy(
-                    scope = TableScope(bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
+                    scope = TableScope(bound.contextViewId.takeIf { it in bound.sourceIds }
+                        ?: intent.sources[bound.contextViewId]?.sourceId ?: bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
             }
             is TableIntent.Rotate -> {
                 val stackIds = current()?.board?.let { CombatStackRules.stack(it).cards }.orEmpty()

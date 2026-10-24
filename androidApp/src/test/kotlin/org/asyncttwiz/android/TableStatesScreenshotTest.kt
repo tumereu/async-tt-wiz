@@ -196,11 +196,32 @@ class TableStatesScreenshotTest {
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
         val card = scene.items.single { it.cardId == f.id("effect") }
-        compose.onRoot().performTouchInput {
-            longClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            down(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
         }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(650)
+        compose.onNodeWithText("Return target permanent to its owner's hand.").assertExists()
+        compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
+        assertTrue(sent.isEmpty())
+    }
+    @Test fun explicitStackInspectStaysOpenAndKeepsItsTextMarker() {
+        val sent = render("stack-bubbles", false)
+        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
+        val card = scene.items.single { it.cardId == f.id("effect") }
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
+        }
+        compose.onNodeWithContentDescription("Inspect").performClick()
+        compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
         compose.onNodeWithText("Return target permanent to its owner's hand.").performScrollTo().assertIsDisplayed()
         compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
+        compose.onNodeWithContentDescription("Close card inspection").performClick()
+        compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackBubblesLandscape() { render("stack-bubbles", true) }
@@ -244,7 +265,6 @@ class TableStatesScreenshotTest {
         val sent = render("graveyard-contents", false)
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
-        compose.mainClock.advanceTimeBy(400) // Normal single tap waits for the double-tap window.
         compose.onNodeWithContentDescription("Graveyard · Alice").assertExists()
         compose.onNodeWithContentDescription("Library top · Alice").assertExists()
         compose.onNodeWithContentDescription("Library bottom · Alice").assertExists()
@@ -253,9 +273,15 @@ class TableStatesScreenshotTest {
     }
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)
-        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { longClick() }
+        compose.mainClock.autoAdvance = false
+        val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
+        row.performTouchInput { down(center) }
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithContentDescription("Graveyard · Alice").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
+        compose.onNodeWithText("Search by name").performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
     @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {

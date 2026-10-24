@@ -75,6 +75,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             if (container(action.source.containerId)?.zone == PlayZone.LIBRARY &&
                 container(action.destination.containerId)?.zone == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
                 text(if (count > 1) "drew $count cards" else "drew a card", if (count > 1) "Draw ×$count" else "Draw")
+            else if (action.source.containerId == action.destination.containerId && container(action.source.containerId)?.zone == PlayZone.HAND)
+                text("reordered their hand", "Reorder hand")
             else if (action.source.containerId == action.destination.containerId)
                 text("repositioned ${card(action.cardId)} in ${zone(action.source.containerId)}", "Move")
             else text("moved ${card(action.cardId)} from ${zone(action.source.containerId)} to ${zone(action.destination.containerId)}", "Move")

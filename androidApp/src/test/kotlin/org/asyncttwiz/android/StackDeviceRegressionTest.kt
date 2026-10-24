@@ -21,6 +21,8 @@ class StackDeviceRegressionTest {
                         is TableIntent.Actions -> ui.open(gestures.capturedActions!!, gestures.actionItem!!, ui.selectionState.value)
                         is TableIntent.Selection -> ui.selectionState.value = intent.selection
                         is TableIntent.Inspect -> ui.inspect(intent.cardId)
+                        is TableIntent.Peek -> ui.peek(intent.cardId)
+                        TableIntent.DismissTapUi -> ui.dismissTapUi()
                         else -> ui.handle(intent)
                     }
                 })
@@ -69,11 +71,16 @@ class StackDeviceRegressionTest {
                 gestures.down(top.bounds.center, 1100); gestures.up(top.bounds.center, 1120); gestures.tick(1500)
                 assertEquals(f.id(40), events.filterIsInstance<TableIntent.Actions>().single().scope!!.contextId)
                 assertEquals(f.id(40), ui.capture!!.contextViewId)
-                assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.StackBubbles })
+                assertEquals(1, events.filterIsInstance<TableIntent.StackBubbles>().size)
+                assertEquals(1, events.count { it == TableIntent.DismissTapUi })
+                assertTrue(events.none { it is TableIntent.Rotate })
                 ui.dismiss(); scene(); events.clear()
-                gestures.down(top.bounds.center, 1600); gestures.tick(2150); gestures.up(top.bounds.center, 2160)
-                assertEquals(listOf<TableIntent>(TableIntent.Inspect(f.id(40))), events)
-                assertEquals(f.id(40), ui.inspection!!.stackEntryId)
+                gestures.down(top.bounds.center, 1600); gestures.tick(2150)
+                assertEquals(f.id(40), ui.peek!!.stackEntryId)
+                gestures.up(top.bounds.center, 2160)
+                assertEquals(listOf<TableIntent>(TableIntent.Peek(f.id(40)), TableIntent.Peek(null)), events)
+                assertNull(ui.peek)
+                assertNull(ui.inspection)
             } finally { f.lobby.close(); f.worker.drain() }
         }
     }

@@ -71,8 +71,10 @@ class TableActionWiringTest {
         refresh()
         val point = scene().items.single { it.cardId == f.id(40) }.visible.first().center
         gestures.down(point, 1000); gestures.tick(1500); gestures.up(point, 1520); gestures.tick(1900)
-        assertEquals(2, f.commands().size); assertEquals(1, personal.filterIsInstance<TableIntent.Inspect>().size)
-        assertTrue(personal.none { it is TableIntent.Actions })
+        assertEquals(2, f.commands().size)
+        assertEquals(listOf(TableIntent.Peek(f.id(40)), TableIntent.Peek(null)), personal.filterIsInstance<TableIntent.Peek>())
+        assertEquals(1, personal.filterIsInstance<TableIntent.Actions>().size)
+        assertEquals(1, personal.count { it == TableIntent.DismissTapUi })
         gestures.transform(TablePoint(10f, 0f), 1.2f, scene().fields.last().bounds.center)
         assertEquals(2, f.commands().size)
         assertNotNull(TablePresentation.inspection(f.play, f.actor, f.id(40)))

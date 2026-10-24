@@ -2,9 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.border
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,36 +11,33 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
 import kotlin.math.roundToInt
 
-/** Production compact, two-axis pannable group explorer. No sample data, implicit activation, archive
- * toolbar or local authoritative tree. Normal table wiring/complete I22/I25 projections remain I24b.
- */
+/** Full-screen, two-axis history picker. Tap reviews and closes; hold selects for branch actions. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
     authorColors: Map<String, Color>, showHidden: Boolean, onShowHidden: (Boolean) -> Unit,
     onDismiss: () -> Unit, onReview: (org.asyncttwiz.protocol.PlayState) -> Unit,
-    onAdvanced: (() -> Unit)? = null, texts: Map<String, HistoryText> = emptyMap()) {
+    onAdvanced: (() -> Unit)? = null, texts: Map<String, HistoryText> = emptyMap(),
+    continuationReady: Boolean = true, onContinue: ((String) -> Unit)? = null) {
     val state = controller.state
     val graph = state.graph
     var menu by remember { mutableStateOf(false) }
-    var tooltip by remember { mutableStateOf<String?>(null) }
     var pan by remember { mutableStateOf(Offset.Zero) }
+    var picked by remember { mutableStateOf<String?>(null) }
     val density = LocalDensity.current.density
     val activeColor = Color(0xff268849)
     val edgeColor = Color(0xff98abaa)
@@ -55,110 +50,113 @@ fun HistoryExplorer(controller: HistoryExplorerController, connected: Boolean,
             framed = true
         }
     }
-    LaunchedEffect(state.reviewed) { state.reviewed?.let(onReview) }
+    LaunchedEffect(state.reviewed, state.busy, picked) {
+        if (!state.busy) state.reviewed?.let {
+            onReview(it)
+            if (picked == it.currentNodeId) { picked = null; onDismiss() }
+        }
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        SideEffect { window?.setDimAmount(0f) }
-        BoxWithConstraints(Modifier.fillMaxSize().pointerInput(onDismiss) { detectTapGestures(onTap = { onDismiss() }) }
-            .padding(top = 52.dp, end = 8.dp, start = 8.dp)) {
-        Surface(modifier = Modifier.align(Alignment.TopEnd).width(if (maxWidth > 600.dp) 360.dp else 320.dp)
-                .pointerInput(Unit) { detectTapGestures(onTap = {}) },
-            shape = MaterialTheme.shapes.medium, color = Color.White, shadowElevation = 8.dp) {
-            Column(Modifier.padding(8.dp)) {
+        Surface(Modifier.fillMaxSize(), color = Color.White) {
+            Column(Modifier.fillMaxSize().padding(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         TextButton(onClick = { menu = true }) { Text("Game tree ▾", color = MenuInk) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text("Frame current") }, onClick = {
-                                graph?.positions?.get(graph.currentNodeId)?.let { pan = Offset(130 - it.x, 85 - it.y) }
+                                graph?.positions?.get(graph.currentNodeId)?.let { pan = Offset(150 - it.x, 80 - it.y) }
                                 menu = false
                             })
                             DropdownMenuItem(text = { Text(if (showHidden) "Hide simple alternatives" else "Show hidden branches") },
                                 onClick = { onShowHidden(!showHidden); menu = false })
-                            onAdvanced?.let { action -> DropdownMenuItem(text = { Text("Branch details…") },
-                                onClick = { menu = false; action() }) }
                         }
                     }
                     Spacer(Modifier.weight(1f))
                     IconButton(onDismiss) { Icon(menuIcon("Close"), "Close game tree", tint = MenuInk) }
                 }
-                if (state.archivedSelection && onAdvanced != null) TextButton(onClick = onAdvanced) { Text("Restore via branch details") }
-                Box(Modifier.fillMaxWidth().height(160.dp).semantics { contentDescription = "Game history group tree" }
-                    .background(Color(0xfff4f8f6)).border(1.dp, Color(0xffdbe4df))
-                    .clipToBounds().pointerInput(graph?.width, graph?.height) {
-                    detectDragGestures { change, drag ->
-                        change.consume(); tooltip = null
-                        val candidate = pan + drag / density
-                        graph?.pan(HistoryPoint(pan.x, pan.y), candidate.x - pan.x, candidate.y - pan.y,
-                            size.width / density, size.height / density)?.let { pan = Offset(it.x, it.y) }
-                    }
-                }) {
+                Text("Tap to review · hold for branch actions", style = MaterialTheme.typography.labelSmall)
+                Text("Green: current path · square: review cursor · dot: branch head", style = MaterialTheme.typography.labelSmall)
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).semantics { contentDescription = "Game history group tree" }
+                    .background(Color(0xfff4f8f6)).clipToBounds().pointerInput(graph?.width, graph?.height) {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            graph?.pan(HistoryPoint(pan.x, pan.y), drag.x / density, drag.y / density,
+                                size.width / density, size.height / density)?.let { pan = Offset(it.x, it.y) }
+                        }
+                    }) {
                     if (graph != null) {
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
                             val ranges = graph.ranges.associateBy { it.id }
                             for (range in graph.ranges) {
-                                val parent = ranges[range.parentRangeId] ?: continue
-                                val from = parent.position.screen(); val to = range.position.screen()
-                                fun edge(end: Offset, color: Color, width: Float) {
-                                    val path = Path().apply {
-                                        moveTo(from.x, from.y); lineTo(end.x, end.y)
+                                var previous = ranges[range.parentRangeId]?.position
+                                for (id in range.nodeIds) {
+                                    val point = graph.positions.getValue(id)
+                                    previous?.let { parent ->
+                                        val from = parent.screen(); val to = point.screen()
+                                        val active = id in graph.activeNodeIds
+                                        // A branch changes lanes only at its fork; subsequent events remain parallel.
+                                        val corner = Offset(from.x, to.y)
+                                        drawLine(if (active) activeColor else edgeColor, from, corner, (if (active) 2f else 1f) * density)
+                                        drawLine(if (active) activeColor else edgeColor, corner, to, (if (active) 2f else 1f) * density)
                                     }
-                                    drawPath(path, color, style = Stroke(width * density))
+                                    previous = point
                                 }
-                                edge(to, edgeColor, 1f)
-                                val activeEnd = range.nodeIds.lastOrNull { it in graph.activeNodeIds }
-                                if (activeEnd != null) edge(graph.positions.getValue(activeEnd).screen(), activeColor, 2f)
                             }
                         }
-                        for (range in graph.ranges) {
-                            val color = authorColors[range.author] ?: MaterialTheme.colorScheme.onSurface
-                            val text = historyRangeText(range, texts)
-                            Box(Modifier.offset {
-                                IntOffset(((range.position.x + pan.x - 24) * density).roundToInt(),
-                                    ((range.position.y + pan.y - 24) * density).roundToInt())
-                            }.size(48.dp).semantics {
-                                contentDescription = "${text.description}, ${range.nodeIds.size} events, review group end"
-                            }.combinedClickable(onClick = { tooltip = null; controller.select(range.targetId) },
-                                onLongClick = { tooltip = text.description }), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(32.dp).background(Color.White, CircleShape).border(1.dp, Color(0xffb9ccca), CircleShape),
-                                    contentAlignment = Alignment.Center) {
-                                    CompositionLocalProvider(LocalContentColor provides color) { HistoryEventIcon(range.glyph.icon) }
-                                }
+                        for (event in graph.events) {
+                            val point = graph.positions.getValue(event.id)
+                            val x = point.x + pan.x; val y = point.y + pan.y
+                            if (x >= -12f && x <= maxWidth.value + 12 && y >= -16 && y <= maxHeight.value + 16) {
+                                val text = texts[event.id]
+                                HistoryEventChip(event.copy(description = text?.description ?: event.description),
+                                    authorColors[event.author] ?: Color(0xff59656a), event.id == state.selectedNodeId,
+                                    Modifier.offset { IntOffset(((x - 10) * density).roundToInt(), ((y - 10) * density).roundToInt()) }
+                                        .background(Color(0xfff4f8f6)).combinedClickable(
+                                            onClick = { picked = event.id; controller.select(event.id) },
+                                            onLongClick = { picked = null; controller.select(event.id) }))
                             }
                         }
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
-                            graph.positions[graph.currentNodeId]?.let { drawCircle(activeColor, 16 * density,
-                                it.screen(), style = Stroke(2 * density)) }
+                            for (id in graph.branchHeadIds) graph.positions[id]?.let {
+                                drawCircle(activeColor, 2.5f * density, it.screen() + Offset(0f, 14 * density))
+                            }
+                            graph.positions[graph.currentNodeId]?.let {
+                                drawCircle(activeColor, 12 * density, it.screen(), style = Stroke(1.5f * density))
+                            }
                             graph.positions[state.selectedNodeId]?.let {
-                                drawRect(selectionColor, it.screen() - Offset(22 * density, 22 * density),
-                                    androidx.compose.ui.geometry.Size(44 * density, 44 * density), style = Stroke(1.5f * density))
+                                drawRect(selectionColor, it.screen() - Offset(11 * density, 12 * density),
+                                    Size(22 * density, 24 * density), style = Stroke(1.5f * density))
                             }
                         }
-                        tooltip?.let { Text(it, Modifier.align(Alignment.BottomCenter).border(1.dp, edgeColor).padding(4.dp)) }
                     }
                     if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp))
                     state.error?.let { Text(it, Modifier.align(Alignment.Center)) }
                 }
-                Spacer(Modifier.height(6.dp))
-                val actionable = connected && !state.busy && state.error == null && state.selectedNodeId != null && !state.archivedSelection
-                val enabled by rememberUpdatedState(actionable)
-                var activation by remember { mutableStateOf<HistoryActivation?>(null) }
-                Surface(Modifier.fillMaxWidth().height(48.dp).border(1.dp, MenuBorder, MaterialTheme.shapes.extraSmall).semantics {
-                    role = Role.Button; contentDescription = "Make current"
-                    if (!actionable) disabled()
-                    onClick { if (actionable) controller.makeCurrent() else false }
-                }.pointerInput(controller) {
-                    detectTapGestures(onPress = { activation = if (enabled) controller.captureMakeCurrent() else null; tryAwaitRelease() },
-                        onTap = { if (enabled) controller.makeCurrent(activation) })
-                }, color = Color.White, contentColor = if (actionable) MenuInk else Color.Gray) {
-                    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        TableChromeIcon("current"); Spacer(Modifier.width(8.dp)); Text("Make current")
+                val actionable = connected && !state.busy && state.error == null && state.selectedNodeId != null
+                state.selectedNodeId?.let { id -> Text(texts[id]?.description ?: graph?.events?.find { it.id == id }?.description.orEmpty(),
+                    style = MaterialTheme.typography.labelSmall, maxLines = 2) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    if (onContinue != null) TextButton(enabled = actionable && continuationReady && !state.archivedSelection,
+                        onClick = { state.selectedNodeId?.let(onContinue) }) { Text("Continue from here") }
+                    val canActivate by rememberUpdatedState(actionable && !state.archivedSelection)
+                    var activation by remember { mutableStateOf<HistoryActivation?>(null) }
+                    Surface(Modifier.height(48.dp).padding(horizontal = 8.dp).semantics {
+                        role = Role.Button; contentDescription = "Make current"
+                        if (!canActivate) disabled()
+                        onClick { if (canActivate) controller.makeCurrent() else false }
+                    }.pointerInput(controller) {
+                        detectTapGestures(onPress = {
+                            activation = if (canActivate) controller.captureMakeCurrent() else null
+                            tryAwaitRelease()
+                        }, onTap = { if (canActivate) controller.makeCurrent(activation) })
+                    }, color = Color.White, contentColor = if (canActivate) MenuInk else Color.Gray) {
+                        Box(contentAlignment = Alignment.Center) { Text("Make current") }
                     }
+                    if (onAdvanced != null) TextButton(onClick = onAdvanced) { Text("Branch details…") }
                 }
             }
-        }
         }
     }
 }

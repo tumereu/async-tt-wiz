@@ -33,7 +33,8 @@ data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<S
     val targetId: String get() = nodeIds.last()
 }
 data class HistoryGraph(val ranges: List<HistoryRange>, val positions: Map<String, HistoryPoint>,
-    val activeNodeIds: Set<String>, val currentNodeId: String, val width: Float, val height: Float) {
+    val activeNodeIds: Set<String>, val currentNodeId: String, val width: Float, val height: Float,
+    val events: List<HistoryTimelineEvent> = emptyList(), val branchHeadIds: Set<String> = emptySet()) {
     fun pan(current: HistoryPoint, dx: Float, dy: Float, viewportWidth: Float, viewportHeight: Float) =
         HistoryPoint((current.x + dx).coerceIn(-width, viewportWidth),
             (current.y + dy).coerceIn(-height, viewportHeight))
@@ -85,18 +86,18 @@ object HistoryGraphLayout {
         require(seen.containsAll(visible.filter { it != root })) { "Unavailable retained ancestry" }
         val children = segments.values.filter { it.parent != null }.groupBy { it.parent }
         val depth = mutableMapOf(root to 0)
-        for (segment in segments.values.drop(1)) depth[segment.id] = depth.getValue(segment.parent!!) + 1
+        for (segment in segments.values.drop(1)) depth[segment.id] = depth.getValue(segment.parent!!) + segment.nodes.size
         val lanes = mutableMapOf<String, Float>()
         var nextLane = 0f
         // Iterative postorder keeps very long ordinary histories off both stack and UI limits.
         for (segment in segments.values.toList().asReversed()) {
             val descendants = children[segment.id].orEmpty()
             lanes[segment.id] = if (descendants.isEmpty()) nextLane++ else
-                (lanes.getValue(descendants.first().id) + lanes.getValue(descendants.last().id)) / 2
+                lanes.getValue((descendants.firstOrNull { child -> child.nodes.any { it in active } } ?: descendants.first()).id)
         }
         val positions = mutableMapOf<String, HistoryPoint>()
         val ranges = segments.values.map { segment ->
-            val point = HistoryPoint(28f + depth.getValue(segment.id) * 88f, 28f + lanes.getValue(segment.id) * 60f)
+            val point = HistoryPoint(24f + depth.getValue(segment.id) * 24f, 24f + lanes.getValue(segment.id) * 36f)
             val events = segment.nodes.mapNotNull(tree.nodes::get)
             val representative = events.fold<GameplayMutation, HistoryRepresentative?>(null) { chosen, event ->
                 HistoryGrouping.choose(chosen, HistoryRepresentative(event.id,
@@ -108,18 +109,23 @@ object HistoryGraphLayout {
                 representativeEvent?.author, segment.parent, point)
             if (segment.id == root) positions[root] = point else {
                 val parent = segments.getValue(segment.parent!!)
-                val parentX = 28f + depth.getValue(parent.id) * 88f
-                val parentY = 28f + lanes.getValue(parent.id) * 60f
+                val parentX = 24f + depth.getValue(parent.id) * 24f
                 segment.nodes.forEachIndexed { index, id ->
-                    val fraction = (index + 1).toFloat() / segment.nodes.size
-                    positions[id] = HistoryPoint(parentX + (point.x - parentX) * fraction,
-                        parentY + (point.y - parentY) * fraction)
+                    positions[id] = HistoryPoint(parentX + (index + 1) * 24f, point.y)
                 }
             }
             range
         }
+        val events = positions.keys.map { id ->
+            val mutation = tree.nodes[id]
+            val text = historyText(mutation)
+            HistoryTimelineEvent(id, mutation?.grouping?.icon ?: mutation?.let {
+                HistoryGrouping.classify(it.action, tree.initial.board.containers, it.transition).icon
+            } ?: "flag", text.description, mutation?.author, groups[id]?.id, label = text.label)
+        }
         return HistoryGraph(ranges, positions, active, tree.currentNodeId,
-            (ranges.maxOfOrNull { it.position.x } ?: 28f) + 28f, nextLane * 60f + 56f)
+            (ranges.maxOfOrNull { it.position.x } ?: 24f) + 24f, nextLane * 36f + 48f,
+            events, (tree.branchHeads.values + positions.keys.filter { allChildren[it].isNullOrEmpty() }).toSet())
     }
 
 }

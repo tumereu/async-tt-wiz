@@ -31,10 +31,11 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val controlsConnected: Boolean? = null,
     val ping: ((EventPingIntent) -> Boolean)? = null, val tokenCatalog: TableTokenCatalog? = null,
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
-    val tree: (() -> Unit)? = null, val continueHere: (() -> Unit)? = null,
+    val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val menuContent: (@Composable () -> Unit)? = null, val reviewPanel: (@Composable () -> Unit)? = null,
-    val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null)
+    val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
+    val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -58,7 +59,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
     var advanced by remember(game.id, live?.id) { mutableStateOf(false) }
-    var showHidden by remember(game.id, live?.id) { mutableStateOf(false) }
+    var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
+    val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
+    val playbackPause by playbackPreferences.pauseState()
+    var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
     val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }, { game.id !in controller.state.reconnectingGames }, { scope, action ->
         controller.state.detail?.playId == scope.playId && controller.historyControl(action)
@@ -67,8 +71,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     LaunchedEffect(tree, explorerOpen, showHidden) {
         // The live timeline includes provisional nodes; the explorer's activation/review targets
         // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
-        if (explorerOpen && tree != null) explorer.update(tree,
-            openingNodeId = position?.cursorId?.let(tree::resolveCursor), showHidden = showHidden)
+        if (explorerOpen && tree != null) {
+            explorer.update(tree, openingNodeId = position?.cursorId?.let(tree::resolveCursor), showHidden = showHidden)
+            if (position != null) explorer.select(tree.resolveCursor(position.cursorId) ?: tree.currentNodeId)
+        }
     }
     var appliedActivity by remember(history) { mutableStateOf<ActivityTarget?>(null) }
     val target = state.activityTarget
@@ -76,7 +82,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val awaitingIndex = displayTree != null && displayTree === tree && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
         playback?.tree?.sharedHeadId != displayTree.currentNodeId
     val endpoint = remember(history) { TableEndpointPresentation() }
-    val play = if (waitingActivity) null else if (reviewing) history.view?.state
+    val play = if (waitingActivity) null else if (reviewing) history.view?.state ?: live
         else endpoint.live(live, history.view?.state, awaitingIndex)
     SideEffect { endpoint.presented(play) }
     LaunchedEffect(target, tree) {
@@ -177,7 +183,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         navigation = hamburger, chatUnread = state.chat.unread,
                         history = playback?.let { player -> { history.select(player.position.cursorId) } },
-                        tree = { explorerOpen = true },
+                         onSceneSettled = { settledCursor = it }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                         returnCurrent = if (reviewing || history.armed != null) history::current else null,
@@ -188,7 +194,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                              if (reviewing) HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                         }, reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                 interactive, 240L, { history.requestContinuation(it) },
+                                  interactive, playbackPause, { history.requestContinuation(it) },
+                                 animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
+                                 onTree = { playback.pause(); explorerOpen = true },
                                 continuationReady = position?.cursorId?.let(history::canArm) == true,
                                 overlay = true, landscape = landscape, menuContent = {
                                      HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
@@ -216,7 +224,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
         showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
-        onAdvanced = { advanced = true }, texts = playback?.tree?.texts.orEmpty())
+        onAdvanced = { advanced = true }, texts = playback?.tree?.texts.orEmpty(),
+        continuationReady = explorer.state.selectedNodeId?.let(history::canRequestContinuation) == true,
+        onContinue = { if (history.requestContinuation(it)) explorerOpen = false })
     if (advanced && tree != null) HistoryAdvanced(history, tree, position?.cursorId ?: tree.currentNodeId,
         game, accountId, landscape, interactive, { advanced = false })
     if (history.gate?.suggestionId != dismissedResult) ResultAcceptanceDialog(game, state.acceptedPlay, accountId,

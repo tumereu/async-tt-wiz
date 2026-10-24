@@ -46,7 +46,7 @@ class TableLayoutScreenshotTest {
             MaterialTheme {
                 TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}, tree = {}))
+                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}))
             }
         }
         compose.waitForIdle()

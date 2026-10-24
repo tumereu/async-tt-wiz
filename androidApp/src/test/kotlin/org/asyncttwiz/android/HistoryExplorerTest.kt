@@ -102,7 +102,8 @@ class HistoryExplorerTest {
         val parent = graph.ranges.single { it.id == suffix.parentRangeId }
         val interior = graph.positions.getValue(second.currentNodeId)
         assertEquals((parent.position.x + suffix.position.x) / 2, interior.x)
-        assertEquals((parent.position.y + suffix.position.y) / 2, interior.y)
+        assertEquals(suffix.position.y, interior.y) // Events stay on parallel lanes after the fork.
+        assertEquals(24f, suffix.position.x - interior.x)
         assertEquals(setOf(root().root.id, first.currentNodeId, second.currentNodeId), graph.activeNodeIds)
         assertEquals(internal.nodes.size + 1, graph.ranges.sumOf { it.nodeIds.size })
     }

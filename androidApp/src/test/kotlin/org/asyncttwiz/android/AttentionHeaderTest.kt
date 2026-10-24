@@ -34,7 +34,7 @@ class AttentionHeaderTest {
                 TableSurface(TableFixture.game, play.value, "a", landscape.value,
                     Modifier.requiredSize(if (landscape.value) 892.dp else 412.dp, if (landscape.value) 412.dp else 892.dp),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}, tree = {},
+                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {},
                         reviewing = reviewing.value, returnCurrent = {}, continueHere = {}))
             }
         }

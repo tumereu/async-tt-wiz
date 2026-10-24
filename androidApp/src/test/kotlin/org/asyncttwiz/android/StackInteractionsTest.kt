@@ -69,12 +69,13 @@ class StackInteractionsTest {
         assertTrue(toolkit.handle(TableIntent.StackDestination(effect.id, PlayZone.GRAVEYARD)))
         val commands = f.commands().drop(before)
         assertEquals(1, commands.map { it.invocationId }.distinct().size)
-        assertIs<StackAction.RemoveEffect>((commands.first().action as GameAction.Play).action.let { (it as PlayAction.Stack).action })
+        val move = assertIs<PlayAction.MoveCard>((commands.single().action as GameAction.Play).action)
+        assertEquals(effect.id, move.removeStackEntryId)
         assertTrue(f.play.board.stackEffects.isEmpty())
         assertEquals(f.container(PlayZone.GRAVEYARD), f.card(40).containerId)
         assertTrue(commands.any { (it.action as GameAction.Play).action is PlayAction.MoveCard })
-        assertEquals(1, commands.count { (it.action as GameAction.Play).action is PlayAction.ResetCorner })
-        assertEquals(1, commands.count { (it.action as GameAction.Play).action is PlayAction.ClearCardCounter })
+        assertEquals("2/3", f.card(40).corner)
+        assertTrue(f.card(40).counters.isEmpty())
         assertTrue(f.commands().all(GameWire::valid))
     }
     @Test fun markerHistoryHasReadableLiteralTextAndInspectionRetainsOccurrenceNotSourceScope() {

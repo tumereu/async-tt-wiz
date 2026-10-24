@@ -243,7 +243,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // The rendered history/animation boundary can briefly lag the session prediction during
             // acceptance. Validate personal focus against the session, not that older rendered board.
             if (toolkit != null) toolkit.refreshStackBubbles()
-            else if (bubbleId != null && bubbleId !in CombatStackRules.stack(play.board).cards) localStackBubble = null
+            else if (bubbleId != null && bubbleId != CombatStackRules.stack(play.board).cards.firstOrNull()) localStackBubble = null
         }
         val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
         val bubble = TablePresentation.stackBubbles(baseScene, play, bubbleId, maxWidth.value, maxHeight.value)
@@ -369,7 +369,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         if (item.cardId != null) {
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                             commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
-                            if (writable && !item.frozen) {
+                            if (writable && scene.canDrag(item)) {
                                 if (item.zone != PlayZone.STACK) {
                                     commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
                                     commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
@@ -452,7 +452,13 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         play.board.containers.single { it.id == card.containerId }.zone, kind = TableItemKind.CARD, cardId = id)
                 }
             }
-            if (item == null) SideEffect { actions = null } else TableActionsScreen(game, play, accountId,
+            if (item == null) SideEffect { actions = null }
+            else if (item.zone == PlayZone.STACK) ManageStackDialog(play, accountId, writable, { actions = null },
+                perform = { if (currentWritable) callback?.invoke(it) }, cardActions = { id ->
+                    val scope = TableScope(id, listOf(id))
+                    actions = TableIntent.Actions("card/$id", scope, BasicTableController.sources(play, listOf(id)))
+                })
+            else TableActionsScreen(game, play, accountId,
                 captured, item, selection, writable, landscape, dismiss = { actions = null },
                 inspect = { id -> coordinator.inspect(item.copy(cardId = id)) },
                 select = { id -> selection = selection.toggle(id) },

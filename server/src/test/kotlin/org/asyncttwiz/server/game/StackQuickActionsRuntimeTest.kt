@@ -125,7 +125,7 @@ class StackQuickActionsRuntimeTest {
                 val marked = state()
                 val invocation = gameplayId()
                 val actions = StackQuickActions.actions(marked, entry, PlayZone.GRAVEYARD)
-                assertEquals(2, actions.size)
+                assertEquals(1, actions.size)
                 val inputs = actions.map { f.owner.command(it).copy(invocationId = invocation) }
                 inputs.forEach { assertTrue(f.owner.admit(it) is GameReceipt) }
                 inputs.forEach { assertTrue(f.games.executeOne()); assertEquals("accepted", f.owner.result(it).outcome) }
@@ -135,10 +135,8 @@ class StackQuickActionsRuntimeTest {
                 var replay = f.root
                 history.mutations.forEach { replay = GameplayHistory.replay(replay, it).state!! }
                 assertEquals(state(), replay)
-                repeat(2) {
-                    val undo = f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)
-                    assertEquals("accepted", f.owner.execute(undo).outcome)
-                }
+                val undo = f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)
+                assertEquals("accepted", f.owner.execute(undo).outcome)
                 assertEquals(marked.board, state().board)
             }
         }

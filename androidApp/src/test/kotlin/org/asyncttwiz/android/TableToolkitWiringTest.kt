@@ -48,11 +48,16 @@ class TableToolkitWiringTest {
         assertEquals(5, piles.size) // Both participants' Graveyard/Exile plus the shared Stack.
         for (item in piles) {
             ui.open(TableIntent.Actions(item.id, null), item, TableSelection())
-            val contents = assertNotNull(ui.publicContents())
-            assertEquals(item.id, contents.containerId)
-            val container = play.board.containers.single { it.id == item.id }
-            assertEquals(container.cards, contents.cardIds)
-            assertEquals(item.zone == PlayZone.STACK, contents.ordered)
+            if (item.zone == PlayZone.STACK) {
+                assertEquals("manageStack", ui.panel)
+                assertNull(ui.publicContents())
+            } else {
+                val contents = assertNotNull(ui.publicContents())
+                assertEquals(item.id, contents.containerId)
+                val container = play.board.containers.single { it.id == item.id }
+                assertEquals(container.cards, contents.cardIds)
+                assertFalse(contents.ordered)
+            }
             assertNull(ui.library); assertNull(ui.libraryDisplayId)
             ui.dismiss()
             assertNull(ui.publicContents())

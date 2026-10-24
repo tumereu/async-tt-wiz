@@ -94,6 +94,7 @@ object HistoryGrouping {
             val from = containers.single { it.id == action.source.containerId }.zone
             val to = containers.single { it.id == action.destination.containerId }.zone
             when {
+                action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
                 from == PlayZone.STACK && to == PlayZone.STACK ->
                     HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
                 from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers")

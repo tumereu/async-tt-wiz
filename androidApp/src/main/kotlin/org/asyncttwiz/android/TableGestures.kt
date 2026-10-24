@@ -62,14 +62,18 @@ class TableGestureCoordinator(
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
-        val scope = id?.let { selection.scope(it, order()) }
+        val scope = id?.let { if (item?.zone == PlayZone.STACK) TableScope(it, listOf(it)) else
+            selection.scope(it, order()).let { scope -> scope.copy(cardIds = scope.cardIds.filter { selected ->
+                scene.items.none { it.cardId == selected && it.zone == PlayZone.STACK }
+            }) } }
         val next = Capture(item, point, time, selection, scope, scene.viewport(point),
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }, bubble = scene.stackBubbles,
             phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
             suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard, camera = scene.camera)
         val old = pending
         if (old != null) {
-            if (((item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
+            if (((item?.zone == PlayZone.STACK && old.capture.item?.zone == PlayZone.STACK) ||
+                    (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
                     (item == null && old.capture.item == null && scene.worldInput(point))) &&
                 distance(point, old.capture.start) <= slopDp * 2 && time <= old.deadline) {
                 next.double = true
@@ -107,7 +111,7 @@ class TableGestureCoordinator(
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
                     c.item?.kind != TableItemKind.CARD && !scene.worldInput(c.start) -> Phase.SCROLL
                 c.item?.kind == TableItemKind.HAND || c.item == null -> Phase.RECTANGLE
-                c.scope != null || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
+                c.scope != null && scene.canDrag(c.item) || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
             }
         }
@@ -141,14 +145,15 @@ class TableGestureCoordinator(
                 val hand = c.item.drawHandId
                 val top = c.scope?.contextId
                 if (writable && hand != null && top != null) emit(TableIntent.Draw(c.item.id, hand, top))
+            } else if (c.double && c.item?.zone == PlayZone.STACK) {
+                single(c, explicit = true)
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
-                if (c.item.zone == PlayZone.STACK) single(c, explicit = true)
-                else if (writable && c.scope != null && targetsExist(c.scope)) {
+                if (writable && c.scope != null && targetsExist(c.scope)) {
                     emit(TableIntent.Selection(c.selection.orientation(c.scope.contextId)))
                     emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources))
                 }
             } else if (doubleTapEnabled && ((c.selection.mode == TableMode.NORMAL && c.item?.kind == TableItemKind.CARD) ||
-                (c.selection.mode != TableMode.PING && c.item?.zone == PlayZone.LIBRARY))) {
+                (c.selection.mode != TableMode.PING && c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK)))) {
                 // Shared single-tap routes (Library View, link picking) retain the decision window.
                 val local = singleTapIsLocal(requireNotNull(c.item))
                 if (local) single(c)
@@ -170,7 +175,7 @@ class TableGestureCoordinator(
                     // A counter row can disappear during sync. The captured semantic field still exists.
                     if (delta != 0 && (bound.value.isEmpty() || Regex("[+-]?[0-9]+").matches(bound.value)))
                         emit(TableIntent.PlayerDelta(requireNotNull(bound.owner), bound.counter, delta))
-                } else if (writable && c.scope != null && targetsExist(c.scope)) {
+                } else if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true) {
                     c.destination?.let { d ->
                         emit(TableIntent.Selection(c.selection.afterMove(c.scope.contextId)))
                         emit(TableIntent.Move(c.scope, d, c.sources))
@@ -238,8 +243,9 @@ class TableGestureCoordinator(
         if (writable) emit(TableIntent.Rotate(scope, tapped, scene.sources.filterKeys { it in scope.cardIds }))
     }
     fun accessibleMove(item: TableItem, destination: TableDestination) {
+        if (!scene.canDrag(item)) return
         val id = item.cardId ?: return
-        val scope = selection.scope(id, order())
+        val scope = if (item.zone == PlayZone.STACK) TableScope(id, listOf(id)) else selection.scope(id, order())
         if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }))
     }
     fun select(item: TableItem) { item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
@@ -253,6 +259,7 @@ class TableGestureCoordinator(
             if (writable && c.bubble != null) when (item.id) {
                 "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD))
                 "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD))
+                "stackBubble/remove" -> emit(TableIntent.Submit(StackMenuActions.remove(c.bubble.entryId), null))
             }
             return
         }
@@ -264,8 +271,8 @@ class TableGestureCoordinator(
         } else if (!explicit && c.suppressTapUi) {
             // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
             return
-        } else if (!explicit && item?.kind == TableItemKind.CARD && item.zone == PlayZone.STACK) {
-            emit(TableIntent.StackBubbles(item.cardId))
+        } else if (!explicit && item?.zone == PlayZone.STACK) {
+            if (item.kind == TableItemKind.CARD && item.cardId == scene.stackTopId) emit(TableIntent.StackBubbles(item.cardId))
         } else if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.Selection(c.selection.copy(ids = emptySet())))
         } else if (c.scope == null || targetsExist(c.scope)) {
@@ -289,6 +296,7 @@ class TableGestureCoordinator(
         // entire visible pile before its top card (and independently of the count badge routing).
         scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
             it.visible.any { bounds -> bounds.contains(p) } }?.let {
+            if (scope?.cardIds?.any { id -> scene.items.any { card -> card.cardId == id && card.zone == PlayZone.STACK } } == true) return null
             if (scope == null || scope.cardIds.any { id -> scene.sources[id]?.containerId.let { source ->
                     scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null
             return TableDestination.Container(it.id, PlayZone.STACK)

@@ -74,7 +74,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             if (added != null) stackBubbleEntry = stack.firstOrNull()
             if (added != null || play.currentNodeId != pending.nodeId) pendingStackBubble = null
         }
-        if (stackBubbleEntry !in stack) stackBubbleEntry = null
+        if (stackBubbleEntry != stack.firstOrNull()) stackBubbleEntry = null
     }
     private var inspectionSubscription: InspectionSubscription? = null
     private var inspectionLifetime: String? = null
@@ -98,7 +98,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         val play = current()
         val source = when (action) {
-            is PlayAction.MoveCard -> action.cardId.takeIf { id -> play?.board?.containers?.any {
+            is PlayAction.MoveCard -> action.cardId.takeIf { id -> action.removeStackEntryId == null && play?.board?.containers?.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK && id !in it.cards } == true }
             is PlayAction.Stack -> (action.action as? StackAction.AddEffect)?.sourceId
             else -> null
@@ -117,7 +117,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Convenience defaults are explicit per-card requests with the SAME invocation as the move. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        if (action is PlayAction.MoveCard && play.board.containers.any {
+        if (action is PlayAction.MoveCard && action.removeStackEntryId == null && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
             return enqueue(BasicTableController.projection(play, action) ?: return false,
                 invocationId ?: UUID.randomUUID().toString())
@@ -165,12 +165,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun contents(display: ContentsDisplay) { panel = "display/${display.id}" }
-    fun stackContents() { current()?.board?.containers?.singleOrNull { it.zone == PlayZone.STACK }?.let { openPublicPile(it.id) } }
+    fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
 
     /** Open information is a personal route, not a shared View/Reveal reference display. */
     fun openPublicPile(id: String) {
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
+        if (container.zone == PlayZone.STACK) { stackContents(); return }
         dismiss(); showStackBubbles(null); panel = "contents/${container.id}"
     }
     fun publicContents(): PileContents? {
@@ -232,11 +233,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         when {
+            item.zone == PlayZone.STACK -> stackContents()
             captured.scope != null -> openCard(captured.scope, captured.sources)
             item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> {
                 dismiss(); manual.player(play, requireNotNull(item.owner))
             }
-            item.zone == PlayZone.STACK -> stackContents()
             item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
             else -> openPublicPile(item.id)
         }
@@ -295,7 +296,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }
             is TableIntent.StackDestination -> {
                 val play = current()?.takeIf { enabled() } ?: return@batch false
-                val actions = runCatching { StackQuickActions.actions(play, intent.entryId, intent.zone) }.getOrNull() ?: return@batch false
+                val actions = runCatching { StackMenuActions.destination(play, intent.entryId, intent.zone) }.getOrNull() ?: return@batch false
                 showStackBubbles(null)
                 var sent = false
                 // The shared lowering already includes move-entry defaults; do not expand the move twice.
@@ -303,6 +304,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 sent
             }
             is TableIntent.Move -> {
+                val board = current()?.board ?: return@batch false
+                if (intent.scope.cardIds.any { id -> board.cards.none { it.id == id } && board.stackEffects.none { it.id == id } &&
+                    CombatStackRules.occurrences(board.combat).none { it.id == id } }) return@batch false
+                if (intent.scope.cardIds.any { it in CombatStackRules.stack(board).cards })
+                    return@batch basic.handle(intent.copy(invocationId = intent.invocationId ?: invocation))
                 val bound = bind(intent.scope, intent.sources) ?: return@batch false
                 if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)
                 else if (bound.sourceIds.isEmpty()) false else basic.handle(intent.copy(

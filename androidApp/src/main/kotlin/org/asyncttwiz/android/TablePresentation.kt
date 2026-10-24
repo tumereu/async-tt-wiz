@@ -105,7 +105,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
-    val world: TableWorld? = null) {
+    val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList()) {
     fun worldInput(point: TablePoint) = world?.viewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
@@ -114,15 +114,19 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
             it.visible.any { bounds -> bounds.contains(point) } }
         if (stack != null) {
             if (stack.stackBadge.contains(point)) return stack
-            // The pile shows one actionable top entry; peeks and empty space are not separate rows.
+            // Visible lower peeks retain their identity for hold-to-inspect, not top-card shortcuts.
             return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
-                it.viewport == stack.viewport && it.visible.isNotEmpty() } ?: stack
+                it.viewport == stack.viewport && it.visible.any { bounds -> bounds.contains(point) } } ?: stack
         }
         return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }
     }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }
+    val stackTopId get() = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+        ?.cards?.firstOrNull() ?: items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }?.cards?.firstOrNull()
+    fun canDrag(item: TableItem): Boolean = !item.frozen && (item.zone != PlayZone.STACK ||
+        item.cardId != null && item.cardId == stackTopId)
 }
 
 internal val TableItem.stackBadge get() = TableBounds(bounds.x, bounds.y, 20f, 20f)
@@ -138,6 +142,7 @@ object TablePresentation {
     fun sidebarWidth(width: Float) = minOf(326f, width * .366f)
 
     fun stackBubbles(scene: TableScene, play: PlayState, entryId: String?, width: Float, height: Float): StackBubbleGeometry? {
+        if (entryId != CombatStackRules.stack(play.board).cards.firstOrNull()) return null
         val card = scene.items.find { entryId != null && it.cardId == entryId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
             ?: return null
         val pile = scene.items.single { it.id == card.viewport }
@@ -217,19 +222,19 @@ object TablePresentation {
             return TableViewport(id, bounds, content, offset, hand).also(ports::add)
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
-            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false) {
+            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true): TableItem {
             val hidden = if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone != PlayZone.STACK && card.tapped
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
-            items += TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
+            return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                 if (hidden) "" else title, card.owner, zone, kind = TableItemKind.CARD, viewport = viewport,
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
-                typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden))
+                typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden)).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
@@ -313,6 +318,12 @@ object TablePresentation {
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
             items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
         }
+        // Animation metadata for ALL projections: a buried removal still sends a ghost home.
+        val stackProjections = play.board.stackEffects.map { effect ->
+            items.firstOrNull { it.cardId == effect.id } ?: card(CombatStackRules.inspection(play.board, effect.id)!!,
+                TableBounds(sb.x, sb.y, hudWidth, hudHeight), sb, null, PlayZone.STACK, sp.id, effect.id,
+                projection = true, frozen = effect.frozen != null, draw = false).copy(id = "stackDrawing/${effect.id}")
+        }
         val combatY = worldViewport.height / 2 - combat.height / 2
         val combatBounds = world.screen(TableBounds(0f, maxOf(combatY, bandY), world.bounds.width, minOf(combat.height, bandHeight)), camera)
         val cp = port("combat", combatBounds.intersection(worldViewport) ?: combatBounds.copy(height = 0f), combat.width * zoom)
@@ -330,7 +341,8 @@ object TablePresentation {
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
-            stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world), width, height)
+            stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world,
+            stackProjections = stackProjections), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

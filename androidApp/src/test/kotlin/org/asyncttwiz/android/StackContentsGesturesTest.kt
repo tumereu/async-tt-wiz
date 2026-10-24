@@ -37,7 +37,7 @@ class StackContentsGesturesTest {
         }
         val container = CombatStackRules.stack(play.board)
         val pile = PileContents(container.id, "Stack", container.cards, ordered = true)
-        val entry = contentsEntries(play, pile, f.a).last() // Not the table's top entry.
+        val entry = contentsEntries(play, pile, f.a).first() // Only the top entry has shortcuts.
         val actions = mutableListOf<String>()
         val inspections = mutableListOf<String>()
         val intents = mutableListOf<TableIntent>()

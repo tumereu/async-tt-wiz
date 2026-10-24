@@ -116,7 +116,8 @@ class StackProjectionJourneyTest {
             return ui.handle(TableIntent.Move(TableScope(id, listOf(id)), destination, scene().sources))
         }
         fun ring(id: String, zone: PlayZone) {
-            ui.openCard(TableScope(id, listOf(id)), scene().sources)
+            val real = CombatStackRules.liveSource(f.play.board, id)!!.id
+            ui.openCard(TableScope(real, listOf(real)), scene().sources)
             val bound = ui.capture!!
             val tools = basicMoveTools(f.play, mapOf(f.actor to "A", f.other to "B"), true,
                 TableScope(bound.contextViewId, bound.viewIds), bound.sources, ui::handle, ui::dismiss)
@@ -140,13 +141,7 @@ class StackProjectionJourneyTest {
         fun bubble(entry: String, zone: PlayZone) {
             ui.showStackBubbles(entry)
             val current = scene()
-            if (current.stackBubbles == null) {
-                // Entries below the three table peeks are reached through the real Contents route.
-                ui.stackContents()
-                assertTrue(entry in ui.publicContents()!!.cardIds)
-                assertTrue(ui.handle(TableIntent.StackDestination(entry, zone)))
-                return
-            }
+            assertNotNull(current.stackBubbles) // Destination shortcuts are top-only.
             gestures.update(current, TableSelection(), true)
             val bubble = current.stackBubbles.controls.single { it.id == "stackBubble/${zone.name.lowercase()}" }
             gestures.down(bubble.bounds.center, 500); gestures.up(bubble.bounds.center, 520)
@@ -248,18 +243,18 @@ class StackProjectionJourneyTest {
         j.sync()
         j.reversible { assertNotNull(j.drag((40..43).map(j.f::id))) }
         assertEquals((40..43).map(j.f::id).toSet(), j.f.play.board.stackEffects.map { it.sourceId }.toSet())
-        j.f.play.board.stackEffects.toList().forEachIndexed { index, effect ->
+        j.f.play.board.stackEffects.toList().asReversed().forEachIndexed { index, effect ->
             j.reversible { j.bubble(effect.id, if (index % 2 == 0) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD) }
         }
         assertTrue(j.f.play.board.stackEffects.isEmpty())
     }
 
-    @Test fun battlefieldBubbleReturnsASourceOnTheOtherPlayersFieldToItsOwner() = Journey().use { j ->
+    @Test fun battlefieldBubbleLeavesASourceOnTheOtherPlayersFieldInPlace() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD, j.f.other)); j.sync()
         j.reversible { assertTrue(j.move(j.f.id(40), PlayZone.STACK)) }
         val entry = j.f.play.board.stackEffects.single().id
         j.reversible { j.bubble(entry, PlayZone.BATTLEFIELD) }
-        assertEquals(j.f.container(PlayZone.BATTLEFIELD), j.f.card(40).containerId)
+        assertEquals(j.f.container(PlayZone.BATTLEFIELD, j.f.other), j.f.card(40).containerId)
     }
 
     @Test fun accessibilityAndDirectSubmitUseProjectionsAndRingOffersExactlyOneStackEntry() = Journey().use { j ->
@@ -386,7 +381,7 @@ class StackProjectionJourneyTest {
                         val effects = j.f.play.board.stackEffects
                         when (random.nextInt(12)) {
                             0 -> if (CombatStackRules.canProject(j.f.play.board, card)) j.move(card.id, PlayZone.STACK)
-                            1 -> if (effects.isNotEmpty()) j.bubble(effects.random(random).id,
+                            1 -> if (effects.isNotEmpty()) j.bubble(CombatStackRules.stack(j.f.play.board).cards.first(),
                                 if (random.nextBoolean()) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD)
                             2 -> if (effects.isNotEmpty()) {
                                 val effect = effects.random(random)

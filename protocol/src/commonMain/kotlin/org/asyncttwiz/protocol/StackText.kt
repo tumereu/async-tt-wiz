@@ -17,7 +17,7 @@ object StackText {
     }
 }
 
-/** Ordinary invocation constituents. Each request retains its own guards, outcome and Undo boundary. */
+/** Projection destinations are one guarded move/removal, including defaults, with one Undo boundary. */
 object StackQuickActions {
     fun actions(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
         require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
@@ -26,7 +26,7 @@ object StackQuickActions {
             listOf(PlayAction.Stack(StackAction.RemoveEffect(entryId))) else emptyList()
         val card = CombatStackRules.liveSource(state.board, entryId) ?: return remove
         val source = state.board.containers.single { it.id == card.containerId }
-        if (zone == PlayZone.BATTLEFIELD && source.zone == PlayZone.BATTLEFIELD && source.accountId == card.owner) return remove
+        if (source.zone == zone) return remove
         val target = state.board.containers.single { it.accountId == card.owner && it.zone == zone }
         // Coordinates run outwards-to-inwards for BOTH players. Row 0 is lands, row 1 the nearest main row.
         val destination = if (zone == PlayZone.BATTLEFIELD) {
@@ -34,7 +34,7 @@ object StackQuickActions {
                 .maxOfOrNull { it.placement!!.position.x } ?: -1
             MoveDestination(target.id, MoveInsertion.EMPTY, BoardPosition(rightmost + 1, 1))
         } else MoveDestination(target.id, MoveInsertion.UNORDERED)
-        return remove + GameplayRules.moveActions(state, PlayAction.MoveCard(card.id,
-            MoveSource(card.containerId, card.placement), destination))
+        return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id,
+            MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId.takeIf { remove.isNotEmpty() }))
     }
 }

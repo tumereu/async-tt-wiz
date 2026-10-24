@@ -125,7 +125,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             Column(Modifier.fillMaxSize()) {
                 OutlinedTextField(search, { search = it; bubbleId = null }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
                 ContentsRows(state, viewer, entries, !pile.ordered,
-                    onActions = { if (stack) bubbleId = it else onActions(it) }, onInspect = onInspect,
+                    onActions = { if (stack) { if (it == pile.cardIds.firstOrNull()) bubbleId = it } else onActions(it) }, onInspect = onInspect,
                     modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,
                     onRowBounds = { id, bounds -> rows[id] = bounds })
             }

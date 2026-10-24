@@ -137,9 +137,9 @@ class TableStatesScreenshotTest {
                 }
             }
             "stack-contents" -> {
-                compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
-                compose.runOnIdle { assertEquals("contents/${f.id("stack")}", toolkit.panel) }
-                compose.onNodeWithText("Stack · 2 entries").assertExists()
+                compose.onNodeWithContentDescription("Stack, 2 entries").performTouchInput { doubleClick() }
+                compose.runOnIdle { assertEquals("manageStack", toolkit.panel) }
+                compose.onNodeWithText("Manage Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
                 compose.onNodeWithContentDescription("Alice graveyard, 2 cards").performClick()
@@ -178,18 +178,40 @@ class TableStatesScreenshotTest {
 
     @Test fun combatPortrait() { render("combat", false) }
     @Test fun stackBubblesPortrait() { render("stack-bubbles", false) }
-    @Test fun stackDoubleTapWithBubblesOpenShowsFullMenuWithoutTappingSource() {
+    @Test fun stackDoubleTapWithBubblesOpenShowsManageStackWithoutTappingSource() {
         val sent = render("stack-bubbles", false)
         val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
         val card = scene.items.single { it.cardId == f.id("effect") }
         compose.onRoot().performTouchInput {
             doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
         }
-        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Put to battlefield").assertDoesNotExist()
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.onNodeWithText("Put to battlefield").assertIsDisplayed()
+        compose.onAllNodesWithText("Card actions").assertCountEquals(2)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
+        compose.onAllNodesWithText("Card actions").onFirst().performClick()
+        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
+        compose.onNodeWithText("Manage Stack · 2").assertDoesNotExist()
         assertTrue(sent.isEmpty())
+    }
+    @Test fun manageStackReflectsLiveMembershipAndClosesWhenEmpty() {
+        var state by mutableStateOf(f.combat())
+        val ui = TableToolkitController(f.a, { state }, { true }, { _, _ -> error("Browsing is local") })
+        ui.stackContents()
+        compose.setContent { MaterialTheme {
+            TableToolkitScreen(ui, state, f.game, false, TableSelection(), {})
+        } }
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.runOnIdle {
+            state = state.copy(board = state.board.copy(stackEffects = emptyList(), containers = state.board.containers.map {
+                if (it.zone == PlayZone.STACK) it.copy(cards = it.cards - f.id("effect")) else it }))
+        }
+        compose.onNodeWithText("Manage Stack · 1").assertIsDisplayed()
+        compose.runOnIdle { state = f.initial }
+        compose.onNodeWithText("Manage Stack · 1").assertDoesNotExist()
+        compose.runOnIdle { assertNull(ui.panel) }
     }
     @Test fun stackHoldHighlightsTheMarkedParagraphWithoutSubmittingAnything() {
         val sent = render("stack-bubbles", false)
@@ -217,8 +239,9 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
             doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
         }
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Inspect").performClick()
+        val inspect = compose.onAllNodesWithContentDescription("Your Stack entry").onFirst().fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single { it.label == "Inspect" }
+        compose.runOnIdle { assertTrue(inspect.action()) }
         captureScreenRoboImage("build/outputs/roborazzi/ring-stack-inspection.png")
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
         compose.onNodeWithText("Return target permanent to its owner's hand.").performScrollTo().assertIsDisplayed()

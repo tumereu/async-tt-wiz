@@ -77,6 +77,43 @@ class StackQuickActionsTest {
             if (token) assertNull(card) else assertEquals(id(13), card!!.containerId)
         }
     }
+    @Test fun projectionMoveDefaultsRemovalAndMarkAreOneReplayableUndoableMutation() {
+        val base = initial(projection = true)
+        val initial = base.copy(board = base.board.copy(cards = base.board.cards.map {
+            it.copy(corner = "9/9", counters = mapOf(CounterColor.BLUE to "3")) }, stackTextMarks = mapOf(id(30) to 1)))
+        val actions = StackQuickActions.actions(initial, id(30), PlayZone.GRAVEYARD)
+        val action = assertIs<PlayAction.MoveCard>(actions.single())
+        assertEquals(id(30), action.removeStackEntryId)
+        val tree = append(GameplayTree(initial), action)
+        assertEquals(1, tree.nodes.size)
+        val state = tree.stateAt(tree.currentNodeId)!!
+        assertTrue(state.board.stackEffects.isEmpty())
+        assertTrue(state.board.stackTextMarks.isEmpty())
+        val card = state.board.cards.single()
+        assertEquals(id(13), card.containerId)
+        assertTrue(card.counters.isEmpty())
+        assertEquals(initial.definitions.single().definition.faces.single().corner.orEmpty(), card.corner)
+        val mutation = tree.nodes.values.single()
+        assertEquals(state, GameplayHistory.replay(initial, mutation).state)
+        assertEquals(initial.board, undo(tree).stateAt(initial.root.id)!!.board)
+    }
+    @Test fun projectionMoveChecksTopIdentityAndSourceAndRejectsAnInvalidDestinationWithoutPartialRemoval() {
+        val state = initial(projection = true)
+        val action = assertIs<PlayAction.MoveCard>(StackQuickActions.actions(state, id(30), PlayZone.GRAVEYARD).single())
+        fun execute(state: PlayState, action: PlayAction.MoveCard) = GameplayRules.change(state, actor, command(state, GameAction.Play(action)))
+        val buried = state.copy(board = state.board.copy(stackEffects = state.board.stackEffects + StackEffect(id(31), id(20)),
+            containers = state.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(id(31), id(30))) else it }))
+        assertEquals("stackChanged", execute(buried, action).reason)
+        assertEquals("movementConflict", execute(state, action.copy(source = MoveSource(id(13)))).reason)
+        val invalid = execute(state, action.copy(destination = MoveDestination(id(13), MoveInsertion.EMPTY, BoardPosition(1, 1))))
+        assertNotNull(invalid.reason)
+        assertNull(invalid.state); assertNull(invalid.mutation)
+        assertEquals("noOp", execute(state, action.copy(destination = MoveDestination(id(12), MoveInsertion.TOP))).outcome)
+        val sameZone = execute(state, action.copy(destination = MoveDestination(id(14), MoveInsertion.EMPTY, BoardPosition(4, 4))))
+        assertNull(sameZone.reason)
+        assertEquals(state.board.cards, sameZone.state!!.board.cards)
+        assertTrue(sameZone.state.board.stackEffects.isEmpty())
+    }
     @Test fun markerSetClearNoOpAndLeavingCleanupAreSharedReplayableAndUndoable() {
         for (projection in listOf(false, true)) {
             val initial = initial(projection)

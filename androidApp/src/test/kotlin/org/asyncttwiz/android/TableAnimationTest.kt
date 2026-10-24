@@ -5,6 +5,72 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    private fun projected(state: PlayState, ids: List<String>, source: String): PlayState = state.copy(board = state.board.copy(
+        stackEffects = ids.map { StackEffect(it, source) }, containers = state.board.containers.map {
+            if (it.zone == PlayZone.STACK) it.copy(cards = ids) else it }))
+
+    @Test fun stackGhostFliesFromRealCardAndBackWithUndoRedoWithoutMovingRealDrawing() {
+        for (landscape in listOf(false, true)) for (zone in listOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD)) {
+            val sourceId = "a/HAND/0"
+            val initial = if (zone == PlayZone.HAND) TableFixture.play(hand = 1)
+                else moved(TableFixture.play(hand = 1), listOf(sourceId), "a/$zone")
+            val projected = projected(initial, listOf("effect"), sourceId)
+            val base = TableFixture.scene(initial, landscape)
+            val stack = TableFixture.scene(projected, landscape)
+            val real = base.items.firstOrNull { it.cardId == sourceId }?.bounds ?: base.items.single { it.id == "a/$zone" }.bounds.let {
+                TableBounds(it.x + 8f, it.y + 8f, base.cardWidth, base.cardHeight)
+            }
+            val slot = stack.items.single { it.cardId == "effect" }.bounds
+            val animation = HistorySceneAnimation(base)
+            repeat(2) { // Add/remove, then undo removal / redo removal.
+                assertTrue(animation.retarget(stack, 1f))
+                assertEquals(real, animation.frame(0f).single { it.item.cardId == "effect" }.bounds)
+                val half = animation.frame(.5f).single { it.item.cardId == "effect" }
+                assertTrue(half.item.inTransit)
+                assertEquals((real.x + slot.x) / 2, half.bounds.x, .001f)
+                assertEquals(slot, animation.frame(1f).single { it.item.cardId == "effect" }.bounds)
+                stack.items.firstOrNull { it.cardId == sourceId }?.let { card ->
+                    assertEquals(card.bounds, animation.frame(.5f).single { it.item.cardId == sourceId }.bounds)
+                }
+                assertTrue(animation.retarget(base, 1f))
+                assertEquals(slot, animation.frame(0f).single { it.item.cardId == "effect" }.bounds)
+                assertEquals((real.x + slot.x) / 2, animation.frame(.5f).single { it.item.cardId == "effect" }.bounds.x, .001f)
+                val returned = animation.frame(1f).single { it.item.cardId == "effect" }
+                assertEquals(real, returned.bounds)
+                assertEquals(0f, returned.alpha)
+            }
+        }
+    }
+
+    @Test fun projectionFallingOutOfThreePeeksDoesNotFlyBackAndRevealedPeekDoesNotFlyFromSource() {
+        val initial = TableFixture.play(hand = 1)
+        val three = TableFixture.scene(projected(initial, listOf("one", "two", "three"), "a/HAND/0"))
+        val four = TableFixture.scene(projected(initial, listOf("new", "one", "two", "three"), "a/HAND/0"))
+        val animation = HistorySceneAnimation(three)
+        animation.retarget(four, 1f)
+        val before = three.items.single { it.cardId == "three" }.bounds
+        assertEquals(before, animation.frame(.5f).single { it.item.cardId == "three" }.bounds)
+        animation.retarget(three, 1f)
+        val revealed = animation.frame(0f).single { it.item.cardId == "three" }
+        assertNotEquals(three.items.single { it.cardId == "a/HAND/0" }.bounds, revealed.bounds)
+    }
+    @Test fun buriedRemovalFliesHomeAndUndoSendsItBackEvenWithoutAVisiblePeek() {
+        val initial = TableFixture.play(hand = 1)
+        val before = TableFixture.scene(projected(initial, listOf("one", "two", "three", "buried"), "a/HAND/0"))
+        val after = TableFixture.scene(projected(initial, listOf("one", "two", "three"), "a/HAND/0"))
+        assertTrue(before.items.none { it.cardId == "buried" })
+        val slot = before.stackProjections.single { it.cardId == "buried" }.bounds
+        val real = after.items.single { it.cardId == "a/HAND/0" }.bounds
+        val animation = HistorySceneAnimation(before)
+        assertTrue(animation.retarget(after, 1f))
+        assertEquals(slot, animation.frame(0f).single { it.item.cardId == "buried" }.bounds)
+        assertEquals((slot.x + real.x) / 2, animation.frame(.5f).single { it.item.cardId == "buried" }.bounds.x, .001f)
+        assertTrue(animation.retarget(before, 1f))
+        assertEquals(real, animation.frame(0f).single { it.item.cardId == "buried" }.bounds)
+        assertTrue(animation.frame(.5f).single { it.item.cardId == "buried" }.alpha > 0)
+        assertEquals(slot, animation.frame(1f).single { it.item.cardId == "buried" }.bounds)
+    }
+
     private fun moved(play: PlayState, ids: List<String>, destination: String): PlayState = play.copy(board = play.board.copy(
         cards = play.board.cards.map { if (it.id in ids) it.copy(containerId = destination,
             placement = if (destination.endsWith("BATTLEFIELD")) PlayPlacement(BoardPosition(2, 2), it.id) else null) else it },

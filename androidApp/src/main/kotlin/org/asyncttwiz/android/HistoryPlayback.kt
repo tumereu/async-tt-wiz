@@ -136,6 +136,12 @@ data class TableCardTransform(val width: Float, val height: Float, val rotation:
         val h = height * c + width * s
         return TableBounds(center.x - w / 2, center.y - h / 2, w, h)
     }
+    /** A rigid rotating face can be wider than either endpoint. Keep its entire AABB in the cell. */
+    fun boundsInside(center: TablePoint, footprint: TableBounds): TableBounds {
+        val b = bounds(center)
+        return b.copy(x = b.x.coerceIn(footprint.x, footprint.right - b.width),
+            y = b.y.coerceIn(footprint.y, footprint.bottom - b.height))
+    }
 }
 
 internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTransform ?: TableCardTransform(
@@ -151,17 +157,23 @@ class HistorySceneAnimation(initial: TableScene) {
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
+    var durationMillis: Int = 180; private set
+    private var latestScene = initial
+    private var latestItems = initial.items.associateBy { it.animationId }
     fun updateMetadata(target: TableScene) {
         if (target.animationTargets == destination.animationTargets) destination = target
     }
     fun frame(progress: Float, presentation: TableScene = destination): List<HistoryAnimatedItem> {
         val t = progress.coerceIn(0f, 1f)
-        val latest = presentation.items.associateBy { it.animationId }
+        if (presentation !== latestScene) {
+            latestScene = presentation
+            latestItems = presentation.items.associateBy { it.animationId }
+        }
         return (end.keys + start.keys).map { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             fun mix(x: Float, y: Float) = x + (y - x) * t
-            val item = latest[id] ?: b.item
+            val item = latestItems[id] ?: b.item
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
                 TableCardTransform(mix(from.width, to.width), mix(from.height, to.height), mix(from.rotation, to.rotation))
@@ -169,7 +181,16 @@ class HistorySceneAnimation(initial: TableScene) {
             val bounds = when {
                 t == 0f -> a.bounds
                 t == 1f -> b.bounds
-                face != null -> face.bounds(TablePoint(mix(a.bounds.center.x, b.bounds.center.x), mix(a.bounds.center.y, b.bounds.center.y)))
+                face != null -> {
+                    val center = TablePoint(mix(a.bounds.center.x, b.bounds.center.x), mix(a.bounds.center.y, b.bounds.center.y))
+                    if (a.item.zone == PlayZone.BATTLEFIELD && b.item.zone == PlayZone.BATTLEFIELD &&
+                        !item.projection && a.item.footprint == b.item.footprint &&
+                        a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation &&
+                        a.bounds.intersection(item.footprint) == a.bounds && b.bounds.intersection(item.footprint) == b.bounds &&
+                        face.bounds(center).let { it.width <= item.footprint.width && it.height <= item.footprint.height })
+                        face.boundsInside(center, item.footprint)
+                    else face.bounds(center)
+                }
                 else -> TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
                     mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height))
             }
@@ -218,6 +239,20 @@ class HistorySceneAnimation(initial: TableScene) {
                 end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
             }
         }
+        // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other
+        // transition (including a move alongside a tap) keeps the longer scene duration.
+        durationMillis = if ((start.keys + end.keys).all { id ->
+            val a = start[id]; val b = end[id]
+            a != null && b != null && a.alpha == b.alpha && (a.bounds == b.bounds && a.item.tapped == b.item.tapped ||
+                a.item.kind == TableItemKind.CARD && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation &&
+                a.item.viewport == b.item.viewport && (a.item.footprint == b.item.footprint ||
+                    a.bounds.center == b.bounds.center ||
+                    a.item.zone == PlayZone.HAND && b.item.zone == PlayZone.HAND &&
+                    a.item.footprint.x == b.item.footprint.x && a.item.footprint.center.y == b.item.footprint.center.y) &&
+                a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to ->
+                    from.width == to.width && from.height == to.height
+                } })
+        }) 90 else 180
         destination = target
         return true
     }

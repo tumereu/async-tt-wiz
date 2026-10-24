@@ -16,7 +16,7 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
 class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
-    private val slopDp: Float = 8f, private val doubleMillis: Long = 280, private val holdMillis: Long = CardPeekHoldMillis,
+    private val slopDp: Float = 8f, private val doubleMillis: Long = 400, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
     private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY },
     private val onPeekScroll: (Float) -> Unit = {} // Incremental content scroll in dp; positive reveals lower text.
@@ -33,7 +33,16 @@ class TableGestureCoordinator(
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var pending: Tap? = null
-    private var scene = TableScene(emptyList(), emptyList())
+    private var sceneSnapshot = TableScene(emptyList(), emptyList())
+    private var sceneSource: (() -> TableScene)? = null
+    private var lastSample: TableScene? = null
+    private var scene: TableScene
+        get() {
+            val sample = sceneSource?.invoke()
+            if (sample != null && sample !== lastSample) { sceneSnapshot = sample; lastSample = sample }
+            return sceneSnapshot
+        }
+        set(value) { sceneSnapshot = value }
     private var selection = TableSelection()
     private var writable = false
     private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
@@ -46,11 +55,12 @@ class TableGestureCoordinator(
     val peeking get() = capture?.let { it.phase == Phase.HOLD && it.item?.cardId != null } == true
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
-            distance(point, it.capture.start) <= slopDp * 2
+            distance(point, it.capture.start) <= slopDp * 4
     } == true
 
-    fun update(scene: TableScene, selection: TableSelection, writable: Boolean) {
-        this.scene = scene; this.selection = selection; this.writable = writable
+    fun update(scene: TableScene, selection: TableSelection, writable: Boolean, sceneSource: (() -> TableScene)? = null) {
+        this.scene = scene; this.sceneSource = sceneSource; lastSample = null
+        this.selection = selection; this.writable = writable
         // Removed cards cannot become the card that has slid into their old bounds.
         val c = capture
         if (c?.scope != null && c.scope.cardIds.any { id -> scene.items.none { it.cardId == id || id in it.cards } }) cancel()
@@ -82,7 +92,7 @@ class TableGestureCoordinator(
             if (((item?.zone == PlayZone.STACK && old.capture.item?.zone == PlayZone.STACK) ||
                     (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
                     (item == null && old.capture.item == null && scene.worldInput(point))) &&
-                distance(point, old.capture.start) <= slopDp * 2 && time <= old.deadline) {
+                distance(point, old.capture.start) <= slopDp * 4 && time <= old.deadline) {
                 next.double = true
                 next.replacingLocal = old.shown && item != null
                 // The first press's stable scope wins even if sync/selection changed between taps.

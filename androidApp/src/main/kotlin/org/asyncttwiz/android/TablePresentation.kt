@@ -380,8 +380,9 @@ object TablePresentation {
     fun clip(scene: TableScene, width: Float, height: Float): TableScene {
         val screen = TableBounds(0f, 0f, width, height)
         val ordered = scene.items.filter { it.zone == PlayZone.BATTLEFIELD } + scene.items.filter { it.zone != PlayZone.BATTLEFIELD }
+        val viewports = scene.viewports.associateBy { it.id }
         val clipped = ordered.map { i ->
-            val viewport = scene.viewports.firstOrNull { it.id == i.viewport }
+            val viewport = viewports[i.viewport]
             val regions = listOfNotNull((if (i.inTransit) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.viewport ?: screen else screen
             } else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen))
@@ -389,9 +390,16 @@ object TablePresentation {
                 regions.flatMap { it.subtract(scene.stackRegion) } else regions)
         }
         val visible = clipped.mapIndexed { n, i ->
-            val portions = if (i.kind == TableItemKind.HAND) i.visible else clipped.drop(n + 1)
-                .filter { it.kind != TableItemKind.HAND && !(i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && it.viewport == i.viewport) }
-                .flatMap { it.visible }.fold(i.visible) { regions, cover -> regions.flatMap { it.subtract(cover) } }
+            var portions = i.visible
+            if (i.kind != TableItemKind.HAND) for (next in n + 1 until clipped.size) {
+                val cover = clipped[next]
+                if (cover.kind == TableItemKind.HAND ||
+                    i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
+                    i.bounds.intersection(cover.bounds) == null) continue
+                for (part in cover.visible) if (portions.any { it.intersection(part) != null })
+                    portions = portions.flatMap { it.subtract(part) }
+                if (portions.isEmpty()) break
+            }
             i.copy(visible = portions)
         }
         return scene.copy(items = visible)

@@ -5,6 +5,42 @@ import org.junit.Test
 import kotlin.test.*
 
 class OwnerMoveDestinationsTest {
+    @Test fun opponentControlledCardsMoveToTheirOwnersZonesViaMenuAndDrag() {
+        for (zone in ownerOnlyZones) for (menu in listOf(true, false)) {
+            val f = BasicTableFixture()
+            val battlefield = f.container(PlayZone.BATTLEFIELD, f.other)
+            f.connect(f.root.copy(board = f.root.board.copy(
+                cards = f.root.board.cards.mapIndexed { index, card -> card.copy(containerId = battlefield,
+                    placement = PlayPlacement(BoardPosition(index, 1), f.id(800 + index))) },
+                containers = f.root.board.containers.map { it.copy(cards =
+                    if (it.id == battlefield) (40..43).map(f::id) else emptyList()) })))
+            try {
+                assertEquals(f.actor, f.card(40).owner)
+                assertEquals(f.other, f.play.board.containers.single { it.id == f.card(40).containerId }.accountId)
+                if (menu) {
+                    val scope = TableScope(f.id(40), listOf(f.id(40)))
+                    val tools = basicMoveTools(f.play, emptyMap(), true, scope,
+                        BasicTableController.sources(f.play, scope.cardIds), f.basic::handle, {})
+                    tools.single { it.name == moveZoneLabel(zone) }.click()
+                } else {
+                    val scene = TablePresentation.scene(f.game, f.play, f.actor, 900f, 600f, true)
+                    val gestures = TableGestureCoordinator({ f.basic.handle(it) })
+                    gestures.update(scene, TableSelection(), true)
+                    val start = scene.items.single { it.cardId == f.id(40) }.visible.first().center
+                    val target = scene.items.single { it.id == f.container(zone, f.other) }.bounds.center
+                    gestures.down(start, 0); gestures.move(target, 80)
+                    assertEquals(f.container(zone), assertIs<TableDestination.Container>(gestures.preview.destination).id)
+                    gestures.up(target, 100)
+                }
+                assertEquals(f.container(zone, f.actor), f.card(40).containerId, "$zone via menu=$menu")
+                assertEquals(f.actor, f.card(40).owner)
+                val move = f.commands().mapNotNull { (it.action as? GameAction.Play)?.action as? PlayAction.MoveCard }.single()
+                assertEquals(f.id(40), move.cardId)
+                assertEquals(f.container(zone, f.actor), move.destination.containerId)
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
     private fun mixed(f: BasicTableFixture): PlayState = f.root.copy(board = f.root.board.copy(
         cards = f.root.board.cards.mapIndexed { index, card -> card.copy(owner = if (index % 2 == 1) f.other else f.actor,
             containerId = f.container(PlayZone.BATTLEFIELD), placement = PlayPlacement(BoardPosition(index, 1), f.id(800 + index))) },

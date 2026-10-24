@@ -23,8 +23,7 @@ class CardRingInteractionTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
     private val sent = mutableListOf<PlayAction>()
-    private fun render(multi: Boolean = false): TableToolkitController {
-        val play = f.combat()
+    private fun render(multi: Boolean = false, play: PlayState = f.combat()): TableToolkitController {
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
         val source = f.source(f.a, "1/3").id
         toolkit.openCard(TableScope(source, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(source)))
@@ -34,6 +33,30 @@ class CardRingInteractionTest {
         }
         compose.waitForIdle()
         return toolkit
+    }
+
+    @Test fun realCardMenuHasNoOwnerEntryOnAnyPage() {
+        render()
+        for (page in 1..4) {
+            compose.ringPage(page)
+            compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
+        }
+    }
+
+    @Test fun tokenOwnerEntryStaysOnEverydayAndSkipsRealCardsInMixedSelection() {
+        val source = f.source(f.a, "1/3").id
+        val initial = f.combat()
+        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
+            if (it.id == source) it.copy(token = true) else it
+        }))
+        render(multi = true, play = play)
+        for (page in 2..4) {
+            compose.ringPage(page)
+            compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
+        }
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Owner Alice; switch to other player").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetOwner(source, f.b)), sent) }
     }
 
     @Test fun bubblePressDuringGuardCannotFireEvenWhenReleasedAfterTheWindow() {

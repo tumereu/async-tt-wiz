@@ -5,6 +5,16 @@ import org.junit.Test
 import kotlin.test.*
 
 class CardRingTest {
+    @Test fun ownerEntryIsAssignedToEverydayOnlyWhenAvailableForAToken() {
+        for (token in listOf(false, true)) {
+            val ids = CardRingPages.defaults.flatMap { it.actions }.filter { it != "owner" || token }
+            val pages = CardRingPages.resolve(ids)
+            assertEquals(if (token) listOf("Everyday") else emptyList(), pages.filter { "owner" in it.actions }.map { it.name })
+            assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
+            assertEquals(ids.size, pages.sumOf { it.actions.size })
+        }
+    }
+
     @Test fun pagesAreDataAndEveryAvailableActionIsOnExactlyOnePage() {
         val ids = CardRingPages.defaults.take(2).flatMap { it.actions } +
             listOf("flip", "otherSide", "face/0", "face/1", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token", "Library top", "Graveyard")

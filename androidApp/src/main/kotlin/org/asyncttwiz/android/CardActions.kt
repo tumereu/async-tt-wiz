@@ -51,9 +51,9 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("resetCorner", "Reset P/T", MenuControl("Reset corner", enabled) { send { PlayAction.ResetCorner(it.id) } })
     add("note", "Note", MenuControl("Edit card note", enabled) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
-    add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
+    if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
         val next = state.board.players.firstOrNull { it.accountId != card.owner }
-        if (next != null) send { PlayAction.SetOwner(it.id, next.accountId) }
+        if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
     })
     for ((index, face) in faces.withIndex()) if (faces.size > 1) {
         add("face/$index", "Face ${index + 1}", MenuControl("Switch printed face ${index + 1}", enabled,

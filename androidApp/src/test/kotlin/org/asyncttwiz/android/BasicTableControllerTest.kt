@@ -79,6 +79,33 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    @Test fun handMultiReorderKeepsAnAlreadyPlacedPrefixWithoutSendingANoop() {
+        val f = BasicTableFixture(); f.connect()
+        try {
+            val hand = f.container(PlayZone.HAND)
+            for (n in 40..43) assertTrue(f.move(n, TableDestination.Container(hand, PlayZone.HAND)))
+            val before = f.commands().size
+            val scope = TableScope(f.id(43), listOf(f.id(40), f.id(43)))
+            assertTrue(f.basic.handle(TableIntent.Move(scope, TableDestination.Container(hand, PlayZone.HAND,
+                handGap = IdentityGap(beforeId = f.id(41))), BasicTableController.sources(f.play, scope.cardIds))))
+            assertEquals(listOf(40, 43, 41, 42).map(f::id), f.play.board.containers.single { it.id == hand }.cards)
+            assertEquals(listOf(f.id(43)), f.commands().drop(before).map { ((it.action as GameAction.Play).action as PlayAction.MoveCard).cardId })
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
+    @Test fun handReorderUsesCapturedGapAndNormalPrediction() {
+        val f = BasicTableFixture(); f.connect()
+        val hand = f.container(PlayZone.HAND)
+        for (n in 40..43) assertTrue(f.move(n, TableDestination.Container(hand, PlayZone.HAND)))
+        val before = f.commands().size
+        assertTrue(f.move(43, TableDestination.Container(hand, PlayZone.HAND, handGap = IdentityGap(f.id(40), f.id(41)))))
+        assertEquals(listOf(40, 43, 41, 42).map(f::id), f.play.board.containers.single { it.id == hand }.cards)
+        val action = (f.commands().drop(before).single().action as GameAction.Play).action as PlayAction.MoveCard
+        assertEquals(MoveInsertion.GAP, action.destination.insertion)
+        assertEquals(f.id(40), action.destination.afterId)
+        assertEquals(f.id(41), action.destination.beforeId)
+    }
+
     @Test fun libraryDoubleTapDrawUsesNormalTopMoveAndNeverSubstitutesAStaleTop() {
         val f = BasicTableFixture(); f.connect()
         val draw = TableIntent.Draw(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND), f.id(40))

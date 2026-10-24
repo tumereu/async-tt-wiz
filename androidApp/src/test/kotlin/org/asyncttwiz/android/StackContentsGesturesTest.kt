@@ -79,8 +79,14 @@ class StackContentsGesturesTest {
         compose.onNodeWithContentDescription("Put to battlefield").assertDoesNotExist()
         row.performTouchInput { doubleClick() }
         assertEquals(listOf(entry.cardId), actions)
-        row.performTouchInput { longClick(durationMillis = 600) }
-        assertEquals(listOf(entry.cardId), inspections)
+        compose.mainClock.autoAdvance = false
+        row.performTouchInput { down(center) }
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithText("First paragraph").assertExists()
+        row.performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithText("First paragraph").assertDoesNotExist()
+        assertTrue(inspections.isEmpty())
         row.performTouchInput { click() }
         compose.mainClock.advanceTimeBy(400)
         compose.onNodeWithContentDescription("Put to battlefield").assertExists()

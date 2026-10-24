@@ -60,7 +60,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             }
         }
     }, submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
-        previewViewId = bound?.contextViewId) { action -> toolkit.submit(action) }
+        previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } }) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
         "table" -> {
@@ -143,6 +143,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     LinkEndpointPicker(toolkit.tokens, play, names, enabled = enabled, onPick = { toolkit.batch { toolkit.tokens.pick(it) } })
     LinksListDialog(toolkit.tokens, play, names, enabled = enabled)
     toolkit.inspection?.let { GameplayCardInspection(play, toolkit.viewer, it, toolkit::closeInspection, names) }
+    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true) }
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
 }
 

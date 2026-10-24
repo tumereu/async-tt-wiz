@@ -6,6 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.outlined.*
@@ -116,7 +121,15 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
     gap: Dp = 4.dp, contentPadding: Dp = 12.dp, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MenuWindowDimming()
-        Surface(Modifier.widthIn(max = width).fillMaxWidth().padding(horizontal = 8.dp).heightIn(max = 820.dp)
+        var entered by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { entered = true }
+        val opacity by animateFloatAsState(if (entered) 1f else 0f, tween(80))
+        BoxWithConstraints(Modifier.fillMaxSize().tableTapRelay().pointerInput(onDismiss) {
+            detectTapGestures(onTap = { onDismiss() })
+        }.windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+        Surface(Modifier.widthIn(max = width).fillMaxWidth().padding(8.dp).heightIn(max = minOf(820.dp, maxHeight - 16.dp))
+            .graphicsLayer { alpha = opacity }
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .semantics { titleDescription?.let { paneTitle = it } },
             color = Color.White, contentColor = MenuInk, shape = RoundedCornerShape(10.dp),
             border = border?.let { BorderStroke(2.dp, it) }, shadowElevation = 12.dp) {
@@ -131,6 +144,7 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
                 }
                 content()
             }
+        }
         }
     }
 }

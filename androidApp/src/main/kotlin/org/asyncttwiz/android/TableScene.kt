@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +92,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var modeMenu by remember(play.id, accountId) { mutableStateOf(false) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
     var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
+    var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
+    var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
     val writable = connected && onIntent != null
@@ -105,6 +108,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
             when (intent) {
+                TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
+                is TableIntent.Peek -> {
+                    if (toolkit != null) toolkit.peek(intent.cardId)
+                    else peek = intent.cardId?.let { id ->
+                        val state = currentPlay
+                        CombatStackRules.inspection(state.board, id)?.let { card -> ManualInspection(state.gameId, state.id, id,
+                            ManualDisclosure.permittedFaces(state, card, accountId, inspecting = true).map { it.faceId },
+                            stackEntryId = id.takeIf { it in CombatStackRules.stack(state.board).cards }) }
+                    }
+                }
                 is TableIntent.StackBubbles -> if (toolkit != null) toolkit.showStackBubbles(intent.entryId) else localStackBubble = intent.entryId
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
                 is TableIntent.Scroll -> layout = if (intent.vertical)
@@ -140,7 +153,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
-        }, density = density)
+        }, density = density, singleTapIsLocal = {
+            (toolkit == null || it.zone != PlayZone.LIBRARY) && toolkit?.tokens?.pickingLink != true
+        })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -158,7 +173,15 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
     }
-    BoxWithConstraints(modifier.fillMaxWidth().background(Color(0xfff5f8f7)).pointerInput(coordinator) {
+    val relay = remember(coordinator) { TableTapRelay(
+        accepts = { p, t -> coordinator.replacesTap(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
+        down = { p, t -> coordinator.down(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
+        up = { p, t -> coordinator.up(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
+        cancel = coordinator::cancel,
+        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }) }
+    CompositionLocalProvider(LocalTableTapRelay provides relay) {
+    BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }
+        .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
@@ -272,7 +295,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (transformed) coordinator.cancel()
                     pressedPing = null
                 }
-            } finally { coordinator.cancel(); pressedPing = null }
+            } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
             Canvas(Modifier.fillMaxSize()) { drawTable(scene, accountId, selection, preview, play.board.links,
                 frame.associate { it.item.id to it.alpha }, activePings,
@@ -412,6 +435,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     }
     CardInspection(inspector, token = inspectedCard?.token == true,
         owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
+    peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true) }
+    }
 }
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
@@ -749,6 +774,16 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     preview.rectangle?.let { b ->
         drawRect(OwnTableColor.copy(alpha = .14f), xy(b.x, b.y), size(b.width, b.height))
         drawRect(OwnTableColor, xy(b.x, b.y), size(b.width, b.height), style = Stroke(density))
+    }
+    val landing = tableDragLanding(scene, preview)
+    landing.hand?.let { b ->
+        drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))
+        landing.insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }
+    }
+    for (b in landing.outlines) {
+        drawRoundRect(OwnTableColor.copy(alpha = .08f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(2 * density))
+        drawRoundRect(OwnTableColor.copy(alpha = .5f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(2 * density),
+            style = Stroke(density, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4 * density, 3 * density))))
     }
     preview.point?.let { p ->
         if (preview.scope != null) {

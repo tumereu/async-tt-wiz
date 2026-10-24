@@ -6,6 +6,26 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun multiDragKeepsThePressedCardAsItsGridAnchorAndMatchesLandingOutlines() {
+        val f = BasicTableFixture(); f.connect()
+        try {
+            val field = f.container(PlayZone.BATTLEFIELD)
+            assertTrue(f.move(40, TableDestination.Grid(field, 0, 1)))
+            assertTrue(f.move(41, TableDestination.Grid(field, 1, 1)))
+            val ui = toolkit(f)
+            val scope = TableScope(f.id(41), listOf(f.id(40), f.id(41)))
+            val destination = TableDestination.Grid(field, 4, 1)
+            val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+            val landing = tableDragLanding(scene, TableGesturePreview(scope = scope, destination = destination))
+            assertEquals(2, landing.outlines.size)
+            assertTrue(ui.handle(TableIntent.Move(scope, destination, BasicTableController.sources(f.play, scope.cardIds))))
+            assertEquals(BoardPosition(3, 1), f.card(40).placement!!.position)
+            assertEquals(BoardPosition(4, 1), f.card(41).placement!!.position)
+            val after = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+            assertEquals(landing.outlines, scope.cardIds.map { id -> after.items.single { it.cardId == id }.bounds })
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun stackRotateDoesNotResolveToItsLiveSourceButCombatRotateStillDoes() {
         val f = TableStatesFixture
         val play = f.combat()

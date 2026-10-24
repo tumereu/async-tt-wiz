@@ -232,14 +232,15 @@ object GameplayRules {
 
     internal fun replayMove(state: PlayState, mutation: GameplayMutation, command: GameCommand): GameplayChange {
         val version = mutation.transition.movement?.coverRulesVersion ?: 1
-        if (version !in 1..2 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
+        if (version !in 1..3 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
             return GameplayChange(reason = "replayBlocked")
         return move(state, mutation.author, command, mutation.action as PlayAction.MoveCard, version)
     }
 
     private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
     private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
-        coverRulesVersion: Int = 2): GameplayChange {
+        // Version 3 also preserves Hand order/gaps; replay of v1/v2 retains sorted, unordered Hands.
+        coverRulesVersion: Int = 3): GameplayChange {
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
         val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
@@ -298,7 +299,20 @@ object GameplayRules {
                 if (destination.insertion != MoveInsertion.GAP && (destination.afterId != null || destination.beforeId != null)) return reject("invalidInput")
                 placement = null; ordered = reduced
             }
-            PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE -> {
+            PlayZone.HAND -> {
+                if (coverRulesVersion < 3) {
+                    if (destination.insertion != MoveInsertion.UNORDERED || destination.position != null || destination.pileId != null ||
+                        destination.afterId != null || destination.beforeId != null) return reject("invalidInput")
+                    placement = null; ordered = emptyList()
+                } else {
+                    if (destination.insertion !in setOf(MoveInsertion.GAP, MoveInsertion.UNORDERED) ||
+                        destination.position != null || destination.pileId != null ||
+                        destination.insertion != MoveInsertion.GAP && (destination.afterId != null || destination.beforeId != null)) return reject("invalidInput")
+                    if (source.id == target.id && target.accountId != actor) return reject("inapplicable")
+                    placement = null; ordered = reduced
+                }
+            }
+            PlayZone.GRAVEYARD, PlayZone.EXILE -> {
                 if (destination.insertion != MoveInsertion.UNORDERED || destination.position != null || destination.pileId != null ||
                     destination.afterId != null || destination.beforeId != null) return reject("invalidInput")
                 placement = null; ordered = emptyList()
@@ -328,7 +342,9 @@ object GameplayRules {
         val inserted = ordered.toMutableList().also { it.add(index, card.id) }
         val targetCards = when (target.zone) {
             PlayZone.BATTLEFIELD -> reduced.filter { it !in ordered } + inserted
-            PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE -> (reduced + card.id).sorted()
+            PlayZone.HAND -> if (coverRulesVersion < 3) (reduced + card.id).sorted()
+                else if (destination.insertion == MoveInsertion.GAP) inserted else reduced + card.id
+            PlayZone.GRAVEYARD, PlayZone.EXILE -> (reduced + card.id).sorted()
             else -> inserted
         }
         val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
@@ -344,8 +360,8 @@ object GameplayRules {
                 source.id -> it.copy(cards = it.cards.filter { id -> id != card.id })
                 else -> it
             } }))
-        val from = location(board, card.id)
-        val to = location(next, card.id)
+        val from = location(board, card.id, orderedHand = coverRulesVersion >= 3)
+        val to = location(next, card.id, orderedHand = coverRulesVersion >= 3)
         if (from == to && card == moved) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
@@ -378,10 +394,10 @@ object GameplayRules {
             container.copy(cards = container.cards.sortedBy { placements[it]?.pileId }) else container })
     }
 
-    internal fun location(board: BoardState, cardId: String): CardLocation {
+    internal fun location(board: BoardState, cardId: String, orderedHand: Boolean = false): CardLocation {
         val card = board.cards.single { it.id == cardId }
         val container = board.containers.single { it.id == card.containerId }
-        val ordered = container.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK, PlayZone.BATTLEFIELD)
+        val ordered = container.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK, PlayZone.BATTLEFIELD) || orderedHand && container.zone == PlayZone.HAND
         val members = if (ordered) members(board, container, card.placement) else emptyList()
         val index = members.indexOf(cardId)
         return CardLocation(container.id, card.placement, if (ordered) members.getOrNull(index - 1) else null,

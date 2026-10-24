@@ -20,18 +20,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import org.asyncttwiz.protocol.*
 
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
 internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
     markedOption: Pair<Int, StackTextOption>? = null,
-    token: Boolean = false, owner: Color? = null, projection: Boolean = false) {
+    token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
-    Dialog(onDismissRequest = controller::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        MenuWindowDimming()
+    val content: @Composable () -> Unit = {
         Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.94f)
             .semantics { paneTitle = "Card inspection" }, shape = MaterialTheme.shapes.large,
             color = Color.White, contentColor = MenuInk) {
@@ -39,7 +40,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.definition.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
+                    if (!peek) ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
                 }
                 if (card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     MenuButton("Previous face", Modifier.weight(1f), enabled = state.face > 0) { controller.face(state.face - 1) }
@@ -110,12 +111,18 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
             }
         }
     }
+    if (peek) Popup(properties = PopupProperties(focusable = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f)), contentAlignment = Alignment.Center) { content() }
+    }
+    else Dialog(onDismissRequest = controller::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        MenuWindowDimming(); content()
+    }
 }
 
 /** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
 @Composable
 internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
-    names: Map<String, String> = emptyMap()) {
+    names: Map<String, String> = emptyMap(), peek: Boolean = false) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
@@ -123,7 +130,11 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
     val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
     if (faces.isEmpty()) {
-        AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
+        if (peek) Popup(properties = PopupProperties(focusable = false)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Surface { Text(if (definition == null) "Card data unavailable" else "Covered card", Modifier.padding(24.dp)) }
+            }
+        } else AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
             text = { Text("Owner ${names[card.owner] ?: "Player"}") },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
@@ -145,7 +156,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                 card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" } + "\n${card.note}",
             markedOption = mark,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
-            projection = inspection.cardId in CombatStackRules.projectionIds(state.board))
+            projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -142,7 +140,6 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
 }
 
 /** Rendering never issues View/inspection. The adapter receives exact bound contexts only after gestures. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, controller: LibraryController,
     onInspect: (LibraryInspection) -> Unit, modifier: Modifier = Modifier, onActions: ((String) -> Unit)? = null,
@@ -183,12 +180,12 @@ fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, c
 }
 
 /** Both public piles and logged Library displays share search results, columns and hold targets. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContentsRows(state: PlayState, viewer: String, entries: List<ContentsEntry>, grouped: Boolean, onActions: (String) -> Unit,
     onInspect: (String) -> Unit, modifier: Modifier = Modifier, onRotate: ((String) -> Unit)? = null,
     onRowBounds: ((String, Rect) -> Unit)? = null) {
     if (entries.isEmpty()) { Box(modifier.padding(8.dp)) { Text("No cards") }; return }
+    var peek by remember { mutableStateOf<ManualInspection?>(null) }
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
     Row(modifier.horizontalScroll(rememberScrollState())) {
         groups.forEach { (category, cards) ->
@@ -196,9 +193,16 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
                 if (category.isNotEmpty()) Text(category, style = MaterialTheme.typography.labelMedium)
                 cards.forEach { entry ->
                     Row(Modifier.fillMaxWidth().onGloballyPositioned { onRowBounds?.invoke(entry.cardId, it.boundsInRoot()) }
-                        .combinedClickable(onClick = { onActions(entry.cardId) },
-                        onLongClickLabel = "Inspect", onLongClick = { onInspect(entry.cardId) },
-                        onDoubleClick = onRotate?.let { rotate -> { rotate(entry.cardId) } }).padding(vertical = 4.dp),
+                        .contentsCardGestures(entry.cardId, state.board.containers.firstOrNull {
+                            entry.cardId in it.cards }?.zone ?: PlayZone.STACK, actions = { onActions(entry.cardId) },
+                            double = onRotate?.let { rotate -> { rotate(entry.cardId) } }, inspect = { onInspect(entry.cardId) }, peek = { held ->
+                                peek = if (!held) null else CombatStackRules.inspection(state.board, entry.cardId)?.let { card ->
+                                    val faces = if (entry.faceVisible) listOf(card.faceId) else
+                                        ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }
+                                    ManualInspection(state.gameId, state.id, entry.cardId, faces, explicit = entry.faceVisible,
+                                        stackEntryId = entry.cardId.takeIf { it in CombatStackRules.stack(state.board).cards })
+                                }
+                            }).padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val card = CombatStackRules.inspection(state.board, entry.cardId)
                         val definition = state.definitions.singleOrNull { it.digest == card?.definition }?.definition
@@ -220,4 +224,5 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
             }
         }
     }
+    peek?.let { GameplayCardInspection(state, viewer, it, { peek = null }, peek = true) }
 }

@@ -140,11 +140,11 @@ object GameplayHistory {
             }
         }
         val move = mutation.transition.movement ?: return board
-        if (board.cards.none { it.id == move.cardId } || GameplayRules.location(board, move.cardId) != move.to) return null
+        if (board.cards.none { it.id == move.cardId } || GameplayRules.location(board, move.cardId, orderedHand = move.coverRulesVersion >= 3) != move.to) return null
         if (move.stackTo != null && GameplayRules.stackDigest(state.copy(board = board)) != move.stackTo) return null
         val source = board.containers.singleOrNull { it.id == move.from.containerId } ?: return null
         val members = GameplayRules.members(board, source, move.from.placement).filter { it != move.cardId }
-        val unordered = source.zone in setOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE)
+        val unordered = source.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE) || source.zone == PlayZone.HAND && move.coverRulesVersion < 3
         val insert = if (unordered) (members + move.cardId).sorted() else {
             val left = move.from.afterId?.let { members.indexOf(it).takeIf { index -> index >= 0 } ?: return null } ?: -1
             if (members.getOrNull(left + 1) != move.from.beforeId) return null

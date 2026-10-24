@@ -86,11 +86,11 @@ class LibraryActionsTest {
         assertEquals(listOf(false, false, true), entries.map { it.bottommost })
     }
 
-    @Test fun destinationInventoryHasLibraryOrderAndExplicitBattlefieldStackWithoutSideboard() {
+    @Test fun destinationInventoryHasLibraryOrderAndBattlefieldButNoStackOrSideboard() {
         val choices = libraryDestinations(state().board).map { it.second }
         assertEquals(listOf(MoveInsertion.TOP, MoveInsertion.BOTTOM, MoveInsertion.UNORDERED,
-            MoveInsertion.UNORDERED, MoveInsertion.UNORDERED, MoveInsertion.EMPTY, MoveInsertion.TOP), choices.map { it.insertion })
-        assertEquals(setOf(id(10), id(11), id(12), id(13), id(14), id(15)), choices.map { it.containerId }.toSet())
+            MoveInsertion.UNORDERED, MoveInsertion.UNORDERED, MoveInsertion.EMPTY), choices.map { it.insertion })
+        assertEquals(setOf(id(10), id(11), id(12), id(13), id(14)), choices.map { it.containerId }.toSet())
         assertEquals(BoardPosition(0, 0), choices.single { it.containerId == id(14) }.position)
     }
 

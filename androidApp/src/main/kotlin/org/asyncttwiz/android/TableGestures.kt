@@ -270,6 +270,8 @@ class TableGestureCoordinator(
         // entire visible pile before its top card (and independently of the count badge routing).
         scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
             it.visible.any { bounds -> bounds.contains(p) } }?.let {
+            if (scope == null || scope.cardIds.any { id -> scene.sources[id]?.containerId.let { source ->
+                    scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
         scene.combatDrops.asReversed().firstOrNull { it.bounds.contains(p) }?.let { return TableDestination.Combat(it.destination) }

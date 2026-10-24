@@ -65,9 +65,9 @@ private fun LibraryQuantity(value: String, onValue: (String) -> Unit, label: Str
 
 @Composable
 internal fun LibraryDestinationPicker(board: BoardState, selected: MoveDestination?, onSelect: (MoveDestination) -> Unit,
-    names: Map<String, String> = emptyMap()) {
+    names: Map<String, String> = emptyMap(), sourceIds: List<String> = emptyList()) {
     var open by remember { mutableStateOf(false) }
-    val choices = libraryDestinations(board, names)
+    val choices = libraryDestinations(board, names, sourceIds)
     Box {
         MenuButton(choices.firstOrNull { it.second == selected }?.first ?: "Destination", Modifier.fillMaxWidth()) { open = true }
         DropdownMenu(open, onDismissRequest = { open = false }) {
@@ -77,13 +77,15 @@ internal fun LibraryDestinationPicker(board: BoardState, selected: MoveDestinati
     }
 }
 
-internal fun libraryDestinations(board: BoardState, names: Map<String, String> = emptyMap()): List<Pair<String, MoveDestination>> = board.containers.flatMap { container ->
+internal fun libraryDestinations(board: BoardState, names: Map<String, String> = emptyMap(),
+    sourceIds: List<String> = emptyList()): List<Pair<String, MoveDestination>> = board.containers.flatMap { container ->
     val label = "${container.accountId?.let { names[it] ?: "Player ${board.players.indexOfFirst { p -> p.accountId == it } + 1}" }.orEmpty()} ${container.zone.name.lowercase()}".trim()
     when (container.zone) {
         PlayZone.LIBRARY -> listOf("$label top" to MoveDestination(container.id, MoveInsertion.TOP),
             "$label bottom" to MoveDestination(container.id, MoveInsertion.BOTTOM))
         PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE -> listOf(label to MoveDestination(container.id, MoveInsertion.UNORDERED))
-        PlayZone.STACK -> listOf(label to MoveDestination(container.id, MoveInsertion.TOP))
+        PlayZone.STACK -> if (sourceIds.isNotEmpty() && sourceIds.all { id -> board.cards.singleOrNull { it.id == id }?.let {
+                CombatStackRules.canProject(board, it) } == true }) listOf(label to MoveDestination(container.id, MoveInsertion.TOP)) else emptyList()
         PlayZone.BATTLEFIELD -> {
             val column = board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position?.x }.maxOrNull()?.plus(1) ?: 0
             listOf(label to MoveDestination(container.id, MoveInsertion.EMPTY, BoardPosition(column, 0)))

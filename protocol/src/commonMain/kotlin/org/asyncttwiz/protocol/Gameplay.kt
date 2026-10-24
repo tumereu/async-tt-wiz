@@ -232,15 +232,16 @@ object GameplayRules {
 
     internal fun replayMove(state: PlayState, mutation: GameplayMutation, command: GameCommand): GameplayChange {
         val version = mutation.transition.movement?.coverRulesVersion ?: 1
-        if (version !in 1..3 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
+        if (version !in 1..4 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
             return GameplayChange(reason = "replayBlocked")
         return move(state, mutation.author, command, mutation.action as PlayAction.MoveCard, version)
     }
 
     private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
     private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
-        // Version 3 also preserves Hand order/gaps; replay of v1/v2 retains sorted, unordered Hands.
-        coverRulesVersion: Int = 3): GameplayChange {
+        // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility.
+        // Old recorded disclosures must still replay using the visibility rules they were made under.
+        coverRulesVersion: Int = 4): GameplayChange {
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
         val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
@@ -369,8 +370,13 @@ object GameplayRules {
             GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), moved.covered.toString()),
             GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), moved.explicitlyCovered.toString())
         ).filter { it.from != it.to }
-        val newViewers = if (coverRulesVersion == 1) emptyList()
-            else CardVisibility.viewers(next, moved) - CardVisibility.viewers(board, card).toSet()
+        fun viewers(board: BoardState, card: PlayCard): List<String> {
+            if (coverRulesVersion >= 4) return CardVisibility.viewers(board, card)
+            val container = board.containers.single { it.id == card.containerId }
+            return board.players.map { it.accountId }.filter {
+                CardVisibility.isVisibleFaceUp(card, container.zone, container.accountId, it) }.sorted()
+        }
+        val newViewers = if (coverRulesVersion == 1) emptyList() else viewers(next, moved) - viewers(board, card).toSet()
         val transition = GameplayTransition(fields = fields,
             disclosures = if (newViewers.isEmpty()) emptyList() else listOf(
                 GameplayDisclosure(card.id, card.faceId, target.id, newViewers)),

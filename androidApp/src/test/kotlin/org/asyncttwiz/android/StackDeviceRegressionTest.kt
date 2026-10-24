@@ -12,7 +12,7 @@ class StackDeviceRegressionTest {
             try {
                 val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
                 assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
-                if (populated) assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK), true))
+                if (populated) assertTrue(f.legacyStack(41))
                 val events = mutableListOf<TableIntent>()
                 lateinit var gestures: TableGestureCoordinator
                 gestures = TableGestureCoordinator({ intent ->
@@ -40,12 +40,13 @@ class StackDeviceRegressionTest {
                 assertEquals(TableDestination.Container(pile.id, PlayZone.STACK), gestures.preview.destination)
                 gestures.up(pile.bounds.center, 100)
                 assertEquals(listOf(f.id(40)), events.filterIsInstance<TableIntent.Move>().single().scope.cardIds)
-                assertEquals(f.container(PlayZone.STACK), f.card(40).containerId)
-                assertTrue(f.commands().drop(before).any { (it.action as? GameAction.Play)?.action is PlayAction.MoveCard })
-                assertEquals(f.id(40), ui.stackBubbleEntry)
+                assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
+                assertTrue(f.commands().drop(before).all { (it.action as? GameAction.Play)?.action is PlayAction.Stack })
+                val entry = f.play.board.stackEffects.single().id
+                assertEquals(entry, ui.stackBubbleEntry)
                 val after = scene()
                 val bubble = assertNotNull(after.stackBubbles)
-                assertEquals(f.id(40), bubble.entryId)
+                assertEquals(entry, bubble.entryId)
                 assertEquals(pile.bounds, bubble.anchor)
                 bubble.controls.forEach { control ->
                     assertEquals(control.bounds, control.bounds.intersection(TableBounds(0f, 0f, width, height)))
@@ -56,12 +57,12 @@ class StackDeviceRegressionTest {
                 gestures.down(outside, 200); gestures.up(outside, 220)
                 assertNull(ui.stackBubbleEntry)
                 val current = scene()
-                val top = current.items.single { it.cardId == f.id(40) }
+                val top = current.items.single { it.cardId == entry }
                 events.clear()
                 gestures.down(top.bounds.center, 400); gestures.up(top.bounds.center, 420); gestures.tick(720)
-                assertEquals(f.id(40), ui.stackBubbleEntry)
+                assertEquals(entry, ui.stackBubbleEntry)
                 assertNull(ui.publicContents())
-                assertEquals(listOf<TableIntent>(TableIntent.StackBubbles(f.id(40))), events)
+                assertEquals(listOf<TableIntent>(TableIntent.StackBubbles(entry)), events)
                 scene()
                 gestures.down(pile.stackBadge.center, 800); gestures.up(pile.stackBadge.center, 820)
                 assertEquals(pile.id, assertNotNull(ui.publicContents()).containerId)
@@ -69,16 +70,16 @@ class StackDeviceRegressionTest {
                 ui.dismiss(); scene(); events.clear()
                 gestures.down(top.bounds.center, 1000); gestures.up(top.bounds.center, 1020)
                 gestures.down(top.bounds.center, 1100); gestures.up(top.bounds.center, 1120); gestures.tick(1500)
-                assertEquals(f.id(40), events.filterIsInstance<TableIntent.Actions>().single().scope!!.contextId)
-                assertEquals(f.id(40), ui.capture!!.contextViewId)
+                assertEquals(entry, events.filterIsInstance<TableIntent.Actions>().single().scope!!.contextId)
+                assertEquals(entry, ui.capture!!.contextViewId)
                 assertEquals(1, events.filterIsInstance<TableIntent.StackBubbles>().size)
                 assertEquals(1, events.count { it == TableIntent.DismissTapUi })
                 assertTrue(events.none { it is TableIntent.Rotate })
                 ui.dismiss(); scene(); events.clear()
                 gestures.down(top.bounds.center, 1600); gestures.tick(2150)
-                assertEquals(f.id(40), ui.peek!!.stackEntryId)
+                assertEquals(entry, ui.peek!!.stackEntryId)
                 gestures.up(top.bounds.center, 2160)
-                assertEquals(listOf<TableIntent>(TableIntent.Peek(f.id(40)), TableIntent.Peek(null)), events)
+                assertEquals(listOf<TableIntent>(TableIntent.Peek(entry), TableIntent.Peek(null)), events)
                 assertNull(ui.peek)
                 assertNull(ui.inspection)
             } finally { f.lobby.close(); f.worker.drain() }

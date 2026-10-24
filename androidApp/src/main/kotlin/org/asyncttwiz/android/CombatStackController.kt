@@ -119,8 +119,7 @@ object CombatStackController {
         val builder = Builder(state, actor, command)
         for (source in sources(targets)) {
             val card = state.board.cards.find { it.id == source } ?: continue
-            if (state.board.containers.find { it.id == card.containerId }?.zone !in
-                setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)) continue
+            if (!CombatStackRules.canProject(state.board, card)) continue
             builder.emit(PlayAction.Stack(StackAction.AddEffect(source, CombatStackRules.stackDigest(builder.state))))
         }
         return builder.plan()

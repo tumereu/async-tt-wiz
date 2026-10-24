@@ -43,10 +43,12 @@ class StackInteractionsTest {
         val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
         val id = f.id(40)
         val scope = TableScope(id, listOf(id))
+        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
         assertTrue(toolkit.handle(TableIntent.Move(scope, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK),
             BasicTableController.sources(f.play, listOf(id)))))
-        assertEquals(id, toolkit.stackBubbleEntry)
-        assertTrue(toolkit.handle(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)))
+        val firstEntry = f.play.board.stackEffects.single().id
+        assertEquals(firstEntry, toolkit.stackBubbleEntry)
+        assertTrue(toolkit.handle(TableIntent.StackDestination(firstEntry, PlayZone.BATTLEFIELD)))
         assertEquals(BoardPosition(0, 1), f.card(40).placement!!.position)
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(640f, 360f, true))) for (combat in listOf(false, true)) {

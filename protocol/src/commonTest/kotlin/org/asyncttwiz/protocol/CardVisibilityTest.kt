@@ -3,6 +3,76 @@ package org.asyncttwiz.protocol
 import kotlin.test.*
 
 class CardVisibilityTest {
+    @Test fun handProjectionRevealsOnlyItsSourceAndOnlyWhileALiveEntryRemains() {
+        val root = gameplayFixture()
+        val drawn = move(root, PlayZone.HAND, 200)
+        val hand = drawn.state!!
+        val source = hand.board.cards.first()
+        val opponent = gameplayId(8)
+        assertFalse(CardVisibility.isVisibleFaceUp(hand.board, source, opponent))
+        fun add(state: PlayState, request: Int): GameplayChange {
+            val change = gameplayChange(state, PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(state))), request)
+            assertEquals("accepted", change.outcome)
+            assertEquals(change, GameplayHistory.replay(state, change.mutation!!))
+            return change
+        }
+        val first = add(hand, 201)
+        val projected = first.state!!
+        assertEquals(source, projected.board.cards.first()) // No permanent cover/zone edit.
+        assertEquals(listOf(opponent), first.mutation!!.transition.disclosures.single().viewers)
+        assertTrue(CardVisibility.isVisibleFaceUp(projected.board, source, opponent))
+        assertEquals(listOf(source.faceId), ManualDisclosure.permittedFaces(projected, source, opponent, true).map { it.faceId })
+        val twice = add(projected, 202).state!!
+        val once = gameplayChange(twice, PlayAction.Stack(StackAction.RemoveEffect(twice.board.stackEffects.first().id)), 203).state!!
+        assertTrue(CardVisibility.isVisibleFaceUp(once.board, source, opponent))
+        val hidden = gameplayChange(once, PlayAction.Stack(StackAction.RemoveEffect(once.board.stackEffects.single().id)), 204).state!!
+        assertFalse(CardVisibility.isVisibleFaceUp(hidden.board, source, opponent))
+        assertTrue(ManualDisclosure.permittedFaces(hidden, source, opponent, true).isEmpty())
+        val tree = GameplayTree(root, listOf(drawn.mutation!!, first.mutation).associateBy { it.id }, first.mutation.id)
+        val undo = HistoryContinuation.change(tree, source.owner, GameCommand(gameplayId(205),
+            GameScope(hand.gameId, playId = hand.id), GameAction.Undo, gameplayId(80), "1"))
+        assertEquals("accepted", undo.outcome)
+        assertFalse(CardVisibility.isVisibleFaceUp(undo.tree!!.stateAt(undo.tree.currentNodeId)!!.board, source, opponent))
+        // A still-live effect cannot expose a Library card (including after moving its source).
+        val library = move(projected, PlayZone.LIBRARY, 206).state!!
+        assertFalse(CardVisibility.isVisibleFaceUp(library.board, library.board.cards.first(), opponent))
+        assertTrue(ManualDisclosure.permittedFaces(library, library.board.cards.first(), opponent, true).isEmpty())
+        assertEquals("inapplicable", gameplayChange(library,
+            PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(library))), 207).reason)
+        val foreignHand = hand.copy(board = hand.board.copy(cards = listOf(source.copy(owner = opponent))))
+        assertEquals("inapplicable", gameplayChange(foreignHand,
+            PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(foreignHand))), 208).reason)
+    }
+
+    @Test fun oldRealStackMovesStillReplayWhenTheSameCardAlsoHasAHandProjection() {
+        val field = move(gameplayFixture(), PlayZone.BATTLEFIELD, 300).state!!
+        val card = field.board.cards.first()
+        val effect = gameplayChange(field, PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(field))), 301).state!!
+        val hand = move(effect, PlayZone.HAND, 302).state!!
+        val realStack = gameplayChange(hand, PlayAction.MoveCard(card.id, MoveSource(hand.board.cards.first().containerId),
+            MoveDestination(CombatStackRules.stack(hand.board).id, MoveInsertion.TOP), GameplayRules.stackDigest(hand)), 303)
+        assertEquals("accepted", realStack.outcome)
+        assertEquals(realStack, GameplayHistory.replay(hand, realStack.mutation!!))
+        assertTrue(realStack.mutation!!.transition.disclosures.isEmpty()) // Already revealed by the projection.
+        val legacy = realStack.mutation.copy(transition = realStack.mutation.transition.copy(
+            movement = realStack.mutation.transition.movement!!.copy(coverRulesVersion = 3),
+            disclosures = listOf(GameplayDisclosure(card.id, card.faceId, CombatStackRules.stack(hand.board).id, listOf(gameplayId(8))))),
+            revealsInformation = true)
+        val replayed = GameplayHistory.replay(hand, legacy)
+        assertEquals("accepted", replayed.outcome)
+        assertEquals(realStack.state!!.board, replayed.state!!.board)
+        assertEquals(legacy, replayed.mutation)
+        val target = replayed.state.board.containers.single { it.zone == PlayZone.GRAVEYARD }
+        val removed = gameplayChange(replayed.state, PlayAction.MoveCard(card.id, MoveSource(CombatStackRules.stack(replayed.state.board).id),
+            MoveDestination(target.id, MoveInsertion.UNORDERED)), 304)
+        assertEquals("accepted", removed.outcome)
+        assertEquals(removed, GameplayHistory.replay(replayed.state, removed.mutation!!))
+        val graveyard = removed.state!!
+        // Both old Stack entries remain addressable: removing the real card leaves the effect.
+        assertEquals(listOf(effect.board.stackEffects.single().id), CombatStackRules.stack(graveyard.board).cards)
+        assertEquals(PlayZone.GRAVEYARD, graveyard.board.containers.single { it.id == graveyard.board.cards.first().containerId }.zone)
+    }
+
     private fun move(state: PlayState, zone: PlayZone, request: Int, faceDown: Boolean? = null,
         position: BoardPosition = BoardPosition(request, 0)): GameplayChange {
         val card = state.board.cards.first()

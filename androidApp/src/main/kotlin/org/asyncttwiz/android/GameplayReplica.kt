@@ -24,7 +24,9 @@ class GameplayReplica {
         val base = display ?: return false
         val retained = displayTree
         if (retained != null) {
-            if (HistoryContinuation.change(retained, actor, command).tree == null) return false
+            // A valid no-op (e.g. an already-reset corner after a move) still belongs on the
+            // ordinary queue. It has no predicted node, but is not an enqueue failure.
+            if (HistoryContinuation.change(retained, actor, command).reason != null) return false
         } else if (GameplayRules.change(base, actor, command).state == null) return false
         predictions[command.requestId] = Prediction(command, actor)
         rebase(); return true
@@ -132,7 +134,7 @@ class GameplayReplica {
             if (prediction.withdrawn) continue
             if (nextTree != null) {
                 val change = HistoryContinuation.change(nextTree, prediction.actor, prediction.command)
-                if (change.tree == null) prediction.withdrawn = true else {
+                if (change.reason != null) prediction.withdrawn = true else if (change.tree != null) {
                     val predicted = requireNotNull(change.tree)
                     nextTree = predicted
                     next = requireNotNull(predicted.stateAt(predicted.currentNodeId))

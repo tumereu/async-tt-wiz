@@ -68,6 +68,11 @@ internal class BasicTableFixture {
         val scope = TableScope(id(n), listOf(id(n)))
         return basic.handle(TableIntent.Move(scope, destination, BasicTableController.sources(play, scope.cardIds, top)))
     }
+    fun legacyStack(n: Int): Boolean {
+        val card = card(n)
+        return lobby.gameplay(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+            MoveDestination(container(PlayZone.STACK), MoveInsertion.TOP), GameplayRules.stackDigest(play)))
+    }
     fun update(from: PlayState, command: GameCommand, base: Int, author: String = actor): GameRevision {
         val change = GameplayRules.change(from, author, command)
         assertEquals("accepted", change.outcome)
@@ -119,7 +124,7 @@ class BasicTableControllerTest {
 
     @Test fun rotateSkipsStackMembersOfMixedSelection() {
         val f = BasicTableFixture(); f.connect()
-        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
+        assertTrue(f.legacyStack(40))
         val before = f.commands().size
         assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true)))
         assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })
@@ -284,8 +289,9 @@ class BasicTableControllerTest {
         assertFalse(f.basic.handle(original)); assertTrue(f.commands().isEmpty())
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
         val predecessor = f.play
-        assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK), true))
-        val moves = f.commands().map { (it.action as GameAction.Play).action as PlayAction.MoveCard }
+        assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
+        assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
+        val moves = f.commands().mapNotNull { ((it.action as GameAction.Play).action as? PlayAction.Stack)?.action as? StackAction.AddEffect }
         assertEquals(GameplayRules.stackDigest(predecessor), moves.last().expectedStackDigest)
         assertNotEquals(moves.first().expectedStackDigest, moves.last().expectedStackDigest)
     }

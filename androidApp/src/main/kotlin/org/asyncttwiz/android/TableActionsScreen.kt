@@ -107,7 +107,8 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
         }
     }
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
-    add(MenuControl("Move to Stack", enabled) {
+    if (scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.let {
+            CombatStackRules.canProject(play.board, it) } == true }) add(MenuControl("Move to Stack", enabled) {
         if (request(TableIntent.Move(scope, TableDestination.Container(stack.id, stack.zone), sources))) dismiss()
     })
     // Snapshot the same real-card destination used by dragging; sync must not replace an open choice.

@@ -97,15 +97,31 @@ class StackProjectionJourneyTest {
         }
         fun reversible(operation: () -> Unit) {
             val before = f.play.board
+            val beforeTree = tree
             val start = f.commands().size
             operation(); sync()
             val after = f.play.board
-            val requests = f.commands().drop(start).map { it.requestId }.toSet()
-            val mutations = tree.nodes.values.count { it.requestId in requests }
-            repeat(mutations) { control(GameAction.Undo) }
-            assertEquals(before, f.play.board, "Undo every individual request in the operation")
-            repeat(mutations) { control(GameAction.Redo) }
-            assertEquals(after, f.play.board, "Redo every individual request in the operation")
+            val afterTree = tree
+            val requests = f.commands().drop(start)
+            val invocation = assertNotNull(requests.first().invocationId)
+            assertTrue(requests.all { it.invocationId == invocation }, "One user operation shares one invocation")
+            val requestIds = requests.map { it.requestId }.toSet()
+            val mutations = tree.nodes.values.filter { it.requestId in requestIds }
+            if (mutations.isEmpty()) {
+                // Moving a projected source to its current zone may be entirely no-op.
+                assertEquals(before, after)
+                assertEquals(beforeTree, tree)
+                return
+            }
+            // Each request retains its own node, but one press reverses the entire invocation.
+            control(GameAction.Undo)
+            assertEquals(before, f.play.board, "One Undo reverses the whole operation")
+            assertEquals(beforeTree.nodes, tree.nodes, "Undo leaves all earlier mutations intact")
+            assertEquals(mutations.asReversed(), tree.redoByAccount[f.actor]!!.map { it.mutation })
+            control(GameAction.Redo)
+            assertEquals(after, f.play.board, "One Redo replays the whole operation")
+            assertEquals(afterTree.nodes, tree.nodes)
+            assertEquals(afterTree.currentNodeId, tree.currentNodeId)
         }
         fun move(id: String, zone: PlayZone, owner: String = f.actor): Boolean {
             val target = f.container(zone, owner)
@@ -237,7 +253,7 @@ class StackProjectionJourneyTest {
         }
     }
 
-    @Test fun mixedSourceMultiDragProjectsEachCardAndEveryBubbleRequestCanBeUndoneAndRedone() = Journey(defaults = false).use { j ->
+    @Test fun mixedSourceMultiDragAndEachBubbleUndoAndRedoAsOneUserOperation() = Journey(defaults = false).use { j ->
         val zones = listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND)
         zones.forEachIndexed { index, zone -> assertTrue(j.move(j.f.id(40 + index), zone)) }
         j.sync()

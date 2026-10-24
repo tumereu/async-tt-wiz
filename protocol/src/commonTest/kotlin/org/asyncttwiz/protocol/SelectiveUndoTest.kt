@@ -6,6 +6,73 @@ import kotlin.test.*
 class SelectiveUndoTest {
     private val f = UndoFixture
 
+    private fun handStackRoot() = f.root().let { root -> root.copy(board = root.board.copy(
+        cards = root.board.cards.map { it.copy(owner = f.a) }, containers = listOf(
+            root.board.containers.single().copy(zone = PlayZone.HAND), PlayContainer(f.id(14), PlayZone.STACK)))) }
+
+    private fun cold(tree: GameplayTree) = GameWire.json.decodeFromString(GameplayTree.serializer(),
+        GameWire.json.encodeToString(GameplayTree.serializer(), tree))
+
+    @Test fun handProjectionsKeepPerMemberDisclosureEligibilityAndReplayOrderWithOrWithoutGrouping() {
+        for (grouped in listOf(false, true)) {
+            val initial = GameplayTree(handStackRoot())
+            val stages = mutableListOf(initial)
+            // The final projection shares a source: it reveals nothing new, unlike the first two.
+            for ((index, card) in listOf(9, 12, 9).withIndex()) {
+                val tree = stages.last()
+                val action = PlayAction.Stack(StackAction.AddEffect(f.id(card),
+                    GameplayRules.stackDigest(tree.stateAt(tree.currentNodeId)!!)))
+                val change = HistoryContinuation.change(tree, f.a, f.command(GameAction.Play(action), 100 + index)
+                    .copy(invocationId = if (grouped) f.id(800) else null))
+                stages += assertNotNull(change.tree, change.reason)
+            }
+            val projected = stages.last()
+            val mutations = projected.nodes.values.toList()
+            assertEquals(listOf(true, true, false), mutations.map { it.revealsInformation })
+            assertEquals(listOf(listOf(f.b), listOf(f.b)), mutations.flatMap { it.transition.disclosures }.map { it.viewers })
+            var tree = cold(projected)
+            val presses = if (grouped) 1 else mutations.size
+            repeat(presses) { index ->
+                val change = f.undo(tree)
+                tree = cold(assertNotNull(change.tree, change.reason))
+                val expected = if (grouped) initial else stages[stages.lastIndex - index - 1]
+                assertEquals(expected.nodes, tree.nodes)
+                assertEquals(expected.stateAt(expected.currentNodeId)!!.board, tree.stateAt(tree.currentNodeId)!!.board)
+            }
+            // Undo stores exact disclosures, newest first; Redo must restore oldest first.
+            assertEquals(mutations.asReversed(), tree.redoByAccount[f.a]!!.map { it.mutation })
+            repeat(presses) { index ->
+                val change = f.redo(tree)
+                tree = cold(assertNotNull(change.tree, change.reason))
+                val expected = if (grouped) projected else stages[index + 1]
+                assertEquals(expected.nodes, tree.nodes)
+                assertEquals(expected.stateAt(expected.currentNodeId)!!.board, tree.stateAt(tree.currentNodeId)!!.board)
+            }
+            assertTrue(tree.redoByAccount.isEmpty())
+            assertEquals(projected.currentNodeId, tree.currentNodeId)
+        }
+    }
+
+    @Test fun groupedProjectionUndoCannotHideAnEarlierOpponentHandDisclosureBehindANonrevealingTail() {
+        var tree = GameplayTree(handStackRoot())
+        val stages = mutableListOf<GameplayTree>()
+        repeat(2) { index ->
+            val action = PlayAction.Stack(StackAction.AddEffect(f.id(9),
+                GameplayRules.stackDigest(tree.stateAt(tree.currentNodeId)!!)))
+            val change = HistoryContinuation.change(tree, f.b, f.command(GameAction.Play(action), 100 + index)
+                .copy(invocationId = f.id(800)))
+            tree = assertNotNull(change.tree, change.reason)
+            stages += tree
+        }
+        assertEquals(listOf(true, false), tree.nodes.values.map { it.revealsInformation })
+        val blocked = f.undo(cold(tree), f.b)
+        assertEquals("revealingTarget", blocked.reason)
+        assertEquals(stages.first().currentNodeId, blocked.targetId)
+        assertNull(blocked.tree)
+        assertEquals(2, tree.nodes.size)
+        assertTrue(tree.redoByAccount.isEmpty())
+    }
+
     @Test fun consecutiveInvocationConstituentsUndoAndRedoTogetherWithoutChangingNodeGranularity() {
         val initial = GameplayTree(f.root())
         val invocation = f.id(800)

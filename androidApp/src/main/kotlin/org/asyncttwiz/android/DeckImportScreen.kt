@@ -33,13 +33,40 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
     }
     BackHandler { controller.back() }
+    if (state.choosingCover) {
+        Column(Modifier.fillMaxSize()) {
+            ScreenHeader("Choose cover", openNavigation) {
+                ScreenIconButton("Cancel cover selection", "close", controller::closeCover)
+            }
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                if (controller.coverCards.isEmpty()) Text("Look up the deck list to choose a cover.")
+                controller.coverCards.forEach { card ->
+                    val face = card.definition.faces.first()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { controller.cover(card.digest) }
+                        .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        DeckThumbnail(ArtworkReference(face.scryfallId, 0, card.digest, "small", face.imageUri), card.definition.name, 28.dp, 40.dp)
+                        Text(card.definition.name, Modifier.weight(1f))
+                        if (state.cover == card.digest) EntryIcon("Selected cover", "ready")
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
+        return
+    }
     ScreenBusyOverlay(when { state.saving -> "Saving deck…"; state.busy -> "Looking up card records…"; else -> null }) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(if (state.target == null) "Import deck" else "Import decklist", openNavigation) {
-            ScreenIconButton("Exit without saving", "close", { keyboard?.hide(); controller.exit() })
+        ScreenHeader(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist", openNavigation) {
+            if (state.editing) ScreenButton(onClick = { keyboard?.hide(); controller.save() }, enabled = !state.saving) {
+                EntryIcon(null, "save"); Spacer(Modifier.width(6.dp)); Text("Save")
+            }
+            ScreenIconButton("Exit without saving", "close", { keyboard?.hide(); controller.cancel() }, enabled = !state.saving)
         }
+        DeckMetadataHeader(state.name, controller.currentCover, controller::name, controller::chooseCover, !state.saving)
         val feedback: @Composable ColumnScope.() -> Unit = {
             if (!state.preview) {
+                state.error?.let { Text(it, Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error) }
                 state.result?.issues?.forEach { issue ->
                     OutlinedCard(Modifier.fillMaxWidth(), colors = CardDefaults.outlinedCardColors(containerColor = androidx.compose.ui.graphics.Color(0xfffff3f3))) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -50,20 +77,14 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                     }
                     Spacer(Modifier.height(8.dp))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!state.editing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ScreenButton(onClick = { keyboard?.hide(); controller.review() }, enabled = state.result?.resolved == true && !state.busy,
                         modifier = Modifier.weight(1f).testTag("review-import")) { EntryIcon(null, "save"); Spacer(Modifier.width(8.dp)); Text("Review import") }
                     ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() }, enabled = !state.busy && catalog?.state?.busy != true,
                         modifier = Modifier.weight(1f).testTag("retry-lookup")) { EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text("Retry lookup") }
                 }
+                if (state.editing) TextButton(onClick = controller::lookup, enabled = !state.busy && !state.saving) { Text("Retry lookup") }
             } else {
-                 if (state.target == null) {
-                     Text("Deck name", style = MaterialTheme.typography.titleSmall)
-                     Spacer(Modifier.height(8.dp))
-                     ScreenTextField(state.name, controller::name, enabled = !state.saving,
-                         modifier = Modifier.fillMaxWidth().testTag("deck-name").semantics { contentDescription = "Deck name" })
-                     Spacer(Modifier.height(12.dp))
-                 }
                 state.error?.let { Text(it, Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ScreenButton(onClick = { keyboard?.hide(); controller.save() }, enabled = !state.saving,
@@ -78,8 +99,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
         val list: @Composable ColumnScope.() -> Unit = {
             if (!state.preview) {
-                if (state.target != null) {
-                    Text(state.name, style = MaterialTheme.typography.titleSmall)
+                 if (state.target != null && !state.editing) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         DeckImportMode.entries.forEach { mode ->
                             ScreenOutlinedButton(onClick = { controller.mode(mode) }, Modifier.weight(1f), enabled = !state.saving,
@@ -93,7 +113,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                 }
                 Text("Deck list", style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(8.dp))
-                ScreenTextField(state.text, controller::edit, singleLine = false,
+                ScreenTextField(state.text, controller::edit, singleLine = false, enabled = !state.saving,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
                     modifier = Modifier.fillMaxWidth().heightIn(min = if (landscape) 260.dp else 320.dp)
                         .testTag("deck-list").semantics { contentDescription = "Deck list" })
@@ -104,13 +124,11 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                         fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
                     for (entry in result.entries.filter { it.section == section }) {
                         Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Inspect ${entry.printing.name}") { controller.inspect(entry) }
-                            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                             .heightIn(min = 48.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(entry.quantity.toString(), Modifier.widthIn(min = 24.dp))
-                             Box(Modifier.size(48.dp).clickable(onClickLabel = "Inspect ${entry.printing.name} artwork") {
-                                controller.inspect(entry)
-                            }.semantics { contentDescription = "Inspect artwork for ${entry.printing.name}" }, contentAlignment = Alignment.Center) {
-                                 DeckThumbnail(ArtworkReference.from(entry.printing, result.catalog!!.checksum, "small"), entry.printing.name, 22.dp, 30.dp)
+                              Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                                 DeckThumbnail(ArtworkReference.from(entry.printing, result.catalog?.checksum.orEmpty(), "small"), entry.printing.name, 22.dp, 30.dp)
                             }
                             Column(Modifier.weight(1f)) {
                                 Text(entry.printing.name)
@@ -141,4 +159,12 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     }
     }
     DeckCardInspection(controller.inspection)
+    if (state.discard) ScreenDialog(controller::keepEditing) {
+        Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
+        Text("Your saved deck will not change.")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScreenOutlinedButton(controller::keepEditing, Modifier.weight(1f)) { Text("Keep editing") }
+            ScreenButton(controller::exit, Modifier.weight(1f)) { Text("Discard") }
+        }
+    }
 }

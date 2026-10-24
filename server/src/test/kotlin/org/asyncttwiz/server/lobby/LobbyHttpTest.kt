@@ -202,7 +202,7 @@ class LobbyHttpTest {
                 INSERT INTO request_identity VALUES ('$request','$account','createDeck','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained original');
             """.trimIndent()) }
-            assertEquals(9, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(10, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             for (table in listOf("account", "saved_deck", "deck_entry", "definition", "account_request")) assertEquals(1, count(db, table))
             for (table in listOf("contact", "game", "invitation")) assertEquals(0, count(db, table))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT password_phc,name,revision,response FROM account,saved_deck,account_request").use {

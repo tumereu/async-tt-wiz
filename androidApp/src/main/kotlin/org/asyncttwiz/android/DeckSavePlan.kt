@@ -9,15 +9,18 @@ import java.util.UUID
 
 /** Immutable, volatile retry payload. Built on the import worker, not the UI thread. */
 data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck,
-    val target: String? = null, val mode: DeckImportMode = DeckImportMode.OVERWRITE) {
-    fun update() = UpdateDeck(deck.requestId, contents = DeckContentsImport(deck.entries, mode))
+    val target: String? = null, val mode: DeckImportMode = DeckImportMode.OVERWRITE,
+    val cover: String? = null, val editMetadata: Boolean = false) {
+    fun update() = UpdateDeck(deck.requestId, name = deck.name.takeIf { editMetadata }, cover = cover,
+        contents = DeckContentsImport(deck.entries, mode))
     companion object {
         fun from(result: DeckImportResult, name: String, target: String? = null,
-            mode: DeckImportMode = DeckImportMode.OVERWRITE): DeckSavePlan {
+            mode: DeckImportMode = DeckImportMode.OVERWRITE, cover: String? = null,
+            retained: Map<String, CardDefinition> = emptyMap(), editMetadata: Boolean = false): DeckSavePlan {
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val definitions = linkedMapOf<String, SubmittedDefinition>()
             val entries = result.entries.map { entry ->
-                val definition = entry.definition(result.catalog)
+                val definition = retained[entry.printing.id] ?: entry.definition(result.catalog)
                 if (!DeckValidation.definition(definition)) throw DeckFailure("invalid_definition")
                 val digest = DeckJson.digest(definition)
                 definitions[digest] = SubmittedDefinition(digest, definition)
@@ -27,8 +30,9 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
                 if (quantity > Int.MAX_VALUE) throw DeckFailure("invalid_deck")
                 rows.first().copy(quantity = quantity.toInt())
             }
+            if (cover != null && entries.none { it.definition == cover }) throw DeckFailure("invalid_cover")
             return DeckSavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
-                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode)
+                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode, cover, editMetadata)
         }
     }
 }

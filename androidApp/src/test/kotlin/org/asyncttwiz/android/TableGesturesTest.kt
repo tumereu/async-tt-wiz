@@ -5,6 +5,67 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun emptySingleTapIsImmediateDoubleTapFitsAndDoubleTapHoldDragPansInsteadOfSelecting() {
+        val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
+        val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
+        assertNull(scene.hit(point))
+        val f = Fixture(scene, TableSelection(setOf("a/BATTLEFIELD/0")))
+        f.gestures.down(point, 0); f.gestures.up(point, 20)
+        assertEquals(emptySet(), f.events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
+        f.gestures.down(point, 100); f.gestures.up(point, 120)
+        assertEquals(scene.world.fit(), f.events.filterIsInstance<TableIntent.Camera>().single().camera)
+        assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Rotate })
+
+        f.gestures.update(scene, TableSelection(), true)
+        f.events.clear()
+        f.gestures.down(point, 500); f.gestures.up(point, 520)
+        f.gestures.down(point, 600); f.gestures.tick(1100) // Holding the second tap must not become a peek.
+        val end = TablePoint(point.x + 42, point.y - 28)
+        f.gestures.move(end, 1120)
+        assertNull(f.gestures.preview.rectangle)
+        f.gestures.up(end, 1140)
+        val camera = f.events.filterIsInstance<TableIntent.Camera>().last().camera
+        assertEquals(-30f, camera.x, .001f)
+        assertEquals(20f, camera.y, .001f)
+        assertEquals(1.4f, camera.zoom)
+        assertEquals(1, f.events.filterIsInstance<TableIntent.Selection>().size) // Only the immediate first tap.
+        assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Peek })
+    }
+
+    @Test fun ordinaryEmptyDragStillSelectsAndEmptyDoubleTapDoesNotRecognizeAcrossHud() {
+        val scene = TableFixture.scene()
+        val f = Fixture(scene)
+        val start = TablePoint(310f, scene.fields.last().bounds.y + 4)
+        assertNull(scene.hit(start))
+        val end = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.bounds.center
+        f.gestures.down(start, 0); f.gestures.move(end, 80)
+        assertNotNull(f.gestures.preview.rectangle)
+        f.gestures.up(end, 100)
+        assertTrue("a/BATTLEFIELD/0" in f.events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
+        assertTrue(f.events.none { it is TableIntent.Camera })
+        f.events.clear()
+        val hud = scene.stackRegion!!.center
+        f.gestures.transform(TablePoint(50f, 50f), 1.5f, hud)
+        assertTrue(f.events.isEmpty())
+    }
+
+    @Test fun pinchUsesOneCentroidTransformAcrossBothFieldsAndCenterBandAndClampsPan() {
+        val scene = TableFixture.scene()
+        val world = scene.world!!
+        val f = Fixture(scene)
+        val centroid = TablePoint(world.viewport.center.x - 60, world.viewport.center.y + 12)
+        val pan = TablePoint(20f, -15f)
+        f.gestures.transform(pan, 1.5f, centroid)
+        val camera = f.events.filterIsInstance<TableIntent.Camera>().single().camera
+        val anchor = TablePoint(world.viewport.width / 2 + centroid.x - pan.x - world.viewport.center.x,
+            world.viewport.height / 2 + centroid.y - pan.y - world.viewport.center.y)
+        val after = world.screen(anchor, camera)
+        assertEquals(centroid.x, after.x, .001f); assertEquals(centroid.y, after.y, .001f)
+        f.gestures.transform(TablePoint(Float.MAX_VALUE, Float.MAX_VALUE), 1f, centroid)
+        val clamped = f.events.filterIsInstance<TableIntent.Camera>().last().camera
+        assertNotNull(world.screen(world.bounds, clamped).intersection(world.viewport))
+    }
+
     @Test fun closingSameCardRingSuppressesOnlySingleTapAndStillAllowsDoubleDragAndPeek() {
         val f = Fixture()
         val point = f.point()
@@ -111,11 +172,13 @@ class TableGesturesTest {
     }
 
     @Test fun transformedLandsBandsStillTargetRowZero() {
-        for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) {
+        for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) for (owner in listOf("a", "b")) {
+            val home = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true)
+            val anchor = home.fields.single { it.owner == owner }.landsBounds(owner == "a").center
             val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true,
-                TableLayoutState(TableCamera(y = pan, zoom = zoom)))
+                TableLayoutState(TableCamera(y = anchor.y - home.world!!.viewport.center.y + pan, zoom = zoom)))
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
-            for (field in scene.fields) {
+            for (field in scene.fields.filter { it.owner == owner }) {
                 val band = assertNotNull(field.landsBounds(field.owner == "a", scene.camera).intersection(field.bounds))
                 val end = TablePoint(field.bounds.right - 24, band.center.y)
                 val events = mutableListOf<TableIntent>()
@@ -141,7 +204,7 @@ class TableGesturesTest {
                 val geometry = TableAnnotationGeometry(scene, "a")
                 for (field in scene.fields) for (row in 0..1) for (fraction in listOf(.1f, .5f, .9f)) {
                     val distance = (row + fraction) * field.rowHeight
-                    val end = TablePoint(field.bounds.right - 24,
+                    val end = TablePoint(field.bounds.x + 5 * TablePresentation.GRID,
                         if (field.owner == "a") field.gridBounds.bottom - distance else field.gridBounds.y + distance)
                     val events = mutableListOf<TableIntent>()
                     val gesture = TableGestureCoordinator(events::add)
@@ -323,7 +386,8 @@ class TableGesturesTest {
             val hand = scene.items.single { it.cardId == "a/HAND/2" }
             assertFalse(hand.covered)
             val start = hand.visible.first().center
-            val destination = TablePoint(field.bounds.right - 24f, field.bounds.center.y)
+            // The right-edge midpoint is now the screen-fixed Stack, not empty battlefield.
+            val destination = TablePoint(field.bounds.x + 5 * TablePresentation.GRID, field.bounds.center.y)
             val events = mutableListOf<TableIntent>()
             val coordinator = TableGestureCoordinator(events::add)
             coordinator.update(scene, TableSelection(), true)
@@ -568,7 +632,8 @@ class TableGesturesTest {
     }
 
     @Test fun twoFingerCompactSidebarPanIsPersonalNotABoardMove() {
-        val scene = TableFixture.scene(TableFixture.play(), true, TableLayoutState(TableCamera(zoom = 2f)))
+        val scene = TablePresentation.scene(TableFixture.game, TableFixture.play(), "a", 640f, 260f, true,
+            TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
         val sidebar = scene.viewports.single { it.id == "sidebar" }
         f.gestures.transform(TablePoint(0f, -60f), 1f, sidebar.bounds.center)

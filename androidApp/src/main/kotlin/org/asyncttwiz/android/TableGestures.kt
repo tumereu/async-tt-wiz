@@ -23,12 +23,12 @@ class TableGestureCoordinator(
     private val markStepDp = 28f
     private val valueStepDp = 24f
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
-    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK }
+    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK, PAN }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
         var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false,
-        val suppressTapUi: Boolean = false)
+        val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera())
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var pending: Tap? = null
@@ -66,13 +66,14 @@ class TableGestureCoordinator(
         val next = Capture(item, point, time, selection, scope, scene.viewport(point),
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }, bubble = scene.stackBubbles,
             phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
-            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard)
+            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard, camera = scene.camera)
         val old = pending
         if (old != null) {
-            if (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id &&
+            if (((item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
+                    (item == null && old.capture.item == null && scene.worldInput(point))) &&
                 distance(point, old.capture.start) <= slopDp * 2 && time <= old.deadline) {
                 next.double = true
-                next.replacingLocal = old.shown
+                next.replacingLocal = old.shown && item != null
                 // The first press's stable scope wins even if sync/selection changed between taps.
                 capture = next.copy(scope = old.capture.scope, selection = old.capture.selection, sources = old.capture.sources)
                 pending = null
@@ -85,7 +86,7 @@ class TableGestureCoordinator(
         val p = pending
         if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
-        if (c.phase == Phase.PRESS && time - c.time >= holdMillis) {
+        if (c.phase == Phase.PRESS && !(c.double && c.item == null) && time - c.time >= holdMillis) {
             c.phase = Phase.HOLD
             // A pile control is not an individual card and cannot implicitly View a Library.
             c.item?.cardId?.let { emit(TableIntent.Peek(it)) }
@@ -102,14 +103,16 @@ class TableGestureCoordinator(
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.
             pending = null
             c.phase = when {
+                c.double && c.item == null && scene.worldInput(c.start) -> Phase.PAN
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
-                    c.item?.kind != TableItemKind.CARD -> Phase.SCROLL
+                    c.item?.kind != TableItemKind.CARD && !scene.worldInput(c.start) -> Phase.SCROLL
                 c.item?.kind == TableItemKind.HAND || c.item == null -> Phase.RECTANGLE
                 c.scope != null || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
             }
         }
         when (c.phase) {
+            Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom))
             Phase.MARK -> {
                 val bubble = c.bubble ?: return
                 val index = ((bubble.selected ?: -1) + (dy / markStepDp).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
@@ -132,7 +135,9 @@ class TableGestureCoordinator(
         capture = null
         if (c.replacingLocal && c.phase == Phase.PRESS) emit(TableIntent.DismissTapUi)
         when (c.phase) {
-            Phase.PRESS -> if (c.double && c.item?.zone == PlayZone.LIBRARY) {
+            Phase.PRESS -> if (c.double && c.item == null && scene.worldInput(c.start)) {
+                scene.world?.fit()?.let(::navigate)
+            } else if (c.double && c.item?.zone == PlayZone.LIBRARY) {
                 val hand = c.item.drawHandId
                 val top = c.scope?.contextId
                 if (writable && hand != null && top != null) emit(TableIntent.Draw(c.item.id, hand, top))
@@ -148,7 +153,11 @@ class TableGestureCoordinator(
                 val local = singleTapIsLocal(requireNotNull(c.item))
                 if (local) single(c)
                 pending = Tap(c, time + doubleMillis, local)
-            } else single(c)
+            } else {
+                single(c)
+                // Empty taps remain immediate; retain only recognition metadata for navigation.
+                if (doubleTapEnabled && c.item == null && scene.worldInput(c.start)) pending = Tap(c, time + doubleMillis, true)
+            }
             Phase.MARK -> if (writable && c.bubble != null && preview.markIndex != c.bubble.selected &&
                 c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
                 emit(TableIntent.Submit(org.asyncttwiz.protocol.PlayAction.Stack(
@@ -196,13 +205,18 @@ class TableGestureCoordinator(
             return
         }
         val old = scene.camera
-        if (scene.fields.none { it.bounds.contains(centroid) }) return
+        if (!scene.worldInput(centroid)) return
         val zoom = (old.zoom * scale).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
-        val field = scene.fields.firstOrNull { it.bounds.contains(centroid) } ?: scene.fields.lastOrNull()
-        val anchorX = centroid.x - (field?.gridBounds?.x ?: 0f)
-        val anchorY = if (field == scene.fields.lastOrNull()) (field?.gridBounds?.bottom ?: 0f) - centroid.y else centroid.y - (field?.gridBounds?.y ?: 0f)
-        val next = TableCamera(old.x + anchorX / old.zoom - anchorX / zoom - pan.x / zoom,
-            old.y + anchorY / old.zoom - anchorY / zoom + (if (field == scene.fields.lastOrNull()) pan.y else -pan.y) / zoom, zoom)
+        val center = requireNotNull(scene.world).viewport.center
+        val anchorX = centroid.x - center.x
+        val anchorY = centroid.y - center.y
+        // centroid is the CURRENT centroid; keep the previous centroid's world point under it.
+        val next = TableCamera(old.x + (anchorX - pan.x) / old.zoom - anchorX / zoom,
+            old.y + (anchorY - pan.y) / old.zoom - anchorY / zoom, zoom)
+        navigate(next)
+    }
+    private fun navigate(camera: TableCamera) {
+        val next = scene.world?.clamp(camera) ?: camera
         scene = scene.copy(camera = next) // coalesce rapid pointer frames without losing personal navigation deltas
         emit(TableIntent.Camera(next))
     }
@@ -279,8 +293,10 @@ class TableGestureCoordinator(
                     scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
-        scene.combatDrops.asReversed().firstOrNull { it.bounds.contains(p) }?.let { return TableDestination.Combat(it.destination) }
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
+        if (hit == null || hit.zone == PlayZone.BATTLEFIELD) {
+            if (scene.worldInput(p)) scene.combatDrops.asReversed().firstOrNull { it.bounds.contains(p) }?.let { return TableDestination.Combat(it.destination) }
+        }
         if (hit != null) {
             // A face inside a Hand is still a drop onto that Hand, not an ordinary battlefield pile.
             if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.HAND)
@@ -294,10 +310,11 @@ class TableGestureCoordinator(
             }
             if (hit.kind != TableItemKind.CARD) return null
         }
+        if (!scene.worldInput(p)) return null
         val f = scene.fields.firstOrNull { it.bounds.contains(p) } ?: return null
         val c = scene.camera
-        val x = (p.x - f.gridBounds.x) / c.zoom + c.x
-        val y = (if (f == scene.fields.last()) f.gridBounds.bottom - p.y else p.y - f.gridBounds.y) / c.zoom + c.y
+        val x = (p.x - f.gridBounds.x) / c.zoom
+        val y = if (f == scene.fields.last()) f.gridBounds.bottom - p.y else p.y - f.gridBounds.y
         return TableDestination.Grid(f.containerId, floor(x / TablePresentation.GRID).toInt().coerceAtLeast(0), floor(y / f.rowHeight).toInt().coerceAtLeast(0))
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)

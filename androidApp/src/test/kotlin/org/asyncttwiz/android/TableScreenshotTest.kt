@@ -365,7 +365,9 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
         assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
-        val x = (field.bounds.right - 8).toInt()
+        // Portrait Stack is a screen-fixed overlay on the world's right edge.
+        val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
+        val x = minOf(field.bounds.right - 8, overlay?.x?.minus(8) ?: Float.MAX_VALUE).toInt()
         for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until field.bounds.bottom.toInt()) {
             // Avoid fractional, anti-aliased Canvas edges.
             if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue

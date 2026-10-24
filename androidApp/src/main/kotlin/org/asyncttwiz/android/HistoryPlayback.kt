@@ -164,9 +164,7 @@ class HistorySceneAnimation(initial: TableScene) {
         val arrivals = end.values.filter { it.item.kind == TableItemKind.CARD && it.item.animationId !in start }
         for (arrival in arrivals) {
             val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
-            val z = destination.camera.zoom
-            val bounds = TableBounds(pile.bounds.x + 8f * z, pile.bounds.y + 8f * z,
-                destination.cardWidth, destination.cardHeight)
+            val bounds = TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, 28f, 40f)
             start = start + (arrival.item.animationId to arrival.copy(bounds = bounds))
         }
         destination = target

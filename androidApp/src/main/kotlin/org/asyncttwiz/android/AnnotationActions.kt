@@ -15,13 +15,13 @@ internal val LocalTableMenuAnnotations = staticCompositionLocalOf<TableMenuAnnot
  * retained, including personal camera margins. The inverse is shared by markers and input. */
 internal class TableAnnotationGeometry(private val scene: TableScene, private val firstPlayer: String) {
     private fun cell(value: Float) = floor(value / scene.footprint).toInt()
-    private fun rowHeight(field: TableField) = scene.footprint * field.rowHeight / TablePresentation.GRID
+    private fun rowHeight(field: TableField) = field.rowHeight
 
     fun location(point: TablePoint): PingTarget? {
         val field = scene.fields.firstOrNull { it.bounds.contains(point) } ?: return null
-        val x = cell(point.x - field.gridBounds.x + scene.camera.x * scene.camera.zoom)
-        val y = floor(((if (field == scene.fields.last()) field.gridBounds.bottom - point.y else point.y - field.gridBounds.y) +
-            scene.camera.y * scene.camera.zoom) / rowHeight(field)).toInt()
+        if (!scene.worldInput(point)) return null
+        val x = cell(point.x - field.gridBounds.x)
+        val y = floor((if (field == scene.fields.last()) field.gridBounds.bottom - point.y else point.y - field.gridBounds.y) / rowHeight(field)).toInt()
         return PingTarget(PingTargetKind.LOCATION, position = BoardPosition(x, y * 2 + if (field.owner == firstPlayer) 0 else 1))
     }
 
@@ -31,22 +31,22 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
             PingTargetKind.PLAYER -> it.owner == target.id && it.kind == TableItemKind.LIFE
             PingTargetKind.AREA -> it.id == target.id
             PingTargetKind.LOCATION -> false
-        } }?.takeIf { it.visible.isNotEmpty() }?.bounds?.center
+        } }?.visibleAnchor
         val position = target.position ?: return null
         val side = Math.floorMod(position.y, 2)
         val field = scene.fields.singleOrNull { (if (it.owner == firstPlayer) 0 else 1) == side } ?: return null
-        val x = field.gridBounds.x + (position.x + .5f) * scene.footprint - scene.camera.x * scene.camera.zoom
-        val y = (Math.floorDiv(position.y, 2) + .5f) * rowHeight(field) - scene.camera.y * scene.camera.zoom
+        val x = field.gridBounds.x + (position.x + .5f) * scene.footprint
+        val y = (Math.floorDiv(position.y, 2) + .5f) * rowHeight(field)
         val point = TablePoint(x, if (field == scene.fields.last()) field.gridBounds.bottom - y else field.gridBounds.y + y)
-        return point.takeIf { field.bounds.contains(it) }
+        return point.takeIf { field.bounds.contains(it) && scene.worldInput(it) }
     }
 
     fun locations(field: TableField): List<Pair<PingTarget, TablePoint>> {
-        val left = cell(scene.camera.x * scene.camera.zoom)
+        val left = cell(field.bounds.x - field.gridBounds.x)
         val rowHeight = rowHeight(field)
-        val top = floor((field.gridBounds.height - field.bounds.height + scene.camera.y * scene.camera.zoom) / rowHeight).toInt()
-        val right = cell(field.bounds.width + scene.camera.x * scene.camera.zoom)
-        val bottom = floor((field.gridBounds.height + scene.camera.y * scene.camera.zoom) / rowHeight).toInt()
+        val top = floor((if (field == scene.fields.last()) field.gridBounds.bottom - field.bounds.bottom else field.bounds.y - field.gridBounds.y) / rowHeight).toInt()
+        val right = cell(field.bounds.right - field.gridBounds.x)
+        val bottom = top + kotlin.math.ceil(field.bounds.height / rowHeight).toInt()
         return (top..bottom).flatMap { row -> (left..right).mapNotNull { column ->
             val target = PingTarget(PingTargetKind.LOCATION,
                 position = BoardPosition(column, row * 2 + if (field.owner == firstPlayer) 0 else 1))

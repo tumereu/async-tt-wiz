@@ -109,19 +109,24 @@ class HistoryUiSpineTest {
 
     @Test fun locationPingCapturesLogicalTransformAndOriginalReferenceForOneExplicitUnping() {
         Harness().use { h ->
-            val scene = TableScene(emptyList(), listOf(
-                TableField(TableBounds(30f, 10f, 400f, 400f), f.b),
-                TableField(TableBounds(30f, 450f, 400f, 400f), f.a)),
-                footprint = 126f, camera = TableCamera(42f, 21f, 1.5f))
+            fun scene(camera: TableCamera): TableScene {
+                val world = TableWorld(TableBounds(30f, 10f, 400f, 840f), TableBounds(0f, 0f, 400f, 840f))
+                val fields = listOf(f.b to 0f, f.a to 440f).map { (owner, y) ->
+                    val grid = world.screen(TableBounds(0f, y, 400f, 400f), camera)
+                    TableField(grid.intersection(world.viewport)!!, owner, gridBounds = grid, rowHeight = 84f * camera.zoom)
+                }
+                return TableScene(emptyList(), fields, footprint = 56f * camera.zoom, camera = camera, world = world)
+            }
+            val scene = scene(TableCamera(-42f, 21f, 1.5f))
             val geometry = TableAnnotationGeometry(scene, f.a)
             val reference = EventReference(h.display.id, h.display.currentNodeId)
-            val point = TablePoint(156f, 692.5f)
-            var captured = assertNotNull(geometry.capture(h.display, reference, point))
             val target = PingTarget(PingTargetKind.LOCATION, position = BoardPosition(1, 2))
+            val point = assertNotNull(geometry.endpoint(target))
+            var captured = assertNotNull(geometry.capture(h.display, reference, point))
             assertEquals(listOf(PlayAction.Ping(reference, target)), captured.actions())
             assertEquals(point, geometry.endpoint(target))
-            assertNotEquals(target, geometry.location(TablePoint(156f, 167.5f))) // Other battlefield, same local cell.
-            val moved = scene.copy(camera = TableCamera(84f, 42f, .75f), footprint = 63f)
+            assertNotEquals(target, geometry.location(scene.fields.first().bounds.center))
+            val moved = scene(TableCamera(84f, 42f, .75f))
             val movedGeometry = TableAnnotationGeometry(moved, f.a)
             val coordinator = TableGestureCoordinator({ intent ->
                 if (intent is TableIntent.Ping) captured.actions().forEach {

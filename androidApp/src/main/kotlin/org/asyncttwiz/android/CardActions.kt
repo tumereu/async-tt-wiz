@@ -31,94 +31,77 @@ internal fun counterColor(color: CounterColor): Color = when (color) {
 }
 
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
-    enabled: Boolean, landscape: Boolean, names: Map<String, String>, extras: @Composable () -> Unit = {},
+    enabled: Boolean, names: Map<String, String>,
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
     inspect: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
     val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
-    var more by remember(scope) { mutableStateOf(false) }
     val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
-    val controls = listOf(
-        MenuControl("Inspect") { if (inspect != null) inspect() else actions.inspect(state, viewer) },
-        MenuControl("Inspect other side", enabled && other != null) {
-            other?.let { submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
-        },
-        MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } }
-    ) + tools.filterNot { it.name in listOf("Declare + tap", "Unlink") } + listOf(
-        MenuControl("Reset corner", enabled) { send { PlayAction.ResetCorner(it.id) } }
-    ) + tools.filter { it.name == "Declare + tap" } + listOf(
-        MenuControl("Edit card note", enabled) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) }
-    ) + tools.filter { it.name == "Unlink" } + state.board.players.map { player ->
-        MenuControl("Owner ${names[player.accountId] ?: "Player"}", enabled, card.owner == player.accountId,
-            if (player.accountId == viewer) OwnTableColor else OpponentTableColor) { send { PlayAction.SetOwner(it.id, player.accountId) } }
-    } + MenuControl("More actions", selected = more) { more = !more }
-    val general: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId)
-                for (control in controls) control.Square()
+    val entries = mutableListOf<RingEntry>()
+    fun add(id: String, label: String, control: MenuControl) { entries += RingEntry(id, label, control) }
+    add("inspect", "Inspect", MenuControl("Inspect") { if (inspect != null) inspect() else actions.inspect(state, viewer) })
+    add("otherSide", "Other side", MenuControl("Inspect other side", enabled && other != null) {
+        other?.let { submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
+    })
+    add("flip", if (card.covered) "Face up" else "Face down",
+        MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
+    add("resetCorner", "Reset P/T", MenuControl("Reset corner", enabled) { send { PlayAction.ResetCorner(it.id) } })
+    add("note", "Note", MenuControl("Edit card note", enabled) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
+    val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
+    add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
+        val next = state.board.players.firstOrNull { it.accountId != card.owner }
+        if (next != null) send { PlayAction.SetOwner(it.id, next.accountId) }
+    })
+    for ((index, face) in faces.withIndex()) if (faces.size > 1) {
+        add("face/$index", "Face ${index + 1}", MenuControl("Switch printed face ${index + 1}", enabled,
+            selected = card.faceId == face.faceId) {
+            send { target ->
+                val targetFaces = state.definitions.singleOrNull { it.digest == target.definition }?.definition?.faces.orEmpty()
+                targetFaces.getOrNull(index)?.takeIf { targetFaces.size > 1 }?.let { PlayAction.SetFace(target.id, it.faceId) }
             }
-            if (faces.size > 1) Row(Modifier.horizontalScroll(rememberScrollState())) {
-                for ((index, face) in faces.withIndex()) ManualActionSquare("Switch printed face ${index + 1}", "", enabled,
-                    selected = card.faceId == face.faceId, onClick = {
-                        send { target ->
-                            val targetFaces = state.definitions.singleOrNull { it.digest == target.definition }?.definition?.faces.orEmpty()
-                            targetFaces.getOrNull(index)?.takeIf { targetFaces.size > 1 }?.let { PlayAction.SetFace(target.id, it.faceId) }
-                        }
-                    })
-            }
+        })
+    }
+    fun corner(part: CornerPart, delta: Int) = scope.cardActions(state) {
+        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
+    }
+    fun whole(delta: Int) = scope.cardActions(state) {
+        val part = if ('/' in it.corner) CornerPart.BOTH else CornerPart.WHOLE
+        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
+    }
+    fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, enabled && requests.isNotEmpty()) { emit(requests) }
+    entries += RingEntry("corner", "P/T", MenuControl("Set corner", enabled) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
+        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1))))
+    if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
+        for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.RIGHT, 1, "•/+"),
+            Triple(CornerPart.LEFT, -1, "−/•"), Triple(CornerPart.RIGHT, -1, "•/−"))) {
+            add("corner/${part.name}/$delta", symbol,
+                adjustment("Adjust corner ${part.name.lowercase()} ${if (delta > 0) "+1" else "−1"}", corner(part, delta)))
         }
     }
-    val values: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ManualActionSquare("Set corner", card.corner, enabled, onClick = { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) })
-                val targets = scope.cardActions(state) { PlayAction.SetCorner(it.id, it.corner) }
-                val hasPair = targets.any { target -> state.board.cards.single { it.id == (target as PlayAction.SetCorner).cardId }.corner.contains('/') }
-                val controls = if (hasPair) listOf(Triple(CornerPart.BOTH, 1, "+/+"), Triple(CornerPart.BOTH, -1, "−/−"),
-                    Triple(CornerPart.RIGHT, 1, "•/+"), Triple(CornerPart.RIGHT, -1, "•/−"),
-                    Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.LEFT, -1, "−/•"))
-                    else listOf(Triple(CornerPart.WHOLE, 1, "+"), Triple(CornerPart.WHOLE, -1, "−"))
-                for ((part, delta, symbol) in controls) {
-                    val applicable = scope.cardActions(state) {
-                        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
-                    }
-                    ManualActionSquare("Adjust corner ${part.name.lowercase()} ${if (delta > 0) "+1" else "−1"}", symbol,
-                        enabled && applicable.isNotEmpty(), onClick = { emit(applicable) })
-                }
-                // Mixed integer/pair selections keep each individually usable full path reachable.
-                if (hasPair) for (delta in listOf(1, -1)) {
-                    val applicable = scope.cardActions(state) {
-                        if (ManualText.corner(it.corner, CornerPart.WHOLE, delta) != null)
-                            PlayAction.AdjustCorner(it.id, CornerPart.WHOLE, delta) else null
-                    }
-                    if (applicable.isNotEmpty()) ManualActionSquare("Adjust integer corner $delta", if (delta > 0) "+" else "−",
-                        enabled, onClick = { emit(applicable) })
-                }
-            }
-            CounterControls(card.counters, player = false, enabled = enabled,
-                set = { actions.edit(ManualValue(ManualValueKind.COUNTER, it), state, viewer) },
-                applicable = { color, delta -> scope.cardActions(state) {
-                    if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
-                        PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
-                }.isNotEmpty() },
-                adjust = { color, delta -> send {
-                    if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
-                        PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
-                } })
-        }
+    for (color in CounterColor.entries) {
+        fun adjust(delta: Int) = adjustment("${if (delta > 0) "Increase" else "Decrease"} ${color.name.lowercase()} counter", scope.cardActions(state) {
+            if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
+                PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
+        })
+        entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", enabled,
+            color = counterOutline(color)) { actions.edit(ManualValue(ManualValueKind.COUNTER, color), state, viewer) },
+            RingCompound(ManualText.cardCounterText(card.counters[color]), adjust(-1), adjust(1)), counterColor(color))
     }
-    TableMenuPanel(actions::close, width = if (landscape) 816.dp else 400.dp) {
-        if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f)) { general() }
-            Column(Modifier.weight(1f)) { values() }
-        } else { general(); values() }
-        if (more) extras()
+    for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
+    val view = previewViewId ?: card.id
+    val anchors = LocalCardRingAnchors.current
+    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
+    else BoxWithConstraints(Modifier.fillMaxSize()) {
+        // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
+        val anchor = TableBounds(maxWidth.value / 2 - 24, maxHeight.value / 2 - 50, 48f, 100f)
+        Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
+        CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
+            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
+        }
     }
 }
 

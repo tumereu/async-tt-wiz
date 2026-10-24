@@ -214,6 +214,7 @@ class TableScreenshotTest {
         }
         compose.waitForIdle()
         if (kind == "action-tooltip") {
+            compose.mainClock.advanceTimeBy(350)
             compose.onNodeWithContentDescription("Inspect", useUnmergedTree = false).performTouchInput {
                 down(center); advanceEventTime(700); moveBy(Offset.Zero)
             }
@@ -301,6 +302,8 @@ class TableScreenshotTest {
 
     @Test fun graveyardMoveClosesMenu() {
         val (toolkit, sent) = menu("card-actions", false)
+        compose.ringPage(3)
+        compose.onNodeWithContentDescription("Graveyard · Alice").performScrollTo()
         compose.onNodeWithContentDescription("Graveyard · Alice").performClick()
         assertTrue(sent.any { it is PlayAction.MoveCard })
         assertEquals(null, toolkit.manual.scope)
@@ -346,7 +349,7 @@ class TableScreenshotTest {
 
     @Test fun moreKeepsTheFullDestinationInventoryReachable() {
         val (toolkit, sent) = menu("card-actions", false)
-        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Move to Stack").performScrollTo().performClick()
         assertEquals(null, toolkit.manual.scope)
         assertTrue(sent.any { it is PlayAction.MoveCard && it.destination.containerId == "stack" })

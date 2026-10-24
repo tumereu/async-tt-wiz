@@ -56,8 +56,10 @@ class TableInteractionsScreenshotTest {
         }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         capture("menu-${width.toInt()}x${height.toInt()}-font$font")
-        for (label in listOf("More actions", "Set corner", "Set gray counter, no value", "Decrease gray counter")) {
-            compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed()
+        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Move to Stack")) {
+            compose.ringPage(page)
+            if (page == 3) compose.onNodeWithContentDescription(label).performScrollTo()
+            compose.onNodeWithContentDescription(label).assertIsDisplayed()
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label retains its touch target")
         }
@@ -77,10 +79,10 @@ class TableInteractionsScreenshotTest {
         compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(p.x, p.y)) }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        // A real second pointer sequence now belongs to the new dialog window, not the table.
-        compose.onNode(isDialog()).performTouchInput { advanceEventTime(80); click(Offset(p.x, p.y)) }
+        // The transparent ring relays only this same-card replacement; it owns other outside taps.
+        compose.onNodeWithContentDescription("Card action ring").performTouchInput { advanceEventTime(80); click(Offset(p.x, p.y)) }
         compose.mainClock.autoAdvance = true
-        compose.onNodeWithContentDescription("More actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.runOnIdle { assertNull(toolkit.manual.scope) }
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(item.cardId!!, !item.tapped)), sent)
     }

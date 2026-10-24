@@ -185,7 +185,7 @@ class TableStatesScreenshotTest {
         compose.onRoot().performTouchInput {
             doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
         }
-        compose.onNodeWithContentDescription("More actions").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
         compose.onNodeWithContentDescription("Put to battlefield").assertDoesNotExist()
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
@@ -209,6 +209,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
+    @OptIn(ExperimentalRoborazziApi::class)
     @Test fun explicitStackInspectStaysOpenAndKeepsItsTextMarker() {
         val sent = render("stack-bubbles", false)
         val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
@@ -216,7 +217,9 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
             doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
         }
+        compose.ringPage(1)
         compose.onNodeWithContentDescription("Inspect").performClick()
+        captureScreenRoboImage("build/outputs/roborazzi/ring-stack-inspection.png")
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
         compose.onNodeWithText("Return target permanent to its owner's hand.").performScrollTo().assertIsDisplayed()
         compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
@@ -253,7 +256,7 @@ class TableStatesScreenshotTest {
     @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
     private fun assertNoStackTapControls(kind: String) {
         val sent = render(kind, false)
-        compose.onNodeWithContentDescription("More actions").performClick()
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
         assertTrue(sent.isEmpty())
@@ -265,6 +268,7 @@ class TableStatesScreenshotTest {
         val sent = render("graveyard-contents", false)
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Graveyard · Alice").assertExists()
         compose.onNodeWithContentDescription("Library top · Alice").assertExists()
         compose.onNodeWithContentDescription("Library bottom · Alice").assertExists()

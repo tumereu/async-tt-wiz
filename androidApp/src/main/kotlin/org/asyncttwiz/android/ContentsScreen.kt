@@ -71,18 +71,30 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
     onStackIntent: ((TableIntent) -> Boolean)? = null, stackWritable: Boolean = false) {
     var search by remember(pile.containerId) { mutableStateOf("") }
     var bubbleId by remember(pile.containerId) { mutableStateOf<String?>(null) }
+    var pendingAdvance by remember(pile.containerId) { mutableStateOf<Pair<String, String>?>(null) }
     var root by remember { mutableStateOf(Rect.Zero) }
     val rows = remember(pile.containerId) { mutableStateMapOf<String, Rect>() }
     val density = LocalDensity.current.density
     val stack = pile.ordered && onStackIntent != null
     val entries = contentsEntries(state, pile, viewer, search)
     val callback by rememberUpdatedState(onStackIntent)
-    val coordinator = remember(pile.containerId, density) { TableGestureCoordinator({ intent ->
-        if (intent is TableIntent.StackBubbles) bubbleId = intent.entryId
+    val dispatch by rememberUpdatedState<(TableIntent) -> Unit>({ intent ->
+        if (intent is TableIntent.StackBubbles) { pendingAdvance = null; bubbleId = intent.entryId }
         else {
-            if (intent is TableIntent.StackDestination) bubbleId = null
-            callback?.invoke(intent)
+            val advance = stackBubbleAdvanceEntry(intent, state.board)
+            if (intent is TableIntent.StackDestination || intent is TableIntent.StackBubbleRemove) bubbleId = null
+            if (callback?.invoke(intent) == true && advance != null) pendingAdvance = advance to state.currentNodeId
         }
+    })
+    LaunchedEffect(state, pendingAdvance) {
+        pendingAdvance?.let { (entry, node) ->
+            val order = CombatStackRules.stack(state.board).cards
+            if (entry !in order) bubbleId = order.firstOrNull()
+            if (entry !in order || node != state.currentNodeId) pendingAdvance = null
+        }
+    }
+    val coordinator = remember(pile.containerId, density) { TableGestureCoordinator({ intent ->
+        dispatch(intent)
     }, density = density) }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
@@ -90,7 +102,8 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
         val anchor = rows[bubbleId]?.takeIf { bubbleId in entries.map { it.cardId } && it.width > 0 && it.height > 0 }
             ?.let { TableBounds((it.left - root.left) / density, (it.top - root.top) / density, it.width / density, it.height / density) }
         val bubble = if (stack && anchor != null) StackBubbleGeometry.create(requireNotNull(bubbleId), anchor,
-            maxWidth.value, maxHeight.value, state.board.stackTextMarks[bubbleId], stackTextOptions(state, requireNotNull(bubbleId), viewer).size) else null
+            maxWidth.value, maxHeight.value, state.board.stackTextMarks[bubbleId]?.minOrNull(), stackTextOptions(state, requireNotNull(bubbleId), viewer).size)
+            .copy(multipleMarks = state.board.stackTextMarks[bubbleId].orEmpty().size > 1) else null
         val currentBubble by rememberUpdatedState(bubble)
         SideEffect {
             // The same production coordinator owns the bubble taps and mark-text drag as on the table.
@@ -104,6 +117,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val point = coordinator.pointFromPixels(down.position.x, down.position.y)
                     if (currentBubble?.controls?.any { it.bounds.contains(point) } != true) {
+                        pendingAdvance = null
                         bubbleId = null // No scrim: outside touches continue to rows, search and scrolling.
                     } else {
                         coordinator.down(point, down.uptimeMillis); down.consume()
@@ -123,7 +137,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             } finally { coordinator.cancel() }
         }) {
             Column(Modifier.fillMaxSize()) {
-                OutlinedTextField(search, { search = it; bubbleId = null }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
+                OutlinedTextField(search, { search = it; bubbleId = null; pendingAdvance = null }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
                 ContentsRows(state, viewer, entries, !pile.ordered,
                     onActions = { if (stack) { if (it == pile.cardIds.firstOrNull()) bubbleId = it } else onActions(it) }, onInspect = onInspect,
                     modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,
@@ -132,8 +146,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             if (bubble != null) StackBubbleOverlay(bubble, stackTextOptions(state, bubble.entryId, viewer),
                 if (CombatStackRules.inspection(state.board, bubble.entryId)?.owner == viewer) OwnTableColor else OpponentTableColor,
                 preview, stackWritable) { intent ->
-                if (intent is TableIntent.StackDestination) bubbleId = null
-                callback?.invoke(intent)
+                dispatch(intent)
             }
         }
     }

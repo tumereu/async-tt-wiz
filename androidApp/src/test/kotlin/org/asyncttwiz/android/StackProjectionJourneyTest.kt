@@ -407,8 +407,11 @@ class StackProjectionJourneyTest {
                                 val id = effects.random(random).id
                                 j.ui.removeOccurrences(j.ui.bind(TableScope(id, listOf(id)))!!)
                             }
-                            4 -> {
-                                val piles = basicPileDestinations(j.f.play, TableScope(card.id, listOf(card.id)))
+                             4 -> {
+                                 val piles = j.f.play.board.cards.filter { target -> target.placement != null && target.id != card.id &&
+                                     target.owner == card.owner && j.f.play.board.cards.count {
+                                         it.containerId == target.containerId && it.placement == target.placement } < 3 }
+                                     .map { TableDestination.CardPile(it.id, BasicTableController.sources(j.f.play, listOf(it.id)).getValue(it.id)) }
                                 if (piles.isNotEmpty()) j.ui.handle(TableIntent.Move(TableScope(card.id, listOf(card.id)),
                                     piles.random(random), j.scene().sources))
                             }

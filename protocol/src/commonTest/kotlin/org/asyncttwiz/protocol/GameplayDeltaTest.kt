@@ -87,6 +87,12 @@ class GameplayDeltaTest {
         val textEntry = textStack.board.stackEffects.single().id
         val marked = check(textStack, PlayAction.Stack(StackAction.MarkText(textEntry, 0)))
         check(marked, PlayAction.Stack(StackAction.MarkText(textEntry, null)))
+        val multiMarked = check(marked, PlayAction.Stack(StackAction.ToggleTextMark(textEntry, 1)))
+        assertEquals(setOf(0, 1), multiMarked.board.stackTextMarks[textEntry])
+        check(multiMarked, PlayAction.Stack(StackAction.ToggleTextMark(textEntry, 0)))
+        check(multiMarked, PlayAction.Stack(StackAction.MarkText(textEntry, 1)))
+        check(multiMarked, PlayAction.Stack(StackAction.MarkText(textEntry, null)))
+        check(multiMarked, PlayAction.Stack(StackAction.RemoveEffect(textEntry)))
         val projections = check(stack, PlayAction.LinkProjections(ProjectionEndpoint(occurrence.id), ProjectionEndpoint(order[0])))
         check(projections, PlayAction.RemoveProjectionLink(projections.board.projectionLinks.single().id))
         check(projections, PlayAction.MoveCard(card, MoveSource(gameplayId(22), projections.board.cards.first().placement),

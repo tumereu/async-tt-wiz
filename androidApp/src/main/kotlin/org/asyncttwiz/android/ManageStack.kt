@@ -16,6 +16,7 @@ import org.asyncttwiz.protocol.*
 internal object StackMenuActions {
     fun remove(entryId: String): PlayAction = PlayAction.Stack(StackAction.RemoveEffect(entryId))
     fun mark(entryId: String, index: Int?): PlayAction = PlayAction.Stack(StackAction.MarkText(entryId, index))
+    fun toggleMark(entryId: String, index: Int): PlayAction = PlayAction.Stack(StackAction.ToggleTextMark(entryId, index))
     fun reorder(board: BoardState, entryId: String, delta: Int): PlayAction? {
         val order = CombatStackRules.stack(board).cards
         val at = order.indexOf(entryId)
@@ -43,7 +44,6 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
     val order = CombatStackRules.stack(state.board).cards
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
-    var marking by remember { mutableStateOf<String?>(null) }
     var inspection by remember { mutableStateOf<ManualInspection?>(null) }
     var peeking by remember { mutableStateOf(false) }
     fun inspect(id: String, hold: Boolean) {
@@ -77,9 +77,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         }
                         Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}", Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                        StackMarkChip(state.board.stackTextMarks[id], Modifier.semantics {
-                            contentDescription = state.board.stackTextMarks[id]?.let { "Text mark ${it + 1}" } ?: "No text mark"
-                        })
+                        StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
                     Row {
                         TextButton({ perform(TableIntent.Submit(StackMenuActions.remove(id), null)) }, enabled = enabled && projection) { Text("Remove from Stack") }
@@ -91,20 +89,13 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             enabled = enabled && projection && index < order.lastIndex) { Text("↓") }
                     }
                     Row {
-                        Box {
-                            TextButton({ marking = id }, enabled = enabled) { Text("Mark text") }
-                            DropdownMenu(marking == id, { marking = null }) {
-                                DropdownMenuItem(text = { Text("Clear text mark") }, onClick = {
-                                    marking = null; perform(TableIntent.Submit(StackMenuActions.mark(id, null), null))
-                                })
-                                stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
-                                    DropdownMenuItem(text = { Text("${option + 1} — ${text.text}", maxLines = 3) }, onClick = {
-                                        marking = null; perform(TableIntent.Submit(StackMenuActions.mark(id, option), null))
-                                    })
-                                }
-                            }
-                        }
                         TextButton({ source?.let { cardActions(it.id) } }, enabled = source != null) { Text("Card actions") }
+                    }
+                    stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
+                        FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
+                            onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
+                            enabled = enabled, leadingIcon = { StackMarkChip(option) },
+                            label = { CardText(text.text, maxLines = 3) })
                     }
                     if (index == 0) Row {
                         TextButton({ perform(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)) }, enabled = enabled) { Text("Put to battlefield") }

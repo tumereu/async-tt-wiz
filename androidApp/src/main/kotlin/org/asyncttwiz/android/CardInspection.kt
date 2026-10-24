@@ -31,7 +31,7 @@ import org.asyncttwiz.protocol.*
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
 internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
-    markedOption: Pair<Int, StackTextOption>? = null,
+    markedOptions: List<Pair<Int, StackTextOption>> = emptyList(),
     token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false,
     peekScroll: ScrollState? = null) {
     val state = controller.state ?: return
@@ -79,9 +79,14 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                     val text: @Composable () -> Unit = {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (peek) 4.dp else 12.dp)) {
                             annotation?.let { Text(it) }
-                            val marked = markedOption?.takeIf { it.second.faceId == face.faceId }
+                            // Current-face marks are highlighted inline below; list other faces too.
+                            for ((index, option) in markedOptions.filter { it.second.faceId != face.faceId }) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StackMarkChip(index)
+                                CardText(option.text)
+                            }
+                            val marked = markedOptions.filter { it.second.faceId == face.faceId }
                             @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
-                                val selected = marked?.takeIf { it.second.paragraph == paragraph }
+                                val selected = marked.firstOrNull { it.second.paragraph == paragraph }
                                 Row(if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
                                     RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -155,12 +160,12 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         val full = remember(card.definition, definition) { InspectedCard.retained(card.definition, definition) }
         val permitted = remember(full, filtered) { InspectedCard(filtered,
             faces.map { face -> full.artwork[definition.faces.indexOf(face)] }) }
-        val mark = inspection.stackEntryId?.let { entry -> state.board.stackTextMarks[entry]?.let { index ->
-            StackText.options(state, entry).getOrNull(index)?.let { index to it }
-        } }
+        val marks = inspection.stackEntryId?.let { entry -> state.board.stackTextMarks[entry].orEmpty().sorted().mapNotNull { index ->
+            StackText.options(state, entry).getOrNull(index)?.takeIf { it.faceId in allowed }?.let { index to it }
+        } }.orEmpty()
         val controller = remember(inspection) { CardInspectionController().apply {
             open(permitted)
-            mark?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
+            marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
         if (controller.state != null) CardInspection(controller,
@@ -170,7 +175,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                 card.corner.takeIf(String::isNotBlank),
                 card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
                 card.note.takeIf(String::isNotBlank)).joinToString("\n"),
-            markedOption = mark,
+            markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
             projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll)
         // Inner dialog's native Back/outside/close must also release the retained outer route.

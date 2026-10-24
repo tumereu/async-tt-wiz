@@ -50,7 +50,7 @@ class TableStatesScreenshotTest {
             val replacement = SubmittedDefinition(DeckJson.digest(definition), definition)
             play.copy(definitions = play.definitions.map { if (it == old) replacement else it }, board = play.board.copy(
                 cards = play.board.cards.map { if (it.definition == old.digest) it.copy(definition = replacement.digest) else it },
-                stackTextMarks = mapOf(f.id("effect") to 1)))
+                stackTextMarks = mapOf(f.id("effect") to setOf(1))))
         }
         val tokenState = f.combat().let { state ->
             val actual = state.board.containers.single { it.zone == PlayZone.STACK }.cards.first { id -> state.board.cards.any { it.id == id } }
@@ -279,10 +279,14 @@ class TableStatesScreenshotTest {
         compose.runOnIdle { assertTrue(inspect.action()) }
         captureScreenRoboImage("build/outputs/roborazzi/ring-stack-inspection.png")
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
-        compose.onNodeWithText("Return target permanent to its owner's hand.").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText("Return target permanent to its owner's hand.") and
+            hasAnyAncestor(hasContentDescription("Card inspection content"))).performScrollTo().assertIsDisplayed()
         compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
         compose.onNodeWithContentDescription("Close card inspection").performClick()
-        compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
+        compose.onNode(hasText("Return target permanent to its owner's hand.") and
+            hasAnyAncestor(hasContentDescription("Card inspection content"))).assertDoesNotExist()
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Return target permanent to its owner's hand.").assertExists() // The mark chip remains.
         assertTrue(sent.isEmpty())
     }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackBubblesLandscape() { render("stack-bubbles", true) }

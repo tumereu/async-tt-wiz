@@ -36,7 +36,8 @@ internal fun stackTextOptions(state: PlayState, entryId: String, viewer: String)
 }
 
 data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val controls: List<TableItem>,
-    val selected: Int?, val optionCount: Int, val actions: Map<String, TableIntent> = emptyMap()) {
+    val selected: Int?, val optionCount: Int, val actions: Map<String, TableIntent> = emptyMap(),
+    val multipleMarks: Boolean = false) {
     companion object {
         fun combat(board: BoardState, entryId: String, anchor: TableBounds, width: Float, height: Float): StackBubbleGeometry {
             val base = create(entryId, anchor, width, height, null, 0)
@@ -114,9 +115,9 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
                     if (enabled) perform(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(geometry.entryId, null)), null)); enabled
                 }
             } else onClick(item.label) {
-                if (enabled) perform(geometry.actions[item.id] ?: if (item.id.endsWith("/remove")) TableIntent.Submit(StackMenuActions.remove(geometry.entryId), null)
+                if (enabled) perform(geometry.actions[item.id] ?: if (item.id.endsWith("/remove")) TableIntent.StackBubbleRemove(geometry.entryId)
                     else TableIntent.StackDestination(geometry.entryId,
-                        if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD)); enabled
+                        if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD, fromBubble = true)); enabled
             }
         }, shape = RoundedCornerShape(10.dp), color = ownerColor, contentColor = Color.White, shadowElevation = 3.dp) {
             Box(contentAlignment = Alignment.Center) { if (item.id.endsWith("/ping")) TableChromeIcon("ping") else Icon(when {
@@ -175,4 +176,14 @@ internal fun StackMarkChip(index: Int?, modifier: Modifier = Modifier) {
     Text(index?.let { "${it + 1}" } ?: "–", modifier.background(index?.let(::stackMarkColor) ?: Color.DarkGray,
         RoundedCornerShape(4.dp)).padding(horizontal = 5.dp, vertical = 1.dp), color = Color.White,
         style = MaterialTheme.typography.labelSmall)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun StackMarkChips(indices: Set<Int>, modifier: Modifier = Modifier) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        indices.sorted().forEach { index -> StackMarkChip(index, Modifier.semantics {
+            contentDescription = "Stack text mark ${index + 1}"
+        }) }
+    }
 }

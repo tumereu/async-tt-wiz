@@ -201,7 +201,7 @@ class TableGestureCoordinator(
                 // Empty taps remain immediate; retain only recognition metadata for navigation.
                 if (doubleTapEnabled && c.item == null && scene.worldInput(c.start)) pending = Tap(c, time + doubleMillis, true)
             }
-            Phase.MARK -> if (writable && c.bubble != null && preview.markIndex != c.bubble.selected &&
+            Phase.MARK -> if (writable && c.bubble != null && (preview.markIndex != c.bubble.selected || c.bubble.multipleMarks) &&
                 c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
                 emit(TableIntent.Submit(org.asyncttwiz.protocol.PlayAction.Stack(
                     org.asyncttwiz.protocol.StackAction.MarkText(c.bubble.entryId, preview.markIndex)), null))
@@ -313,9 +313,9 @@ class TableGestureCoordinator(
         }
         if (item?.id?.startsWith("stackBubble/") == true) {
             if (writable && c.bubble != null) when (item.id) {
-                "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD))
-                "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD))
-                "stackBubble/remove" -> emit(TableIntent.Submit(StackMenuActions.remove(c.bubble.entryId), null))
+                "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD, fromBubble = true))
+                "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD, fromBubble = true))
+                "stackBubble/remove" -> emit(TableIntent.StackBubbleRemove(c.bubble.entryId))
             }
             return
         }

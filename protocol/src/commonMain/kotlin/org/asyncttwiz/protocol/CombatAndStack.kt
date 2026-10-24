@@ -36,6 +36,7 @@ import kotlinx.serialization.Serializable
 }
 @Serializable sealed interface StackAction {
     @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
+    @Serializable @SerialName("toggleTextMark") data class ToggleTextMark(val entryId: String, val optionIndex: Int) : StackAction
     @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
     @Serializable @SerialName("reorderEffect") data class ReorderEffect(val occurrenceId: String,
@@ -52,7 +53,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class StackEffectChange(val id: String, val from: StackEffect?, val to: StackEffect?)
 @Serializable data class StackOrderChange(val id: String, val from: IdentityGap?, val to: IdentityGap?)
 @Serializable data class StackGuardChange(val from: String, val to: String)
-@Serializable data class StackTextMarkChange(val entryId: String, val from: Int?, val to: Int?)
+@Serializable data class StackTextMarkChange(val entryId: String, val from: StackTextMarks?, val to: StackTextMarks?)
 /** Exact relevant tuples: no unrelated card fields, full board, or surviving pair contents. */
 @Serializable data class CombatStackTransition(val area: CombatAreaChange? = null,
     val occurrences: List<CombatOccurrenceChange> = emptyList(), val pairs: List<CombatPairChange> = emptyList(),
@@ -123,6 +124,7 @@ object CombatStackRules {
     }
     fun valid(action: StackAction): Boolean = when (action) {
         is StackAction.MarkText -> DeckValidation.uuid(action.entryId) && (action.optionIndex == null || action.optionIndex >= 0)
+        is StackAction.ToggleTextMark -> DeckValidation.uuid(action.entryId) && action.optionIndex >= 0
         is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest)
         is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
         is StackAction.ReorderEffect -> DeckValidation.uuid(action.occurrenceId) && valid(action.expected) && valid(action.destination)
@@ -194,12 +196,17 @@ object CombatStackRules {
                 }
             }
             is PlayAction.Stack -> when (val action = playAction.action) {
-                is StackAction.MarkText -> {
-                    if (action.entryId !in stack(board).cards) return reject("missingReference")
-                    if (action.optionIndex != null && action.optionIndex !in StackText.options(state, action.entryId).indices)
+                is StackAction.MarkText, is StackAction.ToggleTextMark -> {
+                    val entryId = if (action is StackAction.MarkText) action.entryId else (action as StackAction.ToggleTextMark).entryId
+                    val index = if (action is StackAction.MarkText) action.optionIndex else (action as StackAction.ToggleTextMark).optionIndex
+                    if (entryId !in stack(board).cards) return reject("missingReference")
+                    if (index != null && index !in StackText.options(state, entryId).indices)
                         return reject("invalidInput")
-                    board.copy(stackTextMarks = if (action.optionIndex == null) board.stackTextMarks - action.entryId
-                        else board.stackTextMarks + (action.entryId to action.optionIndex))
+                    val old = board.stackTextMarks[entryId].orEmpty()
+                    val marks = if (action is StackAction.MarkText) setOfNotNull(index)
+                        else if (index in old) old - index!! else old + index!!
+                    board.copy(stackTextMarks = if (marks.isEmpty()) board.stackTextMarks - entryId
+                        else board.stackTextMarks + (entryId to marks))
                 }
                 is StackAction.AddEffect -> {
                     if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")

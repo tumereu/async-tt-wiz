@@ -106,22 +106,4 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
             CombatStackRules.canProject(play.board, it) } == true }) add(MenuControl("Move to Stack", enabled) {
         if (request(TableIntent.Move(scope, TableDestination.Container(stack.id, stack.zone), sources))) dismiss()
     })
-    // Snapshot the same real-card destination used by dragging; sync must not replace an open choice.
-    val piles = basicPileDestinations(play, scope)
-    for (destination in piles) {
-        val source = requireNotNull(destination.source)
-        val position = requireNotNull(source.placement)
-        add(MenuControl("Move to pile (${position.column.toInt()}, ${position.row.toInt()})", enabled) {
-            if (request(TableIntent.Move(scope, destination, sources))) dismiss()
-        })
-    }
 }
-
-internal fun basicPileDestinations(play: PlayState, scope: TableScope): List<TableDestination.CardPile> =
-    play.board.cards.filter { card -> card.placement != null && card.id !in scope.cardIds &&
-        scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.owner ==
-            play.board.containers.singleOrNull { it.id == card.containerId }?.accountId } }
-        .distinctBy { it.containerId to it.placement }.filter { card ->
-            val members = play.board.cards.filter { it.containerId == card.containerId && it.placement == card.placement }.map { it.id }
-            (members + scope.cardIds).distinct().size <= 3
-        }.map { card -> TableDestination.CardPile(card.id, BasicTableController.sources(play, listOf(card.id)).getValue(card.id)) }

@@ -81,7 +81,7 @@ class StackQuickActionsTest {
     @Test fun projectionMoveDefaultsRemovalAndMarkAreOneReplayableUndoableMutation() {
         val base = initial(projection = true)
         val initial = base.copy(board = base.board.copy(cards = base.board.cards.map {
-            it.copy(corner = "9/9", counters = mapOf(CounterColor.BLUE to "3")) }, stackTextMarks = mapOf(id(30) to 1)))
+            it.copy(corner = "9/9", counters = mapOf(CounterColor.BLUE to "3")) }, stackTextMarks = mapOf(id(30) to setOf(1))))
         val actions = StackQuickActions.actions(initial, id(30), PlayZone.GRAVEYARD)
         val action = assertIs<PlayAction.MoveCard>(actions.single())
         assertEquals(id(30), action.removeStackEntryId)
@@ -121,7 +121,7 @@ class StackQuickActionsTest {
             val entry = CombatStackRules.stack(initial.board).cards.single()
             var tree = append(GameplayTree(initial), PlayAction.Stack(StackAction.MarkText(entry, 1)))
             val marked = tree.stateAt(tree.currentNodeId)!!
-            assertEquals(mapOf(entry to 1), marked.board.stackTextMarks)
+            assertEquals(mapOf(entry to setOf(1)), marked.board.stackTextMarks)
             assertEquals(GameplayRules.stackDigest(initial), GameplayRules.stackDigest(marked))
             assertEquals("noOp", GameplayRules.change(marked, owner,
                 command(marked, GameAction.Play(PlayAction.Stack(StackAction.MarkText(entry, 1))))).outcome)
@@ -130,14 +130,61 @@ class StackQuickActionsTest {
             tree = append(tree, PlayAction.Stack(StackAction.MarkText(entry, null)))
             assertTrue(tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks.isEmpty())
             tree = undo(tree)
-            assertEquals(mapOf(entry to 1), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
+            assertEquals(mapOf(entry to setOf(1)), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
             val beforeExit = tree.stateAt(tree.currentNodeId)!!
             for (action in StackQuickActions.actions(beforeExit, entry, PlayZone.BATTLEFIELD)) tree = append(tree, action)
             assertTrue(tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks.isEmpty())
             tree = undo(tree)
-            assertEquals(mapOf(entry to 1), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
+            assertEquals(mapOf(entry to setOf(1)), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
             tree = undo(tree)
             assertTrue(tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks.isEmpty())
+        }
+    }
+    @Test fun multipleMarksToggleReplaceAndLeaveWithExactWireEventInverses() {
+        for (projection in listOf(false, true)) {
+            val initial = initial(projection)
+            val entry = CombatStackRules.stack(initial.board).cards.single()
+            var state = initial
+            fun change(action: PlayAction) {
+                val before = state
+                val result = GameplayRules.change(before, actor, command(before, GameAction.Play(action)))
+                if (result.mutation == null) {
+                    assertEquals("noOp", result.outcome, "$action: ${result.reason}")
+                    assertEquals(before, result.state)
+                    return
+                }
+                val event = result.mutation
+                val wire = GameWire.json.encodeToString(GameplayMutation.serializer(), event)
+                val decoded = GameWire.json.decodeFromString(GameplayMutation.serializer(), wire)
+                state = assertNotNull(GameplayHistory.apply(before, decoded))
+                assertEquals(result.state, state)
+                assertEquals(before, GameplayHistory.unapply(state, decoded))
+                assertEquals(2, event.schemaVersion)
+                assertNotNull(event.transition.delta)
+            }
+            change(PlayAction.Stack(StackAction.MarkText(entry, 1)))
+            val singleton = GameWire.json.encodeToString(PlayState.serializer(), state)
+            assertTrue(singleton.contains("\"stackTextMarks\":{\"$entry\":1}"))
+            assertEquals(state, GameWire.json.decodeFromString(PlayState.serializer(), singleton))
+            val legacy = "{\"entryId\":\"$entry\",\"from\":1,\"to\":2}"
+            val legacyChange = GameWire.json.decodeFromString(StackTextMarkChange.serializer(), legacy)
+            assertEquals(StackTextMarkChange(entry, setOf(1), setOf(2)), legacyChange)
+            assertEquals(legacy, GameWire.json.encodeToString(StackTextMarkChange.serializer(), legacyChange))
+            change(PlayAction.Stack(StackAction.ToggleTextMark(entry, 0)))
+            change(PlayAction.Stack(StackAction.ToggleTextMark(entry, 2)))
+            assertEquals(setOf(0, 1, 2), state.board.stackTextMarks[entry])
+            assertEquals("invalidInput", GameplayRules.change(state, actor,
+                command(state, GameAction.Play(PlayAction.Stack(StackAction.ToggleTextMark(entry, 3))))).reason)
+            change(PlayAction.Stack(StackAction.ToggleTextMark(entry, 1)))
+            assertEquals(setOf(0, 2), state.board.stackTextMarks[entry])
+            val multi = state
+            for (action in StackQuickActions.actions(state, entry, PlayZone.GRAVEYARD)) change(action)
+            assertTrue(state.board.stackTextMarks.isEmpty())
+            state = multi
+            change(PlayAction.Stack(StackAction.MarkText(entry, 2)))
+            assertEquals(setOf(2), state.board.stackTextMarks[entry])
+            change(PlayAction.Stack(StackAction.ToggleTextMark(entry, 2)))
+            assertTrue(state.board.stackTextMarks.isEmpty())
         }
     }
     @Test fun definitionOptionsAreTitlesThenLiteralParagraphsForEveryMultipartLayout() {
@@ -157,13 +204,13 @@ class StackQuickActionsTest {
             tree = append(tree, PlayAction.MoveCard(source.id, MoveSource(source.containerId, source.placement),
                 MoveDestination(id(13), MoveInsertion.UNORDERED)))
             val moved = tree.stateAt(tree.currentNodeId)!!
-            assertEquals(mapOf(id(30) to 2), moved.board.stackTextMarks)
+            assertEquals(mapOf(id(30) to setOf(2)), moved.board.stackTextMarks)
             assertEquals(GameplayRules.stackDigest(before), GameplayRules.stackDigest(moved))
             assertEquals(token, moved.board.stackEffects.single().frozen != null)
             tree = append(tree, PlayAction.Stack(StackAction.RemoveEffect(id(30))))
             assertTrue(tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks.isEmpty())
             tree = undo(tree)
-            assertEquals(mapOf(id(30) to 2), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
+            assertEquals(mapOf(id(30) to setOf(2)), tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks)
         }
     }
 }

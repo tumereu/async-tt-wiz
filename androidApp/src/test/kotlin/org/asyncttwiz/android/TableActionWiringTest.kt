@@ -5,46 +5,34 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableActionWiringTest {
-    @Test fun actualSelectedDragAndActionsPileChoiceSendOrderedRequestsWithoutWaitingForAcknowledgements() {
-        for (actions in listOf(false, true)) {
-            val f = BasicTableFixture(); f.connect()
-            f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1))
-            f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 1, 1))
-            f.move(42, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 3, 1))
-            var selection = TableSelection(setOf(f.id(40), f.id(41)))
-            val gestures = TableGestureCoordinator({ intent ->
-                if (intent is TableIntent.Selection) selection = intent.selection
-                f.basic.handle(intent)
-            })
-            fun scene() = TablePresentation.scene(f.game, f.play, f.actor, 900f, 600f, true)
-            val scene = scene()
-            gestures.update(scene, selection, true)
-            val source = scene.items.single { it.cardId == f.id(40) }
-            val target = scene.items.single { it.cardId == f.id(42) }
-            val count = f.commands().size
-            if (actions) {
-                gestures.actions(source)
-                val captured = requireNotNull(gestures.capturedActions)
-                val scope = requireNotNull(captured.scope)
-                val choice = basicPileDestinations(f.play, scope).single()
-                assertEquals(f.id(42), choice.cardId)
-                assertTrue(f.basic.handle(TableIntent.Move(scope, choice, captured.sources)))
-            } else {
-                gestures.down(source.visible.first().center, 0)
-                gestures.move(target.visible.first().center, 100)
-                assertEquals(f.id(42), (gestures.preview.destination as TableDestination.CardPile).cardId)
-                assertEquals(count, f.commands().size)
-                // Reflow changes rendered geometry/selection, not the captured selected set or target.
-                gestures.update(scene.copy(items = scene.items.reversed()), TableSelection(setOf(f.id(43))), true)
-                gestures.up(target.visible.first().center, 150)
-            }
-            val commands = f.commands().drop(count)
-            assertEquals(listOf(f.id(40), f.id(41)), commands.map { ((it.action as GameAction.Play).action as PlayAction.MoveCard).cardId })
-            assertEquals(1, commands.map { it.invocationId }.distinct().size)
-            assertEquals(listOf(f.id(40), f.id(41), f.id(42)), f.play.board.containers.single { it.id == f.container(PlayZone.BATTLEFIELD) }.cards)
-            assertEquals(selection.ids, setOf(f.id(40), f.id(41)))
-            assertEquals(f.root, f.lobby.state.acceptedPlay)
-        }
+    @Test fun actualSelectedDragSendsOrderedPileRequestsWithoutWaitingForAcknowledgements() {
+        val f = BasicTableFixture(); f.connect()
+        f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1))
+        f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 1, 1))
+        f.move(42, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 3, 1))
+        var selection = TableSelection(setOf(f.id(40), f.id(41)))
+        val gestures = TableGestureCoordinator({ intent ->
+            if (intent is TableIntent.Selection) selection = intent.selection
+            f.basic.handle(intent)
+        })
+        val scene = TablePresentation.scene(f.game, f.play, f.actor, 900f, 600f, true)
+        gestures.update(scene, selection, true)
+        val source = scene.items.single { it.cardId == f.id(40) }
+        val target = scene.items.single { it.cardId == f.id(42) }
+        val count = f.commands().size
+        gestures.down(source.visible.first().center, 0)
+        gestures.move(target.visible.first().center, 100)
+        assertEquals(f.id(42), (gestures.preview.destination as TableDestination.CardPile).cardId)
+        assertEquals(count, f.commands().size)
+        // Reflow changes rendered geometry/selection, not the captured selected set or target.
+        gestures.update(scene.copy(items = scene.items.reversed()), TableSelection(setOf(f.id(43))), true)
+        gestures.up(target.visible.first().center, 150)
+        val commands = f.commands().drop(count)
+        assertEquals(listOf(f.id(40), f.id(41)), commands.map { ((it.action as GameAction.Play).action as PlayAction.MoveCard).cardId })
+        assertEquals(1, commands.map { it.invocationId }.distinct().size)
+        assertEquals(listOf(f.id(40), f.id(41), f.id(42)), f.play.board.containers.single { it.id == f.container(PlayZone.BATTLEFIELD) }.cards)
+        assertEquals(selection.ids, setOf(f.id(40), f.id(41)))
+        assertEquals(f.root, f.lobby.state.acceptedPlay)
     }
 
     @Test fun productionCoordinatorDrawDragAndDoubleTapReachRealLobbyRequestsWhileHoldAndCameraStayPersonal() {

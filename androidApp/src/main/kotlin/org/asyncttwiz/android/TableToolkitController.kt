@@ -60,7 +60,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String, val effect: Boolean)
     private var pendingStackBubble: PendingStackBubble? = null
-    fun showStackBubbles(id: String?) { pendingStackBubble = null; stackBubbleEntry = id }
+    private data class PendingStackAdvance(val nodeId: String, val entryId: String)
+    private var pendingStackAdvance: PendingStackAdvance? = null
+    fun showStackBubbles(id: String?) { pendingStackBubble = null; pendingStackAdvance = null; stackBubbleEntry = id }
     /** Follow the session's prediction as soon as it is published, without waiting for acceptance.
      * Real card IDs and request-derived effect IDs are identical in prediction and accepted state. */
     fun refreshStackBubbles() {
@@ -72,6 +74,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 else id == pending.sourceId }
             if (added != null) stackBubbleEntry = stack.firstOrNull()
             if (added != null || play.currentNodeId != pending.nodeId) pendingStackBubble = null
+        }
+        pendingStackAdvance?.let { pending ->
+            if (pending.entryId !in stack) stackBubbleEntry = stack.firstOrNull()
+            if (pending.entryId !in stack || play.currentNodeId != pending.nodeId) pendingStackAdvance = null
         }
         if (stackBubbleEntry != stack.firstOrNull()) stackBubbleEntry = null
     }
@@ -311,13 +317,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun handle(intent: TableIntent): Boolean = batch {
         when (intent) {
             is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }
-            is TableIntent.StackDestination -> {
+            is TableIntent.StackDestination, is TableIntent.StackBubbleRemove -> {
                 val play = current()?.takeIf { enabled() } ?: return@batch false
-                val actions = runCatching { StackMenuActions.destination(play, intent.entryId, intent.zone) }.getOrNull() ?: return@batch false
+                val actions = when (intent) {
+                    is TableIntent.StackDestination -> runCatching { StackMenuActions.destination(play, intent.entryId, intent.zone) }.getOrNull()
+                    is TableIntent.StackBubbleRemove -> listOf(StackMenuActions.remove(intent.entryId))
+                    else -> null
+                } ?: return@batch false
+                val advance = stackBubbleAdvanceEntry(intent, play.board)?.let { PendingStackAdvance(play.currentNodeId, it) }
                 showStackBubbles(null)
                 var sent = false
                 // The shared lowering already includes move-entry defaults; do not expand the move twice.
                 for (action in actions) { if (!enqueue(action, invocation)) return@batch sent; sent = true }
+                if (sent) { pendingStackAdvance = advance; refreshStackBubbles() }
                 sent
             }
             is TableIntent.Move -> {

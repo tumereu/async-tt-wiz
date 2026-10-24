@@ -71,12 +71,12 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
         return target?.let { tablePingIntent(play, reference, it) }
     }
 
-    private fun active(play: PlayState) = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }.orEmpty()
+    private fun active(play: PlayState) = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
 }
 
 /** Capture an explicit operation; a later group change must never turn Unping into Ping. */
 internal fun tablePingIntent(play: PlayState, reference: EventReference, target: PingTarget): EventPingIntent {
-    val existing = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }
+    val existing = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }
         ?.lastOrNull { it.target == target }
     return EventPingIntent(existing?.reference?.reference ?: reference, listOf(target), existing == null)
 }

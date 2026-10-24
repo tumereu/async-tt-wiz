@@ -121,7 +121,9 @@ class StackQuickActionsRuntimeTest {
                 apply(PlayAction.Stack(StackAction.AddEffect(token.id, GameplayRules.stackDigest(state()))))
                 val entry = state().board.stackEffects.single().id
                 apply(PlayAction.Stack(StackAction.MarkText(entry, 1)))
-                assertEquals(mapOf(entry to 1), f.games.head(f.b, f.game.id).play!!.board.stackTextMarks)
+                assertEquals(mapOf(entry to setOf(1)), f.games.head(f.b, f.game.id).play!!.board.stackTextMarks)
+                apply(PlayAction.Stack(StackAction.ToggleTextMark(entry, 0)))
+                assertEquals(mapOf(entry to setOf(0, 1)), f.games.head(f.b, f.game.id).play!!.board.stackTextMarks)
                 val marked = state()
                 val invocation = gameplayId()
                 val actions = StackQuickActions.actions(marked, entry, PlayZone.GRAVEYARD)

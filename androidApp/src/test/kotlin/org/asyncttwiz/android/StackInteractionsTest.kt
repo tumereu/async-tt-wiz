@@ -92,7 +92,7 @@ class StackInteractionsTest {
         val entry = f.play.board.stackEffects.single().id
         val before = f.play
         assertTrue(toolkit.handle(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(entry, 1)), null)))
-        assertEquals(mapOf(entry to 1), f.play.board.stackTextMarks)
+        assertEquals(mapOf(entry to setOf(1)), f.play.board.stackTextMarks)
         val change = GameplayRules.change(before, f.actor, f.commands().last())
         val text = historyText(change.mutation!!, before, f.actor, mapOf(f.actor to "bob"))
         assertTrue(text.description.startsWith("bob marked")); assertTrue(text.description.endsWith("2 — Second paragraph"))
@@ -101,6 +101,6 @@ class StackInteractionsTest {
         assertEquals(entry, toolkit.inspection!!.stackEntryId)
         toolkit.inspect(id)
         assertNull(toolkit.inspection!!.stackEntryId)
-        assertEquals(mapOf(entry to 1), f.play.board.stackTextMarks)
+        assertEquals(mapOf(entry to setOf(1)), f.play.board.stackTextMarks)
     }
 }

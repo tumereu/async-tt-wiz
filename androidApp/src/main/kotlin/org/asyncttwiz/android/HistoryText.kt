@@ -136,6 +136,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                     else "marked ${card(stack.entryId)}: ${index + 1}${option?.let { " — $it" }.orEmpty()}", "Mark text")
             }
             is StackAction.AddEffect -> text("added an effect from ${card(stack.sourceId)} to the stack", "Add effect")
+            is StackAction.ToggleTextMark -> {
+                val removing = stack.optionIndex in before?.board?.stackTextMarks?.get(stack.entryId).orEmpty()
+                text("${if (removing) "unmarked" else "marked"} ${card(stack.entryId)}: ${stack.optionIndex + 1}", "Mark text")
+            }
             is StackAction.RemoveEffect -> text("removed an effect from the stack", "Remove effect")
             is StackAction.ReorderEffect -> text("reordered an effect on the stack", "Reorder effect")
         }

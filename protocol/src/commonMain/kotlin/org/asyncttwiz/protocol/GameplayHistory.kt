@@ -178,6 +178,7 @@ object GameplayHistory {
                     if (!CombatStackRules.canProject(board, source) || GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
                 }
                 is StackAction.MarkText -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false
+                is StackAction.ToggleTextMark -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false
                 else -> Unit
             }
             is PlayAction.Combat -> {

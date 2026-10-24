@@ -55,8 +55,11 @@ import org.asyncttwiz.protocol.*
                 onClick = { submit(PlayAction.Ping(reference, PingTarget(PingTargetKind.PLAYER, player.accountId))) }) {
                 Text("Ping ${historyPlayerName(player.accountId, history.usernames)}")
             }
-            for (ping in play.annotations.pings.filter { it.reference.reference.nodeId == cursor })
-                EventPingMarker(ping, ping.target.kind.name.lowercase(), targetPresent = true, onReference = { history.select(it.nodeId) }, usernames = history.usernames)
+            for (ping in play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
+                .filter { it.reference.reference.nodeId == cursor })
+                EventPingMarker(ping, ping.target.kind.name.lowercase(), targetPresent = true,
+                    onReference = { history.select(it.nodeId) }, usernames = history.usernames,
+                    color = if (ping.recording.author == toolkit.viewer) OwnTableColor else OpponentTableColor)
             TextButton(enabled = connected, onClick = { draft = EventCommentDraft(reference) }) { Text("Comment on event") }
             draft?.let { captured -> EventCommentComposer(captured, connected, { action ->
                 if (submit(action)) draft = null

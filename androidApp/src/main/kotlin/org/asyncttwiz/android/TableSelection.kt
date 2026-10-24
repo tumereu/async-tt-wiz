@@ -42,7 +42,9 @@ sealed interface TableDestination {
 sealed interface TableIntent {
     data class CombatBubbles(val occurrenceId: String?) : TableIntent
     data class StackBubbles(val entryId: String?) : TableIntent
-    data class StackDestination(val entryId: String, val zone: org.asyncttwiz.protocol.PlayZone) : TableIntent
+    data class StackDestination(val entryId: String, val zone: org.asyncttwiz.protocol.PlayZone,
+        val fromBubble: Boolean = false) : TableIntent
+    data class StackBubbleRemove(val entryId: String) : TableIntent
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
     data class Inspect(val cardId: String) : TableIntent
@@ -58,4 +60,14 @@ sealed interface TableIntent {
     data class Selection(val selection: TableSelection) : TableIntent
     data class Camera(val camera: TableCamera) : TableIntent
     data class Scroll(val viewportId: String, val offset: Float, val vertical: Boolean = false) : TableIntent
+}
+
+/** Only explicit bubble actions on the captured top may advance personal focus. */
+internal fun stackBubbleAdvanceEntry(intent: TableIntent, board: org.asyncttwiz.protocol.BoardState): String? {
+    val entry = when (intent) {
+        is TableIntent.StackDestination -> intent.entryId.takeIf { intent.fromBubble }
+        is TableIntent.StackBubbleRemove -> intent.entryId
+        else -> null
+    }
+    return entry?.takeIf { it == org.asyncttwiz.protocol.CombatStackRules.stack(board).cards.firstOrNull() }
 }

@@ -75,8 +75,7 @@ internal object GameplayDeltas {
         entity("combat", "", 0, a.combat, b.combat, CombatArea.serializer())
         entity("result", "", 0, a.resultSuggestion, b.resultSuggestion, ResultSuggestion.serializer())
         entity("attention", "", 0, JsonPrimitive(a.attentionHolder), JsonPrimitive(b.attentionHolder), JsonElement.serializer())
-        entity("marks", "", 0, JsonObject(a.stackTextMarks.mapValues { JsonPrimitive(it.value) }),
-            JsonObject(b.stackTextMarks.mapValues { JsonPrimitive(it.value) }), JsonElement.serializer())
+        entity("marks", "", 0, marks(a), marks(b), JsonElement.serializer())
         entity("annotations", "", 0, from.annotations, to.annotations, EventAnnotationState.serializer())
         val piles = mutableListOf<GameplayPileDelta>()
         val relocated = changes.filter { it.kind == "card" && it.values.any { value ->
@@ -113,6 +112,10 @@ internal object GameplayDeltas {
             }
         } else out += GameplayValueDelta(path, stored(from), stored(to))
     }
+
+    private fun marks(board: BoardState) = JsonObject(board.stackTextMarks.mapValues {
+        json.encodeToJsonElement(StackTextMarksSerializer, it.value)
+    })
 
     private class Mismatch : RuntimeException()
     private fun patch(value: JsonElement?, edit: GameplayValueDelta, reverse: Boolean, depth: Int = 0): JsonElement? {
@@ -196,7 +199,8 @@ internal object GameplayDeltas {
                 "combat" -> result.copy(board = b.copy(combat = value(b.combat, CombatArea.serializer())))
                 "result" -> result.copy(board = b.copy(resultSuggestion = value(b.resultSuggestion, ResultSuggestion.serializer())))
                 "attention" -> result.copy(board = b.copy(attentionHolder = value(JsonPrimitive(b.attentionHolder), JsonElement.serializer())?.jsonPrimitive?.contentOrNull))
-                "marks" -> result.copy(board = b.copy(stackTextMarks = value(JsonObject(b.stackTextMarks.mapValues { JsonPrimitive(it.value) }), JsonElement.serializer())!!.jsonObject.mapValues { it.value.jsonPrimitive.int }))
+                "marks" -> result.copy(board = b.copy(stackTextMarks = value(marks(b), JsonElement.serializer())!!.jsonObject
+                    .mapValues { json.decodeFromJsonElement(StackTextMarksSerializer, it.value) }))
                 "annotations" -> result.copy(annotations = value(result.annotations, EventAnnotationState.serializer()) ?: throw Mismatch())
                 else -> throw Mismatch()
             }

@@ -297,7 +297,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val artwork = tableArtwork(scene.copy(items = semanticItems))
         val drawCache = remember(density, targetScene) { TableDrawCache(density) }
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
-        val activePings = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }.orEmpty()
+        val activePings = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
+        val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
         SideEffect {
@@ -372,7 +373,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) {
                 val frame = rendered.value
                 drawTable(frame.scene, accountId, selection, preview, play.board.links, frame.alphas, activePings,
-                    play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache)
+                    play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
+                    pingPulse?.value ?: 0f)
             }
             preview.delta?.let { delta ->
                 scene.items.firstOrNull { it.id == preview.pressedId }?.let { item ->
@@ -457,12 +459,13 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             }
             for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
-                play.board.stackTextMarks[item.cardId]?.let { index ->
-                    StackMarkChip(index, Modifier.offset {
+                play.board.stackTextMarks[item.cardId]?.let { indices ->
+                    StackMarkChips(indices, Modifier.offset {
                         val b = rendered.value.items[item.id]?.bounds ?: item.bounds
-                        androidx.compose.ui.unit.IntOffset((b.right - 17).dp.roundToPx(), b.y.dp.roundToPx())
+                        androidx.compose.ui.unit.IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx())
                     }
-                        .semantics { contentDescription = "Stack text mark ${index + 1}" })
+                        .width(item.bounds.width.dp)
+                        .semantics { contentDescription = "Stack text marks ${indices.sorted().joinToString { (it + 1).toString() }}" })
                 }
             }
             if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, preview, writable) { intent ->
@@ -741,7 +744,7 @@ private class TableDrawCache(density: Float) {
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
-    cache: TableDrawCache) {
+    cache: TableDrawCache, pingPhase: Float = 0f) {
     val density = density
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
@@ -992,9 +995,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     }
     for (ping in pings) {
         val p = annotations.endpoint(ping.target) ?: continue
-        drawCircle(if (ping.recording.author == viewer) OwnTableColor else OpponentTableColor, 10 * density, xy(p.x, p.y))
+        val color = if (ping.recording.author == viewer) OwnTableColor else OpponentTableColor
+        drawCircle(color.copy(alpha = 1f - pingPhase), (10 + 18 * pingPhase) * density, xy(p.x, p.y), style = Stroke(2 * density))
+        drawCircle(color, 10 * density, xy(p.x, p.y))
         paint.color = android.graphics.Color.WHITE
-        text(ping.to!!.ordinal, p.x - 4, p.y + 4, 5)
+        val number = ping.to!!.ordinal
+        text(number, p.x - cache.measure(number) / density / 2, p.y + 4, 5)
         paint.color = android.graphics.Color.DKGRAY
     }
     preview.rectangle?.let { b ->

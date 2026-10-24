@@ -178,7 +178,8 @@ object TablePresentation {
             ?: return null
         val pile = scene.items.single { it.id == card.viewport }
         return StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
-            play.board.stackTextMarks[entryId], if (card.covered) 0 else StackText.options(play, entryId).size)
+            play.board.stackTextMarks[entryId]?.minOrNull(), if (card.covered) 0 else StackText.options(play, entryId).size)
+            .copy(multipleMarks = play.board.stackTextMarks[entryId].orEmpty().size > 1)
     }
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,

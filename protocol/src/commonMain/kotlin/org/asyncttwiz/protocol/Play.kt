@@ -48,7 +48,7 @@ object CardVisibility {
     val projectionLinks: List<ProjectionLink> = emptyList(),
     val resultSuggestion: ResultSuggestion? = null,
     /** Entry metadata keyed by Stack card/occurrence ID, never a field on its real source. */
-    val stackTextMarks: Map<String, Int> = emptyMap(),
+    val stackTextMarks: Map<String, StackTextMarks> = emptyMap(),
     /** Null retains the legacy meaning: attention follows the turn player. */
     val attentionHolder: String? = null) {
     val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId

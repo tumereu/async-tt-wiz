@@ -77,7 +77,7 @@ class StackContentsGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Submit(PlayAction.Stack(StackAction.MarkText(entry.cardId, 0)), null)), intents)
         intents.clear()
         compose.onNodeWithContentDescription("Put to battlefield").performTouchInput { click() }
-        assertEquals(listOf<TableIntent>(TableIntent.StackDestination(entry.cardId, PlayZone.BATTLEFIELD)), intents)
+        assertEquals(listOf<TableIntent>(TableIntent.StackDestination(entry.cardId, PlayZone.BATTLEFIELD, fromBubble = true)), intents)
         compose.onNodeWithContentDescription("Put to battlefield").assertDoesNotExist()
         row.performTouchInput { doubleClick() }
         assertEquals(listOf(entry.cardId), actions)

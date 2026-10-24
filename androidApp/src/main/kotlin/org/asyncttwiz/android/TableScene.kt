@@ -182,7 +182,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             coordinator.up(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t)
             pointerTime = t; clockEpoch++; preview = coordinator.preview; pressedPing = null
         },
-        cancel = { coordinator.cancel(); preview = coordinator.preview; pressedPing = null },
+        cancel = { coordinator.cancel(); clockEpoch++; preview = coordinator.preview; pressedPing = null },
         dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null },
         ringDown = { p, t, card ->
             val point = coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y)
@@ -268,12 +268,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             contentDescription = "Shared table"
             stateDescription = "${selection.ids.size} selected, ${selection.mode.name.lowercase()} mode"
             customActions = listOf(
-                CustomAccessibilityAction("Zoom in") { coordinator.transform(TablePoint(0f, 0f), 1.2f, scene.fields.last().bounds.center); true },
-                CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, scene.fields.last().bounds.center); true },
-                CustomAccessibilityAction("Pan left") { layout = layout.copy(camera = layout.camera.copy(x = layout.camera.x - 84)); true },
-                CustomAccessibilityAction("Pan right") { layout = layout.copy(camera = layout.camera.copy(x = layout.camera.x + 84)); true },
-                 CustomAccessibilityAction("Pan up") { layout = layout.copy(camera = scene.camera.copy(y = scene.camera.y - 84)); true },
-                 CustomAccessibilityAction("Pan down") { layout = layout.copy(camera = scene.camera.copy(y = scene.camera.y + 84)); true },
+                CustomAccessibilityAction("Zoom in") { coordinator.transform(TablePoint(0f, 0f), 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
+                CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
+                CustomAccessibilityAction("Pan left") { coordinator.panBy(-84f, 0f); true },
+                CustomAccessibilityAction("Pan right") { coordinator.panBy(84f, 0f); true },
+                CustomAccessibilityAction("Pan up") { coordinator.panBy(0f, -84f); true },
+                CustomAccessibilityAction("Pan down") { coordinator.panBy(0f, 84f); true },
                  CustomAccessibilityAction("Fit table") { scene.world?.fit()?.let { layout = layout.copy(camera = it) }; true },
                 CustomAccessibilityAction("Clear selection") { selection = selection.copy(ids = emptySet()); true }
             ) + scene.viewports.filter { it.maxScrollY > 0 }.flatMap { p -> listOf(
@@ -694,18 +694,19 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     }
     for (f in scene.fields) {
         val b = f.gridBounds
-        val viewport = f.bounds
+        val viewport = scene.world?.horizontalBand(b) ?: f.bounds
         clipRect(viewport.x * density, viewport.y * density, viewport.right * density, viewport.bottom * density) {
         val color = if (f.owner == viewer) Color(0xffe2efe6) else Color(0xfff4e8ea)
-        drawRect(color, xy(b.x, b.y), size(b.width, b.height))
+        drawRect(color, xy(viewport.x, b.y), size(viewport.width, b.height))
         val lands = f.landsBounds(f.owner == viewer, scene.camera)
         drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3),
-            xy(lands.x, lands.y), size(lands.width, lands.height))
+            xy(viewport.x, lands.y), size(viewport.width, lands.height))
         if (f.holdsAttention) drawRect((if (f.owner == viewer) OwnTableColor else OpponentTableColor).copy(alpha = .12f),
             xy(viewport.x, viewport.y), size(viewport.width, viewport.height))
         }
     }
-    scene.viewports.firstOrNull { it.id == "combat" }?.bounds?.let { b ->
+    scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
+        0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
             drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
             for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .12f), xy(from.x, from.y), xy(to.x, to.y), density)

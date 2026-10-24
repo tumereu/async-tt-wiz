@@ -51,14 +51,42 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds) {
         TableBounds(it.x, it.y, b.width * camera.zoom, b.height * camera.zoom)
     }
     fun clamp(camera: TableCamera): TableCamera {
-        val z = camera.zoom.takeIf { it.isFinite() }?.coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM) ?: 1f
-        fun offset(value: Float, low: Float, high: Float) = (value.takeIf { it.isFinite() } ?: 0f).coerceIn(low, high)
-        val margin = minOf(32f, viewport.width / 4, viewport.height / 4) / z
-        return TableCamera(offset(camera.x, bounds.x - home.x - viewport.width / (2 * z) + margin,
-            bounds.right - home.x + viewport.width / (2 * z) - margin),
-            offset(camera.y, bounds.y - home.y - viewport.height / (2 * z) + margin,
-                bounds.bottom - home.y + viewport.height / (2 * z) - margin), z)
+        val c = normalize(camera)
+        // Sort the two edge alignments: large content covers the viewport; small content stays inside it.
+        fun offset(value: Float, start: Float, end: Float, home: Float, extent: Float): Float {
+            val a = start - home + extent / (2 * c.zoom)
+            val b = end - home - extent / (2 * c.zoom)
+            return value.coerceIn(minOf(a, b), maxOf(a, b))
+        }
+        return c.copy(x = offset(c.x, bounds.x, bounds.right, home.x, viewport.width),
+            y = offset(c.y, bounds.y, bounds.bottom, home.y, viewport.height))
     }
+    fun normalize(camera: TableCamera) = TableCamera(camera.x.takeIf { it.isFinite() } ?: 0f,
+        camera.y.takeIf { it.isFinite() } ?: 0f,
+        camera.zoom.takeIf { it.isFinite() }?.coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM) ?: 1f)
+    /** Bounded, progressively stronger resistance, measured in screen dp regardless of zoom. */
+    fun resist(camera: TableCamera): TableCamera {
+        val c = normalize(camera)
+        val edge = clamp(c)
+        fun rubber(value: Float, bound: Float): Float {
+            val delta = value - bound
+            val limit = 96f / c.zoom
+            return bound + delta / (2f + kotlin.math.abs(delta) / limit)
+        }
+        return c.copy(x = rubber(c.x, edge.x), y = rubber(c.y, edge.y))
+    }
+    /** Resume a grabbed spring at the same displayed position, without applying resistance twice. */
+    fun unresist(camera: TableCamera): TableCamera {
+        val c = normalize(camera)
+        val edge = clamp(c)
+        fun raw(value: Float, bound: Float): Float {
+            val delta = value - bound
+            return bound + 2f * delta / (1f - kotlin.math.abs(delta) * c.zoom / 96f).coerceAtLeast(.001f)
+        }
+        return c.copy(x = raw(c.x, edge.x), y = raw(c.y, edge.y))
+    }
+    fun horizontalBand(band: TableBounds) = TableBounds(viewport.x, band.y, viewport.width, band.height)
+        .intersection(viewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
     fun fit(): TableCamera = clamp(TableCamera(bounds.center.x - home.x, bounds.center.y - home.y,
         minOf(viewport.width / bounds.width, viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)))
 }
@@ -197,7 +225,8 @@ object TablePresentation {
         val world = TableWorld(worldViewport, TableBounds(0f, logicalFields.first().y,
             maxOf(worldViewport.width, logicalRight * GRID + 32f, combat.width),
             logicalFields.last().bottom - logicalFields.first().y))
-        val camera = world.clamp(ui.camera)
+        // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
+        val camera = world.normalize(ui.camera)
         val zoom = camera.zoom
         val cw = hudWidth * zoom; val ch = hudHeight * zoom; val envelope = GRID * zoom
         val fields = players.mapIndexed { index, player ->

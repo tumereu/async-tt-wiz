@@ -5,6 +5,43 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableWorldTest {
+    @Test fun boundsAlignContentEdgesForLargeSmallAndMixedAxesAtEveryZoom() {
+        val viewport = TableBounds(20f, 30f, 200f, 100f)
+        for (width in listOf(80f, 400f)) for (height in listOf(30f, 300f))
+            for (zoom in listOf(.65f, 1f, 2f)) {
+                val world = TableWorld(viewport, TableBounds(-30f, -40f, width, height))
+                for (sign in listOf(-1f, 1f)) {
+                    val camera = world.clamp(TableCamera(sign * 10000, sign * 10000, zoom))
+                    val content = world.screen(world.bounds, camera)
+                    if (width * zoom >= viewport.width) {
+                        assertTrue(content.x <= viewport.x + .001f && content.right >= viewport.right - .001f)
+                    } else assertTrue(content.x >= viewport.x - .001f && content.right <= viewport.right + .001f)
+                    if (height * zoom >= viewport.height) {
+                        assertTrue(content.y <= viewport.y + .001f && content.bottom >= viewport.bottom - .001f)
+                    } else assertTrue(content.y >= viewport.y - .001f && content.bottom <= viewport.bottom + .001f)
+                    val resisted = world.resist(camera.copy(x = camera.x + sign * 1000, y = camera.y + sign * 1000))
+                    assertTrue(kotlin.math.abs(resisted.x - camera.x) * zoom in 0f..96f)
+                    assertTrue(kotlin.math.abs(resisted.y - camera.y) * zoom in 0f..96f)
+                }
+            }
+    }
+
+    @Test fun backgroundBandsCoverViewportWidthEvenWhenAllocatedWorldIsOffscreen() {
+        val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(800f, 0f, .65f)))
+        val world = scene.world!!
+        assertTrue(scene.fields.all { it.bounds.width == 0f })
+        val bands = scene.fields.map { it.gridBounds } + TableBounds(0f, scene.fields.first().gridBounds.bottom,
+            0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)
+        for (band in bands) {
+            val background = world.horizontalBand(band)
+            assertEquals(world.viewport.x, background.x)
+            assertEquals(world.viewport.width, background.width)
+            assertTrue(background.height > 0f)
+        }
+        assertEquals(.65f, scene.camera.zoom)
+        assertEquals(800f, scene.camera.x, "Presentation must not discard gesture overscroll")
+    }
+
     @Test fun worldScalesUniformlyWhileAllHudGeometryStaysFixed() {
         val f = TableStatesFixture
         for (landscape in listOf(false, true)) {

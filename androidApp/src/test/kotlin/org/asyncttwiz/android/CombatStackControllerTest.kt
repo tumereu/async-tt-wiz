@@ -190,9 +190,10 @@ class CombatStackControllerTest {
         val turn = combatState().board.turn
         assertTrue(CombatOfferings.declare(turn, true))
         assertFalse(CombatOfferings.declare(turn, false))
-        for (step in listOf("BEGINNING_OF_COMBAT", "DECLARE_BLOCKERS", "COMBAT_DAMAGE", "END_OF_COMBAT")) {
-            assertFalse(CombatOfferings.declare(turn.copy(step = step), true))
-            assertEquals(step == "END_OF_COMBAT", CombatOfferings.advanceAndClose(turn.copy(step = step)))
+        for (position in TurnPosition.entries) {
+            val tracking = turn.copy(phase = position.phase, step = position.step)
+            assertEquals(position == TurnPosition.DECLARE_ATTACKERS, CombatOfferings.declare(tracking, true))
+            assertEquals(position == TurnPosition.END_COMBAT, CombatOfferings.advanceAndClose(tracking))
         }
         val outside = combatState().let { it.copy(board = it.board.copy(turn = turn.copy(phase = "ENDING", step = "CLEANUP"))) }
         val commands = CombatCommands()

@@ -201,6 +201,17 @@ class StackProjectionJourneyTest {
         assertEquals(j.f.container(PlayZone.GRAVEYARD), j.f.card(40).containerId)
     }
 
+    @Test fun legacyRealStackBubblesStillMoveTheCardAndReplayBothDirections() {
+        for (target in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
+            for (defaults in listOf(false, true)) Journey(defaults = defaults).use { j ->
+                assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
+                assertTrue(j.f.legacyStack(40)); j.sync(); j.undoRedo()
+                j.reversible { j.bubble(j.f.id(40), target) }
+                assertEquals(j.f.container(target), j.f.card(40).containerId)
+                assertTrue(CombatStackRules.stack(j.f.play.board).cards.isEmpty())
+            }
+    }
+
     @Test fun ownerReportedMoveThenRingGraveyardWorksBeforeAnyAcknowledgementForOldAndNewPaths() {
         for (legacy in listOf(false, true)) for (defaults in listOf(false, true)) Journey(defaults = defaults).use { j ->
             assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
@@ -318,6 +329,47 @@ class StackProjectionJourneyTest {
             assertEquals(index == effects.lastIndex, j.scene(j.f.other).items.single { it.cardId == j.f.id(40) }.covered)
         }
         opponent.inspect(j.f.id(40)); assertTrue(opponent.inspection!!.faceIds.isEmpty())
+    }
+
+    @Test fun aLibraryMemberInvalidatesTheWholeStackDropAndDirectSubmission() = Journey().use { j ->
+        assertTrue(j.move(j.f.id(40), PlayZone.HAND)); j.sync()
+        val before = j.f.commands().size
+        assertNull(j.drag(listOf(j.f.id(40), j.f.id(41))))
+        val libraryCard = j.f.card(41)
+        assertFalse(j.ui.submit(PlayAction.MoveCard(libraryCard.id, MoveSource(libraryCard.containerId),
+            MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP))))
+        assertEquals(before, j.f.commands().size)
+        assertTrue(j.f.play.board.stackEffects.isEmpty())
+        j.sync()
+    }
+
+    @Test fun undoRedoOfHandProjectionAndRemovalUpdatesOpponentFacesAndInspectionAtEveryEndpoint() = Journey().use { j ->
+        assertTrue(j.move(j.f.id(40), PlayZone.HAND))
+        assertTrue(j.move(j.f.id(41), PlayZone.HAND)); j.sync()
+        val opponent = TableToolkitController(j.f.other, { j.f.play }, { true }, { _, _ -> error("Local inspection only") })
+        fun visible(expected: Boolean, entry: String? = null) {
+            val scene = j.scene(j.f.other)
+            assertEquals(!expected, scene.items.single { it.cardId == j.f.id(40) }.covered)
+            opponent.inspect(j.f.id(40))
+            assertEquals(expected, opponent.inspection!!.faceIds.isNotEmpty())
+            // The neighboring hidden Hand card never inherits the Stack source's disclosure.
+            assertTrue(scene.items.single { it.cardId == j.f.id(41) }.covered)
+            opponent.inspect(j.f.id(41)); assertTrue(opponent.inspection!!.faceIds.isEmpty())
+            if (entry != null) {
+                assertFalse(scene.items.single { it.cardId == entry }.covered)
+                opponent.inspect(entry); assertTrue(opponent.inspection!!.faceIds.isNotEmpty())
+            }
+        }
+        visible(false)
+        assertNotNull(j.drag(listOf(j.f.id(40)))); j.sync()
+        val entry = j.f.play.board.stackEffects.single().id
+        visible(true, entry)
+        j.control(GameAction.Undo); visible(false)
+        j.control(GameAction.Redo); visible(true, entry)
+        assertTrue(j.ui.removeOccurrences(j.ui.bind(TableScope(entry, listOf(entry)))!!)); j.sync()
+        visible(false)
+        j.control(GameAction.Undo); visible(true, entry)
+        j.control(GameAction.Redo); visible(false)
     }
 
     @Test fun seededUserOperationWalksStayAcceptedAndPredictionConverges() {

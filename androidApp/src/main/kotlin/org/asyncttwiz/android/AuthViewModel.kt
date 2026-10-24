@@ -67,7 +67,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         controller.foreground()
         if (controller.state.account != null) {
             lobby.sync()
-            if (controller.state.destination == ShellDestination.DECKS) decks.sync()
         }
     }, main, lobby::tick)
     init {

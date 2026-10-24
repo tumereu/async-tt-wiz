@@ -1,0 +1,39 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.protocol.*
+import org.junit.Test
+import kotlin.test.*
+
+class QuickContinueTest {
+    private val self = AccountIdentity("a", "Alice")
+    private val other = AccountIdentity("b", "Bob")
+    private fun game(id: String, hour: Int, holder: String = other.accountId,
+        lifecycle: GameLifecycle = GameLifecycle.ACTIVE) = GameSummary(id, "Table $id", "2026-10-20T00:00:00Z",
+        self, other, "round", "invite", InvitationState.ACCEPTED, lifecycle,
+        attentionHolder = holder, updatedAt = "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
+
+    @Test fun ownActivityComesFirstOldestFirstThenOtherActivityNewestFirstCappedAtThree() {
+        val games = listOf(game("other-old", 1), game("own-new", 10, "a"),
+            game("other-new", 20), game("own-old", 5, "a"))
+        assertEquals(listOf("own-old", "own-new", "other-new"), quickContinueGames(games, "a").map { it.id })
+        assertEquals(listOf("other-old", "other-new", "own-new"), quickContinueGames(games, "b").map { it.id })
+        assertEquals("Your move", quickContinueMove(games[1], "a"))
+        assertEquals("Bob's move", quickContinueMove(games[0], "a"))
+    }
+
+    @Test fun lobbiesAndEndedGamesNeverAppearAndEmptyListHasNoEntries() {
+        val excluded = listOf(GameLifecycle.LOBBY, GameLifecycle.CANCELLED, GameLifecycle.DELETED)
+            .map { game(it.name, 1, "a", it) }
+        assertTrue(quickContinueGames(excluded, "a").isEmpty())
+        assertTrue(quickContinueGames(emptyList(), "a").isEmpty())
+        assertEquals(listOf("active"), quickContinueGames(excluded + game("active", 2), "a").map { it.id })
+    }
+
+    @Test fun timestampsCompareAsInstantsWithStableIdentityTieBreak() {
+        val early = game("early", 1, "a").copy(updatedAt = "2026-10-24T04:00:00+04:00")
+        val late = game("late", 1, "a")
+        assertEquals(listOf("early", "late"), quickContinueGames(listOf(late, early), "a").map { it.id })
+        val tied = listOf(game("z", 1), game("b", 1), game("a", 1), game("c", 1))
+        assertEquals(listOf("a", "b", "c"), quickContinueGames(tied, "a").map { it.id })
+    }
+}

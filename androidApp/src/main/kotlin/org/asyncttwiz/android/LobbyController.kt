@@ -23,7 +23,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val acceptedPlay: PlayState? = null, val activityTarget: ActivityTarget? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
-    val reconnectingGames: Set<String> = emptySet())
+    val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false)
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -45,7 +45,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var pickerVersion = 0L
     private val latest = mutableMapOf<String, GameSummary>()
     private var routeVersion = 0L
-    private var silentReads = 0L
     private var historyOwner: TableHistoryController? = null
     private fun resetHistory() { historyOwner?.close(); historyOwner = null }
     val history: TableHistoryController get() = historyOwner ?: TableHistoryController(worker, post, ::reviewHistory,
@@ -340,8 +339,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun reconnect() { session?.tick(); refresh() }
     fun foreground() {
-        silentReads++
-        if (state.draft == null) state = state.copy(error = null)
         session?.foreground()
         // Refresh account lists silently, retaining the table and existing stream generations.
         refresh(background = true)
@@ -499,9 +496,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (closed || state.busy || state.mutating) return
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
-        val presentation = silentReads
         val atStart = latest.toMap()
-        state = state.copy(busy = true, error = if (background || state.draft != null) state.error else null)
+        state = state.copy(busy = true, backgroundLoading = background,
+            error = if (background || state.draft != null) state.error else null)
         worker.execute {
             if (generation != epoch) return@execute
             val result = runCatching { runBlocking {
@@ -545,7 +542,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                         session.watch(games); connectionState()
                     }
                 } else {
-                    state = state.copy(busy = false, error = if (background || presentation != silentReads) state.error else lobbyError(result.exceptionOrNull()!!))
+                    state = state.copy(busy = false, error = lobbyError(result.exceptionOrNull()!!))
                 }
                 // A user may choose another row while a list refresh is in flight.
                 if (state.selected != selected) refresh()

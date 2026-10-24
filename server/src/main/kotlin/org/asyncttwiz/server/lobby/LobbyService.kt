@@ -89,7 +89,9 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return GameSummary(id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
             identity(game.inviterId!!), identity(game.recipientId!!), game.preparationRound.toString(),
             invitation.id.toString(), InvitationState.valueOf(invitation.state!!), GameLifecycle.valueOf(game.lifecycle!!),
-            game.revision.toString(), game.currentPlay?.toString())
+            game.revision.toString(), game.currentPlay?.toString(),
+            if (game.lifecycle == "ACTIVE") org.asyncttwiz.server.game.PlayStore.read(sql, id)?.board?.effectiveAttentionHolder else null,
+            game.updatedAt!!.toInstant().toString())
     }
 
     fun list(principal: AccountService.Principal, after: String?, invitations: Boolean): Result {

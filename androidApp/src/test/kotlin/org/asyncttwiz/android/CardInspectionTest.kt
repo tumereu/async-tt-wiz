@@ -85,7 +85,7 @@ class CardInspectionTest {
         val before = controller.state
         controller.inspect("foreign"); assertNull(controller.inspection.state)
         controller.inspect(definition.digest); controller.inspection.face(1)
-        controller.sync(); worker.drain()
+        controller.retry(); worker.drain()
         assertEquals(definition.definition, controller.inspection.state!!.card.definition)
         controller.back(); assertEquals(before, controller.state); assertEquals(2, reads); assertEquals(0, mutations)
         controller.inspect(definition.digest); controller.clear(); assertNull(controller.inspection.state)

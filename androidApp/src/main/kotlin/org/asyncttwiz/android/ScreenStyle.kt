@@ -246,6 +246,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "email" -> Icons.Outlined.MailOutline
     "error" -> Icons.Outlined.ErrorOutline
     "logout" -> Icons.AutoMirrored.Outlined.Logout
+    "settings" -> Icons.Outlined.Settings
     "add" -> Icons.Outlined.Add
     else -> Icons.AutoMirrored.Outlined.Login
 }

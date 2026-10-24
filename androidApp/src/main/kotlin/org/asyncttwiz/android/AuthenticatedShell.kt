@@ -36,16 +36,11 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     LaunchedEffect(state.destination) {
         if (state.destination != ShellDestination.DECKS && !(state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true)) deckImport?.exit()
-        else if (decks?.state?.selected == null) decks?.refresh()
+        if (state.destination == ShellDestination.DECKS && decks?.state?.selected == null) decks?.refresh()
         if (state.destination != ShellDestination.GAMES) lobby?.closePicker()
         lobby?.refresh()
     }
-    LaunchedEffect(state.destination, deckImport?.state?.active) {
-        if (state.destination == ShellDestination.DECKS && deckImport?.state?.active != true) {
-            while (true) { kotlinx.coroutines.delay(5_000); decks?.sync() }
-        }
-    }
-    val catalogBusy = !tabletop && catalog?.state?.progress != null
+    val catalogBusy = !tabletop && catalog?.state?.background == false && catalog.state.progress != null
     val content: @Composable () -> Unit = {
         ScreenBusyOverlay(if (catalogBusy) catalog.state.status else null, catalog?.state?.progress) {
             CompositionLocalProvider(LocalBusySuppressed provides catalogBusy) {
@@ -65,7 +60,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                 } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
                     if (destination == ShellDestination.GAMES) lobby?.back()
                     controller.navigate(destination)
-                }, catalog, deckImport, decks, lobby, state.account!!.accountId)
+                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout)
             }
         }
     }
@@ -123,7 +118,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
-            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS)) {
+            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
                     controller.navigate(destination)
                 }
@@ -178,12 +173,6 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 NavigationItem("Add account", "person", false, action = controller::addAccount)
             }
         }
-        HorizontalDivider()
-        TextButton(onClick = controller::logout, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("logout"),
-            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-            EntryIcon(null, "logout"); Spacer(Modifier.width(8.dp)); Text("Logout")
-            Spacer(Modifier.weight(1f))
-        }
     }
 }
 
@@ -199,7 +188,8 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 
 @Composable
 internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
-    catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String) {
+    catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
+    logout: () -> Unit = {}) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
@@ -214,14 +204,15 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
-            else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks, catalog)
+            else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
+            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, logout)
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
                 verticalArrangement = if (destination == ShellDestination.MENU) Arrangement.Center else Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (destination == ShellDestination.MENU) {
                     WizardLogo()
                     Spacer(Modifier.height(24.dp))
-                    for (item in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.CONTACTS)) {
+                    for (item in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                          OutlinedButton(onClick = { navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),
@@ -235,10 +226,19 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              Text(item.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                              EntryIcon(null, "chevron")
                         }
+                        if (item == ShellDestination.GAMES && lobby != null) {
+                            for (game in quickContinueGames(lobby.state.games, accountId)) {
+                                TextButton(onClick = { lobby.open(game.id) },
+                                    modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().testTag("quick-continue-${game.id}")) {
+                                    Text(game.opponent(accountId).username, Modifier.weight(1f))
+                                    Text(quickContinueMove(game, accountId), style = MaterialTheme.typography.labelMedium)
+                                    EntryIcon(null, "chevron")
+                                }
+                            }
+                            lobby.state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
                         Spacer(Modifier.height(12.dp))
                     }
-                } else if (destination == ShellDestination.DECKS && catalog != null) {
-                    CatalogControls(catalog)
                 } else {
                     Text(when (destination) {
                         ShellDestination.GAMES -> "Games and invitations are not available in this build yet."
@@ -260,5 +260,6 @@ private fun ShellDestination.icon(): String = when (this) {
     ShellDestination.GAMES -> "games"
     ShellDestination.DECKS -> "decks"
     ShellDestination.CONTACTS -> "contacts"
+    ShellDestination.SETTINGS -> "settings"
     ShellDestination.MENU -> "menu"
 }

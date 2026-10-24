@@ -71,38 +71,38 @@ class DeckManagementTest {
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = false
         fun drain() { while (queue.isNotEmpty()) queue.removeAt(0).run() }
     }
-    @Test fun syncPreservesPersonalDraftSectionAndAcceptedContentOnFailureThenReflectsOtherDeviceDeletion() {
+    @Test fun explicitReloadPreservesPersonalDraftSectionThenReflectsOtherDeviceDeletion() {
         val api = Api(); val worker = Worker()
         val controller = DeckLibraryController(api, { "token" }, worker) { it() }
         controller.open(summary.id); worker.drain(); controller.section(SavedDeckSection.SIDEBOARD)
         controller.edit(DeckDialog.RENAME); controller.name("Unfinished personal name")
         api.saved = api.saved.copy(deck = summary.copy(name = "Other device", revision = "2"))
-        controller.sync(); worker.drain()
+        controller.retry(); worker.drain()
         assertEquals("Other device", controller.state.detail!!.saved.deck.name)
         assertEquals("Unfinished personal name", controller.state.draftName)
         assertEquals(DeckDialog.RENAME, controller.state.dialog); assertEquals(SavedDeckSection.SIDEBOARD, controller.state.section)
         controller.dismiss(); controller.edit(DeckDialog.COVER); controller.cover("sha256:${"0".repeat(64)}")
         assertEquals(digest, controller.state.draftCover) // no row-index/foreign-cover substitution
-        controller.dismiss(); api.missing = true; controller.sync(); worker.drain()
+        controller.dismiss(); api.missing = true; controller.retry(); worker.drain()
         assertNull(controller.state.selected); assertNull(controller.state.detail); assertTrue(controller.state.error!!.contains("deleted"))
     }
-    @Test fun resumeSupersedesOldReadFailuresAndBackgroundRetriesKeepAcceptedDeckAndNoError() {
+    @Test fun explicitReloadKeepsAcceptedDeckAndReportsErrorsUntilSuccessfulRetry() {
         val api = Api(); val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
         val controller = DeckLibraryController(api, { "token" }, worker) { posts.add(it) }
         fun deliver() { worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()() }
         try {
             controller.open(summary.id); deliver()
             api.readFailure = true
-            controller.retry(); worker.drain() // Failure was captured before returning from background.
-            controller.foreground()
+            controller.retry()
             deliver()
-            assertNull(controller.state.error)
+            assertNotNull(controller.state.error)
             assertEquals(summary, controller.state.detail!!.saved.deck)
-            controller.sync(); deliver()
-            assertNull(controller.state.error)
+            controller.retry(); deliver()
+            assertNotNull(controller.state.error)
             assertFalse(controller.state.busy)
             api.readFailure = false
-            controller.sync(); deliver()
+            controller.retry(); deliver()
+            assertNull(controller.state.error)
             assertEquals(summary, controller.state.detail!!.saved.deck)
         } finally { controller.close(); worker.drain() }
     }
@@ -114,7 +114,7 @@ class DeckManagementTest {
         api.fail = true; controller.confirm(); controller.confirm(); drain()
         assertEquals(3, api.updates.size); assertEquals(1, api.updates.distinct().size); assertNotNull(controller.state.error)
         assertEquals(" Renamed 🧙 ", controller.state.draftName); assertEquals("Accepted", controller.state.detail!!.saved.deck.name)
-        controller.sync(); drain(); controller.confirm(); drain()
+        controller.retry(); drain(); controller.confirm(); drain()
         assertEquals(6, api.updates.size); assertEquals(1, api.updates.distinct().size)
         api.fail = false; controller.confirm(); worker.drain()
         api.saved = api.saved.copy(deck = summary.copy(name = "Newer other-device edit", revision = "3"))
@@ -140,7 +140,7 @@ class DeckManagementTest {
         val api = Api(); val worker = Worker(); val posts = mutableListOf<() -> Unit>()
         val controller = DeckLibraryController(api, { "token" }, worker) { posts += it }
         fun deliver() { repeat(3) { worker.drain(); while (posts.isNotEmpty()) posts.removeAt(0)() } }
-        controller.open(summary.id); deliver(); controller.sync(); worker.drain(); controller.back()
+        controller.open(summary.id); deliver(); controller.retry(); worker.drain(); controller.back()
         while (posts.isNotEmpty()) posts.removeAt(0)(); deliver(); assertNull(controller.state.selected)
         controller.open(summary.id); deliver(); controller.edit(DeckDialog.DELETE); api.fail = true; controller.confirm(); deliver()
         controller.confirm(); deliver(); assertEquals(api.deletes[0], api.deletes[1])

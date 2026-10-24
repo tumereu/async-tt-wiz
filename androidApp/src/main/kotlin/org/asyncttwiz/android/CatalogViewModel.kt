@@ -17,7 +17,8 @@ import java.util.concurrent.Executors
 
 data class CatalogUiState(val installed: CatalogMetadata? = null, val available: CatalogMetadata? = null,
     val size: Long? = null, val metered: Boolean = true, val busy: Boolean = false,
-    val status: String? = null, val error: Boolean = false, val progress: CatalogProgress? = null)
+    val status: String? = null, val error: Boolean = false, val progress: CatalogProgress? = null,
+    val background: Boolean = false)
 
 /** Volatile, process-wide consent deferral, deliberately not preferences or saved instance state. */
 internal class CatalogPromptPolicy {
@@ -61,7 +62,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         if (cleared || working) return
         working = true
         val metered = connectivity.isActiveNetworkMetered
-        state = state.copy(busy = true, metered = metered, status = "Checking card records…", error = false, progress = null)
+        state = state.copy(busy = true, metered = metered, status = "Checking card records…", error = false, progress = null,
+            background = !force)
         worker.execute {
             var installed: CatalogMetadata? = null
             var available: CatalogMetadata? = null
@@ -84,10 +86,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 }
                 val changed = available?.takeIf { CatalogUpdatePolicy.changed(installed, it) }
                 if (changed != null && CatalogUpdatePolicy.download(installed, changed, metered, consent = false)) {
-                    installed = install(changed, size)
-                    publish(CatalogUiState(installed = installed, metered = metered, status = "Card records are up to date."))
+                    installed = install(changed, size, showProgress = force)
+                    publish(CatalogUiState(installed = installed, metered = metered, background = !force,
+                        status = if (force) "Card records are up to date." else null))
                 } else publish(CatalogUiState(installed, changed, size, metered, status =
-                    if (changed == null && installed != null) "Card records are up to date." else null))
+                    if (force && changed == null && installed != null) "Card records are up to date." else null,
+                    background = !force))
             } catch (_: Exception) {
                 // Failed automatic installation still leaves an actionable update/consent offer.
                 publish(CatalogUiState(installed = installed,
@@ -106,7 +110,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         if (!CatalogUpdatePolicy.download(current.installed, available, current.metered, consent = true)) return
         working = true
         val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 0, current.size)
-        state = current.copy(busy = true, error = false, status = progress.label(), progress = progress)
+        state = current.copy(busy = true, error = false, status = progress.label(), progress = progress, background = false)
         worker.execute {
             try { publish(CatalogUiState(installed = install(available, current.size), metered = current.metered,
                 status = "Card records are up to date.")) }
@@ -115,12 +119,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun install(meta: CatalogMetadata, size: Long?): CatalogMetadata {
+    private fun install(meta: CatalogMetadata, size: Long?, showProgress: Boolean = true): CatalogMetadata {
         var last = 0L
         var phase: CatalogPhase? = null
         return CatalogInstaller(directory, repository, source).install(meta, size) { progress ->
             val now = System.nanoTime()
-            if (phase != progress.phase || now - last >= 250_000_000 || progress.done == progress.total) {
+            if (showProgress && (phase != progress.phase || now - last >= 250_000_000 || progress.done == progress.total)) {
                 last = now
                 phase = progress.phase
                 main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label()) }

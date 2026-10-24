@@ -48,8 +48,10 @@ internal fun CatalogControls(controller: CatalogViewModel) {
             ?: Text("Download card records before importing a new deck. Artwork loads only when needed.")
         Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.status?.let { Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }
-                state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
+                if (!state.background || state.error) state.status?.let {
+                    Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                }
+                if (!state.background) state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
             }
         }
         if (state.available != null) {

@@ -74,7 +74,6 @@ class MainActivity : ComponentActivity() {
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         auth.controller.foreground()
-        if (auth.controller.state.destination == ShellDestination.DECKS) auth.decks.foreground()
         // AuthViewModel owns socket/reconnect maintenance across configuration changes.
         // Resume only nudges that owner; it must never create a UI-owned connection.
         if (auth.controller.state.account != null) auth.lobby.foreground()

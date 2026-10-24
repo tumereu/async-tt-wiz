@@ -107,7 +107,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    @Test fun resumeFencesInFlightReadErrorsAndBackgroundContactAndGameRefreshNeverPublishesNetworkErrors() {
+    @Test fun backgroundRefreshRetainsAcceptedListsAndReportsRealErrors() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false
         val api = object : Api() {
             override suspend fun contacts(token: String, after: String?): ContactList {
@@ -122,10 +122,12 @@ class LobbyControllerTest {
             failing = true
             controller.refresh(); worker.drain()
             controller.foreground(); deliver()
-            assertNull(controller.state.error)
+            assertNotNull(controller.state.error)
             assertEquals(listOf(recipient), controller.state.contacts)
-            controller.sync(); deliver()
-            assertNull(controller.state.error)
+            controller.sync()
+            assertTrue(controller.state.backgroundLoading)
+            deliver()
+            assertNotNull(controller.state.error)
             controller.query("Player"); controller.search(); deliver()
             assertEquals(listOf(recipient), controller.state.results)
             failing = false; controller.sync(); deliver()

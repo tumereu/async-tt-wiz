@@ -124,8 +124,7 @@ object HistoryGraphLayout {
 }
 
 data class HistoryExplorerState(val graph: HistoryGraph? = null, val selectedNodeId: String? = null,
-    val reviewed: PlayState? = null, val busy: Boolean = false, val error: String? = null,
-    val archivedSelection: Boolean = false)
+    val reviewed: PlayState? = null, val busy: Boolean = false, val error: String? = null)
 
 /** UI-thread entry points, worker-only geometry/reconstruction, UI-thread post callback.
  * This read-only controller never activates or forks shared state.
@@ -171,9 +170,8 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
                 val hidden = if (includeHidden) emptySet() else {
                     val comments = value.nodes.values.filter { it.action is PlayAction.EventComment }.map { it.id }.toSet()
                     value.branches.values.filter { branch ->
-                        BranchArchives.hiddenByDefault(value, branch.forkNodeId, value.branchHeads[branch.id] ?: branch.firstNodeId,
-                            branch.id == value.currentBranchId, comments)
-                    }.map { it.id }.toSet() + value.branchArchives.archivedBranchIds
+                        simpleAlternative(value, branch, comments)
+                    }.map { it.id }.toSet()
                 }
                 Triple(HistoryGraphLayout.build(value, groups, (filter.filter { value.nodes[it]?.branchId !in hidden }.toSet() + selected)), selected, reviewed)
             }
@@ -185,11 +183,25 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
             post {
                 if (!closed && generation == epoch) result.fold({ resolved ->
                     val (graph, selected, reviewed) = resolved
-                    state = HistoryExplorerState(graph, selected, reviewed, archivedSelection =
-                        (value.nodes[selected]?.branchId ?: value.initial.root.branchId) in value.branchArchives.archivedBranchIds)
+                    state = HistoryExplorerState(graph, selected, reviewed)
                 }, { state = state.copy(busy = false, error = "History unavailable") })
             }
         }
+    }
+
+    /** Personal filtering only: missing data, reveals and comments keep alternatives visible. */
+    private fun simpleAlternative(tree: GameplayTree, branch: GameplayBranch, comments: Set<String>): Boolean {
+        if (branch.id == tree.currentBranchId) return false
+        val suffix = mutableListOf<GameplayMutation>()
+        val seen = mutableSetOf<String>()
+        var cursor = tree.branchHeads[branch.id] ?: branch.firstNodeId
+        while (cursor != branch.forkNodeId) {
+            if (!seen.add(cursor)) return false
+            val node = tree.nodes[cursor] ?: return false
+            suffix.add(node); cursor = node.parentId
+        }
+        return suffix.isNotEmpty() && suffix.map { it.author }.distinct().size == 1 &&
+            suffix.none { it.revealsInformation || it.id in comments }
     }
 
     override fun close() { closed = true; epoch++; tree = null; state = HistoryExplorerState() }

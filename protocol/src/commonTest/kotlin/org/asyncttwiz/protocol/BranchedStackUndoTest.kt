@@ -63,7 +63,8 @@ class BranchedStackUndoTest {
         val displaced = tree.currentNodeId
         if (branched) {
             tree = play(tree, PlayAction.AdjustLife(f.a, "1"), at = junction)
-            tree = step(tree, GameAction.MakeCurrent(displaced))
+            // Preserve this legacy stored selection as a regression fixture, not a wire action.
+            tree = assertNotNull(tree.activate(displaced).tree)
             assertEquals(1, tree.branches.size)
             assertEquals(2, tree.branchHeads.size)
         }
@@ -105,7 +106,7 @@ class BranchedStackUndoTest {
         for ((id, node) in before.nodes) assertEquals(node, removed.nodes[id])
     }
 
-    @Test fun reconstructed42MutationGameUndoesLatestOwnStackMoveAfterMakeCurrent() {
+    @Test fun reconstructed42MutationGameUndoesLatestOwnStackMoveAfterLegacySelection() {
         var tree = ontoStack(beforeStackActions())
         var state = tree.stateAt(tree.currentNodeId)!!
         val aliceEntry = CombatStackRules.stack(state.board).cards.first()

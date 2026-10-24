@@ -13,7 +13,7 @@ import kotlinx.serialization.json.*
 @Serializable data class GameplayTreeDelta(val upserts: List<TreeSyncRecord>, val removals: List<GameplayTreeKey> = emptyList())
 
 /** Branch presentation payloads are retained verbatim. GameplayTree owns the explicit heads,
- * lineage/archive/control semantics; this codec never guesses them from presentation filtering.
+ * lineage/control semantics; this codec never guesses them from presentation filtering.
  */
 data class DownloadedTree(val tree: GameplayTree, val branches: Map<String, JsonObject>)
 
@@ -47,10 +47,6 @@ object TreeSync {
         changes("branch-head", before.branchHeads, after.branchHeads, ::JsonPrimitive)
         changes("branch-lineage", before.branches, after.branches) { GameWire.json.encodeToJsonElement(it) }
         changes("branch", branchIds(before).associateWith { it }, branchIds(after).associateWith { it }) { buildJsonObject { put("id", it) } }
-        changes("archived", before.branchArchives.archivedBranchIds.associateWith { true },
-            after.branchArchives.archivedBranchIds.associateWith { true }, ::JsonPrimitive)
-        changes("archive-control", before.branchArchives.lastControlByBranch, after.branchArchives.lastControlByBranch, ::JsonPrimitive)
-        changes("archive-record", before.branchArchives.records, after.branchArchives.records) { GameWire.json.encodeToJsonElement(it) }
         return GameplayTreeDelta(upserts, removals)
     }
 
@@ -58,7 +54,7 @@ object TreeSync {
         val records = records(tree).associateByTo(linkedMapOf()) { GameplayTreeKey(it.kind, it.id) }
         require(delta.upserts.map { GameplayTreeKey(it.kind, it.id) }.distinct().size == delta.upserts.size)
         require(delta.removals.distinct().size == delta.removals.size)
-        delta.removals.forEach { require(records.remove(it) != null) }
+        delta.removals.forEach { if (!obsoleteControl(it.kind)) require(records.remove(it) != null) }
         delta.upserts.forEach { require(GameplayTreeKey(it.kind, it.id) !in delta.removals); records[GameplayTreeKey(it.kind, it.id)] = it }
         return decode(records.values.asSequence(), tree.tree.initial.gameId, tree.tree.initial.id)
     }
@@ -72,9 +68,6 @@ object TreeSync {
         tree.selectionControlId?.let { yield(TreeSyncRecord("selection-control", "current", JsonPrimitive(it))) }
         tree.branchHeads.toSortedMap().forEach { (id, head) -> yield(TreeSyncRecord("branch-head", id, JsonPrimitive(head))) }
         tree.branches.toSortedMap().forEach { (id, branch) -> yield(TreeSyncRecord("branch-lineage", id, GameWire.json.encodeToJsonElement(branch))) }
-        tree.branchArchives.archivedBranchIds.sorted().forEach { yield(TreeSyncRecord("archived", it, JsonPrimitive(true))) }
-        tree.branchArchives.lastControlByBranch.toSortedMap().forEach { (id, control) -> yield(TreeSyncRecord("archive-control", id, JsonPrimitive(control))) }
-        tree.branchArchives.records.toSortedMap().forEach { (id, record) -> yield(TreeSyncRecord("archive-record", id, GameWire.json.encodeToJsonElement(record))) }
         tree.initial.definitions.sortedBy { it.digest }.forEach {
             yield(TreeSyncRecord("definition", it.digest, GameWire.json.encodeToJsonElement(it)))
         }
@@ -96,9 +89,6 @@ object TreeSync {
         var selectionControl: String? = null
         val heads = linkedMapOf<String, String>()
         val lineage = linkedMapOf<String, GameplayBranch>()
-        val archived = linkedSetOf<String>()
-        val archiveControls = linkedMapOf<String, String>()
-        val archiveRecords = linkedMapOf<String, BranchArchiveRecord>()
         val nodes = linkedMapOf<String, GameplayMutation>()
         val definitions = linkedMapOf<String, SubmittedDefinition>()
         val redo = linkedMapOf<String, List<GameplayRedoEntry>>()
@@ -118,9 +108,8 @@ object TreeSync {
                 "selection-control" -> { require(record.id == "current"); selectionControl = record.payload.jsonPrimitive.content }
                 "branch-head" -> heads[record.id] = record.payload.jsonPrimitive.content
                 "branch-lineage" -> lineage[record.id] = GameWire.json.decodeFromJsonElement<GameplayBranch>(record.payload).also { require(it.id == record.id) }
-                "archived" -> { require(record.payload.jsonPrimitive.boolean); archived.add(record.id) }
-                "archive-control" -> archiveControls[record.id] = record.payload.jsonPrimitive.content
-                "archive-record" -> archiveRecords[record.id] = GameWire.json.decodeFromJsonElement<BranchArchiveRecord>(record.payload).also { require(it.request.requestId == record.id) }
+                // Compatibility with persisted controls and older cached/downloaded trees only.
+                "archived", "archive-control", "archive-record" -> Unit
                 "definition" -> {
                     val definition = GameWire.json.decodeFromJsonElement<SubmittedDefinition>(record.payload)
                     require(definition.digest == record.id && DeckValidation.definition(definition.definition) &&
@@ -141,7 +130,6 @@ object TreeSync {
         require(root.gameId == gameId && root.id == playId)
         val result = DownloadedTree(GameplayTree(root, nodes, requireNotNull(current), redo, removed, lineage,
             selectedBranch ?: nodes[current]?.branchId ?: root.root.branchId,
-            BranchArchiveState(archived, archiveControls, archiveRecords),
             if (heads.isEmpty()) mapOf(root.root.branchId to root.root.id) else heads, selectionControl), branches)
         validate(result)
         return result
@@ -174,9 +162,8 @@ object TreeSync {
         require(tree.currentNodeId == root.root.id || tree.currentNodeId in tree.nodes)
         require(generation.branches.keys == branchIds(tree)) { "Missing retained branch metadata" }
         require(generation.branches.keys.all(DeckValidation::uuid))
-        require(tree.currentBranchId in generation.branches && tree.currentBranchId !in tree.branchArchives.archivedBranchIds)
+        require(tree.currentBranchId in generation.branches)
         require(tree.branchHeads.all { (id, head) -> id in generation.branches && tree.resolveCursor(head) != null })
-        require(tree.branchArchives.archivedBranchIds.all { it in tree.branchHeads })
         tree.selectionControlId?.let { require(DeckValidation.uuid(it)) }
         require(tree.nodes.all { (id, node) -> id == node.id && node.author in players &&
             listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
@@ -216,6 +203,8 @@ object TreeSync {
             node.schemaVersion in 1..2 && node.parentId in resolved && node.references.all {
                 referencePayloads[it.nodeId]?.transition == it.transition } })
     }
+
+    private fun obsoleteControl(kind: String) = kind in setOf("archived", "archive-control", "archive-record")
 
     fun digest(bytes: ByteArray) = "sha256:" + sha256(bytes)
 }

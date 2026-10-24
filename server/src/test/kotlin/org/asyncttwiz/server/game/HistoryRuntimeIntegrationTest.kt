@@ -83,8 +83,10 @@ class HistoryRuntimeIntegrationTest {
                         val fork = f.owner.command(PlayAction.AdjustLife(actor, "1"))
                             .copy(continuation = Continuation(f.root.root.id, true))
                         assertEquals("accepted", f.owner.execute(fork).outcome)
-                        assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.MakeCurrent(displaced))).outcome)
-                        assertEquals(2, tree(db, f).branchHeads.size)
+                        val continuePlay = f.owner.command(PlayAction.AdjustLife(actor, "1"))
+                            .copy(continuation = Continuation(displaced, true))
+                        assertEquals("accepted", f.owner.execute(continuePlay).outcome)
+                        assertEquals(3, tree(db, f).branchHeads.size)
                     }
                     for (projection in listOf(false, true)) {
                         val source = state().board.cards.single { it.id == card }
@@ -174,7 +176,8 @@ class HistoryRuntimeIntegrationTest {
                 val crossReference = EventReference(f.root.id, branchTarget, tree(db, f).contextVersion(branchTarget))
                 assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.EventComment(crossReference,
                     "inactive cross-branch reference")).copy(continuation = Continuation(f.root.root.id, true))).outcome)
-                f.owner.execute(control(f.owner, GameAction.MakeCurrent(branchTarget)))
+                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.SetNote(card, "continued"))
+                    .copy(continuation = Continuation(branchTarget, true))).outcome)
                 val crossBranch = tree(db, f)
                 val blocked = f.owner.execute(control(f.owner, GameAction.Undo))
                 assertEquals("referenceBlocked", blocked.reason); assertEquals(branchTarget, blocked.targetNodeId)
@@ -208,7 +211,8 @@ class HistoryRuntimeIntegrationTest {
                 assertEquals(listOf(second.mutation!!.id, first.mutation!!.id), tree(db, f).redoByAccount[f.a.account.accountId]!!.map { it.mutation.id })
                 original = control(device, GameAction.Redo); result = device.execute(original)
                 assertEquals(first.mutation!!.id, result.targetNodeId)
-                val switch = control(f.recipient, GameAction.MakeCurrent(f.root.root.id))
+                val switch = f.recipient.command(PlayAction.AdjustLife(f.b.account.accountId, "1"))
+                    .copy(continuation = Continuation(f.root.root.id, true))
                 assertEquals("accepted", f.recipient.execute(switch).outcome)
                 assertTrue(tree(db, f).redoByAccount.isEmpty())
                 // Newer stacks must survive old accepted Undo/Redo/switch delivery retries.
@@ -236,7 +240,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun `all merged families use real relational tree replay selective tuples and archive return catalog`() {
+    @Test fun `all merged families use real relational tree replay selective tuples and retained continuations`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
@@ -296,24 +300,40 @@ class HistoryRuntimeIntegrationTest {
                 assertEquals("rejected", f.owner.execute(failed).outcome); assertEquals(beforeFork, tree(db, f))
                 val fork = f.owner.command(PlayAction.SetNote(card, "alternative")).copy(continuation = Continuation(f.root.root.id, true))
                 assertEquals("accepted", f.owner.execute(fork).outcome)
-                val alternative = tree(db, f); val catalog = alternative.archiveCatalog()
-                val preview = BranchArchives.previewReturn(alternative, catalog, alternative.currentBranchId)
-                assertFalse(preview.needsSelection, preview.reason)
-                val archive = control(f.owner, GameAction.BranchArchive(BranchArchiveIntent.ArchiveAndReturn(
-                    alternative.currentBranchId, preview.target!!, expectedReturnHead = preview.returnHead)))
-                assertEquals("accepted", f.owner.execute(archive).outcome)
-                val archived = tree(db, f)
-                assertEquals(archive.requestId, archived.selectionControlId)
-                assertEquals(beforeFork.currentNodeId, archived.currentNodeId)
-                val flat = TreeSync.records(TreeSync.generation(archived)).toList()
-                assertEquals(archived, TreeSync.decode(flat.asSequence(), f.game.id, f.root.id).tree)
+                val alternative = tree(db, f)
+                assertNotNull(alternative.stateAt(beforeFork.currentNodeId))
+                val flat = TreeSync.records(TreeSync.generation(alternative)).toList()
+                assertEquals(alternative, TreeSync.decode(flat.asSequence(), f.game.id, f.root.id).tree)
                 GameplaySync.validate(GameplaySnapshot(f.games.head(f.a, f.game.id), emptyList(), flat))
-                assertEquals(archived, download(f.games, f).second)
-                f.owner.execute(control(f.owner, GameAction.MakeCurrent(f.root.root.id)))
-                f.owner.execute(control(f.owner, GameAction.MakeCurrent(beforeFork.currentNodeId)))
-                assertEquals("changedSelection", f.owner.execute(control(f.owner, GameAction.BranchArchive(
-                    BranchArchiveIntent.Recover(archive.requestId, true)))).reason)
-                assertEquals("accepted", f.owner.admit(archive).let { (it as GameResult).outcome })
+                assertEquals(alternative, download(f.games, f).second)
+            }
+        }
+    }
+
+    @Test fun `stored legacy archive controls load as normal branches and allow continuation`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
+                val actor = f.a.account.accountId
+                val first = f.owner.execute(f.owner.command(PlayAction.SetLife(actor, "21")))
+                val before = tree(db, f)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.SetLife(actor, "30"))
+                    .copy(continuation = Continuation(f.root.root.id, true))).outcome)
+                val branched = tree(db, f)
+                sql(db, """INSERT INTO gameplay_tree_control(play_id, kind, id, payload) VALUES
+                    ('${f.root.id}', 'archived', '${before.currentBranchId}', 'true'),
+                    ('${f.root.id}', 'archive-control', '${before.currentBranchId}', '"${first.requestId}"'),
+                    ('${f.root.id}', 'archive-record', '${first.requestId}', '{"request":{"action":"branchArchive"}}')""")
+                assertEquals(branched, tree(db, f))
+                assertEquals(branched, download(f.games, f).second)
+                val continued = f.owner.execute(f.owner.command(PlayAction.AdjustLife(actor, "1"))
+                    .copy(continuation = Continuation(before.currentNodeId, true)))
+                assertEquals("accepted", continued.outcome)
+                assertEquals("22", f.games.head(f.a, f.game.id).play!!.board.players.single { it.accountId == actor }.life)
+                assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Undo)).outcome)
+                assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Redo)).outcome)
+                assertEquals(tree(db, f), download(f.games, f).second)
             }
         }
     }

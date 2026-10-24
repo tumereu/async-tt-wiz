@@ -21,7 +21,6 @@ class HistoryUiSpineTest {
         val sent = mutableListOf<GameCommand>()
         var online = true
         var next = 900
-        val controls = mutableListOf<GameAction>()
         val history = TableHistoryController(worker, { posts.add(it) }, { node, complete ->
             val value = tree
             worker.execute {
@@ -37,7 +36,7 @@ class HistoryUiSpineTest {
                     sent.add(command); display = result.tree!!.stateAt(result.tree!!.currentNodeId)!!; true
                 }
             }
-        }, { controls.add(it); online })
+        })
         fun drain() { repeat(3) { worker.submit {}.get(5, TimeUnit.SECONDS); while (true) (posts.poll() ?: break).invoke() } }
         fun update() { history.update(tree, next.toString()); drain(); history.displayPosition(); drain() }
         override fun close() { history.close(); worker.shutdown(); assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS)) }
@@ -53,7 +52,7 @@ class HistoryUiSpineTest {
             h.tree = f.undo(h.tree); h.update()
             assertEquals(h.tree.initial.root.id, h.history.playback!!.position.cursorId)
             assertEquals(HistoryMode.PLAYBACK, h.history.playback!!.position.mode)
-            assertTrue(h.sent.isEmpty()); assertTrue(h.controls.isEmpty())
+            assertTrue(h.sent.isEmpty())
         }
     }
 
@@ -84,26 +83,7 @@ class HistoryUiSpineTest {
             assertEquals(h.tree.currentNodeId, h.history.playback!!.position.cursorId)
             assertFalse(h.history.playback!!.position.playing)
             assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
-            assertEquals(listOf(original), h.sent); assertTrue(h.controls.isEmpty())
-        }
-    }
-
-    @Test fun returnPreviewIsWorkerBuiltAndKeepsExactTargetWhileTreeGrows() {
-        Harness().use { h ->
-            h.tree = HistoryContinuation.change(h.tree, f.b, command(300, PlayAction.AdjustLife(f.b, "1"))
-                .copy(continuation = Continuation(h.tree.initial.root.id, true))).tree!!; h.update()
-            val branch = h.tree.currentBranchId
-            h.history.prepareReturn(branch); h.drain()
-            val confirmation = assertNotNull(h.history.confirmation)
-            val action = assertNotNull(confirmation.action)
-            val intent = action.intent as BranchArchiveIntent.ArchiveAndReturn
-            assertNotNull(confirmation.preview.board)
-            assertEquals(confirmation.preview.target, intent.target)
-            assertEquals(confirmation.preview.returnHead, intent.expectedReturnHead)
-            h.tree = f.tap(h.tree, 400, f.b, 12); h.update()
-            assertSame(confirmation, h.history.confirmation)
-            assertTrue(h.history.request(action))
-            assertEquals(GameAction.BranchArchive(intent), h.controls.single())
+            assertEquals(listOf(original), h.sent)
         }
     }
 

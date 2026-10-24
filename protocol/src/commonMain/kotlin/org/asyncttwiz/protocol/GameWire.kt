@@ -11,9 +11,7 @@ import kotlinx.serialization.json.*
 @Serializable sealed interface GameAction {
     @Serializable @SerialName("undo") data object Undo : GameAction
     @Serializable @SerialName("redo") data object Redo : GameAction
-    @Serializable @SerialName("makeCurrent") data class MakeCurrent(val nodeId: String) : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
-    @Serializable @SerialName("branchArchive") data class BranchArchive(val intent: BranchArchiveIntent) : GameAction
     @Serializable @SerialName("play") data class Play(val action: PlayAction) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
@@ -97,13 +95,9 @@ object GameWire {
         } else if (command.action is GameAction.AcceptResult) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             require(DeckValidation.uuid(command.action.suggestionId))
-        } else if (command.action is GameAction.Play || command.action is GameAction.MakeCurrent ||
-            command.action == GameAction.Undo || command.action == GameAction.Redo || command.action is GameAction.BranchArchive) {
+        } else if (command.action is GameAction.Play || command.action == GameAction.Undo || command.action == GameAction.Redo) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action))
-            if (command.action is GameAction.MakeCurrent) require(DeckValidation.uuid(command.action.nodeId))
-            if (command.action is GameAction.BranchArchive) require(BranchArchives.valid(
-                BranchArchiveRequest(command.requestId, command.scope, command.action.intent)))
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {

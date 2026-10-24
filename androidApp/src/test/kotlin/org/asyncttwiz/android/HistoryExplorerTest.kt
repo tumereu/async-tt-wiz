@@ -46,22 +46,6 @@ class HistoryExplorerTest {
             assertNotNull(controller.state.reviewed)
         } finally { controller.close() }
     }
-    @Test fun archivedSelectedBoundaryRemainsExactlyReviewable() {
-        val original = play(GameplayTree(root()), 100)
-        val alternative = assertNotNull(original.play(b, command(101).copy(continuation = Continuation(root().root.id, true))).tree)
-        val archived = assertNotNull(HistoryContinuation.change(alternative, a, command(102).copy(
-            action = GameAction.BranchArchive(BranchArchiveIntent.Archive(original.currentBranchId)))).tree)
-        val queue = Queue()
-        val controller = HistoryExplorerController(queue, { it() })
-        try {
-            controller.update(archived, openingNodeId = original.currentNodeId, showHidden = false); queue.drain()
-            assertEquals(original.currentNodeId, controller.state.selectedNodeId)
-            assertEquals(original.currentNodeId, controller.state.reviewed!!.currentNodeId)
-            assertTrue(controller.state.archivedSelection)
-            assertTrue(original.currentNodeId in controller.state.graph!!.positions)
-            assertEquals(2, archived.nodes.size, "Filtering never removes retained data")
-        } finally { controller.close() }
-    }
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private val a = id(7)
     private val b = id(8)
@@ -77,6 +61,42 @@ class HistoryExplorerTest {
         val tasks = ArrayDeque<Runnable>()
         override fun execute(command: Runnable) { tasks.addLast(command) }
         fun drain() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
+    }
+
+    @Test fun simpleAlternativeFilteringStillPreservesRevealsCommentsMixedAuthorsAndExactReview() {
+        val prefix = play(GameplayTree(root()), 300)
+        val future = play(prefix, 304)
+        val alternative = assertNotNull(future.play(b, command(301).copy(
+            continuation = Continuation(prefix.currentNodeId, true))).tree)
+        fun inactive(tree: GameplayTree) = assertNotNull(tree.play(a, command(305).copy(
+            continuation = Continuation(prefix.currentNodeId, true))).tree)
+        val controller = HistoryExplorerController(Executor { it.run() }, { it() })
+        try {
+            val tree = inactive(alternative)
+            controller.update(tree, showHidden = false)
+            assertFalse(alternative.currentNodeId in controller.state.graph!!.positions)
+            assertTrue(tree.currentNodeId in controller.state.graph!!.positions)
+            assertTrue(prefix.currentNodeId in controller.state.graph!!.positions)
+            controller.select(alternative.currentNodeId)
+            assertEquals(alternative.stateAt(alternative.currentNodeId), controller.state.reviewed)
+            assertTrue(alternative.currentNodeId in controller.state.graph!!.positions)
+            controller.update(tree, openingNodeId = tree.currentNodeId, showHidden = true)
+            assertTrue(alternative.currentNodeId in controller.state.graph!!.positions)
+            val prefixNode = tree.nodes.getValue(prefix.currentNodeId)
+            controller.update(tree.copy(nodes = tree.nodes + (prefixNode.id to prefixNode.copy(revealsInformation = true))), showHidden = false)
+            assertFalse(alternative.currentNodeId in controller.state.graph!!.positions, "Prefix exposure does not expose the suffix")
+            val node = alternative.nodes.getValue(alternative.currentNodeId)
+            val exposed = alternative.copy(nodes = alternative.nodes + (node.id to node.copy(revealsInformation = true)))
+            val commented = play(alternative, 302, b, PlayAction.EventComment(EventReference(root().id, prefix.currentNodeId), "keep visible"))
+            val mixed = play(alternative, 303, a)
+            for (retained in listOf(exposed, commented, mixed)) {
+                val current = inactive(retained)
+                controller.update(current, openingNodeId = current.currentNodeId, showHidden = false)
+                assertNull(controller.state.error)
+                assertTrue(retained.currentNodeId in controller.state.graph!!.positions)
+                assertEquals(retained.nodes.size + 1, current.nodes.size, "Filtering never removes retained data")
+            }
+        } finally { controller.close() }
     }
 
     @Test fun compactGroupsWithRealForkJunctionAndInternalCurrent() {

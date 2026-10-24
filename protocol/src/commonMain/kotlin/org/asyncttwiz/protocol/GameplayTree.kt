@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 import kotlin.concurrent.Volatile
 
 /** The boundary is a stable parent plus the removed continuation, not a captured shared head. */
@@ -12,13 +13,14 @@ import kotlin.concurrent.Volatile
  * Queue order is oldest to newest (last entry is next). These queues are current account control state.
  * Relational adapters must commit the returned tree/delta with their inbox outcome atomically.
  */
+// Stored/cached trees from older releases contain removed control metadata. It has no effect on play.
+@JsonIgnoreUnknownKeys
 @Serializable data class GameplayTree(val initial: PlayState,
     val nodes: Map<String, GameplayMutation> = emptyMap(), val currentNodeId: String = initial.root.id,
     val redoByAccount: Map<String, List<GameplayRedoEntry>> = emptyMap(),
     val removedParents: Map<String, String> = emptyMap(),
     val branches: Map<String, GameplayBranch> = emptyMap(),
     val currentBranchId: String = nodes[currentNodeId]?.branchId ?: initial.root.branchId,
-    val branchArchives: BranchArchiveState = BranchArchiveState(),
     val branchHeads: Map<String, String> = mapOf(initial.root.branchId to initial.root.id),
     val selectionControlId: String? = null) {
     init { require(initial.currentNodeId == initial.root.id) }
@@ -152,14 +154,10 @@ import kotlin.concurrent.Volatile
         return GameplayTreeChange(next, targetId = mutation.id)
     }
 
-    /** I24/I25 seam: call only after a successful deliberate shared selection change, not on retry.
-     * Same-current activation is a no-op. Mere archive metadata/review must not call this method.
-     */
+    /** Legacy selection helper, no longer exposed as a command. Review never activates shared state. */
     fun activate(nodeId: String): GameplayTreeChange = when {
         nodeId != initial.root.id && nodeId !in nodes -> GameplayTreeChange(reason = "missingReference")
         nodeId == currentNodeId -> GameplayTreeChange()
-        (nodes[nodeId]?.branchId ?: initial.root.branchId) in branchArchives.archivedBranchIds ->
-            GameplayTreeChange(reason = "restoreReturn")
         else -> GameplayTreeChange(copy(currentNodeId = nodeId,
             currentBranchId = nodes[nodeId]?.branchId ?: initial.root.branchId, redoByAccount = emptyMap()), targetId = nodeId)
     }
@@ -254,24 +252,6 @@ import kotlin.concurrent.Volatile
             else GameplayHistory.replay(state, node).state ?: return null
         }
         return state
-    }
-
-    /** Catalog uses explicitly retained heads, never branchId filtering of a subtree. Internal
-     * shared-prefix nodes are valid selections on each continuation that actually contains them. */
-    fun archiveCatalog(): BranchArchiveCatalog = object : BranchArchiveCatalog {
-        override val selectionControlId get() = this@GameplayTree.selectionControlId
-        override val selected get() = requireNotNull(resolve(currentBranchId, currentNodeId))
-        override fun resolve(branchId: String, nodeId: String): BranchArchiveTarget? {
-            val head = branchHeads[branchId] ?: return null
-            if (nodeId != initial.root.id && path(head)?.none { it.id == nodeId } != false) return null
-            val version = materializationId(nodeId) ?: return null
-            return BranchArchiveTarget(branchId, nodeId, version)
-        }
-        override fun head(branchId: String) = branchHeads[branchId]?.let { resolve(branchId, it) }
-        override fun displacedReturn(branchId: String): BranchArchiveTarget? = branches[branchId]?.let {
-            resolve(it.displacedBranchId, it.displacedNodeId)?.takeIf { target ->
-                it.displacedVersion == null || target.version == it.displacedVersion }
-        }
     }
 }
 

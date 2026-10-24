@@ -1,5 +1,6 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.json.*
 import kotlin.test.*
 
 class HistoryRuntimeIntegrationTest {
@@ -31,7 +32,48 @@ class HistoryRuntimeIntegrationTest {
         step(tree, GameAction.Play(action), actor, at)
     private fun roundtrip(tree: GameplayTree): GameplayTree = TreeSync.decode(
         TreeSync.records(TreeSync.generation(tree)), tree.initial.gameId, tree.initial.id).tree.also {
-            assertEquals(tree, it); assertEquals(tree.stateAt(tree.currentNodeId), it.stateAt(it.currentNodeId)) }
+             assertEquals(tree, it); assertEquals(tree.stateAt(tree.currentNodeId), it.stateAt(it.currentNodeId)) }
+
+    @Test fun legacyTreeJsonDiscardsArchiveMetadataAndPreviouslyArchivedBranchesStillPlay() {
+        val original = play(GameplayTree(gameplayFixture()), PlayAction.SetLife(a, "21"))
+        val alternative = play(original, PlayAction.SetLife(a, "30"), at = original.initial.root.id)
+        val legacy = JsonObject(GameWire.json.encodeToJsonElement(alternative).jsonObject + ("branchArchives" to buildJsonObject {
+            put("archivedBranchIds", JsonArray(listOf(JsonPrimitive(original.currentBranchId))))
+            put("lastControlByBranch", buildJsonObject { put(original.currentBranchId, gameplayId(900)) })
+            put("records", buildJsonObject { put(gameplayId(900), buildJsonObject {
+                put("actor", a)
+                put("request", buildJsonObject { put("intent", buildJsonObject {
+                    put("type", "archive"); put("branchId", original.currentBranchId)
+                }) })
+            }) })
+        }))
+        val decoded = GameWire.json.decodeFromString<GameplayTree>(legacy.toString())
+        assertEquals(alternative, decoded)
+        assertFalse("branchArchives" in GameWire.json.encodeToJsonElement(decoded).jsonObject)
+        assertEquals(original.stateAt(original.currentNodeId), decoded.stateAt(original.currentNodeId))
+        val continued = play(decoded, PlayAction.AdjustLife(a, "1"), at = original.currentNodeId)
+        assertEquals("22", continued.stateAt(continued.currentNodeId)!!.board.players[0].life)
+        val undone = step(continued, GameAction.Undo)
+        assertEquals(original.currentNodeId, undone.currentNodeId)
+        assertEquals(continued.nodes, step(undone, GameAction.Redo).nodes)
+        roundtrip(continued)
+    }
+
+    @Test fun legacyFlatArchiveControlsAreIgnoredInCachedTreesAndDeltas() {
+        val tree = play(GameplayTree(gameplayFixture()), PlayAction.SetLife(a, "21"))
+        val generation = TreeSync.generation(tree)
+        val legacy = listOf(
+            TreeSyncRecord("archived", tree.currentBranchId, JsonPrimitive(true)),
+            TreeSyncRecord("archive-control", tree.currentBranchId, JsonPrimitive(gameplayId(900))),
+            TreeSyncRecord("archive-record", gameplayId(900), buildJsonObject { put("removedIntent", "archive") }))
+        val decoded = TreeSync.decode(TreeSync.records(generation) + legacy.asSequence(), tree.initial.gameId, tree.initial.id)
+        assertEquals(generation, decoded)
+        assertTrue(TreeSync.records(decoded).none { it.kind.startsWith("archive") })
+        val next = play(tree, PlayAction.AdjustLife(a, "1"))
+        val delta = TreeSync.delta(tree, next)
+        assertEquals(next, TreeSync.apply(decoded, delta.copy(upserts = delta.upserts + legacy)).tree)
+        assertEquals(next, TreeSync.apply(decoded, delta.copy(removals = legacy.map { GameplayTreeKey(it.kind, it.id) })).tree)
+    }
 
     @Test fun retainedReferencesProtectExactInactiveMaterializationsWithoutWholeBoardLocks() {
         var tree = GameplayTree(gameplayFixture())
@@ -61,49 +103,34 @@ class HistoryRuntimeIntegrationTest {
         val referenced = crossBranch.currentNodeId
         crossBranch = play(crossBranch, PlayAction.EventComment(EventReference(crossBranch.initial.id, referenced),
             "inactive offshoot dependency"), b, crossBranch.initial.root.id)
-        crossBranch = step(crossBranch, GameAction.MakeCurrent(referenced))
+        crossBranch = play(crossBranch, PlayAction.SetNote(gameplayId(11), "continue referenced branch"), b, referenced)
         val refusal = HistoryContinuation.change(crossBranch, a, command(crossBranch, GameAction.Undo))
         assertEquals("referenceBlocked", refusal.reason); assertEquals(referenced, refusal.targetId)
-        assertNotNull(roundtrip(crossBranch).stateAt(crossBranch.branches.values.single().firstNodeId))
+        for (branch in crossBranch.branches.values) assertNotNull(roundtrip(crossBranch).stateAt(branch.firstNodeId))
     }
 
-    @Test fun retainedCatalogTracksHeadsDisplacedVersionsAndEveryDeliberateSwitchIdentity() {
+    @Test fun retainedHeadsAndDisplacedVersionsSurviveUndoRedoAndContinuation() {
         var tree = GameplayTree(gameplayFixture())
         tree = play(tree, PlayAction.SetLife(a, "21"))
         val oldHead = tree.currentNodeId
         val rootBranch = tree.currentBranchId
         val selectionBeforeUndo = tree.selectionControlId
         tree = step(tree, GameAction.Undo)
-        assertEquals(tree.initial.root.id, tree.archiveCatalog().head(rootBranch)!!.nodeId)
+        assertEquals(tree.initial.root.id, tree.branchHeads[rootBranch])
         tree = step(tree, GameAction.Redo)
-        assertEquals(oldHead, tree.archiveCatalog().head(rootBranch)!!.nodeId)
+        assertEquals(oldHead, tree.branchHeads[rootBranch])
         assertEquals(selectionBeforeUndo, tree.selectionControlId)
         tree = play(tree, PlayAction.SetNote(gameplayId(11), "alternative"), at = tree.initial.root.id)
-        val alternative = tree.currentBranchId
         val forkControl = tree.selectionControlId
         assertNotNull(forkControl)
-        assertEquals(oldHead, tree.archiveCatalog().head(rootBranch)!!.nodeId)
-        val preview = BranchArchives.previewReturn(tree, tree.archiveCatalog(), alternative)
-        assertFalse(preview.needsSelection, preview.reason)
-        assertEquals(oldHead, preview.target!!.nodeId)
-        val request = command(tree, GameAction.BranchArchive(BranchArchiveIntent.ArchiveAndReturn(alternative,
-            preview.target, expectedReturnHead = preview.returnHead)))
-        tree = assertNotNull(HistoryContinuation.change(tree, b, request).tree)
-        assertEquals(rootBranch, tree.currentBranchId); assertEquals(request.requestId, tree.selectionControlId)
-        assertTrue(alternative in tree.branchArchives.archivedBranchIds)
-        val archivedHead = tree.branchHeads.getValue(alternative)
-        assertEquals("restoreReturn", HistoryContinuation.change(tree, a,
-            command(tree, GameAction.MakeCurrent(archivedHead))).reason)
-        val archived = roundtrip(tree)
-        val metadata = step(tree, GameAction.BranchArchive(BranchArchiveIntent.Restore(alternative)))
-        assertEquals(request.requestId, metadata.selectionControlId)
-        val away = step(tree, GameAction.MakeCurrent(tree.initial.root.id))
-        val back = step(away, GameAction.MakeCurrent(oldHead))
-        assertNotEquals(request.requestId, back.selectionControlId)
-        val recover = command(back, GameAction.BranchArchive(BranchArchiveIntent.Recover(request.requestId, true)))
-        assertEquals("changedSelection", HistoryContinuation.change(back, a, recover).reason)
-        assertEquals("noOp", HistoryContinuation.change(back, a, command(back, GameAction.MakeCurrent(oldHead))).outcome)
-        assertEquals(archived, roundtrip(archived))
+        assertEquals(oldHead, tree.branchHeads[rootBranch])
+        val branch = tree.branches.values.single()
+        assertEquals(oldHead, branch.displacedNodeId)
+        assertEquals(tree.materializationId(oldHead), branch.displacedVersion)
+        val continued = play(tree, PlayAction.AdjustLife(a, "1"), at = oldHead)
+        assertNotEquals(forkControl, continued.selectionControlId)
+        assertEquals("22", continued.stateAt(continued.currentNodeId)!!.board.players[0].life)
+        roundtrip(continued)
     }
 
     @Test fun failedAndNoopHistoricalInputsPreserveStacksFirstSuccessForksAndFullDeltaKeepsOffshoots() {

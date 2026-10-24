@@ -57,7 +57,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             val actor = accountId()
             game != null && actor != null && !closed && session?.gameplay(game, actor, action, invocation, continuation,
                 captured = { historyOwner?.captured(it) }) == true
-        }, control = ::historyControl).also { historyOwner = it }
+        }).also { historyOwner = it }
     val inspection = CardInspectionController()
     internal val setupCancellation = SetupCancellation()
     private val personalChat = GameChat()

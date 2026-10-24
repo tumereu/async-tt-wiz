@@ -14,7 +14,7 @@ class TableHistoryControllerTest {
         val reviews = ArrayDeque<(DownloadedHistoryState) -> Unit>()
         val history = TableHistoryController(Executor { work.addLast(it) }, { posts.addLast(it) }, { _, complete ->
             reviews.addLast(complete); true
-        }, { _, _, _ -> error("Review must not submit gameplay") }, { error("Review must not send controls") })
+        }, { _, _, _ -> error("Review must not submit gameplay") })
 
         fun publish() { work.removeFirst().run(); posts.removeFirst().invoke() }
         override fun close() = history.close()

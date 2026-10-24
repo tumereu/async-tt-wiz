@@ -105,7 +105,7 @@ class HistoryExplorerRegressionTest {
         val tree = play(GameplayTree(initial), LibraryActions.draw(initial.board, f.id(10), f.id(20), 1).single())
         val legacy = tree.copy(nodes = tree.nodes.mapValues { (_, node) -> node.copy(grouping = null) })
         openEveryBoundary(legacy)
-        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> false }, { _, _, _ -> false }, { false })
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> false }, { _, _, _ -> false })
         try {
             history.update(legacy, "legacy")
             val events = HistoryTimelineLayout.events(history.playback!!.tree, legacy.currentNodeId)

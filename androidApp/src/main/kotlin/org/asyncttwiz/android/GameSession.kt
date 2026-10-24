@@ -321,7 +321,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
-        if (action is GameAction.Play || action is GameAction.AcceptResult || action is GameAction.SendChat || action is GameAction.MakeCurrent || action is GameAction.BranchArchive ||
+        if (action is GameAction.Play || action is GameAction.AcceptResult || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
@@ -353,8 +353,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Exact typed shared controls use the SAME original queue and processing-time target.
      * No fixed Undo target, alternate endpoint, or durable offline command queue. */
     fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
-        if (action != GameAction.Undo && action != GameAction.Redo && action !is GameAction.MakeCurrent &&
-            action !is GameAction.BranchArchive) return false
+        if (action != GameAction.Undo && action != GameAction.Redo) return false
         return gameplayCommand(game, actor, action, null, null) != null
     }
 

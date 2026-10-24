@@ -223,8 +223,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val processingStarted = System.nanoTime()
         try {
         val before = game.revision!!
-        val isGameplay = command.action is GameAction.Play || command.action is GameAction.MakeCurrent ||
-            command.action is GameAction.BranchArchive || command.action == GameAction.Undo || command.action == GameAction.Redo
+        val isGameplay = command.action is GameAction.Play || command.action == GameAction.Undo || command.action == GameAction.Redo
         var treeDelta: GameplayTreeDelta? = null
         var createdMutation: GameplayMutation? = null
         val gameplay = if (isGameplay) {

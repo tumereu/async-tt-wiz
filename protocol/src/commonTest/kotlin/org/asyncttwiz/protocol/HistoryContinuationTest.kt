@@ -54,29 +54,12 @@ class HistoryContinuationTest {
             command(105, PlayAction.AdjustLife(f.a, "1"), live.currentNodeId)).reason)
     }
 
-    @Test fun capturedInternalRootAndBranchSwitchesClearBothButNoOpDoesNot() {
-        val first = f.tap(GameplayTree(f.root()))
-        val live = f.tap(first, f.b, 12, n = 101)
-        val undone = assertNotNull(f.undo(live, f.b).tree)
-        val queues = undone.redoByAccount + (f.a to undone.redoByAccount.getValue(f.b))
-        val stacked = undone.copy(redoByAccount = queues)
-        fun activate(tree: GameplayTree, id: String, n: Int = 110) = HistoryContinuation.change(tree, f.a,
-            f.command(GameAction.MakeCurrent(id), n))
-        assertEquals("noOp", activate(stacked, stacked.currentNodeId).outcome)
-        assertEquals(queues, stacked.redoByAccount)
-        val switched = assertNotNull(activate(stacked, stacked.initial.root.id).tree)
-        assertTrue(switched.redoByAccount.isEmpty())
-        val newLine = assertNotNull(switched.play(f.a, command(111, PlayAction.AdjustLife(f.a, "1"))).tree)
-        assertEquals(1, newLine.branches.size)
-        val old = assertNotNull(activate(newLine, first.currentNodeId).tree)
-        assertEquals(first.currentNodeId, old.currentNodeId)
-        assertEquals(newLine.nodes, old.nodes)
-        val branch = assertNotNull(activate(old, newLine.currentNodeId).tree)
-        assertEquals(newLine.currentBranchId, branch.currentBranchId)
-        assertEquals("accessDenied", HistoryContinuation.change(old, f.id(999),
-            f.command(GameAction.MakeCurrent(first.currentNodeId), 120)).reason)
-        assertEquals("inapplicable", HistoryContinuation.change(old, f.a,
-            f.command(GameAction.MakeCurrent(first.currentNodeId), 120).copy(scope = GameScope(f.id(999), playId = f.id(2)))).reason)
+    @Test fun historicalPlayStillRequiresMatchingScopeAndParticipant() {
+        val tree = f.tap(GameplayTree(f.root()))
+        val input = command(120, PlayAction.AdjustLife(f.a, "1"), tree.initial.root.id)
+        assertEquals("accessDenied", HistoryContinuation.change(tree, f.id(999), input).reason)
+        assertEquals("inapplicable", HistoryContinuation.change(tree, f.a,
+            input.copy(scope = GameScope(f.id(999), playId = f.id(2)))).reason)
     }
 
     @Test fun historicalSuccessClearsBothQueuesButFailureDoesNotAndUndoRestoresPriorBranchContext() {

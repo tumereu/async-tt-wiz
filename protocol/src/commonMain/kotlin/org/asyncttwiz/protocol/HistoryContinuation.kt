@@ -2,7 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** Immutable lineage and original displaced selection for return/recovery. Explicit current heads
+/** Immutable lineage and original displaced selection. Explicit current heads
  * live in GameplayTree.branchHeads, never an inferred subtree. Original references can later be
  * removed by Undo; consumers must resolve them explicitly, not substitute a representative/group end.
  */
@@ -20,19 +20,9 @@ object HistoryContinuation {
         if (command.scope.gameId != tree.initial.gameId || command.scope.playId != tree.initial.id)
             return GameplayTreeChange(reason = "inapplicable")
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
-        val change = when (val action = command.action) {
+        val change = when (command.action) {
             is GameAction.Play -> tree.play(actor, command)
             GameAction.Undo, GameAction.Redo -> SelectiveUndo.change(tree, actor, command)
-            is GameAction.BranchArchive -> BranchArchives.change(tree, tree.archiveCatalog(), actor,
-                BranchArchiveRequest(command.requestId, command.scope, action.intent)).let {
-                    // Original outcomes live in the existing inbox, not a second mutation journal.
-                    if (it.outcome != "accepted") GameplayTreeChange(reason = it.reason)
-                    else GameplayTreeChange(it.tree, targetId = it.selection?.nodeId)
-                }
-            is GameAction.MakeCurrent -> {
-                if (tree.stateAt(action.nodeId) == null) GameplayTreeChange(reason = "missingReference")
-                else tree.activate(action.nodeId)
-            }
             else -> GameplayTreeChange(reason = "invalidInput")
         }
         val next = change.tree ?: return change
@@ -49,11 +39,7 @@ object HistoryContinuation {
                     heads[entry.mutation.branchId] = entry.mutation.id
             }
         }
-        val switched = command.action is GameAction.MakeCurrent ||
-            (command.action is GameAction.BranchArchive &&
-                (next.currentBranchId != tree.currentBranchId || next.currentNodeId != tree.currentNodeId))
-        if (heads == next.branchHeads && !switched) return change
-        return change.copy(tree = next.preservingCheckpoint(next.copy(branchHeads = heads,
-            selectionControlId = if (switched) command.requestId else next.selectionControlId)))
+        if (heads == next.branchHeads) return change
+        return change.copy(tree = next.preservingCheckpoint(next.copy(branchHeads = heads)))
     }
 }

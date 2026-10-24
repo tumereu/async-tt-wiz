@@ -5,11 +5,10 @@ import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executor
 
 /** Personal display/armed intent only. The session remains the sole tree, prediction and FIFO owner.
- * Cold indexing, graph projection and return previews run on the supplied worker. */
+ * Cold indexing and graph projection run on the supplied worker. */
 class TableHistoryController(private val worker: Executor, private val post: (() -> Unit) -> Unit,
     private val review: (String?, (DownloadedHistoryState) -> Unit) -> Boolean,
-    private val submit: (PlayAction, String?, Continuation?) -> Boolean,
-    private val control: (GameAction) -> Boolean) : AutoCloseable {
+    private val submit: (PlayAction, String?, Continuation?) -> Boolean) : AutoCloseable {
     var playback by mutableStateOf<HistoryPlayback?>(null); private set
     var view by mutableStateOf<DownloadedHistoryState?>(null); private set
     var armed by mutableStateOf<String?>(null); private set
@@ -18,9 +17,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var error by mutableStateOf<String?>(null); private set
     var gate by mutableStateOf<ResultPlaybackGate?>(null); private set
     var foreground by mutableStateOf(true); private set
-    var confirmation by mutableStateOf<BranchArchiveConfirmation?>(null); private set
-    var choices by mutableStateOf<List<BranchReturnChoice>>(emptyList()); private set
-    var branch by mutableStateOf<String?>(null); private set
     var usernames by mutableStateOf<Map<String, String>>(emptyMap()); private set
     private var tree: GameplayTree? = null
     private var firstRequest: String? = null
@@ -193,27 +189,5 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         precedingPresented = state.currentNodeId
     }
 
-    fun prepareReturn(branchId: String, chosen: BranchArchiveTarget? = null, restore: Boolean = false) {
-        val value = tree ?: return
-        val generation = epoch
-        branch = branchId; confirmation = null
-        worker.execute {
-            val catalog = value.archiveCatalog()
-            val preview = BranchArchives.previewReturn(value, catalog, branchId, chosen, restore)
-            val action = preview.target?.let { CapturedBranchArchiveAction(GameScope(value.initial.gameId, playId = value.initial.id),
-                BranchArchiveIntent.ArchiveAndReturn(branchId, it, restore, preview.returnHead)) }
-            val options = value.branchHeads.keys.filter { it != branchId }.mapIndexedNotNull { index, id -> catalog.head(id)?.let {
-                BranchReturnChoice(it, "Continuation ${index + 1}", id in value.branchArchives.archivedBranchIds)
-            } }
-            post { if (!closed && generation == epoch && branch == branchId) {
-                confirmation = BranchArchiveConfirmation(action, preview); choices = options
-            } }
-        }
-    }
-    fun dismissReturn() { branch = null; confirmation = null; choices = emptyList() }
-    fun request(action: CapturedBranchArchiveAction): Boolean {
-        val value = tree ?: return false
-        return action.scope == GameScope(value.initial.gameId, playId = value.initial.id) && control(GameAction.BranchArchive(action.intent))
-    }
-    override fun close() { closed = true; epoch++; displayEpoch++; cancel(); view = null; tree = null; playback = null; dismissReturn() }
+    override fun close() { closed = true; epoch++; displayEpoch++; cancel(); view = null; tree = null; playback = null }
 }

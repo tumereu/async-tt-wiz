@@ -31,11 +31,10 @@ class TableStatesScreenshotTest {
     private fun render(kind: String, landscape: Boolean): List<PlayAction> {
         val tree = f.history()
         val sent = mutableListOf<PlayAction>()
-        val activations = mutableListOf<GameAction>()
         val history = TableHistoryController(Executor { it.run() }, { it() }, { node, complete ->
             val cursor = node ?: tree.currentNodeId
             complete(DownloadedHistoryState(1L, cursor, state = tree.stateAt(cursor))); true
-        }, { action, _, _ -> sent += action; true }, { activations += it; true })
+        }, { action, _, _ -> sent += action; true })
         history.update(tree, "fixture", f.game, f.a)
         val playback = history.playback!!
         val path = playback.tree.path(tree.currentNodeId)
@@ -164,7 +163,7 @@ class TableStatesScreenshotTest {
             compose.onNodeWithText("Branch details…").assertDoesNotExist()
         }
         compose.waitForIdle()
-        assertTrue(sent.isEmpty()); assertTrue(activations.isEmpty())
+        assertTrue(sent.isEmpty())
         val file = File("build/outputs/roborazzi/gameplay-$kind-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)

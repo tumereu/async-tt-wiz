@@ -239,13 +239,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f, 40f).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
-        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight) {
+        val timelineVisible = runtime.reviewing && runtime.reviewPanel != null
+        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight)
+                .let { if (timelineVisible) timelineLayout(it, accountId, maxWidth.value, maxHeight.value, landscape) else it }
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight
+        var previousTimeline by remember { mutableStateOf(timelineVisible) }
+        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight || previousTimeline != timelineVisible
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
@@ -300,7 +303,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val activePings = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
         val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
-        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
+        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight; previousTimeline = timelineVisible }
         SideEffect {
             presentation = { rendered.value.scene }
             var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
@@ -480,7 +483,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 } else if (currentWritable) callback?.invoke(intent)
             }
         }
-        if (runtime.reviewing) scene.world?.viewport?.let { board ->
+        if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
             // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
             Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
                 .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {

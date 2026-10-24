@@ -65,13 +65,13 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // IME/system dialogs may reveal bars. Returning to the app restores immersive presentation.
-        if (hasFocus) window.decorView.post { fullscreen() }
+        if (hasFocus) fullscreen()
     }
 
     override fun onResume() {
         super.onResume()
         resumed = true
-        window.decorView.post { fullscreen() }
+        fullscreen()
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         auth.controller.foreground()

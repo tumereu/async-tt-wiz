@@ -17,6 +17,7 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
     val games = GameService(runtime)
     val dispatcher = GameDispatcher()
     private val accounts = AccountService(runtime)
+    private val handlerTiming = GameHandlerTiming()
     private val sockets = ConcurrentHashMap.newKeySet<GameSocket>()
     private val workers = Executors.newScheduledThreadPool(5) { Thread(it, "game-worker").apply { isDaemon = true } }
     fun start() {
@@ -106,7 +107,9 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
             val requestId = (message as? GameCommand)?.requestId
             if (!DeckValidation.uuid(gameId)) { send(GameAdmissionError("invalidInput", false, requestId)); return }
             // This call enqueues before *any* asynchronous auth/admission DB work.
+            val timed = handlerTiming.queued(gameId, message::class.simpleName ?: "Unknown")
             dispatcher.submit(gameId, text.encodeToByteArray().size) {
+                timed {
                 val principal = principal()
                 when (message) {
                     is GameCommand -> send(games.admit(principal, negotiated, connectionId, message))
@@ -137,6 +140,7 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
                         } catch (failure: Exception) { subscriptions.remove(gameId); throw failure }
                     }
                     else -> Unit
+                }
                 }
             }.whenComplete { _, failure ->
                 if (failure != null) {
@@ -191,7 +195,15 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
             try { if (::session.isInitialized && session.isOpen) session.close(CloseReason(CloseReason.CloseCodes.GOING_AWAY, "Reconnect")) }
             catch (_: Exception) { /* Delivery never affects committed game state. */ }
         }
-        override fun onClose(session: Session, reason: CloseReason) { stop() }
-        override fun onError(session: Session?, failure: Throwable?) { stop() }
+        override fun onClose(session: Session, reason: CloseReason) {
+            org.slf4j.LoggerFactory.getLogger(GameHub::class.java).info(
+                "Game socket closed connection={} code={} serverStopped={}", connectionId, reason.closeCode.code, stopped)
+            stop()
+        }
+        override fun onError(session: Session?, failure: Throwable?) {
+            org.slf4j.LoggerFactory.getLogger(GameHub::class.java).warn(
+                "Game socket error connection={} type={}", connectionId, failure?.javaClass?.simpleName)
+            stop()
+        }
     }
 }

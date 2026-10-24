@@ -89,6 +89,7 @@ internal object DebugLatency {
     private var recorder: LatencyRecorder? = null
     @Volatile private var token: String? = null
     private val buffer = LatencyBuffer(BuildConfig.DEBUG)
+    private val reconnects = ReconnectBuffer(BuildConfig.DEBUG)
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private val upload = AtomicBoolean()
     private val forced = AtomicBoolean()
@@ -98,11 +99,17 @@ internal object DebugLatency {
         if (BuildConfig.DEBUG) recorder?.begin(gameId, action, nodes) else null
     fun result(requestId: String) { if (BuildConfig.DEBUG) recorder?.result(requestId) }
     fun drawn() { if (BuildConfig.DEBUG) recorder?.drawn() }
+    fun reconnect(value: ReconnectEpisode) {
+        if (!BuildConfig.DEBUG || recorder == null) return
+        Log.i("AtwReconnect", "game=${value.gameId} episode=${value.id} started=${value.startedAt} cause=${value.cause} " +
+            "step=${value.steps.lastOrNull()} durationMs=${value.durationMs} complete=${value.complete}")
+        if (reconnects.record(value)) wake.trySend(Unit)
+    }
 
     fun install(application: Application, store: CrashReportStore, version: String, device: String) {
         if (!BuildConfig.DEBUG || recorder != null) return
-        fun report(actions: List<ActionLatency>) = CrashReport(Instant.now().toString(), version, device,
-            AccountJson.format.encodeToString(LatencyBatch(actions)), kind = "latency")
+        fun report(actions: List<ActionLatency>, episodes: List<ReconnectEpisode>) = CrashReport(Instant.now().toString(), version, device,
+            AccountJson.format.encodeToString(LatencyBatch(actions, episodes)), kind = "latency")
         recorder = LatencyRecorder(true, log = { entry ->
             Log.i("AtwLatency", "action=${entry.actionType} game=${entry.gameId} nodes=${entry.historyNodeCount} " +
                 "predicted=${entry.predicted} submitted=${entry.submitted} localApplyMs=${entry.localApplyMs} " +
@@ -112,13 +119,15 @@ internal object DebugLatency {
         scope.launch {
             // Restore before handling any persistence/upload signals from the new process.
             runCatching { store.bufferedLatency()?.let { saved ->
-                buffer.restore(AccountJson.format.decodeFromString<LatencyBatch>(saved.body).actions)
+                val batch = AccountJson.format.decodeFromString<LatencyBatch>(saved.body)
+                buffer.restore(batch.actions); reconnects.restore(batch.reconnects)
             } }
             for (signal in wake) {
                 try {
                     fun persist() {
                         val actions = buffer.snapshot().map { it.value }
-                        store.bufferLatency(actions.takeIf { it.isNotEmpty() }?.let(::report))
+                        val episodes = reconnects.snapshot()
+                        store.bufferLatency(if (actions.isEmpty() && episodes.isEmpty()) null else report(actions, episodes))
                     }
                     persist()
                     val shouldUpload = upload.getAndSet(false)
@@ -126,9 +135,10 @@ internal object DebugLatency {
                     val credential = token
                     if (shouldUpload && credential != null) {
                         val batch = buffer.batch(System.nanoTime() / 1_000_000, force)
-                        if (batch.isNotEmpty()) AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api ->
-                            if (api.uploadCrashReport(credential, report(batch.map { it.value }))) {
-                                buffer.acknowledge(batch); persist()
+                        val episodes = reconnects.batch()
+                        if (batch.isNotEmpty() || episodes.isNotEmpty()) AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api ->
+                            if (api.uploadCrashReport(credential, report(batch.map { it.value }, episodes))) {
+                                buffer.acknowledge(batch); reconnects.acknowledge(episodes); persist()
                             }
                         }
                     }

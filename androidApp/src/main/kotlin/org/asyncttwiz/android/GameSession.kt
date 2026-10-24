@@ -42,7 +42,11 @@ class GameSession(private val connection: GameConnection, private val credential
     private val accountId: () -> String? = { null },
     private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
     private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor(),
-    private val now: () -> Long = { System.nanoTime() / 1_000_000 }) : AutoCloseable {
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DEBUG) DebugLatency.reconnect(it) }) : AutoCloseable {
+    private val reconnectTrace = ReconnectRecorder(BuildConfig.DEBUG, now, record = reconnectTelemetry)
+    private var backgrounded = false
+    private fun recoveryReady() { streams.keys.filter(::ready).forEach { reconnectTrace.step(it, "ready", complete = true) } }
     private val uiThread = Thread.currentThread()
     private var latencyTrace: LatencyRecorder.Trace? = null
     private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
@@ -130,7 +134,8 @@ class GameSession(private val connection: GameConnection, private val credential
     val ready get() = connected && welcome
     fun reconnecting(gameId: String) = !ready(gameId) && connectionDemand[gameId]?.let { now() - it >= 3_000 } == true
     fun dismissError() { error = null; statusChanged() }
-    fun foreground() { connectionDemand.clear(); tick() }
+    fun background() { backgrounded = true; reconnectTrace.stepAll("lifecycleBackground") }
+    fun foreground() { backgrounded = false; reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear(); tick() }
     /** Only a previously authorized, retained active play may capture originals during a short
      * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
     private fun activeRequest(game: GameSummary): Boolean {
@@ -292,21 +297,31 @@ class GameSession(private val connection: GameConnection, private val credential
         if (closed) return
         checkAccount()
         val current = credential()
-        if (current != token) disconnect()
+        if (current != token) {
+            if (connected) streams.keys.forEach { reconnectTrace.start(it,
+                if (current == null) "credentialUnavailable" else "credentialChanged") }
+            disconnect()
+        }
         if (current == null || streams.isEmpty()) return
         if (!connected) {
             token = current; lastCredential = current; connected = true; lastPing = now(); val generation = ++epoch
+            reconnectTrace.stepAll("socketConnectStart")
             statusChanged()
             connection.connect(current, object : GameConnection.Listener {
                 private fun deliver(action: () -> Unit) = post {
                     if (!closed && epoch == generation && credential() == current && sameAccount()) action()
                 }
-                override fun opened() = deliver { send(GameHello(processId, installationId)) }
-                override fun message(message: GameServerMessage) = deliver {
-                    if (runCatching { receive(message) }.isFailure) unavailable()
+                override fun opened() = deliver {
+                    reconnectTrace.stepAll("socketConnectedHttpAuthenticated")
+                    send(GameHello(processId, installationId))
                 }
-                override fun disconnected(unauthorized: Boolean) = deliver {
-                    unavailable()
+                override fun message(message: GameServerMessage) = deliver {
+                    val failure = runCatching { receive(message) }.exceptionOrNull()
+                    if (failure != null) connectionUnavailable("streamError:${message::class.simpleName}:${failure.javaClass.simpleName}")
+                }
+                override fun disconnected(unauthorized: Boolean) = disconnected(unauthorized, "socketDisconnected")
+                override fun disconnected(unauthorized: Boolean, cause: String) = deliver {
+                    connectionUnavailable(cause)
                     if (unauthorized) authenticationRequired(current)
                 }
             })
@@ -317,6 +332,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         connectionDemand.keys.removeAll { ready(it) }
         uncertainGames.removeAll { ready(it) }
+        recoveryReady()
         statusChanged()
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
@@ -488,6 +504,7 @@ class GameSession(private val connection: GameConnection, private val credential
             val ids = pending.values.filter { it.scope.gameId == id }.map { it.requestId }
             stream.recoveryIds = ids
             stream.awaitingReady = true
+            reconnectTrace.step(id, if (stream.opened) "streamResumeStart" else "streamOpenStart")
             if (!send(if (stream.opened) ResumeGameStream(id, stream.id, ids) else OpenGameStream(id, stream.id))) return
         }
     }
@@ -495,6 +512,7 @@ class GameSession(private val connection: GameConnection, private val credential
         when (message) {
             is GameWelcome -> {
                 require(message.protocolMajor == 1 && message.minor == 0 && message.engineVersion == 1 && message.readFormat == 1)
+                reconnectTrace.stepAll("protocolWelcome")
                 welcome = true; error = null; openStreams()
             }
             is GameStreamReady -> {
@@ -505,6 +523,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 stream.generation = message.generation; stream.opened = true
                 stream.lastGeneration = message.generation
                 stream.awaitingReady = false
+                reconnectTrace.step(message.gameId, "streamAuthorized")
                 require(message.statuses.size == stream.recoveryIds.size &&
                     message.statuses.map { it.requestId }.toSet() == stream.recoveryIds.toSet())
                 message.ended?.let {
@@ -588,8 +607,8 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
                 if (BuildConfig.DEBUG) message.requestId?.let(DebugLatency::result)
-                if (message.code == "unauthorized") { val rejected = token; unavailable(); rejected?.let(authenticationRequired) }
-                else if (message.retryable || message.code == "streamFenced") unavailable()
+                if (message.code == "unauthorized") { val rejected = token; connectionUnavailable("admission:unauthorized"); rejected?.let(authenticationRequired) }
+                else if (message.retryable || message.code == "streamFenced") connectionUnavailable("admission:${message.code}")
                 else {
                     val original = message.requestId?.let(pending::get)
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
@@ -603,10 +622,11 @@ class GameSession(private val connection: GameConnection, private val credential
                         ?: "This game changed or the request could not be used. Refresh and try again."
                 }
             }
-            is GameUpgradeRequired -> { unavailable(); error = "Update the app to connect to this game service." }
+            is GameUpgradeRequired -> { connectionUnavailable("upgradeRequired"); error = "Update the app to connect to this game service." }
             is GamePong -> Unit
         }
         flush()
+        recoveryReady()
         statusChanged()
     }
     private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, play: PlayState?) {
@@ -799,12 +819,17 @@ class GameSession(private val connection: GameConnection, private val credential
         }
     }
     private fun send(message: GameClientMessage): Boolean {
-        if (!connection.send(message)) { unavailable(); return false }; return true
+        if (!connection.send(message)) { connectionUnavailable("socketSendFailed"); return false }; return true
     }
-    private fun unavailable() { disconnect(); statusChanged() }
+    private fun connectionUnavailable(cause: String) {
+        streams.keys.forEach { reconnectTrace.start(it, if (backgrounded) "lifecycle:$cause" else cause) }
+        disconnect(); statusChanged()
+    }
     private fun recover(gameId: String, through: String) {
         if (gameId in recoveries) return
         val stream = streams[gameId] ?: return
+        reconnectTrace.start(gameId, "headRequiresCatchUp")
+        reconnectTrace.step(gameId, "catchUpStart")
         stream.head = false
         val ids = pending.values.filter { it.scope.gameId == gameId }.map { it.requestId }
         val recovery = Recovery(ids, ids.filter { it !in sent }.toSet(), through)
@@ -812,8 +837,8 @@ class GameSession(private val connection: GameConnection, private val credential
         val generation = epoch; val current = token
         if (treeCache != null && connection.treeTransfer(gameId, recovery.ids) { transfer -> post {
             if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery) {
-                if (transfer == null) { recoveries.remove(gameId); unavailable() }
-                else stageTree(gameId, recovery, transfer, generation, current)
+                if (transfer == null) { recoveries.remove(gameId); connectionUnavailable("treeManifestFailed") }
+                else { reconnectTrace.step(gameId, "treeManifestReceived"); stageTree(gameId, recovery, transfer, generation, current) }
             }
         } }) return
         if (!connection.baseline(gameId, recovery.ids) { baseline -> post {
@@ -838,9 +863,9 @@ class GameSession(private val connection: GameConnection, private val credential
                     for (status in baseline.statuses) if (status.status == "final") result(status.result!!)
                     true
                 }.getOrDefault(false)
-                if (installed) { stream.head = true; error = null; flush(); statusChanged() } else unavailable()
+                if (installed) { stream.head = true; error = null; flush(); recoveryReady(); statusChanged() } else connectionUnavailable("baselineFailed")
             }
-        } }) { recoveries.remove(gameId); unavailable() }
+        } }) { recoveries.remove(gameId); connectionUnavailable("baselineNotStarted") }
     }
 
     private fun observePlay(game: GameSummary) {
@@ -892,7 +917,7 @@ class GameSession(private val connection: GameConnection, private val credential
 
     private fun stageTree(gameId: String, recovery: Recovery, transfer: GameplayTreeTransfer, generation: Long, current: String?) {
         val playId = transfer.manifest.playId
-        val owner = account ?: return unavailable()
+        val owner = account ?: return connectionUnavailable("recoveryAccountMissing")
         val createCache = treeCache ?: return
         val tail = recovery.tail.toList().sortedBy { GameWire.ordinal(it.resultRevision) }
         val through = recovery.through
@@ -930,14 +955,14 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 val replica = plays.getOrPut(gameId) { GameplayReplica() }
                 if (!replica.published(requireNotNull(transfer.manifest.head), published.generation,
-                    published.version.revision.toString(), transfer.manifest.statuses, tail)) { unavailable(); return@post }
+                    published.version.revision.toString(), transfer.manifest.statuses, tail)) { connectionUnavailable("treePublicationFailed"); return@post }
                 val summary = tail.lastOrNull { it.resultRevision == replica.revision }?.summary ?: transfer.manifest.head!!.summary
                 install(summary, replica.revision!!, null, replica.accepted)
                 val head = requireNotNull(transfer.manifest.head)
                 installChat(gameId, head.revision, head.chat, snapshot = true)
                 tail.forEach { update -> update.chatMessage?.let { installChat(gameId, update.resultRevision, listOf(it), snapshot = false) } }
                 for (status in transfer.manifest.statuses) if (status.status == "final") result(requireNotNull(status.result))
-                streams[gameId]?.head = true; error = null; flush(); statusChanged()
+                streams[gameId]?.head = true; error = null; flush(); recoveryReady(); statusChanged()
             }
         }
     }
@@ -976,7 +1001,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); lastCredential = null; account = null; error = null; statusChanged() }
+        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

@@ -28,8 +28,10 @@ class GameSessionTest {
         val results = mutableListOf<Pair<GameCommand, GameResult>>()
         val rejected = mutableListOf<String>()
         val posts = ArrayDeque<() -> Unit>()
+        var now = 0L
+        val reconnects = mutableListOf<ReconnectEpisode>()
         val session = GameSession(wire, { token }, { posts.add(it) }, rejected::add, changed::add,
-            { command, result -> results.add(command to result) }, {})
+            { command, result -> results.add(command to result) }, {}, now = { now }, reconnectTelemetry = reconnects::add)
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun message(message: GameServerMessage) { wire.message(message); drain() }
         fun connect(games: List<GameSummary>, statuses: Map<String, List<GameRequestStatus>> = emptyMap(), generation: String = "1") {
@@ -44,6 +46,39 @@ class GameSessionTest {
                 message(GameHead(game.id, game.revision, game))
             }
         }
+    }
+    @Test fun socketReasonAndSilentLifecycleRecoveryAreRecordedThroughTheAcceptedHead() {
+        val f = Fixture(); val game = game()
+        f.connect(listOf(game))
+        f.session.background()
+        f.wire.listener.disconnected(false, "socketClose:1001:Reconnect"); f.drain()
+        assertEquals("lifecycle:socketClose:1001:Reconnect", f.reconnects.single().cause)
+        f.now = 10_000
+        assertFalse(f.session.reconnecting(game.id)) // Lifecycle interruption alone never demands UI.
+        f.session.foreground()
+        assertFalse(f.session.reconnecting(game.id))
+        f.now += 10
+        f.wire.listener.opened(); f.drain(); f.message(GameWelcome())
+        val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().single()
+        f.now += 20; f.message(GameStreamReady(game.id, resume.streamId, "2"))
+        assertFalse(f.reconnects.last().complete)
+        f.now += 30; f.message(GameHead(game.id, game.revision, game))
+        assertTrue(f.reconnects.last().complete)
+        assertEquals(listOf("lifecycleForeground", "socketConnectStart", "socketConnectedHttpAuthenticated", "protocolWelcome",
+            "streamResumeStart", "streamAuthorized", "ready"), f.reconnects.last().steps.map { it.stage })
+        assertTrue(f.session.ready(game.id))
+    }
+    @Test fun credentialChangeRecordsARecoveryWithoutWaitingForASocketFailure() {
+        val f = Fixture(); val game = game(); f.connect(listOf(game))
+        val old = f.wire.listener
+        f.token = "B".repeat(43)
+        f.session.tick()
+        assertEquals("credentialChanged", f.reconnects.last().cause)
+        assertEquals("socketConnectStart", f.reconnects.last().steps.last().stage)
+        val count = f.reconnects.size
+        old.disconnected(false, "staleSocketFailure"); f.drain()
+        assertEquals(count, f.reconnects.size)
+        assertFalse(f.session.reconnecting(game.id))
     }
     @Test fun multipleInFlightCapturedIdentityNoOfflineActionsAndResultsNeverRewindRevision() {
         val f = Fixture(); val a = game(); val b = game()

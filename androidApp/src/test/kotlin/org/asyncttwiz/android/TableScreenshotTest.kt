@@ -91,9 +91,13 @@ class TableScreenshotTest {
         } else {
             assertEquals(if (landscape) 892 else 412, image.width)
             assertEquals(if (landscape) 412 else 892, image.height)
-            if (!controls) assertRenderedLandsBands(image, TablePresentation.scene(LiveTableFixture.game, play, "a",
-                image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused), "a",
-                overlayTop = if (paused) image.height - if (landscape) 104 else 116 else image.height, reviewing = paused)
+            if (!controls) {
+                val normal = TablePresentation.scene(LiveTableFixture.game, play, "a",
+                    image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused)
+                val scene = if (paused) timelineLayout(normal, "a", image.width.toFloat(), image.height.toFloat(), landscape) else normal
+                assertRenderedLandsBands(image, scene, "a",
+                    overlayTop = if (paused) image.height - timelinePanelHeight(landscape).toInt() else image.height, reviewing = paused)
+            }
         }
     }
 
@@ -368,7 +372,8 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
     overlayTop: Int = image.height, reviewing: Boolean = false) {
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
-        assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
+        // Timeline deliberately clips the bottom, so the lower lands band may be off screen.
+        if (!reviewing) assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
         // Portrait Stack is a screen-fixed overlay on the world's right edge.
         val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
         val x = minOf(field.bounds.right - 8, overlay?.x?.minus(8) ?: Float.MAX_VALUE).toInt()

@@ -186,12 +186,19 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
              })
     }
     if (overlay) BoxWithConstraints(modifier.fillMaxSize()) {
-        Column(Modifier.align(Alignment.BottomEnd).padding(bottom = if (landscape) 52.dp else 56.dp)
-            .width(if (landscape) maxWidth - TablePresentation.sidebarWidth(maxWidth.value).dp else maxWidth)
-            .height(if (landscape) 52.dp else 60.dp).background(Color(0xffedf3ef))) { timeline() }
-        Box(Modifier.align(Alignment.BottomEnd).padding(end = if (landscape) 12.dp else 10.dp, bottom = if (landscape) 2.dp else 4.dp)
-            .width(if (landscape) maxWidth / 2 - 24.dp else maxWidth - 20.dp).height(48.dp)
-            .background(Color.White)) { transport() }
+        if (landscape) {
+            // One shallow row leaves room for both fixed HUDs on short landscape screens.
+            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(timelinePanelHeight(true).dp)
+                .background(Color(0xffedf3ef)), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { timeline() }
+                Box(Modifier.weight(1f).padding(horizontal = 10.dp).height(48.dp).background(Color.White)) { transport() }
+            }
+        } else {
+            Column(Modifier.align(Alignment.BottomEnd).padding(bottom = 56.dp)
+                .fillMaxWidth().height(60.dp).background(Color(0xffedf3ef))) { timeline() }
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 4.dp)
+                .width(maxWidth - 20.dp).height(48.dp).background(Color.White)) { transport() }
+        }
     } else Column(modifier) { timeline(); transport() }
 }
 
@@ -286,7 +293,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
                         Column {
                             Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
-                            Text("Tap to toggle auto advance · Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
+                            Text("Tap: toggle · Hold: branch", fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
                         }
                     }
                 }

@@ -14,7 +14,15 @@ data class ActionLatency(val reportedAt: String, val gameId: String, val actionT
     val firstFrameMs: Double? = null, val serverResultMs: Double? = null, val submitted: Boolean = true)
 
 @Serializable
-data class LatencyBatch(val actions: List<ActionLatency>)
+data class LatencyBatch(val actions: List<ActionLatency>, val reconnects: List<ReconnectEpisode> = emptyList())
+
+@Serializable
+data class ReconnectStep(val stage: String, val elapsedMs: Long, val durationMs: Long)
+
+/** No credentials, message bodies or exception messages. Server handling times live in server logs. */
+@Serializable
+data class ReconnectEpisode(val id: String, val gameId: String, val startedAt: String, val cause: String,
+    val steps: List<ReconnectStep> = emptyList(), val durationMs: Long = 0, val complete: Boolean = false)
 
 /** Stable diagnostic labels without action payloads (chat text, card data, etc.). */
 fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${action::class.simpleName}"

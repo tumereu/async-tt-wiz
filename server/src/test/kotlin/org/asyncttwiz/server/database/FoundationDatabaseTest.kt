@@ -46,13 +46,14 @@ class FoundationDatabaseTest {
     @Test fun `installed explicit runner migrates clean then retains data on idempotent rerun`() {
         OwnedPostgres().use { db ->
             db.start()
+            val expectedVersions = MigrationTestSupport.supportedVersions(db.settings)
             val (exit, output) = command(db.settings, "migrate")
             assertEquals(0, exit)
-            // Seventeen migrations through V19; V10 and V12 are not in the registry.
-            assertTrue(output.contains("applied=17"))
+            assertTrue(output.lineSequence().any { it == "Migration successful; applied=${expectedVersions.size}" })
             assertEquals(0, epoch(db))
             val flyway = FoundationMigrations.flyway(db.settings)
             assertTrue(flyway.validateWithResult().validationSuccessful)
+            assertEquals(expectedVersions, flyway.info().applied().map { it.version.toString() })
             val history = flyway.info().applied().single { it.version.toString() == "1" }
             assertEquals("1", history.version.toString())
             assertEquals("V1__service_writer.sql", history.script)
@@ -112,9 +113,9 @@ class FoundationDatabaseTest {
         }
     }
 
-    private fun withExtraMigration(db: OwnedPostgres, sql: String): Flyway {
+    private fun withExtraMigration(db: OwnedPostgres, version: String, sql: String): Flyway {
         val directory = Files.createDirectory(temporary.resolve("extra-migrations"))
-        Files.writeString(directory.resolve("V999__test_future.sql"), sql)
+        Files.writeString(directory.resolve("V${version}__test_future.sql"), sql)
         return Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration)
             .locations("classpath:db/migration", "filesystem:$directory").load()
     }
@@ -122,11 +123,13 @@ class FoundationDatabaseTest {
     @Test fun `failed forward migration rolls back DDL and retains existing rows and history`() {
         OwnedPostgres().use { db ->
             db.start()
+            val expectedVersions = MigrationTestSupport.supportedVersions(db.settings)
             FoundationMigrations.migrate(db.settings)
-            val migration = withExtraMigration(db, "CREATE TABLE rollback_probe (id integer); UPDATE service_writer SET epoch = 55; SELECT 1 / 0;")
+            val migration = withExtraMigration(db, MigrationTestSupport.futureVersion(db.settings),
+                "CREATE TABLE rollback_probe (id integer); UPDATE service_writer SET epoch = 55; SELECT 1 / 0;")
             assertThrows(FlywayException::class.java) { migration.migrate() }
             assertEquals(0, epoch(db))
-            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18", "19"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(expectedVersions, FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             db.connection().use { connection ->
                 assertNull(DSL.using(connection, SQLDialect.POSTGRES).fetchValue("SELECT to_regclass('public.rollback_probe')"))
             }
@@ -154,11 +157,13 @@ class FoundationDatabaseTest {
     @Test fun `newer schema is refused instead of silently ignored or downgraded`() {
         OwnedPostgres().use { db ->
             db.start()
+            val expectedVersions = MigrationTestSupport.supportedVersions(db.settings)
+            val futureVersion = MigrationTestSupport.futureVersion(db.settings)
             FoundationMigrations.migrate(db.settings)
-            assertEquals(1, withExtraMigration(db, "CREATE TABLE future_probe (id integer); UPDATE service_writer SET epoch = 7;")
+            assertEquals(1, withExtraMigration(db, futureVersion, "CREATE TABLE future_probe (id integer); UPDATE service_writer SET epoch = 7;")
                 .migrate().migrationsExecuted)
             assertEquals(1, command(db.settings, "migrate").first)
-            assertEquals(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "11", "13", "14", "15", "16", "17", "18", "19", "999"), FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+            assertEquals(expectedVersions + futureVersion, FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             assertEquals(7, epoch(db))
             println("PASS unsupported future schema rejected with retained rows/history")
         }

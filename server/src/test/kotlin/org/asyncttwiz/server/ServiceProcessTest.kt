@@ -1,6 +1,8 @@
 package org.asyncttwiz.server
 
 import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FoundationMigrations
+import org.asyncttwiz.server.database.MigrationTestSupport
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -226,11 +228,14 @@ class ServiceProcessTest {
             }
             sql(db, "DROP TABLE test_owned_unversioned") // Test-owned database only.
             migrate(inputs)
+            val expectedVersions = MigrationTestSupport.supportedVersions(db.settings)
+            val futureVersion = MigrationTestSupport.futureVersion(db.settings)
             val checksum = number(db, "SELECT checksum FROM flyway_schema_history WHERE version='1'")
             for (corruption in listOf("checksum", "future")) {
-                // Seventeen supported migrations through V19 (no V10/V12); the future row follows them.
-                if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=123 WHERE version='1'")
-                else sql(db, "INSERT INTO flyway_schema_history VALUES (18,'999','future','SQL','V999__future.sql',42,current_user,now(),0,true)")
+                if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=checksum+1 WHERE version='1'")
+                else sql(db, """INSERT INTO flyway_schema_history
+                    SELECT max(installed_rank) + 1, '$futureVersion', 'future', 'SQL', 'V${futureVersion}__future.sql',
+                        42, current_user, now(), 0, true FROM flyway_schema_history""")
                 Service(environment(db)).use { service ->
                     service.awaitStatus("/health/live", 200)
                     service.awaitStatus("/health/ready", 503)
@@ -238,11 +243,15 @@ class ServiceProcessTest {
                     Thread.sleep(1200)
                     assertEquals(503, service.request("/health/ready").statusCode())
                     assertEquals(0L, epoch(db))
-                    assertEquals(if (corruption == "future") 17L else 16L, number(db, "SELECT count(*) FROM flyway_schema_history"))
+                    val retainedVersions = if (corruption == "future") expectedVersions + futureVersion else expectedVersions
+                    assertEquals(retainedVersions.size.toLong(), number(db, "SELECT count(*) FROM flyway_schema_history"))
+                    assertEquals(retainedVersions, FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
+                    assertEquals(if (corruption == "checksum") checksum + 1 else checksum,
+                        number(db, "SELECT checksum FROM flyway_schema_history WHERE version='1'"))
                     println("PASS real process rejects $corruption schema unchanged")
                 }
                 if (corruption == "checksum") sql(db, "UPDATE flyway_schema_history SET checksum=$checksum WHERE version='1'")
-                else sql(db, "DELETE FROM flyway_schema_history WHERE version='999'")
+                else sql(db, "DELETE FROM flyway_schema_history WHERE version='$futureVersion'")
             }
             assertNoServiceConnections(db)
         }

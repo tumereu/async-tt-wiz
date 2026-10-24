@@ -331,6 +331,7 @@ class PreparedDeckTest {
     @Test fun `explicit V7 forward migration retains source definitions game streams and pending original outcomes`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("7").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val a = id(); val b = id(); val game = id(); val invite = id(); val round = id(); val source = id(); val request = id()
             val def = definitions()[0]; val stream = id()
             val command = GameCommand(request, GameScope(game, round, invite), GameAction.DeclineInvitation, stream, "1")
@@ -346,7 +347,7 @@ class PreparedDeckTest {
                 INSERT INTO invitation VALUES ('$invite','$game','PENDING'); COMMIT;
                 INSERT INTO request_identity VALUES ('$request','$b','gameCommand','$game','${GameWire.digest(command)}');
                 INSERT INTO game_inbox VALUES ('$request','$game','$b',1,'$stream',1,'${json.encodeToString<GameClientMessage>(command)}',NULL);""")
-            assertEquals(10, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             assertEquals(1, number(db, "SELECT count(*) FROM saved_deck WHERE revision=9"))
             assertEquals(1, number(db, "SELECT count(*) FROM deck_entry WHERE quantity=3"))
             assertEquals(1, number(db, "SELECT count(*) FROM game WHERE id='$game' AND preparation_round='$round' AND current_invitation='$invite' AND revision=0 AND next_ingress=2"))

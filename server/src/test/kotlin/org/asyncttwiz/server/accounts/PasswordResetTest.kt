@@ -42,6 +42,7 @@ class PasswordResetTest {
     @Test fun `retained V2 upgrade and real mail reset preserve sessions until explicit atomic confirmation`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("2").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             lateinit var first: String
             lateinit var second: String
             val old = " old e\u0301😀 password\n"
@@ -53,8 +54,7 @@ class PasswordResetTest {
                         it.setString(1, phc); it.executeUpdate()
                     }
             }
-            // V3 through V19, excluding the nonexistent V10/V12 migrations.
-            assertEquals(15, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings))
             assertEquals("1", sql(db, "SELECT count(*) FROM account"))
             SyntheticMailbox(directory.resolve("mail")).use { box ->
                 ServiceRuntime(db.settings).use { runtime ->

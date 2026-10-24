@@ -22,10 +22,10 @@ class AccountRepositoryTest {
         OwnedPostgres().start().use { db ->
             val v1 = Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("1").load()
             assertEquals(1, v1.migrate().migrationsExecuted)
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val checksum = v1.info().applied().single().checksum
             db.connection().use { it.createStatement().execute("UPDATE service_writer SET epoch=79") }
-            // V2 through V19, excluding the nonexistent V10/V12 migrations.
-            assertEquals(16, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings))
             assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().first().checksum)
             db.connection().use { connection -> connection.createStatement().executeQuery("SELECT epoch FROM service_writer").use {
                 assertTrue(it.next()); assertEquals(79, it.getLong(1))

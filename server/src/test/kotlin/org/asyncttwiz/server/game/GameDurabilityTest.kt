@@ -186,6 +186,7 @@ class GameDurabilityTest {
     @Test fun `explicit V6 forward migration retains games attempts account deck and original creation`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("6").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val a = id(); val b = id(); val game = id(); val invite = id(); val preparation = id(); val request = id(); val deck = id()
             sql(db, """INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES
                 ('$a','A','a','a@example.invalid','a@example.invalid','retained'),('$b','B','b','b@example.invalid','b@example.invalid','retained');
@@ -194,7 +195,7 @@ class GameDurabilityTest {
                 INSERT INTO invitation VALUES ('$invite','$game','PENDING');
                 INSERT INTO request_identity VALUES ('$request','$a','createInvitation','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained-original-create');""")
-            assertEquals(11, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             assertEquals(1, number(db, "SELECT count(*) FROM game WHERE current_invitation='$invite' AND preparation_round='$preparation' AND revision=0 AND next_ingress=1 AND game_name='Retained Spark'"))
             assertEquals(1, number(db, "SELECT count(*) FROM saved_deck WHERE revision=9"))
             assertEquals(1, number(db, "SELECT count(*) FROM account_request WHERE response='retained-original-create'"))

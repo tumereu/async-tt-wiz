@@ -483,6 +483,7 @@ class DeckHttpTest {
     @Test fun `explicit V4 cover upgrade retains existing named deck entries definitions and original outcomes`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("4").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val account = id(); val deck = id(); val request = id(); val definition = submitted(card())
             db.connection().use { c ->
                 c.prepareStatement("INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES (?::uuid,'Retained','retained','retained@example.invalid','retained@example.invalid','phc')").use { it.setString(1, account); it.executeUpdate() }
@@ -495,7 +496,7 @@ class DeckHttpTest {
                     INSERT INTO account_request VALUES ('$request',201,'retained original');
                 """.trimIndent())
             }
-            assertEquals(13, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT name,revision,cover_digest FROM saved_deck").use {
                 assertTrue(it.next()); assertEquals("Retained deck", it.getString(1)); assertEquals(9, it.getLong(2)); assertNull(it.getString(3))
             } }
@@ -513,6 +514,7 @@ class DeckHttpTest {
                 assertEquals(0, count(db, "pg_tables WHERE schemaname='public'"))
             }
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("3").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             db.connection().use { it.createStatement().execute("""
                 INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc)
                 VALUES ('00000000-0000-4000-8000-000000000009','Retained','retained','retained@example.invalid','retained@example.invalid','retained-phc')
@@ -528,7 +530,7 @@ class DeckHttpTest {
                 val process = migration.start()
                 val output = process.inputStream.bufferedReader().readText()
                 assertTrue(process.waitFor(45, TimeUnit.SECONDS)); assertEquals(0, process.exitValue(), output)
-                assertTrue(output.contains("applied=13")); println(output.trim())
+                assertTrue(output.lineSequence().any { it == "Migration successful; applied=$pendingForwards" }); println(output.trim())
                 assertEquals(1, count(db, "account")); assertEquals(0, count(db, "saved_deck"))
                 assertEquals(0, FoundationMigrations.migrate(db.settings))
                 db.connection().use { connection -> connection.createStatement().executeQuery("SELECT password_phc FROM account").use {

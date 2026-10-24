@@ -192,6 +192,7 @@ class LobbyHttpTest {
     @Test fun `explicit V5 forward migration retains account deck definition and original outcome`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("5").load().migrate()
+            val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val account = id(); val deck = id(); val request = id()
             db.connection().use { it.createStatement().execute("""
                 INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES ('$account','Retained','retained','retained@example.invalid','retained@example.invalid','retained-phc');
@@ -202,7 +203,7 @@ class LobbyHttpTest {
                 INSERT INTO request_identity VALUES ('$request','$account','createDeck','account','${"0".repeat(64)}');
                 INSERT INTO account_request VALUES ('$request',201,'retained original');
             """.trimIndent()) }
-            assertEquals(12, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(pendingForwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
             for (table in listOf("account", "saved_deck", "deck_entry", "definition", "account_request")) assertEquals(1, count(db, table))
             for (table in listOf("contact", "game", "invitation")) assertEquals(0, count(db, table))
             db.connection().use { c -> c.createStatement().executeQuery("SELECT password_phc,name,revision,response FROM account,saved_deck,account_request").use {

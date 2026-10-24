@@ -49,8 +49,8 @@ class WriterOwnershipTest {
                 assertEquals(42, epoch(db))
             }
             assertEquals(checksum, FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum)
-            // Seventeen supported migrations through V19 (no V10/V12).
-            assertEquals(17, FoundationMigrations.flyway(db.settings).info().applied().size)
+            assertEquals(MigrationTestSupport.supportedVersions(db.settings),
+                FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
             println("PASS supported retained schema validated without migration; epoch 41 -> 42 and foundation reload")
         }
     }
@@ -76,6 +76,8 @@ class WriterOwnershipTest {
 
     @Test fun `checksum future history and missing singleton are rejected without repair`() {
         migrated().use { db ->
+            val expectedVersions = MigrationTestSupport.supportedVersions(db.settings)
+            val futureVersion = MigrationTestSupport.futureVersion(db.settings)
             val original = FoundationMigrations.flyway(db.settings).info().applied().single { it.version.toString() == "1" }.checksum!!
             WriterOwnership(db.settings).use { owner ->
                 db.connection().use { it.execute("UPDATE flyway_schema_history SET checksum = checksum + 1 WHERE version = '1'") }
@@ -86,12 +88,15 @@ class WriterOwnershipTest {
                 db.connection().use {
                     // Test-only restoration of deliberately damaged metadata; runtime has no repair path.
                     it.execute("UPDATE flyway_schema_history SET checksum = $original WHERE version = '1'")
-                    it.execute("INSERT INTO flyway_schema_history VALUES (17, '999', 'future', 'SQL', 'V999__future.sql', 1, current_user, now(), 1, true)")
+                    it.execute("""INSERT INTO flyway_schema_history
+                        SELECT max(installed_rank) + 1, '$futureVersion', 'future', 'SQL', 'V${futureVersion}__future.sql',
+                            1, current_user, now(), 1, true FROM flyway_schema_history""")
                 }
                 assertThrows(OwnershipFailure::class.java) { owner.refresh() }
-                assertEquals(17, FoundationMigrations.flyway(db.settings).info().applied().size)
+                assertEquals(expectedVersions + futureVersion,
+                    FoundationMigrations.flyway(db.settings).info().applied().map { it.version.toString() })
                 assertEquals(0, epoch(db))
-                db.connection().use { it.execute("DELETE FROM flyway_schema_history WHERE version = '999'; DELETE FROM service_writer") }
+                db.connection().use { it.execute("DELETE FROM flyway_schema_history WHERE version = '$futureVersion'; DELETE FROM service_writer") }
                 assertThrows(OwnershipFailure::class.java) { owner.refresh() }
                 assertTrue(owner.token().isEmpty)
                 assertEquals(0, db.connection().use { it.number("SELECT count(*) FROM service_writer") })

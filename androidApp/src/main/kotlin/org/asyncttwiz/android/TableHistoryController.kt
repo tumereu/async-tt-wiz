@@ -94,6 +94,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     /** Both the corner button and paused Play hold capture the original exact boundary. No mutation. */
     fun requestContinuation(node: String): Boolean {
         if (!canRequestContinuation(node)) return false
+        if (node == playback?.tree?.sharedHeadId && node == tree?.currentNodeId) {
+            cancelContinuation()
+            return true
+        }
         playback?.pause()
         continuationTarget = node
         return true
@@ -102,6 +106,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     fun confirmContinuation(): Boolean {
         val target = continuationTarget ?: return false
         continuationTarget = null
+        if (foreground && canRequestContinuation(target) && target == playback?.tree?.sharedHeadId && target == tree?.currentNodeId) {
+            cancelContinuation()
+            return true
+        }
         return foreground && arm(target)
     }
     fun arm(node: String): Boolean {

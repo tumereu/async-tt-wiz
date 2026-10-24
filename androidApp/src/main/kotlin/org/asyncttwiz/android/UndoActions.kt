@@ -10,6 +10,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
@@ -19,11 +21,15 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalFoundationApi::class)
 @Composable fun UndoQuickAction(availability: UndoAvailability, callbacks: UndoCallbacks,
     modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
     Box(modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).combinedClickable(
         enabled = availability.connected && (availability.canUndo || availability.canRedo), role = Role.Button,
-        onClickLabel = "Undo", onLongClickLabel = "Redo",
+        onClickLabel = "Undo", onLongClickLabel = "Redo", hapticFeedbackEnabled = false,
         onClick = { if (availability.permits(UndoIntent.UNDO)) callbacks.undo() },
-        onLongClick = { if (availability.permits(UndoIntent.REDO)) callbacks.redo() }
+        onLongClick = { if (availability.permits(UndoIntent.REDO)) {
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            callbacks.redo()
+        } }
     ).padding(12.dp)) { Text("Undo") }
 }
 

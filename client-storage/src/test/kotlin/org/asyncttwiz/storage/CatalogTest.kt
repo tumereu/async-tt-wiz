@@ -61,7 +61,9 @@ class CatalogTest {
             assertTrue(indexing.any { it.done in 1 until bytes && it.records > 0 })
             assertTrue(indexing.last().records >= installed.records)
             assertTrue(indexing.zipWithNext().all { (a, b) -> a.done <= b.done && a.records <= b.records })
-            assertTrue(events.all { it.total == total && it.done in 0..bytes })
+            assertTrue(downloading.all { it.total == total })
+            assertTrue(indexing.all { it.total == bytes }, "Indexing knows the downloaded file length even without HEAD size")
+            assertTrue(events.all { it.done in 0..bytes })
         }
     }
 

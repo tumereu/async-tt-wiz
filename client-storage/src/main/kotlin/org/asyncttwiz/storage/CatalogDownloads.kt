@@ -168,13 +168,14 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
                 }
             }
             check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
+            val indexingTotal = size ?: download.length()
             return repository.stage { index ->
-                progress(CatalogProgress(CatalogPhase.INDEXING, 0, size))
+                progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
                 CountingInput(FileInputStream(download)).use { compressedInput ->
                     GZIPInputStream(compressedInput, 64 * 1024).use { gzip ->
                         MtgJsonCatalog().import(LimitedInput(gzip, decodedLimit), index, expected.copy(checksum = checksum)) { count ->
                             check(freeBytes() >= reserve)
-                            progress(CatalogProgress(CatalogPhase.INDEXING, compressedInput.count, size, count))
+                            progress(CatalogProgress(CatalogPhase.INDEXING, compressedInput.count, indexingTotal, count))
                         }
                     }
                 }

@@ -5,7 +5,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.Alignment
 import org.asyncttwiz.storage.CatalogProgress
 import org.asyncttwiz.storage.CatalogPhase
 import java.util.Locale
@@ -20,11 +19,8 @@ internal fun CatalogProgress.label(): String {
 @Composable
 internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, dismiss: () -> Unit) {
     ScreenDialog(dismiss) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (state.installed == null) "Download card records?" else "Update card records?",
-                Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            ScreenIconButton("Not now", "close", dismiss)
-        }
+        Text(if (state.installed == null) "Download card records?" else "Update card records?",
+            style = MaterialTheme.typography.titleLarge)
         Text("Card records are needed to import decks. Artwork downloads separately, only when needed.")
         Text(state.size?.let { "Download size: ${catalogMb(it)} MB." } ?: "Download size unavailable (up to 4 GB).")
         Text(if (state.metered) "You’re on a metered connection. This download may incur data charges."
@@ -32,8 +28,12 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
             style = MaterialTheme.typography.bodyMedium)
         Text("Indexed records may use up to 4 GB of storage.", style = MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(dismiss, Modifier.weight(1f)) { Text("Not now") }
-            ScreenButton(download, Modifier.weight(1f)) { Text("Download") }
+            ScreenOutlinedButton(dismiss, Modifier.weight(1f)) {
+                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Not now")
+            }
+            ScreenButton(download, Modifier.weight(1f)) {
+                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Download")
+            }
         }
     }
 }

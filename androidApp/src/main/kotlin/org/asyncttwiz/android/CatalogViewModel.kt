@@ -75,7 +75,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 if (force || cadence.due(System.currentTimeMillis())) {
                     try {
                         available = source.metadata()
-                        size = null // Never associate the previous edition's byte size with new metadata.
                         // HEAD is small metadata, not consent to a bulk download.
                         size = if (CatalogUpdatePolicy.changed(installed, available)) source.size() else null
                         check(preferences.edit().putString("date", available.date).putString("version", available.version)

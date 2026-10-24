@@ -45,9 +45,9 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             while (true) { kotlinx.coroutines.delay(5_000); decks?.sync() }
         }
     }
-    val catalogBusy = !tabletop && catalog?.state?.busy == true
+    val catalogBusy = !tabletop && catalog?.state?.progress != null
     val content: @Composable () -> Unit = {
-        ScreenBusyOverlay(if (catalogBusy) catalog?.state?.status else null, catalog?.state?.progress) {
+        ScreenBusyOverlay(if (catalogBusy) catalog.state.status else null, catalog?.state?.progress) {
             CompositionLocalProvider(LocalBusySuppressed provides catalogBusy) {
                 if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)

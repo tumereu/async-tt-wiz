@@ -131,7 +131,9 @@ internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage
             modifier = Modifier.testTag("floating-busy-pill").semantics { liveRegion = LiveRegionMode.Polite }) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.inversePrimary, strokeWidth = 2.dp)
+                    if (lastProgress?.total?.let { it > 0 } != true) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.inversePrimary, strokeWidth = 2.dp)
+                    }
                     Text(lastMessage, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
                 }
                 lastProgress?.let { value -> CatalogProgressBar(value, Modifier.fillMaxWidth()) }

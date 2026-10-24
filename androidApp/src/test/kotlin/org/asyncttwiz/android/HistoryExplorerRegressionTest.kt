@@ -22,7 +22,7 @@ class HistoryExplorerRegressionTest {
     private fun openEveryBoundary(tree: GameplayTree) {
         for (hidden in listOf(false, true)) {
             val failures = mutableListOf<Throwable>()
-            val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, _ -> false },
+            val explorer = HistoryExplorerController(Executor { it.run() }, { it() },
                 { _, failure -> failures.add(failure) })
             try {
                 explorer.update(tree.copy(), showHidden = hidden)
@@ -132,7 +132,7 @@ class HistoryExplorerRegressionTest {
             val actor = if (n % 2 == 0) a else f.b
             tree = assertNotNull(tree.play(actor, command(tree, GameAction.Play(action))).tree)
         }
-        val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { false }, { _, _ -> false })
+        val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
         try {
             explorer.update(tree.copy(), showHidden = false)
             assertNull(explorer.state.error)

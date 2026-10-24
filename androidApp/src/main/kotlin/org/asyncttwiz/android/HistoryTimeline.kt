@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -99,13 +101,18 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = historyAuthorColor(event.author, viewer)
+            if (event.alternatives > 0) Canvas(Modifier.offset(x.dp).width(24.dp).fillMaxHeight()) {
+                // Time runs left to right: fork at this event, then continue in a parallel lane.
+                val fork = Offset(0f, center.y)
+                val corner = Offset(0f, 5.dp.toPx())
+                val edge = Color(0xff98abaa)
+                drawLine(edge, fork, corner, 1.dp.toPx())
+                drawLine(edge, corner, Offset(size.width, corner.y), 1.dp.toPx())
+            }
             HistoryEventChip(event, authorColor, i == selected,
                 Modifier.align(Alignment.CenterStart).offset((x - 10f).dp).clickable { pause(); select(event.id) }, eventIcon)
             if (i > 0 && event.groupId != events[i - 1].groupId) Canvas(Modifier.offset((x - 12f).dp).width(1.dp).fillMaxHeight()) {
                 drawLine(Color.Gray.copy(alpha = .25f), Offset(0f, 4.dp.toPx()), Offset(0f, size.height - 4.dp.toPx()), 1.dp.toPx())
-            }
-            if (event.alternatives > 0) Canvas(Modifier.offset(x.dp, 4.dp).size(10.dp)) {
-                drawLine(authorColor, Offset.Zero, Offset(size.width, size.height), 1.dp.toPx())
             }
         }
     }
@@ -249,27 +256,39 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
     onContinue: (String) -> Unit, modifier: Modifier = Modifier) {
     val current by rememberUpdatedState(position)
     val continueAction by rememberUpdatedState(onContinue)
+    val play by rememberUpdatedState(onPlay)
+    val pause by rememberUpdatedState(onPause)
+    val toggle = { if (current.playing) pause() else play() }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onPrevious, modifier = Modifier.width(48.dp).semantics { contentDescription = "Previous" }, enabled = previousEnabled,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("previous") }
-            if (position.playing) Button(onPause, Modifier.weight(1f).height(48.dp), shape = androidx.compose.ui.graphics.RectangleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xff08716b))) { Text("Ⅱ Pause") }
-            else {
+            run {
                 var captured by remember { mutableStateOf<String?>(null) }
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
-                    role = Role.Button; contentDescription = "Play"
-                    onClick { onPlay(); true }
+                    role = Role.Button; contentDescription = "Auto advance"
+                    stateDescription = if (position.playing) "Auto: on" else "Auto: off"
+                    onClick { toggle(); true }
                     if (connected) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
-                        continueAction(current.cursorId); true
+                        val cursor = current.cursorId
+                        pause(); continueAction(cursor); true
                     })
                 }.pointerInput(connected) {
                     detectTapGestures(onPress = { captured = current.cursorId; tryAwaitRelease() },
-                        onTap = { onPlay() }, onLongPress = if (!connected) null else ({
+                        onTap = { toggle() }, onLongPress = if (!connected) null else ({
+                            pause()
                             captured?.let { continueAction(it) } // Host validates this original boundary; no fallback substitution.
-                        }))
-                }, color = Color(0xff08716b), contentColor = Color.White) {
-                    Box(contentAlignment = Alignment.Center) { Text("▶ Play") }
+                         }))
+                }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
+                    Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                            Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
+                        Column {
+                            Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
+                            Text("Tap to toggle auto advance · Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
+                        }
+                    }
                 }
             }
             TextButton(onNext, modifier = Modifier.width(48.dp).semantics { contentDescription = "Next" }, enabled = nextEnabled,

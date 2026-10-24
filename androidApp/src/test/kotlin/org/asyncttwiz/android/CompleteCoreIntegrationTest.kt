@@ -7,7 +7,7 @@ import kotlin.test.*
 class CompleteCoreIntegrationTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
 
-    @Test fun explorerUsesMergedPrefixRepresentativeAndLiteralGlyphForManualTokenAndStackFamilies() {
+    @Test fun explorerUsesMergedGroupsAndLastEventGlyphForManualTokenAndStackFamilies() {
         val definition = TokenCatalog.blank
         val root = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
             BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))), listOf(PlayCard(id(9), definition.digest,
@@ -22,10 +22,12 @@ class CompleteCoreIntegrationTest {
             val command = GameCommand(id(n++), GameScope(root.gameId, playId = root.id), GameAction.Play(action), id(80), "1")
             tree = assertNotNull(tree.play(id(7), command).tree)
             val range = HistoryGraphLayout.build(tree).ranges.last()
-            val representative = tree.stateAt(tree.currentNodeId)!!.currentGroup!!.representative!!
-            assertEquals(representative.nodeId, range.representativeId)
-            assertEquals(representative.semantic.icon, range.glyph.icon)
-            assertEquals(historyIconGlyph(representative.semantic.icon), range.glyph.symbol)
+            val last = tree.nodes.getValue(tree.currentNodeId)
+            val icon = last.grouping!!.icon
+            assertEquals(last.id, range.representativeId)
+            assertEquals(last.id, range.targetId)
+            assertEquals(icon, range.glyph.icon)
+            assertEquals(historyIconGlyph(icon), range.glyph.symbol)
             return range
         }
         val tap = step(PlayAction.SetTapped(id(9), true))
@@ -34,8 +36,9 @@ class CompleteCoreIntegrationTest {
         assertEquals(HistoryGlyph.INSPECT, view.glyph)
         val creation = step(PlayAction.CloneToken(id(9)))
         val edit = step(PlayAction.SetNote(id(9), "customization"))
-        assertEquals(creation.representativeId, edit.representativeId)
-        assertEquals(HistoryGlyph.CLONE, edit.glyph)
+        assertEquals(creation.id, edit.id)
+        assertNotEquals(creation.representativeId, edit.representativeId)
+        assertEquals(HistoryGlyph.NOTE, edit.glyph)
         val stack = step(PlayAction.Stack(StackAction.AddEffect(id(9), GameplayRules.stackDigest(tree.stateAt(tree.currentNodeId)!!))))
         assertEquals(HistoryGlyph.STACK, stack.glyph)
         assertNotEquals(edit.id, stack.id)

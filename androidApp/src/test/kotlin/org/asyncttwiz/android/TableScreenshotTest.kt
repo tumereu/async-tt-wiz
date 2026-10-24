@@ -69,7 +69,7 @@ class TableScreenshotTest {
             compose.onNodeWithContentDescription("Continue playing from here").assertExists()
         } else {
             compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
-            for (label in listOf("Play", "Previous", "Next", "Continue playing from here", "Return to current"))
+            for (label in listOf("Auto advance", "Previous", "Next", "Continue playing from here", "Return to current"))
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
         }
@@ -91,7 +91,7 @@ class TableScreenshotTest {
             assertEquals(if (landscape) 412 else 892, image.height)
             if (!controls) assertRenderedLandsBands(image, TablePresentation.scene(LiveTableFixture.game, play, "a",
                 image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused), "a",
-                overlayTop = if (paused) image.height - if (landscape) 104 else 116 else image.height)
+                overlayTop = if (paused) image.height - if (landscape) 104 else 116 else image.height, reviewing = paused)
         }
     }
 
@@ -361,9 +361,9 @@ class TableScreenshotTest {
 }
 
 /** Sample an unobstructed column through both fields, including the band/main boundary.
- * Review intentionally covers the lower board without changing its underlying viewport. */
+ * Review dims the board and covers its lower edge without changing the underlying viewport. */
 internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene: TableScene, viewer: String,
-    overlayTop: Int = image.height) {
+    overlayTop: Int = image.height, reviewing: Boolean = false) {
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
         assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
@@ -378,13 +378,14 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
             val base = if (field.owner == viewer) {
                 if (inBand) 0xffc4dcd0.toInt() else 0xffe2efe6.toInt()
             } else if (inBand) 0xffe9d1d3.toInt() else 0xfff4e8ea.toInt()
-            val expected = if (field.holdsAttention) {
+            val fieldColor = if (field.holdsAttention) {
                 val tint = if (field.owner == viewer) OwnTableColor else OpponentTableColor
                 tint.copy(alpha = .12f).compositeOver(Color(base)).toArgb()
             } else base
+            val expected = if (reviewing) Color.Black.copy(alpha = .12f).compositeOver(Color(fieldColor)).toArgb() else fieldColor
             val actual = image.getRGB(x, y)
             val message = "${field.owner} battlefield at ($x, $y)"
-            if (field.holdsAttention) {
+            if (field.holdsAttention || reviewing) {
                 // Native Canvas uses premultiplied 8-bit alpha, unlike Color's float blend.
                 // Allow its single-channel rounding, but still verify every tinted pixel.
                 for (shift in listOf(0, 8, 16)) assertTrue(kotlin.math.abs(

@@ -312,7 +312,7 @@ class HistoryRuntimeIntegrationTest {
             assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
             val accepted = x.session.retainedTree(x.game.id)!!
             val predictedCursor = x.session.play(x.game)!!.currentNodeId
-            val explorer = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() }, { true }, { _, _ -> false })
+            val explorer = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
             try {
                 explorer.update(accepted, openingNodeId = accepted.resolveCursor(predictedCursor))
                 assertNull(explorer.state.error)

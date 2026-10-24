@@ -38,13 +38,15 @@ data class HistoryGraph(val ranges: List<HistoryRange>, val positions: Map<Strin
     fun pan(current: HistoryPoint, dx: Float, dy: Float, viewportWidth: Float, viewportHeight: Float) =
         HistoryPoint((current.x + dx).coerceIn(-width, viewportWidth),
             (current.y + dy).coerceIn(-height, viewportHeight))
+
+    fun centeredOn(nodeId: String, viewportWidth: Float, viewportHeight: Float): HistoryPoint {
+        val point = positions.getValue(nodeId)
+        return HistoryPoint(viewportWidth / 2f - point.x, viewportHeight / 2f - point.y)
+    }
 }
 
-/** Group projection, never a second gameplay/grouping engine. Call on a worker. The membership seam
- * consumes effective authoritative grouping when the complete I22 processor is integrated. Until then
- * the default uses the existing shared GameplayHistory.append, without materializing boards. Filtering
- * is supplied by I25; all retained nodes are shown by default, never deleted or treated as access rules.
- */
+/** Worker-only group projection using the same GameplayHistory.append as HistoryTree.groups.
+ * Filtering affects visibility, never retained data or access to an exact review cursor. */
 object HistoryGraphLayout {
     fun build(tree: GameplayTree, membership: Map<String, String> = emptyMap(),
         visibleNodeIds: Set<String> = tree.nodes.keys): HistoryGraph {
@@ -86,7 +88,7 @@ object HistoryGraphLayout {
         require(seen.containsAll(visible.filter { it != root })) { "Unavailable retained ancestry" }
         val children = segments.values.filter { it.parent != null }.groupBy { it.parent }
         val depth = mutableMapOf(root to 0)
-        for (segment in segments.values.drop(1)) depth[segment.id] = depth.getValue(segment.parent!!) + segment.nodes.size
+        for (segment in segments.values.drop(1)) depth[segment.id] = depth.getValue(segment.parent!!) + 1
         val lanes = mutableMapOf<String, Float>()
         var nextLane = 0f
         // Iterative postorder keeps very long ordinary histories off both stack and UI limits.
@@ -98,22 +100,13 @@ object HistoryGraphLayout {
         val positions = mutableMapOf<String, HistoryPoint>()
         val ranges = segments.values.map { segment ->
             val point = HistoryPoint(24f + depth.getValue(segment.id) * 24f, 24f + lanes.getValue(segment.id) * 36f)
-            val events = segment.nodes.mapNotNull(tree.nodes::get)
-            val representative = events.fold<GameplayMutation, HistoryRepresentative?>(null) { chosen, event ->
-                HistoryGrouping.choose(chosen, HistoryRepresentative(event.id,
-                    event.grouping ?: HistoryGrouping.classify(event.action, tree.initial.board.containers, event.transition)))
-            }
-            val representativeEvent = representative?.let { tree.nodes.getValue(it.nodeId) }
-            val range = HistoryRange(segment.id, segment.group, segment.nodes.toList(), representative?.nodeId,
-                representative?.let { HistoryGlyph.fromIcon(it.semantic.icon) } ?: HistoryGlyph.ROOT,
+            val representativeEvent = tree.nodes[segment.nodes.last()]
+            val range = HistoryRange(segment.id, segment.group, segment.nodes.toList(), representativeEvent?.id,
+                representativeEvent?.let { HistoryGlyph.fromIcon((it.grouping ?:
+                    HistoryGrouping.classify(it.action, tree.initial.board.containers, it.transition)).icon) } ?: HistoryGlyph.ROOT,
                 representativeEvent?.author, segment.parent, point)
-            if (segment.id == root) positions[root] = point else {
-                val parent = segments.getValue(segment.parent!!)
-                val parentX = 24f + depth.getValue(parent.id) * 24f
-                segment.nodes.forEachIndexed { index, id ->
-                    positions[id] = HistoryPoint(parentX + (index + 1) * 24f, point.y)
-                }
-            }
+            // Exact interior cursors are still reviewable, but share their group's single chip.
+            segment.nodes.forEach { positions[it] = point }
             range
         }
         val events = positions.keys.map { id ->
@@ -130,17 +123,15 @@ object HistoryGraphLayout {
 
 }
 
-data class HistoryActivation(val scope: GameScope, val nodeId: String)
 data class HistoryExplorerState(val graph: HistoryGraph? = null, val selectedNodeId: String? = null,
     val reviewed: PlayState? = null, val busy: Boolean = false, val error: String? = null,
     val archivedSelection: Boolean = false)
 
-/** UI-thread entry points, worker-only geometry/reconstruction, UI-thread post callback. The caller
- * supplies its existing coordinator/FIFO submit; this controller never activates or forks local state.
+/** UI-thread entry points, worker-only geometry/reconstruction, UI-thread post callback.
+ * This read-only controller never activates or forks shared state.
  * Close/account changes fence queued work. It does not own/shutdown the application's worker.
  */
 class HistoryExplorerController(private val worker: Executor, private val post: (() -> Unit) -> Unit,
-    private val connected: () -> Boolean, private val submit: (GameScope, GameAction) -> Boolean,
     private val logFailure: (String, Throwable) -> Unit = { context, failure ->
         Log.e("HistoryExplorer", context, failure); Unit
     }) : AutoCloseable {
@@ -158,7 +149,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         val sameScope = tree?.initial?.let { it.gameId == value.initial.gameId && it.id == value.initial.id } == true
         if (!sameScope) state = HistoryExplorerState()
         tree = value; membership = groups.toMap(); visible = visibleNodeIds.toSet(); this.showHidden = showHidden
-        val selection = if (sameScope) state.selectedNodeId else openingNodeId
+        val selection = openingNodeId ?: if (sameScope) state.selectedNodeId else null
         rebuild(selection ?: value.currentNodeId)
     }
 
@@ -201,20 +192,6 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         }
     }
 
-    fun captureMakeCurrent(): HistoryActivation? {
-        val value = tree ?: return null
-        if (closed || state.busy || state.error != null || state.archivedSelection) return null
-        return state.selectedNodeId?.let { HistoryActivation(GameScope(value.initial.gameId, playId = value.initial.id), it) }
-    }
-    fun makeCurrent(target: HistoryActivation? = captureMakeCurrent()): Boolean {
-        val value = tree ?: return false
-        if (closed || !connected() || target == null || target.scope != GameScope(value.initial.gameId, playId = value.initial.id)) return false
-        // Never re-resolve a captured action target, even if its event was removed after capture.
-        return submit(target.scope, GameAction.MakeCurrent(target.nodeId))
-    }
-    fun armContinuation(invocationId: String): HistoricalPlayIntent? = captureMakeCurrent()?.let {
-        HistoricalPlayIntent(it.scope, it.nodeId, invocationId)
-    }
     override fun close() { closed = true; epoch++; tree = null; state = HistoryExplorerState() }
 }
 

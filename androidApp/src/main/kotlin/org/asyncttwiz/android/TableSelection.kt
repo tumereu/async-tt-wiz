@@ -34,7 +34,7 @@ sealed interface TableDestination {
     data class Container(val id: String, val zone: org.asyncttwiz.protocol.PlayZone,
         val bottom: Boolean = false, val handGap: org.asyncttwiz.protocol.IdentityGap? = null) : TableDestination
     data class CardPile(val cardId: String, val source: TableMoveSource? = null) : TableDestination
-    data class Grid(val containerId: String, val column: Int, val row: Int) : TableDestination
+    data class Grid(val containerId: String, val column: Int, val row: Int, val ownerOnly: Boolean = false) : TableDestination
     data class Combat(val destination: org.asyncttwiz.protocol.CombatDestination) : TableDestination
 }
 

@@ -212,13 +212,13 @@ class TableToolkitWiringTest {
                         ui.openCard(TableSelection().scope(f.id(40), contents.cardIds))
                         val bound = assertNotNull(ui.capture)
                         assertEquals(listOf(f.id(40)), bound.sourceIds)
-                        // Same-zone public membership is a no-op; use the other participant's pile instead.
+                        // Even an old/captured other-player zone resolves back to the card's owner.
                         val targetId = f.container(zone, if (zone == sourceZone) f.other else f.actor)
                         val target = if (zone == PlayZone.BATTLEFIELD) TableDestination.Grid(targetId, 0, 0)
                             else TableDestination.Container(targetId, zone, bottom)
                         assertTrue(ui.handle(TableIntent.Move(TableScope(bound.contextViewId, bound.sourceIds), target, bound.sources)),
                             "$sourceZone → $zone (bottom=$bottom)")
-                        assertEquals(targetId, f.card(40).containerId)
+                        assertEquals(f.container(zone), f.card(40).containerId)
                         if (zone == PlayZone.LIBRARY) {
                             val ids = f.play.board.containers.single { it.id == f.container(zone) }.cards
                             assertEquals(f.id(40), if (bottom) ids.last() else ids.first())

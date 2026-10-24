@@ -73,7 +73,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, enabled && requests.isNotEmpty()) { emit(requests) }
     entries += RingEntry("corner", "P/T", MenuControl("Set corner", enabled) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
-        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1))))
+        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
+            if (enabled) emit(scope.cardActions(state) { target ->
+                cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
+            })
+        }, dragValue = card.corner, corner = true))
+    entries += entries.last().copy(id = "corner/counters")
     if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
         for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.RIGHT, 1, "•/+"),
             Triple(CornerPart.LEFT, -1, "−/•"), Triple(CornerPart.RIGHT, -1, "•/−"))) {

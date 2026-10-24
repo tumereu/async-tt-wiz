@@ -321,6 +321,10 @@ class TableGestureCoordinator(
         }
     }
     private fun destination(p: TablePoint, scope: TableScope?): TableDestination? {
+        val destination = rawDestination(p, scope) ?: return null
+        return scope?.let { scene.ownerMoveDestination(it.contextId, destination) } ?: destination
+    }
+    private fun rawDestination(p: TablePoint, scope: TableScope?): TableDestination? {
         scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(p) }?.let { hand ->
             val cards = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.viewport == hand.id && it.cardId !in scope?.cardIds.orEmpty() }
                 .sortedBy { it.bounds.x }

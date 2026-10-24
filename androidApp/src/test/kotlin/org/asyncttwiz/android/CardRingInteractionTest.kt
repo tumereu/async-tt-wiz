@@ -177,6 +177,23 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
     }
 
+    @Test fun cornerWidgetOnCountersPageDragsBothPartsAndRetainsItsEditor() {
+        val toolkit = render(multi = true)
+        compose.ringPage(2)
+        compose.mainClock.advanceTimeBy(600)
+        val value = compose.onNodeWithContentDescription("Set corner")
+        value.performTouchInput { down(center); moveBy(Offset(10f, -30f)) }
+        compose.onNodeWithText("+3 -> 4/6").assertExists()
+        value.performTouchInput { up() }
+        compose.runOnIdle {
+            assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.source(f.a, "1/3").id, "4/6"),
+                PlayAction.SetCorner(f.source(f.a, "1/2").id, "4/5")), sent)
+            assertNull(toolkit.manual.editor)
+        }
+        value.performClick()
+        compose.runOnIdle { assertEquals(ManualValueKind.CORNER, toolkit.manual.editor?.field?.kind) }
+    }
+
     @Test fun counterValueDragDuringOpeningGuardIsInert() {
         CardRingPageStore(ApplicationProvider.getApplicationContext(), f.a, f.game.id).write(1)
         val toolkit = render()

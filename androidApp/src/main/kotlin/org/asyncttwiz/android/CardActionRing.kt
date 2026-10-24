@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
@@ -42,20 +43,10 @@ private fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = com
     }
 }
 internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl,
-    val drag: ((Long) -> Unit)? = null, val dragValue: String = value)
+    val drag: ((Long) -> Unit)? = null, val dragValue: String = value, val corner: Boolean = false)
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
     val compound: RingCompound? = null, val fill: Color? = null,
     val drag: ((Long) -> Unit)? = null, val dragValue: String = "0")
-
-/** Wide pills become three independent cells without changing their gameplay callbacks. */
-internal fun ringCells(entries: List<RingEntry>): List<RingEntry> = entries.flatMap { entry ->
-    val compound = entry.compound
-    if (compound == null) listOf(entry) else listOf(
-        RingEntry("${entry.id}/minus", "− ${entry.label}", compound.minus, fill = entry.fill),
-        entry.copy(label = "${entry.label} ${compound.value}", compound = null,
-            drag = compound.drag, dragValue = compound.dragValue),
-        RingEntry("${entry.id}/plus", "+ ${entry.label}", compound.plus, fill = entry.fill))
-}
 
 internal fun ringShortLabel(name: String): String = when (name) {
     "Declare + tap" -> "Decl+tap"
@@ -75,10 +66,9 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
     var page by remember(viewer, game) { mutableIntStateOf(store.read()) }
-    val cells = ringCells(entries)
-    val pages = CardRingPages.resolve(cells.map { it.id })
+    val pages = CardRingPages.resolve(entries.map { it.id })
     val selectedPage = page.coerceIn(pages.indices)
-    val shown = pages[selectedPage].actions.mapNotNull { id -> cells.firstOrNull { it.id == id } }
+    val slots = CardRingPages.layout(pages[selectedPage].actions)
     val anchor = LocalCardRingAnchors.current[viewId]
     val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val selectPage: (Int) -> Unit = { page = it; store.write(it) }
@@ -160,10 +150,14 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                     Column(Modifier.size(CardRingGeometry.gridSide.dp)) {
                         repeat(4) { row ->
                             Row {
-                                repeat(4) { column ->
-                                    val entry = shown.getOrNull(row * 4 + column)
+                                var column = 0
+                                while (column < 4) {
+                                    val slot = slots.firstOrNull { it.cell == row * 4 + column }
+                                    val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } }
                                     if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
+                                    else if (entry.compound != null) RingWidget(entry, ownerColor)
                                     else RingCell(entry, ownerColor, Modifier.size(CardRingGeometry.cell.dp))
+                                    column += slot?.span ?: 1
                                 }
                             }
                         }
@@ -172,6 +166,32 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
             }
         }
     }
+    }
+}
+
+@Composable
+private fun RingWidget(entry: RingEntry, owner: Color) {
+    val compound = requireNotNull(entry.compound)
+    var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
+    val color = entry.control.color ?: owner
+    val fill = entry.fill ?: Color.White
+    val shape = RoundedCornerShape(3.dp)
+    Row(Modifier.size(96.dp, 48.dp).clip(shape).border(1.dp, color.copy(alpha = .5f), shape)) {
+        RingPress(compound.minus, Modifier.width(24.dp).fillMaxHeight(), color, fill, bordered = false) {
+            Text("−", color = MenuInk.copy(alpha = if (compound.minus.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
+        }
+        val numeric = if (compound.corner) cornerDragValue(compound.dragValue, 0) != null
+            else TableActions.numeric(compound.dragValue)
+        val drag = if (compound.drag != null) Modifier.ringInputTarget(draggable = true)
+            .valueDragGestures(entry.control.enabled && numeric, preview = { delta = it }, commit = compound.drag) else Modifier
+        RingPress(entry.control, Modifier.width(48.dp).fillMaxHeight().then(drag), color, fill, bordered = false) {
+            Text(compound.value, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
+            delta?.let { HoldTooltip(if (compound.corner) cornerDragLabel(compound.dragValue, it) else valueDragLabel(compound.dragValue, it)) }
+        }
+        RingPress(compound.plus, Modifier.width(24.dp).fillMaxHeight(), color, fill, bordered = false) {
+            Text("+", color = MenuInk.copy(alpha = if (compound.plus.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -195,13 +215,14 @@ private fun RingCell(entry: RingEntry, owner: Color, modifier: Modifier) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
-    fill: Color = Color.White, role: Role = Role.Button, content: @Composable () -> Unit) {
+    fill: Color = Color.White, role: Role = Role.Button, bordered: Boolean = true, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
     Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
         .combinedClickable(enabled = control.enabled, role = role, hapticFeedbackEnabled = false,
             onLongClick = { tooltip = true }, onClick = control.click),
-        shape = RoundedCornerShape(3.dp), color = if (control.enabled) fill else fill.copy(alpha = .4f),
-        border = BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f))) {
+        shape = if (bordered) RoundedCornerShape(3.dp) else androidx.compose.ui.graphics.RectangleShape,
+        color = if (control.enabled) fill else fill.copy(alpha = .4f),
+        border = if (bordered) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f)) else null) {
         Box(contentAlignment = Alignment.Center) {
             content()
             if (tooltip) HoldTooltip(control.name)

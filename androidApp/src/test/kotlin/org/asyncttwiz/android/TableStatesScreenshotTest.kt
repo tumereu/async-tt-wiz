@@ -292,10 +292,10 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
         compose.ringPage(4)
-        compose.onNodeWithContentDescription("Graveyard · Alice").assertExists()
-        compose.onNodeWithContentDescription("Library top · Alice").assertExists()
-        compose.onNodeWithContentDescription("Library bottom · Alice").assertExists()
-        compose.onNodeWithContentDescription("Exile · Alice").assertExists()
+        compose.onNodeWithContentDescription("Graveyard").assertExists()
+        compose.onNodeWithContentDescription("Library top").assertExists()
+        compose.onNodeWithContentDescription("Library bottom").assertExists()
+        compose.onNodeWithContentDescription("Exile").assertExists()
         assertTrue(sent.isEmpty())
     }
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
@@ -304,7 +304,7 @@ class TableStatesScreenshotTest {
         val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
         row.performTouchInput { down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Graveyard · Alice").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
         compose.onNodeWithText("Search by name").performTouchInput { up() }
         compose.mainClock.autoAdvance = true
@@ -317,7 +317,7 @@ class TableStatesScreenshotTest {
         compose.mainClock.advanceTimeBy(400)
         val card = f.initial.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)
-        compose.onNodeWithContentDescription("Graveyard · Alice").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
         compose.onNodeWithText("Graveyard · 2").assertIsDisplayed()
     }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackLandscape() { render("stack-contents", true) }

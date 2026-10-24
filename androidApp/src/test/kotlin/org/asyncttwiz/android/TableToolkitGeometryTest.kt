@@ -27,7 +27,8 @@ class TableToolkitGeometryTest {
             val real = scene.items.single { it.cardId == f.id(40) && !it.projection }
             val combat = scene.items.single { it.cardId == f.id(301) }
             assertEquals(40f, real.bounds.width); assertEquals(28f, real.bounds.height)
-            assertEquals(real.bounds.width, combat.bounds.width); assertEquals(real.bounds.height, combat.bounds.height)
+            assertEquals(28f, combat.bounds.width); assertEquals(40f, combat.bounds.height)
+            assertFalse(combat.tapped)
             assertEquals(TablePresentation.GRID, scene.footprint)
             assertTrue(combat.projection); assertEquals(real.sourceId, combat.sourceId)
             assertEquals(combat, scene.hit(combat.visible.first().center))
@@ -40,7 +41,7 @@ class TableToolkitGeometryTest {
             val top = scene.items.last { it.id.startsWith("stackDrawing/") }
             assertEquals(top.id, scene.hit(top.visible.first().center)!!.id)
             assertEquals(real.sourceId, top.sourceId)
-            assertTrue(scene.combatDividers.isNotEmpty())
+            assertTrue(scene.combatDividers.isEmpty()) // One group has no outer-edge divider.
         }
     }
 

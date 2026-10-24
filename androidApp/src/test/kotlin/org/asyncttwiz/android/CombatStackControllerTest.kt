@@ -41,6 +41,33 @@ class CombatStackControllerTest {
         return accepted
     }
 
+    @Test fun undeclareNeverUntapsAndGraveyardMovesSourceToOwnerThroughReplayableActions() {
+        val commands = CombatCommands()
+        val initial = combatState().let { it.copy(board = it.board.copy(
+            cards = it.board.cards.map { card -> if (card.id == combatId(20)) card.copy(tapped = true) else card },
+            containers = it.board.containers + PlayContainer(combatId(14), PlayZone.GRAVEYARD, actor))) }
+        val declared = replay(initial, CombatStackController.declare(initial, actor, targets(initial, 20), false, commands::command))
+        val occurrence = CombatStackRules.occurrences(declared.board.combat).single()
+        val removed = replay(declared, CombatStackController.remove(declared, actor,
+            listOf(CombatStackController.bind(declared.board, occurrence.id)), commands::command))
+        assertEquals(declared.board.cards, removed.board.cards)
+        assertTrue(removed.board.cards.single { it.id == combatId(20) }.tapped)
+        assertTrue(CombatStackRules.occurrences(removed.board.combat).isEmpty())
+        val action = CombatStackController.graveyard(declared.board, occurrence.id)
+        assertEquals(combatId(20), action.cardId)
+        assertEquals(combatId(13), action.destination.containerId) // Owner, not the acting player.
+        val moved = replay(declared, CombatStackController.single(declared, actor, action, commands::command))
+        assertTrue(CombatStackRules.occurrences(moved.board.combat).isEmpty())
+        assertEquals(listOf(combatId(20)), moved.board.containers.single { it.id == combatId(13) }.cards)
+        val root = declared.copy(currentNodeId = declared.root.id, currentGroup = null)
+        for (undoable in listOf(action, PlayAction.Combat(CombatAction.Remove(declared.board.combat!!.id, occurrence.id)))) {
+            val tree = GameplayTree(root).play(actor, commands.command(undoable)).tree!!
+            val undo = SelectiveUndo.change(tree, actor, commands.command(undoable).copy(action = GameAction.Undo))
+            assertNull(undo.reason)
+            assertEquals(declared.board, undo.tree!!.stateAt(undo.tree!!.currentNodeId)!!.board)
+        }
+    }
+
     @Test fun combinedDeclarationHasIndividualNodesAndDoesNotForceUntap() {
         val state = combatState().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             if (card.id == combatId(21)) card.copy(tapped = true) else card

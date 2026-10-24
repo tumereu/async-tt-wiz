@@ -24,7 +24,11 @@ import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
     val projection: Boolean, val frozen: Boolean = false, val textMark: Int? = null)
-data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination)
+data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination,
+    val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center) {
+    fun contains(point: TablePoint) = point.y >= bounds.y && point.y < bounds.bottom &&
+        (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
+}
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
     val dividers: List<Float>, val destinations: List<CombatDropRegion>)
 data class StackGeometry(val width: Float, val height: Float, val count: Int,
@@ -41,19 +45,18 @@ object CombatStackPresentation {
         val targets = mutableListOf<CombatDropRegion>()
         val dividers = mutableListOf<Float>()
         var x = 0f
-        fun insertion(after: String?, before: String?) {
+        fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false) {
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                 val y = if (role == CombatRole.BLOCKER) 0f else rowHeight
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
-                    TableBounds(x, y, cardWidth, rowHeight), CombatDestination(area.id, role, pairGap = IdentityGap(after, before)))
+                    TableBounds(at - if (left) 0f else if (right) margin else 12f, y, if (left || right) margin else 24f, rowHeight),
+                    CombatDestination(area.id, role, pairGap = IdentityGap(after, before)), left, right,
+                    TablePoint(at + margin, y + rowHeight / 2))
             }
-            x += cardWidth
         }
         for ((index, pair) in area.pairs.withIndex()) {
-            insertion(area.pairs.getOrNull(index - 1)?.id, pair.id)
-            dividers += x
-            fun width(occurrence: CombatOccurrence): Float = if (CombatStackRules.inspection(board, occurrence.id)!!.tapped) cardHeight else cardWidth
-            fun sideWidth(side: List<CombatOccurrence>) = side.sumOf { width(it).toDouble() }.toFloat() +
+            if (index > 0) dividers += x
+            fun sideWidth(side: List<CombatOccurrence>) = side.size * cardWidth +
                 margin * (side.size - 1).coerceAtLeast(0)
             val pairWidth = maxOf(sideWidth(pair.blockers), sideWidth(pair.attackers)) + margin * 2
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
@@ -61,23 +64,29 @@ object CombatStackPresentation {
                 val y = if (role == CombatRole.BLOCKER) 0f else rowHeight
                 var left = x + margin
                 targets += CombatDropRegion("Append ${role.name.lowercase()} to pair ${index + 1}",
-                    TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id))
+                    TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id),
+                    landing = TablePoint(x + margin + side.size * (cardWidth + margin), y + rowHeight / 2))
                 for ((member, occurrence) in side.withIndex()) {
-                    val card = CombatStackRules.inspection(board, occurrence.id)!!
-                    val envelopeWidth = width(occurrence)
-                    val envelopeHeight = if (card.tapped) cardWidth else cardHeight
+                    val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
                     cards += OccurrenceDrawing(occurrence.id, card,
-                        TableBounds(left, y + (rowHeight - envelopeHeight) / 2, envelopeWidth, envelopeHeight), true)
+                        TableBounds(left, y + margin, cardWidth, cardHeight), true)
                     targets += CombatDropRegion("Insert ${role.name.lowercase()} before ${occurrence.id}",
                         TableBounds(left - margin, y, margin * 2, rowHeight), CombatDestination(area.id, role, pair.id,
-                            insertion = CombatInsertion.GAP, cardGap = IdentityGap(side.getOrNull(member - 1)?.id, occurrence.id)))
-                    left += envelopeWidth + margin
+                            insertion = CombatInsertion.GAP, cardGap = IdentityGap(side.getOrNull(member - 1)?.id, occurrence.id)),
+                        landing = TablePoint(left, y + rowHeight / 2))
+                    left += cardWidth + margin
                 }
             }
             x += pairWidth
-            dividers += x
         }
-        insertion(area.pairs.lastOrNull()?.id, null)
+        if (area.pairs.isEmpty()) {
+            x = cardWidth
+            insertion(null, null, 0f, left = true, right = true)
+        } else {
+            dividers.forEachIndexed { index, at -> insertion(area.pairs[index].id, area.pairs[index + 1].id, at) }
+            insertion(null, area.pairs.first().id, 0f, left = true)
+            insertion(area.pairs.last().id, null, x, right = true)
+        }
         return CombatGeometry(x, rowHeight * 2, cards, dividers, targets)
     }
 
@@ -118,7 +127,7 @@ private fun OccurrenceCard(drawing: OccurrenceDrawing, width: Float, height: Flo
     val b = drawing.bounds
     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)
         .semantics { contentDescription = label }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Box(Modifier.requiredSize(width.dp, height.dp).graphicsLayer { rotationZ = if (drawing.card.tapped) 90f else 0f }) {
+        Box(Modifier.requiredSize(width.dp, height.dp).graphicsLayer { rotationZ = if (!drawing.projection && drawing.card.tapped) 90f else 0f }) {
             val owner = if (drawing.card.owner == viewer) OwnTableColor else OpponentTableColor
             face(drawing.card, Modifier.fillMaxSize().cardFrame(drawing.card.token, owner, drawing.projection))
             Canvas(Modifier.fillMaxSize()) {

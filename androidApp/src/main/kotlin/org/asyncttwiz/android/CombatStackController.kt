@@ -22,6 +22,15 @@ object CombatStackController {
     }
     fun sources(targets: List<CombatStackTarget>) = targets.mapNotNull { it.sourceId }.distinct()
 
+    /** Move the live source, not the projection, using its owner's bin and normal move defaults. */
+    fun graveyard(board: BoardState, occurrenceId: String): PlayAction.MoveCard {
+        require(CombatStackRules.occurrences(board.combat).any { it.id == occurrenceId })
+        val card = requireNotNull(CombatStackRules.liveSource(board, occurrenceId))
+        val graveyard = board.containers.single { it.accountId == card.owner && it.zone == PlayZone.GRAVEYARD }
+        return PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+            MoveDestination(graveyard.id, MoveInsertion.UNORDERED))
+    }
+
     private class Builder(initial: PlayState, val actor: String, val command: (PlayAction) -> GameCommand) {
         var state = initial
         val commands = mutableListOf<GameCommand>()

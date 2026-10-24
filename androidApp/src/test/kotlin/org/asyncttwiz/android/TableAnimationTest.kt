@@ -5,6 +5,79 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    @Test fun tapAndUntapUseNinetyMillisButMovesDrawsAndMixedChangesKeepOneEighty() {
+        val initial = TableFixture.play(board = 2, hand = 1)
+        fun tapped(play: PlayState, id: String) = play.copy(board = play.board.copy(cards = play.board.cards.map {
+            if (it.id == id) it.copy(tapped = !it.tapped) else it
+        }))
+        for (id in listOf("a/BATTLEFIELD/0", "a/HAND/0")) {
+            val base = TableFixture.scene(initial)
+            val tap = TableFixture.scene(tapped(initial, id))
+            val animation = HistorySceneAnimation(base)
+            animation.retarget(tap, 1f)
+            assertEquals(90, animation.durationMillis)
+            animation.retarget(base, 1f)
+            assertEquals(90, animation.durationMillis)
+            animation.retarget(tap, .5f)
+            assertEquals(90, animation.durationMillis, "Interrupted untap still rotates")
+        }
+        val base = TableFixture.scene(initial)
+        val move = moved(initial, listOf("a/HAND/0"), "a/BATTLEFIELD")
+        for (target in listOf(move, tapped(move, "a/BATTLEFIELD/0"), tapped(move, "a/HAND/0"),
+            moved(initial, listOf("a/LIBRARY/0"), "a/HAND"))) {
+            val animation = HistorySceneAnimation(base)
+            animation.retarget(TableFixture.scene(target), 1f)
+            assertEquals(180, animation.durationMillis)
+        }
+    }
+
+    @Test fun threeAdjacentColumnsNeverIntersectThroughoutAllTapCombinations() {
+        // Null placement is the old-game fallback; retained integer and fractional presentation
+        // anchors must behave identically. All columns remain one grid unit apart.
+        for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f))
+            for (placementKind in 0..2) for (pileIndex in 0..2) {
+                val initial = TableFixture.play(board = 3)
+                fun scene(mask: Int): TableScene {
+                    val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map { card ->
+                        if (!card.containerId.endsWith("BATTLEFIELD")) card else {
+                            val column = card.id.last().digitToInt()
+                            card.copy(tapped = mask and (1 shl column) != 0,
+                                placement = if (placementKind == 1) PlayPlacement(BoardPosition(column, 0), card.id) else null)
+                        }
+                    }))
+                    val placements = if (placementKind == 1 && pileIndex == 0) emptyMap() else
+                        play.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { card ->
+                            card.id to TablePlacement(card.id.last().digitToInt() + if (placementKind == 2) .35f else 0f,
+                                0f, pileIndex)
+                        }
+                    return TableFixture.scene(play, landscape, TableLayoutState(TableCamera(zoom = zoom)), placements)
+                }
+                val scenes = (0..7).map(::scene)
+                for (from in 0..7) for (to in 0..7) {
+                    val animation = HistorySceneAnimation(scenes[from])
+                    animation.retarget(scenes[to], 1f)
+                    for (step in 0..20) {
+                        val frame = animation.frame(step / 20f)
+                        for (owner in listOf("a", "b")) {
+                            val cards = (0..2).map { col -> frame.single { it.item.cardId == "$owner/BATTLEFIELD/$col" } }
+                            val drawn = cards.map { card ->
+                                val b = card.item.faceTransform(card.bounds).bounds(card.bounds.center)
+                                val footprint = card.item.footprint
+                                assertEquals(card.bounds.width, b.width, .001f)
+                                assertEquals(card.bounds.height, b.height, .001f)
+                                assertTrue(b.x >= footprint.x - .001f && b.right <= footprint.right + .001f &&
+                                    b.y >= footprint.y - .001f && b.bottom <= footprint.bottom + .001f,
+                                    "Outside column: $from->$to frame $step zoom $zoom pile $pileIndex: $b / $footprint")
+                                b
+                            }
+                            for (a in drawn.indices) for (b in a + 1 until drawn.size) assertNull(drawn[a].intersection(drawn[b]),
+                                "Overlapping columns: $from->$to frame $step zoom $zoom")
+                        }
+                    }
+                }
+            }
+    }
+
     private fun projected(state: PlayState, ids: List<String>, source: String): PlayState = state.copy(board = state.board.copy(
         stackEffects = ids.map { StackEffect(it, source) }, containers = state.board.containers.map {
             if (it.zone == PlayZone.STACK) it.copy(cards = ids) else it }))

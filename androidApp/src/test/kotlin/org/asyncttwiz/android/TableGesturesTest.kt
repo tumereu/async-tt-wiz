@@ -5,6 +5,20 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun hitTestingSamplesTheDrawnSceneWithoutCompositionUpdates() {
+        val card = TableItem("card/a", TableBounds(0f, 0f, 28f, 40f), "Card", "",
+            kind = TableItemKind.CARD, cardId = "a")
+        val initial = TableScene(listOf(card), emptyList())
+        var displayed = initial
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(initial, TableSelection(), true, sceneSource = { displayed })
+        val bounds = card.bounds.copy(x = 100f)
+        displayed = initial.copy(items = listOf(card.copy(bounds = bounds, visible = listOf(bounds))))
+        gestures.down(bounds.center, 0); gestures.up(bounds.center, 20)
+        assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
+    }
+
     @Test fun panAndPinchRubberBandThenSpringBackOnBothAxesForLargeAndSmallContent() {
         for (extent in listOf(100f, 800f)) for (pinch in listOf(false, true)) {
             val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, extent, extent))
@@ -160,11 +174,13 @@ class TableGesturesTest {
         coordinator.down(point, 0); coordinator.up(point, 20)
         assertTrue(events.isEmpty())
         assertFalse(coordinator.replacesTap(point, 100))
-        coordinator.tick(300)
+        coordinator.tick(419)
+        assertTrue(events.isEmpty())
+        coordinator.tick(420)
         assertIs<TableIntent.Actions>(events.single())
         events.clear()
-        coordinator.down(point, 400); coordinator.up(point, 420)
         coordinator.down(point, 500); coordinator.up(point, 520)
+        coordinator.down(point, 600); coordinator.up(point, 620)
         assertEquals(1, events.filterIsInstance<TableIntent.Rotate>().size)
         assertTrue(events.none { it is TableIntent.Actions || it == TableIntent.DismissTapUi })
     }
@@ -542,9 +558,9 @@ class TableGesturesTest {
             assertEquals(1, events.filterIsInstance<TableIntent.Actions>().size)
             assertTrue(events.none { it is TableIntent.Move })
             events.clear()
-            gestures.down(point(), 400); gestures.move(point(8.1f), 440)
+            gestures.down(point(), 500); gestures.move(point(8.1f), 540)
             assertNotNull(gestures.preview.scope)
-            gestures.up(point(8.1f), 460); gestures.tick(800)
+            gestures.up(point(8.1f), 560); gestures.tick(800)
             assertEquals(1, events.filterIsInstance<TableIntent.Move>().size)
             assertTrue(events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
             events.clear()
@@ -562,6 +578,22 @@ class TableGesturesTest {
             assertEquals(2, gestures.preview.delta)
             gestures.up(end, 1560)
             assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", null, 2)), events)
+        }
+    }
+    @Test fun doubleTapAllowsFourHundredMillisAndThirtyTwoDpButNotBeyondEither() {
+        for (density in listOf(1f, 2.625f)) for (delay in listOf(399L, 401L)) for (distance in listOf(31f, 33f)) {
+            val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
+                kind = TableItemKind.CARD, cardId = "a")
+            val events = mutableListOf<TableIntent>()
+            val gestures = TableGestureCoordinator(events::add, density = density)
+            gestures.update(TableScene(listOf(card), emptyList()), TableSelection(), true)
+            val first = gestures.pointFromPixels(10 * density, 10 * density)
+            val second = gestures.pointFromPixels((10 + distance) * density, 10 * density)
+            gestures.down(first, 0); gestures.up(first, 20)
+            val expected = delay <= 400 && distance <= 32
+            assertEquals(expected, gestures.replacesTap(second, 20 + delay))
+            gestures.down(second, 20 + delay); gestures.up(second, 40 + delay)
+            assertEquals(if (expected) 1 else 0, events.filterIsInstance<TableIntent.Rotate>().size)
         }
     }
     @Test fun bubbleHitRegionsStayDistinctOnScreenAtAllCornersInBothOrientations() {
@@ -633,9 +665,9 @@ class TableGesturesTest {
     }
     @Test fun normalSingleImmediatelyOpensCapturedActionsAndTimeoutDoesNotRepeatIt() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1")))
-        f.tap(0); assertEquals(1, f.events.size); f.gestures.tick(299); assertEquals(1, f.events.size)
+        f.tap(0); assertEquals(1, f.events.size); f.gestures.tick(419); assertEquals(1, f.events.size)
         f.gestures.update(f.scene, TableSelection(setOf("a/BATTLEFIELD/2")), true)
-        f.gestures.tick(300)
+        f.gestures.tick(420)
         val action = f.events.single() as TableIntent.Actions
         assertEquals(listOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"), action.scope!!.cardIds)
         assertTrue(f.events.none { it is TableIntent.Rotate })
@@ -653,8 +685,8 @@ class TableGesturesTest {
     }
     @Test fun doubleUnselectedClearsSelectionButSingleUnselectedPreservesIt() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/1")))
-        f.tap(0); f.gestures.tick(301); assertEquals(setOf("a/BATTLEFIELD/1"), f.selection.ids)
-        f.events.clear(); f.tap(400); f.tap(500)
+        f.tap(0); f.gestures.tick(420); assertEquals(setOf("a/BATTLEFIELD/1"), f.selection.ids)
+        f.events.clear(); f.tap(500); f.tap(600)
         assertTrue(f.selection.ids.isEmpty())
         assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
     }
@@ -784,9 +816,9 @@ class TableGesturesTest {
         val pile = f.scene.items.single { it.id == "a/LIBRARY" }; val p = pile.visible.first().center
         f.tap(0, p)
         assertTrue(f.events.isEmpty())
-        f.gestures.tick(300)
+        f.gestures.tick(420)
         assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
-        f.events.clear(); f.gestures.down(p, 400)
+        f.events.clear(); f.gestures.down(p, 450)
         val dest = f.scene.fields.last().bounds.center
         f.gestures.move(dest, 500); f.gestures.up(dest, 550)
         assertEquals(listOf("a/LIBRARY/0"), f.events.filterIsInstance<TableIntent.Move>().single().scope.cardIds)

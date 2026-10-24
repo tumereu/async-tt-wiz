@@ -36,6 +36,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,7 +116,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val currentWritable by rememberUpdatedState(writable)
     val currentSelection by rememberUpdatedState(selection)
     val currentRuntime by rememberUpdatedState(runtime)
-    var presentation by remember(play.id, accountId) { mutableStateOf<TableScene?>(null) }
+    var presentation by remember(play.id, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
     var pressedPing by remember(play.id, accountId) { mutableStateOf<EventPingIntent?>(null) }
     val density = LocalDensity.current.density
     val coordinator = remember(play.id, accountId, density) {
@@ -201,12 +202,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             pointerTime = t; clockEpoch++; preview = coordinator.preview; pressedPing = null
         },
         cancel = { coordinator.cancel(); clockEpoch++; preview = coordinator.preview; pressedPing = null },
-        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null },
+        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null; combatBubbleId = null },
         ringDown = { p, t, card ->
             val point = coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y)
             val state = currentPlay
             val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
-            pressedPing = presentation?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
+            pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
             coordinator.down(point, t, card)
             pointerTime = t; clockEpoch++; preview = coordinator.preview
         },
@@ -225,11 +226,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
-            val bubble = presentation?.stackBubbles
+            val presented = presentation?.invoke()
+            val bubble = presented?.stackBubbles
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
                 toolkit?.showStackBubbles(null); localStackBubble = null
             }
-            if (presentation?.combatBubbles?.controls?.none { it.bounds.contains(point) } == true) combatBubbleId = null
+            if (presented?.combatBubbles?.controls?.none { it.bounds.contains(point) } == true) combatBubbleId = null
         }
     }) {
         val compactHeader = maxWidth < 400.dp
@@ -247,53 +249,66 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
+        var animationRevision by remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
         LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
             if (animation.retarget(targetScene, progress.value)) {
                 progress.snapTo(0f)
-                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180, easing = androidx.compose.animation.core.LinearEasing))
+                animationRevision++
+                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
-                progress.animateTo(1f, tween(180, easing = androidx.compose.animation.core.LinearEasing))
+                progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             }
+            animationRevision++
             withFrameNanos { }
             settled?.invoke(play.currentNodeId)
         }
-        val frame = animation.frame(progress.value, targetScene)
-        val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
-        val baseScene = TablePresentation.clip(targetScene.copy(items = animatedItems), maxWidth.value, maxHeight.value)
         val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
+        // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
+        // and clipping are shared once per frame, not repeated for every accessibility child.
+        val rendered = remember(animation, targetScene, bubbleId, combatBubbleId, runtime.reviewing, play, maxWidth, maxHeight) { derivedStateOf {
+            animationRevision
+            val frame = animation.frame(progress.value, targetScene)
+            val base = TablePresentation.clip(targetScene.copy(items = frame.filter { it.alpha > 0f }
+                .map { it.item.copy(bounds = it.bounds) }), maxWidth.value, maxHeight.value)
+            val combatCard = base.items.find { it.cardId == combatBubbleId && it.viewport == "combat" && it.visible.isNotEmpty() }
+            val combatBubble = if (runtime.reviewing || combatCard == null ||
+                CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) null else
+                StackBubbleGeometry.combat(play.board, requireNotNull(combatBubbleId), combatCard.bounds, maxWidth.value, maxHeight.value)
+            TableRenderFrame(base.copy(stackBubbles = TablePresentation.stackBubbles(base, play, bubbleId, maxWidth.value, maxHeight.value),
+                combatBubbles = combatBubble),
+                frame.associate { it.item.id to it.alpha })
+        } }
+        val scene = targetScene
+        val semanticItems = remember(animation, targetScene, animationRevision) {
+            (animation.frame(0f, targetScene).map { it.item } + targetScene.items).distinctBy { it.id }
+        }
         LaunchedEffect(toolkit, bubbleId, play) {
             // The rendered history/animation boundary can briefly lag the session prediction during
             // acceptance. Validate personal focus against the session, not that older rendered board.
             if (toolkit != null) toolkit.refreshStackBubbles()
             else if (bubbleId != null && bubbleId != CombatStackRules.stack(play.board).cards.firstOrNull()) localStackBubble = null
         }
-        val bubbleCard = baseScene.items.find { bubbleId != null && it.cardId == bubbleId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
-        val bubble = TablePresentation.stackBubbles(baseScene, play, bubbleId, maxWidth.value, maxHeight.value)
-        val combatCard = baseScene.items.find { it.cardId == combatBubbleId && it.viewport == "combat" && it.visible.isNotEmpty() }
-        val combatBubble = if (runtime.reviewing || combatCard == null ||
-            CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) null else
-            StackBubbleGeometry.combat(play.board, requireNotNull(combatBubbleId), combatCard.bounds, maxWidth.value, maxHeight.value)
         LaunchedEffect(play, runtime.reviewing) {
             if (runtime.reviewing || CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) combatBubbleId = null
         }
-        val scene = baseScene.copy(stackBubbles = bubble, combatBubbles = combatBubble)
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
-        val artwork = tableArtwork(scene)
+        val artwork = tableArtwork(scene.copy(items = semanticItems))
+        val drawCache = remember(density, targetScene) { TableDrawCache(density) }
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
         val activePings = play.currentGroup?.id?.let { EventAnnotations.activePings(play.annotations, it) }.orEmpty()
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
         SideEffect {
-            presentation = scene
+            presentation = { rendered.value.scene }
             var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
                 CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
             if (visitedGroup != play.currentGroup?.id && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
             visitedGroup = play.currentGroup?.id
             if (retained != selection) selection = retained
             coordinator.update(scene, retained, writable || (retained.mode == TableMode.PING &&
-                runtime.ping != null && runtime.controlsConnected == true))
+                runtime.ping != null && runtime.controlsConnected == true), sceneSource = { rendered.value.scene })
         }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
@@ -318,7 +333,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     val point = coordinator.pointFromPixels(first.position.x, first.position.y)
                     val state = currentPlay
                     val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
-                    pressedPing = presentation?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
+                    pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
                     coordinator.down(point, first.uptimeMillis)
                     pointerTime = first.uptimeMillis; clockEpoch++; preview = coordinator.preview
                     first.consume()
@@ -354,9 +369,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
-            Canvas(Modifier.fillMaxSize()) { drawTable(scene, accountId, selection, preview, play.board.links,
-                frame.associate { it.item.id to it.alpha }, activePings,
-                play.board.projectionLinks, annotations, artwork) }
+            Canvas(Modifier.fillMaxSize()) {
+                val frame = rendered.value
+                drawTable(frame.scene, accountId, selection, preview, play.board.links, frame.alphas, activePings,
+                    play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache)
+            }
             preview.delta?.let { delta ->
                 scene.items.firstOrNull { it.id == preview.pressedId }?.let { item ->
                     val anchor = item.visible.maxByOrNull { it.width * it.height } ?: item.bounds
@@ -380,7 +397,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 })
             for (ping in activePings) annotations.endpoint(ping.target)?.let { point ->
                 val captured = EventPingIntent(ping.reference.reference, listOf(ping.target), false)
-                Box(Modifier.offset((point.x - 10).dp, (point.y - 10).dp).size(20.dp).semantics {
+                Box(Modifier.tableFrameBounds {
+                    val p = TableAnnotationGeometry(rendered.value.scene, game.inviter.accountId).endpoint(ping.target) ?: point
+                    TableBounds(p.x - 10, p.y - 10, 20f, 20f)
+                }.semantics {
                     contentDescription = "Ping ${ping.to!!.ordinal}, ${ping.target.kind.name.lowercase()}, author ${ping.recording.author}"
                     if (runtime.ping != null && runtime.controlsConnected == true) onClick("Unping") {
                         currentRuntime.controlsConnected == true && currentRuntime.ping?.invoke(captured) == true
@@ -389,18 +409,20 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
             // Semantics-only children do NOT install a second pointer detector or expanded hit targets.
             // Each exposed fragment has exactly the geometry used to draw/hit-test that fragment.
-            for (item in scene.items) {
+            for (item in semanticItems) {
                 if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
-                val b = if (item.zone == PlayZone.STACK && item.kind == TableItemKind.PILE)
-                    item.stackBadge
-                    else item.visible.maxByOrNull { it.width * it.height } ?: continue
                 key(item.id) {
-                    Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).semantics {
+                    Box(Modifier.tableFrameBounds {
+                        rendered.value.items[item.id]?.let { current ->
+                            if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
+                            else current.visible.maxByOrNull { it.width * it.height }
+                        }
+                    }.semantics {
                         contentDescription = item.label
                          if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                             if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                         }
-                         selected = item.cardId in (preview.rectangle?.let(scene::rectangle) ?: selection.ids)
+                          selected = item.cardId in (preview.rectangle?.let(rendered.value.scene::rectangle) ?: selection.ids)
                          if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
                              stateDescription = "Related source and projections share this source identity; selection is independent"
                         onClick("Actions") { coordinator.actions(item); true }
@@ -440,17 +462,18 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
             for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
                 play.board.stackTextMarks[item.cardId]?.let { index ->
-                    StackMarkChip(index, Modifier.offset((item.bounds.right - 17).dp, item.bounds.y.dp)
+                    StackMarkChip(index, Modifier.offset {
+                        val b = rendered.value.items[item.id]?.bounds ?: item.bounds
+                        androidx.compose.ui.unit.IntOffset((b.right - 17).dp.roundToPx(), b.y.dp.roundToPx())
+                    }
                         .semantics { contentDescription = "Stack text mark ${index + 1}" })
                 }
             }
-            if (bubble != null) StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, accountId),
-                if (bubbleCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
+            if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, preview, writable) { intent ->
                 if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                 callback?.invoke(intent)
             }
-            if (combatBubble != null) StackBubbleOverlay(combatBubble, emptyList(),
-                if (combatCard?.owner == accountId) OwnTableColor else OpponentTableColor, preview, writable) { intent ->
+            if (combatBubbleId != null) AnimatedCombatBubbleOverlay(rendered, accountId, preview, writable) { intent, combatCard ->
                 if (intent is TableIntent.Ping) {
                     val target = tablePingTarget(play, combatCard)
                     if (target != null && currentRuntime.controlsConnected == true)
@@ -481,10 +504,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
                 onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
         }
-        CompositionLocalProvider(LocalCardRingAnchors provides scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
-            item.cardId?.let { id -> id to if (item.visible.any { it.contains(item.bounds.center) }) item.bounds
-                else item.visible.maxBy { it.width * it.height } }
-        }.toMap()) {
+        AnimatedCardRingAnchors(rendered, actions != null || toolkit?.capture != null) {
         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
             tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll)
         actions?.let { captured ->
@@ -519,6 +539,48 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
     peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true, peekScroll = peekScroll) }
     }
+}
+
+private class TableRenderFrame(val scene: TableScene, val alphas: Map<String, Float>) {
+    val items = scene.items.associateBy { it.id }
+}
+
+/** The animated accessibility rectangle participates in layout, without recomposing its node. */
+private fun Modifier.tableFrameBounds(bounds: () -> TableBounds?): Modifier = layout { measurable, _ ->
+    val b = bounds() ?: TableBounds(0f, 0f, 0f, 0f)
+    val width = b.width.dp.roundToPx().coerceAtLeast(0)
+    val height = b.height.dp.roundToPx().coerceAtLeast(0)
+    val child = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(width, height))
+    layout(width, height) { child.place(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }
+}
+
+@Composable
+private fun AnimatedStackBubbleOverlay(frame: State<TableRenderFrame>, play: PlayState, viewer: String,
+    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
+    val scene = frame.value.scene
+    val bubble = scene.stackBubbles ?: return
+    val card = scene.items.find { it.cardId == bubble.entryId && it.zone == PlayZone.STACK }
+    StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, viewer),
+        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview, enabled, perform)
+}
+
+@Composable
+private fun AnimatedCombatBubbleOverlay(frame: State<TableRenderFrame>, viewer: String,
+    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent, TableItem) -> Unit) {
+    val scene = frame.value.scene
+    val bubble = scene.combatBubbles ?: return
+    val card = scene.items.find { it.cardId == bubble.entryId && it.viewport == "combat" } ?: return
+    StackBubbleOverlay(bubble, emptyList(),
+        if (card.owner == viewer) OwnTableColor else OpponentTableColor, preview, enabled) { perform(it, card) }
+}
+
+@Composable
+private fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Boolean, content: @Composable () -> Unit) {
+    val anchors = if (!active) emptyMap() else frame.value.scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
+        item.cardId?.let { id -> id to if (item.visible.any { it.contains(item.bounds.center) }) item.bounds
+            else item.visible.maxBy { it.width * it.height } }
+    }.toMap()
+    CompositionLocalProvider(LocalCardRingAnchors provides anchors, content = content)
 }
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
@@ -656,32 +718,54 @@ private fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) 
     }
 }
 
+/** Scoped to an endpoint/density, so labels and native resources are bounded and reused in flight. */
+private class TableDrawCache(density: Float) {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
+    val layerPaint = androidx.compose.ui.graphics.Paint()
+    private data class TextKey(val text: String, val size: Float, val bold: Boolean)
+    private data class FitKey(val text: TextKey, val width: Float)
+    private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
+    private val measurements = mutableMapOf<TextKey, Float>()
+    private val centerOffsets = mutableMapOf<Float, Float>()
+    private val labels = mutableMapOf<FitKey, String>()
+    private val outlines = mutableMapOf<FaceKey, androidx.compose.ui.graphics.Path>()
+    fun measure(value: String): Float = measurements.getOrPut(TextKey(value, paint.textSize, paint.isFakeBoldText)) { paint.measureText(value) }
+    fun centerOffset(): Float = centerOffsets.getOrPut(paint.textSize) { paint.fontMetrics.let { (it.ascent + it.descent) / 2 } }
+    fun fitted(value: String, width: Float): String = labels.getOrPut(FitKey(TextKey(value, paint.textSize, paint.isFakeBoldText), width)) {
+        var label = value
+        if (measure(label) > width) {
+            while (label.isNotEmpty() && measure("$label…") > width) label = label.dropLast(1)
+            label += "…"
+        }
+        label
+    }
+    fun outline(width: Float, height: Float, token: Boolean) = outlines.getOrPut(FaceKey(width, height, token)) {
+        cardSilhouette(width, height, token, 0f, 0f, width / 14f)
+    }
+}
+
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
-    projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap()) {
+    projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
+    cache: TableDrawCache) {
     val density = density
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
+    val paint = cache.paint
     fun text(value: String, x: Float, y: Float, max: Int = 16) {
         drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
     }
     fun fittedText(value: String, x: Float, y: Float, width: Float, right: Boolean = false) {
-        var label = value
-        if (paint.measureText(label) > width * density) {
-            while (label.isNotEmpty() && paint.measureText("$label…") > width * density) label = label.dropLast(1)
-            label += "…"
-        }
-        text(label, if (right) x - paint.measureText(label) / density else x, y, label.length)
+        val label = cache.fitted(value, width * density)
+        text(label, if (right) x - cache.measure(label) / density else x, y, label.length)
     }
     fun centeredText(value: String, bounds: TableBounds, maxSize: Float) {
         paint.textSize = maxSize * density
         val available = (bounds.width - 8f).coerceAtLeast(1f) * density
-        val measured = paint.measureText(value)
+        val measured = cache.measure(value)
         if (measured > available) paint.textSize *= available / measured
-        val metrics = paint.fontMetrics
-        val x = bounds.center.x * density - paint.measureText(value) / 2
-        val baseline = bounds.center.y * density - (metrics.ascent + metrics.descent) / 2
+        val x = bounds.center.x * density - cache.measure(value) / 2
+        val baseline = bounds.center.y * density - cache.centerOffset()
         drawContext.canvas.nativeCanvas.drawText(value, x, baseline, paint)
     }
     fun emptySlot(i: TableItem, color: Color) {
@@ -724,9 +808,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
+        translate(x * density, y * density) {
+        val x = 0f; val y = 0f
         val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else 1f
         val cardWidth = 28f * z; val cardHeight = 40f * z
-        val outline = cardSilhouette(cardWidth * density, cardHeight * density, i.token, x * density, y * density, 2 * density * z)
+        val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
         val mode = tableArtworkMode(i.artwork, art != null)
@@ -734,7 +820,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
             if (i.corner.isNotEmpty()) {
                 paint.textSize = 7 * z * density
-                val badgeWidth = (paint.measureText(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
+                val badgeWidth = (cache.measure(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
                 drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + cardHeight - 11 * z),
                     size(badgeWidth, 10 * z), CornerRadius(z * density))
                 fittedText(i.corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
@@ -742,8 +828,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
-        if (i.covered) return
-        if (mode == TableArtworkMode.CUSTOM_CARD) { paint.textSize = 11 * density; return }
+        if (i.covered) return@translate
+        if (mode == TableArtworkMode.CUSTOM_CARD) { paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + 8 * z, cardWidth - 2 * titleInset)
@@ -752,11 +838,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             TableBounds(x + 2 * z, y + 11 * z, cardWidth - 4 * z, cardHeight - 21 * z))
         else {
             paint.textSize = 17 * z * density
-            text(i.typeIcon, x + (cardWidth - paint.measureText(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
+            text(i.typeIcon, x + (cardWidth - cache.measure(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
         }
         paint.textSize = 7 * z * density
         fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         paint.textSize = 11 * density
+        }
     }
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
         drawRect(Color.White, xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height))
@@ -818,8 +905,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     for (i in scene.items) for (part in i.visible) clipRect(part.x * density, part.y * density, part.right * density, part.bottom * density) {
-        drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(part.x * density, part.y * density,
-            part.right * density, part.bottom * density), androidx.compose.ui.graphics.Paint().apply { alpha = alphas[i.id] ?: 1f })
+        val alpha = alphas[i.id] ?: 1f
+        // Opaque cards need only the existing clip, not a separate GPU render target per fragment.
+        if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(part.x * density, part.y * density,
+            part.right * density, part.bottom * density), cache.layerPaint.apply { this.alpha = alpha })
         try {
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
@@ -884,7 +973,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             size((b.width - 6).coerceAtLeast(0f), (b.height - 6).coerceAtLeast(0f)), style = Stroke(2 * density))
         if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x, b.y), size(b.width, b.height), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x, b.y), size(b.width, b.height), style = Stroke(2 * density))
-        } finally { drawContext.canvas.restore() }
+        } finally { if (alpha < 1f) drawContext.canvas.restore() }
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
     for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {
@@ -894,7 +983,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
             drawCircle(Color(0xff345451), 10 * density, xy(b.x + 10, b.y + 10))
             drawCircle(Color.White, 10 * density, xy(b.x + 10, b.y + 10), style = Stroke(density))
             paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
-            text(i.value, b.x + 10 - paint.measureText(i.value) / density / 2, b.y + 14, 5)
+            text(i.value, b.x + 10 - cache.measure(i.value) / density / 2, b.y + 14, 5)
             paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
         }
     }

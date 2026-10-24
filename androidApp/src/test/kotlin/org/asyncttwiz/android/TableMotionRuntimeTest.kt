@@ -73,6 +73,38 @@ class TableMotionRuntimeTest {
     @Test fun ownLibraryDrawMovesAcrossTheTableAndConfirmationDoesNotRestartClock() = draw("a")
     @Test fun opponentLibraryDrawMovesToCoveredHand() = draw("b")
 
+    @Test fun tapAndUntapAccessibilityBoundsTrackTheDrawnFaceAndFinishInNinetyMillis() {
+        val initial = TableFixture.play(board = 1)
+        val state = mutableStateOf(initial)
+        val id = "a/BATTLEFIELD/0"
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())
+        } }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        for (tapped in listOf(true, false)) {
+            val target = initial.copy(currentNodeId = "tap/$tapped", board = initial.board.copy(cards = initial.board.cards.map {
+                if (it.id == id) it.copy(tapped = tapped) else it
+            }))
+            val item = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false).items.single { it.cardId == id }
+            compose.runOnIdle { state.value = target }
+            // Flush BoxWithConstraints' Android layout traversals separately before sampling
+            // the animation clock; batched clock frames do not run those traversals themselves.
+            repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+            compose.mainClock.advanceTimeBy(48); compose.waitForIdle()
+            val node = compose.onNodeWithContentDescription(item.label)
+            val during = node.fetchSemanticsNode().boundsInRoot
+            assertTrue(during.width > 40f, "Mid-rotation AABB must include the whole diagonal face: $during")
+            compose.mainClock.advanceTimeBy(64); compose.waitForIdle()
+            val end = node.fetchSemanticsNode().boundsInRoot
+            assertEquals(item.bounds.x.roundToInt().toFloat(), end.left)
+            assertEquals(item.bounds.y.roundToInt().toFloat(), end.top)
+            assertEquals(item.bounds.width, end.width)
+            assertEquals(item.bounds.height, end.height)
+        }
+        compose.mainClock.autoAdvance = true
+    }
+
     @Test fun combatOpeningAndClosingAnimateWorldGeometryButNotHud() {
         val initial = TableFixture.play(board = 1, hand = 1).let { play -> play.copy(board = play.board.copy(
             cards = play.board.cards.map { if (it.containerId.endsWith("HAND")) it.copy(tapped = true) else it })) }

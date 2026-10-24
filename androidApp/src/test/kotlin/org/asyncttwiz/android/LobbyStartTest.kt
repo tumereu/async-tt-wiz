@@ -175,9 +175,10 @@ class LobbyStartTest {
                 assertEquals(2, scene.fields.size)
                 assertEquals(11, scene.items.count { it.kind != TableItemKind.COUNTER })
                 val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                assertEquals(12, counters.size)
+                assertEquals(if (landscape) 12 else 0, counters.size)
                 for (player in listOf(owner, other)) {
-                    assertEquals(CounterColor.entries.toSet(), counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
+                    assertEquals(if (landscape) CounterColor.entries.toSet() else emptySet(),
+                        counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
                 }
                 for (item in scene.items) {
                     // Scrollable docks may extend offscreen; only clipped drawings are exposed.

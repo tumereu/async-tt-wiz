@@ -126,23 +126,51 @@ class HistoryPlayback(initial: HistoryTree) {
 
 data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val alpha: Float)
 
+/** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
+internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
+internal val TableScene.animationTargets get() = items.associate { it.animationId to it.bounds }
+
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
-    private var start = initial.items.associate { it.id to HistoryAnimatedItem(it, it.bounds, 1f) }
+    private var destination = initial
+    private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
-    fun frame(progress: Float): List<HistoryAnimatedItem> {
+    fun updateMetadata(target: TableScene) {
+        if (target.animationTargets == destination.animationTargets) destination = target
+    }
+    fun frame(progress: Float, presentation: TableScene = destination): List<HistoryAnimatedItem> {
         val t = progress.coerceIn(0f, 1f)
-        return (start.keys + end.keys).map { id ->
+        val latest = presentation.items.associateBy { it.animationId }
+        return (end.keys + start.keys).map { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             fun mix(x: Float, y: Float) = x + (y - x) * t
-            HistoryAnimatedItem(b.item, TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
-                mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height)), mix(a.alpha, b.alpha))
-        }
+            val item = latest[id] ?: b.item
+            HistoryAnimatedItem(item.copy(inTransit = item.kind == TableItemKind.CARD && t < 1f && a.bounds != b.bounds),
+                TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
+                 mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height)), mix(a.alpha, b.alpha))
+        }.sortedBy { it.item.inTransit }
     }
-    fun retarget(target: TableScene, currentProgress: Float) {
-        start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.id }
-        end = target.items.associate { it.id to HistoryAnimatedItem(it, it.bounds, 1f) }
+    /** False means confirmation/metadata only: the caller must leave the running clock alone. */
+    fun retarget(target: TableScene, currentProgress: Float): Boolean {
+        if (target.animationTargets == destination.animationTargets) {
+            destination = target
+            return false
+        }
+        start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.animationId }
+        end = target.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
+        // Hidden library instances have no individual scene item. Seed every newly drawn card
+        // from its former pile, using stable instance identity (also covers multi-card draws).
+        val arrivals = end.values.filter { it.item.kind == TableItemKind.CARD && it.item.animationId !in start }
+        for (arrival in arrivals) {
+            val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
+            val z = destination.camera.zoom
+            val bounds = TableBounds(pile.bounds.x + 8f * z, pile.bounds.y + 8f * z,
+                destination.cardWidth, destination.cardHeight)
+            start = start + (arrival.item.animationId to arrival.copy(bounds = bounds))
+        }
+        destination = target
+        return true
     }
     fun hitTest(x: Float, y: Float, progress: Float): TableItem? = frame(progress).asReversed().firstOrNull {
         it.alpha > 0f && x >= it.bounds.x && x <= it.bounds.x + it.bounds.width &&

@@ -70,7 +70,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val waitingActivity = target?.destination == ActivityDestination.GROUP && target != appliedActivity
     val awaitingIndex = tree != null && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
         playback?.tree?.sharedHeadId != tree.currentNodeId
-    val play = if (waitingActivity) null else if (reviewing || awaitingIndex) history.view?.state else live
+    val endpoint = remember(history) { TableEndpointPresentation() }
+    val play = if (waitingActivity) null else if (reviewing) history.view?.state
+        else endpoint.live(live, history.view?.state, awaitingIndex)
+    SideEffect { endpoint.presented(play) }
     LaunchedEffect(target, tree) {
         if (target?.destination == ActivityDestination.GROUP && target != appliedActivity && target.playId != null && target.boundaryNodeId != null) {
             val captured = CapturedHistoryTarget(accountId, target.gameId, requireNotNull(target.playId), target.groupId, requireNotNull(target.boundaryNodeId))

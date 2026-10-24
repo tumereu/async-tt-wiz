@@ -215,6 +215,30 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Manage Stack · 1").assertDoesNotExist()
         compose.runOnIdle { assertNull(ui.panel) }
     }
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test fun manageStackPeekAttachesAboveTheManageDialogAndReleasesBackToIt() {
+        val state = f.combat()
+        compose.setContent { MaterialTheme {
+            ManageStackDialog(state, f.a, true, {}, { error("Inspection must stay local") }, {})
+        } }
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
+        val row = compose.onNodeWithText("Top ·", substring = true)
+        compose.mainClock.autoAdvance = false
+        row.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
+        val popup = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
+        assertEquals(dialog.windowToken, (popup.layoutParams as android.view.WindowManager.LayoutParams).token,
+            "The inspection popup must belong to the manage dialog, not the activity underneath it")
+        val file = File("build/outputs/roborazzi/manage-stack-inspection-portrait.png")
+        file.parentFile!!.mkdirs()
+        captureScreenRoboImage(file.path)
+        row.performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+    }
     @Test fun stackHoldHighlightsTheMarkedParagraphWithoutSubmittingAnything() {
         val sent = render("stack-bubbles", false)
         val play = f.combat()

@@ -114,6 +114,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                 }
             }
         }
+        // Attach the peek Popup to this dialog's window, not the underlying table activity.
+        inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }, peek = peeking) }
     }
-    inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }, peek = peeking) }
 }

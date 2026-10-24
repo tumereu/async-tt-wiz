@@ -10,23 +10,33 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import org.asyncttwiz.protocol.ManualText
 
-/** Total displacement, not velocity: complete 10dp steps on the dominant axis. Ties use vertical. */
-internal fun valueDragDelta(dx: Float, dy: Float, step: Float = 10f): Long {
+/** Players occupy top/bottom edges in both current table orientations. */
+enum class ValueDragSide { TOP, BOTTOM }
+internal val LocalValueDragSide = compositionLocalOf { ValueDragSide.BOTTOM }
+
+internal fun cardValueDragSide(board: org.asyncttwiz.protocol.BoardState, card: org.asyncttwiz.protocol.PlayCard,
+    viewer: String): ValueDragSide {
+    val controller = board.containers.singleOrNull { it.id == card.containerId }?.accountId ?: card.owner
+    return if (controller == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP
+}
+
+/** Complete 10dp steps on the dominant axis (ties vertical). Toward the other player subtracts. */
+internal fun valueDragDelta(dx: Float, dy: Float, step: Float = 10f, side: ValueDragSide = ValueDragSide.BOTTOM): Long {
     require(step.isFinite() && step > 0f)
     if (!dx.isFinite() || !dy.isFinite()) return 0
-    return ((if (abs(dx) > abs(dy)) dx else -dy) / step).toLong()
+    return ((if (abs(dx) > abs(dy)) dx else if (side == ValueDragSide.BOTTOM) dy else -dy) / step).toLong()
 }
 
 internal fun valueDragLabel(value: String?, delta: Long): String {
-    val change = if (delta >= 0) "+$delta" else "$delta"
+    val change = if (delta >= 0) "+$delta" else delta.toString().replace('-', '−')
     val result = ManualText.add(value?.takeIf { it.isNotEmpty() } ?: "0", delta)
-    return if (result != null) "$change -> $result" else change
+    return if (result != null) "$change → $result" else change
 }
 
 internal fun cornerDragLabel(value: String, delta: Long): String {
-    val change = if (delta >= 0) "+$delta" else "$delta"
+    val change = if (delta >= 0) "+$delta" else delta.toString().replace('-', '−')
     val result = cornerDragValue(value, delta)
-    return if (result != null) "$change -> $result" else change
+    return if (result != null) "$change → $result" else change
 }
 
 internal fun cornerDragValue(value: String, delta: Long): String? {
@@ -37,11 +47,12 @@ internal fun cornerDragValue(value: String, delta: Long): String? {
 
 /** Captures callbacks on down; counts from down (including touch slop), commits only on release. */
 internal fun Modifier.valueDragGestures(enabled: Boolean, preview: (Long?) -> Unit,
-    start: () -> Boolean = { true }, commit: (Long) -> Unit): Modifier = composed {
+    start: () -> Boolean = { true }, side: ValueDragSide? = null, commit: (Long) -> Unit): Modifier = composed {
+    val dragSide = side ?: LocalValueDragSide.current
     val currentPreview by rememberUpdatedState(preview)
     val currentStart by rememberUpdatedState(start)
     val currentCommit by rememberUpdatedState(commit)
-    pointerInput(enabled) {
+    pointerInput(enabled, dragSide) {
         if (!enabled) return@pointerInput
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
@@ -59,7 +70,7 @@ internal fun Modifier.valueDragGestures(enabled: Boolean, preview: (Long?) -> Un
                     }
                     if (dragging) {
                         change.consume()
-                        val delta = valueDragDelta(distance.x, distance.y, 10.dp.toPx())
+                        val delta = valueDragDelta(distance.x, distance.y, 10.dp.toPx(), dragSide)
                         currentPreview(delta)
                         if (!change.pressed && delta != 0L) release(delta)
                     }

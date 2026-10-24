@@ -575,9 +575,9 @@ class TableGesturesTest {
             gestures.down(gestures.pointFromPixels(life.x * density, life.y * density), 1500)
             val end = gestures.pointFromPixels(life.x * density, (life.y - 24f) * density)
             gestures.move(end, 1540)
-            assertEquals(2, gestures.preview.delta)
+            assertEquals(-2, gestures.preview.delta)
             gestures.up(end, 1560)
-            assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", null, 2)), events)
+            assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", null, -2)), events)
         }
     }
     @Test fun doubleTapAllowsFourHundredMillisAndThirtyTwoDpButNotBeyondEither() {
@@ -864,14 +864,14 @@ class TableGesturesTest {
         for (variant in 0..3) {
             val f = Fixture(); val p = f.scene.items.single { it.id == "life/a" }.visible.first().center
             f.gestures.down(p, 0); f.gestures.move(TablePoint(p.x, p.y - 48), 100)
-            assertTrue(f.events.isEmpty()); assertEquals(4, f.gestures.preview.delta)
+            assertTrue(f.events.isEmpty()); assertEquals(-4, f.gestures.preview.delta)
             when (variant) {
                 0 -> f.gestures.up(TablePoint(p.x, p.y - 48), 150)
                 1 -> f.gestures.cancel()
                 2 -> f.gestures.up(p, 150)
                 3 -> { f.refresh(false); f.gestures.up(TablePoint(p.x, p.y - 48), 150) }
             }
-            assertEquals(if (variant == 0) listOf(TableIntent.PlayerDelta("a", null, 4)) else emptyList(), f.events)
+            assertEquals(if (variant == 0) listOf(TableIntent.PlayerDelta("a", null, -4)) else emptyList(), f.events)
         }
     }
 

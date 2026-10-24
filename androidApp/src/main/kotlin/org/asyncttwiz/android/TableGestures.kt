@@ -160,7 +160,8 @@ class TableGestureCoordinator(
             Phase.SCROLL -> c.viewport?.let { p -> emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
             Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point))
             Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
-                preview = TableGesturePreview(c.item?.id, point = point, delta = valueDragDelta(dx, dy).toInt())
+                preview = TableGesturePreview(c.item?.id, point = point,
+                    delta = valueDragDelta(dx, dy, side = requireNotNull(c.item).valueDragSide).toInt())
             } else {
                 if (changed) c.destination = destination(point, c.scope)
                 preview = TableGesturePreview(c.item?.id, c.scope, point, destination = c.destination)
@@ -208,7 +209,7 @@ class TableGestureCoordinator(
             Phase.DRAG -> {
                 if (writable && c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
                     val bound = requireNotNull(c.item)
-                    val delta = valueDragDelta(point.x - c.start.x, point.y - c.start.y).toInt()
+                    val delta = valueDragDelta(point.x - c.start.x, point.y - c.start.y, side = bound.valueDragSide).toInt()
                     // A counter row can disappear during sync. The captured semantic field still exists.
                     if (delta != 0 && (bound.value.isEmpty() || Regex("[+-]?[0-9]+").matches(bound.value)))
                         emit(TableIntent.PlayerDelta(requireNotNull(bound.owner), bound.counter, delta))

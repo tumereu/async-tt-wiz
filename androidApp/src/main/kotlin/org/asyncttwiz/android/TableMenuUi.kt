@@ -53,7 +53,7 @@ internal fun menuIcon(name: String): ImageVector {
         n.startsWith("decrease") -> Icons.Outlined.Remove
         n == "declare blockers" -> Icons.Outlined.Shield
         "other side" in n || "reveal" in n -> Icons.Outlined.Visibility
-        "inspect" in n || "view" in n || "contents" in n -> Icons.Outlined.ZoomIn
+        "inspect" in n || "view" in n || "contents" in n || "look at" in n || n == "search" -> Icons.Outlined.ZoomIn
         "face down" in n -> Icons.Outlined.Flip
         "face up" in n -> Icons.Outlined.FlipToFront
         "printed face" in n -> Icons.Outlined.FlipCameraAndroid
@@ -78,7 +78,7 @@ internal fun menuIcon(name: String): ImageVector {
         "select" in n -> Icons.Outlined.CheckBoxOutlineBlank
         "battlefield" in n -> Icons.Outlined.TableRows
         "shuffle" in n || "return hand" in n -> Icons.Outlined.Shuffle
-        n == "draw" || "draw one" in n || "draw n" in n || "hand" in n -> Icons.Outlined.Download
+        n.startsWith("draw") || "hand" in n -> Icons.Outlined.Download
         "choose" in n || "beginning of combat" in n || "suggest my loss" in n -> Icons.Outlined.Flag
         "next step" in n -> Icons.Outlined.SkipNext
         "end turn" in n || "end opponent" in n -> Icons.AutoMirrored.Outlined.LastPage

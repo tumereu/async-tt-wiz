@@ -49,7 +49,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
     var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
-    var libraryDisplayId by mutableStateOf<String?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
     private var tapReturnPanel: String? = null
@@ -138,7 +137,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; libraryDisplayId = null; tapReturnPanel = null }
+    fun dismiss() { panel = null; library = null; manual.close(); capture = null; tapReturnPanel = null }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
         tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink
@@ -178,7 +177,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
-    fun contents(display: ContentsDisplay) { panel = "display/${display.id}" }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
 
     /** Open information is a personal route, not a shared View/Reveal reference display. */
@@ -265,11 +263,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val controller = libraryController(source.id, hand.id) ?: return
         library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
         panel = "library"
-        if (tool == LibraryTool.CONTENTS && enabled()) {
-            val previous = play.board.contentsDisplays.map { it.id }.toSet()
-            controller.show()
-            libraryDisplayId = current()?.board?.contentsDisplays?.lastOrNull { it.id !in previous }?.id
-        }
+    }
+    /** A newly created display is shown once; there is no retained-display reopening route. */
+    fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {
+        val controller = library?.controller ?: return
+        val previous = current()?.board?.contentsDisplays?.map { it.id }?.toSet() ?: return
+        val result = controller.show(selection, count, reveal)
+        if (result.refused != 0 || result.submitted == 0) return
+        val display = current()?.board?.contentsDisplays?.lastOrNull { it.id !in previous } ?: return
+        dismiss()
+        panel = "display/${display.id}"
     }
     fun libraryController(source: String, hand: String): LibraryController? {
         val playId = current()?.id ?: return null

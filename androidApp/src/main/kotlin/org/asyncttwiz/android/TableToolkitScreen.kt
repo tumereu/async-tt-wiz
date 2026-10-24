@@ -40,13 +40,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         "library" -> toolkit.library?.let { library -> ToolkitDialog(toolkit::dismiss, "Library") {
-            LibraryActions(library.controller, play.board, library.handIds, initialTool = library.tool,
-                names = names, onComplete = toolkit::dismiss)
-            play.board.contentsDisplays.singleOrNull { it.id == toolkit.libraryDisplayId }?.let { display ->
-                ContentsScreen(play, display, toolkit.viewer, library.controller, toolkit::inspect,
-                    Modifier.height(300.dp), onActions = { toolkit.openCard(selection.scope(it, display.cardIds)) }, names = names,
-                    onComplete = toolkit::dismiss)
-            }
+            LibraryActions(library.controller, play.board, library.handIds,
+                onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
         "occurrence" -> if (bound != null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },

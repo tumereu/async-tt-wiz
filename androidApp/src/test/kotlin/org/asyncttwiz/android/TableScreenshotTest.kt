@@ -76,9 +76,11 @@ class TableScreenshotTest {
         val output = File("build/outputs/roborazzi/$name.png")
         requireNotNull(output.parentFile).mkdirs()
         if (controls) {
-            compose.onNodeWithContentDescription("Game controls").performClick()
+            compose.onNodeWithContentDescription("Table actions").performClick()
             compose.onNodeWithText("Table actions").assertExists()
-            compose.onNodeWithText("View · 50").assertExists()
+            compose.onNodeWithText("View · 50").assertDoesNotExist()
+            compose.onNodeWithText("Redo").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Game controls").assertDoesNotExist()
             compose.waitForIdle()
             captureScreenRoboImage(output.path)
         } else compose.onRoot().captureRoboImage(output.path)
@@ -299,7 +301,7 @@ class TableScreenshotTest {
         assertTrue(sent.last() is PlayAction.AdjustCounter)
         compose.onNodeWithText("Life / counters").assertExists()
         compose.runOnIdle { toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N) }
-        compose.onNodeWithContentDescription("Draw one").performClick()
+        compose.onNodeWithContentDescription("Draw 1").performClick()
         compose.onNodeWithText("Library").assertDoesNotExist()
         assertEquals(null, toolkit.panel)
     }
@@ -333,7 +335,7 @@ class TableScreenshotTest {
 
     @Test fun failedDrawKeepsLibraryMenuOpen() {
         val (toolkit, _) = menu("library-actions", false, submitOk = false)
-        compose.onNodeWithContentDescription("Draw one").performClick()
+        compose.onNodeWithContentDescription("Draw 1").performClick()
         assertEquals("library", toolkit.panel)
         compose.onNodeWithText("Library").assertExists()
     }
@@ -347,7 +349,7 @@ class TableScreenshotTest {
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun libraryMulliganRemainsReachableInLandscape() {
         menu("library-actions", true)
-        compose.onNodeWithText("Return Hand → Shuffle → Draw Hand size −1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Draw one fewer").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun movePageKeepsStackDestinationReachable() {

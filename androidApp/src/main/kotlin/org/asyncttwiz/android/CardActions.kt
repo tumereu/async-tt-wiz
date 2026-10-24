@@ -103,6 +103,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
     val view = previewViewId ?: card.id
     val anchors = LocalCardRingAnchors.current
+    CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {
     if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
@@ -111,6 +112,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
             CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
         }
+    }
     }
 }
 

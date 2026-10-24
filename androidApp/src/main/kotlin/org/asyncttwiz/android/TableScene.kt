@@ -583,7 +583,6 @@ private fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Bool
 @Composable
 private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
-    var overflow by remember { mutableStateOf(false) }
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
     Row(Modifier.align(Alignment.TopStart).height(48.dp)
@@ -633,23 +632,9 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
-        if (!runtime.reviewing) Box {
-            ActionSquare("Game controls", "", true, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("overflow") }, onClick = { overflow = true })
-            DropdownMenu(overflow, { overflow = false }, modifier = Modifier.width(248.dp), containerColor = Color.White) {
-                Text("Game controls", Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium, color = Color(0xff597478))
-                runtime.redo?.let { redo -> DropdownMenuItem(text = { Text("Redo") }, leadingIcon = { TableChromeIcon("redo") }, enabled = runtime.controlsConnected == true,
-                    onClick = { overflow = false; redo() }) }
-                toolkit?.let { DropdownMenuItem(text = { Text("Table actions") }, leadingIcon = { TableChromeIcon("grid") }, onClick = { overflow = false; it.tableMenu() }) }
-                runtime.returnCurrent?.let { DropdownMenuItem(text = { Text("Return to current") }, onClick = { overflow = false; it() }) }
-                runtime.menuContent?.invoke()
-                // Retained displays stay reachable without labels floating over the board.
-                if (toolkit != null) for (display in play.board.contentsDisplays) DropdownMenuItem(
-                    text = { Text("${if (display.reveal) "Reveal" else "View"} · ${display.cardIds.size}") },
-                    onClick = { overflow = false; toolkit.contents(display) })
-                DropdownMenuItem(text = { Text("Close menu") }, leadingIcon = { TableChromeIcon("close") }, onClick = { overflow = false })
-            }
-        }
+        if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null,
+            Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("grid") },
+            onClick = { toolkit?.tableMenu() })
     }
 }
 
@@ -896,7 +881,16 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         }
         text(hand.value, b.right - 18f, b.center.y + 4f, 4)
     }
-    scene.stackRegion?.let { b -> drawRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height)) }
+    scene.stackRegion?.let { b ->
+        val purple = Color(0xff2a1740)
+        // Layered translucent contours make a soft shadow in the shared Canvas renderer.
+        for (spread in 8 downTo 1) drawRoundRect(purple.copy(alpha = .025f),
+            xy(b.x - spread / 2f, b.y + 2f - spread / 2f), size(b.width + spread, b.height + spread),
+            CornerRadius(5 * density))
+        drawRoundRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density))
+        drawRoundRect(purple, xy(b.x + 1.5f, b.y + 1.5f), size(b.width - 3f, b.height - 3f),
+            CornerRadius(3 * density), style = Stroke(3 * density))
+    }
     val highlighted = preview.rectangle?.let(scene::rectangle) ?: selection.ids
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()

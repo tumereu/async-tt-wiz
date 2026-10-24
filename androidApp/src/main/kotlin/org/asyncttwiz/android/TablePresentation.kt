@@ -42,7 +42,7 @@ data class TableBounds(val x: Float, val y: Float, val width: Float, val height:
 
 data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f)
 /** One affine transform for the entire world. Camera offsets are world units from its home center. */
-data class TableWorld(val viewport: TableBounds, val bounds: TableBounds) {
+data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds) {
     private val home get() = TablePoint(viewport.width / 2, viewport.height / 2)
     fun screen(p: TablePoint, camera: TableCamera) = TablePoint(
         viewport.center.x + (p.x - home.x - camera.x) * camera.zoom,
@@ -58,8 +58,8 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds) {
             val b = end - home - extent / (2 * c.zoom)
             return value.coerceIn(minOf(a, b), maxOf(a, b))
         }
-        return c.copy(x = offset(c.x, bounds.x, bounds.right, home.x, viewport.width),
-            y = offset(c.y, bounds.y, bounds.bottom, home.y, viewport.height))
+        return c.copy(x = offset(c.x, panBounds.x, panBounds.right, home.x, viewport.width),
+            y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height))
     }
     fun normalize(camera: TableCamera) = TableCamera(camera.x.takeIf { it.isFinite() } ?: 0f,
         camera.y.takeIf { it.isFinite() } ?: 0f,
@@ -113,7 +113,8 @@ data class TableItem(
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false, val note: String = "", val counters: Map<CounterColor, String> = emptyMap(),
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
-    val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null
+    val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
+    internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -202,6 +203,9 @@ object TablePresentation {
         }
         val sidebar = if (landscape) sidebarWidth(width) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
+        val logicalLeft = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.minOfOrNull { c ->
+            c.cards.mapIndexed { n, id -> positions[id]?.column ?: n.toFloat() }.minOrNull() ?: 0f
+        } ?: 0f
         val logicalRight = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.maxOfOrNull { c ->
             c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
         } ?: 4f
@@ -231,15 +235,20 @@ object TablePresentation {
         val bandY = worldViewport.height / 2 - bandHeight / 2
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
-        val world = TableWorld(worldViewport, TableBounds(0f, logicalFields.first().y,
-            maxOf(worldViewport.width, logicalRight * GRID + 32f, combat.width),
-            logicalFields.last().bottom - logicalFields.first().y))
+        val worldLeft = minOf(0f, logicalLeft * GRID)
+        val worldRight = maxOf(worldViewport.width, logicalRight * GRID + 32f, combat.width)
+        val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
+            worldRight - worldLeft,
+            logicalFields.last().bottom - logicalFields.first().y)
+        // Empty columns are navigable without making Fit table zoom out to include unused space.
+        val world = TableWorld(worldViewport, contentBounds,
+            contentBounds.copy(x = worldLeft - 3 * GRID, width = contentBounds.width + 6 * GRID))
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         val camera = world.normalize(ui.camera)
         val zoom = camera.zoom
         val cw = hudWidth * zoom; val ch = hudHeight * zoom; val envelope = GRID * zoom
         val fields = players.mapIndexed { index, player ->
-            val grid = world.screen(logicalFields[index].copy(width = world.bounds.width), camera)
+            val grid = world.screen(logicalFields[index].copy(width = world.bounds.right), camera)
             val bounds = grid.intersection(worldViewport) ?: grid.copy(width = 0f, height = 0f)
             TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
                 gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.effectiveAttentionHolder)
@@ -310,7 +319,8 @@ object TablePresentation {
             val spacing = max(hudEnvelope, (dock.width - 64f) / 3)
             val dp = port("dock/${player.accountId}", dock, 76f + 2 * spacing + hudEnvelope)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
-                "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id)
+                "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
+                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
             for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
@@ -331,7 +341,8 @@ object TablePresentation {
                     val v = player.counters[color].orEmpty()
                     val b = TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
                     items += TableItem("counter/${player.accountId}/$color", b, "${name(player.accountId)}, ${color.name.lowercase()}, ${v.ifEmpty { "no value" }}",
-                        v, player.accountId, kind = TableItemKind.COUNTER, viewport = cp.id, counter = color)
+                        v, player.accountId, kind = TableItemKind.COUNTER, viewport = cp.id, counter = color,
+                        valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
                 }
             }
         }

@@ -150,7 +150,7 @@ class GameConnectionLifecycleTest {
             compose.runOnIdle { owner.wire.listener.disconnected(); owner.lobby.foreground() }
             compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
             compose.onNodeWithText("Disconnected · read-only").assertDoesNotExist()
-            compose.onNodeWithContentDescription("Game controls").assertIsEnabled()
+            compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
             compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
         } finally { compose.runOnIdle { owner.close() } }
     }

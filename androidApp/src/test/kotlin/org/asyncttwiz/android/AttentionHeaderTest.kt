@@ -47,7 +47,7 @@ class AttentionHeaderTest {
             val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.left >= menu.right)
             assertTrue(bounds.right <= phase.left)
-            compose.onNodeWithContentDescription("Game controls").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Table actions").assertIsDisplayed()
             compose.onNodeWithContentDescription("Chat, 0 unread messages").assertIsDisplayed()
             pill.performTouchInput { longClick() }
             compose.runOnIdle { assertTrue(sent.isEmpty()) }

@@ -205,7 +205,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
-            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, logout)
+            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout)
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
                 verticalArrangement = if (destination == ShellDestination.MENU) Arrangement.Center else Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally) {

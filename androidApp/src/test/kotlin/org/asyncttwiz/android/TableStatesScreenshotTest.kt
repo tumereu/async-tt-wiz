@@ -86,7 +86,7 @@ class TableStatesScreenshotTest {
                         TableSurface(f.game, current(), f.a, landscape, Modifier.fillMaxSize(), connected = !reviewing,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
-                                tree = {}, undo = { true }, redo = { true },
+                                undo = { true }, redo = { true },
                                 controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
                                 continueHere = if (reviewing) ({ history.requestContinuation(playback.position.cursorId) }) else null,
                                 returnCurrent = if (review) history::current else null,
@@ -382,7 +382,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Paused", substring = true).assertExists()
     }
 
-    @Test fun treeSelectionReviewsGroupEndAndOnlyMakeCurrentSubmits() {
+    @Test fun treeHoldExposesBranchActionsAndTapMovesReviewCursorThenClosesWithoutSubmitting() {
         val tree = f.history()
         val submissions = mutableListOf<GameAction>()
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { true }, { _, action -> submissions += action; true })
@@ -391,11 +391,12 @@ class TableStatesScreenshotTest {
         assertNotEquals(range.representativeId, range.targetId)
         val texts = f.playback(tree).tree.texts
         var open by mutableStateOf(true)
+        var cursor = tree.currentNodeId
         compose.setContent { MaterialTheme {
             if (open) HistoryExplorer(explorer, true, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
-                false, {}, { open = false }, {}, texts = texts)
+                false, {}, { open = false }, { cursor = it.currentNodeId }, texts = texts)
         } }
-        val group = compose.onNodeWithContentDescription("${historyRangeText(range, texts).description}, ${range.nodeIds.size} events, review group end")
+        val group = compose.onNodeWithContentDescription(texts.getValue(range.targetId).description)
         val before = group.fetchSemanticsNode().positionInRoot
         compose.onNodeWithContentDescription("Game history group tree").performTouchInput {
             swipe(center, center + androidx.compose.ui.geometry.Offset(-30f, 20f), 200)
@@ -405,14 +406,19 @@ class TableStatesScreenshotTest {
             assertTrue(submissions.isEmpty())
         }
         assertNotEquals(before, group.fetchSemanticsNode().positionInRoot)
-        group.performClick()
+        group.performTouchInput { longClick() }
         compose.runOnIdle {
             assertEquals(range.targetId, explorer.state.selectedNodeId)
             assertTrue(submissions.isEmpty())
         }
         compose.onNodeWithContentDescription("Make current").performClick()
         compose.runOnIdle { assertEquals(listOf<GameAction>(GameAction.MakeCurrent(range.targetId)), submissions) }
-        compose.onNodeWithContentDescription("Close game tree").performClick()
+        group.performClick()
+        compose.runOnIdle {
+            assertEquals(range.targetId, cursor)
+            assertFalse(open)
+            assertEquals(1, submissions.size)
+        }
         compose.onNodeWithText("Game tree ▾").assertDoesNotExist()
         explorer.close()
     }

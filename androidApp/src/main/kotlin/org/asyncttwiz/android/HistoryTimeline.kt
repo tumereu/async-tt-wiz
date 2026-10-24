@@ -98,11 +98,9 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
         for (i in HistoryTimelineLayout.visible(events.size, selected, width, pitch)) {
             val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
-            val authorColor = when (event.author) { null -> Color(0xff59656a); viewer -> Color(0xff287f85); else -> Color(0xffa84f58) }
-            Box(Modifier.align(Alignment.CenterStart).offset((x - 10f).dp).size(20.dp).clickable { pause(); select(event.id) }
-                .semantics { contentDescription = event.description; this.selected = i == selected }, contentAlignment = Alignment.Center) {
-                CompositionLocalProvider(LocalContentColor provides authorColor) { eventIcon(event.icon) }
-            }
+            val authorColor = historyAuthorColor(event.author, viewer)
+            HistoryEventChip(event, authorColor, i == selected,
+                Modifier.align(Alignment.CenterStart).offset((x - 10f).dp).clickable { pause(); select(event.id) }, eventIcon)
             if (i > 0 && event.groupId != events[i - 1].groupId) Canvas(Modifier.offset((x - 12f).dp).width(1.dp).fillMaxHeight()) {
                 drawLine(Color.Gray.copy(alpha = .25f), Offset(0f, 4.dp.toPx()), Offset(0f, size.height - 4.dp.toPx()), 1.dp.toPx())
             }
@@ -113,15 +111,29 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     }
 }
 
+internal fun historyAuthorColor(author: String?, viewer: String) = when (author) {
+    null -> Color(0xff59656a); viewer -> Color(0xff287f85); else -> Color(0xffa84f58)
+}
+
+/** Same 20dp glyph and 24dp pitch vocabulary in the path and full-tree views. */
+@Composable
+internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier = Modifier,
+    eventIcon: @Composable (String) -> Unit = { HistoryEventIcon(it) }) {
+    Box(modifier.size(20.dp).semantics { contentDescription = event.description; this.selected = selected },
+        contentAlignment = Alignment.Center) {
+        CompositionLocalProvider(LocalContentColor provides color) { eventIcon(event.icon) }
+    }
+}
+
 /** Ready-to-host native history chrome. The host resolves position.cursorId/version into the shared
- * replayed board, forwards lifecycle/accepted updates to playback, and supplies animation cadence.
+ * replayed board, forwards lifecycle/accepted updates to playback, and reports completed animations.
  * Each tick selects one group endpoint; receipt of a whole network batch never skips those stages. */
 @Composable
 fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, viewer: String, connected: Boolean,
-    groupDurationMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
+    pauseMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
     continuationReady: Boolean = true, overlay: Boolean = false, landscape: Boolean = false,
-    menuContent: (@Composable () -> Unit)? = null) {
-    require(groupDurationMillis > 0)
+    menuContent: (@Composable () -> Unit)? = null, animationFinished: Boolean = true, onTree: (() -> Unit)? = null) {
+    require(pauseMillis > 0)
     val position = playback.position
     val endpoint = when {
         playback.tree.contains(timelineEndpoint) && position.cursorId in playback.tree.path(timelineEndpoint) -> timelineEndpoint
@@ -130,9 +142,12 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
     val continuation by rememberUpdatedState(onContinue)
-    LaunchedEffect(position.playing, playback.foreground, groupDurationMillis) {
-        while (playback.position.playing && playback.foreground) {
-            delay(groupDurationMillis)
+    val latestPauseMillis by rememberUpdatedState(pauseMillis)
+    LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground, animationFinished) {
+        if (position.playing && playback.foreground && animationFinished) {
+            // Sample once per completed animation: a setting change affects the next pause,
+            // not a pause already in progress.
+            delay(latestPauseMillis)
             playback.next(automatic = true)
         }
     }
@@ -147,8 +162,14 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             Text(if (endpoint == playback.tree.sharedHeadId) "current path" else "retained path", style = MaterialTheme.typography.labelSmall)
             if (menuContent != null) DropdownMenu(options, { options = false }) { menuContent() }
         }
-        HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
-            Modifier.height(if (landscape) 36.dp else 44.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
+                Modifier.weight(1f).height(if (landscape) 36.dp else 44.dp))
+            if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
+                modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
+                TableChromeIcon("tree")
+            }
+        }
     }
     val transport: @Composable () -> Unit = {
         HistoryTransport(position, position.cursorId != playback.tree.rootId,

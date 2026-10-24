@@ -231,11 +231,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
         SideEffect { animation.updateMetadata(targetScene) }
-        LaunchedEffect(animation, targetScene.animationTargets) {
+        LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
+            val settled = runtime.onSceneSettled
             if (animation.retarget(targetScene, progress.value)) {
                 progress.snapTo(0f)
                 if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(180))
+            } else if (progress.value < 1f) {
+                progress.animateTo(1f, tween(180))
             }
+            withFrameNanos { }
+            settled?.invoke(play.currentNodeId)
         }
         val frame = animation.frame(progress.value, targetScene)
         val animatedItems = frame.filter { it.alpha > 0f }.map { it.item.copy(bounds = it.bounds) }
@@ -525,9 +530,7 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
                 fill = if (runtime.continuationArmed) Color(0xffedf3ef) else Color.Transparent,
                 ink = if (runtime.continuationArmed) OwnTableColor else null,
                 icon = { TableChromeIcon(if (runtime.continuationArmed) "fork" else "history") }, onClick = { runtime.history?.invoke() })
-            ActionSquare("History tree", "", runtime.tree != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("tree") }, onClick = { runtime.tree?.invoke() })
         }
-        if (runtime.reviewing) ActionSquare("History tree", "", runtime.tree != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("tree") }, onClick = { runtime.tree?.invoke() })
         Box {
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))

@@ -204,7 +204,8 @@ object TablePresentation {
         } ?: 4f
         val combat = CombatStackPresentation.combat(play.board, hudWidth, hudHeight)
         val railHeight = if (landscape) 48f else 52f
-        val controlsHeight = if (landscape) 0f else if (reviewing) 116f else 56f
+        // History chrome overlays the normal board. Review must never reframe the camera or rails.
+        val controlsHeight = if (landscape) 0f else 56f
         val dockRow = 68f
         val counterHeight = 48f
         val counterHeights = players.map { if (landscape || it.counters.values.any(::nonzero)) counterHeight else 0f }
@@ -213,7 +214,7 @@ object TablePresentation {
         val boardBottom = height - railHeight - if (landscape) 8f else 4f
         val ownDockY = height - controlsHeight - dockRow - counterHeights[1]
         val worldTop = if (landscape) boardTop else HEADER + dockRow + counterHeights[0] + railHeight
-        val worldBottom = if (landscape) boardBottom - if (reviewing) 54f else 0f else ownDockY - railHeight
+        val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
         val worldViewport = TableBounds(sidebar + 6f, worldTop, (width - sidebar - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
         // Reserve room for a normal open combat lane at home without changing row spacing when it opens.
@@ -271,8 +272,8 @@ object TablePresentation {
             val handBounds = if (!ownSide) {
                 if (landscape) TableBounds(sidebar + 10f, 0f, (width - sidebar - toolbarWidth - 10f).coerceAtLeast(28f), HEADER)
                 else TableBounds(0f, worldTop - railHeight, width, railHeight)
-            } else TableBounds(if (landscape && !reviewing) 64f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                (if (landscape && reviewing) width / 2 else width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
+            } else TableBounds(if (landscape) 64f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
+                (width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (hudWidth + 4f) + hudWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll

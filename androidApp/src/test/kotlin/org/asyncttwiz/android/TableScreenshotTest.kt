@@ -54,7 +54,7 @@ class TableScreenshotTest {
                 Column(Modifier.fillMaxSize()) {
                     TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.weight(1f),
                         connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
-                        runtime = TableRuntimeHooks(chat = {}, history = {}, tree = {}, navigation = {}, chatUnread = 1,
+                        runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
                             undo = { true }, redo = { true }, reviewing = paused, controlsConnected = true,
                             continueHere = if (paused) ({}) else null, returnCurrent = if (paused) ({}) else null,
                             reviewPanel = if (paused) ({ HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 240L, {},
@@ -90,7 +90,8 @@ class TableScreenshotTest {
             assertEquals(if (landscape) 892 else 412, image.width)
             assertEquals(if (landscape) 412 else 892, image.height)
             if (!controls) assertRenderedLandsBands(image, TablePresentation.scene(LiveTableFixture.game, play, "a",
-                image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused), "a")
+                image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused), "a",
+                overlayTop = if (paused) image.height - if (landscape) 104 else 116 else image.height)
         }
     }
 
@@ -200,7 +201,7 @@ class TableScreenshotTest {
                 }) {
                 TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = {}, history = {}, tree = {}, navigation = {},
+                    runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
                         undo = { true }, redo = { true }, controlsConnected = true,
                         tokenCatalog = TableTokenCatalog(TableTokenCatalogIdentity("a", play.gameId, play.id, "fixture", 0), tokenSource)))
                 if (kind == "combat-actions") TableMenuPanel({}, title = "Combat") {
@@ -360,15 +361,17 @@ class TableScreenshotTest {
     }
 }
 
-/** Sample an unobstructed column through both fields, including the band/main boundary. */
-internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene: TableScene, viewer: String) {
+/** Sample an unobstructed column through both fields, including the band/main boundary.
+ * Review intentionally covers the lower board without changing its underlying viewport. */
+internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene: TableScene, viewer: String,
+    overlayTop: Int = image.height) {
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
         assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
         // Portrait Stack is a screen-fixed overlay on the world's right edge.
         val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
         val x = minOf(field.bounds.right - 8, overlay?.x?.minus(8) ?: Float.MAX_VALUE).toInt()
-        for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until field.bounds.bottom.toInt()) {
+        for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until minOf(field.bounds.bottom.toInt(), overlayTop)) {
             // Avoid fractional, anti-aliased Canvas edges.
             if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue
             if (kotlin.math.abs(y - lands.y) < 1 || kotlin.math.abs(y - lands.bottom) < 1) continue

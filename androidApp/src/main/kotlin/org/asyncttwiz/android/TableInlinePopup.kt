@@ -175,7 +175,8 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
         val popupModifier = Modifier
             .graphicsLayer { alpha = progress; scaleX = InlinePopupStyle.initialScale + (1 - InlinePopupStyle.initialScale) * progress; scaleY = scaleX }
             .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }
-            .ringInputTarget().semantics { contentDescription = if (description == "Card action ring") "Card action grid" else "Context action grid" }
+            // Only registered controls are inside; empty cells and inter-control gaps relay to the table.
+            .semantics { contentDescription = if (description == "Card action ring") "Card action grid" else "Context action grid" }
             .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)

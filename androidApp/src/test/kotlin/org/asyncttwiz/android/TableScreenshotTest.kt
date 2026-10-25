@@ -98,7 +98,8 @@ class TableScreenshotTest {
                     image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused)
                 val scene = if (paused) timelineLayout(normal, "a", image.width.toFloat(), image.height.toFloat(), landscape) else normal
                 assertRenderedLandsBands(image, scene, "a",
-                    overlayTop = if (paused) image.height - timelinePanelHeight(landscape).toInt() else image.height, reviewing = paused)
+                    overlayTop = if (paused) image.height - timelinePanelHeight(landscape).toInt() else image.height, reviewing = paused,
+                    turnPlayer = play.board.turn.accountId)
             }
         }
     }
@@ -374,7 +375,7 @@ class TableScreenshotTest {
 /** Sample an unobstructed column through both fields, including the band/main boundary.
  * Review dims the board and covers its lower edge without changing the underlying viewport. */
 internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene: TableScene, viewer: String,
-    overlayTop: Int = image.height, reviewing: Boolean = false) {
+    overlayTop: Int = image.height, reviewing: Boolean = false, turnPlayer: String = "a") {
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
         // Timeline deliberately clips the bottom, so the lower lands band may be off screen.
@@ -387,17 +388,15 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
             if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue
             if (kotlin.math.abs(y - lands.y) < 1 || kotlin.math.abs(y - lands.bottom) < 1) continue
             val inBand = lands.contains(TablePoint(x.toFloat(), y.toFloat()))
-            val base = if (field.owner == viewer) {
+            val base = if (field.owner != turnPlayer) {
+                if (inBand) 0xffdfe2e2.toInt() else 0xffeceeee.toInt()
+            } else if (field.owner == viewer) {
                 if (inBand) 0xffc4dcd0.toInt() else 0xffe2efe6.toInt()
             } else if (inBand) 0xffe9d1d3.toInt() else 0xfff4e8ea.toInt()
-            val fieldColor = if (field.holdsAttention) {
-                val tint = if (field.owner == viewer) OwnTableColor else OpponentTableColor
-                tint.copy(alpha = .12f).compositeOver(Color(base)).toArgb()
-            } else base
-            val expected = if (reviewing) Color.Black.copy(alpha = .12f).compositeOver(Color(fieldColor)).toArgb() else fieldColor
+            val expected = if (reviewing) Color.Black.copy(alpha = .12f).compositeOver(Color(base)).toArgb() else base
             val actual = image.getRGB(x, y)
             val message = "${field.owner} battlefield at ($x, $y)"
-            if (field.holdsAttention || reviewing) {
+            if (reviewing) {
                 // Native Canvas uses premultiplied 8-bit alpha, unlike Color's float blend.
                 // Allow its single-channel rounding, but still verify every tinted pixel.
                 for (shift in listOf(0, 8, 16)) assertTrue(kotlin.math.abs(

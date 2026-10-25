@@ -35,6 +35,60 @@ class ClientNormalPathScaleTest {
         emptyList(), tree.currentNodeId, tree.currentNodeId, containers = tree.initial.board.containers,
         source = tree, previous = previous)
 
+    @Test fun openAndCatchUpFiveGroupsAtTenThousandActionsNeverIndexesOrReplaysThePrefix() {
+        val tree = large.materializedCopy()
+        val navigation = HistoryPlayback(index(tree))
+        repeat(5) { navigation.previous() }
+        val seen = navigation.position.cursorId
+        val distance = tree.endpointIndex().positions.getValue(tree.currentNodeId).depth -
+            tree.endpointIndex().positions.getValue(seen).depth
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { node, complete ->
+            val worker = tree.materializedCopy()
+            val cursor = node ?: tree.currentNodeId
+            val state = worker.prepareReview(cursor)
+            tree.receivePreparedReview(worker)
+            complete(DownloadedHistoryState(1, cursor, node != null, state))
+            true
+        }, { _, _, _ -> false })
+        tree.work.reset()
+        history.openFrom(seen) { _, _ -> }
+        history.update(tree, "head", viewer = F.a)
+        history.displayPosition()
+        val player = history.playback!!
+        repeat(5) {
+            val events = HistoryTimelineLayout.events(player.tree, tree.currentNodeId) as HistoryTimelineLayout.IndexedHistoryEvents
+            val selected = events.positionOf(player.position.cursorId)
+            HistoryTimelineLayout.visible(events.size, selected, 480f, 24f).forEach { assertNotNull(events[it]) }
+            assertTrue(events.projectedEvents <= 23)
+            player.next(true)
+            history.displayPosition()
+        }
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals(tree.currentNodeId, history.view?.cursor)
+        assertEquals(0, tree.work.rootMaterializations)
+        assertEquals(0, tree.work.fullHistoryScans)
+        assertTrue(tree.work.replayedNodes + tree.work.unappliedNodes <= distance * 2)
+        assertTrue(tree.work.ancestrySteps <= distance * 4)
+        assertTrue(player.tree.navigationReads < 500)
+        assertFalse(player.tree.hasPresentationIndex)
+        history.close()
+
+        // First open is lazy too: showing the already-materialized initial endpoint is O(1).
+        tree.work.reset()
+        val firstOpen = HistoryPlayback(HistoryTree(tree.initial.root.id, emptyList(), tree.currentNodeId,
+            "first", containers = tree.initial.board.containers, source = tree, lazyPresentation = true))
+        firstOpen.openFrom(null)
+        assertEquals(tree.initial, tree.prepareReview(firstOpen.position.cursorId))
+        assertEquals(0, tree.work.replayedNodes + tree.work.unappliedNodes + tree.work.ancestrySteps)
+        assertEquals(0, tree.work.fullHistoryScans + tree.work.rootMaterializations)
+        assertFalse(firstOpen.tree.hasPresentationIndex)
+        assertTrue(firstOpen.tree.navigationReads < 20)
+        firstOpen.next(true)
+        assertNotNull(tree.prepareReview(firstOpen.position.cursorId))
+        assertTrue(tree.work.replayedNodes < 24)
+        assertEquals(0, tree.work.rootMaterializations)
+    }
+
     @Test fun item1AppendTextsIndexAndPublicationVisitOnlyTheNewEdge() = scale("1 history append") { tree ->
         val old = index(tree)
         val texts = historyTexts(tree, F.a, emptyMap())

@@ -12,11 +12,43 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
+import org.asyncttwiz.fixtures.ScaleGames as F
+import org.asyncttwiz.protocol.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class HistoryModeReworkTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun branchNoticeExpiresWhilePausedAndRollbackResumesFasterThanNormalPacing() {
+        val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
+        val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
+        val old2 = F.play(old1, PlayAction.AdjustLife(F.a, "1"), 102)
+        val branch = F.change(old2, F.command(old2, GameAction.Play(PlayAction.AdjustLife(F.b, "2")), 103)
+            .copy(continuation = Continuation(common.currentNodeId, true)), F.b)
+        val player = HistoryPlayback(HistoryTree(branch.initial.root.id, emptyList(), branch.currentNodeId,
+            "branch", containers = branch.initial.board.containers, source = branch, lazyPresentation = true))
+        player.openFrom(old2.currentNodeId)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(player, old2.currentNodeId, F.a, true, 1_500, {})
+        } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithText("Branched", substring = true).assertIsDisplayed()
+        compose.runOnIdle { player.pause() }
+        compose.mainClock.advanceTimeBy(1_100)
+        compose.runOnIdle {
+            assertFalse(player.branched)
+            assertEquals(old2.currentNodeId, player.position.cursorId)
+            player.play()
+        }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(64)
+        compose.runOnIdle { assertEquals(old2.currentNodeId, player.position.cursorId) }
+        compose.mainClock.advanceTimeBy(80)
+        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId); player.pause() }
+    }
 
     @Test fun autoButtonShowsStateAndTogglesFromBothStates() {
         val tree = TableStatesFixture.history()

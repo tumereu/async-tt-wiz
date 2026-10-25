@@ -29,11 +29,17 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var textViewer: String? = null
     private val indexes = LatestReview(worker)
     // Worker-only presentation cache; no per-node boards and no cross-thread tree cache mutation.
-    private var textTree: GameplayTree? = null
-    private var texts = emptyMap<String, HistoryText>()
-    private var textNames = emptyMap<String, String>()
-    private var cachedViewer: String? = null
     private var textIndex: HistoryTree? = null
+    private var opening = false
+    private var lastSeen: String? = null
+    private var recordSeen: ((String, String) -> Unit)? = null
+    private var lastPresentedLive: Pair<String, String>? = null
+
+    /** Configure once before the first update; ordinary review never changes this bookmark. */
+    fun openFrom(nodeId: String?, record: (String, String) -> Unit) {
+        if (playback != null || opening) return
+        opening = true; lastSeen = nodeId; recordSeen = record
+    }
 
     fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null) {
         val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
@@ -45,23 +51,20 @@ class TableHistoryController(private val worker: Executor, private val post: (()
             if (generation != epoch) return@submit
             val previous = textIndex?.takeIf { it.rootId == value.initial.root.id }
             val index = HistoryTree(value.initial.root.id, emptyList(), value.currentNodeId, version,
-                containers = value.initial.board.containers, source = isolated, previous = previous)
-            val incremental = previous?.source?.let { isolated.changedNodeIdsSince(it) } != null
-            val projected = historyTexts(isolated, viewer, names,
-                textTree.takeIf { incremental && textNames == names && cachedViewer == viewer }, texts,
-                index.index.affected) { generation == epoch }
+                containers = value.initial.board.containers, source = isolated, previous = previous, lazyPresentation = true)
             if (generation != epoch) return@submit
-            textTree = isolated; texts = projected; textNames = names; cachedViewer = viewer
-            index.texts = projected; textIndex = index
+            index.texts = TimelineTexts(isolated, viewer, names); textIndex = index
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
                     val old = playback
-                    if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index)
+                    if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index).also {
+                        if (opening) it.openFrom(lastSeen)
+                    }
                     else old.receive(index)
                     if (!foreground) playback?.background()
                     val result = value.nodes[value.currentNodeId]?.takeIf { it.action is PlayAction.SuggestResult }
-                    if (result != null && (old == null || old.position.mode == HistoryMode.LIVE) &&
+                    if (result != null && playback?.position?.mode == HistoryMode.LIVE &&
                         precedingPresented !in setOf(result.parentId, result.id)) {
                         playback?.scrub(result.parentId)
                         playback?.play()
@@ -190,6 +193,11 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     /** Called only after a frame has actually presented this endpoint. Current S must be preceded
      * by its final board; historical/stale/removed suggestions never receive an actionable gate. */
     fun presented(state: PlayState, accepted: PlayState?, live: Boolean) {
+        if (!closed && live && foreground && playback?.position?.mode == HistoryMode.LIVE &&
+            playback?.position?.cursorId == state.currentNodeId) {
+            val shown = state.gameId to state.currentNodeId
+            if (shown != lastPresentedLive) { lastPresentedLive = shown; recordSeen?.invoke(shown.first, shown.second) }
+        }
         if (state.board.resultSuggestion != null && state.currentNodeId != accepted?.currentNodeId) { gate = null; return }
         val suggestion = accepted?.board?.resultSuggestion
         val node = suggestion?.let { tree?.nodes?.get(it.id) }
@@ -205,5 +213,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         precedingPresented = state.currentNodeId
     }
 
-    override fun close() { closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null }
+    fun leaving() { lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
+    override fun close() { leaving(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null }
 }

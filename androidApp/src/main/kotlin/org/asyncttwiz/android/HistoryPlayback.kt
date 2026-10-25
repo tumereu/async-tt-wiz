@@ -15,12 +15,17 @@ data class HistoryPosition(val cursorId: String, val mode: HistoryMode = History
 class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sharedHeadId: String,
     val liveVersion: String, val versions: Map<String, String> = emptyMap(),
     texts: Map<String, HistoryText> = emptyMap(), val containers: List<PlayContainer> = emptyList(),
-    internal val source: GameplayTree? = null, previous: HistoryTree? = null) {
+    internal val source: GameplayTree? = null, previous: HistoryTree? = null,
+    lazyPresentation: Boolean = false) {
     val nodes = source?.nodes ?: mutations.associateBy { it.id }
     var texts = texts; internal set
     private val changed = if (source != null && previous?.source != null) source.changedNodeIdsSince(previous.source) else null
-    internal val index: HistoryIndex = HistoryIndex.build(rootId, nodes, containers, previous?.index.takeIf { changed != null },
-        previous?.nodes.orEmpty(), changed ?: nodes.keys)
+    private val priorIndex: HistoryIndex? = previous?.takeIf { changed != null && (!lazyPresentation || it.hasPresentationIndex) }?.index
+    private val priorNodes: Map<String, GameplayMutation> = if (priorIndex != null) previous?.nodes.orEmpty() else emptyMap()
+    private val presentationIndex: Lazy<HistoryIndex> = lazy { HistoryIndex.build(rootId, nodes, containers, priorIndex,
+        priorNodes, if (priorIndex != null) changed!! else nodes.keys) }
+    internal val index: HistoryIndex by presentationIndex
+    internal val hasPresentationIndex: Boolean get() = presentationIndex.isInitialized()
     val indexedNodes get() = index.visited
     var navigationReads = 0; private set
     val removedParents: Map<String, String> = run {
@@ -32,21 +37,47 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
     }
     init {
         require((source != null || nodes.size == mutations.size) && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))
+        if (!lazyPresentation) index
     }
     fun contains(id: String) = id == rootId || id in nodes
     fun path(id: String): List<String> {
         require(contains(id))
-        return index.boundaries.getValue(id).path
+        return source?.endpointIndex()?.paths?.get(id) ?: index.boundaries.getValue(id).path
     }
-    fun depth(id: String): Int { navigationReads++; return index.boundaries.getValue(id).path.lastIndex }
+    fun depth(id: String): Int { navigationReads++; return source?.endpointIndex()?.positions?.get(id)?.depth ?: path(id).lastIndex }
     fun isAncestor(ancestor: String, endpoint: String): Boolean {
         navigationReads++
-        val a = index.boundaries[ancestor] ?: return false
-        return index.boundaries[endpoint]?.path?.getOrNull(a.path.lastIndex) == ancestor
+        if (!contains(ancestor) || !contains(endpoint)) return false
+        return path(endpoint).getOrNull(depth(ancestor)) == ancestor
     }
     internal fun ends(id: String): List<String> { navigationReads++; return index.boundaries.getValue(id).groupEnds }
     fun groups(path: List<String>): Map<String, GameplayGroup> {
-        return path.drop(1).associateWith { id -> index.boundaries.getValue(id).group!! }
+        return path.drop(1).associateWith { id -> group(id)!! }
+    }
+    internal fun group(id: String): GameplayGroup? = if (id == rootId) null else
+        nodes[id]?.bookkeeping?.toGroup ?: index.boundaries.getValue(id).group
+    internal fun alternatives(id: String): Int = ((if (source != null) source.endpointIndex().children[id]?.size ?: 0
+        else index.children[id]?.size ?: 0) - 1).coerceAtLeast(0)
+    internal fun previousGroup(id: String): String = group(id)?.firstNodeId?.let { nodes.getValue(it).parentId } ?: rootId
+    internal fun commonAncestor(a: String, b: String): String {
+        if (isAncestor(a, b)) return a
+        if (isAncestor(b, a)) return b
+        var left = a; var right = b
+        var ld = depth(left); var rd = depth(right)
+        while (left != right) {
+            navigationReads++
+            if (ld >= rd) { left = nodes.getValue(left).parentId; ld-- }
+            else { right = nodes.getValue(right).parentId; rd-- }
+        }
+        return left
+    }
+    internal fun forwardGroup(cursor: String): String {
+        val path = path(sharedHeadId)
+        var offset = depth(cursor) + 1
+        if (offset >= path.size) return sharedHeadId
+        val group = group(path[offset])?.id
+        while (offset + 1 < path.size && group(path[offset + 1])?.id == group) { navigationReads++; offset++ }
+        return path[offset]
     }
     fun version(id: String) = if (id == sharedHeadId) liveVersion else versions[id] ?: id
 }
@@ -57,6 +88,27 @@ class HistoryPlayback(initial: HistoryTree) {
     var position by mutableStateOf(HistoryPosition(initial.sharedHeadId, displayVersion = initial.liveVersion)); private set
     var foreground by mutableStateOf(true); private set
     private var removedParents: Map<String, String> = emptyMap()
+    private var rollbackPlan: Pair<String, String>? = null
+    var branched by mutableStateOf(false); private set
+
+    /** No route list or replay is built up front. A missing/deleted bookmark starts at root. */
+    fun openFrom(lastSeen: String?) {
+        val cursor = lastSeen?.let { tree.source?.resolveCursor(it) ?: it.takeIf(tree::contains) } ?: tree.rootId
+        if (cursor == tree.sharedHeadId) return
+        position = HistoryPosition(cursor, HistoryMode.PLAYBACK, true, tree.version(cursor))
+        planRollback()
+    }
+    private fun planRollback(): String {
+        if (tree.isAncestor(position.cursorId, tree.sharedHeadId)) return position.cursorId
+        rollbackPlan?.takeIf { it.first == tree.sharedHeadId && tree.isAncestor(it.second, position.cursorId) }?.let { return it.second }
+        val common = tree.commonAncestor(position.cursorId, tree.sharedHeadId)
+        rollbackPlan = tree.sharedHeadId to common
+        branched = common != position.cursorId
+        return common
+    }
+    fun acknowledgeBranch() { branched = false }
+    fun stepPauseMillis(normal: Long): Long = if (!tree.isAncestor(position.cursorId, tree.sharedHeadId))
+        minOf(100L, normal / 4).coerceAtLeast(1) else normal
 
     fun receive(next: HistoryTree) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
@@ -76,6 +128,7 @@ class HistoryPlayback(initial: HistoryTree) {
             foreground && position.mode == HistoryMode.PLAYBACK -> position.copy(displayVersion = tree.version(cursor))
             else -> position // Accepted receipt never advances a paused or background cursor.
         }
+        if (position.playing) planRollback()
     }
 
     fun background() { foreground = false }
@@ -97,37 +150,30 @@ class HistoryPlayback(initial: HistoryTree) {
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
         val cursor = resolveCursor(id)
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
+        rollbackPlan = null; branched = false
     }
     fun pause() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = false) }
-    fun play() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = true) }
+    fun play() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = true); planRollback() }
 
     fun previous() {
-        val ends = tree.ends(position.cursorId)
-        scrub(ends.getOrElse(ends.lastIndex - 1) { tree.rootId })
+        scrub(tree.previousGroup(position.cursorId))
     }
 
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
     fun next(automatic: Boolean = false) {
         if (automatic && (!foreground || !position.playing)) return
-        var common = position.cursorId
-        while (!tree.isAncestor(common, tree.sharedHeadId)) common = tree.nodes.getValue(common).parentId
+        val common = planRollback()
         val target: String
         if (position.cursorId != common) {
-            val ends = tree.ends(position.cursorId)
-            val previous = ends.getOrElse(ends.lastIndex - 1) { tree.rootId }
+            val previous = tree.previousGroup(position.cursorId)
             target = if (tree.depth(previous) < tree.depth(common)) common else previous
         } else {
-            val depth = tree.depth(position.cursorId)
-            val ends = tree.ends(tree.sharedHeadId)
-            // Binary search the maintained group boundaries, never fold a root path per tick.
-            var lo = 0; var hi = ends.size
-            while (lo < hi) { val mid = (lo + hi) ushr 1
-                if (tree.depth(ends[mid]) <= depth) lo = mid + 1 else hi = mid }
-            target = ends.getOrElse(lo) { tree.sharedHeadId }
+            target = tree.forwardGroup(position.cursorId)
         }
         val live = target == tree.sharedHeadId
         position = HistoryPosition(target, if (live) HistoryMode.LIVE else HistoryMode.PLAYBACK,
             automatic && !live, tree.version(target))
+        if (target == common || live) branched = false
     }
 
     /** Capture on pointer down. Deletion/fallback must never silently arm a different boundary. */

@@ -151,6 +151,9 @@ import kotlin.concurrent.Volatile
     fun stateAt(nodeId: String): PlayState? {
         if (nodeId == currentNodeId) currentMaterialization?.let { return it }
         reviewMaterialization?.takeIf { it.first == nodeId }?.let { return it.second }
+        // The initial endpoint is already materialized. First-open playback must not unapply
+        // the entire live history merely to show it, nor replay it to begin stepping forward.
+        if (nodeId == initial.root.id) return initial.also { reviewMaterialization = nodeId to it }
         val candidates = listOfNotNull(currentMaterialization, reviewMaterialization?.second)
         for (source in candidates) {
             val node = nodes[source.currentNodeId]

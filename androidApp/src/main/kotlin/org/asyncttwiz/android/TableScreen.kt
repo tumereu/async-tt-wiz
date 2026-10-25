@@ -51,11 +51,14 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val interactive = game.id !in state.reconnectingGames
     val live = state.play
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
+    val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val tree = controller.retainedTree()
     val displayTree = controller.displayTree()
     LaunchedEffect(IdentityKey(displayTree), live?.currentNodeId, IdentityKey(live?.board), game.revision) {
+        history.openFrom(playbackPreferences.lastSeen(game.id), playbackPreferences::shown)
         displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
     }
+    DisposableEffect(history) { onDispose { history.leaving() } }
     val playback = history.playback
     val position = playback?.position
     LaunchedEffect(position, IdentityKey(tree), playback?.tree) { history.displayPosition() }
@@ -63,7 +66,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
-    val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val playbackPause by playbackPreferences.pauseState()
     var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
@@ -82,7 +84,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val awaitingIndex = displayTree != null && displayTree === tree && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
         playback?.tree?.sharedHeadId != displayTree.currentNodeId
     val endpoint = remember(history) { TableEndpointPresentation() }
-    val play = if (waitingActivity) null else if (reviewing) history.view?.state ?: live
+    val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex)
     SideEffect { endpoint.presented(play) }
     LaunchedEffect(target, IdentityKey(tree)) {
@@ -110,8 +112,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         if (playback != null && position != null) {
             val endpoint = timelineEnd
             if (position.mode == HistoryMode.LIVE) timelineEnd = playback.tree.sharedHeadId
-            else if (endpoint == null || !playback.tree.isAncestor(position.cursorId, endpoint))
-                timelineEnd = position.cursorId
+            else if (playback.tree.isAncestor(position.cursorId, playback.tree.sharedHeadId))
+                timelineEnd = playback.tree.sharedHeadId
+            else if (endpoint == null || !playback.tree.isAncestor(position.cursorId, endpoint)) timelineEnd = position.cursorId
         }
     }
     var dismissedResult by remember(history) { mutableStateOf<String?>(null) }

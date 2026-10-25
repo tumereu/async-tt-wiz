@@ -6,6 +6,23 @@ import org.asyncttwiz.protocol.*
 
 data class HistoryText(val description: String, val label: String)
 
+/** Only visible timeline entries are projected. Never materialize a distant board for a label;
+ * absent nearby context uses the same privacy-safe generic wording as historyText. */
+internal class TimelineTexts(private val tree: GameplayTree, private val viewer: String?,
+    private val usernames: Map<String, String>) : AbstractMap<String, HistoryText>() {
+    private val cache = object : LinkedHashMap<String, HistoryText>(64, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, HistoryText>?) = size > 64
+    }
+    override val entries: Set<Map.Entry<String, HistoryText>> get() = cache.entries
+    override fun get(key: String): HistoryText? {
+        if (key != tree.initial.root.id && key !in tree.nodes) return null
+        return cache.getOrPut(key) {
+            val event = tree.nodes[key]
+            historyText(event, event?.parentId?.let(tree::preparedState), viewer, usernames)
+        }
+    }
+}
+
 private val historyUuid = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 internal fun historyPlainText(value: String): String = historyUuid.replace(value, "[reference]")
     .replace(Regex("\\s+"), " ").trim().take(180)

@@ -51,7 +51,7 @@ object HistoryTimelineLayout {
             return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
                 org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
                 text.description,
-                mutation?.author, tree.index.boundaries[id]?.group?.id, ((tree.index.children[id]?.size ?: 0) - 1).coerceAtLeast(0), text.label)
+                mutation?.author, tree.group(id)?.id, tree.alternatives(id), text.label)
         }
     }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) = width / 2f + (index - selected) * pitch
@@ -158,11 +158,15 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
     val continuation by rememberUpdatedState(onContinue)
     val latestPauseMillis by rememberUpdatedState(pauseMillis)
-    LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground, animationFinished) {
-        if (position.playing && playback.foreground && animationFinished) {
+    LaunchedEffect(playback, playback.branched) {
+        if (playback.branched) { delay(1_000); playback.acknowledgeBranch() }
+    }
+    LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground,
+        animationFinished, playback.branched) {
+        if (position.playing && playback.foreground && animationFinished && !playback.branched) {
             // Sample once per completed animation: a setting change affects the next pause,
             // not a pause already in progress.
-            delay(latestPauseMillis)
+            delay(playback.stepPauseMillis(latestPauseMillis))
             playback.next(automatic = true)
         }
     }
@@ -170,7 +174,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
         var options by remember { mutableStateOf(false) }
         val index = (events as HistoryTimelineLayout.IndexedHistoryEvents).positionOf(position.cursorId)
         Row(Modifier.fillMaxWidth().height(16.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${if (position.playing) "Playing groups" else "Paused"} · ${if (index == events.lastIndex) "Last" else index + 1} · ${events[index].label}",
+            Text("${if (playback.branched) "Branched" else if (position.playing) "Playing groups" else "Paused"} · ${if (index == events.lastIndex) "Last" else index + 1} · ${events[index].label}",
                 Modifier.clickable { options = true }.semantics { contentDescription = "History options" },
                 style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.weight(1f))

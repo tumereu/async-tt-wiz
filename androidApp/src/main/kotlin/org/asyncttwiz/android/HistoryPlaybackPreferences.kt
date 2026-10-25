@@ -9,6 +9,14 @@ import androidx.compose.ui.platform.LocalContext
 class HistoryPlaybackPreferences(context: Context, accountId: String) {
     private val preferences = context.applicationContext.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
     internal val key = "pause/$accountId"
+    private val seenPrefix = "last-seen/$accountId/"
+
+    // Separate from the accepted replica and auth cleanup: debug Logout/account switching must
+    // retain presentation bookmarks. IDs are still strictly scoped to the signed-in account.
+    fun lastSeen(gameId: String): String? = preferences.getString(seenPrefix + gameId, null)
+    fun shown(gameId: String, nodeId: String) {
+        preferences.edit().putString(seenPrefix + gameId, nodeId).apply()
+    }
     var pauseMillis: Long
         get() = preferences.getLong(key, DEFAULT_PAUSE_MILLIS).coerceIn(MIN_PAUSE_MILLIS, MAX_PAUSE_MILLIS)
         set(value) { preferences.edit().putLong(key, value.coerceIn(MIN_PAUSE_MILLIS, MAX_PAUSE_MILLIS)).apply() }

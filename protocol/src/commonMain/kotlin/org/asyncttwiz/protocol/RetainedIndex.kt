@@ -2,6 +2,8 @@ package org.asyncttwiz.protocol
 
 import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
 
 /** Preserve insertion order and share all untouched trie pages. Wire properties remain ordinary maps. */
 internal fun <K, V> Map<K, V>.putShared(key: K, value: V): Map<K, V> = if (this is IndexedMap<K, V>) putting(key, value) else toPersistentMap().put(key, value)
@@ -18,6 +20,9 @@ class RetainedIndex(
     var positions: Map<String, RetainedPosition> = emptyMap(),
     val incremental: Boolean = true,
     var annotationReaders: Map<String, Set<String>> = emptyMap(),
+    /** Shared ID-only vectors, built at cold import and edited with topology deltas. Timeline
+     * windows/forward steps can index any depth without walking from the head or indexing on open. */
+    val paths: Map<String, PersistentList<String>> = emptyMap(),
 ) {
     private fun edge(node: GameplayMutation, add: Boolean) {
         fun update(map: Map<String, Set<String>>, key: String): Map<String, Set<String>> {
@@ -38,11 +43,12 @@ class RetainedIndex(
     }
 
     fun edited(old: Map<String, GameplayMutation>, next: Map<String, GameplayMutation>, ids: Set<String>): RetainedIndex {
+        var nextPaths = paths.toPersistentMap()
         val result = RetainedIndex(children, readers, positions, incremental && ids.all { id -> next[id]?.let {
             it.schemaVersion == 2 && it.transition.delta != null && it.bookkeeping != null } != false }, annotationReaders)
         for (id in ids) { old[id]?.let { result.edge(it, false) }; next[id]?.let { result.edge(it, true) } }
         val affected = result.descendants(ids)
-        for (id in affected) result.positions = result.positions.removeShared(id)
+        for (id in affected) { result.positions = result.positions.removeShared(id); nextPaths = nextPaths.remove(id) }
         // Parent-first, even when a delta's records arrive in UUID rather than ancestry order.
         val pending = ArrayDeque(affected.filter { next[it]?.parentId in result.positions })
         while (pending.isNotEmpty()) {
@@ -51,13 +57,16 @@ class RetainedIndex(
             val parent = result.positions[node.parentId] ?: continue
             result.positions = result.positions.putShared(id, RetainedPosition(parent.depth + 1,
                 CommandIds.uuidV5(parent.identity, "retained/$id")))
+            nextPaths[node.parentId]?.let { nextPaths = nextPaths.put(id, it.add(id)) }
             result.children[id].orEmpty().filterTo(pending) { it in affected }
         }
-        return result
+        return RetainedIndex(result.children, result.readers, result.positions, result.incremental,
+            result.annotationReaders, nextPaths)
     }
 
     companion object {
         fun build(tree: GameplayTree): RetainedIndex {
+            var paths = mapOf(tree.initial.root.id to persistentListOf(tree.initial.root.id)).toPersistentMap()
             val result = RetainedIndex(positions = mapOf(tree.initial.root.id to RetainedPosition(0, tree.initial.root.id)),
                 incremental = tree.nodes.values.all { it.schemaVersion == 2 && it.transition.delta != null && it.bookkeeping != null })
             for (node in tree.nodes.values) result.edge(node, true)
@@ -69,9 +78,11 @@ class RetainedIndex(
                 val parent = result.positions[node.parentId] ?: continue
                 result.positions = result.positions.putShared(id, RetainedPosition(parent.depth + 1,
                     CommandIds.uuidV5(parent.identity, "retained/$id")))
+                paths = paths.put(id, paths.getValue(node.parentId).add(id))
                 result.children[id].orEmpty().forEach(pending::add)
             }
-            return result
+            return RetainedIndex(result.children, result.readers, result.positions, result.incremental,
+                result.annotationReaders, paths)
         }
     }
 }

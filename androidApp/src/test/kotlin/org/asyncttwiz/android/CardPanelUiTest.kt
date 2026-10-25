@@ -3,10 +3,8 @@ package org.asyncttwiz.android
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.After
@@ -120,9 +118,10 @@ class CardPanelUiTest {
         val move = f.commands().map { (it.action as GameAction.Play).action }.filterIsInstance<PlayAction.MoveCard>().last()
         assertEquals(MoveInsertion.EMPTY, move.destination.insertion)
         click("Close Look panel")
-        for (label in listOf("Top (panel order)", "Bottom (panel order)", "Bottom (random)", "Graveyard", "Shuffle into library"))
-            compose.onNodeWithText(label).assertIsDisplayed()
-        compose.onNodeWithText("Bottom (panel order)").performClick()
+        for (label in listOf("Top", "Bottom", "Shuffle", "Graveyard", "Exile"))
+            compose.onNodeWithContentDescription(label).assertIsDisplayed()
+        compose.onNodeWithText("Bottom (random)").assertDoesNotExist()
+        click("Bottom")
         compose.waitForIdle()
         assertTrue(f.play.board.contentsDisplays.isEmpty())
         assertEquals(before.drop(1), f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards.takeLast(2))
@@ -142,9 +141,10 @@ class CardPanelUiTest {
         for (s in listOf(scene(), scene(width = 892f, height = 412f, landscape = true))) {
             val p = s.cardPanels.single()
             assertTrue(p.bounds.width <= 96f)
-            assertTrue(p.rows.first().bounds.width > s.cardWidth)
+            assertEquals(28f, p.rows.first().bounds.width)
+            assertEquals(40f, p.rows.first().bounds.height)
             assertEquals(s.world!!.viewport.x - 6, p.bounds.x)
-            assertTrue(p.bounds.bottom <= s.world!!.viewport.bottom)
+            assertTrue(p.bounds.bottom <= 892f)
             assertTrue(s.world!!.viewport.width - p.bounds.width >= 200)
         }
     }
@@ -184,21 +184,20 @@ class CardPanelUiTest {
         assertNull(ui.peek)
     }
 
-    @Test fun twoCardPanelWrapsItsHeightAndHeaderFitsOneCardWidth() {
+    @Test fun twoCardPanelSpansAvailableHeightAndHeaderFitsOneColumn() {
         setup(); show(count = 2); mount()
-        compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertWidthIsEqualTo(84.dp)
+        compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertWidthIsEqualTo(64.dp)
         for (s in listOf(scene(), scene(width = 892f, height = 412f, landscape = true))) {
             val p = s.cardPanels.single()
             assertTrue(p.bounds.width <= 96f)
-            assertEquals(36f + 2 * (p.rows.first().bounds.height + 12f), p.bounds.height, .01f)
-            assertTrue(p.bounds.height < s.world!!.visibleViewport.height)
+            assertTrue(p.bounds.height >= s.world!!.visibleViewport.height)
             assertEquals(0f, p.viewport.maxScrollY)
             assertEquals(p.rows.first().bounds.x, p.rows.last().bounds.x)
             assertTrue(p.rows.last().bounds.bottom < p.bounds.bottom)
         }
     }
 
-    @Test fun twoPanelsStackWrapAndShareOverflowWithoutOverlappingInEitherOrientation() {
+    @Test fun legacyTwoPanelsRemainSideBySideAndClosableInEitherOrientation() {
         setup(); show(count = 2)
         val own = panel()
         val opponents = (140..143).map { n -> f.card(40).copy(id = f.id(n), owner = f.other,
@@ -208,38 +207,82 @@ class CardPanelUiTest {
         val play = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards + opponents,
             contentsDisplays = listOf(own, opponent)))
         compose.setContent { MaterialTheme { TableSurface(f.game, play, f.actor, false) } }
-        compose.onNodeWithContentDescription("Opponent Look panel, 4 cards").assertWidthIsEqualTo(84.dp)
+        compose.onNodeWithContentDescription("Opponent Look panel, 4 cards").assertWidthIsEqualTo(64.dp)
         compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertIsDisplayed()
         compose.onNodeWithText("Card back").assertDoesNotExist()
         for (landscape in listOf(false, true)) {
             val s = TablePresentation.scene(f.game, play, f.actor, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape)
-            val (top, bottom) = s.cardPanels
-            assertEquals(f.other, top.display.author)
-            assertTrue(top.bounds.bottom < bottom.bounds.y)
-            assertTrue(bottom.bounds.bottom <= s.world!!.visibleViewport.bottom + .01f)
-            assertTrue(s.cardPanels.all { it.bounds.height <= 36f + it.display.cardIds.size * (68f * 40 / 28 + 12) + .01f })
-            if (landscape) assertTrue(s.cardPanels.all { it.viewport.maxScrollY > 0f })
-            else assertEquals(0f, bottom.viewport.maxScrollY)
+            val (left, right) = s.cardPanels
+            assertEquals(f.other, left.display.author)
+            assertTrue(left.bounds.right < right.bounds.x)
+            assertEquals(left.bounds.y, right.bounds.y)
+            assertEquals(left.bounds.height, right.bounds.height)
+            assertTrue(s.cardPanels.all { it.columns <= 2 })
+            assertEquals(0f, right.viewport.maxScrollY)
         }
     }
 
-    @Test fun quickActionsUseTwoCompleteLinesWithoutGrowingCells() {
+    @Test fun quickActionsUseShortLabelsWithoutGrowingCells() {
         setup(); show(count = 2); mount()
         val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
         compose.onAllNodesWithContentDescription(item.label)[0].performClick()
         compose.mainClock.advanceTimeBy(350)
-        for ((name, label) in listOf("Reveal+Hand" to "Reveal\n+ Hand", "Battlefield tapped" to "Battlefield\ntapped",
-            "Reveal+Top" to "Reveal\n+ Top")) {
+        for ((name, label) in listOf("Reveal+Hand" to "Hand", "Battlefield tapped" to "Tapped",
+            "Reveal+Top" to "Top")) {
             compose.onNodeWithContentDescription(name).assertWidthIsEqualTo(CardRingGeometry.cell.dp)
                 .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
-            val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText(label, useUnmergedTree = true).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertEquals(2, layouts.single().lineCount)
-            assertFalse((0 until layouts.single().lineCount).any(layouts.single()::isLineEllipsized), "$name must not ellipsize")
+            assertEquals(label, panelCardActionLabel(panelCardActions.single { it.label == name }))
         }
         compose.onNodeWithContentDescription("Hand").assertWidthIsEqualTo(CardRingGeometry.cell.dp)
             .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
+    }
+
+    @Test fun localViewSitsBesideLookHasFixedGreyedMenuAndSupportsHoldAndDragOut() {
+        setup()
+        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD)))
+        show(count = 2)
+        val beforeOpen = f.commands().size
+        ui.openPublicPile(f.container(PlayZone.GRAVEYARD))
+        mount()
+        assertEquals(beforeOpen, f.commands().size)
+        val s = scene()
+        val local = s.cardPanels.last()
+        assertEquals(PlayZone.GRAVEYARD, local.localZone)
+        assertTrue(s.cardPanels.first().bounds.right < local.bounds.x)
+        val item = s.items.single { it.cardId == f.id(40) }
+        compose.onNodeWithContentDescription(item.label).performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription(item.label).assertIsSelected()
+        for (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top"))
+            compose.onNodeWithContentDescription(label).assertIsNotEnabled()
+        assertEquals(9, panelCardActions.size)
+        val menu = compose.onNodeWithContentDescription("Hand").fetchSemanticsNode().boundsInRoot
+        assertEquals(s.cardPanels.maxOf { it.bounds.right } + 4, menu.left, .1f)
+        assertEquals(local.viewport.bounds.y + 2, menu.top, .1f)
+        compose.runOnIdle { ui.dismiss() }
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            down(Offset(item.bounds.center.x, item.bounds.center.y))
+        }
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle { assertEquals(f.id(40), ui.peek?.cardId) }
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        val target = s.fields.last().bounds.let { TablePoint(it.right - 28f, it.center.y) }
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            down(Offset(item.bounds.center.x, item.bounds.center.y)); moveTo(Offset(target.x, target.y), 100); up()
+        }
+        compose.waitForIdle()
+        assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
+        assertTrue(scene().cardPanels.last().rows.isEmpty())
+        assertTrue(f.commands().drop(beforeOpen).none { (it.action as GameAction.Play).action is PlayAction.ReorderContents })
+        val beforeClose = f.commands().size
+        click("Close Graveyard panel")
+        assertNull(ui.layoutState.value.localPileId)
+        assertEquals(beforeClose, f.commands().size)
+        assertEquals(1, scene().cardPanels.size)
     }
 
     @Test fun remoteLiveRevealSettlesFaceUpThenWaitsTheConfiguredPauseBeforeOnwardMove() {

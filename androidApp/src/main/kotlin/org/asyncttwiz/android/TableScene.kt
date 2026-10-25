@@ -385,7 +385,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }) {
             Canvas(Modifier.fillMaxSize()) {
                 val frame = rendered.value
-                drawTable(frame.scene, accountId, selection, preview, play.board.links, frame.alphas, activePings,
+                val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
+                drawTable(frame.scene, accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
                     pingPulse?.value ?: 0f)
             }
@@ -437,7 +438,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                          if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                             if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                         }
-                          selected = item.cardId in (preview.rectangle?.let(rendered.value.scene::rectangle) ?: selection.ids)
+                          selected = item.cardId in (preview.rectangle?.let(rendered.value.scene::rectangle) ?: selection.ids) ||
+                              toolkit?.panel?.startsWith("panelCard/") == true && item.cardId == toolkit.popupItem?.cardId
                          if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
                              stateDescription = "Related source and projections share this source identity; selection is independent"
                         onClick("Actions") { coordinator.actions(item); true }
@@ -534,7 +536,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         AnimatedCardRingAnchors(rendered, actions != null || toolkit?.capture != null) {
         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
-            tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll)
+            tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene)
         actions?.let { captured ->
             val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
                 play.board.cards.singleOrNull { it.id == id }?.let { card ->
@@ -928,9 +930,19 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawRoundRect(color.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density), style = Stroke(density))
         val port = panel.viewport.bounds
         clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            for (header in panel.typeHeaders) {
+                paint.textSize = 8 * density; paint.isFakeBoldText = true
+                fittedText(header.title, header.bounds.x, header.bounds.y + 13, header.bounds.width)
+                paint.textSize = 11 * density; paint.isFakeBoldText = false
+            }
             scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
-                val y = panel.rows.firstOrNull { it.entry.cardId == reorder.beforeId }?.bounds?.y ?: panel.rows.lastOrNull()?.bounds?.bottom
-                if (reorder.displayId == panel.display.id && y != null) drawLine(color, xy(b.x + 4, y), xy(b.right - 4, y), 2 * density)
+                val before = panel.rows.firstOrNull { it.entry.cardId == reorder.beforeId }?.bounds
+                val last = panel.rows.lastOrNull()?.bounds
+                val cell = before ?: last
+                if (reorder.displayId == panel.display.id && cell != null) {
+                    val x = if (before != null) cell.x - 2 else cell.right + 2
+                    drawLine(color, xy(x, cell.y), xy(x, cell.bottom), 2 * density)
+                }
             }
         }
     }

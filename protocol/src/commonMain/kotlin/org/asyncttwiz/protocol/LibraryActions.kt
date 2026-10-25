@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 
 @Serializable enum class ContentsSelection { TOP, BOTTOM, ALL }
-@Serializable enum class ContentsRest { TOP, BOTTOM, BOTTOM_RANDOM, GRAVEYARD, SHUFFLE }
+@Serializable enum class ContentsRest { TOP, BOTTOM, BOTTOM_RANDOM, GRAVEYARD, SHUFFLE, EXILE }
 /** A shared tray of references, not a second containing zone. Order is top first. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ContentsDisplay(val id: String, val author: String, val containerId: String,
@@ -47,7 +47,7 @@ object LibraryRules {
                     ?: return GameplayChange(reason = "missingReference")
                 if (source.zone !in specialZones || source.zone != PlayZone.LIBRARY && action.selection != ContentsSelection.ALL)
                     return GameplayChange(reason = "inapplicable")
-                if (board.contentsDisplays.any { it.author == actor }) return GameplayChange(reason = "panelAlreadyOpen")
+                if (board.contentsDisplays.isNotEmpty()) return GameplayChange(reason = "panelAlreadyOpen")
                 val members = slice(source.cards, action.selection, action.count)
                 // ALL is orderless, including in history: no hidden Library indices in a full browser.
                 val display = ContentsDisplay(CommandIds.uuidV5(command.requestId, "contents/0"), actor, source.id,
@@ -73,22 +73,27 @@ object LibraryRules {
                 val seed = action.seed ?: RandomV1.encodeSeed(DeckJson.intent("contents-rest", command.requestId)
                     .chunked(2).map { it.toInt(16).toByte() }.toByteArray())
                 val resolution = if (display.search) ContentsRest.SHUFFLE else action.rest
-                val graveyard = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == PlayZone.GRAVEYARD }
+                val restZone = when (resolution) {
+                    ContentsRest.GRAVEYARD -> PlayZone.GRAVEYARD
+                    ContentsRest.EXILE -> PlayZone.EXILE
+                    else -> null
+                }
+                val restDestination = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == restZone }
                 val order = when (resolution) {
                     ContentsRest.TOP -> ids + rest
                     ContentsRest.BOTTOM -> rest + ids
                     ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
-                    ContentsRest.GRAVEYARD -> rest
+                    ContentsRest.GRAVEYARD, ContentsRest.EXILE -> rest
                     ContentsRest.SHUFFLE -> RandomV1.shuffle(source.cards, seed)
                 }
-                if (resolution == ContentsRest.GRAVEYARD && graveyard == null) return GameplayChange(reason = "missingReference")
+                if (restZone != null && restDestination == null) return GameplayChange(reason = "missingReference")
                 val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },
                     containers = board.containers.map { when (it.id) {
                         source.id -> it.copy(cards = order)
-                        graveyard?.id -> if (resolution == ContentsRest.GRAVEYARD) it.copy(cards = (it.cards + ids).sorted()) else it
+                        restDestination?.id -> it.copy(cards = (it.cards + ids).sorted())
                         else -> it
                     } }, cards = board.cards.map { card -> when {
-                        card.id in ids && resolution == ContentsRest.GRAVEYARD -> card.copy(containerId = graveyard!!.id,
+                        card.id in ids && restZone != null -> card.copy(containerId = restDestination!!.id,
                             covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
                             corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.corner)
                         card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
@@ -96,9 +101,9 @@ object LibraryRules {
                     } })
                 GameplayRules.record(state, actor, command, next, GameplayTransition(contents = ContentsDisplayChange(from = display),
                     libraryOrder = LibraryOrderChange(source.id, source.cards, order),
-                    disclosures = if (resolution != ContentsRest.GRAVEYARD) emptyList() else ids.map { id ->
+                    disclosures = if (restZone == null) emptyList() else ids.map { id ->
                         val card = board.cards.single { it.id == id }
-                        GameplayDisclosure(id, card.faceId, graveyard!!.id, board.players.map { it.accountId })
+                        GameplayDisclosure(id, card.faceId, restDestination!!.id, board.players.map { it.accountId })
                     }))
             }
             is PlayAction.RevealContentsCard -> {

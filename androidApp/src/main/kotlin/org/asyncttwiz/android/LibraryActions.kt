@@ -34,7 +34,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     var editing by remember(controller) { mutableStateOf<String?>(null) }
     var text by remember { mutableStateOf(selectedLibraryQuantity("")) }
     val enabled = controller.available()
-    val mayOpen = enabled && board.contentsDisplays.none { it.author == owner }
+    val mayOpen = enabled && board.contentsDisplays.isEmpty()
     fun finish(result: LibrarySubmission) { if (result.refused == 0 && result.submitted > 0) onComplete() }
     fun show(slice: ContentsSelection, count: Int, reveal: Boolean = false) {
         if (onShow != null) onShow(slice, count, reveal) else finish(controller.show(slice, count, reveal))
@@ -94,7 +94,8 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             }
         }
         // The floating row has no title, so the confirm cell names the action it performs.
-        InlinePopupCell(MenuControl(editing ?: "OK", enabled = enabled && text.text.toIntOrNull()?.let { it >= 0 } == true) {
+        InlinePopupCell(MenuControl(editing ?: "OK", enabled = (if (editing in listOf("Look", "Reveal")) mayOpen else enabled) &&
+            text.text.toIntOrNull()?.let { it >= 0 } == true) {
             text.text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
                 val action = editing ?: return@MenuControl
                 quantities.write(action, count); editing = null; perform(action, count)

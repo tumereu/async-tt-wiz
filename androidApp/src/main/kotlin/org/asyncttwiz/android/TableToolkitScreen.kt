@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
     landscape: Boolean, selection: TableSelection, select: (String) -> Unit,
-    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null) {
+    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null, scene: TableScene? = null) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -87,7 +87,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                         }
                     })
             }
-        } else CardPanelPopup(toolkit, play)
+        } else if (scene != null) CardPanelPopup(toolkit, play, scene)
     }
     }
     TokenCatalogDialog(toolkit.tokens, play.definitions, enabled = enabled,

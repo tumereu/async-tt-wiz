@@ -191,10 +191,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
         if (container.zone == PlayZone.STACK) { stackContents(); return }
-        dismiss(); showStackBubbles(null); panel = "contents/${container.id}"
+        dismiss(); showStackBubbles(null)
+        layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { it == layoutState.value.localPileId })
     }
+    fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null); dismiss() }
     fun publicContents(): PileContents? {
-        val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/') ?: return null
+        val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/')
+            ?: layoutState.value.localPileId?.takeIf { panel == null } ?: return null
         val play = current() ?: return null
         val container = play.board.containers.singleOrNull { it.id == id } ?: return null
         val stack = container.zone == PlayZone.STACK
@@ -242,7 +245,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
         val play = current() ?: return
         if (item.viewport.startsWith("cardPanel/")) {
-            val display = play.board.contentsDisplays.singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
+            val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))
+                .singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
             if (display.author != viewer || !enabled()) return
             dismiss(); popupItem = item; panel = "panelCard/${display.id}/${item.cardId}"
             return
@@ -309,6 +313,18 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         } ?: return
         val card = play.board.cards.single { it.id == id }
         if (submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination), UUID.randomUUID().toString())) {
+            if (tapped) submit(PlayAction.SetTapped(id, true))
+            dismiss()
+        }
+    }
+    fun localPanelAction(id: String, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false) {
+        val play = current()?.takeIf { enabled() } ?: return
+        val card = play.board.cards.singleOrNull { it.id == id && it.containerId == layoutState.value.localPileId } ?: return
+        val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
+            play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
+                (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
+        } ?: return
+        if (submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination))) {
             if (tapped) submit(PlayAction.SetTapped(id, true))
             dismiss()
         }

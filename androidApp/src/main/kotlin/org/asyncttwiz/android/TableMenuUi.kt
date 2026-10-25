@@ -113,7 +113,15 @@ internal fun menuIcon(name: String): ImageVector {
 
 @Composable
 internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color = MenuInk) {
-    if ("declare" in name.lowercase() && name.lowercase() != "declare blockers") Box(modifier.size(24.dp)) {
+    if (name in listOf("Reveal+Hand", "Reveal+Top", "Battlefield tapped")) Box(modifier.size(24.dp)) {
+        Icon(when (name) {
+            "Reveal+Hand" -> Icons.Outlined.BackHand
+            "Reveal+Top" -> Icons.Outlined.VerticalAlignTop
+            else -> Icons.Outlined.CropPortrait
+        }, null, Modifier.fillMaxSize().graphicsLayer { if (name == "Battlefield tapped") rotationZ = 90f }, tint = tint)
+        Icon(if (name == "Battlefield tapped") Icons.Outlined.Rotate90DegreesCw else Icons.Outlined.Visibility,
+            null, Modifier.size(11.dp).align(Alignment.BottomEnd), tint = tint)
+    } else if ("declare" in name.lowercase() && name.lowercase() != "declare blockers") Box(modifier.size(24.dp)) {
         Icon(painterResource(R.drawable.swords_outlined), name, Modifier.fillMaxSize(), tint = tint)
         if ("+ tap" in name.lowercase()) Icon(Icons.Outlined.Rotate90DegreesCw, null,
             Modifier.size(10.dp).align(Alignment.BottomEnd), tint = tint)

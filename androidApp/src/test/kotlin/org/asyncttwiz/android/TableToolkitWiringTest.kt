@@ -178,7 +178,7 @@ class TableToolkitWiringTest {
                 assertFalse(contents.ordered)
             }
             assertNull(ui.library)
-            ui.dismiss()
+            ui.closeLocalPile()
             assertNull(ui.publicContents())
         }
         val graveyard = play.board.containers.first { it.zone == PlayZone.GRAVEYARD }

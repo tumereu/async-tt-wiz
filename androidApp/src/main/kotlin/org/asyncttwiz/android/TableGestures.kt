@@ -143,7 +143,7 @@ class TableGestureCoordinator(
             c.phase = when {
                 c.double && c.item == null && scene.worldInput(c.start) -> Phase.PAN
                 c.viewport?.id?.startsWith("cardPanel/") == true && abs(dy) > abs(dx) &&
-                    (c.item == null || scene.cardPanels.any { it.viewport.id == c.viewport.id && it.display.search }) -> Phase.SCROLL
+                    c.item == null -> Phase.SCROLL
                 c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> Phase.DRAG
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
                     c.item?.kind != TableItemKind.CARD && !scene.worldInput(c.start) -> Phase.SCROLL

@@ -21,6 +21,8 @@ class CardPanelIntegrationTest {
                 assertEquals("accepted", send(PlayAction.ShowContents(library.id, ContentsSelection.TOP, 3)).outcome)
                 val panel = state().board.contentsDisplays.single()
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(library.id, ContentsSelection.ALL)).reason)
+                val opponentLibrary = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId != actor }
+                assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(opponentLibrary.id, ContentsSelection.TOP), f.recipient).reason)
                 assertEquals("accessDenied", send(PlayAction.DismissContents(panel.id), f.recipient).reason)
                 assertEquals("accessDenied", send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()), f.recipient).reason)
                 assertEquals("accepted", send(PlayAction.ReorderContents(panel.id, panel.cardIds.last(), panel.cardIds.first())).outcome)

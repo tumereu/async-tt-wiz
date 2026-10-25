@@ -122,7 +122,7 @@ internal object LibraryKnowledge {
                     ContentsRest.SHUFFLE -> { top = emptyList(); bottom = emptyList() }
                     ContentsRest.TOP -> place(ids, MoveInsertion.TOP)
                     ContentsRest.BOTTOM, ContentsRest.BOTTOM_RANDOM -> place(ids, MoveInsertion.BOTTOM)
-                    ContentsRest.GRAVEYARD -> Unit
+                    ContentsRest.GRAVEYARD, ContentsRest.EXILE -> Unit
                 }
             }
             else -> Unit

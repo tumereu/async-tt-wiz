@@ -125,7 +125,8 @@ internal fun inlinePopupGridRows(slots: List<CardRingSlot>): Int =
 internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
     ownerColor: Color, dismiss: () -> Unit, width: Dp = CardRingGeometry.squareSide.dp,
     height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
-    title: String = description, switchPage: (Int) -> Unit = {}, sheet: Boolean = false, content: @Composable () -> Unit) {
+    title: String = description, switchPage: (Int) -> Unit = {}, sheet: Boolean = false,
+    placement: TableBounds? = null, content: @Composable () -> Unit) {
     val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
@@ -210,8 +211,12 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
                 minWidth = if (sheet) maxW else 0, maxWidth = maxW,
                 minHeight = if (sheet) minOf(height.roundToPx(), maxH) else 0,
                 maxHeight = if (sheet) minOf(height.roundToPx(), maxH) else maxH))
-            val bounds = inlinePopupBounds(constraints.maxWidth.toDp().value, constraints.maxHeight.toDp().value,
-                card, own, child.width.toDp().value, child.height.toDp().value)
+            val screenW = constraints.maxWidth.toDp().value; val screenH = constraints.maxHeight.toDp().value
+            val childW = child.width.toDp().value; val childH = child.height.toDp().value
+            // An explicit placement pins the top-left corner (e.g. beside the card panels); it is only clamped on screen.
+            val bounds = placement?.let { b -> TableBounds(b.x.coerceIn(0f, (screenW - childW).coerceAtLeast(0f)),
+                b.y.coerceIn(0f, (screenH - childH).coerceAtLeast(0f)), childW, childH) }
+                ?: inlinePopupBounds(screenW, screenH, card, own, childW, childH)
             layout(constraints.maxWidth, constraints.maxHeight) {
                 child.place(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx())
             }

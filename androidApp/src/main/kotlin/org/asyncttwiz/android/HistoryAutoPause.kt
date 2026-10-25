@@ -64,6 +64,9 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
                 t.combatStack?.occurrences.orEmpty().mapNotNull { (it.from ?: it.to)?.occurrence?.sourceId } +
                 t.links.flatMap { listOfNotNull(it.from?.first?.id, it.from?.second?.id, it.to?.first?.id, it.to?.second?.id) } +
                 t.combatStack?.let { change -> (change.addedLinks + change.removedLinks).flatMap { listOf(it.first, it.second) } }.orEmpty() +
+                // Panel resolutions and library reorders move cards without a single movement record.
+                t.contents?.let { it.from?.cardIds.orEmpty() + it.to?.cardIds.orEmpty() }.orEmpty() +
+                t.libraryOrder?.let { it.from + it.to }.orEmpty() +
                 when (action) {
                     is PlayAction.CloneToken -> listOf(action.cardId)
                     is PlayAction.LinkProjections -> listOf(action.first.occurrenceId, action.second.occurrenceId)

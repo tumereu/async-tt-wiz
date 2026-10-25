@@ -71,6 +71,16 @@ class HistoryAutoPauseTest {
             GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(other.id, null, null))))))
     }
 
+    @Test fun panelResolutionsAndLibraryReordersOfYourCardsStop() {
+        val display = ContentsDisplay("look", opponent, "mine", ContentsSelection.TOP, 1, false, listOf(own.id))
+        assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.DismissContents("look"),
+            GameplayTransition(contents = ContentsDisplayChange(display, null))))
+        assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.ShuffleLibrary("mine", "seed"),
+            GameplayTransition(libraryOrder = LibraryOrderChange("mine", listOf(own.id), listOf(own.id)))))
+        assertTrue(triggers(PlayAction.ShuffleLibrary("theirs", "seed"),
+            GameplayTransition(libraryOrder = LibraryOrderChange("theirs", listOf(other.id), listOf(other.id)))).isEmpty())
+    }
+
     @Test fun lifeCountersAndOwnedOrControlledCardEditsAndDestruction() {
         for (field in listOf(GameplayField.LIFE, GameplayField.COUNTER, GameplayField.PLAYER_COUNTER)) {
             assertEquals(setOf(PlaybackAutoPause.YOURS), triggers(PlayAction.AdjustLife(me, "-1"),

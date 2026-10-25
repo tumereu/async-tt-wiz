@@ -29,6 +29,12 @@ internal fun counterColor(color: CounterColor): Color = when (color) {
     CounterColor.GRAY -> Color(0xffcdd1d4)
 }
 
+internal fun nextPrintedFace(state: PlayState, card: PlayCard): PlayAction.SetFace? {
+    val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
+    if (faces.size < 2) return null
+    return PlayAction.SetFace(card.id, faces[(faces.indexOfFirst { it.faceId == card.faceId } + 1) % faces.size].faceId)
+}
+
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
@@ -55,15 +61,9 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         val next = state.board.players.firstOrNull { it.accountId != card.owner }
         if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
     })
-    for ((index, face) in faces.withIndex()) if (faces.size > 1) {
-        add("face/$index", "Face ${index + 1}", MenuControl("Switch printed face ${index + 1}", enabled,
-            selected = card.faceId == face.faceId) {
-            send { target ->
-                val targetFaces = state.definitions.singleOrNull { it.digest == target.definition }?.definition?.faces.orEmpty()
-                targetFaces.getOrNull(index)?.takeIf { targetFaces.size > 1 }?.let { PlayAction.SetFace(target.id, it.faceId) }
-            }
-        })
-    }
+    add("switchFace", "Switch face", MenuControl("Switch face", enabled && faces.size > 1) {
+        send { target -> nextPrintedFace(state, target) }
+    })
     fun corner(part: CornerPart, delta: Int) = scope.cardActions(state) {
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
@@ -78,7 +78,6 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
                 cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
             })
         }, dragValue = card.corner, corner = true))
-    entries += entries.last().copy(id = "corner/counters")
     if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
         for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.RIGHT, 1, "•/+"),
             Triple(CornerPart.LEFT, -1, "−/•"), Triple(CornerPart.RIGHT, -1, "•/−"))) {

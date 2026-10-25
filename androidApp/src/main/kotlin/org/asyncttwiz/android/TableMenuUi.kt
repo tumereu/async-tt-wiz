@@ -56,7 +56,7 @@ internal fun menuIcon(name: String): ImageVector {
         "inspect" in n || "view" in n || "contents" in n || n.startsWith("look") || n == "search" -> Icons.Outlined.ZoomIn
         "face down" in n -> Icons.Outlined.Flip
         "face up" in n -> Icons.Outlined.FlipToFront
-        "printed face" in n -> Icons.Outlined.FlipCameraAndroid
+        "printed face" in n || n == "switch face" -> Icons.Outlined.FlipCameraAndroid
         "reset corner" in n -> Icons.Outlined.SettingsBackupRestore
         "note" in n -> Icons.AutoMirrored.Outlined.StickyNote2
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
@@ -79,7 +79,7 @@ internal fun menuIcon(name: String): ImageVector {
         "battlefield" in n -> Icons.Outlined.TableRows
         "shuffle" in n || "return hand" in n -> Icons.Outlined.Shuffle
         n.startsWith("draw") || "hand" in n -> Icons.Outlined.Download
-        "choose" in n || "beginning of combat" in n || "suggest my loss" in n -> Icons.Outlined.Flag
+        "choose" in n || "beginning of combat" in n || "suggest my loss" in n || n == "suggest game end" || n == "my loss" -> Icons.Outlined.Flag
         "next step" in n -> Icons.Outlined.SkipNext
         "end turn" in n || "end opponent" in n -> Icons.AutoMirrored.Outlined.LastPage
         "upkeep" in n -> Icons.Outlined.HourglassTop

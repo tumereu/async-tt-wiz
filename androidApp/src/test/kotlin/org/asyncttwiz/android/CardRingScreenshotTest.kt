@@ -81,7 +81,7 @@ class CardRingScreenshotTest {
                     compose.onNodeWithContentDescription(name).assertIsDisplayed()
                 if (page == 1) for (color in CounterColor.entries) for (prefix in listOf("Set", "Decrease", "Increase"))
                     compose.onNodeWithContentDescription("$prefix ${color.name.lowercase()} counter").assertIsDisplayed()
-                if (page == 1) compose.onNodeWithContentDescription("Set corner").assertIsDisplayed()
+                if (page == 1) compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
                 val card = actualAnchor!!
                 val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring")) and
                     SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).fetchSemanticsNodes()

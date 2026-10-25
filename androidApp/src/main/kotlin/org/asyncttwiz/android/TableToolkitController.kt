@@ -148,13 +148,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun dismiss() { panel = null; library = null; manual.close(); capture = null; tapReturnPanel = null; popupItem = null }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
-        tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink
+        tokens.showingCatalog || tokens.showingLinks
     internal fun dismissBackOverlay() {
         when {
             inspection != null || manual.inspection != null -> closeInspection()
             peek != null -> peek(null)
             manual.editor != null -> manual.cancelEditor()
-            tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink -> tokens.close()
+            tokens.showingCatalog || tokens.showingLinks -> tokens.close()
             manual.scope != null || panel != null -> dismissTapUi()
             stackBubbleEntry != null -> showStackBubbles(null)
         }
@@ -250,16 +250,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 .singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
             if (display.author != viewer || !enabled()) return
             dismiss(); popupItem = item; panel = "panelCard/${display.id}/${item.cardId}"
-            return
-        }
-        if (tokens.pickingLink) {
-            val occurrence = item.cardId?.let(::ProjectionEndpoint)?.takeIf { CombatStackRules.exists(play.board, it) }
-            if (occurrence != null) { tokens.pick(occurrence); return }
-            val endpoint = item.cardId?.let { id ->
-                if (play.board.cards.any { it.id == id }) LinkEndpoint(LinkEndpointKind.CARD, id) else null
-            } ?: item.owner?.takeIf { item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) }
-                ?.let { LinkEndpoint(LinkEndpointKind.PLAYER, it) }
-            if (endpoint != null) batch { tokens.pick(endpoint) }
             return
         }
         when {

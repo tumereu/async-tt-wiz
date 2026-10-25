@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
 data class TableTokenCatalogIdentity(val accountId: String, val gameId: String, val playId: String?,
     val installedGeneration: String?, val lifecycleEpoch: Long)
 data class TableTokenCatalog(val identity: TableTokenCatalogIdentity, val source: TokenSearchSource?,
-    val loading: Boolean = false, val error: String? = null)
+    val loading: Boolean = false, val error: String? = null, internal val favorites: TokenFavoritesSource? = null)
 
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
@@ -134,13 +134,17 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val activity = tableActivity(LocalContext.current)
     val retained = remember(activity) { activity?.let { ViewModelProvider(it)[TableToolkitViewModel::class.java] } }
     val catalog = remember(activity) { activity?.let { ViewModelProvider(it)[AuthViewModel::class.java].catalog } }
+    val favorites = remember(activity, accountId) { activity?.let {
+        val auth = ViewModelProvider(it)[AuthViewModel::class.java].controller
+        AccountTokenFavoritesSource(it, accountId, auth::sessionToken)
+    } }
     val catalogState = catalog?.state
     val catalogSource = remember(catalog) { catalog?.let { model -> RepositoryTokenSearchSource { model.repository } } }
     val catalogGeneration by produceState<String?>(null, catalog, catalogState?.installed, catalogState?.busy, catalogLifetime) {
         value = withContext(Dispatchers.IO) { runCatching { catalog?.repository?.tokenGeneration() }.getOrNull() }
     }
     val catalogMount = TableTokenCatalog(TableTokenCatalogIdentity(accountId, game.id, live?.id, catalogGeneration, catalogLifetime),
-        catalogSource, catalogState?.busy == true, catalogState?.takeIf { it.error }?.status)
+        catalogSource, catalogState?.busy == true, catalogState?.takeIf { it.error }?.status, favorites)
     val toolkit = remember(controller, game.id, live?.id, accountId) {
         val playId = live?.id
         val create = { TableToolkitController(accountId, {

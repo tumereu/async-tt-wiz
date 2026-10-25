@@ -43,30 +43,6 @@ object LinkActions {
     }
 }
 
-/** Accessible list alternative to table picking. Picks call no normal tap or player-menu handler. */
-@Composable
-fun LinkEndpointPicker(controller: TokenLinkController, play: PlayState, playerNames: Map<String, String>,
-    enabled: Boolean = true, onPick: (LinkEndpoint) -> Boolean = controller::pick) {
-    if (!controller.pickingLink) return
-    val projections = controller.projectionScope != null
-    val endpoints = if (projections) emptyList() else LinkActions.endpoints(play, playerNames)
-    val occurrences = if (projections) LinkActions.projectionEndpoints(play) else emptyList()
-    TableMenuPanel(controller::cancelLink,
-        title = "Link · ${controller.projectionScope?.endpoints?.size ?: controller.scope?.cardIds?.size ?: 0} captured") {
-            Column {
-                LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    items(endpoints, key = { "${it.endpoint.kind}/${it.endpoint.id}" }) { item ->
-                        MenuButton(item.label, Modifier.fillMaxWidth(), enabled = enabled) { onPick(item.endpoint) }
-                    }
-                    items(occurrences, key = { it.endpoint.occurrenceId }) { item ->
-                        MenuButton(item.label, Modifier.fillMaxWidth(), enabled = enabled) { controller.pick(item.endpoint) }
-                    }
-                }
-                controller.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        }
-}
-
 /** Removing a connection is explicit; it never removes either card. */
 @Composable
 fun LinksListDialog(controller: TokenLinkController, play: PlayState, playerNames: Map<String, String>, enabled: Boolean = true) {

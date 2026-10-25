@@ -68,6 +68,12 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override suspend fun identity(token: String): AccountIdentity = decode(call(HttpMethod.Get, "/account", token = token))
     override suspend fun revoke(token: String) { call(HttpMethod.Delete, "/session", token = token) }
 
+    internal suspend fun tokenFavorites(token: String): org.asyncttwiz.protocol.TokenFavorites =
+        decode(call(HttpMethod.Get, "/account/token-favorites", token = token))
+
+    internal suspend fun setTokenFavorites(token: String, favorites: org.asyncttwiz.protocol.TokenFavorites): org.asyncttwiz.protocol.TokenFavorites =
+        decode(call(HttpMethod.Put, "/account/token-favorites", AccountJson.format.encodeToString(favorites), token))
+
     internal suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
         if (!BuildConfig.DEBUG) return false
         // Keep the complete trace locally, but don't send bodies the server would discard anyway.

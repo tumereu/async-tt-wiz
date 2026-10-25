@@ -200,9 +200,9 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
     }
 
-    @Test fun cornerWidgetOnCountersPageDragsBothPartsAndRetainsItsEditor() {
+    @Test fun cornerWidgetOnEverydayPageDragsBothPartsAndRetainsItsEditor() {
         val toolkit = render(multi = true)
-        compose.ringPage(2)
+        compose.ringPage(1)
         compose.mainClock.advanceTimeBy(600)
         val value = compose.onNodeWithContentDescription("Set corner")
         value.performTouchInput { down(center); moveBy(Offset(10f, -30f)) }

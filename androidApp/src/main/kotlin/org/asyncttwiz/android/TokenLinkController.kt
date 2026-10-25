@@ -22,8 +22,6 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         private set
     var projectionScope by mutableStateOf<ProjectionLinkScope?>(null)
         private set
-    var pickingLink by mutableStateOf(false)
-        private set
     var showingLinks by mutableStateOf(false)
         private set
     var showingCatalog by mutableStateOf(false)
@@ -43,7 +41,7 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
     }
 
     fun close() {
-        scope = null; projectionScope = null; pickingLink = false; showingLinks = false; showingCatalog = false; error = null; playId = null
+        scope = null; projectionScope = null; showingLinks = false; showingCatalog = false; error = null; playId = null
     }
 
     fun openOccurrences(context: ProjectionEndpoint, selected: List<ProjectionEndpoint>) {
@@ -67,54 +65,40 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         projectionScope?.endpoints.orEmpty().filter { CombatStackRules.exists(board, it) }
     }.orEmpty()
     private fun hasEndpoints() = cards().isNotEmpty() || occurrences().isNotEmpty()
-    fun beginLink() { if (hasEndpoints()) { pickingLink = true; showingLinks = false; error = null } }
-    fun cancelLink() { pickingLink = false; error = null }
-    fun links() { if (hasEndpoints()) { showingLinks = true; pickingLink = false; error = null } }
+    fun canLink() = cards().size >= 2 || occurrences().size >= 2
+    fun links() { if (hasEndpoints()) { showingLinks = true; error = null } }
 
-    /** Table hit handlers call this FIRST. True consumes the tap, including a now-absent target. */
-    fun pick(endpoint: LinkEndpoint): Boolean {
-        if (!pickingLink) return false
-        if (projectionScope != null) return true // Consume incompatible hits; never create mixed links.
-        require(DeckValidation.uuid(endpoint.id))
-        val board = boundState()?.board
-        if (board == null || !TokenLinkRules.exists(board, endpoint)) {
-            error = "This endpoint is no longer available."
-            return true
+    /** Every missing selected pair is queued in ONE invocation; never enter a table-pick mode. */
+    fun linkSelected(): Boolean {
+        val board = boundState()?.board ?: return false
+        val actions = mutableListOf<PlayAction>()
+        if (projectionScope != null) {
+            val endpoints = occurrences()
+            val existing = board.projectionLinks.map { setOf(it.first, it.second) }.toHashSet()
+            for (i in endpoints.indices) for (j in i + 1 until endpoints.size) {
+                if (setOf(endpoints[i].occurrenceId, endpoints[j].occurrenceId) !in existing)
+                    actions += PlayAction.LinkProjections(endpoints[i], endpoints[j])
+            }
+        } else {
+            val endpoints = cards().map { LinkEndpoint(LinkEndpointKind.CARD, it.id) }
+            val existing = board.links.map { TokenLinkRules.pair(it.first, it.second) }.toHashSet()
+            for (i in endpoints.indices) for (j in i + 1 until endpoints.size) {
+                if (TokenLinkRules.pair(endpoints[i], endpoints[j]) !in existing)
+                    actions += PlayAction.Link(endpoints[i], endpoints[j])
+            }
         }
-        val actions = cards().map { LinkEndpoint(LinkEndpointKind.CARD, it.id) }.filter { it != endpoint }
-            .map { PlayAction.Link(it, endpoint) }
-        val sent = sendLinks(actions, requireInvocation = false)
-        if (sent) pickingLink = false
-        return true
+        error = null
+        return if (actions.isEmpty()) canLink() else sendLinks(actions)
     }
 
-    /** Call before ordinary table taps. Frozen effects remain valid endpoints in their own right. */
-    fun pick(endpoint: ProjectionEndpoint): Boolean {
-        if (!pickingLink) return false
-        if (projectionScope == null) return true
-        require(DeckValidation.uuid(endpoint.occurrenceId))
-        val board = boundState()?.board
-        if (board == null || !CombatStackRules.exists(board, endpoint)) {
-            error = "This endpoint is no longer available."
-            return true
-        }
-        val actions = occurrences().filter { it != endpoint }.map { PlayAction.LinkProjections(it, endpoint) }
-        if (sendLinks(actions, requireInvocation = true)) pickingLink = false
-        return true
-    }
-
-    private fun sendLinks(actions: List<PlayAction>, requireInvocation: Boolean): Boolean {
+    private fun sendLinks(actions: List<PlayAction>): Boolean {
         if (actions.isEmpty()) return false
         val batch = submitInvocation
         if (batch != null) return batch(actions).also {
             error = if (it) null else "Action could not be queued. Reconnect and try again."
         }
-        // Legacy card-only callers remain source-compatible. Occurrence fanout requires the real
-        // session invocation adapter rather than silently inventing unrelated invocation identities.
-        if (requireInvocation) { error = "Action could not be queued. Reconnect and try again."; return false }
-        var sent = false
-        actions.forEach { sent = send(it) || sent }
-        return sent
+        error = "Action could not be queued. Reconnect and try again."
+        return false // Never silently split a selection into unrelated undo invocations.
     }
 
     fun removeLink(id: String) {
@@ -129,7 +113,7 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         val board = boundState()?.board ?: return
         val endpoints = projectionScope?.endpoints.orEmpty().map { it.occurrenceId }.toSet()
         if (board.projectionLinks.any { it.id == id && (it.first in endpoints || it.second in endpoints) })
-            sendLinks(listOf(PlayAction.RemoveProjectionLink(id)), requireInvocation = true)
+            sendLinks(listOf(PlayAction.RemoveProjectionLink(id)))
     }
 
     fun catalog() {

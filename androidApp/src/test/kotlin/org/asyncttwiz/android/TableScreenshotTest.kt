@@ -196,7 +196,7 @@ class TableScreenshotTest {
             "token-actions" -> toolkit.tokens.open(sentinel.id, listOf(sentinel.id))
         }
         if (kind == "value-editor") toolkit.manual.edit(ManualValue(ManualValueKind.CORNER), play, "a")
-        if (kind == "link-actions") { toolkit.tokens.beginLink(); toolkit.manual.close() }
+        if (kind == "link-actions") { toolkit.tokens.links(); toolkit.manual.close() }
         val tokenSource = object : TokenSearchSource {
             override suspend fun search(query: String, cursor: org.asyncttwiz.storage.CatalogTokenCursor?) =
                 TokenSearchPage("fixture", emptyList(), null)

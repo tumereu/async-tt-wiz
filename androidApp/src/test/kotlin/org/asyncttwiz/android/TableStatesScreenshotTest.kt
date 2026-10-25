@@ -416,14 +416,14 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun blankOpponentCounterOpensPlayerActionsWithoutMutationInLandscape() {
         render("combat", true)
         compose.onNodeWithContentDescription("Bob, red, no value").performClick()
-        compose.onNodeWithText("Life / counters").assertExists()
+        compose.onNodeWithContentDescription("Life / counters").assertExists()
     }
 
     @Test fun hiddenPortraitCountersRemainReachableThroughLifeWithoutMutation() {
         render("combat", false)
         compose.onNodeWithContentDescription("Bob, red, no value").assertDoesNotExist()
         compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
-        compose.onNodeWithText("Life / counters").assertExists()
+        compose.onNodeWithContentDescription("Life / counters").assertExists()
         compose.onNodeWithContentDescription("Set red counter, no value").assertExists()
     }
 

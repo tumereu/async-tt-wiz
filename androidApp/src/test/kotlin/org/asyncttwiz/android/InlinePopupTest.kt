@@ -20,6 +20,27 @@ class InlinePopupTest {
         assertEquals(expected, inlinePopupBounds(412f, 892f, anchor, true, 216f, 216f))
     }
 
+    @Test fun measuredContentKeepsOnlyOccupiedRowsAndCanFitBesideTheAnchor() {
+        assertEquals(0, inlinePopupGridRows(emptyList()))
+        assertEquals(1, inlinePopupGridRows(CardRingPages.layout(listOf("inspect"))))
+        assertEquals(2, inlinePopupGridRows(CardRingPages.layout(listOf("inspect", "corner", "note", "Clone"))))
+        assertEquals(4, inlinePopupGridRows(CardRingPages.layout(List(16) { "action$it" })))
+        val anchor = TableBounds(320f, 130f, 48f, 100f)
+        val bounds = inlinePopupBounds(640f, 360f, anchor, true, 198f, 72f)
+        assertEquals(198f, bounds.width)
+        assertEquals(72f, bounds.height)
+        assertNull(bounds.intersection(anchor))
+    }
+
+    @Test fun quantitySelectionAndStepsAreBoundedWithoutOverflow() {
+        val value = selectedLibraryQuantity("123")
+        assertEquals(androidx.compose.ui.text.TextRange(0, 3), value.selection)
+        assertEquals(0, stepLibraryQuantity("0", -1))
+        assertEquals(2, stepLibraryQuantity("1", 1))
+        assertEquals(0, stepLibraryQuantity("invalid", -1))
+        assertEquals(Int.MAX_VALUE, stepLibraryQuantity(Int.MAX_VALUE.toString(), 1))
+    }
+
     @Test fun onlyLibraryOwnerCanOpenActionsAndOpeningNeverSubmitsSharedView() {
         val play = LiveTableFixture.play()
         val sent = mutableListOf<org.asyncttwiz.protocol.PlayAction>()

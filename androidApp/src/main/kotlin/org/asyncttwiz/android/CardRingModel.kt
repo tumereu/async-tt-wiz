@@ -81,7 +81,8 @@ internal object CardRingGeometry {
     const val squareSide = gridSide + 24f // 192dp grid, 16dp tabs, 4dp top/bottom padding.
     private const val margin = 12f
     private const val gap = 8f
-    fun place(width: Float, height: Float, card: TableBounds, own: Boolean): CardRingPlacement? {
+    fun place(width: Float, height: Float, card: TableBounds, own: Boolean,
+        popupWidth: Float = squareSide, popupHeight: Float = squareSide): CardRingPlacement? {
         val screen = TableBounds(margin, margin, (width - 2 * margin).coerceAtLeast(0f), (height - 2 * margin).coerceAtLeast(0f))
         val spaces = listOf(
             screen.copy(height = (card.y - gap - screen.y).coerceIn(0f, screen.height)),
@@ -89,19 +90,19 @@ internal object CardRingGeometry {
             screen.copy(width = (card.x - gap - screen.x).coerceIn(0f, screen.width)),
             screen.copy(x = (card.right + gap).coerceIn(screen.x, screen.right), width = (screen.right - card.right - gap).coerceIn(0f, screen.width)))
         val preferred = if (own) 0 else 1
-        val side = spaces.indices.filter { spaces[it].width >= squareSide && spaces[it].height >= squareSide }
+        val side = spaces.indices.filter { spaces[it].width >= popupWidth && spaces[it].height >= popupHeight }
             .maxWithOrNull(compareBy<Int> { spaces[it].width * spaces[it].height }.thenBy { it == preferred }) ?: return null
         val region = spaces[side]
         val x = (when (side) {
-            2 -> region.right - squareSide
+            2 -> region.right - popupWidth
             3 -> region.x
-            else -> card.center.x - squareSide / 2
-        }).coerceIn(region.x, region.right - squareSide)
+            else -> card.center.x - popupWidth / 2
+        }).coerceIn(region.x, region.right - popupWidth)
         val y = (when (side) {
-            0 -> region.bottom - squareSide
+            0 -> region.bottom - popupHeight
             1 -> region.y
-            else -> card.center.y - squareSide / 2
-        }).coerceIn(region.y, region.bottom - squareSide)
-        return CardRingPlacement(TableBounds(x, y, squareSide, squareSide), CardRingSide.entries[side])
+            else -> card.center.y - popupHeight / 2
+        }).coerceIn(region.y, region.bottom - popupHeight)
+        return CardRingPlacement(TableBounds(x, y, popupWidth, popupHeight), CardRingSide.entries[side])
     }
 }

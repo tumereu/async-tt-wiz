@@ -181,18 +181,18 @@ class TableControlsInteractionTest {
         assertFalse(peeks.last())
     }
 
-    @Test fun pickerShowsCurrentPhaseStepPlayerAndLabelsEveryLane() {
+    @Test fun pickerFloatsStepCellsAndDescribesCurrentStepAndPlayerAccessibly() {
         val play = TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42")
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             PhaseStepPicker(play, play.board.turn.accountId, OwnTableColor, controller, {},
                 names = mapOf(play.board.turn.accountId to "Alice"))
         } }
-        compose.onNodeWithText("Combat · Declare attackers").assertIsDisplayed()
-        compose.onNodeWithText("Alice's turn").assertIsDisplayed()
-        for (label in listOf("Beginning", "Precombat main", "Combat", "Postcombat main", "Ending")) {
-            compose.onNodeWithText(label).assertExists()
-        }
+        compose.onNodeWithContentDescription("Combat · Declare attackers, Alice's turn").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Declare attackers").assertIsSelected()
+        for (step in TurnPosition.entries) compose.onNodeWithContentDescription(step.label).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close").assertDoesNotExist()
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
         compose.onNodeWithText("Turn 42").assertDoesNotExist()
     }
 

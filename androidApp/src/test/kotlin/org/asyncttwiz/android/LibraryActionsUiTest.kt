@@ -12,10 +12,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LibraryActionsUiTest {
     @get:Rule val compose = createComposeRule()
     private val play = LiveTableFixture.play(5)
@@ -47,13 +49,13 @@ class LibraryActionsUiTest {
         compose.mainClock.autoAdvance = false
         input.performTextReplacement(n.toString())
         compose.mainClock.advanceTimeByFrame()
-        click("OK")
+        click(action)
         compose.mainClock.autoAdvance = true
     }
 
     @Test fun inlineRowsFitAndOneTapActionsUseTopCard() {
         render()
-        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Draw 7", "Draw one fewer"))
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp)
         for ((action, zone) in listOf("Draw" to PlayZone.HAND, "Mill" to PlayZone.GRAVEYARD, "Exile" to PlayZone.EXILE)) {
             sent.clear(); click("$action 1")
@@ -71,6 +73,11 @@ class LibraryActionsUiTest {
         assertEquals(library.id, sent.filterIsInstance<PlayAction.ShuffleLibrary>().single().containerId)
         compose.onNodeWithContentDescription("Reveal all").assertDoesNotExist()
         compose.onNodeWithContentDescription("Bottom").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close").assertDoesNotExist()
+        compose.onNodeWithText("Library").assertDoesNotExist()
+        compose.onNodeWithText("Mulligan (hand → shuffle → draw)").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Context action grid").assertHeightIsEqualTo(204.dp).assertWidthIsEqualTo(248.dp)
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
     }
 
     @Test fun quantitiesAreIndependentAndRememberedPerActionAndAccount() {
@@ -91,7 +98,7 @@ class LibraryActionsUiTest {
 
     @Test fun mulligansAreIndependentOfQuantities() {
         render()
-        for ((label, count) in listOf("Draw 7" to 7, "Draw one fewer" to hand.cards.size - 1)) {
+        for ((label, count) in listOf("Mulligan 7" to 7, "Mulligan −1" to hand.cards.size - 1)) {
             sent.clear(); click(label)
             assertEquals(hand.cards, sent.filterIsInstance<PlayAction.MoveCard>().take(hand.cards.size).map { it.cardId })
             assertEquals(1, sent.filterIsInstance<PlayAction.ShuffleLibrary>().size)
@@ -99,9 +106,34 @@ class LibraryActionsUiTest {
         }
     }
 
+    @Test fun quantityFloatsInOneRowAndSelectsAllOnFocusAndEveryTap() {
+        render()
+        quantity("Draw", 12)
+        sent.clear()
+        click("Draw N…")
+        val input = compose.onNode(hasSetTextAction()).assertTextEquals("12")
+        compose.onNodeWithContentDescription("Context action grid").assertHeightIsEqualTo(48.dp).assertWidthIsEqualTo(246.dp)
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
+        input.performClick()
+        input.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange,
+            androidx.compose.ui.text.TextRange(0, 2)))
+        input.performTextInput("3")
+        input.assertTextEquals("3")
+        // Re-selecting on a later touch tap is verified on device: Robolectric's text magnifier crashes on touch input here.
+        click("−")
+        input.assertTextEquals("2")
+        click("−")
+        click("−")
+        input.assertTextEquals("0")
+        click("+")
+        input.assertTextEquals("1")
+        click("Draw")
+        assertEquals(1, sent.filterIsInstance<PlayAction.MoveCard>().size)
+    }
+
     @Test fun disconnectedActionsCannotDispatch() {
         render(false)
-        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Draw 7", "Draw one fewer"))
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
         assertTrue(sent.isEmpty())
     }

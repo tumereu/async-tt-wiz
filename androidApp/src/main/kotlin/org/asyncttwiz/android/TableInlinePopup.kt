@@ -16,12 +16,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -78,12 +81,12 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val switchPage: (Int) -> Unit = { delta -> selectPage((selectedPage + delta).mod(pages.size)) }
     TableInlinePopup(identity, viewId, anchor, own, ownerColor, dismiss,
         description = "Card action ring", title = "Card actions", switchPage = switchPage) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
             key(identity, viewId, selectedPage) {
-                Column(Modifier.size(CardRingGeometry.gridSide.dp)) {
-                    repeat(4) { row ->
-                        Row {
+                Column(verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
+                    repeat(inlinePopupGridRows(slots)) { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
                             while (column < 4) {
                                 val slot = slots.firstOrNull { it.cell == row * 4 + column }
@@ -104,12 +107,17 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
 
 internal data class InlinePopupAnchor(val id: String, val bounds: TableBounds?, val own: Boolean)
 internal val LocalInlinePopupAnchor = compositionLocalOf { InlinePopupAnchor("table", null, true) }
+internal val LocalInlinePopupColor = compositionLocalOf { OwnTableColor }
 private val LocalInlinePopupDismiss = compositionLocalOf<(() -> Unit)?> { null }
 internal object InlinePopupStyle {
+    const val cellGap = 2f
     const val enterMillis = 90
     const val exitMillis = 70
     const val initialScale = .88f
 }
+
+internal fun inlinePopupGridRows(slots: List<CardRingSlot>): Int =
+    slots.maxOfOrNull { (it.cell + it.span + 3) / 4 } ?: 0
 
 /** All on-table context panels share placement, animation, input guard, relay and visual chrome.
  * The table host owns outside gestures, so a second tap can dismiss and draw/rotate immediately. */
@@ -117,7 +125,7 @@ internal object InlinePopupStyle {
 internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
     ownerColor: Color, dismiss: () -> Unit, width: Dp = CardRingGeometry.squareSide.dp,
     height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
-    title: String = description, switchPage: (Int) -> Unit = {}, content: @Composable () -> Unit) {
+    title: String = description, switchPage: (Int) -> Unit = {}, sheet: Boolean = false, content: @Composable () -> Unit) {
     val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
@@ -152,16 +160,18 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
         onDispose { if (relay?.ring === input) relay.ring = null }
     }
     BackHandler(onBack = requestDismiss)
-    CompositionLocalProvider(LocalRingInputTargets provides registerTarget, LocalInlinePopupDismiss provides requestDismiss) {
-    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = description; paneTitle = title }) {
-        val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
-        // Capture the opening anchor/viewport only: neither sync nor a page switch moves this square.
-        val square = remember(identity, viewId, maxWidth, maxHeight) {
-            inlinePopupBounds(maxWidth.value, maxHeight.value, card, own, width.value, height.value)
+    CompositionLocalProvider(LocalRingInputTargets provides registerTarget, LocalInlinePopupDismiss provides requestDismiss,
+        LocalInlinePopupColor provides ownerColor) {
+    BoxWithConstraints(Modifier.fillMaxSize().semantics {
+        contentDescription = if (description == "Table context popup") title else description
+    }) {
+        val card = remember(identity, viewId, maxWidth, maxHeight) {
+            anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
         }
         // Standalone fallback; the stable table host relays outside presses before they reach here.
         Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { requestDismiss() }) })
-        Surface(Modifier.offset(square.x.dp, square.y.dp).size(square.width.dp, square.height.dp)
+        Layout(content = {
+        val popupModifier = Modifier
             .graphicsLayer { alpha = progress; scaleX = InlinePopupStyle.initialScale + (1 - InlinePopupStyle.initialScale) * progress; scaleY = scaleX }
             .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }
             .ringInputTarget().semantics { contentDescription = if (description == "Card action ring") "Card action grid" else "Context action grid" }
@@ -189,19 +199,31 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
                     if (swipe && !blocked) currentSwitch(if (delta.x < 0) 1 else -1)
                 }
             }
-        }, shape = RoundedCornerShape(8.dp), color = Color.White,
-            border = BorderStroke(1.dp, ownerColor), shadowElevation = 4.dp) {
-            content()
+        }
+        if (sheet) Surface(popupModifier, shape = RoundedCornerShape(8.dp), color = Color.White,
+            border = BorderStroke(1.dp, ownerColor), shadowElevation = 4.dp) { content() }
+        else Box(popupModifier) { content() }
+        }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+            val maxW = minOf(width.roundToPx(), (constraints.maxWidth - 24.dp.roundToPx()).coerceAtLeast(0))
+            val maxH = (constraints.maxHeight - 24.dp.roundToPx()).coerceAtLeast(0)
+            val child = measurables.single().measure(androidx.compose.ui.unit.Constraints(
+                minWidth = if (sheet) maxW else 0, maxWidth = maxW,
+                minHeight = if (sheet) minOf(height.roundToPx(), maxH) else 0,
+                maxHeight = if (sheet) minOf(height.roundToPx(), maxH) else maxH))
+            val bounds = inlinePopupBounds(constraints.maxWidth.toDp().value, constraints.maxHeight.toDp().value,
+                card, own, child.width.toDp().value, child.height.toDp().value)
+            layout(constraints.maxWidth, constraints.maxHeight) {
+                child.place(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx())
+            }
         }
     }
     }
 }
 
-/** Preserve the card grid's opening position, falling back to a clamped anchor for tight screens. */
+/** Prefer a free region beside the captured anchor; clamp measured content on tight screens. */
 internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
     desiredWidth: Float, desiredHeight: Float): TableBounds {
-    if (desiredWidth == CardRingGeometry.squareSide && desiredHeight == CardRingGeometry.squareSide)
-        CardRingGeometry.place(width, height, anchor, own)?.let { return it.square }
+    CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight)?.let { return it.square }
     val w = desiredWidth.coerceAtMost((width - 24).coerceAtLeast(0f))
     val h = desiredHeight.coerceAtMost((height - 24).coerceAtLeast(0f))
     val y = if (anchor.y >= h + 20) anchor.y - h - 8 else anchor.bottom + 8
@@ -211,12 +233,13 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 
 @Composable
 internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, select: (Int) -> Unit) {
-    Row(Modifier.width(CardRingGeometry.gridSide.dp).height(16.dp).semantics {
+    Row(Modifier.width((CardRingGeometry.gridSide + 3 * InlinePopupStyle.cellGap).dp)
+        .height(20.dp).horizontalScroll(rememberScrollState()).semantics {
         contentDescription = "Action page ${selected + 1} of ${pages.size}, ${pages[selected]}"
-    }) {
+    }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         pages.forEachIndexed { index, name ->
             RingPress(MenuControl("$name page", selected = index == selected) { select(index) },
-                Modifier.weight(1f).fillMaxHeight(), color,
+                Modifier.width(48.dp).fillMaxHeight(), color,
                 fill = if (index == selected) color.copy(alpha = .18f) else Color.White, role = Role.Tab) {
                 Text(name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = MenuInk, fontWeight = if (index == selected) FontWeight.Bold else FontWeight.Normal)
@@ -227,18 +250,22 @@ internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, 
 
 @Composable
 internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
-    key: String = title, content: @Composable ColumnScope.() -> Unit) {
+    key: String = title, sheet: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     // Opening a card menu from a row clears the toolkit anchor while this panel is still visible.
     // Capture the opening anchor and key by a stable identity (not a count-bearing title) so the
     // input guard does not restart and swallow the row's second tap.
     val current = LocalInlinePopupAnchor.current
     val anchor = remember(key) { current }
     val color = if (anchor.own) OwnTableColor else OpponentTableColor
-    TableInlinePopup(key, anchor.id, anchor.bounds, anchor.own, color, dismiss, width, height, title = title) {
-        Column(Modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                InlinePopupCell(MenuControl("Close", click = LocalInlinePopupDismiss.current ?: dismiss), "Close", color)
+    TableInlinePopup(key, anchor.id, anchor.bounds, anchor.own, color, dismiss, width, height,
+        description = title, title = title, sheet = sheet) {
+        Column(Modifier.padding(if (sheet) 8.dp else 0.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(if (sheet) 0.dp else 4.dp)) {
+            if (sheet) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    InlinePopupCell(MenuControl("Close", click = LocalInlinePopupDismiss.current ?: dismiss), "Close", color)
+                }
             }
             content()
         }
@@ -252,7 +279,8 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
     val color = entry.control.color ?: owner
     val fill = entry.fill ?: Color.White
     val shape = RoundedCornerShape(3.dp)
-    Row(Modifier.size(96.dp, 48.dp).clip(shape).border(1.dp, color.copy(alpha = .5f), shape)) {
+    Row(Modifier.size((96 + InlinePopupStyle.cellGap).dp, 48.dp).shadow(3.dp, shape).clip(shape)
+        .border(1.dp, color.copy(alpha = .5f), shape)) {
         RingPress(compound.minus, Modifier.width(24.dp).fillMaxHeight(), color, fill, bordered = false) {
             Text("−", color = MenuInk.copy(alpha = if (compound.minus.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
         }
@@ -261,7 +289,7 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
         val drag = if (compound.drag != null) Modifier.ringInputTarget(draggable = true)
             .valueDragGestures(entry.control.enabled && numeric, preview = { delta = it },
                 side = ValueDragSide.TOP.takeIf { compound.corner }, commit = compound.drag) else Modifier
-        RingPress(entry.control, Modifier.width(48.dp).fillMaxHeight().then(drag), color, fill, bordered = false) {
+        RingPress(entry.control, Modifier.width((48 + InlinePopupStyle.cellGap).dp).fillMaxHeight().then(drag), color, fill, bordered = false) {
             Text(compound.value, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
             delta?.let { HoldTooltip(if (compound.corner) cornerDragLabel(compound.dragValue, it) else valueDragLabel(compound.dragValue, it)) }
@@ -273,7 +301,7 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
 }
 
 @Composable
-internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = OwnTableColor,
+internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = LocalInlinePopupColor.current,
     modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null,
     drag: ((Long) -> Unit)? = null, dragValue: String = "0") {
     val entry = RingEntry(control.name, label, control, fill = fill, drag = drag, dragValue = dragValue)
@@ -305,7 +333,7 @@ private fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
         .combinedClickable(enabled = control.enabled, role = role, hapticFeedbackEnabled = false,
             onLongClick = { tooltip = true }, onClick = control.click),
         shape = if (bordered) RoundedCornerShape(3.dp) else androidx.compose.ui.graphics.RectangleShape,
-        color = if (control.enabled) fill else fill.copy(alpha = .4f),
+        color = fill.compositeOver(Color.White), shadowElevation = if (bordered) 3.dp else 0.dp,
         border = if (bordered) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f)) else null) {
         Box(contentAlignment = Alignment.Center) {
             content()

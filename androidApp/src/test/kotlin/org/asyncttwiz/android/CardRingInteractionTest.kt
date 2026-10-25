@@ -256,14 +256,16 @@ class CardRingInteractionTest {
         assertTrue(sent.isEmpty())
     }
 
-    @Test fun tabsAndSwipesKeepTheSameSquareAndDisabledActionsStayDisabled() {
+    @Test fun tabsSizeToTheirContentAndDisabledActionsStayDisabled() {
         render()
         compose.ringPage(1)
         val bounds = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
         for (page in 2..4) {
             compose.ringPage(page)
-            assertEquals(bounds, compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot)
+            val resized = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
+            assertEquals(bounds.width, resized.width)
+            assertTrue(resized.height <= 222f)
         }
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()

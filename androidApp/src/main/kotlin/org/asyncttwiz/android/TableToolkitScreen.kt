@@ -57,23 +57,23 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 occurrenceTools.map { RingEntry(if (it.name == "Inspect") "inspect" else it.name, ringShortLabel(it.name), it) },
                 own = false, OpponentTableColor, toolkit::dismiss)
         }
-        "stackDestination" -> if (bound != null) ToolkitDialog(toolkit::dismiss) {
-            val source = play.board.cards.singleOrNull { it.id == bound.contextViewId }
-            if (source != null) for (choice in toolkit.stackChoices) {
-                TextButton(enabled = enabled, onClick = {
+        "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {
+             val source = play.board.cards.singleOrNull { it.id == bound.contextViewId }
+            if (source != null) for (row in toolkit.stackChoices.chunked(4)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (choice in row) InlinePopupCell(MenuControl(choice.label, enabled) {
                     val capturedSource = bound.sources[source.id]
                     if (capturedSource != null) {
                         val placement = capturedSource.placement?.let { p -> p.pileId?.let { PlayPlacement(BoardPosition(p.column.toInt(), p.row.toInt()), it) } }
                         if (toolkit.submit(PlayAction.MoveCard(source.id, MoveSource(capturedSource.containerId, placement), choice.destination))) toolkit.dismiss()
                     }
-                }) { Text(choice.label) }
+                })
             }
         }
         else -> if (panel?.startsWith("contents/") == true) {
             val pile = toolkit.publicContents()
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}",
-                height = if (landscape) 288.dp else 560.dp, key = panel) {
+                height = if (landscape) 288.dp else 560.dp, key = panel, sheet = true) {
                 ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
                     onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
                     onInspect = toolkit::inspect,

@@ -46,7 +46,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
         return
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(item.id, item.bounds, item.owner == viewer)) {
-    InlinePopupPanel(dismiss, title = "Contents", height = 480.dp) {
+    InlinePopupPanel(dismiss, title = "Contents", height = 480.dp, sheet = true) {
                 if (container != null) {
                     Text(item.label)
                     if (container.zone == PlayZone.LIBRARY) {

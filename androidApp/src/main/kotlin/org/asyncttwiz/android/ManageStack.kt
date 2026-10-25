@@ -14,7 +14,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** Identity-bound menu lowering. Reordering uses live neighbors, never a stale numeric index. */
+/** Identity-bound menu lowering. Stack order is not editable. */
 internal object StackMenuActions {
     fun remove(entryId: String): PlayAction = PlayAction.Stack(StackAction.RemoveEffect(entryId))
     fun mark(entryId: String, index: Int?): PlayAction = PlayAction.Stack(StackAction.MarkText(entryId, index))
@@ -32,16 +32,6 @@ internal object StackMenuActions {
             MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
             MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
             MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) })
-    }
-    fun reorder(board: BoardState, entryId: String, delta: Int): PlayAction? {
-        val order = CombatStackRules.stack(board).cards
-        val at = order.indexOf(entryId)
-        if (at < 0 || at + delta !in order.indices || delta !in listOf(-1, 1)) return null
-        val remaining = order - entryId
-        val to = at + delta
-        return PlayAction.Stack(StackAction.ReorderEffect(entryId,
-            IdentityGap(order.getOrNull(at - 1), order.getOrNull(at + 1)),
-            IdentityGap(remaining.getOrNull(to - 1), remaining.getOrNull(to))))
     }
     fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
         require(entryId in CombatStackRules.stack(state.board).cards)

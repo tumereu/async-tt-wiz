@@ -468,8 +468,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
         sent
     }
-    fun reorderEffect(id: String, expected: IdentityGap, destination: IdentityGap): Boolean =
-        submit(PlayAction.Stack(StackAction.ReorderEffect(id, expected, destination)))
     override fun stack(intent: TableActionIntent.Stack) {
         if (intent.target.kind == StackTargetKind.EFFECT) submit(PlayAction.Stack(StackAction.RemoveEffect(intent.target.id)))
         else {

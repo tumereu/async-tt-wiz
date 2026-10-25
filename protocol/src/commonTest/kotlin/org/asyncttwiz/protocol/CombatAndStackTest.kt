@@ -198,6 +198,23 @@ class CombatAndStackTest {
         assertEquals(6, state.board.cards.size)
     }
 
+    @Test fun legacyReorderEventRoundTripsReplaysAndUnappliesExactly() {
+        val initial = effect(effect(state(), 20, 8170), 21, 8171)
+        val order = CombatStackRules.stack(initial.board).cards
+        // The retained reducer constructs the same event as the retired command did.
+        val legacy = change(initial, PlayAction.Stack(StackAction.ReorderEffect(order[1],
+            IdentityGap(order[0], null), IdentityGap(null, order[0]))), 8172)
+        val retained = GameWire.json.decodeFromString<GameplayMutation>(
+            GameWire.json.encodeToString(GameplayMutation.serializer(), legacy.mutation!!))
+        assertEquals(legacy.mutation, retained)
+        val replayed = GameplayHistory.replay(initial, retained)
+        assertEquals(legacy, replayed)
+        assertEquals(order.reversed(), CombatStackRules.stack(replayed.state!!.board).cards)
+        assertEquals(initial, GameplayHistory.unapply(replayed.state, retained))
+        assertEquals(initial.board, GameplayHistory.reverse(replayed.state, retained))
+        assertEquals(replayed.state, GameplayHistory.apply(initial, retained))
+    }
+
     @Test fun reorderAndRemovalInvalidateStaleAdditionWithoutComparingOnlyTop() {
         val state = effect(effect(effect(state(), 20, 1180), 20, 1181), 20, 1182)
         val ids = CombatStackRules.stack(state.board).cards

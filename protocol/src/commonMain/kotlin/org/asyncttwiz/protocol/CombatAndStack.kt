@@ -45,6 +45,7 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("copyEffect") data class CopyEffect(val entryId: String, val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("setController") data class SetController(val occurrenceId: String, val accountId: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
+    // Legacy: retained history replay/undo only; the server rejects new reorder commands.
     @Serializable @SerialName("reorderEffect") data class ReorderEffect(val occurrenceId: String,
         val expected: IdentityGap, val destination: IdentityGap) : StackAction
 }

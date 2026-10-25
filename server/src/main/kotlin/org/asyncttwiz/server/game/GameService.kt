@@ -242,7 +242,9 @@ class GameService(private val runtime: ServiceRuntime) {
         var treeDelta: GameplayTreeDelta? = null
         var createdMutation: GameplayMutation? = null
         var insertedChat: ChatMessage? = null
-        val gameplay = if (isGameplay) {
+        val gameplay = if (((command.action as? GameAction.Play)?.action as? PlayAction.Stack)?.action is StackAction.ReorderEffect)
+            GameplayTreeChange(reason = "stackReorderingRemoved")
+        else if (isGameplay) {
             val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
             if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
             else {

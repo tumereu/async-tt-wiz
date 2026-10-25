@@ -448,6 +448,10 @@ projection count limit; the ordinary three-card visual-pile limit does not apply
 Repeated explicit projection creation adds a new independent occurrence rather
 than reusing or replacing an existing one, unlike repeated attacker declaration.
 
+The Stack has no reordering: Manage Stack, card menus, quick actions and drags
+cannot change existing entries' order. New reorder commands are rejected;
+retained legacy reorder events still replay and undo exactly.
+
 Each occurrence can be explicitly removed/resolved separately. Removing one
 removes only that occurrence and its incident projection links, leaving sibling
 Stack occurrences and the real source unchanged (D-114/D-120/D-125). Independent

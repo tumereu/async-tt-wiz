@@ -262,6 +262,7 @@ class HistorySceneAnimation(initial: TableScene) {
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
     var durationMillis: Int = 180; private set
+    internal var rotatingCardIds: Set<String> = emptySet(); private set
     private var latestScene = initial
     private var latestItems = initial.items.associateBy { it.animationId }
     fun updateMetadata(target: TableScene) {
@@ -371,6 +372,11 @@ class HistorySceneAnimation(initial: TableScene) {
         }
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other
         // transition (including a move alongside a tap) keeps the longer scene duration.
+        rotatingCardIds = end.values.mapNotNull { b ->
+            val a = start[b.item.animationId] ?: return@mapNotNull null
+            b.item.cardId?.takeIf { b.item.kind == TableItemKind.CARD &&
+                a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation }
+        }.toSet()
         durationMillis = if ((start.keys + end.keys).all { id ->
             val a = start[id]; val b = end[id]
             a != null && b != null && a.alpha == b.alpha && (a.bounds == b.bounds && a.item.tapped == b.item.tapped ||

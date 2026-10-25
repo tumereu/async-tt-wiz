@@ -30,8 +30,9 @@ class GameplayMoveIntegrationTest {
         val wire = Wire()
         val endpoints = mutableListOf<BoardState?>()
         val outcomes = mutableListOf<GameResult>()
+        var now = 0L
         val session: GameSession = GameSession(wire, { "A".repeat(43) }, { it() }, {}, {}, { _, result -> outcomes.add(result) },
-            { endpoints.add(display()) }, accountId = { data.actor })
+            { endpoints.add(display()) }, accountId = { data.actor }, now = { now })
         private fun display() = session.play(data.game)?.board
         fun message(message: GameServerMessage) = wire.listener.message(message)
         fun connect() {
@@ -79,7 +80,8 @@ class GameplayMoveIntegrationTest {
         assertEquals(BoardPosition(2, -1), f.card(f.session.play(f.data.game)).placement!!.position)
         assertEquals("retained manual note", f.card(f.session.play(f.data.game)).note)
         // Missing third delta forces the existing complete-record baseline path, with its final original.
-        f.message(f.data.head(third.play!!, "4")); assertFalse(f.session.ready(f.data.game.id))
+        f.message(f.data.head(third.play!!, "4")); f.now += 2_000; f.session.tick()
+        assertFalse(f.session.ready(f.data.game.id))
         f.wire.reads.single()(GameplayBaseline(f.snapshot(first, second, third),
             listOf(GameRequestStatus(commands[2].requestId, "final", f.result(third)))))
         assertTrue(f.session.ready(f.data.game.id)); assertFalse(f.session.pending(f.data.game.id))

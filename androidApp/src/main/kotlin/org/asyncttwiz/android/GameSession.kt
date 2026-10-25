@@ -98,6 +98,8 @@ class GameSession(private val connection: GameConnection, private val credential
     // observe a committed head while its contiguous deltas are still waiting for disk work.
     private val treeThrough = mutableMapOf<String, String>()
     private val treeHead = mutableMapOf<String, String>()
+    private data class HeadGap(val since: Long, var through: String)
+    private val headGaps = mutableMapOf<String, HeadGap>()
     @Volatile private var account: String? = null
     private data class ResultIntent(val command: GameCommand, val actor: String, var commitRevision: String? = null)
     private val resultIntents = linkedMapOf<String, ResultIntent>()
@@ -184,6 +186,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId); treeThrough.remove(gameId); treeHead.remove(gameId)
         recoveries.remove(gameId)
+        headGaps.remove(gameId)
         messages.remove(gameId); chatRevisions.remove(gameId); chatCursors.remove(gameId); olderChat.remove(gameId); chatReads.remove(gameId)
         chatSubmissions.entries.removeAll { it.value.command.scope.gameId == gameId }
         selections.entries.removeAll { it.value.command.scope.gameId == gameId }
@@ -365,6 +368,7 @@ class GameSession(private val connection: GameConnection, private val credential
             })
         } else if (welcome) {
             openStreams()
+            checkHeadGaps()
             // The server's traffic lease counts protocol messages, not WebSocket control pings.
             if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
         }
@@ -609,8 +613,15 @@ class GameSession(private val connection: GameConnection, private val credential
                         streams[message.gameId]?.head = true
                     } else if (treeThrough[message.gameId]?.let { newerOrEqual(it, message.revision) } == true) {
                         // Publication will mark this stream ready. Queued work is not a revision gap.
-                    } else if (replica.revision?.let { newerOrEqual(it, message.revision) } != true)
-                        recover(message.gameId, message.revision, "headAhead:local=${replica.revision}:queued=${treeThrough[message.gameId]}:head=${message.revision}")
+                    } else if (replica.revision?.let { newerOrEqual(it, message.revision) } != true) {
+                        if (replica.accepted?.id == message.summary.playId && message.gameId !in recoveries) {
+                            // Heads read committed state before the publication worker necessarily
+                            // sends its deltas. Keep using the materialized replica during that race.
+                            headGaps.getOrPut(message.gameId) { HeadGap(now(), message.revision) }.let {
+                                if (newerOrEqual(message.revision, it.through)) it.through = message.revision
+                            }
+                        } else recover(message.gameId, message.revision, "headAhead:local=${replica.revision}:queued=${treeThrough[message.gameId]}:head=${message.revision}")
+                    }
                 } else {
                     install(message.summary, message.revision, message.preparation, null)
                     streams[message.gameId]?.head = true
@@ -674,6 +685,7 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameUpgradeRequired -> { connectionUnavailable("upgradeRequired"); error = "Update the app to connect to this game service." }
             is GamePong -> Unit
         }
+        checkHeadGaps()
         flush()
         recoveryReady()
         statusChanged()
@@ -709,6 +721,8 @@ class GameSession(private val connection: GameConnection, private val credential
             }
         }
         if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || play != null || ended(game)) acceptedRevisions[game.id] = revision
+        if (play != null && treeHead[game.id]?.let { newerOrEqual(revision, it) } == true)
+            streams[game.id]?.head = true
         if (summaries[game.id]?.let { newerOrEqual(revision, it.revision) } != false) summaries[game.id] = game
         retireSelections(game.id)
         changed(summary(game))
@@ -917,9 +931,21 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.keys.forEach { reconnectTrace.start(it, if (backgrounded) "lifecycle:$cause" else cause) }
         disconnect(); statusChanged()
     }
+    private fun checkHeadGaps() {
+        // Bounded by watched games, never by their action histories. Receiving contiguous deltas
+        // is sufficient; a slow disk/publication worker must not cause another tree download.
+        for ((gameId, gap) in headGaps.toMap()) {
+            val through = treeThrough[gameId] ?: plays[gameId]?.revision
+            if (through?.let { newerOrEqual(it, gap.through) } == true) headGaps.remove(gameId)
+            else if (now() - gap.since >= 2_000) {
+                recover(gameId, gap.through, "headDeltaGraceExpired:local=$through:head=${gap.through}")
+            }
+        }
+    }
     private fun recover(gameId: String, through: String, reason: String = "explicitHistoryDownload") {
         if (gameId in recoveries) return
         val stream = streams[gameId] ?: return
+        headGaps.remove(gameId)
         reconnectTrace.start(gameId, "headRequiresCatchUp")
         reconnectTrace.step(gameId, reason.take(160))
         reconnectTrace.step(gameId, "catchUpStart")
@@ -1142,7 +1168,7 @@ class GameSession(private val connection: GameConnection, private val credential
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear(); chatReads.clear()
-        recoveries.clear(); treeThrough.clear(); treeHead.clear()
+        recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();

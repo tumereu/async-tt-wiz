@@ -180,7 +180,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     val sent = currentWritable && callback?.invoke(intent) == true
                     if (intent is TableIntent.Rotate && intent.toggle) {
                         gestureError = if (sent) null else "Rotation not queued. Reconnect and try again."
-                        DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused")
+                        DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused",
+                            cardId = intent.scope.contextId)
                     }
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
@@ -271,7 +272,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
             if (animation.retarget(targetScene, progress.value)) {
-                if (animation.durationMillis == 90) DebugLatency.tapAnimation(game.id)
+                DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
                 if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
@@ -397,7 +398,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
             Canvas(Modifier.fillMaxSize()) {
-                if (animation.durationMillis == 90) DebugLatency.tapFrame(game.id, progress.value, refreshRate)
+                DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,

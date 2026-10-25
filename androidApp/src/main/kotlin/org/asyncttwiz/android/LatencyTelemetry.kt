@@ -106,10 +106,12 @@ internal object DebugLatency {
     }
     fun result(requestId: String) { if (BuildConfig.DEBUG) recorder?.result(requestId) }
     fun drawn() { if (BuildConfig.DEBUG) recorder?.drawn() }
-    fun tap(gameId: String, event: String, popup: Boolean = false) {
-        if (BuildConfig.DEBUG && recorder != null) tapRecorder.gesture(gameId, event, popup, DebugJank.catchingUp(), DebugJank.treeInFlight())
+    fun tap(gameId: String, event: String, popup: Boolean = false, cardId: String? = null) {
+        if (BuildConfig.DEBUG && recorder != null) tapRecorder.gesture(gameId, event, popup, DebugJank.catchingUp(), DebugJank.treeInFlight(), cardId)
     }
-    fun tapAnimation(gameId: String) { if (BuildConfig.DEBUG && recorder != null) tapRecorder.animation(gameId) }
+    fun tapAnimation(gameId: String, rotatingCardIds: Set<String>) {
+        if (BuildConfig.DEBUG && recorder != null) tapRecorder.animation(gameId, rotatingCardIds)
+    }
     fun tapFrame(gameId: String, progress: Float, rate: Float) {
         if (BuildConfig.DEBUG && recorder != null) tapRecorder.frame(gameId, progress, rate, DebugJank.catchingUp(), DebugJank.treeInFlight())
     }

@@ -8,9 +8,10 @@ import kotlin.math.roundToInt
 internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
     private val record: (CardTapDiagnostic) -> Unit) {
     private data class Rotation(val game: String, val up: Long, var sample: CardTapDiagnostic,
-        var started: Boolean = false, var first: Long? = null, var last: Long? = null)
+        var cardId: String? = null, var started: Boolean = false, var first: Long? = null, var last: Long? = null)
     private val rotations = ArrayDeque<Rotation>()
-    @Synchronized fun gesture(game: String, event: String, popup: Boolean = false, catchUp: Boolean = false, tree: Boolean = false) {
+    @Synchronized fun gesture(game: String, event: String, popup: Boolean = false, catchUp: Boolean = false, tree: Boolean = false,
+        cardId: String? = null) {
         expire()
         if (event == "recognized") {
             if (rotations.size == 32) finish(rotations.removeFirst(), "animationNotObserved")
@@ -23,7 +24,10 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
             val pending = rotations.lastOrNull { it.game == game && it.first == null } ?: return
             when {
                 event == "popupClosing" -> pending.sample = pending.sample.copy(popupClosing = true)
-                event == "rotated" -> pending.sample = pending.sample.copy(outcome = "rotated", reason = "predictedAndQueued")
+                event == "rotated" -> {
+                    pending.cardId = cardId
+                    pending.sample = pending.sample.copy(outcome = "rotated", reason = "predictedAndQueued")
+                }
                 event.startsWith("dropped:") -> {
                     pending.sample = pending.sample.copy(outcome = "dropped", reason = event.substringAfter(':').take(100))
                     rotations.remove(pending); record(pending.sample)
@@ -31,9 +35,12 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
             }
         }
     }
-    @Synchronized fun animation(game: String) { rotations.filter { it.game == game }.forEach { it.started = true } }
+    @Synchronized fun animation(game: String, rotatingCardIds: Set<String>) {
+        rotations.filter { it.game == game && it.cardId in rotatingCardIds }.forEach { it.started = true }
+    }
     @Synchronized fun frame(game: String, progress: Float, refreshRate: Float, catchUp: Boolean, tree: Boolean) {
         expire()
+        if (rotations.isEmpty()) return
         val at = now()
         val complete = mutableListOf<Rotation>()
         for (r in rotations) {
@@ -46,7 +53,7 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
             r.sample = r.sample.copy(droppedFrames = r.sample.droppedFrames + missed.coerceAtLeast(0),
                 catchUpInFlight = r.sample.catchUpInFlight || catchUp, treeWorkInFlight = r.sample.treeWorkInFlight || tree)
             r.last = at
-            if (progress >= 1f || at - r.first!! >= 90_000_000) complete.add(r)
+            if (progress >= 1f) complete.add(r)
         }
         complete.forEach { rotations.remove(it); record(it.sample) }
     }

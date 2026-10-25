@@ -9,17 +9,23 @@ import kotlinx.serialization.json.*
 @Serializable data class BoardPosition(val x: Int, val y: Int)
 @Serializable data class PlayPlacement(val position: BoardPosition, val pileId: String)
 @Serializable enum class MoveSourceEdge { MEMBER, TOP, BOTTOM }
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class MoveSource(val containerId: String, val placement: PlayPlacement? = null,
-    val edge: MoveSourceEdge = MoveSourceEdge.MEMBER, val bottomSlice: List<String> = emptyList())
+    val edge: MoveSourceEdge = MoveSourceEdge.MEMBER, val bottomSlice: List<String> = emptyList(),
+    /** Explicit edge intent for rapid multi-draw/mill plans spanning a branch reseed. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val takeFromEdge: Boolean = false)
 @Serializable enum class MoveInsertion { TOP, BOTTOM, GAP, UNORDERED, EMPTY, PILE_TOP, PILE_BOTTOM, PILE_GAP }
 /** GAP binds both untouched neighbors; null denotes an edge. EMPTY creates request-derived pile/0.
  * PILE_GAP additionally binds the addressed card at the named pile/position. Only explicitly pending
  * invocation members are excluded from neighbor validation, never from capacity or the actual board.
  */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class MoveDestination(val containerId: String, val insertion: MoveInsertion,
     val position: BoardPosition? = null, val pileId: String? = null,
     val afterId: String? = null, val beforeId: String? = null,
-    val pendingIds: List<String> = emptyList(), val targetCardId: String? = null)
+    val pendingIds: List<String> = emptyList(), val targetCardId: String? = null,
+    /** Original edge placement intent retained when a multi-card block lowers to GAP moves. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val libraryInsertion: MoveInsertion? = null)
 
 @Serializable sealed interface PlayAction {
     @Serializable @SerialName("suggestResult") data class SuggestResult(val outcome: SuggestedResult) : PlayAction
@@ -112,6 +118,8 @@ object GameplayRules {
             action.sides.toIntOrNull()?.let { action.value in 1..it } == true
         is PlayAction.Manual -> ManualEditRules.valid(action)
         is PlayAction.MoveCard -> DeckValidation.uuid(action.cardId) && DeckValidation.uuid(action.source.containerId) &&
+            (action.destination.libraryInsertion == null || action.destination.libraryInsertion in setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM)) &&
+            (!action.source.takeFromEdge || action.source.edge != MoveSourceEdge.MEMBER || action.source.bottomSlice.isNotEmpty()) &&
             DeckValidation.uuid(action.destination.containerId) &&
             listOfNotNull(action.source.placement?.pileId, action.destination.pileId, action.destination.afterId,
                 action.destination.beforeId, action.destination.targetCardId).all(DeckValidation::uuid) &&
@@ -149,7 +157,9 @@ object GameplayRules {
 
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
-        val change = execute(state, actor, command, references)
+        if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
+        val resolved = LibraryKnowledge.resolveEdge(state, command)
+        val change = execute(state, actor, resolved, references)
         var mutation = change.mutation ?: return change
         val next = change.state ?: return change
         if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep)
@@ -247,9 +257,9 @@ object GameplayRules {
         val action = (command.action as GameAction.Play).action
         val panel = (action as? PlayAction.MoveCard)?.let { move -> state.board.contentsDisplays.firstOrNull { move.cardId in it.cardIds } }
         if (panel != null && panel.author != actor) return GameplayChange(reason = "accessDenied")
-        val resolved = if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.map {
+        val resolved = LibraryKnowledge.after(state.board, if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.map {
             if (it.id == panel.id) it.copy(cardIds = it.cardIds - (action as PlayAction.MoveCard).cardId,
-                revealedIds = it.revealedIds - action.cardId) else it })
+                revealedIds = it.revealedIds - action.cardId) else it }), action)
         val closed = CombatStackRules.closeInvariants(state.board, resolved)
             ?: return GameplayChange(reason = "invalidStructure")
         val relevant = transition.copy(combatStack = CombatStackRules.transition(state, closed, action),
@@ -442,7 +452,8 @@ object GameplayRules {
             } }))
         val from = location(board, card.id, orderedHand = coverRulesVersion >= 3)
         val to = location(next, card.id, orderedHand = coverRulesVersion >= 3)
-        if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds }) return GameplayChange(state)
+        if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds } &&
+            LibraryKnowledge.after(board, next, action) == board) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
             GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),

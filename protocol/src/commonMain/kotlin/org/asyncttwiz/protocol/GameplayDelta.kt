@@ -13,8 +13,11 @@ import kotlinx.serialization.json.*
     val values: List<GameplayValueDelta>)
 @Serializable data class GameplayPileDelta(val containerId: String, val placement: PlayPlacement,
     val from: List<String>, val to: List<String>)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayDelta(val entities: List<GameplayEntityDelta>, val seal: String = "",
-    val piles: List<GameplayPileDelta> = emptyList())
+    val piles: List<GameplayPileDelta> = emptyList(),
+    /** Applied before the action delta, reversed after it. Bounded by library size, not history. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val libraryReseeds: List<LibraryReseed> = emptyList())
 @Serializable data class GameplayBookkeeping(val fromGroup: GameplayGroup?, val fromBranchId: String,
     val toGroup: GameplayGroup?)
 
@@ -165,7 +168,7 @@ internal object GameplayDeltas {
             val container = state.board.containers.singleOrNull { it.id == pile.containerId } ?: throw Mismatch()
             if (GameplayRules.members(state.board, container, pile.placement) != (if (reverse) pile.to else pile.from)) throw Mismatch()
         }
-        var result = state
+        var result = if (reverse) state else LibraryKnowledge.applyReseeds(state, delta.libraryReseeds, false) ?: throw Mismatch()
         val rebasedBattlefields = mutableSetOf<String>()
         for (entity in if (reverse) delta.entities.asReversed() else delta.entities) {
             fun <T> value(old: T?, serializer: KSerializer<T>): T? {
@@ -231,6 +234,6 @@ internal object GameplayDeltas {
             }
             result = result.copy(board = board.copy(containers = containers))
         }
-        result
+        if (reverse) LibraryKnowledge.applyReseeds(result, delta.libraryReseeds, true) else result
     } catch (_: Mismatch) { null } catch (_: IllegalArgumentException) { null }
 }

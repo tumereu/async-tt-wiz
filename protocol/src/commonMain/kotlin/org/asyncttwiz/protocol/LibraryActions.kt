@@ -215,6 +215,7 @@ object LibraryActions {
         destination: MoveDestination): List<PlayAction.MoveCard> {
         val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }
         val ids = LibraryRules.slice(library.cards, selection, count)
+        if (destination.containerId == libraryId) return moveCaptured(board, ids, destination)
         return moveCaptured(board, ids, destination).mapIndexed { index, action -> action.copy(source = action.source.copy(
             edge = if (selection == ContentsSelection.TOP) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER,
             bottomSlice = if (selection == ContentsSelection.BOTTOM) ids.drop(index) else emptyList())) }
@@ -245,12 +246,15 @@ object LibraryActions {
         if (cards.all { it.containerId == target.id } && target.zone == PlayZone.LIBRARY) {
             val at = after?.let { reduced.indexOf(it) + 1 } ?: 0
             val final = reduced.toMutableList().apply { addAll(at, ids) }
-            if (final == target.cards) return emptyList()
+            if (final == target.cards && (destination.insertion == MoveInsertion.GAP || ids.all {
+                    it in if (destination.insertion == MoveInsertion.TOP) target.knownTop else target.knownBottom })) return emptyList()
         }
         return cards.mapIndexed { index, card ->
             val move = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
                 if (target.zone == PlayZone.LIBRARY) destination.copy(insertion = MoveInsertion.GAP,
-                    afterId = after, beforeId = before, pendingIds = ids.drop(index + 1)) else destination)
+                    afterId = after, beforeId = before, pendingIds = ids.drop(index + 1),
+                    libraryInsertion = destination.libraryInsertion ?: destination.insertion.takeIf {
+                        it == MoveInsertion.TOP || it == MoveInsertion.BOTTOM }) else destination)
             // I19's token-removal processor must never turn a disappearing member into an anchor.
             if (!card.token || target.zone !in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) after = card.id
             move

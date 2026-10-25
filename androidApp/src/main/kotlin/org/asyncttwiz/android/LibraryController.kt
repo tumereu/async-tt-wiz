@@ -25,11 +25,18 @@ class LibraryController(
     fun available() = connected() && current() != null
     private fun send(actions: List<PlayAction>, invocation: String = UUID.randomUUID().toString()): LibrarySubmission {
         var sent = 0; var refused = 0
+        var prefixAccepted = true
         for (action in actions) {
             val routed = if (action is PlayAction.MoveCard) current()?.let {
-                action.copy(destination = ownerMoveDestination(it.board, action.cardId, action.destination))
+                action.copy(source = action.source.copy(takeFromEdge = prefixAccepted &&
+                    (action.source.edge != MoveSourceEdge.MEMBER || action.source.bottomSlice.isNotEmpty())),
+                    destination = ownerMoveDestination(it.board, action.cardId, action.destination))
             } ?: action else action
-            if (available() && (request?.invoke(routed, invocation) ?: submit(routed))) sent++ else refused++
+            if (available() && (request?.invoke(routed, invocation) ?: submit(routed))) sent++ else {
+                refused++
+                // A refused prefix is never permission to refill its missing draw/mill with another card.
+                prefixAccepted = false
+            }
         }
         return LibrarySubmission(sent, refused)
     }
@@ -62,8 +69,8 @@ class LibraryController(
         }
         val ids = LibraryRules.slice(current.board.containers.single { it.id == libraryId }.cards, selection, count)
         val moves = ownerMoves(current.board, ids, destination).map { action -> action.copy(source = action.source.copy(
-            edge = if (selection == ContentsSelection.TOP) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER,
-            bottomSlice = if (selection == ContentsSelection.BOTTOM) ids.drop(ids.indexOf(action.cardId)) else emptyList())) }
+            edge = if (selection == ContentsSelection.TOP && action.destination.containerId != libraryId) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER,
+            bottomSlice = if (selection == ContentsSelection.BOTTOM && action.destination.containerId != libraryId) ids.drop(ids.indexOf(action.cardId)) else emptyList())) }
         // Keep source slice order across owners (TOP/BOTTOM guards refer to that original slice).
         return send(moves.sortedBy { ids.indexOf(it.cardId) })
     }

@@ -66,7 +66,10 @@ class LibraryActionsTest {
             MoveDestination(id(10), MoveInsertion.GAP, afterId = id(20), beforeId = id(22)))
         assertEquals("noOp", change(initial, actions.first()).outcome)
         assertEquals(listOf(20, 21, 23, 22).map(::id), members(apply(initial, actions)))
-        assertTrue(LibraryActions.moveSlice(initial.board, id(10), ContentsSelection.TOP, 2,
+        val fixed = apply(initial, LibraryActions.moveSlice(initial.board, id(10), ContentsSelection.TOP, 2,
+            MoveDestination(id(10), MoveInsertion.TOP)))
+        assertEquals(listOf(id(20), id(21)), fixed.board.containers.single { it.id == id(10) }.knownTop)
+        assertTrue(LibraryActions.moveSlice(fixed.board, id(10), ContentsSelection.TOP, 2,
             MoveDestination(id(10), MoveInsertion.TOP)).isEmpty())
     }
 

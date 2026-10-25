@@ -85,7 +85,8 @@ class HistoryRuntimeIntegrationTest {
                         assertEquals("accepted", f.owner.execute(fork).outcome)
                         val continuePlay = f.owner.command(PlayAction.AdjustLife(actor, "1"))
                             .copy(continuation = Continuation(displaced, true))
-                        assertEquals("accepted", f.owner.execute(continuePlay).outcome)
+                        val continued = f.owner.execute(continuePlay)
+                        assertEquals("accepted", continued.outcome, continued.reason)
                         assertEquals(3, tree(db, f).branchHeads.size)
                     }
                     for (projection in listOf(false, true)) {
@@ -176,8 +177,9 @@ class HistoryRuntimeIntegrationTest {
                 val crossReference = EventReference(f.root.id, branchTarget, tree(db, f).contextVersion(branchTarget))
                 assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.EventComment(crossReference,
                     "inactive cross-branch reference")).copy(continuation = Continuation(f.root.root.id, true))).outcome)
-                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.SetNote(card, "continued"))
-                    .copy(continuation = Continuation(branchTarget, true))).outcome)
+                val continued = f.recipient.execute(f.recipient.command(PlayAction.SetNote(card, "continued"))
+                    .copy(continuation = Continuation(branchTarget, true)))
+                assertEquals("accepted", continued.outcome, continued.reason)
                 val crossBranch = tree(db, f)
                 val blocked = f.owner.execute(control(f.owner, GameAction.Undo))
                 assertEquals("referenceBlocked", blocked.reason); assertEquals(branchTarget, blocked.targetNodeId)
@@ -257,7 +259,10 @@ class HistoryRuntimeIntegrationTest {
                     assertEquals(after, retained.stateAt(retained.currentNodeId)!!.copy(annotations = EventAnnotationState()))
                     if (undo) {
                         val removed = f.owner.execute(control(f.owner, GameAction.Undo))
-                        if (result.mutation!!.revealsInformation) {
+                        val libraryDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard ||
+                            action is PlayAction.DismissContents || action is PlayAction.MoveCard && before.board.containers.any {
+                                it.id == action.source.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
+                        if (result.mutation!!.revealsInformation && !libraryDisclosure) {
                             assertEquals("revealingTarget", removed.reason); assertEquals(after, state())
                         } else {
                             assertEquals("accepted", removed.outcome, "$action Undo: ${removed.reason}")

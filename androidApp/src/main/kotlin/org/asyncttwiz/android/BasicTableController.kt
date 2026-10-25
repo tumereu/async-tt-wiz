@@ -162,7 +162,8 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                         val reduced = currentTarget.cards.filter { it != id }
                         val index = reduced.indexOf(previous)
                         if (index < 0) break // A lost prefix is not permission to choose a fresh top.
-                        MoveDestination(target.id, MoveInsertion.GAP, afterId = previous, beforeId = reduced.getOrNull(index + 1))
+                        MoveDestination(target.id, MoveInsertion.GAP, afterId = previous, beforeId = reduced.getOrNull(index + 1),
+                            libraryInsertion = if ((intent.destination as TableDestination.Container).bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
                     }
                 }
                 else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
@@ -195,7 +196,8 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                     MoveInsertion.BOTTOM -> members.lastIndex
                     else -> members.filter { it != id }.indexOf(destination.afterId) + 1
                 }
-                if (sourceValid && !(card?.token == true && target.zone == PlayZone.LIBRARY) && members.indexOf(id) == index) {
+                if (sourceValid && !(card?.token == true && target.zone == PlayZone.LIBRARY) && members.indexOf(id) == index &&
+                    (target.zone != PlayZone.LIBRARY || id in currentTarget.knownTop || id in currentTarget.knownBottom)) {
                     prefix = id // An already-placed ordered member is still the next member's anchor.
                     continue
                 }

@@ -245,8 +245,15 @@ import kotlin.concurrent.Volatile
         // Merely viewing/arming never reaches this code. Allocate metadata only after real success.
         val forks = target != currentNodeId || index().children[target].orEmpty().isNotEmpty()
         val branchId = if (forks) CommandIds.uuidV5(command.requestId, "history-branch") else currentBranchId
-        val change = GameplayRules.change(state.copy(currentBranchId = branchId), actor, command, referenceResolver())
-        val mutation = change.mutation?.let { GameplayHistory.recontextualize(state, it) }
+        val reseeds = if (forks) LibraryKnowledge.reseeds(state, actor) else emptyList()
+        val reseeded = LibraryKnowledge.applyReseeds(state, reseeds, false) ?: return GameplayTreeChange(reason = "historyUnavailable")
+        val resolved = if (forks) LibraryKnowledge.resolveEdge(reseeded, command, state) else command
+        val change = GameplayRules.change(reseeded.copy(currentBranchId = branchId), actor, resolved, referenceResolver())
+        val mutation = change.mutation?.let {
+            val recorded = GameplayHistory.recontextualize(state, it.copy(transition = it.transition.copy(
+                delta = it.transition.delta!!.copy(libraryReseeds = reseeds))))
+            recorded.copy(transition = recorded.transition.copy(delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded))))
+        }
             ?: return GameplayTreeChange(reason = change.reason)
         if (mutation.id in nodes || mutation.id in removedParents) return GameplayTreeChange(reason = "duplicateNode")
         val next = copy(nodes = nodes.putShared(mutation.id, mutation), currentNodeId = mutation.id,

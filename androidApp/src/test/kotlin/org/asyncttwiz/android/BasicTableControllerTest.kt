@@ -269,12 +269,14 @@ class BasicTableControllerTest {
                 BasicTableController.sources(f.play, scope.cardIds))
             assertTrue(f.basic.handle(intent))
             val moves = f.commands().mapNotNull { ((it.action as GameAction.Play).action as? PlayAction.MoveCard) }
-            // Card 40 is already at top: omit its no-op, but retain it as card 42's prefix.
-            assertEquals(if (bottom) listOf(f.id(40), f.id(42)) else listOf(f.id(42)), moves.map { it.cardId })
+            // An already-top UNKNOWN card still needs a node to explicitly fix its position.
+            assertEquals(listOf(f.id(40), f.id(42)), moves.map { it.cardId })
             assertEquals(MoveInsertion.GAP, moves.last().destination.insertion)
             assertEquals(f.id(40), moves.last().destination.afterId)
             val order = f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards
             assertEquals(if (bottom) listOf(41, 43, 40, 42) else listOf(40, 42, 41, 43), order.map { it.takeLast(2).toInt() })
+            val library = f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }
+            assertEquals(listOf(f.id(40), f.id(42)), if (bottom) library.knownBottom else library.knownTop)
         }
     }
 

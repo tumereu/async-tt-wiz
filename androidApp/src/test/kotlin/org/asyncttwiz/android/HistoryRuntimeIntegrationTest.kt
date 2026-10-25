@@ -342,7 +342,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun selectiveControlsPredictButRevealBlockedControlsKeepCaptureBarrier() {
+    @Test fun selectiveControlsAndOwnRevealUndoBothPredictAndMatchAcceptedState() {
         for (revealed in listOf(false, true)) Fixture().use { x ->
             x.connect(); x.publish()
             assertTrue(x.session.gameplay(x.game, f.a, if (revealed)
@@ -353,23 +353,18 @@ class HistoryRuntimeIntegrationTest {
                     GameAction.Play(PlayAction.AdjustLife(f.b, "1")), f.id(14), "1")
                 x.message(x.execute(remote, f.b))
             }
-            val before = x.session.play(x.game)
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
-            if (revealed) assertEquals(before, x.session.play(x.game))
+            if (revealed) {
+                assertTrue(x.session.play(x.game)!!.board.contentsDisplays.isEmpty())
+                assertTrue(x.session.play(x.game)!!.board.cards.none { it.knownToAll })
+            }
             else {
                 assertEquals("20", x.session.play(x.game)!!.board.players.first().life)
                 assertEquals("21", x.session.play(x.game)!!.board.players.last().life)
             }
             assertEquals(GameAction.Undo, x.commands().last().action)
-            if (revealed) {
-                assertFalse(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1")))
-                val undo = x.commands().last()
-                x.message(GameResult(undo.requestId, undo.scope, "rejected", "revealingTarget", ingressOrdinal = "2"))
-                assertTrue("revealed hidden information" in x.session.error!!)
-            } else {
-                x.message(x.execute(x.commands().last()))
-                assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.play(x.game))
-            }
+            x.message(x.execute(x.commands().last()))
+            assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.play(x.game))
         }
     }
 

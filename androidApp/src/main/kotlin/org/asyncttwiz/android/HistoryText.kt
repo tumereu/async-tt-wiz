@@ -26,7 +26,9 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun zone(id: String) = container(id)?.zone?.name?.lowercase() ?: "another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
-        return CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty())
+        return card.knownToAll || before?.board?.contentsDisplays?.any {
+            card.id in it.cardIds && it.faceVisibleTo(card.id, viewer.orEmpty()) } == true ||
+            CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty())
     }
     fun card(id: String): String {
         val old = before?.let { CombatStackRules.inspection(it.board, id) }
@@ -37,7 +39,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             faceId = fields.find { it.field == GameplayField.FACE }?.to ?: old.faceId,
             covered = fields.find { it.field == GameplayField.COVERED }?.to?.toBooleanStrictOrNull() ?: old.covered,
             explicitlyCovered = fields.find { it.field == GameplayField.EXPLICITLY_COVERED }?.to?.toBooleanStrictOrNull() ?: old.explicitlyCovered)
-        val shown = if (visible(next)) next else old.takeIf(::visible) ?: return "a card"
+        val exposure = transition.disclosures.firstOrNull { it.cardId == old.id && viewer in it.viewers }
+        val shown = if (exposure != null) next.copy(faceId = exposure.faceId) else if (visible(next)) next else old.takeIf(::visible) ?: return "a card"
         val definition = before?.definitions?.find { it.digest == shown.definition }
             ?: (event.action as? PlayAction.CreateToken)?.definition?.takeIf { it.digest == shown.definition }
         return definition?.definition?.faces
@@ -88,9 +91,13 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.ShowContents -> {
             val size = transition.contents?.to?.cardIds?.size
             val quantity = size?.let { "$it ${if (it == 1) "card" else "cards"}" } ?: "cards"
-            text("${if (action.reveal) "revealed" else "viewed"} $quantity from ${zone(action.containerId)}", if (action.reveal) "Reveal" else "View")
+            text("${if (action.reveal) "revealed" else if (action.selection == ContentsSelection.ALL) "searched" else "looked at"} $quantity from ${zone(action.containerId)}",
+                if (action.reveal) "Reveal" else if (action.selection == ContentsSelection.ALL) "Search" else "Look")
         }
-        is PlayAction.DismissContents -> text("dismissed the card display", "Dismiss")
+        is PlayAction.DismissContents -> text(if (transition.contents?.from?.search == true) "closed Search and shuffled the library"
+            else "closed the card panel: ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
+        is PlayAction.RevealContentsCard -> text("revealed ${card(action.cardId)} in the panel", "Reveal card")
+        is PlayAction.ReorderContents -> text("reordered the card panel", "Reorder panel")
         is PlayAction.EventComment -> text("commented: ${historyPlainText(action.text)}", "Comment")
         is PlayAction.Ping -> text("pinged ${when (action.target.kind) {
             PingTargetKind.PLAYER -> action.target.id?.let { historyPlayerName(it, usernames) } ?: "a player"

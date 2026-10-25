@@ -20,6 +20,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     var editing by remember(controller) { mutableStateOf<String?>(null) }
     var text by remember { mutableStateOf("") }
     val enabled = controller.available()
+    val mayOpen = enabled && board.contentsDisplays.none { it.author == owner }
     fun finish(result: LibrarySubmission) { if (result.refused == 0 && result.submitted > 0) onComplete() }
     fun show(slice: ContentsSelection, count: Int, reveal: Boolean = false) {
         if (onShow != null) onShow(slice, count, reveal) else finish(controller.show(slice, count, reveal))
@@ -40,14 +41,14 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (many in listOf(false, true)) Row {
             for (action in listOf("Draw", "Reveal", "Look", "Mill", "Exile")) {
-                InlinePopupCell(MenuControl("$action ${if (many) "N…" else "1"}", enabled) {
+                InlinePopupCell(MenuControl("$action ${if (many) "N…" else "1"}", if (action in listOf("Look", "Reveal")) mayOpen else enabled) {
                     if (many) { text = quantities.read(action).toString(); editing = action }
                     else perform(action, 1)
                 })
             }
         }
         Row {
-            InlinePopupCell(MenuControl("Search", enabled) { show(ContentsSelection.ALL, 1) })
+            InlinePopupCell(MenuControl("Search", mayOpen) { show(ContentsSelection.ALL, 1) })
             InlinePopupCell(MenuControl("Shuffle", enabled) { finish(controller.shuffle()) })
         }
         Text("Mulligan (hand → shuffle → draw)", style = MaterialTheme.typography.labelMedium)
@@ -74,20 +75,6 @@ internal class LibraryQuantityStore(context: Context, account: String) {
     private val prefix = "${account.length}:$account:"
     fun read(action: String) = preferences.getInt(prefix + action, 1).coerceAtLeast(0)
     fun write(action: String, value: Int) { preferences.edit().putInt(prefix + action, value.coerceAtLeast(0)).apply() }
-}
-
-@Composable
-internal fun LibraryDestinationPicker(board: BoardState, selected: MoveDestination?, onSelect: (MoveDestination) -> Unit,
-    names: Map<String, String> = emptyMap(), sourceIds: List<String> = emptyList(), sourceContainerId: String? = null) {
-    var open by remember { mutableStateOf(false) }
-    val choices = libraryDestinations(board, names, sourceIds, sourceContainerId)
-    Box {
-        MenuButton(choices.firstOrNull { it.second == selected }?.first ?: "Destination", Modifier.fillMaxWidth()) { open = true }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            choices.forEach { (label, destination) -> DropdownMenuItem(text = { Text(label) },
-                onClick = { onSelect(destination); open = false }) }
-        }
-    }
 }
 
 internal fun libraryDestinations(board: BoardState, names: Map<String, String> = emptyMap(),

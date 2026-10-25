@@ -162,7 +162,7 @@ internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTr
 
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
-internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to (it.bounds to it.tapped) }
+internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to Triple(it.bounds, it.tapped, it.covered) }
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -185,7 +185,8 @@ class HistorySceneAnimation(initial: TableScene) {
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
             fun mix(x: Float, y: Float) = x + (y - x) * t
-            val item = latestItems[id] ?: b.item
+            val flipping = a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
+            val item = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
                 TableCardTransform(mix(from.width, to.width), mix(from.height, to.height), mix(from.rotation, to.rotation))
@@ -206,7 +207,8 @@ class HistorySceneAnimation(initial: TableScene) {
                 else -> TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
                     mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height))
             }
-            HistoryAnimatedItem(item.copy(cardTransform = face, inTransit = item.kind == TableItemKind.CARD && t < 1f &&
+            HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * t).coerceAtLeast(.02f) else 1f,
+                inTransit = item.kind == TableItemKind.CARD && t < 1f &&
                 (a.bounds != b.bounds || a.item.faceTransform(a.bounds) != b.item.faceTransform(b.bounds))), bounds, mix(a.alpha, b.alpha))
         }.sortedBy { it.item.inTransit }
     }
@@ -248,6 +250,12 @@ class HistorySceneAnimation(initial: TableScene) {
             val source = departure.item.sourceId
             if (destination.sources[source] != target.sources[source]) continue
             target.realCardBounds(source)?.let { bounds ->
+                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
+            }
+        }
+        // A panel reference returning to a special pile still flies to that pile, rather than fading in place.
+        for (departure in start.values.filter { it.item.viewport.startsWith("cardPanel/") && it.item.animationId !in end }) {
+            target.realCardBounds(departure.item.cardId)?.let { bounds ->
                 end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
             }
         }

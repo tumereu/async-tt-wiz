@@ -142,7 +142,7 @@ class LibraryActionsTest {
         assertEquals("accepted", change(state(emptyList()), action).outcome)
     }
 
-    @Test fun acceptedViewRevealMembersFreezeAndDismissalNeverMovesCards() {
+    @Test fun panelsCaptureMembersRemoveMovedCardsAndResolveRestOnClose() {
         val initial = state()
         val action = PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3)
         val predicted = apply(initial, listOf(action))
@@ -154,12 +154,12 @@ class LibraryActionsTest {
         assertTrue(display.facesVisibleTo(id(8))); assertFalse(display.facesVisibleTo(id(7)))
         var current = apply(predicted, LibraryActions.draw(predicted.board, id(10), id(11), 1))
         current = apply(current, listOf(PlayAction.ShuffleLibrary(id(10), seed)))
-        assertEquals(display, current.board.contentsDisplays.single())
+        assertEquals(display.cardIds.drop(1), current.board.contentsDisplays.single().cardIds)
         assertEquals(id(11), current.board.cards.single { it.id == display.cardIds.first() }.containerId)
         val dismissed = apply(current, listOf(PlayAction.DismissContents(display.id)))
         assertTrue(dismissed.board.contentsDisplays.isEmpty())
         assertEquals(current.board.cards, dismissed.board.cards)
-        assertEquals(current.board.containers, dismissed.board.containers)
+        assertEquals(display.cardIds.drop(1), members(dismissed).take(2))
         assertEquals("noOp", change(dismissed, PlayAction.DismissContents(display.id)).outcome)
         val reveal = apply(initial, listOf(action.copy(selection = ContentsSelection.BOTTOM, count = 2, reveal = true)))
         assertEquals(listOf(22, 23).map(::id), reveal.board.contentsDisplays.single().cardIds)

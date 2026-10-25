@@ -8,12 +8,14 @@ import kotlinx.serialization.Serializable
 @Serializable enum class CounterColor { RED, BLUE, GREEN, YELLOW, PURPLE, GRAY }
 @Serializable data class PlayPlayer(val accountId: String, val life: String = "20",
     val counters: Map<CounterColor, String> = emptyMap())
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayCard(val id: String, val definition: String, val owner: String,
     val containerId: String, val faceId: String, val covered: Boolean = true, val tapped: Boolean = false,
     val corner: String = "", val counters: Map<CounterColor, String> = emptyMap(), val note: String = "",
     val token: Boolean = false, val placement: PlayPlacement? = null,
     /** Old snapshots used covered=true for hidden-zone defaults, even after entering public zones. */
-    val explicitlyCovered: Boolean = false) {
+    val explicitlyCovered: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownToAll: Boolean = false) {
     val isFaceDown: Boolean get() = covered && explicitlyCovered
 }
 /** Library order is top first. Other empty zones already have stable identities for later commands. */
@@ -30,6 +32,7 @@ object CardVisibility {
 
     fun isVisibleFaceUp(board: BoardState, card: PlayCard, viewer: String): Boolean {
         val container = board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        if (card.knownToAll) return true
         if (container.zone == PlayZone.HAND && container.accountId == card.owner &&
             board.stackEffects.any { it.sourceId == card.id && it.frozen == null &&
                 it.id in board.containers.singleOrNull { c -> c.zone == PlayZone.STACK }?.cards.orEmpty() }) return true

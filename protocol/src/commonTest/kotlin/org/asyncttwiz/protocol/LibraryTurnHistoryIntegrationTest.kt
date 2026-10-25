@@ -55,13 +55,13 @@ class LibraryTurnHistoryIntegrationTest {
         val display = view.transition.contents!!.to!!
         assertEquals(current.board.containers.first().cards.take(2), display.cardIds)
         assertTrue(display.facesVisibleTo(id(7))); assertFalse(display.facesVisibleTo(id(8)))
-        accept(PlayAction.ShuffleLibrary(id(10), RandomV1.encodeSeed(ByteArray(32) { 9 })), true, "shuffle", 6, "shuffle")
-        assertEquals(display, current.board.contentsDisplays.single())
-        val reveal = accept(PlayAction.ShowContents(id(10), ContentsSelection.BOTTOM, 2, reveal = true), true, "view", 7, "visibility")
+        accept(PlayAction.DismissContents(display.id), true, "closure", 6, "close")
+        assertTrue(current.board.contentsDisplays.isEmpty())
+        val reveal = accept(PlayAction.ShowContents(id(10), ContentsSelection.BOTTOM, 2, reveal = true), false, "view", 7, "visibility")
         val revealed = reveal.transition.contents!!.to!!
         assertEquals(current.board.containers.first().cards.takeLast(2), revealed.cardIds)
         assertTrue(revealed.facesVisibleTo(id(8)))
-        accept(PlayAction.DismissContents(display.id), true, "closure", 8, "close")
+        accept(PlayAction.DismissContents(revealed.id), true, "closure", 8, "close")
         val turn = accept(PlayAction.EndTurn, false, "closure", 8, "close")
         assertEquals(HistorySignificance.TURN_TRANSITION, turn.grouping!!.significance)
         assertEquals(TurnState(id(8), "2"), current.board.turn)
@@ -74,9 +74,9 @@ class LibraryTurnHistoryIntegrationTest {
         val draw = accept(LibraryActions.draw(current.board, id(10), id(11), 1).single(), true, "move", 13, "download")
         assertEquals("${id(10)}/${id(11)}", draw.grouping!!.key)
         accept(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), false, "move", 13, "download")
-        assertEquals(revealed, current.board.contentsDisplays.single()) // No refill after shuffle/movement.
+        assertTrue(current.board.contentsDisplays.isEmpty())
         accept(PlayAction.ShuffleLibrary(id(10), seed), true, "shuffle", 15, "shuffle", id(8))
-        assertEquals(listOf("1", "2", "3", "4", "1", "1", "1", "1", "2", "3", "4", "5", "1", "2", "1"), groups.map { it.count })
+        assertEquals(listOf("1", "2", "3", "4", "1", "1", "2", "1", "2", "3", "4", "5", "1", "2", "1"), groups.map { it.count })
         assertEquals(mutations[0].id, groups[3].firstNodeId) // Earlier prefix boundaries did not migrate.
         val corrupted = shuffle.copy(grouping = shuffle.grouping.copy(icon = "casino"))
         val tapped = GameplayRules.change(initial(), id(7), command(mutations[0].action, 1)).state!!

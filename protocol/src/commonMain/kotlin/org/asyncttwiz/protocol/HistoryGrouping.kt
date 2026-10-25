@@ -25,7 +25,10 @@ import kotlinx.serialization.Serializable
     ATTENTION_PASS(HistoryCategory.B, 90, false)
 }
 
-@Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: String, val key: String? = null) {
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: String, val key: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isolated: Boolean = false) {
     init {
         require(icon.isNotBlank())
         require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
@@ -35,10 +38,18 @@ import kotlinx.serialization.Serializable
 @Serializable data class HistoryRepresentative(val nodeId: String, val semantic: HistorySemantic)
 
 object HistoryGrouping {
+    /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
+    internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
+        val semantic = classify(action, board.containers, transition)
+        if (action !is PlayAction.ResetCorner && action !is PlayAction.ClearCardCounter && action !is PlayAction.SetTapped) return semantic
+        val search = board.contentsDisplays.firstOrNull { it.author == author && it.search && it.panelVersion >= 2 }
+        return if (search == null) semantic else semantic.copy(panelSession = search.id)
+    }
     /** Exhaustive mapping of the actual implemented catalog. New tools must add their exact mapping here.
      * Zone identity comes from accepted containers, not labels, card text, timers or invocation proximity. */
     fun classify(action: PlayAction, containers: List<PlayContainer> = emptyList(),
-        transition: GameplayTransition? = null): HistorySemantic = when (action) {
+        transition: GameplayTransition? = null): HistorySemantic {
+        val semantic = when (action) {
         is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "flag")
         PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, "outlined_flag")
         is PlayAction.SetTapped -> HistorySemantic(HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
@@ -55,6 +66,8 @@ object HistoryGrouping {
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) "visibility" else "pageview")
         is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, "close")
+        is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
+        is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "open_with", action.displayId)
         is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
         is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, "ads_click")
         is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.ClearCardCounter ->
@@ -104,6 +117,10 @@ object HistoryGrouping {
                         "download" else "open_with", "${action.source.containerId}/${action.destination.containerId}")
             }
         }
+        }
+        val panel = transition?.contents?.from ?: transition?.contents?.to
+        return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
+            semantic.copy(panelSession = panel.id) else semantic
     }
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */
@@ -112,7 +129,9 @@ object HistoryGrouping {
         val context = previous?.let { group -> HistoryCategory.entries.single { it.key == group.category } }
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
-        val joins = previous != null && (pass || (previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
+        val joins = previous != null && !semantic.isolated && previous.representative?.semantic?.isolated != true &&
+            ((semantic.panelSession != null && previous.panelSession == semantic.panelSession && previous.author == author) ||
+            (semantic.panelSession == null && previous.panelSession == null && (pass || (previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
             HistoryCategory.T -> previous.tapsAndPingsOnly
             HistoryCategory.P, HistoryCategory.B -> true
             HistoryCategory.F, HistoryCategory.R -> pending
@@ -122,11 +141,11 @@ object HistoryGrouping {
                 HistoryCategory.E, HistoryCategory.K, HistoryCategory.L -> incoming == context
                 else -> false
             }
-        }))
+        }))))
         val representative = HistoryRepresentative(nodeId, semantic)
         if (!joins) return GameplayGroup(CommandIds.uuidV5(requestId, "group/0"), author, nodeId, nodeId,
             (if (incoming in setOf(HistoryCategory.P, HistoryCategory.B)) HistoryCategory.O else incoming).key,
-            semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative)
+            semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative, semantic.panelSession)
         val old = requireNotNull(previous)
         val nextContext = when {
             incoming in setOf(HistoryCategory.P, HistoryCategory.B) -> context!!

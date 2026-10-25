@@ -64,8 +64,12 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                         if (state.restoreFailed) Text(state.message.orEmpty())
                     }
                     if (state.restoreFailed) {
-                        Button(onClick = controller::restore) { Text("Retry") }
-                        TextButton(onClick = controller::logout) { EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout") }
+                        if (state.savedLoginUnrecoverable) {
+                            Button(onClick = controller::logout) { Text("Sign in") }
+                        } else {
+                            Button(onClick = controller::restore) { Text("Retry") }
+                            TextButton(onClick = controller::logout) { EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout") }
+                        }
                     }
                 }
                 state.page == AuthPage.REGISTER && landscape -> Row(Modifier.fillMaxSize().padding(16.dp),

@@ -182,9 +182,12 @@ class AuthControllerTest {
         assertIs<StoredSession.Empty>(store.value)
         assertFalse(controller.state.restoring)
         assertNull(controller.state.account)
-        store.value = StoredSession.Unavailable; controller.restore(); worker.drain()
+        store.value = StoredSession.Unrecoverable; controller.restore(); worker.drain()
+        assertIs<StoredSession.Unrecoverable>(store.value)
+        assertTrue(controller.state.savedLoginUnrecoverable)
+        controller.logout(); worker.drain()
         assertIs<StoredSession.Empty>(store.value)
-        assertTrue(controller.state.message!!.contains("unavailable"))
+        assertFalse(controller.state.restoring)
     }
 
     @Test fun finishingOwnerFencesQueuedCallbacksAndDropsPassword() {

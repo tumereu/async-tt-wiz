@@ -34,14 +34,14 @@ class ProtectedSessionStoreTest {
 
     @Test fun missingKeyDamagedCiphertextAndChangedOriginNeverYieldAPlaintextFallback() {
         store.save(token)
-        assertEquals(StoredSession.Unavailable, ProtectedSessionStore(context, "https://other.example", alias, file).load())
+        assertEquals(StoredSession.Unrecoverable, ProtectedSessionStore(context, "https://other.example", alias, file).load())
         val bytes = file.readBytes(); bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte(); file.writeBytes(bytes)
-        assertEquals(StoredSession.Unavailable, store.load())
+        assertEquals(StoredSession.Unrecoverable, store.load())
         store.save(token)
         KeyStore.getInstance("AndroidKeyStore").apply { load(null); deleteEntry(alias) }
-        assertEquals(StoredSession.Unavailable, store.load())
+        assertEquals(StoredSession.Unrecoverable, store.load())
         // A replacement key with the same alias cannot decrypt the original bytes either.
         val old = file.readBytes(); store.save(token); file.writeBytes(old)
-        assertEquals(StoredSession.Unavailable, store.load())
+        assertEquals(StoredSession.Unrecoverable, store.load())
     }
 }

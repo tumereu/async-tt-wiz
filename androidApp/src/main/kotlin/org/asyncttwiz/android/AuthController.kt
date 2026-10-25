@@ -20,6 +20,7 @@ data class AuthState(
     val busy: Boolean = false,
     val restoring: Boolean = true,
     val restoreFailed: Boolean = false,
+    val savedLoginUnrecoverable: Boolean = false,
     val account: AccountIdentity? = null,
     val message: String? = null,
     val error: Boolean = false,
@@ -145,10 +146,8 @@ class AuthController(
     private suspend fun restoreSaved(epoch: Long): AuthState? =
             when (val saved = store.load()) {
                 StoredSession.Empty -> AuthState(restoring = false)
-                StoredSession.Unavailable -> {
-                    store.clear()
-                    AuthState(restoring = false, message = "Saved login is unavailable. Please sign in again.", error = true)
-                }
+                StoredSession.Unavailable -> storageFailure(permanent = false)
+                StoredSession.Unrecoverable -> storageFailure(permanent = true)
                 is StoredSession.Present -> try {
                     val identity = serviceRetry(current = { generation.get() == epoch }) { accounts.identity(saved.token) }
                     if (generation.get() != epoch) return null
@@ -215,9 +214,8 @@ class AuthController(
         val epoch = generation.get()
         worker.execute {
             if (generation.get() != epoch) return@execute
-            val next = try { runBlocking { action()?.let(::withRemembered) } } catch (_: Exception) {
-                AuthState(restoring = true, restoreFailed = true,
-                    message = "Protected login storage could not be opened. Retry without uninstalling.", error = true)
+            val next = try { runBlocking { action()?.let(::withRemembered) } } catch (failure: Exception) {
+                storageFailure(permanentSessionFailure(failure))
             } ?: return@execute
             post { if (!closed && generation.get() == epoch) {
                 val context = reauthenticationContext
@@ -231,7 +229,12 @@ class AuthController(
         }
     }
 
-    private fun withRemembered(next: AuthState): AuthState = if (accountSwitcher)
+    private fun storageFailure(permanent: Boolean) = AuthState(restoring = true, restoreFailed = true,
+        savedLoginUnrecoverable = permanent, error = true,
+        message = if (permanent) "Your saved sign-in could not be restored. Please sign in again."
+            else "Protected login storage could not be opened. Retry without uninstalling.")
+
+    private fun withRemembered(next: AuthState): AuthState = if (accountSwitcher && !next.restoreFailed)
         next.copy(rememberedAccounts = store.remembered().map { it.account }) else next
 
     fun drawer(open: Boolean) {
@@ -284,6 +287,7 @@ class AuthController(
     private fun leaveAccount(revokeOutgoing: Boolean, nextAccountId: String? = null) {
         if (closed) return
         val retryingCleanup = state.logoutFailed
+        val resetProtectedLogin = state.savedLoginUnrecoverable
         reauthenticationContext = null
         clearPrivateWork()
         val oldToken = synchronized(ownerLock) {
@@ -296,11 +300,29 @@ class AuthController(
             if (!retryingCleanup) logoutRevokeAttempted = false
             var outgoing = oldToken
             val next = try {
+                var reset = resetProtectedLogin
                 if (revokeOutgoing) {
-                    outgoing = outgoing ?: (store.load() as? StoredSession.Present)?.token
-                    outgoing?.let { forget(it) }
+                    if (outgoing == null) when (val saved = store.load()) {
+                        is StoredSession.Present -> outgoing = saved.token
+                        StoredSession.Unrecoverable -> reset = true
+                        StoredSession.Unavailable -> error("Protected login temporarily unavailable")
+                        StoredSession.Empty -> Unit
+                    }
+                    outgoing?.let { value ->
+                        try { forget(value) } catch (failure: Exception) {
+                            if (!permanentSessionFailure(failure)) throw failure
+                            reset = true
+                        }
+                    }
                 }
-                local.logout(store)
+                if (accountSwitcher && !reset) try { store.remembered() } catch (failure: Exception) {
+                    if (!permanentSessionFailure(failure)) throw failure
+                    reset = true
+                }
+                val cleanupStore = if (reset) object : SessionStore by store {
+                    override fun clear() = store.resetUnrecoverable()
+                } else store
+                local.logout(cleanupStore)
                 val saved = if (nextAccountId != null) store.remembered().firstOrNull {
                     it.account.identity.accountId == nextAccountId
                 } else null

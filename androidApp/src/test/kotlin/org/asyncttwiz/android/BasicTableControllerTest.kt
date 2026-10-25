@@ -18,7 +18,7 @@ internal class BasicTableFixture {
     val root = data.initial.copy(definitions = listOf(SubmittedDefinition(DeckJson.digest(definition), definition)),
         board = data.initial.board.copy(cards = (40..43).map { n -> data.initial.board.cards.single().copy(
             id = id(n), definition = DeckJson.digest(definition), containerId = container(PlayZone.LIBRARY),
-            corner = "7/8", counters = if (n == 40) mapOf(CounterColor.BLUE to "3") else emptyMap(), note = "retained") },
+            corner = "7/8", placement = null, counters = if (n == 40) mapOf(CounterColor.BLUE to "3") else emptyMap(), note = "retained") },
             containers = listOf(actor, other).flatMap { owner -> PlayZone.entries.filter { it != PlayZone.STACK }.map { zone ->
                 PlayContainer(container(zone, owner), zone, owner,
                     if (owner == actor && zone == PlayZone.LIBRARY) (40..43).map(::id) else emptyList())
@@ -84,10 +84,23 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    @Test fun nonBattlefieldOrientationIsIgnoredWithoutShowingAnError() {
+        val f = BasicTableFixture(); f.connect()
+        try {
+            assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val before = f.commands().size
+            assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(f.id(40), listOf(f.id(40))), true, toggle = true)))
+            assertNull(toolkit.error)
+            assertEquals(before, f.commands().size)
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun doubleTapUsesCurrentContextNotStaleDrawingOrFirstSelectedCardAndFailedQueueIsVisible() {
         val f = BasicTableFixture(); f.connect()
         try {
             val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            for (n in 40..41) assertTrue(f.move(n, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), n - 40, 0)))
             assertTrue(f.lobby.gameplay(PlayAction.SetTapped(f.id(41), true)))
             val before = f.commands().size
             // Drawing still says untapped and selection order starts with a different card.
@@ -140,6 +153,7 @@ class BasicTableControllerTest {
     @Test fun rotateSkipsStackMembersOfMixedSelection() {
         val f = BasicTableFixture(); f.connect()
         assertTrue(f.legacyStack(40))
+        assertTrue(f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)))
         val before = f.commands().size
         assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true)))
         assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })

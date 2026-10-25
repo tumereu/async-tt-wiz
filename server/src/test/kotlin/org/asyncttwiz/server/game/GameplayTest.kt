@@ -247,7 +247,9 @@ class GameplayTest {
                     }
                     fun command(action: PlayAction, stream: GameStreamReady = ast) = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
                         GameAction.Play(action), stream.streamId, stream.generation)
-                    val draw = command(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)))
+                    val field = root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == a.account.accountId }
+                    val draw = command(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
+                        MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))))
                     val tap = command(PlayAction.SetTapped(library.cards.first(), true))
                     val life = command(PlayAction.AdjustLife(a.account.accountId, "1"))
                     listOf(draw, tap, life).forEach(owner::send) // All sent before reading any acknowledgement.
@@ -267,7 +269,7 @@ class GameplayTest {
                     var accepted = apply(owner.revision(secondLife.requestId))
                     val stack = root.board.containers.single { it.zone == PlayZone.STACK }
                     val oldDigest = GameplayRules.stackDigest(accepted)
-                    val rotate = command(PlayAction.SetTapped(library.cards[1], true))
+                    val rotate = command(PlayAction.SetNote(library.cards[1], "unrelated Stack guard edit"))
                     val entry = command(PlayAction.MoveCard(library.cards[1], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), oldDigest))
                     owner.send(rotate); owner.send(entry)
                     assertEquals("accepted", owner.result(rotate.requestId).outcome); assertEquals("accepted", owner.result(entry.requestId).outcome)
@@ -300,7 +302,7 @@ class GameplayTest {
                     recipient.send(SubscribeGame(game.id, final.resultRevision)); assertEquals(finalPlay, recipient.next<GameHead>().play)
 
                     var beforeReorder = finalPlay
-                    val effectSource = beforeReorder.board.containers.single { it.id == hand.id }.cards.first()
+                    val effectSource = beforeReorder.board.containers.single { it.id == field.id }.cards.first()
                     repeat(2) {
                         val add = command(PlayAction.Stack(StackAction.AddEffect(effectSource,
                             CombatStackRules.stackDigest(beforeReorder))))

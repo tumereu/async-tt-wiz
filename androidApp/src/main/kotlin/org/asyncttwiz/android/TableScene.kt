@@ -472,7 +472,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                             commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
                             if (writable && scene.canDrag(item)) {
-                                if (item.zone != PlayZone.STACK) {
+                                if (item.zone == PlayZone.BATTLEFIELD && !item.projection) {
                                     commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
                                     commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
                                 }
@@ -846,7 +846,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     fun emptySlot(i: TableItem, color: Color) {
         val z = 1f
-        val x = i.bounds.x + 8f * z; val y = i.bounds.y + 8f * z
+        val inset = if (i.countBadge != null) 28f * .24f else 8f
+        val x = i.bounds.x + inset * z; val y = i.bounds.y + inset * z
         val w = 28f; val h = 40f
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
@@ -883,6 +884,18 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             else -> Unit
         }
     }
+    fun noteChip(i: TableItem, x: Float, y: Float, z: Float) {
+        if (i.covered || i.note.isEmpty()) return
+        // Fixed readable type, not shrink-to-fit: clip long notes to the art width.
+        paint.textSize = 7 * z * density
+        val chipWidth = minOf(24 * z, cache.measure(i.note.take(32)) / density + 2 * z)
+        drawRoundRect(Color.White, xy(x + 2 * z, y + 10 * z), size(chipWidth, 7 * z), CornerRadius(2 * z * density))
+        clipRect((x + 3 * z) * density, (y + 10 * z) * density,
+            (x + z + chipWidth) * density, (y + 17 * z) * density) {
+            paint.color = android.graphics.Color.DKGRAY
+            text(i.note, x + 3 * z, y + 15.5f * z, 32)
+        }
+    }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         translate(x * density, y * density) {
         val x = 0f; val y = 0f
@@ -905,7 +918,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return@translate
-        if (mode == TableArtworkMode.CUSTOM_CARD) { paint.textSize = 11 * density; return@translate }
+        if (mode == TableArtworkMode.CUSTOM_CARD) { noteChip(i, x, y, z); paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + 8 * z, cardWidth - 2 * titleInset)
@@ -918,6 +931,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
         paint.textSize = 7 * z * density
         fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
+        noteChip(i, x, y, z)
         paint.textSize = 11 * density
         }
     }
@@ -1063,7 +1077,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                         val d = peek * 4f
                         val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
                         val x = b.x + 8 - d; val y = b.y + 8 - d
-                        if (peek == 0) cardFace(i, x, y, peekColor, i.note) else {
+                        if (peek == 0) cardFace(i, x, y, peekColor, i.faceTitle) else {
                             drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(28f, 40f), CornerRadius(2 * density))
                             drawRoundRect(peekColor, xy(x, y), size(28f, 40f), CornerRadius(2 * density), style = Stroke(density))
                         }
@@ -1084,16 +1098,15 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
                       if (i.panelRevealed && !i.covered) {
                           // Center in the art crop (11..30), clear of the title and corner text.
-                          val cx = x + cardWidth / 2; val cy = y + 20.5f * z
-                          drawCircle(Color.White, 6.5f * z * density, xy(cx, cy))
-                          drawOval(color, xy(cx - 5f * z, cy - 3f * z), size(10f * z, 6f * z), style = Stroke(.8f * z * density))
-                          drawCircle(color, 1.6f * z * density, xy(cx, cy))
+                           val cx = x + cardWidth / 2; val cy = y + 21f * z
+                           drawCircle(Color.White, 3.5f * z * density, xy(cx, cy))
+                           drawOval(color, xy(cx - 3f * z, cy - 1.8f * z), size(6f * z, 3.6f * z), style = Stroke(.6f * z * density))
+                           drawCircle(color, 1f * z * density, xy(cx, cy))
                       }
                      paint.textSize = 7 * z * density
-                     if (i.note.isNotEmpty()) fittedText(i.note, x + 3 * z, y + 20 * z, cardWidth - 6 * z)
-                      i.counters.entries.take(6).forEachIndexed { n, entry ->
-                          drawCircle(counterColor(entry.key), 5 * z * density, xy(x + (6 + n * 7) * z, y + cardHeight - 18 * z))
-                          text(entry.value, x + (3 + n * 7) * z, y + cardHeight - 16 * z, 3)
+                       if (!i.covered) i.counters.entries.take(6).forEachIndexed { n, entry ->
+                           drawCircle(counterColor(entry.key), 5 * z * density, xy(x + (6 + n * 7) * z, y + cardHeight - 18 * z))
+                           text(entry.value, x + (3 + n * 7) * z, y + cardHeight - 16 * z, 3)
                        }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
@@ -1115,13 +1128,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
     for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {
-        val b = i.bounds
-        val port = scene.viewports.single { it.id == i.viewport }.bounds
+        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else TableBounds(i.bounds.x, i.bounds.y, 20f, 20f)
+        val port = if (i.countBadge != null) TableBounds(0f, 0f, this.size.width / density, this.size.height / density)
+            else scene.viewports.single { it.id == i.viewport }.bounds
         if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
-            drawCircle(Color(0xff345451), 10 * density, xy(b.x + 10, b.y + 10))
-            drawCircle(Color.White, 10 * density, xy(b.x + 10, b.y + 10), style = Stroke(density))
+            drawCircle(Color(0xff345451), 10 * density, xy(badge.center.x, badge.center.y))
+            drawCircle(Color.White, 10 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
             paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
-            text(i.value, b.x + 10 - cache.measure(i.value) / density / 2, b.y + 14, 5)
+            text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y + 4, 5)
             paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
         }
     }

@@ -87,9 +87,9 @@ class GameplayDurabilityTest {
                 val draw = PlayAction.MoveCard(first, MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED))
                 val inputs = listOf(fixture.owner.command(PlayAction.AdjustLife(a.account.accountId, "1")),
                     fixture.recipient.command(PlayAction.AdjustLife(a.account.accountId, "1")), fixture.owner.command(draw),
-                    fixture.recipient.command(PlayAction.SetTapped(first, true)), fixture.recipient.command(draw),
-                    fixture.owner.command(PlayAction.MoveCard(first, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(1024, 0)))))
-                val streams = listOf(fixture.owner, fixture.recipient, fixture.owner, fixture.recipient, fixture.recipient, fixture.owner)
+                    fixture.owner.command(PlayAction.MoveCard(first, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(1024, 0)))),
+                    fixture.recipient.command(draw), fixture.recipient.command(PlayAction.SetTapped(first, true)))
+                val streams = listOf(fixture.owner, fixture.recipient, fixture.owner, fixture.owner, fixture.recipient, fixture.recipient)
                 val receipts = inputs.mapIndexed { index, input -> streams[index].admit(input) as GameReceipt }
                 assertEquals(receipts[0], fixture.owner.admit(inputs[0]))
                 assertEquals((receipts.first().ingressOrdinal.toLong()..receipts.last().ingressOrdinal.toLong()).map { it.toString() }, receipts.map { it.ingressOrdinal })
@@ -104,10 +104,10 @@ class GameplayDurabilityTest {
                 assertFalse(played.covered); assertFalse(played.isFaceDown)
                 assertTrue(results[2].mutation!!.revealsInformation)
                 assertEquals(listOf(a.account.accountId), results[2].mutation!!.transition.disclosures.single().viewers)
-                assertTrue(results.last().mutation!!.revealsInformation)
-                assertEquals(listOf(fixture.b.account.accountId), results.last().mutation!!.transition.disclosures.single().viewers)
-                assertEquals(2, results.last().createdIds.size)
-                assertEquals(CommandIds.uuidV5(inputs.last().requestId, "board-node"), results.last().createdIds.first())
+                assertTrue(results[3].mutation!!.revealsInformation)
+                assertEquals(listOf(fixture.b.account.accountId), results[3].mutation!!.transition.disclosures.single().viewers)
+                assertEquals(2, results[3].createdIds.size)
+                assertEquals(CommandIds.uuidV5(inputs[3].requestId, "board-node"), results[3].createdIds.first())
                 val accepted = games.head(a, fixture.game.id)
                 assertEquals(accepted.summary, games.revisions(a, fixture.game.id,
                     (accepted.revision.toLong() - 1).toString()).revisions.single().summary)

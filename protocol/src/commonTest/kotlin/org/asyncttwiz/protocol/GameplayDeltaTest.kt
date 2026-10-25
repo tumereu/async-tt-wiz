@@ -38,7 +38,8 @@ class GameplayDeltaTest {
     @Test fun everyPlayActionHasAnExactRecordedForwardAndInverseIncludingCompoundCleanup() {
         val root = gameplayFixture()
         val card = root.board.cards.first().id
-        for (action in listOf<PlayAction>(PlayAction.SetTapped(card, true), PlayAction.SetLife(a, "17"),
+        check(root.withBattlefieldCards(card), PlayAction.SetTapped(card, true))
+        for (action in listOf<PlayAction>(PlayAction.SetLife(a, "17"),
             PlayAction.AdjustLife(a, "-2"), PlayAction.SetPlayerCounter(a, CounterColor.BLUE, "3"),
             PlayAction.AdjustPlayerCounter(a, CounterColor.RED, "1"), PlayAction.NextStep, PlayAction.EndTurn,
             PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS), PlayAction.PassAttention,
@@ -159,7 +160,7 @@ class GameplayDeltaTest {
     }
 
     @Test fun retainedMetadataDoesNotInvalidateRecordedEffectsButEffectCorruptionDoes() {
-        val root = gameplayFixture()
+        val root = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val action = PlayAction.SetTapped(root.board.cards.first().id, true)
         val event = assertNotNull(GameplayRules.change(root, a, command(root, GameAction.Play(action))).mutation)
         val retained = event.copy(branchId = gameplayId(90000), grouping = null)

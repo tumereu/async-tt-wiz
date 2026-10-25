@@ -16,14 +16,17 @@ internal object DownloadedTreeFixture {
     fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     val a = id(7)
     val b = id(8)
-    fun root(): GameplayTree {
+    fun root(zone: PlayZone = PlayZone.BATTLEFIELD): GameplayTree {
         val definition = CardDefinition("Downloaded Wizard 🧙", listOf(DefinitionFace(id(11), "Retained face 🧙")))
         val digest = DeckJson.digest(definition)
         val initial = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
             BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), listOf(
-                PlayCard(id(9), digest, a, id(10), id(11)), PlayCard(id(12), digest, b, id(13), id(11))),
-                listOf(PlayContainer(id(10), PlayZone.LIBRARY, a, listOf(id(9))),
-                    PlayContainer(id(13), PlayZone.LIBRARY, b, listOf(id(12)))), TurnState(a)),
+                PlayCard(id(9), digest, a, id(10), id(11), explicitlyCovered = zone == PlayZone.BATTLEFIELD,
+                    placement = if (zone == PlayZone.BATTLEFIELD) PlayPlacement(BoardPosition(0, 0), id(40)) else null),
+                PlayCard(id(12), digest, b, id(13), id(11), explicitlyCovered = zone == PlayZone.BATTLEFIELD,
+                    placement = if (zone == PlayZone.BATTLEFIELD) PlayPlacement(BoardPosition(0, 0), id(41)) else null)),
+                listOf(PlayContainer(id(10), zone, a, listOf(id(9))),
+                    PlayContainer(id(13), zone, b, listOf(id(12)))), TurnState(a)),
             listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a))
         return GameplayTree(initial)
     }

@@ -49,7 +49,8 @@ class GameplayHistoryTest {
     @Test fun forwardReplayInverseAndMutationCodecRetainExactIndividualBoundaries() {
         val root = gameplayFixture(); var state = root
         val library = root.board.containers[0]; val hand = root.board.containers[1]
-        val actions = listOf(PlayAction.MoveCard(library.cards[0], MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)),
+        val actions = listOf(PlayAction.MoveCard(library.cards[0], MoveSource(library.id, edge = MoveSourceEdge.TOP),
+            MoveDestination(root.board.containers[2].id, MoveInsertion.EMPTY, BoardPosition(1, 0))),
             PlayAction.SetTapped(library.cards[0], true), PlayAction.AdjustLife(gameplayId(8), "-4"),
             PlayAction.MoveCard(library.cards[1], MoveSource(library.id), MoveDestination(root.board.containers[2].id, MoveInsertion.EMPTY, BoardPosition(0, 0))))
         val boundaries = mutableListOf(root)
@@ -71,9 +72,9 @@ class GameplayHistoryTest {
     }
 
     @Test fun tapRelevantTupleExcludesPositionButLifeTupleRetainsActualInput() {
-        val root = gameplayFixture(); val card = root.board.cards.first()
-        val moved = gameplayChange(root, PlayAction.MoveCard(card.id, MoveSource(card.containerId),
-            MoveDestination(root.board.containers[1].id, MoveInsertion.UNORDERED)), 100)
+        val root = gameplayFixture().withBattlefieldCards(gameplayId(10)); val card = root.board.cards.first()
+        val moved = gameplayChange(root, PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+            MoveDestination(card.containerId, MoveInsertion.EMPTY, BoardPosition(10, 0))), 100)
         val tapped = gameplayChange(moved.state!!, PlayAction.SetTapped(card.id, true), 101)
         val rebasedTap = GameplayHistory.replay(root, tapped.mutation!!)
         assertEquals(tapped.mutation.transition, rebasedTap.mutation!!.transition)
@@ -103,7 +104,8 @@ class GameplayHistoryTest {
             state = gameplayChange(state, action, request, actor).state!!
             return state.currentGroup!!
         }
-        fun move(card: String) = PlayAction.MoveCard(card, MoveSource(library.id), MoveDestination(hand.id, MoveInsertion.UNORDERED))
+        fun move(card: String) = PlayAction.MoveCard(card, MoveSource(library.id),
+            MoveDestination(state.board.containers[2].id, MoveInsertion.EMPTY, BoardPosition(library.cards.indexOf(card), 0)))
         val m1 = apply(move(library.cards[0]), 100)
         assertEquals(m1.id, apply(move(library.cards[1]), 101).id)
         val tap = apply(PlayAction.SetTapped(library.cards[0], true), 102)

@@ -23,7 +23,8 @@ class GameplayMoveIntegrationTest {
         // Board entity IDs are global: the Library must not alias any card in 9..11.
         val library = data.id(30); val hand = data.id(20); val field = data.id(21)
         val root = data.initial.copy(board = data.initial.board.copy(
-            cards = (9..11).map { data.initial.board.cards.single().copy(id = data.id(it), containerId = if (handStarts) hand else library) },
+            cards = (9..11).map { data.initial.board.cards.single().copy(id = data.id(it), placement = null,
+                containerId = if (handStarts) hand else library) },
             containers = listOf(PlayContainer(library, PlayZone.LIBRARY, data.actor, if (handStarts) emptyList() else (9..11).map(data::id)),
                 PlayContainer(hand, PlayZone.HAND, data.actor, if (handStarts) (9..11).map(data::id) else emptyList()), PlayContainer(field, PlayZone.BATTLEFIELD, data.actor),
                 PlayContainer(data.id(22), PlayZone.STACK))))

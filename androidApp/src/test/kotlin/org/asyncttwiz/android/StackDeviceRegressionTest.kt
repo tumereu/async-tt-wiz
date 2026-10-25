@@ -53,7 +53,7 @@ class StackDeviceRegressionTest {
                     assertTrue(bubble.controls.filter { it != control }.none { it.bounds.intersection(control.bounds) != null })
                 }
                 // A tap elsewhere dismisses the real gesture-generated bubbles.
-                val outside = TablePoint(width - 4, height / 2)
+                val outside = TablePoint(width - 80, height / 2 + 90)
                 gestures.down(outside, 200); gestures.up(outside, 220)
                 assertNull(ui.stackBubbleEntry)
                 val current = scene()

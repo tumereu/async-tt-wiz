@@ -35,7 +35,9 @@ fun CombatActions(state: PlayState, actor: String, targets: List<CombatStackTarg
         MenuButton("Declare + tap", enabled = connected && battlefield, onClick = {
             onPlan(CombatStackController.declare(state, actor, targets, true, command))
         })
-        val orientationTargets = targets.filter { it.viewId !in CombatStackRules.stack(state.board).cards }
+        val orientationTargets = targets.filter { target -> target.viewId !in CombatStackRules.stack(state.board).cards &&
+            state.board.cards.any { card -> card.id == target.sourceId && state.board.containers.any {
+                it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } } }
         for (tapped in listOf(true, false)) MenuButton(if (tapped) "Tap" else "Untap", enabled = connected && orientationTargets.any { target ->
             val source = target.sourceId
             state.board.cards.any { it.id == source }

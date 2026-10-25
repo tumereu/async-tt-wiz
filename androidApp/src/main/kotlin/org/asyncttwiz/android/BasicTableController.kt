@@ -23,10 +23,11 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 // The animated hit item can lag prediction/remote updates. Resolve once from the
                 // session's current board at emission; all selected cards follow the context card.
                 val context = state.board.cards.singleOrNull { it.id == intent.scope.contextId } ?: return false
+                if (state.board.containers.none { it.id == context.containerId && it.zone == PlayZone.BATTLEFIELD }) return false
                 val tapped = if (intent.toggle) !context.tapped else intent.tapped
                 var sent = false
                 for (id in intent.scope.cardIds.distinct()) if (state.board.cards.any { card -> card.id == id &&
-                    state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.STACK } })
+                    state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } })
                     sent = submit(PlayAction.SetTapped(id, tapped), invocation) || sent
                 sent
             }

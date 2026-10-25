@@ -136,7 +136,7 @@ class HistoryRuntimeIntegrationTest {
                 val before = tree(db, f)
                 assertEquals(setOf(f.a.account.accountId, f.b.account.accountId), before.redoByAccount.keys)
                 val card = f.root.board.cards.first().id
-                val noop = f.owner.command(PlayAction.SetTapped(card, false)).copy(continuation = Continuation(f.root.root.id, true))
+                val noop = f.owner.command(PlayAction.SetNote(card, f.root.board.cards.first().note)).copy(continuation = Continuation(f.root.root.id, true))
                 val failure = f.owner.command(PlayAction.SetNote(gameplayId(), "missing")).copy(continuation = noop.continuation)
                 val head = f.games.head(f.a, f.game.id)
                 assertEquals("noOp", f.owner.execute(noop).outcome)
@@ -161,19 +161,23 @@ class HistoryRuntimeIntegrationTest {
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
                 val library = f.root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a.account.accountId }
                 val card = library.cards.first()
+                val field = f.root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == f.a.account.accountId }
+                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.MoveCard(card, MoveSource(library.id),
+                    MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))))).outcome)
+                val placement = f.games.head(f.a, f.game.id).play!!.board.cards.single { it.id == card }.placement
                 f.owner.execute(f.owner.command(PlayAction.SetLife(f.a.account.accountId, "21")))
-                // The retained tap concerns eligibility, not the source's Library position.
-                val move = f.owner.execute(f.owner.command(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
-                    MoveDestination(library.id, MoveInsertion.BOTTOM))))
-                f.recipient.execute(f.recipient.command(PlayAction.SetTapped(card, true)))
+                // The retained tap concerns Battlefield eligibility, not the source's position.
+                val move = f.owner.execute(f.owner.command(PlayAction.MoveCard(card, MoveSource(field.id, placement),
+                    MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(1, 0)))))
+                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.SetTapped(card, true))).outcome)
                 val withMove = tree(db, f)
-                assertEquals(card, withMove.stateAt(withMove.currentNodeId)!!.board.containers.single { it.id == library.id }.cards.last())
+                assertEquals(BoardPosition(1, 0), withMove.stateAt(withMove.currentNodeId)!!.board.cards.single { it.id == card }.placement!!.position)
                 assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Undo)).outcome)
                 val removed = tree(db, f)
                 assertEquals(withMove.currentNodeId, removed.currentNodeId)
                 assertTrue(removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.tapped)
-                assertEquals(library.id, removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.containerId)
-                assertEquals(card, removed.stateAt(removed.currentNodeId)!!.board.containers.single { it.id == library.id }.cards.first())
+                assertEquals(field.id, removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.containerId)
+                assertEquals(placement, removed.stateAt(removed.currentNodeId)!!.board.cards.single { it.id == card }.placement)
                 assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Redo)).outcome)
                 val retained = tree(db, f)
                 val reference = EventReference(f.root.id, move.mutation!!.id, retained.contextVersion(move.mutation!!.id))

@@ -6,8 +6,9 @@ class TableActionsTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun state(turn: TurnState = TurnState(id(7))) = PlayState(id(1), id(2), id(3), id(4),
         PlayRoot(id(5), id(6)), id(5), BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
-            listOf(PlayCard(id(9), "definition", id(7), id(10), id(11), tapped = true, note = "preserve")),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), listOf(id(9)))), turn),
+            listOf(PlayCard(id(9), "definition", id(7), id(10), id(11), tapped = true, note = "preserve",
+                placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, id(7), listOf(id(9)))), turn),
         emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
     private fun command(action: PlayAction, n: Int = 12) = GameCommand(id(n), GameScope(id(1), playId = id(2)),
         GameAction.Play(action), id(13), "1")

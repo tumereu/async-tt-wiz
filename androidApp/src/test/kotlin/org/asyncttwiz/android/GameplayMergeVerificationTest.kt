@@ -18,7 +18,7 @@ class GameplayMergeVerificationTest {
         val f = GameplayFixture()
         val library = f.id(24); val stack = f.id(25); val hand = f.id(26)
         val root = f.initial.copy(board = f.initial.board.copy(
-            cards = (9..11).map { f.initial.board.cards.single().copy(id = f.id(it), containerId = library) },
+            cards = (9..11).map { f.initial.board.cards.single().copy(id = f.id(it), containerId = library, placement = null) },
             containers = listOf(PlayContainer(library, PlayZone.LIBRARY, f.actor, (9..11).map(f::id)),
                 PlayContainer(stack, PlayZone.STACK), PlayContainer(hand, PlayZone.HAND, f.actor))))
         val wire = Wire()

@@ -225,6 +225,9 @@ class TableGestureCoordinator(
                 diagnostic("dropped:combatHasNoRotation")
             } else if (c.double && c.item?.zone == PlayZone.STACK) {
                 single(c, explicit = true)
+            } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.BATTLEFIELD) {
+                // Non-Battlefield cards have no orientation gesture, including legacy tapped cards.
+                Unit
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
                 if (writable && c.scope != null && targetsExist(c.scope)) {
                     emit(TableIntent.Selection(c.selection.afterDoubleTap(c.scope.contextId)))
@@ -342,7 +345,7 @@ class TableGestureCoordinator(
     }
     fun inspect(item: TableItem) { peekId(item)?.let { emit(TableIntent.Inspect(it)) } }
     fun rotate(item: TableItem, tapped: Boolean) {
-        if (item.zone == PlayZone.STACK) return
+        if (item.zone != PlayZone.BATTLEFIELD || item.projection) return
         val id = item.cardId ?: return
         val scope = rotatable(selection.scope(id, order()))
         if (writable) emit(TableIntent.Rotate(scope, tapped, scene.sources.filterKeys { it in scope.cardIds }))
@@ -355,7 +358,7 @@ class TableGestureCoordinator(
     }
     fun select(item: TableItem) { item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
-        scene.items.none { it.cardId == id && it.zone == PlayZone.STACK }
+        scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     })
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
@@ -411,7 +414,7 @@ class TableGestureCoordinator(
         // Stack drawings are faces of the container, not battlefield pile targets. Resolve the
         // entire visible pile before its top card (and independently of the count badge routing).
         scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
-            it.visible.any { bounds -> bounds.contains(p) } }?.let {
+            (it.stackBadge.contains(p) || it.visible.any { bounds -> bounds.contains(p) }) }?.let {
             if (scope?.cardIds?.any { id -> scene.items.any { card -> card.cardId == id && card.zone == PlayZone.STACK } } == true) return null
             if (scope == null || scope.cardIds.any { id -> scene.sources[id]?.containerId.let { source ->
                     scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null

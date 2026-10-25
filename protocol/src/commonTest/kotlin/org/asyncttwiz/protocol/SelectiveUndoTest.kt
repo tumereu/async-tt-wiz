@@ -6,7 +6,7 @@ class SelectiveUndoTest {
     private val f = UndoFixture
 
     private fun handStackRoot() = f.root().let { root -> root.copy(board = root.board.copy(
-        cards = root.board.cards.map { it.copy(owner = f.a) }, containers = listOf(
+        cards = root.board.cards.map { it.copy(owner = f.a, placement = null) }, containers = listOf(
             root.board.containers.single().copy(zone = PlayZone.HAND), PlayContainer(f.id(14), PlayZone.STACK)))) }
 
     private fun cold(tree: GameplayTree) = GameWire.json.decodeFromString(GameplayTree.serializer(),
@@ -262,7 +262,7 @@ class SelectiveUndoTest {
     }
 
     @Test fun disclosureDataIsPreservedRegardlessOfWhoseHandWasRevealed() {
-        val root = f.root().let { it.copy(board = it.board.copy(containers = listOf(
+        val root = f.root().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card -> card.copy(placement = null) }, containers = listOf(
             it.board.containers.single().copy(zone = PlayZone.HAND),
             PlayContainer(f.id(14), PlayZone.BATTLEFIELD, f.a)))) }
         val action = PlayAction.MoveCard(f.id(9), MoveSource(f.id(10)),

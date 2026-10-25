@@ -50,8 +50,9 @@ class HistoryExplorerTest {
     private val a = id(7)
     private val b = id(8)
     private fun root() = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
-        BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), listOf(PlayCard(id(9), "hidden", a, id(10), id(11))),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, a, listOf(id(9)))), TurnState(a)),
+        BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), listOf(PlayCard(id(9), "hidden", a, id(10), id(11),
+            placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, a, listOf(id(9)))), TurnState(a)),
         emptyList(), emptyList(), InitialStarter(StarterChoice(a), a))
     private fun command(n: Int, action: PlayAction = PlayAction.AdjustLife(a, "1")) =
         GameCommand(id(n), GameScope(id(1), playId = id(2)), GameAction.Play(action), id(13), "1")

@@ -26,8 +26,9 @@ class EventAnnotationsTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun state() = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
-            listOf(PlayCard(id(9), "private-definition", id(7), id(10), id(11))),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), listOf(id(9)))), TurnState(id(7))),
+            listOf(PlayCard(id(9), "private-definition", id(7), id(10), id(11),
+                placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, id(7), listOf(id(9)))), TurnState(id(7))),
         emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
     private val rootRef = EventReference(id(2), id(5))
     private val x = PingTarget(PingTargetKind.CARD, id(9))

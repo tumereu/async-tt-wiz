@@ -38,7 +38,7 @@ class HistoryExplorerRegressionTest {
     }
 
     @Test fun firstTurnIncludingEmptyHistoryAndDrawsReordersRevealsAndTurnTracking() {
-        var tree = f.root().let { root ->
+        var tree = f.root(PlayZone.LIBRARY).let { root ->
             val initial = root.initial
             val cards = (100..159).map { initial.board.cards.first().copy(id = f.id(it)) }
             GameplayTree(initial.copy(board = initial.board.copy(cards = cards + initial.board.cards.last(),
@@ -100,7 +100,7 @@ class HistoryExplorerRegressionTest {
     }
 
     @Test fun versionOneRetainedMovementWithoutOptionalGroupingCanBeReconstructedAndRendered() {
-        val initial = f.root().initial.let { it.copy(board = it.board.copy(containers = it.board.containers +
+        val initial = f.root(PlayZone.LIBRARY).initial.let { it.copy(board = it.board.copy(containers = it.board.containers +
             PlayContainer(f.id(20), PlayZone.HAND, a))) }
         val tree = play(GameplayTree(initial), LibraryActions.draw(initial.board, f.id(10), f.id(20), 1).single())
         val legacy = tree.copy(nodes = tree.nodes.mapValues { (_, node) -> node.copy(grouping = null) })

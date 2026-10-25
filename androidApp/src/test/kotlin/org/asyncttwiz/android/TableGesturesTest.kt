@@ -5,6 +5,23 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun doubleTapInHandNeverRotatesOrSubmitsEvenWithBattlefieldCardsSelected() {
+        val hand = TableItem("card/hand", TableBounds(0f, 0f, 28f, 40f), "Hand card", "",
+            kind = TableItemKind.CARD, cardId = "hand", zone = PlayZone.HAND)
+        val field = hand.copy(id = "card/field", cardId = "field", zone = PlayZone.BATTLEFIELD,
+            bounds = TableBounds(50f, 0f, 28f, 40f), visible = listOf(TableBounds(50f, 0f, 28f, 40f)))
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(TableScene(listOf(hand, field), emptyList()),
+            TableSelection(mode = TableMode.SELECT, ids = setOf("hand", "field")), true)
+        gestures.down(hand.bounds.center, 0); gestures.up(hand.bounds.center, 10)
+        events.clear()
+        gestures.down(hand.bounds.center, 100); gestures.up(hand.bounds.center, 110)
+        assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Submit || it is TableIntent.Selection })
+        gestures.rotate(hand, true)
+        assertTrue(events.none { it is TableIntent.Rotate })
+    }
+
     @Test fun doubleTapDiagnosticsDistinguishGatesNearMissesAndBenignSceneUpdates() {
         val item = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
             kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
@@ -565,7 +582,7 @@ class TableGesturesTest {
         gesture.update(scene, TableSelection(), true)
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         val top = scene.items.last { it.id.startsWith("stackDrawing/") && it.visible.isNotEmpty() }
-        val badge = TablePoint(stack.bounds.x + 10, stack.bounds.y + 10)
+        val badge = stack.stackBadge.center
         gesture.down(badge, 0); gesture.up(badge, 20)
         assertTrue(events.isEmpty())
         gesture.down(badge, 50); gesture.up(badge, 70)
@@ -679,7 +696,7 @@ class TableGesturesTest {
     @Test fun doubleTapAllowsFourHundredMillisAndThirtyTwoDpButNotBeyondEither() {
         for (density in listOf(1f, 2.625f)) for (delay in listOf(399L, 401L)) for (distance in listOf(31f, 33f)) {
             val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
-                kind = TableItemKind.CARD, cardId = "a")
+                kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
             val events = mutableListOf<TableIntent>()
             val gestures = TableGestureCoordinator(events::add, density = density)
             gestures.update(TableScene(listOf(card), emptyList()), TableSelection(), true)

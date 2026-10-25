@@ -101,11 +101,12 @@ class StackLayoutGroupingRepairTest {
 
     @Test fun tapPrefixesTakeActualLayoutEntryRemovalAndInspectionRepresentativesWithoutMovingStarts() {
         val journey = Journey()
+        journey.state = journey.state.withBattlefieldCards(gameplayId(14))
         journey.move(10, PlayZone.STACK, MoveInsertion.TOP, 300, HistorySignificance.STACK_ENTRY,
             order = listOf(gameplayId(10)))
         journey.move(11, PlayZone.STACK, MoveInsertion.TOP, 301, HistorySignificance.STACK_ENTRY,
             order = listOf(gameplayId(11), gameplayId(10)))
-        // Orientation prefixes still group with Stack actions, but must address an off-Stack card.
+        // Orientation prefixes still group with Stack actions, but address a Battlefield card.
         journey.step(PlayAction.SetTapped(gameplayId(14), true), 302, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(10, PlayZone.STACK, MoveInsertion.TOP, 303, HistorySignificance.STACK_LAYOUT,
             start = 302, representative = 303, count = 2, order = listOf(gameplayId(10), gameplayId(11)))

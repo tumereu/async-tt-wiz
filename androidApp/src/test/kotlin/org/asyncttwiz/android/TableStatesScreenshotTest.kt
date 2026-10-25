@@ -392,7 +392,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
-    @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {
+    @Test fun graveyardDoubleTapDoesNotRotateOrSubmit() {
         val sent = render("graveyard-contents", false)
         compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeBy(350)
@@ -408,8 +408,7 @@ class TableStatesScreenshotTest {
         compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
         compose.mainClock.autoAdvance = true
-        val card = graveyardState.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
-        assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)
+        assertTrue(sent.isEmpty())
         compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }

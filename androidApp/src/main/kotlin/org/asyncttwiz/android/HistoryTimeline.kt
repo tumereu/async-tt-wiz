@@ -159,7 +159,9 @@ internal fun LivePanelRevealPacing(playback: HistoryPlayback?, pauseMillis: Long
 fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, viewer: String, connected: Boolean,
     pauseMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
     continuationReady: Boolean = true, overlay: Boolean = false, landscape: Boolean = false,
-    menuContent: (@Composable () -> Unit)? = null, animationFinished: Boolean = true, onTree: (() -> Unit)? = null) {
+    menuContent: (@Composable () -> Unit)? = null, animationFinished: Boolean = true, onTree: (() -> Unit)? = null,
+    autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults,
+    board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null) {
     require(pauseMillis > 0)
     val position = playback.position
     val endpoint = when {
@@ -170,16 +172,19 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
     val continuation by rememberUpdatedState(onContinue)
     val latestPauseMillis by rememberUpdatedState(pauseMillis)
+    val latestAutoPause by rememberUpdatedState(autoPause)
+    val latestBoard by rememberUpdatedState(board)
     LaunchedEffect(playback, playback.branched) {
         if (playback.branched) { delay(1_000); playback.acknowledgeBranch() }
     }
     LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground,
         animationFinished, playback.branched) {
         if (position.playing && playback.foreground && animationFinished && !playback.branched) {
+            if (playback.pauseAfterAnimation()) return@LaunchedEffect
             // Sample once per completed animation: a setting change affects the next pause,
             // not a pause already in progress.
             delay(playback.stepPauseMillis(latestPauseMillis))
-            playback.next(automatic = true)
+            playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard)
         }
     }
     val timeline: @Composable () -> Unit = {
@@ -196,6 +201,10 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
         Row(verticalAlignment = Alignment.CenterVertically) {
             HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
                 Modifier.weight(1f).height(if (landscape) 36.dp else 44.dp))
+            if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
+                modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
+                Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
+            }
             if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
                 modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
                 TableChromeIcon("tree")

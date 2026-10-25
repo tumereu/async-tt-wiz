@@ -58,7 +58,7 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         Text("Card records", style = MaterialTheme.typography.titleMedium)
         state.installed?.let { Text("Installed: ${it.date} · ${it.records} records") }
             ?: Text("Download card records before importing a new deck. Artwork loads only when needed.")
-        Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)) {
+        if ((!state.background || state.error) && state.status != null || !state.background && state.progress != null) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!state.background || state.error) state.status?.let {
                     Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)

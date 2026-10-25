@@ -68,6 +68,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
     val playbackPause by playbackPreferences.pauseState()
+    val playbackAutoPause by playbackPreferences.autoPauseState()
+    var playbackSettingsOpen by remember(history) { mutableStateOf(false) }
     var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
     val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
@@ -226,7 +228,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          cancelContinuation = history::cancelContinuation,
                          reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                  interactive, playbackPause, { history.requestContinuation(it) },
+                                   interactive, playbackPause, { history.requestContinuation(it) },
+                                  autoPause = playbackAutoPause, board = play.board,
+                                  onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
                                   onTree = {
                                       playback.pause()
@@ -250,6 +254,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             }
         }
     }
+    if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
     history.continuationTarget?.let { target ->
         HistoryContinueConfirmation(interactive && history.foreground && history.canArm(target),
              history::dismissContinuation, { history.confirmContinuation() }, history::current)

@@ -1,0 +1,138 @@
+package org.asyncttwiz.android
+
+import android.content.Context
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.lifecycle.ViewModelStore
+import androidx.test.core.app.ApplicationProvider
+import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.CatalogMetadata
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.test.*
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
+class PlaybackSettingsTest {
+    @get:Rule val compose = createComposeRule()
+    private val context get() = ApplicationProvider.getApplicationContext<Context>()
+
+    @Test fun defaultMigrationPreservesNonDefaultsAndFutureExplicitOldDefault() {
+        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+        stored.edit().clear().putLong("pause/old-default", 1_500).putLong("pause/custom", 2_300).commit()
+        assertEquals(500L, HistoryPlaybackPreferences(context, "new").pauseMillis)
+        val migrated = HistoryPlaybackPreferences(context, "old-default")
+        assertEquals(500L, migrated.pauseMillis)
+        assertEquals(2_300L, HistoryPlaybackPreferences(context, "custom").pauseMillis)
+        migrated.pauseMillis = 1_500
+        assertEquals(1_500L, HistoryPlaybackPreferences(context, "old-default").pauseMillis)
+    }
+
+    @Test fun togglesPersistAndNotifyOnlyTheirAccountAndAnimationSpeedIsAccountScoped() {
+        val a = HistoryPlaybackPreferences(context, "options-a")
+        val b = HistoryPlaybackPreferences(context, "options-b")
+        assertEquals(PlaybackAutoPause.defaults, a.autoPause)
+        var aChanges = 0
+        var bChanges = 0
+        val stopA = a.observe { aChanges++ }
+        val stopB = b.observe { bChanges++ }
+        a.setAutoPause(PlaybackAutoPause.REVEAL, false)
+        a.setAutoPause(PlaybackAutoPause.ATTACKERS, true)
+        assertFalse(PlaybackAutoPause.REVEAL in HistoryPlaybackPreferences(context, "options-a").autoPause)
+        assertTrue(PlaybackAutoPause.ATTACKERS in a.autoPause)
+        assertEquals(PlaybackAutoPause.defaults, b.autoPause)
+        assertEquals(2, aChanges)
+        assertEquals(0, bChanges)
+        stopA(); stopB()
+        CardMovePreferences(context, "options-a").speed = 7f
+        assertEquals(7f, CardMovePreferences(context, "options-a").speed)
+        assertEquals(DEFAULT_CARD_MOVE_SPEED, CardMovePreferences(context, "options-b").speed)
+    }
+
+    @Test fun timelineGearOpensTheSharedPlaybackSectionAndStopsAuto() {
+        val settings = HistoryPlaybackPreferences(context, "dialog")
+        val player = TableStatesFixture.playback()
+        player.openFrom(player.tree.rootId)
+        var open by mutableStateOf(false)
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(player, player.tree.sharedHeadId, TableStatesFixture.a, true, 10_000, {},
+                animationFinished = false, onSettings = { open = true })
+            if (open) PlaybackSettingsDialog(settings, "dialog") { open = false }
+        } }
+        compose.onNodeWithContentDescription("Playback settings").performClick()
+        compose.runOnIdle { assertFalse(player.position.playing) }
+        compose.onNode(isDialog()).assertExists()
+        compose.onNodeWithText("Playback", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("auto-pause-STACK").assertIsOn().performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(PlaybackAutoPause.STACK in settings.autoPause) }
+        compose.onNodeWithTag("card-move-speed").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Done").performScrollTo().performClick()
+        compose.onNode(isDialog()).assertDoesNotExist()
+    }
+
+    @Test fun settingsShowsSameTogglesAndDelay() {
+        val settings = HistoryPlaybackPreferences(context, "settings")
+        compose.setContent { MaterialTheme { SettingsContent(null, "settings") {} } }
+        compose.onNodeWithText("Playback").assertIsDisplayed()
+        compose.onNodeWithTag("auto-pause-ATTACKERS").performScrollTo().assertIsOff().performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(PlaybackAutoPause.ATTACKERS in settings.autoPause) }
+        compose.onNodeWithTag("history-playback-pause").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("0.5 s after each group").assertExists()
+    }
+
+    @Test fun matchingGroupKeepsAutoOnDuringAnimationThenStopsWithoutAnotherDelayAndCanResume() {
+        val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
+            PlayAction.RollDie(6, 4), GameplayTransition())
+        val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
+        player.openFrom("root")
+        var animatedCursor by mutableStateOf<String?>("root")
+        compose.mainClock.autoAdvance = false
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(player, player.tree.sharedHeadId, "me", true, 500, {},
+                animationFinished = animatedCursor == player.position.cursorId)
+        } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(600)
+        compose.runOnIdle {
+            assertEquals(event.id, player.position.cursorId)
+            assertTrue(player.position.playing)
+        }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.runOnIdle { assertTrue(player.position.playing); animatedCursor = event.id }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(48) // Recompose and run the completion effect, well before the 500ms group delay.
+        compose.waitForIdle()
+        compose.runOnIdle { assertFalse(player.position.playing); assertEquals(HistoryMode.PLAYBACK, player.position.mode) }
+        compose.onNodeWithContentDescription("Auto advance").performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(600)
+        compose.runOnIdle { assertEquals(HistoryMode.LIVE, player.position.mode) }
+    }
+
+    @Test fun idleCatalogHasNoReservedStatusGapInPortrait() = assertCatalogGap()
+
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun idleCatalogHasNoReservedStatusGapInLandscape() = assertCatalogGap()
+
+    private fun assertCatalogGap() {
+        val models = ViewModelStore()
+        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
+            models.put("catalog", it)
+            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100)))
+        }
+        try {
+            compose.setContent { MaterialTheme { SettingsContent(catalog, "gap") {} } }
+            val installed = compose.onNodeWithText("Installed:", substring = true).fetchSemanticsNode().boundsInRoot
+            val check = compose.onNodeWithText("Check for updates").fetchSemanticsNode().boundsInRoot
+            assertTrue(check.top - installed.bottom < 48f, "Idle catalog must not reserve an empty 96dp status area")
+            val refresh = compose.onNodeWithText("Refresh full catalog").fetchSemanticsNode().boundsInRoot
+            val playback = compose.onNodeWithText("Playback").fetchSemanticsNode().boundsInRoot
+            assertTrue(playback.top - refresh.bottom < 60f, "Playback should follow Card records without a blank block")
+        } finally { models.clear() }
+    }
+}

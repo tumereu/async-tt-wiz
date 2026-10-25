@@ -674,17 +674,26 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
         .fillMaxWidth(if (landscape) .366f else 1f), verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
         Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-            Text(turnHeader(game, play.board.turn, viewer), Modifier.semantics { contentDescription = game.gameName },
-                color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Only the name ellipsizes, so the turn number and "Waiting" survive narrow headers.
+            val header = turnHeader(game, play.board.turn, viewer)
+            val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
+            Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
+                Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
+                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+            Spacer(Modifier.height(2.dp))
             ActionSquare(attention.label, "", attention.enabled,
-                Modifier.fillMaxWidth().height(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(15.dp))
-                    .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(15.dp))),
+                Modifier.fillMaxWidth().height(26.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
+                    .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(13.dp))),
                 fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
                 icon = {
                     Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(attention.label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            fontWeight = if (attention.own) FontWeight.Bold else FontWeight.Normal)
+                        val weight = if (attention.own) FontWeight.Bold else FontWeight.Normal
+                        val waiting = attention.label.substringBefore(" · ", "")
+                        if (waiting.isNotEmpty()) Text("$waiting · ", fontSize = 11.sp, maxLines = 1, fontWeight = weight)
+                        Text(attention.label.removePrefix(if (waiting.isNotEmpty()) "$waiting · " else ""), Modifier.weight(1f, fill = false),
+                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = weight)
                     }
                 }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }

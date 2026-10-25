@@ -44,8 +44,9 @@ class AttentionHeaderTest {
         }
         for (wide in listOf(false, true)) {
             compose.runOnIdle { landscape.value = wide; reviewing.value = false }
-            compose.onNodeWithText("Your turn · 1").assertIsDisplayed()
-            compose.onNodeWithContentDescription(TableFixture.game.gameName).assertExists()
+            // Name and suffix are separate texts so only the name ellipsizes.
+            compose.onNodeWithContentDescription(TableFixture.game.gameName).assertIsDisplayed()
+                .assert(hasText("Your turn")).assert(hasText(" · 1"))
             val pill = compose.onNodeWithContentDescription("Your move")
             pill.assertIsDisplayed().assertIsEnabled()
             val liveImage = File("build/outputs/roborazzi/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }

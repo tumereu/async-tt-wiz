@@ -213,7 +213,9 @@ class GameService(private val runtime: ServiceRuntime) {
     }
 
     /** Candidate games are independent; every selected game executes its lowest pending ordinal. */
-    fun executeOne(): Boolean = transaction { sql ->
+    fun executeOne(): Boolean {
+        var committedTree: Pair<Long, GameplayTree>? = null
+        val executed = transaction { sql ->
         val game = sql.selectFrom(GAME).where(DSL.exists(sql.selectOne().from(GAME_INBOX)
             .where(GAME_INBOX.GAME_ID.eq(GAME.ID)).and(GAME_INBOX.RESULT.isNull)))
             .orderBy(GAME.ID).limit(1).forUpdate().skipLocked().fetchOne() ?: return@transaction false
@@ -221,6 +223,9 @@ class GameService(private val runtime: ServiceRuntime) {
             .orderBy(GAME_INBOX.INGRESS_ORDINAL).limit(1).fetchSingle()
         val command = GameWire.decodeClient(inbox.command!!) as GameCommand
         val processingStarted = System.nanoTime()
+        var historyLoaded = processingStarted
+        var reduced = processingStarted
+        var saved = processingStarted
         try {
         val before = game.revision!!
         val isGameplay = command.action is GameAction.Play || command.action == GameAction.Undo || command.action == GameAction.Redo
@@ -230,12 +235,16 @@ class GameService(private val runtime: ServiceRuntime) {
             val state = PlayStore.read(sql, game.id!!)
             if (game.lifecycle != "ACTIVE" || state == null) GameplayTreeChange(reason = "lifecycleEnded")
             else {
-                val tree = gameplayStore.read(sql, state)
+                val tree = gameplayStore.read(sql, state, before)
+                historyLoaded = System.nanoTime()
                 HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->
+                    reduced = System.nanoTime()
                     change.tree?.let { next ->
                         treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1))
+                        committedTree = Math.addExact(before, 1) to next
                         if (command.action is GameAction.Play) createdMutation = next.nodes[change.targetId]
                     }
+                    saved = System.nanoTime()
                 }
             }
         } else null
@@ -301,9 +310,14 @@ class GameService(private val runtime: ServiceRuntime) {
         true
         } finally {
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).info(
-                "Gameplay command game={} action={} processingMs={}", command.scope.gameId,
-                command.action.latencyType(), (System.nanoTime() - processingStarted) / 1_000_000.0)
+                "Gameplay command game={} action={} processingMs={} historyLoadMs={} reduceMs={} saveMs={}", command.scope.gameId,
+                command.action.latencyType(), (System.nanoTime() - processingStarted) / 1_000_000.0,
+                (historyLoaded - processingStarted) / 1_000_000.0, (reduced - historyLoaded) / 1_000_000.0,
+                (saved - reduced) / 1_000_000.0)
         }
+    }
+        committedTree?.let { (revision, tree) -> gameplayStore.committed(revision, tree) }
+        return executed
     }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {

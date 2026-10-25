@@ -25,6 +25,10 @@ selectRecords:
 SELECT record_kind, record_id, payload_version, payload_json
 FROM accepted_record WHERE scope_id = ? ORDER BY record_kind, record_id;
 
+selectRecord:
+SELECT payload_version, payload_json FROM accepted_record
+WHERE scope_id = ? AND record_kind = ? AND record_id = ?;
+
 putRecord:
 INSERT OR REPLACE INTO accepted_record(scope_id, record_kind, record_id, payload_version, payload_json)
 VALUES (?, ?, ?, ?, ?);

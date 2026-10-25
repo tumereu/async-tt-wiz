@@ -45,6 +45,15 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         }
     }
 
+    /** Cursor + one publication header, without loading every retained event. */
+    internal fun acceptedEntry(scope: String, key: RecordKey): Pair<Long, StoredPayload>? = access {
+        database.transactionWithResult {
+            val revision = database.replicaQueries.selectCursor(scope).executeAsOneOrNull() ?: return@transactionWithResult null
+            database.replicaQueries.selectRecord(scope, key.kind, key.id) { version, json -> StoredPayload(version, json) }
+                .executeAsOneOrNull()?.let { revision to it }
+        }
+    }
+
     /**
      * Persist an already accepted incremental batch and its cursor together. expectedRevision is
      * a LOCAL storage-base check, not a gameplay/transport guard. Null means no existing replica.

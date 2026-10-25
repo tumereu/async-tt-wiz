@@ -298,6 +298,35 @@ class GameplayTest {
                     assertEquals(405, post(settings, "/v1/games/${game.id}/plays/${root.id}/mutations", LookupGameResults(emptyList()), a.token).statusCode())
                     assertEquals(404, post(settings, "/v1/games/${game.id}/moveCard", LookupGameResults(emptyList()), a.token).statusCode())
                     recipient.send(SubscribeGame(game.id, final.resultRevision)); assertEquals(finalPlay, recipient.next<GameHead>().play)
+
+                    var beforeReorder = finalPlay
+                    val effectSource = beforeReorder.board.containers.single { it.id == hand.id }.cards.first()
+                    repeat(2) {
+                        val add = command(PlayAction.Stack(StackAction.AddEffect(effectSource,
+                            CombatStackRules.stackDigest(beforeReorder))))
+                        owner.send(add)
+                        assertEquals("accepted", owner.result(add.requestId).outcome)
+                        beforeReorder = apply(recipient.revision(add.requestId))
+                    }
+                    val order = CombatStackRules.stack(beforeReorder.board).cards
+                    val reorder = command(PlayAction.Stack(StackAction.ReorderEffect(order[1],
+                        IdentityGap(order[0], order[2]), IdentityGap(null, order[0]))))
+                    // This would be applicable under the retained legacy reducer, not a bad reference/gap.
+                    assertEquals("accepted", GameplayRules.change(beforeReorder, a.account.accountId, reorder).outcome)
+                    owner.send(reorder)
+                    val rejected = owner.result(reorder.requestId)
+                    assertEquals("rejected", rejected.outcome)
+                    assertEquals("stackReorderingRemoved", rejected.reason)
+                    assertNull(rejected.commitRevision)
+                    assertNull(rejected.mutation)
+                    owner.send(reorder)
+                    assertEquals(rejected, owner.result(reorder.requestId))
+                    recipient.send(SubscribeGame(game.id))
+                    assertEquals(beforeReorder, recipient.next<GameHead>().play)
+                    val afterRejection = json.decodeFromString<GameplayHistoryPage>(request(settings, "GET",
+                        "/v1/games/${game.id}/plays/${root.id}/mutations?after=0", b.token).body())
+                    assertEquals(history.mutations.size + 2, afterRejection.mutations.size)
+                    assertTrue(afterRejection.mutations.none { it.action == (reorder.action as GameAction.Play).action })
                 } }
             }
             println("PASS real HTTP accounts/decks and two authenticated gameplay sockets, no-ack draw/tap/life pipeline equals shared prediction, compatible opponent life uses actual input, Stack ignores orientation but rejects stale ordered entries, concrete revision/result/history HTTP codec and replay agree, original retry no duplication and no alternate write ingress")

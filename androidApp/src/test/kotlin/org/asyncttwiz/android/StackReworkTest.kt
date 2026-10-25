@@ -128,13 +128,7 @@ class StackReworkTest {
             assertEquals(PlayAction.Stack(StackAction.RemoveEffect(top)), StackMenuActions.remove(top))
             assertEquals(PlayAction.Stack(StackAction.MarkText(top, 0)), StackMenuActions.mark(top, 0))
             assertEquals(PlayAction.Stack(StackAction.MarkText(top, null)), StackMenuActions.mark(top, null))
-            assertNull(StackMenuActions.reorder(f.play.board, top, -1))
-            val move = StackMenuActions.reorder(f.play.board, top, 1)!!
-            assertEquals(PlayAction.Stack(StackAction.ReorderEffect(top, IdentityGap(beforeId = order[1]),
-                IdentityGap(order[1], order[2]))), move)
-            assertTrue(ui.handle(TableIntent.Submit(move, null)))
-            assertEquals(listOf(order[1], top, order[2]), CombatStackRules.stack(f.play.board).cards)
-            val current = order[1]
+            val current = top
             val base = scene(f)
             val bubble = TablePresentation.stackBubbles(base, f.play, current, 412f, 892f)!!
             val gestures = TableGestureCoordinator({ ui.handle(it) })

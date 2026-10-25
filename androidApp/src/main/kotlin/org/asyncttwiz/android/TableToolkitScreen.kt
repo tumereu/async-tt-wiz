@@ -142,19 +142,6 @@ private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlaySt
     val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
     if (effects.isNotEmpty()) {
         add(MenuControl("Remove Stack effect", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = effects))) toolkit.dismiss() })
-        if (effects.size == 1) {
-            val id = effects.single()
-            val order = CombatStackRules.stack(play.board).cards
-            val at = order.indexOf(id)
-            val expected = IdentityGap(order.getOrNull(at - 1), order.getOrNull(at + 1))
-            val remaining = order.filter { it != id }
-            add(MenuControl("Move effect to top", enabled) {
-                if (toolkit.reorderEffect(id, expected, IdentityGap(beforeId = remaining.firstOrNull()))) toolkit.dismiss()
-            })
-            add(MenuControl("Move effect to bottom", enabled) {
-                if (toolkit.reorderEffect(id, expected, IdentityGap(afterId = remaining.lastOrNull()))) toolkit.dismiss()
-            })
-        }
     }
     if (combat.isNotEmpty()) {
         add(MenuControl("Undeclare", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })

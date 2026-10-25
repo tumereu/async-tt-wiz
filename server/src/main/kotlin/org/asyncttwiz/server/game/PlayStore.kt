@@ -32,7 +32,7 @@ internal object PlayStore {
         check(StartRules.canStart(game, preparation))
         val state = StartRules.initialize(game, preparation, requestId,
             preparation.players.associate { it.accountId to seed() },
-            if (preparation.startingChoice.accountId == null) seed() else null)
+            if (preparation.startingChoice.accountId == null) seed() else null, librarySecret = seed())
         val id = UUID.fromString(state.id)
         sql.insertInto(GAME_PLAY).set(GAME_PLAY.ID, id).set(GAME_PLAY.GAME_ID, UUID.fromString(game.id))
             .set(GAME_PLAY.PREPARATION_ROUND, UUID.fromString(preparation.roundId))

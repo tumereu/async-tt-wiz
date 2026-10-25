@@ -123,7 +123,7 @@ class SelectiveUndoTest {
         val removed = assertNotNull(f.undo(own).tree)
         assertEquals(hand.stateAt(hand.currentNodeId), removed.stateAt(removed.currentNodeId))
         assertEquals(own.nodes.getValue(own.currentNodeId), removed.redoByAccount[f.a]!!.single().mutation)
-        assertEquals("revealingTarget", f.undo(removed).reason)
+        assertNotNull(f.undo(removed).tree) // Own Library draws are reproducible and reversible.
     }
 
     @Test fun realDeckMulliganThenMoveTapUndoUndoRedo() {
@@ -168,7 +168,7 @@ class SelectiveUndoTest {
         assertEquals(moved.currentNodeId, undoMove.targetId, undoMove.reason)
         tree = assertNotNull(undoMove.tree, undoMove.reason)
         assertEquals(drawn.stateAt(drawn.currentNodeId)?.board, current().board)
-        assertEquals("revealingTarget", f.undo(tree).reason) // Never skip the last draw.
+        assertNotNull(f.undo(tree).tree) // The last own draw is now reversible too.
         val redoMove = f.redo(tree.copy())
         assertEquals(moved.currentNodeId, redoMove.targetId, redoMove.reason)
         tree = assertNotNull(redoMove.tree, redoMove.reason)
@@ -214,7 +214,7 @@ class SelectiveUndoTest {
         assertEquals(drawn.stateAt(drawn.currentNodeId), tree.stateAt(tree.currentNodeId))
         assertEquals(moved.currentNodeId, control(GameAction.Redo).targetId)
         assertEquals(moved.stateAt(moved.currentNodeId), tree.stateAt(tree.currentNodeId))
-        assertEquals("revealingTarget", HistoryContinuation.change(drawn, f.a, f.command(GameAction.Undo, request++)).reason)
+        assertNotNull(HistoryContinuation.change(drawn, f.a, f.command(GameAction.Undo, request++)).tree)
     }
 
     @Test fun latestOwnAcrossDeviceStreamsAndStrictLastUndoneFirst() {

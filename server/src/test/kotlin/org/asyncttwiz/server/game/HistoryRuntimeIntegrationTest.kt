@@ -270,7 +270,10 @@ class HistoryRuntimeIntegrationTest {
                     assertEquals(after, retained.stateAt(retained.currentNodeId)!!.copy(annotations = EventAnnotationState()))
                     if (undo) {
                         val removed = f.owner.execute(control(f.owner, GameAction.Undo))
-                        if (result.mutation!!.revealsInformation) {
+                        val libraryDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard ||
+                            action is PlayAction.DismissContents || action is PlayAction.MoveCard && before.board.containers.any {
+                                it.id == action.source.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
+                        if (result.mutation!!.revealsInformation && !libraryDisclosure) {
                             assertEquals("revealingTarget", removed.reason); assertEquals(after, state())
                         } else {
                             assertEquals("accepted", removed.outcome, "$action Undo: ${removed.reason}")

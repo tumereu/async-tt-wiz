@@ -44,7 +44,8 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     (libraryOrder?.from?.size ?: 0) + (libraryOrder?.to?.size ?: 0) +
     (contents?.from?.cardIds?.size ?: 0) + (contents?.to?.cardIds?.size ?: 0) + (if (attention == null) 0 else 1) +
     (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size +
-        listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this)
+        listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this) +
+    delta?.libraryReseeds.orEmpty().sumOf { it.from.size.toLong() + it.to.size }
 /** Compact prefix context, not a recursive history or client-assigned group. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayGroup(val id: String, val author: String, val firstNodeId: String,
@@ -84,7 +85,8 @@ object GameplayHistory {
             append(state.currentGroup, mutation, state.board.containers)))
 
     private fun readsMatch(state: PlayState, mutation: GameplayMutation): Boolean {
-        val board = state.board
+        val board = (LibraryKnowledge.applyReseeds(state, mutation.transition.delta?.libraryReseeds.orEmpty(), false)
+            ?: return false).board
         if (mutation.grouping != null && mutation.grouping != runCatching {
             HistoryGrouping.classify(mutation.action, board, mutation.author, mutation.transition)
         }.getOrNull()) return false

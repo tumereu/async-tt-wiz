@@ -12,7 +12,7 @@ class TableToolkitWiringTest {
             toolkitQuickContext(play, ui.selectionState.value, null, ui.viewer), ui.table).single { it.name == name }.intent)
     }
 
-    @Test fun turnShortcutsShareOneInvocationAndPreserveDisclosureUndoProtection() {
+    @Test fun turnShortcutsShareOneInvocationAndUndoTheWholeReproducibleDrawShortcut() {
         for ((position, name) in listOf(TurnPosition.UNTAP to "Start turn", TurnPosition.UPKEEP to "Draw + go to main")) {
             val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
             try {
@@ -27,9 +27,14 @@ class TableToolkitWiringTest {
                 assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(f.play.board.turn))
                 assertEquals(f.container(PlayZone.HAND), f.card(41).containerId)
                 assertEquals(position != TurnPosition.UNTAP, f.card(40).tapped)
-                val after = f.play.board
+                val before = f.play.board
+                // Return to the exact pre-shortcut boundary, including its draw and untap.
                 assertTrue(f.lobby.historyControl(GameAction.Undo))
-                assertEquals(after, f.play.board) // Drawing reveals information: do not undo only the final step.
+                assertEquals(position, TurnPosition.of(f.play.board.turn))
+                assertEquals(f.container(PlayZone.LIBRARY), f.card(41).containerId)
+                assertTrue(f.card(40).tapped)
+                assertTrue(f.lobby.historyControl(GameAction.Redo))
+                assertEquals(before, f.play.board)
             } finally { f.lobby.close(); f.worker.drain() }
         }
     }

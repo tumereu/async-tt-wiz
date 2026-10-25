@@ -81,7 +81,7 @@ object SelectiveUndo {
 
     private fun undo(tree: GameplayTree, actor: String): GameplayTreeChange {
         val target = target(tree, actor) ?: return GameplayTreeChange(reason = candidateFailure(tree))
-        if (target.revealsInformation && !ownHandDisclosure(tree, target, actor))
+        if (target.revealsInformation && !ownLibraryDisclosure(tree, target, actor) && !ownHandDisclosure(tree, target, actor))
             return GameplayTreeChange(reason = "revealingTarget", targetId = target.id)
         val children = tree.index().children
         if (children[target.id].orEmpty().size > 1) return GameplayTreeChange(reason = "forkBoundary", targetId = target.id)
@@ -131,8 +131,8 @@ object SelectiveUndo {
     }
 
     /** Playing/projecting an already-known own Hand card must be reversible. Keep its disclosure on the
-     * recorded mutation (including in Redo); this exception does not make draws, inspections,
-     * flips or moves that reveal an opponent's Hand to the actor removable. */
+     * recorded mutation (including in Redo). Reproducible Library disclosures have a separate exception;
+     * flips or moves that reveal an opponent's Hand to the actor remain protected. */
     private fun ownHandDisclosure(tree: GameplayTree, target: GameplayMutation, actor: String): Boolean {
         val effect = ((target.action as? PlayAction.Stack)?.action as? StackAction.AddEffect)
         if (effect != null) return target.transition.disclosures.isNotEmpty() && target.transition.disclosures.all { disclosure ->
@@ -144,6 +144,15 @@ object SelectiveUndo {
         val containers = tree.initial.board.containers
         return containers.any { it.id == move.from.containerId && it.zone == PlayZone.HAND && it.accountId == actor } &&
             containers.any { it.id == move.to.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD) }
+    }
+
+    private fun ownLibraryDisclosure(tree: GameplayTree, target: GameplayMutation, actor: String): Boolean = when (val action = target.action) {
+        is PlayAction.ShowContents, is PlayAction.RevealContentsCard, is PlayAction.DismissContents -> true
+        is PlayAction.MoveCard -> tree.initial.board.containers.any {
+            it.id == action.source.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
+        is PlayAction.InspectFace -> tree.initial.board.containers.any {
+            it.id == action.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
+        else -> false
     }
 
     private fun redo(tree: GameplayTree, actor: String): GameplayTreeChange {

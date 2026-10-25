@@ -35,6 +35,7 @@ object RandomV1 {
         private val domain = when (algorithm) {
             "shuffle-v1" -> "async-tt-wiz/shuffle/v1\u0000"
             "starter-v1" -> "async-tt-wiz/starter/v1\u0000"
+            "branch-reseed-v1" -> "async-tt-wiz/branch-reseed/v1\u0000"
             else -> error("Unsupported random algorithm")
         }.encodeToByteArray()
         private var counter = 0uL
@@ -61,7 +62,7 @@ object RandomV1 {
         }
     }
     fun shuffle(ids: List<String>, seed: String, algorithm: String = "shuffle-v1"): List<String> {
-        require(algorithm == "shuffle-v1")
+        require(algorithm == "shuffle-v1" || algorithm == "branch-reseed-v1")
         val words = Words(seed, algorithm)
         val result = canonical(ids).toMutableList()
         for (i in result.lastIndex downTo 1) {

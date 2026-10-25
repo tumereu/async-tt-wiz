@@ -19,8 +19,15 @@ import kotlinx.serialization.Serializable
     val isFaceDown: Boolean get() = covered && explicitlyCovered
 }
 /** Library order is top first. Other empty zones already have stable identities for later commands. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayContainer(val id: String, val zone: PlayZone, val accountId: String? = null,
-    val cards: List<String> = emptyList())
+    val cards: List<String> = emptyList(),
+    /** Library cards are knownTop + unknown middle + knownBottom, all top first.
+     * Old snapshots have no knowledge metadata and therefore start entirely unknown. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownTop: List<String> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownBottom: List<String> = emptyList()) {
+    val unknownMiddle: List<String> get() = cards.subList(knownTop.size, cards.size - knownBottom.size)
+}
 
 /** Ordinary presentation only; explicit logged inspections/contents displays are separate grants. */
 object CardVisibility {
@@ -67,7 +74,8 @@ object CardVisibility {
     val definitions: List<SubmittedDefinition>, val shuffles: List<InitialShuffle>, val starter: InitialStarter,
     val engineVersion: Int = 1, val readFormat: Int = 1, val currentGroup: GameplayGroup? = null,
     val annotations: EventAnnotationState = EventAnnotationState(),
-    val currentBranchId: String = root.branchId)
+    val currentBranchId: String = root.branchId,
+    val librarySecret: String? = null)
 
 object StartRules {
     fun change(game: GameSummary, current: LobbyPreparation, actor: String, scope: GameScope,
@@ -105,7 +113,8 @@ object StartRules {
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
     fun initialize(game: GameSummary, preparation: LobbyPreparation, requestId: String,
-        librarySeeds: Map<String, String>, starterSeed: String? = null): PlayState {
+        librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null): PlayState {
+        librarySecret?.let(RandomV1::decodeSeed)
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
         require(librarySeeds.keys == players.map { it.accountId }.toSet())
@@ -143,6 +152,6 @@ object StartRules {
         val needed = cards.map { it.definition }.toSet()
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
             BoardState(players.map { PlayPlayer(it.accountId) }, cards.sortedBy { it.id }, containers, TurnState(starter.accountId)),
-            needed.sorted().map { definitions.getValue(it) }, shuffles, starter)
+            needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)
     }
 }

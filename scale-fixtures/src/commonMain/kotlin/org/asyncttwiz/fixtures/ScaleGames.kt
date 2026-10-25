@@ -34,8 +34,8 @@ object ScaleGames {
             listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a))
     }
 
-    fun build(actions: Int): GameplayTree {
-        var tree = GameplayTree(root())
+    fun build(actions: Int, initial: PlayState = root()): GameplayTree {
+        var tree = GameplayTree(initial)
         repeat(actions) { n ->
             val state = checkNotNull(tree.preparedState(tree.currentNodeId))
             val board = state.board

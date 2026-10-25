@@ -90,4 +90,30 @@ class LibraryControllerTest {
         controller.move(ContentsSelection.BOTTOM, 2, MoveDestination(id(11), MoveInsertion.UNORDERED))
         assertEquals(listOf(id(21), id(22)), sent.map { (it as PlayAction.MoveCard).cardId })
     }
+
+    @Test fun multiCardDrawAcrossAReseedUsesTheNewFrontierFromEitherEnd() {
+        for (end in listOf(ContentsSelection.TOP, ContentsSelection.BOTTOM)) {
+            val root = initial()
+            var tree = GameplayTree(root)
+            var n = 300
+            fun command(action: PlayAction) = GameCommand(id(n++), GameScope(root.gameId, playId = root.id),
+                GameAction.Play(action), id(9), "1")
+            tree = assertNotNull(tree.play(id(8), command(PlayAction.AdjustLife(id(8), "1"))).tree)
+            var armed = true
+            val controller = LibraryController(root.id, id(10), id(11),
+                { if (armed) root else tree.stateAt(tree.currentNodeId) }, { true }, { action ->
+                    val input = command(action).copy(continuation = if (armed) Continuation(root.root.id, true) else null)
+                    val change = tree.play(id(7), input)
+                    tree = assertNotNull(change.tree, change.reason)
+                    armed = false
+                    true
+                })
+            assertEquals(LibrarySubmission(2, 0), controller.draw(2, end))
+            val fork = tree.nodes.values.first { it.transition.delta!!.libraryReseeds.isNotEmpty() }
+            val order = fork.transition.delta!!.libraryReseeds.single().to
+            val hand = tree.stateAt(tree.currentNodeId)!!.board.containers.single { it.id == id(11) }
+            assertEquals(root.board.containers.single { it.id == id(11) }.cards +
+                if (end == ContentsSelection.TOP) order.take(2) else order.takeLast(2), hand.cards)
+        }
+    }
 }

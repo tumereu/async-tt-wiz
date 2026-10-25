@@ -86,7 +86,8 @@ object HistoryGrouping {
         }
         is PlayAction.Stack -> when (action.action) {
             is StackAction.MarkText, is StackAction.ToggleTextMark -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "format_ink_highlighter")
-            is StackAction.AddEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
+            is StackAction.AddEffect, is StackAction.CopyEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
+            is StackAction.SetController -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "swap_horiz")
             is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
             is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
         }

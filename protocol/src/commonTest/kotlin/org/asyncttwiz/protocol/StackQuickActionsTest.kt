@@ -98,13 +98,16 @@ class StackQuickActionsTest {
         assertEquals(state, GameplayHistory.replay(initial, mutation).state)
         assertEquals(initial.board, undo(tree).stateAt(initial.root.id)!!.board)
     }
-    @Test fun projectionMoveChecksTopIdentityAndSourceAndRejectsAnInvalidDestinationWithoutPartialRemoval() {
+    @Test fun projectionMoveAllowsBuriedIdentityButChecksSourceAndRejectsInvalidDestinationWithoutPartialRemoval() {
         val state = initial(projection = true)
         val action = assertIs<PlayAction.MoveCard>(StackQuickActions.actions(state, id(30), PlayZone.GRAVEYARD).single())
         fun execute(state: PlayState, action: PlayAction.MoveCard) = GameplayRules.change(state, actor, command(state, GameAction.Play(action)))
         val buried = state.copy(board = state.board.copy(stackEffects = state.board.stackEffects + StackEffect(id(31), id(20)),
             containers = state.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(id(31), id(30))) else it }))
-        assertEquals("stackChanged", execute(buried, action).reason)
+        assertEquals("accepted", execute(buried, action).outcome)
+        val copy = state.copy(board = state.board.copy(stackEffects = state.board.stackEffects.map { it.copy(isCopy = true) }))
+        assertEquals("inapplicable", execute(copy, action).reason)
+        assertFailsWith<IllegalArgumentException> { StackQuickActions.actions(copy, id(30), PlayZone.GRAVEYARD) }
         assertEquals("movementConflict", execute(state, action.copy(source = MoveSource(id(13)))).reason)
         val invalid = execute(state, action.copy(destination = MoveDestination(id(13), MoveInsertion.EMPTY, BoardPosition(1, 1))))
         assertNotNull(invalid.reason)

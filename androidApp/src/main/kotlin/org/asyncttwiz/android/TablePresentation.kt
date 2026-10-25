@@ -276,7 +276,8 @@ object TablePresentation {
             val tapped = zone != PlayZone.STACK && viewport != "combat" && card.tapped
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
-                if (hidden) "" else title, card.owner, zone, kind = TableItemKind.CARD, viewport = viewport,
+                 if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
+                 zone, kind = TableItemKind.CARD, viewport = viewport,
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
@@ -360,7 +361,7 @@ object TablePresentation {
         val sb = TableBounds(stackRegion.center.x - hudEnvelope / 2, stackRegion.center.y - hudEnvelope / 2, hudEnvelope, hudEnvelope)
         val sp = port(stack.id, sb, hudEnvelope)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
-            cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.map { it.card.owner })
+            cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) })
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)

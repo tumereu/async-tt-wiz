@@ -316,7 +316,7 @@ class TableScreenshotTest {
 
     @Test fun graveyardMoveClosesMenu() {
         val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(4)
+        compose.ringPage(1)
         compose.onNodeWithContentDescription("Graveyard").performClick()
         assertTrue(sent.any { it is PlayAction.MoveCard })
         assertEquals(null, toolkit.manual.scope)

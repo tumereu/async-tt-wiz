@@ -43,6 +43,45 @@ class CombatAndStackTest {
     private fun effect(state: PlayState, source: Int, request: Int) = apply(state,
         PlayAction.Stack(StackAction.AddEffect(id(source), CombatStackRules.stackDigest(state))), request)
 
+    @Test fun copyingAndControllerChangesAreProjectionOnlyExactDeltas() {
+        val initial = effect(state(), 20, 8000)
+        val original = initial.board.stackEffects.single()
+        val changed = change(initial, PlayAction.Stack(StackAction.SetController(original.id, id(8))), 8001)
+        val controlled = changed.state!!
+        assertEquals(initial.board.cards, controlled.board.cards)
+        assertEquals(id(8), CombatStackRules.controller(controlled.board, original.id))
+        assertEquals(initial.board, GameplayHistory.reverse(controlled, changed.mutation!!))
+        val copied = change(controlled, PlayAction.Stack(StackAction.CopyEffect(original.id, CombatStackRules.stackDigest(controlled))), 8002)
+        val next = copied.state!!
+        val copy = next.board.stackEffects.last()
+        assertTrue(copy.isCopy)
+        assertEquals(id(8), copy.controller)
+        assertEquals(original.sourceId, copy.sourceId)
+        assertEquals(copy.id, CombatStackRules.stack(next.board).cards.first())
+        assertEquals(initial.board.cards, next.board.cards)
+        assertEquals(controlled.board, GameplayHistory.reverse(next, copied.mutation!!))
+        assertEquals(copied, GameplayHistory.replay(controlled, copied.mutation))
+        assertEquals("missingReference", change(next, PlayAction.Stack(StackAction.SetController(copy.id, id(999))), 8003).reason)
+        assertEquals("missingReference", change(next, PlayAction.Stack(StackAction.SetController(id(20), id(8))), 8004).reason)
+        assertEquals("missingReference", change(next, PlayAction.Stack(StackAction.CopyEffect(id(20), CombatStackRules.stackDigest(next))), 8005).reason)
+        assertEquals("stackChanged", change(next, PlayAction.Stack(StackAction.CopyEffect(original.id, CombatStackRules.stackDigest(controlled))), 8006).reason)
+    }
+
+    @Test fun realStackCardsAndFrozenEffectsCanBeCopiedWithoutMovingOrRevivingSources() {
+        val base = state()
+        val real = apply(base, PlayAction.MoveCard(id(20), MoveSource(id(10), base.board.cards.first().placement),
+            MoveDestination(id(12), MoveInsertion.TOP), CombatStackRules.stackDigest(base)), 8100)
+        val copied = apply(real, PlayAction.Stack(StackAction.CopyEffect(id(20), CombatStackRules.stackDigest(real))), 8101)
+        assertEquals(real.board.cards, copied.board.cards)
+        assertTrue(copied.board.stackEffects.single().isCopy)
+        val projected = effect(state(), 25, 8102)
+        val frozen = apply(projected, PlayAction.RemoveToken(id(25)), 8103)
+        val entry = frozen.board.stackEffects.single()
+        val second = apply(frozen, PlayAction.Stack(StackAction.CopyEffect(entry.id, CombatStackRules.stackDigest(frozen))), 8104)
+        assertEquals(entry.frozen, second.board.stackEffects.last().frozen)
+        assertEquals(frozen.board.cards, second.board.cards)
+    }
+
     @Test fun pairedSlotsRoleChangeAndSourceUniqueness() {
         val original = open()
         var state = declare(original, 20)

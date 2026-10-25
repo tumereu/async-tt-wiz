@@ -198,14 +198,16 @@ class TableStatesScreenshotTest {
         }
         compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Put to battlefield").assertIsDisplayed()
-        compose.onAllNodesWithContentDescription("Card actions").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Put to battlefield").onFirst().assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Card actions").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Copy").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Change controller").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Change controller").onFirst().assertIsEnabled()
+        compose.onAllNodesWithContentDescription("Change controller").onLast().assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Move up").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Move down").assertDoesNotExist()
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
-        compose.mainClock.advanceTimeBy(350)
-        compose.onAllNodesWithContentDescription("Card actions").onFirst().performTouchInput { advanceEventTime(350); click() }
-        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
-        compose.onNodeWithText("Manage Stack · 2").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
     @Test fun manageStackReflectsLiveMembershipAndClosesWhenEmpty() {
@@ -333,7 +335,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { advanceEventTime(350); click() }
-        compose.ringPage(4)
+        compose.ringPage(1)
         compose.onNodeWithContentDescription("Graveyard").assertExists()
         compose.onNodeWithContentDescription("Library top").assertExists()
         compose.onNodeWithContentDescription("Library bottom").assertExists()

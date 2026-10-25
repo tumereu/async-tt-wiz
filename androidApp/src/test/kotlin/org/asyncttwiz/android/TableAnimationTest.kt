@@ -5,6 +5,9 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    private fun halfwayX(from: TableBounds, to: TableBounds): Float = from.center.x +
+        (to.center.x - from.center.x) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED) -
+        (from.width + (to.width - from.width) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED)) / 2
     @Test fun tapAndUntapUseNinetyMillisButMovesDrawsAndMixedChangesKeepOneEighty() {
         val initial = TableFixture.play(board = 2, hand = 1)
         fun tapped(play: PlayState, id: String) = play.copy(board = play.board.copy(cards = play.board.cards.map {
@@ -99,15 +102,15 @@ class TableAnimationTest {
                 assertTrue(animation.retarget(stack, 1f))
                 assertEquals(real, animation.frame(0f).single { it.item.cardId == "effect" }.bounds)
                 val half = animation.frame(.5f).single { it.item.cardId == "effect" }
-                assertTrue(half.item.inTransit)
-                assertEquals((real.x + slot.x) / 2, half.bounds.x, .001f)
+                assertEquals(cardMoveProgress(real, slot, .5f, 180, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
+                assertEquals(halfwayX(real, slot), half.bounds.x, .001f)
                 assertEquals(slot, animation.frame(1f).single { it.item.cardId == "effect" }.bounds)
                 stack.items.firstOrNull { it.cardId == sourceId }?.let { card ->
                     assertEquals(card.bounds, animation.frame(.5f).single { it.item.cardId == sourceId }.bounds)
                 }
                 assertTrue(animation.retarget(base, 1f))
                 assertEquals(slot, animation.frame(0f).single { it.item.cardId == "effect" }.bounds)
-                assertEquals((real.x + slot.x) / 2, animation.frame(.5f).single { it.item.cardId == "effect" }.bounds.x, .001f)
+                assertEquals(halfwayX(slot, real), animation.frame(.5f).single { it.item.cardId == "effect" }.bounds.x, .001f)
                 val returned = animation.frame(1f).single { it.item.cardId == "effect" }
                 assertEquals(real, returned.bounds)
                 assertEquals(0f, returned.alpha)
@@ -137,10 +140,10 @@ class TableAnimationTest {
         val animation = HistorySceneAnimation(before)
         assertTrue(animation.retarget(after, 1f))
         assertEquals(slot, animation.frame(0f).single { it.item.cardId == "buried" }.bounds)
-        assertEquals((slot.x + real.x) / 2, animation.frame(.5f).single { it.item.cardId == "buried" }.bounds.x, .001f)
+        assertEquals(halfwayX(slot, real), animation.frame(.5f).single { it.item.cardId == "buried" }.bounds.x, .001f)
         assertTrue(animation.retarget(before, 1f))
         assertEquals(real, animation.frame(0f).single { it.item.cardId == "buried" }.bounds)
-        assertTrue(animation.frame(.5f).single { it.item.cardId == "buried" }.alpha > 0)
+        assertTrue(animation.frame(.01f).single { it.item.cardId == "buried" }.alpha > 0)
         assertEquals(slot, animation.frame(1f).single { it.item.cardId == "buried" }.bounds)
     }
 
@@ -207,7 +210,7 @@ class TableAnimationTest {
         assertEquals(current, animation.frame(0f).single { it.item.cardId == "a/HAND/0" }.bounds)
         val half = animation.frame(.5f)
         val card = half.single { it.item.cardId == "a/HAND/0" }
-        assertEquals((current.x + corrected.items.single { it.cardId == "a/HAND/0" }.bounds.x) / 2, card.bounds.x, .001f)
+        assertEquals(halfwayX(current, corrected.items.single { it.cardId == "a/HAND/0" }.bounds), card.bounds.x, .001f)
         val rendered = TablePresentation.clip(corrected.copy(items = half.map { it.item.copy(bounds = it.bounds) }), 412f, 820f)
         assertTrue(rendered.items.single { it.cardId == "a/HAND/0" }.visible.isNotEmpty())
     }
@@ -228,7 +231,8 @@ class TableAnimationTest {
                 assertEquals(1f, start.alpha)
                 assertEquals(owner != "a", start.item.covered)
                 val half = animation.frame(.5f).single { it.item.cardId == id }
-                assertTrue(half.item.inTransit)
+                val endBounds = target.items.single { it.cardId == id }.bounds
+                assertEquals(cardMoveProgress(start.bounds, endBounds, .5f, 180, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
                 assertNotEquals(start.bounds, half.bounds)
                 val rendered = TablePresentation.clip(target.copy(items = animation.frame(.5f).map { it.item.copy(bounds = it.bounds) }),
                     if (landscape) 900f else 412f, if (landscape) 412f else 820f)

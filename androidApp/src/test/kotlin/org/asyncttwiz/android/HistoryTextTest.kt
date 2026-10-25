@@ -25,6 +25,13 @@ class HistoryTextTest {
         before: PlayState = state, author: String = f.a, count: Int = 1) =
         historyText(event(action, transition, author), before, f.a, names, count)
 
+    @Test fun stackCopyAndControllerTextDoNotDescribeChangingTheSourceOwner() {
+        assertEquals("alice copied a card to the top of the stack",
+            format(PlayAction.Stack(StackAction.CopyEffect(id(9), GameplayRules.stackDigest(state)))).description)
+        assertEquals("alice changed the stack projection controller to bob",
+            format(PlayAction.Stack(StackAction.SetController(id(99), f.b))).description)
+    }
+
     @Test fun shuffleLifeStepsRandomAndCommentArePlainEnglish() {
         assertEquals(HistoryText("alice shuffled their library", "Shuffle"), format(PlayAction.ShuffleLibrary(id(10), "secret seed")))
         assertEquals("bob shuffled alice's library", format(PlayAction.ShuffleLibrary(id(10), "secret"), author = f.b).description)

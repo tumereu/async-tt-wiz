@@ -50,10 +50,13 @@ class TableMotionRuntimeTest {
         val node = compose.onNodeWithContentDescription(target.label)
         node.assertIsDisplayed()
         val during = node.fetchSemanticsNode().boundsInRoot
-        val sourceY = source.bounds.y + 8f
-        assertTrue(during.top > minOf(sourceY, target.bounds.y) && during.top < maxOf(sourceY, target.bounds.y))
-        // This changes the scene's metadata while the move is in flight, like an authoritative
-        // confirmation. It must neither cancel the clock nor replay its remaining tail.
+        val start = TableBounds(source.bounds.x + 8f, source.bounds.y + 8f, 28f, 40f)
+        val distance = kotlin.math.hypot(start.center.x - target.bounds.center.x, start.center.y - target.bounds.center.y)
+        assertTrue(cardMoveDurationMillis(distance) <= 80, "This short draw must arrive before the scene ends")
+        assertEquals(target.bounds.x, during.left, .01f)
+        assertEquals(target.bounds.y, during.top, .01f)
+        // Confirmation metadata must not restart a short move that has already arrived while
+        // the shared scene clock is still running.
         compose.runOnIdle { state.value = moved.copy(board = moved.board.copy(cards = moved.board.cards.map {
             if (it.id == id) it.copy(note = "accepted metadata") else it
         })) }

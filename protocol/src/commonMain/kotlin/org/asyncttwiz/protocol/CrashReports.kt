@@ -14,7 +14,15 @@ data class ActionLatency(val reportedAt: String, val gameId: String, val actionT
     val firstFrameMs: Double? = null, val serverResultMs: Double? = null, val submitted: Boolean = true)
 
 @Serializable
-data class LatencyBatch(val actions: List<ActionLatency>, val reconnects: List<ReconnectEpisode> = emptyList())
+data class LatencyBatch(val actions: List<ActionLatency>, val reconnects: List<ReconnectEpisode> = emptyList(),
+    val taps: List<CardTapDiagnostic> = emptyList())
+
+/** Bounded debug input/render observations. Never includes card IDs or card content. */
+@Serializable
+data class CardTapDiagnostic(val reportedAt: String, val gameId: String, val outcome: String,
+    val reason: String, val firstAnimationFrameMs: Double? = null, val droppedFrames: Int = 0,
+    val popupOpen: Boolean = false, val popupClosing: Boolean = false,
+    val catchUpInFlight: Boolean = false, val treeWorkInFlight: Boolean = false)
 
 @Serializable
 data class JankBatch(val episodes: List<JankEpisode>)

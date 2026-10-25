@@ -20,10 +20,14 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                 }
             }
             is TableIntent.Rotate -> {
+                // The animated hit item can lag prediction/remote updates. Resolve once from the
+                // session's current board at emission; all selected cards follow the context card.
+                val context = state.board.cards.singleOrNull { it.id == intent.scope.contextId } ?: return false
+                val tapped = if (intent.toggle) !context.tapped else intent.tapped
                 var sent = false
                 for (id in intent.scope.cardIds.distinct()) if (state.board.cards.any { card -> card.id == id &&
                     state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.STACK } })
-                    sent = submit(PlayAction.SetTapped(id, intent.tapped), invocation) || sent
+                    sent = submit(PlayAction.SetTapped(id, tapped), invocation) || sent
                 sent
             }
             is TableIntent.PlayerDelta -> if (intent.delta == 0) false else submit(

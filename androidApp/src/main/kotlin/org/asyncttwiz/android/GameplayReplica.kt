@@ -18,6 +18,8 @@ class GameplayReplica {
         private set
     val retainedRecords get() = records.values.toList()
     val pendingIds get() = predictions.keys.toList()
+    var applyFailure: String? = null
+        private set
     /** Presentation only. Accepted review/storage continue to use tree. */
     var displayTree: GameplayTree? = null
         private set
@@ -64,17 +66,19 @@ class GameplayReplica {
     }
     /** False means a gap/new incarnation: fetch a coherent baseline, never apply on an unmatched base. */
     fun apply(update: GameRevision): Boolean {
-        val current = accepted ?: return false
-        val at = revision ?: return false
+        applyFailure = null
+        fun fail(reason: String): Boolean { applyFailure = reason; return false }
+        val current = accepted ?: return fail("acceptedMissing")
+        val at = revision ?: return fail("revisionMissing")
         require(update.gameId == current.gameId && update.summary.id == current.gameId &&
             update.summary.revision == update.resultRevision)
-        if (update.play?.let { it.id != current.id } == true || update.summary.playId != current.id) return false
+        if (update.play?.let { it.id != current.id } == true || update.summary.playId != current.id) return fail("playChanged")
         if (GameWire.ordinal(update.resultRevision) <= GameWire.ordinal(at)) {
             correlate(update); rebase(); return true
         }
-        if (update.baseRevision != at) return false
+        if (update.baseRevision != at) return fail("revisionGap:local=$at:base=${update.baseRevision}:result=${update.resultRevision}")
         predictions[update.requestId]?.let { require(update.scope == it.command.scope) }
-        val nextTree = if (update.treeDelta != null) tree?.let { TreeSync.apply(it, update.treeDelta!!) } ?: return false
+        val nextTree = if (update.treeDelta != null) tree?.let { TreeSync.apply(it, update.treeDelta!!) } ?: return fail("treeMissing")
             else if (update.play == null && update.mutation == null) tree else null
         val endpoint = nextTree?.tree?.let { requireNotNull(it.stateAt(it.currentNodeId)) } ?: update.play ?: current
         if (nextTree != null && update.play != null) require(endpoint == update.play)

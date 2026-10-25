@@ -64,9 +64,8 @@ internal object DownloadedTreeFixture {
 }
 
 /** Store double only for deterministic adapter scheduling/faults. Never labelled real disk/server. */
-internal class TreeStoreFixture : GameplayTreeStore {
+internal class TreeStoreFixture(override val accountId: String = DownloadedTreeFixture.a) : GameplayTreeStore {
     private val f = DownloadedTreeFixture
-    override val accountId = f.a
     override val gameId = f.id(1)
     override val playId = f.id(2)
     var current = true

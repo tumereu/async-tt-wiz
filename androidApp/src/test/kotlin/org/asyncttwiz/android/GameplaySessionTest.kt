@@ -12,6 +12,27 @@ import java.util.zip.GZIPOutputStream
 import kotlinx.serialization.encodeToString
 
 class GameplaySessionTest {
+    @Test fun tapDuringReconnectWithUncertainOriginalIsPredictedAndResentOnlyAfterNotAdmittedRecovery() {
+        val f = Fixture(); val d = f.data; f.connect()
+        assertTrue(f.gameplay(PlayAction.SetTapped(d.id(9), true)))
+        val original = f.commands().single()
+        f.wire.listener.disconnected(); f.drain()
+        var captured: GameCommand? = null
+        assertTrue(f.session.gameplay(d.game, d.actor, PlayAction.SetTapped(d.id(9), false), captured = { captured = it }))
+        assertFalse(f.session.play(d.game)!!.board.cards.single().tapped)
+        assertEquals(1, f.commands().size)
+        val commands = listOf(original, assertNotNull(captured))
+        f.connect(commands.map { GameRequestStatus(it.requestId, "notAdmitted") }, "2")
+        assertEquals(commands.map { it.copy(generation = "2") }, f.commands().drop(1))
+        assertFalse(f.session.play(d.game)!!.board.cards.single().tapped)
+        var state = d.initial
+        commands.forEachIndexed { index, command ->
+            val update = d.update(state, command, (index + 1).toString(), (index + 2).toString())
+            f.message(update); f.message(d.result(command, update.resultRevision)); state = update.play!!
+        }
+        assertFalse(f.session.pending(d.game.id)); assertEquals(state, f.session.acceptedPlay(d.game))
+        f.session.close()
+    }
     private class Wire : GameConnection {
         lateinit var listener: GameConnection.Listener
         val frames = mutableListOf<GameClientMessage>()

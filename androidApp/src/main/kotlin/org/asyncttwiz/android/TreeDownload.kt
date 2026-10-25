@@ -43,6 +43,9 @@ sealed interface TreePublication {
  * No outgoing/request-recovery state is touched, and the previous complete tree stays readable.
  */
 class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: Thread) {
+    var failure: String? = null
+        private set
+    private fun fail(reason: String): TreePublication { failure = reason; return TreePublication.RestartRequired }
     private var materialized: PublishedDownloadedTree? = null
     private fun worker() { check(Thread.currentThread() !== uiThread) { "Tree work must run off the UI thread" } }
 
@@ -116,9 +119,9 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
      */
     fun publish(staged: StagedDownloadedTree?, tail: List<TreeRecordDelta>, verifiedHead: Long): TreePublication {
         worker()
-        if (staged == null) return TreePublication.RestartRequired
+        if (staged == null) return fail("stagingMissing")
         validate(staged.plan)
-        if (cache.transfer()?.manifest != staged.plan.identity()) return TreePublication.RestartRequired
+        if (cache.transfer()?.manifest != staged.plan.identity()) return fail("manifestChanged")
         val expected = cache.version()
         var generation = staged.generation
         var revision = staged.plan.revision
@@ -132,20 +135,20 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (revision < verifiedHead || (expected != null && revision < expected.revision)) return restart(staged.plan.id)
         // Recheck mutable adapter input before crossing the accepted boundary.
         val records = TreeSync.records(generation).map(::encode).toList()
-        val next = cache.publish(staged.plan.id, expected, revision, records) ?: return TreePublication.RestartRequired
+        val next = cache.publish(staged.plan.id, expected, revision, records) ?: return fail("publishCAS")
         return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
     }
 
-    private fun restart(id: String): TreePublication { cache.restart(id); return TreePublication.RestartRequired }
+    private fun restart(id: String): TreePublication { cache.restart(id); return fail("stagedTailGap") }
 
     fun apply(delta: TreeRecordDelta): TreePublication {
-        worker(); validate(delta)
-        val current = accepted() ?: return TreePublication.RestartRequired
+        worker(); failure = null; validate(delta)
+        val current = accepted() ?: return fail("acceptedCacheMissing")
         if (delta.revision <= current.version.revision) return TreePublication.Published(current)
-        if (delta.baseRevision != current.version.revision) return TreePublication.RestartRequired
+        if (delta.baseRevision != current.version.revision) return fail("revisionGap:cache=${current.version.revision}:base=${delta.baseRevision}:result=${delta.revision}")
         val generation = merge(current.generation, delta)
         val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode), delta.removals.map { RecordKey(it.first, it.second) })
-            ?: return TreePublication.RestartRequired
+            ?: return fail("applyCAS")
         return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
     }
 

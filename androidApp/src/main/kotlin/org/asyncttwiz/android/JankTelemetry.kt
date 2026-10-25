@@ -32,6 +32,13 @@ internal object DebugJank {
     private val tags = mutableMapOf("screen" to "entry", "table_mode" to "play", "animation" to "false",
         "dragging" to "false", "popup" to "none", "history_nodes" to "0", "visible_cards" to "0")
     private val animations = mutableSetOf<String>()
+    private val catchUps = mutableSetOf<String>()
+    @Synchronized fun catchUp(game: String, running: Boolean) {
+        if (!BuildConfig.DEBUG) return
+        if (running) catchUps.add(game) else catchUps.remove(game)
+    }
+    @Synchronized fun catchingUp() = BuildConfig.DEBUG && catchUps.isNotEmpty()
+    fun treeInFlight() = BuildConfig.DEBUG && treeWork.get() > 0
     @Synchronized fun animation(owner: String, running: Boolean) {
         if (!BuildConfig.DEBUG) return
         if (running) animations.add(owner) else animations.remove(owner)
@@ -112,7 +119,7 @@ internal object DebugJank {
                         val day = LocalDate.now(ZoneOffset.UTC).toString()
                         val used = if (preferences.getString("day", null) == day) preferences.getInt("attempts", 0) else 0
                         val now = System.nanoTime()
-                        if (credential != null && batch.isNotEmpty() && used < 3 &&
+                        if (credential != null && batch.isNotEmpty() && used < 20 &&
                             (lastAttempt == 0L || now - lastAttempt >= 60_000_000_000L) &&
                             preferences.edit().putString("day", day).putInt("attempts", used + 1).commit()) {
                             lastAttempt = now

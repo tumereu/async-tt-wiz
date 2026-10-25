@@ -276,6 +276,13 @@ class HistorySceneAnimation(initial: TableScene) {
         return (end.keys + start.keys).map { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
+            // Most of a large board is stationary during a tap. Reuse its immutable drawings
+            // instead of allocating transforms and copied items for every card on every frame.
+            if (a.bounds == b.bounds && a.alpha == b.alpha && a.item.tapped == b.item.tapped &&
+                a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
+                val shown = latestItems[id] ?: b.item
+                return@map if (shown === b.item) b else HistoryAnimatedItem(shown, b.bounds, b.alpha)
+            }
             val t = if (b.item.kind == TableItemKind.CARD && durationMillis != 90)
                 cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
             fun mix(x: Float, y: Float) = x + (y - x) * t

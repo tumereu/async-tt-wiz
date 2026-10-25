@@ -61,11 +61,14 @@ class CrashReportHttpTest {
 
                 val batch = LatencyBatch(listOf(
                     ActionLatency(now.toString(), "game", "Play.MoveCard", 321, true, 22.5, 35.0),
-                    ActionLatency(now.toString(), "game", "Undo", 321, false, serverResultMs = 99.0)))
+                    ActionLatency(now.toString(), "game", "Undo", 321, false, serverResultMs = 99.0)),
+                    taps = listOf(org.asyncttwiz.protocol.CardTapDiagnostic(now.toString(), "game", "rotated", "predictedAndQueued",
+                        firstAnimationFrameMs = 21.0, droppedFrames = 2, popupOpen = true, popupClosing = true)))
                 val body = AccountJson.format.encodeToString(batch)
                 assertEquals(204, post(body, kind = "latency"))
                 assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE kind='latency' AND body='$body'"))
                 assertEquals(400, post("{}", kind = "latency"))
+                assertEquals(400, post(AccountJson.format.encodeToString(batch.copy(taps = batch.taps.map { it.copy(droppedFrames = -1) })), kind = "latency"))
                 assertEquals(400, post(body, kind = "other"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
 
@@ -77,9 +80,9 @@ class CrashReportHttpTest {
                 assertEquals(400, post("{}", kind = "jank"))
                 assertEquals(400, post(AccountJson.format.encodeToString(JankBatch(listOf(jank.copy(jankyCount = 4)))), kind = "jank"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "jank"))
-                repeat(2) { assertEquals(204, post(jankBody, kind = "jank")) }
+                repeat(19) { assertEquals(204, post(jankBody, kind = "jank")) }
                 assertEquals(429, post(jankBody, kind = "jank"))
-                assertEquals(3L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
+                assertEquals(20L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
 
                 val episode = ReconnectEpisode("episode", "game", now.toString(), "socketClose:1001:Reconnect",
                     listOf(ReconnectStep("socketConnectedHttpAuthenticated", 20, 20), ReconnectStep("ready", 70, 50)), 70, true)

@@ -84,6 +84,21 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    @Test fun doubleTapUsesCurrentContextNotStaleDrawingOrFirstSelectedCardAndFailedQueueIsVisible() {
+        val f = BasicTableFixture(); f.connect()
+        try {
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            assertTrue(f.lobby.gameplay(PlayAction.SetTapped(f.id(41), true)))
+            val before = f.commands().size
+            // Drawing still says untapped and selection order starts with a different card.
+            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true, toggle = true)))
+            assertFalse(f.card(40).tapped); assertFalse(f.card(41).tapped)
+            assertTrue(f.commands().drop(before).all { ((it.action as GameAction.Play).action as PlayAction.SetTapped).tapped == false })
+            val refused = TableToolkitController(f.actor, { f.play }, { true }, { _, _ -> false }, waitingForConnection = { true })
+            assertFalse(refused.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(41))), true, toggle = true)))
+            assertNotNull(refused.error, "Waiting for connection must not hide a refused rotation")
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
     @Test fun handMultiReorderKeepsAnAlreadyPlacedPrefixWithoutSendingANoop() {
         val f = BasicTableFixture(); f.connect()
         try {

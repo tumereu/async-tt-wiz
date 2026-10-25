@@ -33,6 +33,7 @@ interface GameConnection : AutoCloseable {
     /** Read-only accepted transfer. No original is retried or rejected by an HTTP absence. */
     fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean = false
     fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
+    fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
 }
 
 class SocketGameConnection(private val origin: String) : GameConnection {
@@ -71,6 +72,28 @@ class SocketGameConnection(private val origin: String) : GameConnection {
         })
     }
     override fun send(message: GameClientMessage) = socket?.send(GameWire.json.encodeToString(message)) == true
+    override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit): Boolean {
+        val credential = token ?: return false
+        if (!DeckValidation.uuid(gameId) || (before != null && after != null)) return false
+        val cursor = before ?: after
+        if (cursor != null && runCatching { GameWire.ordinal(cursor) }.isFailure) return false
+        reads.execute {
+            val page = runCatching {
+                check(token == credential)
+                val query = if (before != null) "?before=$before" else if (after != null) "?after=$after" else ""
+                client.newCall(Request.Builder().url("$origin/v1/games/$gameId/chat$query")
+                    .header("Authorization", "Bearer $credential").build()).execute().use { response ->
+                    require(response.isSuccessful)
+                    GameWire.json.decodeFromString<ChatPage>(requireNotNull(response.body).byteStream()
+                        .bounded(ChatPaging.MAX_BYTES).toString(Charsets.UTF_8)).also {
+                        require(it.gameId == gameId && it.messages.size <= ChatPaging.SIZE)
+                    }
+                }
+            }.getOrNull()
+            complete(page)
+        }
+        return true
+    }
     override fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean {
         val credential = token ?: return false
         if (!DeckValidation.uuid(gameId)) return false

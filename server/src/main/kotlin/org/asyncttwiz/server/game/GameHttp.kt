@@ -23,7 +23,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
         val socket = path == "/v1/socket"
         val baselineRead = parts.size >= 5 && parts.take(3) == listOf("", "v1", "baselines")
         val read = parts.size >= 5 && parts.take(3) == listOf("", "v1", "games") &&
-            parts[4] in listOf("revisions", "results", "results:lookup", "baselines", "plays")
+            parts[4] in listOf("revisions", "results", "results:lookup", "baselines", "plays", "chat")
         if (!socket && !read && !baselineRead) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
@@ -73,7 +73,8 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             val revisions = parts.size == 5 && parts[4] == "revisions"
             val result = parts.size == 6 && parts[4] == "results"
             val history = parts.size == 7 && parts[4] == "plays" && parts[6] == "mutations"
-            if (!(lookup || revisions || result || baseline || history)) { error(404, "not_found"); return true }
+            val chat = parts.size == 5 && parts[4] == "chat"
+            if (!(lookup || revisions || result || baseline || history || chat)) { error(404, "not_found"); return true }
             if (request.method != if (lookup || baseline) "POST" else "GET") { error(405, "method_not_allowed"); return true }
             boundary = when {
                 history -> UnavailabilityBoundary.GAME_HTTP_HISTORY
@@ -82,6 +83,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 else -> UnavailabilityBoundary.GAME_HTTP_RESULTS
             }
             val body = when {
+                chat -> json.encodeToString(hub.games.chat(principal, parts[3], request.getParameter("before"), request.getParameter("after")))
                 history -> json.encodeToString(hub.games.history(principal, parts[3], parts[5], request.getParameter("after") ?: "0"))
                 revisions -> json.encodeToString(hub.games.revisions(principal, parts[3], request.getParameter("after") ?: "0"))
                 result -> json.encodeToString(hub.games.results(principal, parts[3], listOf(parts[5])).statuses.single())

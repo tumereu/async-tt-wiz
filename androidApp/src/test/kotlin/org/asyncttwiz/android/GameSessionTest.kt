@@ -15,11 +15,46 @@ class GameSessionTest {
         val frames = mutableListOf<GameClientMessage>()
         val tokens = mutableListOf<String>()
         var disconnected = 0
+        data class ChatRead(val game: String, val before: String?, val after: String?, val complete: (ChatPage?) -> Unit)
+        var pagedChat = false
+        val chatReads = mutableListOf<ChatRead>()
+        override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit): Boolean {
+            if (!pagedChat) return false
+            chatReads += ChatRead(gameId, before, after, complete); return true
+        }
         override fun connect(token: String, listener: GameConnection.Listener) { tokens.add(token); this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
         override fun disconnect() { disconnected++ }
         override fun close() = Unit
         fun message(message: GameServerMessage) = listener.message(message)
+    }
+    @Test fun metadataHeadsKeepChatAndFetchNewerAndOlderPagesWithoutReplacingLiveMessages() {
+        val f = Fixture(); val game = game(); f.connect(listOf(game)); f.wire.pagedChat = true
+        fun message(revision: Int) = ChatMessage(id(), game.id, id(), owner.accountId, "message $revision", revision.toString(), "2026-10-25T00:00:00Z")
+        val newest = message(200)
+        fun head(revision: String) = GameHead(game.id, revision, game.copy(revision = revision), chatSync = ChatSync(revision))
+        f.message(head("200"))
+        assertEquals(null, f.wire.chatReads.single().after)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(newest), ChatSync("200", newest.id), older = "200")); f.drain()
+        assertEquals(listOf(newest), f.session.chat(game.id))
+        f.message(head("200"))
+        assertEquals(1, f.wire.chatReads.size) // A heartbeat does not reload or erase chat.
+        f.message(head("202"))
+        assertEquals("200", f.wire.chatReads.last().after)
+        val next = message(201); val latest = message(202)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(next), ChatSync("202", latest.id), next = "201")); f.drain()
+        assertEquals("201", f.wire.chatReads.last().after)
+        val live = message(203)
+        f.message(GameRevision(game.id, "202", "203", live.id, owner.accountId, GameScope(game.id),
+            game.copy(revision = "203"), chatMessage = live))
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(latest), ChatSync("202", latest.id))); f.drain()
+        assertEquals(listOf(newest, next, latest, live), f.session.chat(game.id))
+        assertTrue(f.session.loadOlderChat(game.id)); assertEquals("200", f.wire.chatReads.last().before)
+        val older = message(100)
+        f.wire.chatReads.last().complete(ChatPage(game.id, listOf(older), ChatSync("202", latest.id))); f.drain()
+        assertEquals(listOf(older, newest, next, latest, live), f.session.chat(game.id))
+        assertFalse(f.session.loadOlderChat(game.id))
+        f.session.close()
     }
     private inner class Fixture {
         val wire = Wire()

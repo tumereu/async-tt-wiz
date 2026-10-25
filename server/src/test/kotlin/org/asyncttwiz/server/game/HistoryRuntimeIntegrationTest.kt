@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test
 class HistoryRuntimeIntegrationTest {
     private fun control(stream: GameplayFixture.Stream, action: GameAction) = stream.command(PlayAction.NextStep).copy(action = action)
     private fun tree(db: OwnedPostgres, f: GameplayFixture) = db.connection().use {
-        GameplayStore().read(DSL.using(it, SQLDialect.POSTGRES), f.games.head(f.a, f.game.id).play!!) }
+        GameplayStore().readFull(DSL.using(it, SQLDialect.POSTGRES), f.games.head(f.a, f.game.id).play!!) }
     private fun sql(db: OwnedPostgres, text: String) = db.connection().use { it.createStatement().execute(text) }
     private fun download(games: GameService, f: GameplayFixture, ids: List<String> = emptyList()): Pair<GameplayManifest, GameplayTree> {
         val manifest = games.baseline(f.a, f.game.id, ids)
@@ -28,7 +28,7 @@ class HistoryRuntimeIntegrationTest {
         }
         assertEquals(manifest.recordCount, records.size)
         val tree = TreeSync.decode(records.asSequence(), f.game.id, f.root.id).tree
-        assertEquals(manifest.head!!.play, tree.stateAt(tree.currentNodeId))
+        assertEquals(manifest.head!!.play, tree.stateAt(tree.currentNodeId)!!.copy(annotations = EventAnnotationState()))
         return manifest to tree
     }
 
@@ -231,8 +231,11 @@ class HistoryRuntimeIntegrationTest {
             }
             ServiceRuntime(db.settings).use { runtime ->
                 val games = GameService(runtime)
-                runtime.attachWorker(games::validatePending, { true })
                 runtime.start(); gameplayAwait(runtime::ready)
+                assertThrows(org.asyncttwiz.server.database.OwnershipFailure::class.java) { games.validatePending() }
+                gameplayAwait(runtime::ready)
+                games.checkpointGameplay() // Corruption repair is explicit maintenance, not readiness replay.
+                games.validatePending()
                 assertEquals(result, games.results(f.a, f.game.id, listOf(original.requestId)).statuses.single().result)
                 val exported = download(games, f).second
                 assertEquals(finalTree, exported); assertFalse(games.executeOne())
@@ -251,7 +254,7 @@ class HistoryRuntimeIntegrationTest {
                     val before = state(); val input = f.owner.command(action); val result = f.owner.execute(input)
                     assertEquals("accepted", result.outcome, "$action: ${result.reason}")
                     val after = state(); val retained = tree(db, f)
-                    assertEquals(after, retained.stateAt(retained.currentNodeId))
+                    assertEquals(after, retained.stateAt(retained.currentNodeId)!!.copy(annotations = EventAnnotationState()))
                     if (undo) {
                         val removed = f.owner.execute(control(f.owner, GameAction.Undo))
                         if (result.mutation!!.revealsInformation) {

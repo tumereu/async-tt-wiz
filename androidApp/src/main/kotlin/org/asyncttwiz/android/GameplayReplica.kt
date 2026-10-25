@@ -89,6 +89,7 @@ class GameplayReplica {
         var state = head.play!!
         var retained = baseline.snapshot.treeRecords.takeIf { it.isNotEmpty() }?.let {
             TreeSync.decode(it.asSequence(), head.gameId, state.id) }
+        retained?.let { state = requireNotNull(it.tree.stateAt(it.tree.currentNodeId)) }
         var at = head.revision
         val staged = baseline.snapshot.records.map { it.copy(chatMessage = null) }.associateByTo(linkedMapOf()) { it.resultRevision }
         for (update in tail.sortedBy { GameWire.ordinal(it.resultRevision) }) {

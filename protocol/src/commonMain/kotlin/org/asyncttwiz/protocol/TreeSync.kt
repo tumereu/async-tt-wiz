@@ -31,6 +31,16 @@ object TreeSync {
             val upserts = mutableListOf<TreeSyncRecord>()
             val removals = mutableListOf<GameplayTreeKey>()
             for (key in after.editKeys) {
+                if (key.kind == "redo") {
+                    val old = before.redoByAccount[key.id].orEmpty()
+                    val next = after.redoByAccount[key.id].orEmpty()
+                    // Reducers only push, pop, or clear an account's immutable stack. Slots below
+                    // the smaller size are shared; never encode/compare the surviving prefix.
+                    for (slot in old.size until next.size) upserts += TreeSyncRecord("redo-entry", "${key.id}/$slot",
+                        GameWire.json.encodeToJsonElement(next[slot]))
+                    if (old.size != next.size) upserts += TreeSyncRecord("redo-size", key.id, JsonPrimitive(next.size))
+                    continue
+                }
                 val old = record(before, key)
                 val next = record(after, key)
                 if (old != next) {
@@ -126,6 +136,24 @@ object TreeSync {
                     }
                 }
                 "redo" -> next = next.copy(redoByAccount = next.redoByAccount.putShared(record.id, GameWire.json.decodeFromJsonElement<TreeRedoQueue>(record.payload).entries.toPersistentList()))
+                "redo-entry" -> {
+                    val account = record.id.substringBefore('/')
+                    val slot = record.id.substringAfter('/').toInt()
+                    val queue = next.redoByAccount[account].orEmpty()
+                    require(slot == queue.size)
+                    next = next.copy(redoByAccount = next.redoByAccount.putShared(account,
+                        queue.appendShared(GameWire.json.decodeFromJsonElement<GameplayRedoEntry>(record.payload))))
+                }
+                "redo-size" -> {
+                    val size = record.payload.jsonPrimitive.int
+                    var queue = next.redoByAccount[record.id].orEmpty()
+                    require(size in 0..queue.size)
+                    if (size == 0) next = next.copy(redoByAccount = next.redoByAccount.removeShared(record.id))
+                    else {
+                        while (queue.size > size) queue = queue.dropLastShared()
+                        next = next.copy(redoByAccount = next.redoByAccount.putShared(record.id, queue))
+                    }
+                }
                 "removed-parent" -> next = next.copy(removedParents = next.removedParents.putShared(record.id, record.payload.jsonPrimitive.content))
                 "branch-head" -> next = next.copy(branchHeads = next.branchHeads.putShared(record.id, record.payload.jsonPrimitive.content))
                 "branch-lineage" -> {
@@ -158,7 +186,8 @@ object TreeSync {
         }
         tree.nodes.toSortedMap().forEach { (id, node) -> yield(TreeSyncRecord("node", id, GameWire.json.encodeToJsonElement(node))) }
         tree.redoByAccount.toSortedMap().forEach { (account, queue) ->
-            yield(TreeSyncRecord("redo", account, GameWire.json.encodeToJsonElement(TreeRedoQueue(queue))))
+            queue.forEachIndexed { slot, entry -> yield(TreeSyncRecord("redo-entry", "$account/$slot", GameWire.json.encodeToJsonElement(entry))) }
+            yield(TreeSyncRecord("redo-size", account, JsonPrimitive(queue.size)))
         }
         tree.removedParents.toSortedMap().forEach { (id, parent) -> yield(TreeSyncRecord("removed-parent", id, JsonPrimitive(parent))) }
         generation.branches.toSortedMap().forEach { (id, metadata) -> yield(TreeSyncRecord("branch", id, metadata)) }
@@ -177,6 +206,8 @@ object TreeSync {
         val nodes = linkedMapOf<String, GameplayMutation>()
         val definitions = linkedMapOf<String, SubmittedDefinition>()
         val redo = linkedMapOf<String, List<GameplayRedoEntry>>()
+        val redoSlots = linkedMapOf<String, MutableMap<Int, GameplayRedoEntry>>()
+        val redoSizes = linkedMapOf<String, Int>()
         val removed = linkedMapOf<String, String>()
         val branches = linkedMapOf<String, JsonObject>()
         val seen = mutableSetOf<Pair<String, String>>()
@@ -206,12 +237,20 @@ object TreeSync {
                     require(node.id == record.id); nodes[record.id] = node
                 }
                 "redo" -> redo[record.id] = GameWire.json.decodeFromJsonElement<TreeRedoQueue>(record.payload).entries
+                "redo-entry" -> redoSlots.getOrPut(record.id.substringBefore('/')) { linkedMapOf() }[record.id.substringAfter('/').toInt()] =
+                    GameWire.json.decodeFromJsonElement(record.payload)
+                "redo-size" -> redoSizes[record.id] = record.payload.jsonPrimitive.int
                 "removed-parent" -> removed[record.id] = record.payload.jsonPrimitive.content
                 "branch" -> branches[record.id] = record.payload.jsonObject
                 else -> error("Unsupported tree record") // missing semantics are incomplete, not silently dropped
             }
         }
         val root = requireNotNull(initial).copy(definitions = definitions.values.sortedBy { it.digest })
+        for ((account, size) in redoSizes) {
+            require(size >= 0)
+            if (size > 0) redo[account] = (0 until size).map { requireNotNull(redoSlots[account]?.get(it)) }
+            else redo.remove(account)
+        }
         require(root.gameId == gameId && root.id == playId)
         val result = DownloadedTree(GameplayTree(root, nodes.toPersistentMap(), requireNotNull(current),
             redo.mapValues { it.value.toPersistentList() }.toPersistentMap(), removed.toPersistentMap(), lineage.toPersistentMap(),
@@ -296,6 +335,7 @@ object TreeSync {
         }
         require(tree.redoByAccount.keys.all { it in players })
         require(tree.redoByAccount.all { (account, queue) -> queue.all { entry -> entry.mutation.author == account &&
+            (entry.otherChildCount == null || entry.otherChildCount >= 0) &&
             (entry.successorId == null || entry.successorId in resolved) && entry.otherChildIds.all { it in resolved } } })
         val detached = tree.redoByAccount.values.flatten().map { it.mutation }
         require(detached.map { it.id }.distinct().size == detached.size)
@@ -325,9 +365,23 @@ object TreeSync {
             "branch" -> require(key.id in generation.branches && DeckValidation.uuid(key.id))
             "branch-head" -> tree.branchHeads[key.id]?.let { require(key.id in generation.branches && tree.resolveCursor(it) != null) }
             "removed-parent" -> tree.removedParents[key.id]?.let { require(key.id !in tree.nodes && DeckValidation.uuid(key.id) && tree.resolveCursor(key.id) != null) }
+            "redo-entry" -> {
+                val account = key.id.substringBefore('/')
+                val entry = tree.redoByAccount[account]?.get(key.id.substringAfter('/').toInt()) ?: continue
+                require(account in players)
+                require(entry.mutation.author == account && entry.mutation.schemaVersion == 2 &&
+                    (entry.otherChildCount == null || entry.otherChildCount >= 0) &&
+                    entry.mutation.id !in tree.nodes && entry.mutation.id in tree.removedParents &&
+                    tree.resolveCursor(entry.mutation.parentId) != null &&
+                    (entry.successorId == null || tree.resolveCursor(entry.successorId) != null) &&
+                    entry.otherChildIds.all { tree.resolveCursor(it) != null })
+            }
+            // Compatibility with explicitly compared external generations and older retained
+            // controls only. Production reducers emit redo-entry/redo-size, never whole queues.
             "redo" -> tree.redoByAccount[key.id]?.let { queue ->
                 require(key.id in players)
                 for (entry in queue) require(entry.mutation.author == key.id && entry.mutation.schemaVersion == 2 &&
+                    (entry.otherChildCount == null || entry.otherChildCount >= 0) &&
                     entry.mutation.id !in tree.nodes && entry.mutation.id in tree.removedParents &&
                     tree.resolveCursor(entry.mutation.parentId) != null &&
                     (entry.successorId == null || tree.resolveCursor(entry.successorId) != null) &&

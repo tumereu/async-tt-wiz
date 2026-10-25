@@ -55,7 +55,8 @@ object GameplaySync {
         require(CombatStackRules.closeInvariants(play.board, play.board) == play.board)
         if (snapshot.treeRecords.isNotEmpty()) {
             val tree = TreeSync.decode(snapshot.treeRecords.asSequence(), head.gameId, play.id).tree
-            require(tree.stateAt(tree.currentNodeId) == play)
+            val endpoint = tree.stateAt(tree.currentNodeId)
+            require((if (head.boundedEndpoint) endpoint?.copy(annotations = EventAnnotationState()) else endpoint) == play)
             require(snapshot.records.isEmpty())
             return
         }

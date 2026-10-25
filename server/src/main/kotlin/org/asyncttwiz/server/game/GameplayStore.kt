@@ -21,23 +21,28 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
     private data class Export(val account: UUID, val manifest: GameplayManifest,
         val chunks: List<ByteArray>, val expires: java.time.Instant)
     private val exports = ConcurrentHashMap<String, Export>()
-    private data class Head(val revision: Long, val tree: GameplayTree)
+    private data class Head(val revision: Long, val root: PlayState, val tree: GameplayTree?, val records: EndpointReadCache?)
+    private val transactionRecords = ThreadLocal<Pair<java.lang.ref.WeakReference<GameplayTree>, EndpointReadCache>?>()
     private val heads = object : LinkedHashMap<String, Head>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Head>?) = size > 16
     }
 
     /** Only committed generations enter the bounded cache. Every caller owns its cache slots. */
     fun committed(revision: Long, tree: GameplayTree) = synchronized(heads) {
-        heads[tree.initial.id] = Head(revision, tree.materializedCopy())
+        // Never retain transaction-bound lazy SQL collections/connections past commit.
+        heads[tree.initial.id] = Head(revision, tree.initial,
+            tree.takeUnless { it.nodes is IndexedMap<*, *> }?.materializedCopy(),
+            transactionRecords.get()?.takeIf { it.first.get() === tree }?.second)
+        transactionRecords.remove()
     }
 
     /** Caller holds the game's admission/execution lock: state, record coverage and results share one R. */
     fun create(sql: DSLContext, account: UUID, head: GameHead, statuses: List<GameRequestStatus>): GameplayManifest {
         val play = head.play ?: throw GameProtocolFailure("inapplicable")
-        val tree = read(sql, play)
-        val records = TreeSync.records(TreeSync.generation(tree)).toList()
-        val snapshot = GameplaySnapshot(head, emptyList(), records)
-        GameplaySync.validate(snapshot) // Never advertise a partial current tree as a full transfer.
+        read(sql, play, GameWire.ordinal(head.revision)) // Verify the durable checkpoint, not replay history.
+        // A full transfer necessarily reads the requested records. They were validated when
+        // accepted; do not decode/replay the entire tree merely to export those same bytes.
+        val records = storedRecords(sql, play)
         val bytes = records.joinToString("\n", postfix = "\n") { GameWire.json.encodeToString(it) }.toByteArray(Charsets.UTF_8)
         val decoded = (bytes.indices step GameplaySync.CHUNK_BYTES).map { start ->
             bytes.copyOfRange(start, minOf(start + GameplaySync.CHUNK_BYTES, bytes.size)) }
@@ -70,15 +75,25 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
         for (record in TreeSync.records(TreeSync.generation(GameplayTree(state)))) {
             if (record.kind !in setOf("root", "definition", "node")) control(sql, state.id, record)
         }
+        GameplayEndpoint(sql, state.id).initialize(GameplayTree(state), 0)
     }
 
-    /** Rebuild from the original root, retained relational mutations and current control records.
-     * No dependency on revision retention or an outbox delivery window. */
+    /** Versioned endpoint plus transaction-scoped keyed reads, including on a cache miss. */
     fun read(sql: DSLContext, state: PlayState, revision: Long? = null): GameplayTree {
-        if (revision != null) synchronized(heads) {
-            heads[state.id]?.takeIf { it.revision == revision && it.tree.preparedState(it.tree.currentNodeId) == state }
-                ?.let { return it.tree.materializedCopy() }
-        }
+        val cached = synchronized(heads) { heads[state.id]?.takeIf { it.revision == revision } }
+        cached?.tree?.takeIf { it.preparedState(it.currentNodeId) == state }?.let { return it.materializedCopy() }
+        val root = cached?.root ?: json.decodeFromString<PlayState>(sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY)
+            .where(GAME_PLAY.ID.eq(id(state.id))).fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!)
+        val records = cached?.records?.copy() ?: EndpointReadCache()
+        return GameplayEndpoint(sql, state.id, records).read(state, root).also { transactionRecords.set(java.lang.ref.WeakReference(it) to records) }
+    }
+
+    /** Explicit exhaustive maintenance only. Never called by exports, commands, or recovery. */
+    fun readFull(sql: DSLContext, state: PlayState): GameplayTree {
+        return TreeSync.decode(storedRecords(sql, state).asSequence(), state.gameId, state.id).tree
+    }
+
+    private fun storedRecords(sql: DSLContext, state: PlayState): List<TreeSyncRecord> {
         val root = json.decodeFromString<PlayState>(sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY)
             .where(GAME_PLAY.ID.eq(id(state.id))).fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!)
         val records = mutableListOf(TreeSyncRecord("root", root.root.id, json.encodeToJsonElement(root.copy(definitions = emptyList()))))
@@ -88,18 +103,25 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
                 records.add(TreeSyncRecord("node", it.id.toString(), json.parseToJsonElement(it.payload!!.data()))) }
         sql.selectFrom(GAMEPLAY_TREE_CONTROL).where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(state.id))).fetch().forEach {
             records.add(TreeSyncRecord(it.kind!!, it.id!!, json.parseToJsonElement(it.payload!!.data()))) }
-        return TreeSync.decode(records.asSequence(), state.gameId, state.id).tree.also {
-            if (revision != null) committed(revision, it)
-        }
+        return records
     }
 
-    /** Startup/ownership recovery validates the complete retained tree and rebuilds only the
-     * disposable endpoint. Accepted topology, original results/revisions/outbox are never replayed. */
+    /** Atomic endpoint/record commits have no unapplied transitions. Recovery verifies their
+     * version, digest, and pointers; exhaustive validation is an explicit maintenance operation. */
     fun recover(sql: DSLContext, checkpoint: PlayState) {
-        val tree = read(sql, checkpoint)
-        val accepted = requireNotNull(tree.stateAt(tree.currentNodeId))
-        if (checkpoint != accepted) check(sql.update(GAME_PLAY).set(GAME_PLAY.PAYLOAD, json.encodeToString(accepted))
-            .where(GAME_PLAY.ID.eq(id(checkpoint.id))).execute() == 1)
+        read(sql, checkpoint) // Version, pointer, and indexed endpoint integrity; no root replay.
+    }
+
+    fun rebuild(sql: DSLContext, state: PlayState, revision: Long) {
+        val tree = readFull(sql, state)
+        // One-off maintenance is deliberately exhaustive, unlike readiness or normal reads.
+        sql.deleteFrom(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD)
+            .where(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD.PLAY_ID.eq(id(state.id))).execute()
+        sql.deleteFrom(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE)
+            .where(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE.PLAY_ID.eq(id(state.id))).execute()
+        for (record in TreeSync.records(TreeSync.generation(tree))) if (record.kind.startsWith("redo-")) control(sql, state.id, record)
+        sql.deleteFrom(GAMEPLAY_TREE_CONTROL).where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(state.id))).and(GAMEPLAY_TREE_CONTROL.KIND.eq("redo")).execute()
+        GameplayEndpoint(sql, state.id).initialize(tree, revision)
     }
 
     private fun control(sql: DSLContext, play: String, record: TreeSyncRecord) {
@@ -145,8 +167,11 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
             "root", "definition" -> Unit
             else -> control(sql, next.initial.id, record)
         }
-        check(sql.update(GAME_PLAY).set(GAME_PLAY.PAYLOAD, json.encodeToString(requireNotNull(next.stateAt(next.currentNodeId))))
-            .set(GAME_PLAY.INITIAL_PAYLOAD, json.encodeToString(next.initial)).where(GAME_PLAY.ID.eq(id(next.initial.id))).execute() == 1)
+        val records = transactionRecords.get()?.takeIf { it.first.get() === before }?.second ?: EndpointReadCache()
+        GameplayEndpoint(sql, next.initial.id, records).save(before, next, delta, revision)
+        transactionRecords.set(java.lang.ref.WeakReference(next) to records)
+        if (before.initial !== next.initial) check(sql.update(GAME_PLAY).set(GAME_PLAY.INITIAL_PAYLOAD, json.encodeToString(next.initial))
+            .where(GAME_PLAY.ID.eq(id(next.initial.id))).execute() == 1)
         return delta
     }
     fun history(sql: DSLContext, state: PlayState, revision: Long, after: Long): GameplayHistoryPage {

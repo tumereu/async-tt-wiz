@@ -64,7 +64,7 @@ object DeckTextParser {
     }
 }
 
-/** Worker-only resolution on the installed, disk-backed catalog; complete raw face JSON is retained. */
+/** Worker-only resolution on the installed, disk-backed catalog; exact face text/defaults are retained. */
 class DeckImportResolver(private val repository: CatalogRepository) {
     fun resolve(text: String): DeckImportResult = repository.snapshot { catalog ->
         val parsed = DeckTextParser.parse(text)

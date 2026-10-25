@@ -6,7 +6,7 @@ import kotlin.test.*
 
 class CatalogPromptTest {
     private val old = CatalogMetadata("2026-10-20", "5.2.2")
-    private val newer = old.copy(date = "2026-10-21")
+    private val newer = old.copy(date = "2026-10-21", indexVersion = old.indexVersion + 1)
 
     @Test fun missingRecordsWaitForMetadataThenPromptOnEitherConnection() {
         val policy = CatalogPromptPolicy()
@@ -47,5 +47,14 @@ class CatalogPromptTest {
         assertEquals("Indexing card records: 160 / 450 MB processed · 45,123 cards",
             CatalogProgress(CatalogPhase.INDEXING, 160_000_000, 450_000_000, 45_123).label())
         assertEquals("Downloading card records: 120 MB", CatalogProgress(CatalogPhase.DOWNLOADING, 120_000_000, null).label())
+        assertEquals("Finishing up — verifying catalog…", CatalogProgress(CatalogPhase.FINISHING, 0, null).label())
+    }
+
+    @Test fun dailyProviderBuildsDoNotPromptForFullDownloadButPendingSetsDo() {
+        val policy = CatalogPromptPolicy()
+        val daily = old.copy(date = "2026-10-21")
+        assertFalse(policy.shouldPrompt(CatalogUiState(installed = old, available = daily)))
+        val plan = CatalogUpdatePlan(daily, listOf(CatalogSet("NEW", "2026-10-21")))
+        assertTrue(policy.shouldPrompt(CatalogUiState(installed = old, available = daily, plan = plan)))
     }
 }

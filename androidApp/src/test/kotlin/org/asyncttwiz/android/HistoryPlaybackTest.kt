@@ -41,6 +41,21 @@ class HistoryPlaybackTest {
         assertEquals(id(1), player.position.cursorId)
     }
 
+    @Test fun resumeAfterRevisionBumpWithoutNewNodeStaysLive() {
+        val a = node(1, 0); val b = node(2, 1)
+        val player = HistoryPlayback(tree(listOf(a)))
+        player.background()
+        player.receive(tree(listOf(a), version = "v1-chat"))
+        player.foreground()
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals("v1-chat", player.position.displayVersion)
+        player.background()
+        player.receive(tree(listOf(a, b)))
+        player.foreground() // An unseen node still opens timeline mode on resume.
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+        assertEquals(id(1), player.position.cursorId)
+    }
+
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a"): GameplayMutation {
         val semantic = HistorySemantic(kind, "icon-$kind", if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)

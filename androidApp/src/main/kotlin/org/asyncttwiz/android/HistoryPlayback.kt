@@ -172,8 +172,10 @@ class HistoryPlayback(initial: HistoryTree) {
     fun foreground() {
         val resuming = !foreground
         foreground = true
-        if (resuming && position.mode == HistoryMode.LIVE && (position.cursorId != tree.sharedHeadId || position.displayVersion != tree.liveVersion))
-            position = position.copy(mode = HistoryMode.PLAYBACK, playing = false)
+        if (!resuming || position.mode != HistoryMode.LIVE) return
+        // Only unseen nodes justify timeline mode; a revision bump without one (e.g. chat) stays live.
+        position = if (position.cursorId != tree.sharedHeadId) position.copy(mode = HistoryMode.PLAYBACK, playing = false)
+            else HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
     }
     private fun resolveCursor(id: String): String {
         var cursor = id

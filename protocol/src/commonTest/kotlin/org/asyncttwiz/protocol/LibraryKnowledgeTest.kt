@@ -280,4 +280,54 @@ class LibraryKnowledgeTest {
         assertNotNull(tree.prepareReview(target), "Traverse inverse annotated fork")
         play(tree, PlayAction.SetNote(id(1000), "continued"), b, target)
     }
+
+    @Test fun selectiveUndoRedoAcrossRetainedForkReseedsPreservesRecordedOrderAndTraversal() {
+        var base = GameplayTree(root())
+        base = place(base, library(base).cards[3], MoveInsertion.TOP)
+        base = place(base, library(base).cards[8], MoveInsertion.BOTTOM)
+        val anchor = base.currentNodeId
+        val displaced = play(base, PlayAction.SetNote(id(1000), "displaced"), b)
+        val ownFork = play(displaced, PlayAction.AdjustLife(a, "1"), target = anchor)
+        val own = ownFork.currentNodeId
+        val otherFork = play(ownFork, PlayAction.SetNote(id(1000), "other branch"), b, anchor)
+        val continued = play(otherFork, PlayAction.SetNote(id(1001), "retained"), b, own)
+        val suffix = continued.currentNodeId
+        val before = state(continued)
+        val originalReseeds = continued.nodes.getValue(suffix).transition.delta!!.libraryReseeds
+        val undone = control(continued, GameAction.Undo)
+        assertFalse(own in undone.nodes)
+        assertEquals(anchor, undone.nodes.getValue(suffix).parentId)
+        assertEquals(state(base).board.players, state(undone).board.players)
+        assertEquals(before.board.containers, state(undone).board.containers)
+        val rebased = undone.nodes.getValue(suffix).transition.delta!!.libraryReseeds
+        assertEquals(originalReseeds.map { it.to }, rebased.map { it.to })
+        assertEquals(state(base).board.containers.filter { it.zone == PlayZone.LIBRARY }.map { it.unknownMiddle },
+            rebased.map { it.from })
+        assertEquals(state(base), undone.prepareReview(anchor))
+        assertEquals(state(otherFork), undone.prepareReview(otherFork.currentNodeId))
+        assertEquals(state(undone), undone.prepareReview(suffix))
+        val redone = control(undone, GameAction.Redo)
+        assertEquals(continued.nodes, redone.nodes)
+        assertEquals(before, state(redone))
+        val decoded = TreeSync.decode(TreeSync.records(TreeSync.generation(undone)),
+            undone.initial.gameId, undone.initial.id).tree
+        assertEquals(state(undone), state(decoded))
+        assertEquals(before, state(control(decoded, GameAction.Redo)))
+    }
+
+    @Test fun retainedReferenceStillBlocksUndoBeforeAnIndependentReseededContinuation() {
+        var tree = play(GameplayTree(root()), PlayAction.AdjustLife(b, "1"), b)
+        tree = play(tree, PlayAction.AdjustLife(a, "1"), target = tree.initial.root.id)
+        val own = tree.currentNodeId
+        tree = play(tree, PlayAction.EventComment(EventReference(tree.initial.id, own, tree.contextVersion(own)),
+            "inactive reference"), b, tree.initial.root.id)
+        tree = play(tree, PlayAction.SetNote(id(1000), "continued"), b, own)
+        val before = state(tree)
+        val blocked = HistoryContinuation.change(tree, a, command(tree, GameAction.Undo))
+        assertEquals("referenceBlocked", blocked.reason)
+        assertEquals(own, blocked.targetId)
+        assertNull(blocked.tree)
+        assertEquals(before, state(tree))
+        assertTrue(tree.redoByAccount.isEmpty())
+    }
 }

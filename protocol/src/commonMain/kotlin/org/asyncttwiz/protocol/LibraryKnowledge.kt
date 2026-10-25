@@ -40,6 +40,16 @@ internal object LibraryKnowledge {
         return state.copy(board = board)
     }
 
+    /** Selective edits can change the incoming unknown order, but never reroll the retained result.
+     * Membership (including the known/unknown boundary) must still match the accepted reseed. */
+    fun rebaseReseeds(state: PlayState, changes: List<LibraryReseed>): List<LibraryReseed>? = changes.map { change ->
+        val library = state.board.containers.singleOrNull { it.id == change.containerId && it.zone == PlayZone.LIBRARY }
+            ?: return null
+        val from = library.unknownMiddle
+        if (from.size != change.from.size || from.toSet() != change.from.toSet()) return null
+        change.copy(from = from)
+    }
+
     /** Source edge intent is explicit; ordinary MEMBER moves never silently pick another card.
      * A fork may also translate a strictly captured edge after validating it on its original board. */
     fun resolveEdge(state: PlayState, command: GameCommand, beforeReseed: PlayState? = null): GameCommand {

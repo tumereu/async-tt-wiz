@@ -84,6 +84,19 @@ object GameplayHistory {
         bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId,
             append(state.currentGroup, mutation, state.board.containers)))
 
+    /** Only selective suffix replay may rebase a fork's inverse reseed input. All action effects and
+     * the accepted output order stay exact; normal traversal continues to validate the sealed tuple. */
+    internal fun recontextualizeRetained(state: PlayState, mutation: GameplayMutation): GameplayMutation? {
+        val delta = mutation.transition.delta ?: return null
+        if (delta.libraryReseeds.isEmpty()) return recontextualize(state, mutation)
+        if (delta.seal != GameplayDeltas.seal(mutation)) return null
+        val reseeds = LibraryKnowledge.rebaseReseeds(state, delta.libraryReseeds) ?: return null
+        val retained = mutation.copy(transition = mutation.transition.copy(delta = delta.copy(libraryReseeds = reseeds)))
+        val sealed = retained.copy(transition = retained.transition.copy(
+            delta = retained.transition.delta!!.copy(seal = GameplayDeltas.seal(retained))))
+        return recontextualize(state, sealed)
+    }
+
     private fun readsMatch(state: PlayState, mutation: GameplayMutation): Boolean {
         val board = (LibraryKnowledge.applyReseeds(state, mutation.transition.delta?.libraryReseeds.orEmpty(), false)
             ?: return false).board

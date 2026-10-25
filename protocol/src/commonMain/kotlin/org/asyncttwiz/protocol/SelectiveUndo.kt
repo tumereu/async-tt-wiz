@@ -109,10 +109,13 @@ object SelectiveUndo {
         var current = state.takeIf { it.currentNodeId == candidate.currentNodeId }
         for (node in later) {
             if (!candidate.referencesMatch(node)) return GameplayTreeChange(reason = "referenceBlocked", targetId = target.id)
-            val retained = GameplayHistory.recontextualize(state, nodes.getValue(node.id))
+            val retained = GameplayHistory.recontextualizeRetained(state, nodes.getValue(node.id))
+                ?: return GameplayTreeChange(reason = "replayBlocked", targetId = target.id)
             state = candidate.replay(state, retained)
                 ?: return GameplayTreeChange(reason = "replayBlocked", targetId = target.id)
             nodes = nodes.putShared(node.id, retained)
+            if (retained.transition != node.transition) candidate = candidate.copy(nodes = nodes)
+                .changedFrom(candidate, setOf(GameplayTreeKey("node", node.id)))
             candidate.nearby(state)
             if (node.id == candidate.currentNodeId) current = state
         }
@@ -205,10 +208,13 @@ object SelectiveUndo {
         var current = state.takeIf { it.currentNodeId == candidate.currentNodeId }
         for (node in later) {
             if (!candidate.referencesMatch(node)) return GameplayTreeChange(reason = "referenceBlocked", targetId = target.id)
-            val retained = GameplayHistory.recontextualize(state, nodes.getValue(node.id))
+            val retained = GameplayHistory.recontextualizeRetained(state, nodes.getValue(node.id))
+                ?: return GameplayTreeChange(reason = "replayBlocked", targetId = target.id)
             state = candidate.replay(state, retained)
                 ?: return GameplayTreeChange(reason = "replayBlocked", targetId = target.id)
             nodes = nodes.putShared(node.id, retained)
+            if (retained.transition != node.transition) candidate = candidate.copy(nodes = nodes)
+                .changedFrom(candidate, setOf(GameplayTreeKey("node", node.id)))
             candidate.nearby(state)
             if (node.id == candidate.currentNodeId) current = state
         }

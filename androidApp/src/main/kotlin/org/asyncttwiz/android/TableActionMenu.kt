@@ -17,18 +17,13 @@ object TableActionMenus {
     fun table(play: PlayState, context: QuickContext, controller: TableActionController,
         pendingSuggestionId: String? = null, mayAccept: Boolean = false): List<TableMenuAction> {
         val scope = TableActionScope(play.gameId, play.id)
-        val actions = mutableListOf(
-            TableMenuAction("Next step", TableActionIntent.Next(scope)),
-            TableMenuAction("End turn", TableActionIntent.End(scope)))
+        val actions = mutableListOf<TableMenuAction>()
         controller.untap(play, false)?.let { actions += TableMenuAction("Untap all", it) }
-        controller.draw(play, false)?.let { actions += TableMenuAction("Draw one", it) }
         actions += TableMenuAction("Create combat area", TableActionIntent.Combat(scope, CombatTool.CREATE, context.combatAreaId))
         actions += TableMenuAction("Close combat area", TableActionIntent.Combat(scope, CombatTool.CLOSE, context.combatAreaId))
-        actions += TableMenuAction("Create token / Blank", TableActionIntent.Token(scope))
+        actions += TableMenuAction("Create token", TableActionIntent.Token(scope))
         if (pendingSuggestionId == null) {
-            actions += TableMenuAction("Suggest my win", TableActionIntent.Ending(scope, EndingTool.SUGGEST_WIN))
-            actions += TableMenuAction("Suggest my loss", TableActionIntent.Ending(scope, EndingTool.SUGGEST_LOSS))
-            actions += TableMenuAction("Suggest draw", TableActionIntent.Ending(scope, EndingTool.SUGGEST_DRAW))
+            actions += TableMenuAction("Suggest game end", TableActionIntent.Ending(scope, EndingTool.SUGGEST_WIN))
         } else if (mayAccept) actions += TableMenuAction("Accept result", TableActionIntent.Ending(scope, EndingTool.ACCEPT, pendingSuggestionId))
         return actions
     }
@@ -64,11 +59,12 @@ object TableActionMenus {
 @Composable
 fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, onDismiss: () -> Unit, pendingSuggestionId: String? = null, mayAccept: Boolean = false,
-    perform: (TableActionIntent) -> Boolean = controller::perform, blankToken: (() -> Boolean)? = null,
+     perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap()) {
     val scope = TableActionScope(play.gameId, play.id)
     var sides by remember(scope) { mutableStateOf("6") }
-    var picker by remember(scope) { mutableStateOf(false) }
+    var ending by remember(scope) { mutableStateOf(false) }
+    var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var die by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = context.playable && controller.enabled(scope)
@@ -76,29 +72,38 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
     fun control(entry: TableMenuAction): MenuControl {
             val end = entry.intent is TableActionIntent.End
             val label = when (entry.intent) {
-                is TableActionIntent.Token -> "Create catalog token"
+                 is TableActionIntent.Token -> "Create token"
                 is TableActionIntent.Untap -> "Untap all · turn player"
                 is TableActionIntent.Draw -> "Draw one · turn player"
                 else -> if (end && play.board.turn.accountId != viewerId) "End opponent's turn" else entry.name
             }
             return MenuControl(label,
                 enabled, color = if (end) endingPlayerColor else null) {
-                if (perform(entry.intent)) onDismiss()
+                if (entry.name == "Suggest game end") ending = true
+                else if (perform(entry.intent)) onDismiss()
             }
     }
-    val entries = listOf(MenuControl("Choose phase / step", enabled) { picker = true }) +
-        table.filterNot { it.intent is TableActionIntent.Ending }.map(::control) +
-        listOfNotNull(blankToken?.let { create -> MenuControl("Create Blank token", enabled) { if (create()) onDismiss() } }) +
+    val entries = table.filterNot { it.intent is TableActionIntent.Ending }.map(::control) +
         listOf(MenuControl("Roll die…", enabled) { die = true }, MenuControl("Flip coin", enabled) {
             if (controller.flipCoin(scope)) onDismiss()
         }) + table.filter { it.intent is TableActionIntent.Ending }.map(::control)
-    if (!picker && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+    if (!ending && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, entry.click)
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
-    if (picker) PhaseStepPicker(play, viewerId, endingPlayerColor, controller, onDismiss = { picker = false }, onComplete = onDismiss, names = names)
+    if (ending && outcome == null) TableMenuPanel({ ending = false }, title = "Suggest game end") {
+        for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "My loss" to EndingTool.SUGGEST_LOSS, "Draw" to EndingTool.SUGGEST_DRAW))
+            MenuButton(choice.first, Modifier.fillMaxWidth(), enabled) { outcome = choice }
+    }
+    outcome?.let { chosen ->
+        AlertDialog(onDismissRequest = { outcome = null }, title = { Text("Suggest ${chosen.first.lowercase()}?") },
+            confirmButton = { TextButton(enabled = enabled, onClick = {
+                if (perform(TableActionIntent.Ending(scope, chosen.second))) onDismiss()
+            }) { Text("Confirm") } },
+            dismissButton = { TextButton(onClick = { outcome = null }) { Text("Cancel") } })
+    }
     if (die) TableMenuPanel({ die = false }, title = "Roll die") {
         OutlinedTextField(sides, { sides = it }, label = { Text("Die sides") }, singleLine = true,
             modifier = Modifier.fillMaxWidth(), isError = sides.toIntOrNull()?.let { it <= 0 } != false)

@@ -593,9 +593,9 @@ class TableToolkitWiringTest {
         assertTrue(ui.submit(PlayAction.SetNote(token, "last live note")))
         assertTrue(ui.addEffects(listOf(token)))
         val effect = f.play.board.stackEffects.single().id
-        ui.openCard(TableScope(token, listOf(token)))
-        ui.tokens.beginLink()
-        assertTrue(ui.batch { ui.tokens.pick(LinkEndpoint(LinkEndpointKind.PLAYER, f.other)) })
+        val otherCard = f.play.board.cards.first { !it.token }.id
+        ui.openCard(TableScope(token, listOf(token, otherCard)))
+        assertTrue(ui.tokens.linkSelected())
         assertEquals(1, f.play.board.links.size)
         ui.batch { ui.tokens.removeTokens() }
         assertTrue(f.play.board.cards.none { it.id == token }); assertTrue(f.play.board.links.isEmpty())

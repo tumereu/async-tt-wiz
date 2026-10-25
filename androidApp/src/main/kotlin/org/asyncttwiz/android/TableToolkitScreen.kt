@@ -37,9 +37,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
-                perform = toolkit::perform, names = names, blankToken = {
-                    toolkit.tokens.catalog(); toolkit.tokens.create(TokenCatalog.blank); !toolkit.tokens.showingCatalog
-                })
+                perform = toolkit::perform, names = names)
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {
@@ -50,7 +48,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
                 MenuControl("Select / deselect") { select(bound.contextViewId) }) +
                 (if (toolkit.tokens.projectionScope != null) listOf(
-                    MenuControl("Link", enabled) { toolkit.tokens.beginLink(); toolkit.dismiss() },
+                    MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
                     MenuControl("Links") { toolkit.tokens.links(); toolkit.dismiss() }) else emptyList()) +
                 occurrenceRemovalTools(toolkit, play, bound, enabled)
             CardActionRing(play.gameId, toolkit.viewer, bound.contextViewId, bound.contextViewId,
@@ -93,8 +91,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     TokenCatalogDialog(toolkit.tokens, play.definitions, enabled = enabled,
         loading = tokenCatalog?.loading == true, catalogError = tokenCatalog?.error,
         catalogIdentity = tokenCatalog?.identity ?: listOf(toolkit.viewer, play.gameId, play.id),
-        searchSource = tokenCatalog?.source)
-    LinkEndpointPicker(toolkit.tokens, play, names, enabled = enabled, onPick = { toolkit.batch { toolkit.tokens.pick(it) } })
+        searchSource = tokenCatalog?.source, favoritesSource = tokenCatalog?.favorites)
     LinksListDialog(toolkit.tokens, play, names, enabled = enabled)
     toolkit.inspection?.let { GameplayCardInspection(play, toolkit.viewer, it, toolkit::closeInspection, names) }
     toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true, peekScroll = peekScroll) }
@@ -121,7 +118,7 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
         MenuControl("Clone", enabled && toolkit.tokens.scope != null) {
             toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
         },
-        MenuControl("Link", enabled) { toolkit.tokens.beginLink(); toolkit.manual.close() },
+        MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
         MenuControl("Ping / Unping", enabled && annotations != null) {
             if (annotations != null) {
                 val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
@@ -176,8 +173,6 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
         add(MenuControl("Remove token", enabled) { toolkit.batch { toolkit.tokens.removeTokens() }; if (toolkit.tokens.error == null) toolkit.dismiss() })
     if (toolkit.tokens.projectionScope != null && bound.sourceIds.isNotEmpty())
         add(MenuControl("Source actions") { toolkit.openCard(TableScope(bound.sourceIds.first(), bound.sourceIds)) })
-    val realEndpoints = toolkit.tokens.scope != null || toolkit.tokens.projectionScope != null
-    add(MenuControl("Links", realEndpoints) { toolkit.tokens.links(); toolkit.manual.close() })
     addAll(occurrenceRemovalTools(toolkit, play, bound, enabled))
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),
         bound.sources, toolkit::handle, toolkit::dismiss))

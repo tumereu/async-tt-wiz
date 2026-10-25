@@ -49,26 +49,17 @@ class TokenLinkControllerTest {
         assertTrue(current.board.cards.all { it.note == "sync" }) // no fake local shared edit
     }
 
-    @Test fun capturedSelectionFansOutToCardAndPlayerWithoutOrdinaryTap() {
-        val current = state()
-        val sent = mutableListOf<PlayAction>()
-        val controller = TokenLinkController({ current }) { sent += it; true }
-        controller.open(id(9), listOf(id(9), id(10), id(9)))
-        controller.beginLink()
-        val card = LinkEndpoint(LinkEndpointKind.CARD, id(11))
-        assertTrue(controller.pick(card))
-        assertEquals<List<PlayAction>>(listOf(PlayAction.Link(LinkEndpoint(LinkEndpointKind.CARD, id(9)), card),
-            PlayAction.Link(LinkEndpoint(LinkEndpointKind.CARD, id(10)), card)), sent)
-        assertFalse(controller.pickingLink)
-        assertFalse(controller.pick(card))
-        sent.clear(); controller.beginLink()
-        val player = LinkEndpoint(LinkEndpointKind.PLAYER, id(8))
-        assertTrue(controller.pick(player))
-        assertEquals(2, sent.size)
-        assertTrue(sent.all { it is PlayAction.Link && it.second == player })
-        sent.clear(); controller.beginLink()
-        controller.pick(LinkEndpoint(LinkEndpointKind.CARD, id(9)))
-        assertEquals(1, sent.size) // no self-link, no losing the other selected source
+    @Test fun selectedPairsSkipExistingLinksAndShareOneInvocation() {
+        fun endpoint(n: Int) = LinkEndpoint(LinkEndpointKind.CARD, id(n))
+        val current = state().let { it.copy(board = it.board.copy(links = listOf(PlayLink(id(20), endpoint(10), endpoint(9))))) }
+        val batches = mutableListOf<List<PlayAction>>()
+        val controller = TokenLinkController({ current }, { error("Must use one invocation") }, { batches += it; true })
+        controller.open(id(9), listOf(id(9), id(10), id(11), id(9)))
+        assertTrue(controller.canLink()); assertTrue(controller.linkSelected())
+        assertEquals(listOf(PlayAction.Link(endpoint(9), endpoint(11)), PlayAction.Link(endpoint(10), endpoint(11))), batches.single())
+        controller.open(id(9), emptyList())
+        assertFalse(controller.canLink()); assertFalse(controller.linkSelected())
+        assertEquals(1, batches.size)
     }
 
     @Test fun removalSkipsRealCardsAndVanishedTargetsNeverSubstitutes() {
@@ -82,9 +73,9 @@ class TokenLinkControllerTest {
         current = current.copy(board = current.board.copy(cards = current.board.cards.filter { it.id != id(10) }))
         controller.clone()
         assertEquals<List<PlayAction>>(listOf(PlayAction.CloneToken(id(9))), sent)
-        sent.clear(); controller.beginLink()
-        assertTrue(controller.pick(LinkEndpoint(LinkEndpointKind.CARD, id(10)))) // consumes stale hit
-        assertNotNull(controller.error); assertTrue(sent.isEmpty())
+        sent.clear()
+        assertFalse(controller.canLink()); assertFalse(controller.linkSelected())
+        assertTrue(sent.isEmpty())
         current = current.copy(id = id(99)) // reset/new incarnation must not retarget
         controller.clone(); controller.removeTokens()
         assertTrue(sent.isEmpty())

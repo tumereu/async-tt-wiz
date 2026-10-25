@@ -5,6 +5,24 @@ import org.junit.Test
 import kotlin.test.*
 
 class TokenActionsTest {
+    @Test fun flatListDeduplicatesPrintingsAndOrdersBlankThenFavoritesThenOtherTokens() {
+        fun token(name: String, printing: String = name, rules: String = "") = CardDefinition(name,
+            listOf(DefinitionFace(id(1), name, corner = "1/1", rulesText = rules)), token = true, printingId = printing)
+            .let { SubmittedDefinition(DeckJson.digest(it), it) }
+        val spirit = token("Spirit", rules = "Flying")
+        val soldier = token("Soldier")
+        val treasure = token("Treasure")
+        val food = token("Food")
+        val angel = token("Angel")
+        val tokens = listOf(treasure, soldier, spirit, token("Treasure", "another"), food, angel, TokenCatalog.blank, TokenCatalog.blank)
+        assertEquals(listOf("Blank", "Food", "Treasure", "Angel", "Soldier", "Spirit"), TokenActions.ordered(tokens).map { it.definition.name })
+        val favorites = TokenFavorites(listOf(TokenIdentity.key(spirit.definition), TokenIdentity.key(soldier.definition)))
+        assertEquals(listOf("Blank", "Soldier", "Spirit", "Angel", "Food", "Treasure"), TokenActions.ordered(tokens, favorites).map { it.definition.name })
+        assertEquals("1/1 · Flying", TokenActions.detail(spirit.definition))
+        val filtered = TokenActions.ordered(TokenActions.catalog(tokens, "TREASURE"), favorites)
+        assertEquals(1, filtered.size)
+        assertEquals(TokenIdentity.key(treasure.definition), TokenIdentity.key(filtered.single().definition))
+    }
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
 
     @Test fun searchIncludesBlankFiltersNonTokensAndPreservesExactPrintingIdentity() {

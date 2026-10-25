@@ -15,12 +15,8 @@ class ProjectionLinkRuntimeTest {
         toolkit.openCard(TableScope(first, listOf(first, second)))
         assertEquals(listOf(first, second), toolkit.tokens.projectionScope!!.endpoints.map { it.occurrenceId })
         assertNull(toolkit.tokens.scope)
-        toolkit.tokens.beginLink()
-        val item = TableItem("card/$target", TableBounds(0f, 0f, 48f, 68f), "effect", "", kind = TableItemKind.CARD,
-            cardId = target, sourceId = id(20), projection = true)
-        toolkit.open(TableIntent.Actions(item.id, TableScope(target, listOf(target))), item, TableSelection())
-        assertEquals(listOf(PlayAction.LinkProjections(ProjectionEndpoint(first), ProjectionEndpoint(target)),
-            PlayAction.LinkProjections(ProjectionEndpoint(second), ProjectionEndpoint(target))), requests.map { it.first })
+        assertTrue(toolkit.tokens.linkSelected())
+        assertEquals(listOf(PlayAction.LinkProjections(ProjectionEndpoint(first), ProjectionEndpoint(second))), requests.map { it.first })
         assertEquals(1, requests.map { it.second }.distinct().size)
         assertNotNull(requests.first().second)
         assertTrue(current.board.projectionLinks.isEmpty(), "The UI callback never writes shared state")
@@ -58,34 +54,32 @@ class ProjectionLinkRuntimeTest {
                 actions.forEach { queued += command(it, request++, id(600 + invocations)) }
                 true
             })
-        val selected = mutableListOf(a, b, a)
+        val selected = mutableListOf(a, b, c, a)
         controller.openOccurrences(a, selected)
         selected.clear(); selected += c
-        controller.beginLink()
-        assertTrue(controller.pick(LinkEndpoint(LinkEndpointKind.CARD, id(20)))) // incompatible hit consumed
-        assertTrue(queued.isEmpty()); assertTrue(controller.pickingLink)
-        assertTrue(controller.pick(c)); assertFalse(controller.pickingLink)
-        assertEquals(1, invocations); assertEquals(2, queued.size)
+        assertTrue(controller.linkSelected())
+        assertEquals(1, invocations); assertEquals(3, queued.size)
         assertEquals(1, queued.map { it.invocationId }.distinct().size)
-        assertEquals(2, queued.map { it.requestId }.distinct().size)
-        assertEquals(listOf(PlayAction.LinkProjections(a, c), PlayAction.LinkProjections(b, c)), queued.map { (it.action as GameAction.Play).action })
+        assertEquals(3, queued.map { it.requestId }.distinct().size)
+        assertEquals(listOf(PlayAction.LinkProjections(a, b), PlayAction.LinkProjections(a, c), PlayAction.LinkProjections(b, c)), queued.map { (it.action as GameAction.Play).action })
         assertEquals(original, current) // no result read and no fake local board write
         queued.forEach { current = GameplayRules.change(current, id(7), it).state!! }
-        assertEquals(2, current.board.projectionLinks.size)
+        assertEquals(3, current.board.projectionLinks.size)
         assertTrue(current.board.links.isEmpty()); assertEquals(original.board.cards, current.board.cards)
-        assertEquals(listOf(a, b), controller.projectionScope!!.endpoints)
+        assertEquals(listOf(a, b, c), controller.projectionScope!!.endpoints)
         assertNull(controller.scope)
-        assertFalse(controller.pick(c)) // no ordinary tap consumed outside picking
+        assertTrue(controller.linkSelected()) // all pairs already linked: no duplicate invocation
+        assertEquals(1, invocations)
         val labels = LinkActions.projectionEndpoints(current)
         assertEquals(3, labels.size); assertEquals(3, labels.map { it.endpoint }.distinct().size)
         assertTrue(labels.all { it.label.startsWith("Covered card") })
-        assertEquals(2, LinkActions.connections(current, controller.projectionScope!!).size)
+        assertEquals(3, LinkActions.connections(current, controller.projectionScope!!).size)
         val link = current.board.projectionLinks.first()
         queued.clear(); controller.links(); controller.removeProjectionLink(link.id)
         assertEquals(2, invocations)
         assertEquals(PlayAction.RemoveProjectionLink(link.id), (queued.single().action as GameAction.Play).action)
         current = GameplayRules.change(current, id(7), queued.single()).state!!
-        assertEquals(1, current.board.projectionLinks.size)
+        assertEquals(2, current.board.projectionLinks.size)
         val before = queued.size
         controller.clone(); controller.removeTokens(); controller.removeLink(link.id)
         assertEquals(before, queued.size) // occurrence scope is not a source-card selection
@@ -96,11 +90,9 @@ class ProjectionLinkRuntimeTest {
         val (a, b, c) = current.board.stackEffects.map { ProjectionEndpoint(it.id) }
         val batches = mutableListOf<List<PlayAction>>()
         val controller = TokenLinkController({ current }, { error("must not edit source") }, { batches += it; true })
-        controller.openOccurrences(a, listOf(a, b))
+        controller.openOccurrences(a, listOf(a, b, c))
         current = apply(current, PlayAction.Stack(StackAction.RemoveEffect(a.occurrenceId)), 210)
-        controller.beginLink(); assertTrue(controller.pick(a))
-        assertNotNull(controller.error); assertTrue(batches.isEmpty()); assertTrue(controller.pickingLink)
-        assertTrue(controller.pick(c))
+        assertTrue(controller.linkSelected())
         assertEquals(listOf(PlayAction.LinkProjections(b, c)), batches.single())
         current = apply(current, batches.single().single(), 211)
         val link = current.board.projectionLinks.single()
@@ -114,7 +106,7 @@ class ProjectionLinkRuntimeTest {
         val count = batches.size
         controller.removeProjectionLink(id(999)); assertEquals(count, batches.size)
         current = current.copy(id = id(999))
-        controller.beginLink(); controller.pick(c); controller.removeProjectionLink(link.id)
+        assertFalse(controller.linkSelected()); controller.removeProjectionLink(link.id)
         assertEquals(count, batches.size)
         val captured = controller.projectionScope
         controller.openOccurrences(ProjectionEndpoint(id(20)), emptyList())
@@ -128,14 +120,13 @@ class ProjectionLinkRuntimeTest {
         var accepted = false
         val batches = mutableListOf<List<PlayAction>>()
         val controller = TokenLinkController({ current }, { error("not a source edit") }, { batches += it; accepted })
-        controller.openOccurrences(a, listOf(a, b)); controller.beginLink(); controller.pick(c)
-        assertTrue(controller.pickingLink); assertNotNull(controller.error)
-        accepted = true; controller.pick(c)
-        assertEquals(batches.first(), batches.last()); assertFalse(controller.pickingLink); assertNull(controller.error)
+        controller.openOccurrences(a, listOf(a, b)); assertFalse(controller.linkSelected())
+        assertNotNull(controller.error)
+        accepted = true; assertTrue(controller.linkSelected())
+        assertEquals(batches.first(), batches.last()); assertNull(controller.error)
         val legacy = TokenLinkController({ current }) { error("occurrences need a session invocation adapter") }
-        legacy.openOccurrences(a, listOf(a, b)); legacy.beginLink(); assertTrue(legacy.pick(c))
-        assertTrue(legacy.pickingLink); assertNotNull(legacy.error)
-        legacy.open(id(20), emptyList()); legacy.beginLink(); assertTrue(legacy.pick(b)) // mixed endpoint consumed, no send
-        assertTrue(legacy.pickingLink)
+        legacy.openOccurrences(a, listOf(a, b)); assertFalse(legacy.linkSelected())
+        assertNotNull(legacy.error)
+        legacy.open(id(20), emptyList()); assertFalse(legacy.canLink()); assertFalse(legacy.linkSelected())
     }
 }

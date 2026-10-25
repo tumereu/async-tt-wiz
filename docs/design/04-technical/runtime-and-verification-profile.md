@@ -7,6 +7,13 @@ results or new game/history limits. [Protocol](protocol-v1.md) and
 
 ## Deterministic random input v1
 
+Library knowledge adds ordered known top/bottom and a hidden seeded unknown middle.
+Every branch start reseeds both unknown middles with H(game secret, fork node,
+forking player), preserving known edges. Draw/Undo/draw and repeat fork inputs
+reproduce cards. Shuffle makes all unknown; explicit edge placement makes known.
+This is semantic state with exact apply/unapply and recorded reseed input, not a
+display group or persistent reveal. Library pile faces remain hidden (r10/r11).
+
 Fresh invocation entropy: Android/JVM `SecureRandom` through platform adapters,
 32 independent bytes per Shuffle; never time, object hash, ambient Kotlin Random
 or a reused session seed. Server start uses independent seeds for each Library and
@@ -96,8 +103,9 @@ are protocol resource/type limits, not new dice modes or secret min/max defaults
   URL, not an app feature or custom updater. No forced uninstall/data wipe.
 - SQLDelight/Flyway forward migrations retain accepted records and login/UI state
   where supported. Outgoing memory is intentionally gone on APK process replacement.
-  Keep readers for retained accepted formats; migration failure keeps old DB intact
-  and stops writes, with explicit recoverable failure, never destructive fallback.
+  Keep readers for supported retained formats. Narrow local-testing exception:
+  explicit migrations may delete root-replay-only old-format games and remove
+  their legacy replayer; no silent destructive fallback on ordinary DB failure.
 
 ## Application container interface
 
@@ -185,9 +193,11 @@ fan-out. Failure controls manipulate traffic/process/storage externally, not gam
 rows or outcomes. Include empty/60/250-member Libraries, 200 visible objects and
 400 links/projections; stress larger sizes without claiming product caps.
 
-Starting targets under unloaded baseline, warm ordinary state: local provisional
-feedback p95 ≤50 ms after gesture recognition; enqueue/write start p95 ≤50 ms with
-no intentional batching wait; render p95 frame ≤16.7 ms and p99 ≤33.3 ms at 60 Hz;
+Every action, Undo/Redo included, must apply the same visible state locally as the
+server would BEFORE the response. Measure input→local state applied, not press
+feedback/enqueue: target <20 ms, hard ceiling 80 ms; separately report gesture
+recognition time. No missed prediction may routinely wait for the server. Server
+RTT to the Pi is not the user-visible local budget. Render p95 frame ≤16.7 ms and p99 ≤33.3 ms at 60 Hz;
 server simple command p95 ≤100 ms; remote committed visible target p95 ≤250 ms on
 50-ms RTT/no-loss network. Measure recognition delay separately for normal-mode
 double tap. Cold accepted 10k-node current-game open ≤3 sec after bytes are local;
@@ -210,5 +220,14 @@ Observability: request correlation ID, ingress/commit/revision lag, inbox age/de
 baseline restart/bytes, digest mismatch, replay budget exhaustion, DB pressure,
 mail/push failures, worker retry and UI frame/action latency. Never routine-log
 auth/reset tokens, passwords, card faces/names, deck/chat content or full payloads.
-No third-party analytics/crash-upload SDK is required; local redacted diagnostics
-may be shared deliberately, not silently uploaded.
+Debug builds automatically upload through the crash-report channel; this is not
+production analytics. Capture crashes and upload next startup; server auto-cleanup
+bounds storage. Time each input-to-local-apply and batch >20 ms or missed-prediction
+reports, including Undo/Redo and server timing. Record reconnect cause, close code,
+ping timeout, recovery stage durations and server handling time.
+
+Use JankStats with state tags. An episode is ≥3 janky frames in 1 s, a frame >50 ms,
+or a frozen frame >700 ms. Batch kind `jank` after ≥5 episodes or immediately for a
+frozen frame. No daily quota: client sends at most 3 jank uploads per PROCESS
+lifetime; server retains only the latest 20 jank reports per account, deleting
+older ones. Bounds on other diagnostics and cleanup must prevent filling Pi disk.

@@ -113,6 +113,14 @@ outcome or conflicting requirements, not merely a new example of an existing rul
 
 ## Remaining-point batch disposition — D-278–D-284
 
+Phone playtests r1–r11 settle the previously open menu/panel/camera/Stack/tree/
+playback/Settings details in the primary contracts. No unresolved Manage Stack
+reorder choice remains: NO reordering. Catalog auto-updates use SetList/new/recent
+per-set files, not daily full imports; diagnostics are automatic in debug builds.
+Any earlier “still open” entry here is superseded in those fields by D-311. D-310
+remains authoritative for eligibility, including its supersession of N-only refusal;
+the earlier N=50 is a bounded-work design target, not permission to skip checks.
+
 The owner has resolved the identified policy batch: **server-first process restart
 with permitted loss of outgoing/unreported exposure work**; all-session revocation
 only on successful password reset; MTGJSON records/startup check + Scryfall lazy art;

@@ -20,6 +20,16 @@ case by case, not automatic interpretation of card text or generic moves.
 
 ## 1.2 Confirmed requirements
 
+Playtests r1–r11 supersede older UI details in this catalog: use the current
+[board/panel controls](board-and-controls.md), [Stack/combat](combat-stack-and-projections.md),
+[history presentation](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177)
+and [catalog](../04-technical/card-data-and-art.md). In particular Change owner is
+token-only; owner destinations are Hand/Library/Graveyard/Exile, either battlefield
+allowed; projections are upright; shared panels are game-wide exclusive and reveals
+cease on exit. P-043/P-045's fixed Logout/Created/game-name header and P-064's
+background playback wording are superseded: Settings holds Log out/Card records,
+rows show last activity, gameplay header turn player/number, live resume stays live.
+
 | ID | Requirement |
 | --- | --- |
 | P-001 | The gameplay client is native Android. |
@@ -28,7 +38,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-004 | An opponent can interrupt at an action boundary and react. |
 | P-005 | History is a tree, with exactly one active branch in each game. |
 | P-006 | An interruption makes its new branch active; no approval vote is required. |
-| P-007 | Players can delete the interruption and return to the earlier continuation. |
+| P-007 | Branch archive/delete-and-return and restore are removed from client, actions/state and SQL. Retained alternatives remain reviewable and explicit continuation can branch. |
 | P-008 | Undo removes your latest still-applied mutation; Redo reinserts last-undone-first with its recorded transition. The authoritative owner rule (2026-10-25) allows Undo/Redo iff every later game-tree event can apply with identical concerned-field (before, after) tuples; concerned fields include edits and reads/dependencies. Game state/events alone decide eligibility, never information gained or seen. Personal viewing, forks or work limits cannot override this rule. Blocked targets cannot be skipped. Ordinary own new play clears own Redo; ordinary opponent play does not. Successful deliberate shared-history activation/interruption/return clears both players' per-incarnation Redo queues atomically (D-258); normal Undo/Redo and UI review do not trigger that reset. Stacks are server-owned shared game state (D-259), not per-device histories. Edit the existing tree without an original explorer copy. Submitted chat and accepted ending/return to lobby have no gameplay Undo. Exact anchor/version/storage/cost mechanics and removed-record retention remain technical/privacy work. |
 | P-009 | Either participant can manipulate any participant's tabletop state. |
 | P-010 | Hidden information is accessible to everyone; cooperation, not secrecy enforcement, is the trust model. |
@@ -51,7 +61,7 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-027 | Turns and MTG phases/steps have first-class engine tracking, not only arbitrary markers, notes, or tokens. D-105 removes priority tracking and its UI from this release, superseding that part of D-96 and all of D-104. Players judge priority/interruption legality; the engine does not gate edits or branches on it. |
 | P-028 | Include a temporary combat area with attacker/blocker projections in visual paired-slot groups, without individual attacker↔blocker assignments inside a pair (D-112 refined by D-137/D-139). Projection creation preserves original battlefield positions; later card actions through projections edit/move the same real cards (D-123). |
 | P-029 | Name the former Cast area Stack; allow ability projections without moving their originals (D-113). D-242 includes sources in Graveyard and Exile as well as Battlefield and keeps existing sources live-linked across locations. |
-| P-030 | Offer contextual Stack quick actions: actual instant/sorcery → Graveyard, actual permanent → Battlefield, projection → remove projection. Design exact behavior case by case before implementation (D-114). |
+| P-030 | EVERY Stack entry is a projection from Battlefield/Hand/Graveyard/Exile, not Library; Hand public while projected. Uniform Battlefield/Graveyard/Remove/mark bubbles, top-only drag, marks and Manage Copy/Controller (no reorder) follow the primary Stack contract. |
 | P-031 | The specification must cover all agreed behavior, including combat/Stack cases; review/UI decisions precede iterative implementation (D-115). D-304 authorizes the current stage-4 plan; preserve the agreed contracts, resolve derived technical details and escalate only genuine product choices/blockers rather than silently substituting new behavior. |
 | P-032 | Combat-area creation, attacker declaration, and tapping are separate actions. Phase-appropriate multiselect Declare + tap / Declare without tapping shortcuts also create the area when absent (D-116/D-117). |
 | P-033 | Blockers can be dragged to individual attackers or blank unassigned slots; attacker spacing grows with assigned blocker count (D-118). |
@@ -61,9 +71,9 @@ case by case, not automatic interpretation of card text or generic moves.
 | P-037 | A source leaving the battlefield loses its combat projections (D-124), but its Stack effects remain until explicitly removed/resolved (D-125/D-174). D-242 keeps existing sources linked across locations; only token disappearance freezes read-only last-live source state. Lifetime is area-specific, not determined by which view invoked the move. |
 | P-038 | When an attacker leaves, surviving cards stay grouped in their existing slots, with real cards unchanged; the final attacker's departure leaves a blocker-only pair (D-126 refined by D-139). D-138 permits visual reflow with stable membership/order, removes fully empty pairs, and inserts a pair on between-pair drops without regrouping survivors. |
 | P-039 | Combat area persists until explicitly closed, not automatically on phase changes/End turn. Advance-and-close is an End-of-combat quick-only combination reaching Postcombat main normally; advance and close have separate full paths (D-127/D-128/D-253). |
-| P-040 | Each tree node is one individual, deterministically reversible mutation including mandatory invariant-preserving effects. Bulk and combined controls issue ordered individual mutations; groups never determine node granularity or publication. D-176 supersedes combined-node mappings. Each successful Undo removes one eligible latest-own mutation (D-231/D-232). |
+| P-040 | Every event stores exact apply/unapply with from-checks and mandatory cleanup. A quick/multiselect invocation is one Undo move; independent invocations never merge for Undo merely through display grouping. Normal command/sync/navigation/persistence work is O(delta), fixed or visible window, not history-length-proportional/root replay. Local state apply <20ms target/80ms hard ceiling, including Undo/Redo before response. |
 | P-041 | Non-token cards do not disappear during the game: they move between locations and have no Remove/delete action, including through bulk, correction or projection paths. Approved token disappearance/removal, projection removal and retained-history Undo remain distinct (D-174). |
-| P-042 | D-277 live mode applies remote changes immediately; return from background with unpresented updates enters grouped playback from local presentation context. A displaced path first rolls back to the fork under D-177, then follows new groups. Catch-up or deliberate gameplay continuation returns to live; mere pause/scrub does not. A horizontal bottom timeline still selects exact mutation boundaries, and accepted synchronization never waits for playback. |
+| P-042 | Only opening behind head auto-enters timeline, uncapped normal-paced groups from game/account last-seen live node or hidden empty root. Branched label ~1s, animated group rollback to common ancestor then forward. Live updates/resume/inspect/menu stay live. Pause AFTER animation, 1.5s default, account-local Settings 100ms–10s. Exact-event scrub and ongoing sync remain. |
 | P-043 | Login required; registration available (D-188). D-292 shared Menu/Games navigation, fixed Logout, landscape non-gameplay persistence and combined Games before Invitations remain. D-293 logo/icons, chevrons/contextual Cancel/Delete and extra confirmed shared deletion remain. D-294 removes all app Back/home arrows, aligns hamburger/title/contextual exit, uses named games and date/state details, equal action pairs and right-corner dialog X. Native Back remains. Search/add contacts needs no mutual approval (D-196); same-account collections/games synchronize (D-218). |
 | P-044 | Saved deck card-list editing is import-only, not a full manual deck builder (D-189). Naming/renaming and choosing cover art are separately supported (D-199). A game lobby separately permits deck selection and mainboard/sideboard management. |
 | P-045 | Choose an added user and name a new game (required; fantasy adjective + thing suggestions), then Create & invite atomically (D-294). Persistent server creation date appears beside state, names as titles; retry/reinvite/incarnations preserve name/date. Recipient Accept/Decline; acceptance opens same lobby, not Ready (D-195). Inviter can prepare/Ready before acceptance; Cancel removes pending invite, Decline retains lobby (D-208). Reinvite in opponent slot; Cancel title-row right. Draft deck selection uses border and one bottom confirmation. Both Ready starts play (D-190/D-294). |
@@ -123,10 +133,10 @@ tree review/activation, common text import, deck metadata/lobby preparation and
 invitation/grouped-activity pushes remain included. No expansion roadmap is
 implied, and prior explicit deferrals under D-214/D-220 remain unchanged.
 
-D-295 adds the narrow explicit card/token owner field/action (creator/bringer
-default, owner-colored borders), superseding any blanket association-authoring
-exclusion for that field only. It adds no controller model, permission restriction
-or arbitrary participant-association editor; primary behavior is in board controls.
+D-295 adds owner metadata (creator/bringer default and colored borders); r5 narrows
+Change owner to tokens and distinguishes battlefield controller from owner. Hidden
+zone destinations are owner-only, not editing permissions; either player may act
+on either side. No arbitrary participant-association editor is implied.
 
 Included:
 

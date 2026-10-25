@@ -103,15 +103,15 @@ Canonical action fields are the concrete operands in the primary action contract
 | --- | --- |
 | Orientation/text/counter/face/cover | Target/occurrence and field/color IDs, requested absolute value or relative delta and selected face; no old-value/card-revision guard. Preserve field-specific trimming/numeric grammar. |
 | Released player-value drag (D-296) | Same field-edit family: participant/field/color identity and signed integer delta N captured on release, one request when nonzero. No press-time absolute total or preview/per-frame messages. Apply to actual current numeric state; preserve original delta/ID on retry. Cancellation/unreleased preview has no request to recover. |
-| Owner (D-295) | `setOwner` with captured real `objectId` and `ownerParticipantId` belonging to this game. Resolve live projections to their source before capture; frozen sources cannot be edited. No old-owner/head guard. Same value yields no mutation; changed value records the actual owner before/after under ordinary arrival ordering. Either participant may edit; owner is not authorization. |
+| Owner (r5) | Token-only `setOwner` with captured token ID and same-game participant. No owner editing for ordinary cards or absent frozen sources; same value is no-op. Owner differs from controller and editing permission. Moves to Hand/Library/Graveyard/Exile route owner-only, except token disappearance does not concern owner. |
 | Move/Draw/placement | Real instance ID, original source container/placement, destination kind/container/gap/anchor and explicit choices. Ordered Draw includes original top identity; grouped moves include captured moved-member IDs for approved gap exclusion, not a sequencing dependency. Movement guard equality is semantic membership/placement/order actually required, not unrelated card text. |
-| Stack entry | Source/real-move operands plus `expectedStackDigest`: SHA-256 of the domain-tagged canonical ordered pre-action entry projection (real-card ID or effect-occurrence ID plus source ID and entry kind), including the empty sequence. D-247 equality ignores source fields, camera, layout and frozen status. Compute/compare against the selected execution state atomically; not a whole-game revision guard. |
+| Stack entry | Every route creates AddEffect from Battlefield/Hand/Graveyard/Exile, never Library; Hand source public while projected. Expected Stack digest covers ordered occurrence/source identities, not source fields/camera/layout/frozen status; atomically compare in the chosen execution state. No real-card Stack entry. |
 | Clone/token/area/projection/link | Source/definition/face/slot/endpoint and placement choices; output IDs follow the deterministic rule below. Reset/Clone read actual chosen execution state, not client-predicted copied fields. |
 | Shuffle/die/coin | Target plus versioned seed or explicit sample, bounds/count and original random input; no old Library-membership guard. Concrete accepted outcome is server output. |
 | Undo/Redo | Action kind and scope only; server selects then-current latest-own/next entry. No captured target/head CAS, dependency chain or skip permission. |
-| Activate/archive/restore | Exact retained target ID and explicit control kind; only an actual shared switch clears both Redo queues. Missing/removed target rejects, not nearest-parent activation. Metadata-only archive/restore does not silently activate. |
-| Comment/ping | Actual content/coordinates and immutable referenced context, separately from server-selected current recording context. No client-assigned group. |
-| Inspect / View / Reveal | Exact target/face/context for specific inspection; named source, top/bottom/all and requested count for a contents operation. Server resolves the latter's members/order/count clamp at execution, not from predicted member IDs. Accepted references then stay fixed under D-47. Historical inspection validates its exact retained context without activating it; no fallback if removed. No separate speculative-disclosure report (D-286). |
+| Historical continuation | Exact retained node and deliberate intent; successful branch creation clears both Redo queues. No archive/restore action or state and no Make current UI. Missing target rejects, never nearest-parent activation. |
+| Comment/ping | Comments retain explicit referenced context; ping concerns ONLY its target card/projection/player, not history position/ancestry. Recording display grouping is recomputed, not client assigned or concerned state. |
+| Inspect / Search / Look / Reveal | Exact target/context for specific inspection, source and count for panels. Resolve panel members/order/count clamp at execution; no bottom-N inventory. One shared panel game-wide, server enforced and disabled-only UI. Per-card reveal ends on panel exit; last departure closes in same event. Reveal+Hand/Top is separate flip and move events/groups. Local Graveyard/Exile browsing has no protocol/history action. |
 | Tracking/ending/lobby/invitation | Explicit requested step/player/suggestion outcome or exact pending-suggestion/attempt ID and original lifecycle scope, as required by the contract. No blanket old-head guard. |
 
 No family adds implicit legality/priority checks. Arbitrary unrecognized action kinds
@@ -119,15 +119,12 @@ reject before admission. Schema generation must enumerate the approved operands
 and discriminators from these primary contracts; it cannot add default substitution
 or optional guards not authorized here.
 
-Stack checksum v1 hashes canonical JSON
-`{"kind":"stack-guard","version":1,"playId":"<UUID>","entries":[]}` with each
-entry encoded as `{"kind":"realCard|effect","id":"<UUID>","sourceId":"<UUID>"}`.
-The entry-kind string is exactly `realCard` or `effect`, not the example's union;
-`id` is respectively the real-card or effect-occurrence ID, and `sourceId` is the
-real-card/source ID (equal to `id` for a real card). No optional fields. Array order
-is Stack order; encode SHA-256 as `sha256:<64 lowercase hex>`. Empty Stack uses the
-same descriptor with `entries:[]`. A checksum mismatch has the existing
-`stackConflict` meaning, not a new guard family.
+The old `realCard|effect` checksum descriptor is superseded by projection-only
+Stack. Hash the canonical ordered occurrence/source identities, including empty
+Stack, in the play scope. Mismatch retains `stackConflict`, not a whole-head lock.
+No Manage Stack reorder action is required. Semantic Library known edges, unknown
+membership and recorded branch reseed inputs travel with exact apply/unapply
+transitions; never silently rewrite a later event's seed during Undo/Redo.
 
 D-286 applies ordinary prediction/reconciliation to revealing actions. For Library
 `[A,B,C,D]`, a predicted Reveal top 3 shows A/B/C; if the opponent's Draw A executes
@@ -203,9 +200,12 @@ one accepted-base/active-prediction/display target update to observers:
   original operands. A historical chain can name preceding deterministic predicted
   node IDs without inventing future revision/ordinal values; missing prerequisite
   rejects that reference, never supplies another base.
-- Catch-up cursor is local presentation state, not sync revision. First open without
-  a saved valid boundary starts at accepted current state; a saved retained boundary
-  with unpresented work uses playback. Serialize playback-complete/head comparison
+- Catch-up cursor is local presentation state per game/account, not sync revision.
+  Without a bookmark start at a hidden empty root; opening behind head plays every
+  group at normal pacing with no cap. Debug bookmarks survive Logout/account
+  switching. Divergence shows “Branched” about 1 s, animated group rollback to the
+  common ancestor then forward playback. Live resume/inspect/menu/opponent updates
+  stay live. Serialize playback-complete/head comparison
   with incoming updates: enter live only against the coordinator's latest coherent
   target. Any next arrival is a normal live update; no lost racing tail. Exact
   control layout/autoplay preference and animation timing stay in the UI gate.
@@ -342,8 +342,11 @@ Protocol v1 initially supports semantic engine v1 and read format v1. Backward-
 compatible optional response fields may be added within the major; commands reject
 unknown semantic fields rather than quietly ignoring new intent. A semantic change
 requires a distinct negotiated engine/action version, with all participants able
-to read the game's records. Keep v1 decoders/replayers for retained v1 history;
-never reinterpret it with v2 defaults. APK versions need not match. Supporting a
+to read the game's records. The owner's local-testing exception permits an
+explicit destructive migration deleting root-replay-only old-format games, followed
+by removal of legacy replay; mandatory v1 fallback is superseded. Retained supported
+events store exact apply/unapply transitions with from-checks, never reinterpretation
+with new defaults or root replay on normal paths. APK versions need not match. Supporting a
 new version requires migration/mixed-version tests, not a promise to support every
 future version. Dependency patch numbers are build lockfile work, not wire policy.
 

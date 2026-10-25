@@ -33,6 +33,15 @@ invalid at B. No whole-head unchanged-value lock is introduced.
 
 ## Bind identities and choices, not predicted output snapshots
 
+Playtests r5/r8–r11 supersede the old top/bottom-N/tray rows below: Library action
+inventory and shared-panel lifecycle use the [current panel contract](board-and-controls.md#106-special-piles-library-graveyard-exile).
+One shared panel game-wide; local Graveyard/Exile browsing has no event. Reveals
+end on panel exit and last-card departure closes in the same event. Reveal+Hand/
+Top is separate flip and move events in SEPARATE groups. Owner-only destinations
+route at execution; token→Graveyard deletes without concerning owner. Ping concerns
+only its target, not ancestry or display grouping. Record semantic Library branch
+reseeds exactly, never rewrite later input during Undo checks.
+
 Capture menu/editor target IDs under D-248 and normalize their identity domain
 once. Keep explicit text, chosen face, destination, quantity and invocation scope.
 For an already-bound target, ordinary derived reads use the execution state above;
@@ -63,6 +72,10 @@ members. See the
 [random-input design](../04-technical/sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274).
 
 ## Ordered multi-object lowering
+
+Recorded constituent transitions remain exact and ordered; r2/r6 supersede any
+older per-constituent Undo claim: one quick/multiselect invocation is one Undo move,
+while merely display-grouped separate invocations remain separate Undo moves.
 
 Use this transformation for an ordered destination (Library, ordinary visual pile,
 combat slot), preserving each container's distinct capacity/containment rules.

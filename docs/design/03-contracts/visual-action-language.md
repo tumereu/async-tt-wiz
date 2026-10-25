@@ -169,9 +169,11 @@ damage-assignment order; the engine does not interpret or apply damage from it.
 The ordinal is automatic presentation, not a user-entered label/style choice.
 Existing event scope, toggles, and historical review remain. Numbering follows
 the [stable-context contract](history-grouping.md#categories-keys-and-stable-ping-meaning):
-recorded additions retain ordinals, removal does not renumber, re-add is a new
-addition, and retries create no number. Target routing uses the operation's
-identity domain; encoding/compact rendering remains technical/UI work.
+number currently active pings, not historical additions. Ping A/B then unping A
+makes B=1; re-added A is 2. Retries add nothing. Active pings loop an expanding ring
+in the pinger's color about every 1.2 s. For Undo/Redo a ping concerns ONLY its
+target card, projection or player, not its recording position/ancestry or display
+group; a projection ping still concerns that projection. Display groups recompute.
 
 A ping to a card is just a ping to that card. It cannot change another object's
 “targets,” create a rules link, pay a cost, move/rotate a card, or resolve an

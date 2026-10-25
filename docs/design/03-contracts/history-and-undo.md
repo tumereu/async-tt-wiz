@@ -38,6 +38,16 @@ is not itself a reason to refuse Undo/Redo.
 
 For example, B's ping concerning A's attacker projection blocks undoing the attack; a ping concerning only the unchanged source card does not.
 
+Concerned fields (owner rulings, 2026-10-25): moving a token to Graveyard deletes
+it regardless of owner and does not concern its owner. A ping concerns only its
+target card, projection or player, not its recording position or ancestry; a
+projection ping still concerns that projection. A knownTop draw concerns the card
+taken and that it was top, not the card exposed beneath; an unknown-middle draw
+concerns all shuffle-set members. Display grouping is recomputed bookkeeping,
+not concerned state; Library branch reseeds are semantic, and a later event's
+recorded reseed input must never be silently rewritten. Undo is a convenience:
+when uncertain, refuse rather than under-block; players can reverse manually.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
@@ -153,6 +163,11 @@ R's recorded `1 → 2`. Ordinary new live edits still use D-187, without old-val
 
 ### Relevant-state and target domains
 
+The owner-rulings paragraph under the authoritative rule refines the broad
+annotation/random row below: ping has target-only dependencies, presentation
+groups are not concerned, and knownTop/unknown-middle draws differ. Do not infer
+an ancestry lock or a whole-library lock from this generic family table.
+
 The same definitions govern target fidelity and each later replay comparison.
 Include identities, fields read for the requested operation, fields written and
 mandatory structural effects; exclude unrelated board/card fields. At minimum:
@@ -199,8 +214,7 @@ the selected shared history through:
 - activation of a different retained node or branch, including root/internal states;
 - explicit interruption/continuation from the past that creates and activates a
   new continuation;
-- return to another continuation, including Delete/archive branch and return when
-  it actually changes the shared selection.
+- return to another continuation when it actually changes the shared selection.
 
 This is shared game state under D-259. It is not a device-local reset, an extra
 gameplay mutation, deletion of the retained tree or a reset of other games. It
@@ -216,7 +230,7 @@ node snapshot; queues are current server control state, not historical board fie
 | Ordinary successful new play | Clear only its author's queue under D-227/D-228; ordinary opponent work preserves yours subject to eligibility. |
 | Undo / Redo | Normal stack push/pop and validation; no blanket reset merely because the head changes. |
 | Personal review, scrub/playback, zoom/pan, selection or open menus | None; these are UI-only, not shared history switches. |
-| Same-current-target activation no-op, rejected switch, or archive/restore metadata without a shared switch | No switch-triggered clearing. |
+| Same-current-target no-op or rejected switch | No switch-triggered clearing. Branch archive/restore is removed. |
 | Delivery retry / recovered result of a switch | Return the original outcome, without another reset or reactivation. Never clear entries created after the original operation. |
 
 On `root → A → B`, removing A may leave it queued on `root → B`. Explicitly
@@ -385,12 +399,10 @@ The game has one shared active game-state pointer, separate from personal review
 It can explicitly select an internal node even when retained descendants exist.
 Root contains the initial state; every later node records one mutation.
 Ordinary post-Undo play extends the edited tree, not a preserved pre-Undo copy.
-Explicit historical continuation creates a branch under D-179. A **graphical tree
-explorer** lets either player review and **explicitly activate any retained
-branch/node**, including an internal node or the root. Activation changes shared
-current state and, when selecting a different shared context, clears both Redo
-queues atomically (D-258); viewing/scrubbing alone remains personal. A new edit after such
-historical activation continues from that selected state under D-179.
+Explicit historical continuation creates a branch under D-179 and clears both
+Redo queues with that switch (D-258). The graphical tree only reviews retained
+groups and closes on tap; Make current/shared activation UI is removed. Merely
+viewing/scrubbing remains personal and clears no queue.
 
 **D-222/D-223 visibility:** hide inactive continuations that consist of **only one
 player's actions, no hidden-information exposure and no event comments**, with a
@@ -406,17 +418,16 @@ information was exposed**. This explicitly preserves D-95/D-160's exception
 alongside D-222's single-player filtering condition. It affects explorer visibility,
 not shared activation, grouping, information-exposure classification or retention.
 
-Concurrent/stale activation, archive integration and detailed pre-fork
-presentation remain contract work; remembered-head Redo and captured-parent Undo
-are retired designs (D-224–D-236), not current controls. Each successful Undo
-removes one eligible latest-own mutation. Draw and tracking events use the same
+Branch archiving is removed, not an unresolved integration requirement.
+Remembered-head Redo and captured-parent Undo are retired designs (D-224–D-236).
+Each Undo removes the eligible latest-own move (one invocation). Draw and tracking events use the same
 concerned-field test, independent of information revealed.
 
 ### Complete current-game downloads — D-276
 
 **Confirmed:** initial download and fresh-baseline/full recovery obtain the
 **complete retained current-game tree**, not only the active path or branch
-summaries. Include inactive, archived-but-retained and presentation-hidden
+summaries. Include inactive and presentation-hidden
 continuations, and retained descendants beyond an internal shared pointer. Explorer
 filtering and personal review do not determine which retained records are downloaded.
 Shared prefixes are the same nodes, not copied once per branch.
@@ -483,6 +494,12 @@ participant may interrupt any of it later.
 
 ### Live and playback presentation — D-277
 
+**Entry-trigger supersession (r8/r10):** only opening behind head automatically
+enters timeline mode; live resume/opponent changes/inspect/menu actions stay live.
+Use the per-game/account last-seen node or hidden empty root and uncapped normal
+group pacing, as section 3.12 defines. Older background-trigger wording below is
+superseded, not the accepted/predicted-state reconciliation rules.
+
 **Confirmed:** use two personal presentation modes over the same continuously
 synchronized accepted tree/state and in-memory pending requests (D-278):
 
@@ -515,9 +532,8 @@ synchronized accepted tree/state and in-memory pending requests (D-278):
   add cross-device review receipts or permit offline actions. Reconnecting gates,
   logged inspection and deleted-cursor parent fallback remain unchanged.
 
-Exact mode-control layout, autoplay preference/timing and first-open presentation
-where no prior local boundary exists remain later UI/technical completion, not a
-new playback-from-root requirement. See
+First-open and timing are decided in section 3.12: hidden empty root without a
+bookmark, uncapped group playback and account-local pause after animations. See
 [prediction/playback design](../04-technical/prediction-and-playback.md).
 
 ## 3.2 Atomic actions and interruption boundaries
@@ -1063,8 +1079,8 @@ their cursor past unreviewed actions.
 
 D-222 confirms the graphical tree explorer and explicit activation of any
 retained branch/node, not just a branch tip. Activation changes shared current
-state, not the contents of either line. Any archive/restore interaction still
-needs its own behavior; this is not approval of archival controls' details.
+state, not the contents of either line. Make current UI and branch archive/restore
+are removed by r6b; explicit continuation is the route to resumed historical play.
 
 The preserved suffix is not automatically replayed on top of a reaction. It may
 refer to objects, positions, or values that are no longer present. A future reuse
@@ -1074,6 +1090,15 @@ the proposed first release.
 ## 3.6 Review progress
 
 ### Compact grouped tree presentation — D-299
+
+There is ONE history mode. Its timeline tree button opens a full-screen dense
+group tree, with timeline chips/icons and branches in parallel lanes, centered on
+the viewed cursor. Each group's LAST event supplies its icon/color and tap target.
+Tap moves the review cursor to that event and closes the dialog; retain only the
+selected description. No legend, bottom buttons, Make current, Continue from here
+or Branch details in the dialog. Review alone never activates a shared branch;
+hold-branching uses section 3.12. The older explorer interaction below is
+superseded in full; mutation-level timeline access and retained branches remain.
 
 H06 replaces D-298's oversized event-letter graph with a compact pannable group
 graph. Show the shared **active path and exact current position**, distinct from
@@ -1158,7 +1183,7 @@ Redo, and deliberate history switches clear both queues (D-224/D-227/D-230/D-258
 game-wide chat (D-94) and acceptance of an ending suggestion / return to lobby
 (D-212) have no gameplay Undo. Excluded authoring/manual-group/recovery-center
 features are not recovery obligations. Ordinary unfinished input retains local
-editing/cancellation; branch archival has its separate restoration path.
+editing/cancellation; branch archival/restore is removed.
 Submitted game-wide chat is not undoable. D-240 also excludes submitted-chat
 editing/deletion: corrections use another message, with no planned expansions.
 Unsent-delivery handling and ordinary text-editor draft behavior remain distinct.
@@ -1185,10 +1210,10 @@ and event-comment continuations remain visible in full. Hidden nodes retain
 identity, payloads, ancestry and stored random results;
 the filter never changes game state. See section 3.9 for exposure classification.
 
-D-176 supersedes the old combined-node mappings for advance-and-close,
-declarations and Untap + advance. Undo removes one eligible latest-own mutation,
-not the invocation or playback step. An actual draw plus advancement has separate
-move and tracking mutations. Do not fabricate a draw node for an empty Library.
+D-176 preserves individual recorded changes, but r2/r6 correct Undo scope:
+one multi-action invocation is one move. Display groups never merge independently
+invoked actions for Undo. An actual draw plus advancement retains its exact move
+and tracking transitions; do not fabricate a draw for an empty Library.
 Interruption at any intermediate mutation follows the ordinary tree model; later
 mutations remain on their original continuation, not replayed onto the response.
 
@@ -1201,9 +1226,9 @@ not redefine normal Undo as a stack of heterogeneous commands.
 | In-flight action with unknown outcome | Preserve original delivery identity and recover its actual result. A distinct Undo is processed in server arrival order under D-236, not pinned to the client's prediction. Reconcile without duplicate execution or losing unrelated pending work. |
 | Published latest own action | Remove it only if all section 3.0 checks pass, preserve later transitions and put it on the shared per-player Redo stack. |
 | Latest own action followed by opponent play | It remains the candidate; validate the entire retained suffix, including its relevant dependencies and N. Never undo the opponent or skip a blocked own candidate. |
-| Interruption | Its eligible latest-own mutations can be removed without activating the displaced future. Explicit return/activation or Delete branch and return is separate. |
+| Interruption | Eligible latest-own Undo does not activate the displaced future. Review and explicit continuation are separate; no Delete branch and return. |
 | Activate another branch/node | A successful switch to a different shared context clears both Redo queues atomically (D-258), without creating a gameplay mutation or selecting the personal cursor as an Undo target. Apply latest-own targeting to the selected shared timeline and D-245 checks to retained future events. A same-current-target no-op does not clear queues. |
-| Delete/archive branch | Provide branch restoration and metadata recovery separately from game-node Undo; restore selection if explicitly requested. |
+| Delete/archive branch | Superseded by r6b: no such action/state/SQL or restoration path. |
 | Group metadata edit | No manual group editing in R1 (D-241); automatic regrouping preserves nodes and personal cursors. |
 | Submitted game-wide chat | No game Undo (D-94), Edit or Delete (D-240). Corrections use another message; no expansions are planned. Unsent-delivery handling remains distinct; do not promise generic message Undo. |
 | Event-linked comment undone | Remove the eligible latest-own comment from the existing tree, keeping it for Redo; do not manufacture an original alternative. Dependent later references can block removal. |
@@ -1228,6 +1253,12 @@ or overwriting newer state with an old response snapshot. Non-Undo branch contro
 retain their separate referenced targets and applicability checks.
 
 ## 3.8 Deleting an active interruption
+
+**Superseded by owner playtest r6b:** branch archiving is removed everywhere—UI,
+protocol/actions/state and SQL (including migration). There is no archive/restore
+or Delete branch and return operation. Retained alternatives remain reviewable;
+branching uses explicit continuation, not Make current. The historical description
+below records the retired behavior only.
 
 “Delete this branch and return” is a single atomic control operation:
 
@@ -1365,8 +1396,7 @@ case permits cross-account publication, reopening ended play or fresh-board over
 Retain actor, operation/source context, exposed references or concrete result,
 and a route to the original step in the retained history. Distinguish undone/
 inactive-line status. Inspecting that branch does not itself activate it or
-reapply board changes. Branch archival cannot erase the promised exposure
-record; exact discoverability and archive presentation remain open.
+reapply board changes. No branch archival feature remains.
 
 Ordinary summaries report that viewing occurred without automatically showing
 covered card names/faces to the other participant. Original context remains
@@ -1402,6 +1432,17 @@ alone never activates them. Exact exposure coalescing, pre-fork
 presentation and concurrent/non-Undo control details remain open.
 
 ## 3.10 Randomness and branching
+
+Library has ordered known top, a seeded unknown middle, and ordered known bottom.
+Top-end draw/mill/look/reveal consumes known top first; bottom-end actions consume
+known bottom first. Placing cards at either edge makes them known; Shuffle makes
+all unknown. EVERY branch start reseeds both unknown middles deterministically
+with H(game secret, fork node, forking player), preserving known edges. Repeating
+draw/Undo/draw or a fork from the same point yields the same cards. Record reseed
+inputs as semantic state; do not rewrite a later event's input during Undo checks.
+Own Look/scry/Reveal may be undone under the authoritative concerned-field rule;
+information exposure is never an eligibility veto. Library piles still show only
+backs, without a known marker, and reveals cease on leaving their panel (r11).
 
 D-87 confirms die/coin results as automatically queued/synchronized records of
 actor, request, and actual result. Review/redo reuse that concrete result rather
@@ -1445,6 +1486,14 @@ be specified before implementation; see the open decisions.
 
 ## 3.11 Confirmed shortcut event mappings (D-149–D-151)
 
+**Undo granularity supersession — playtests r2/r3/r6:** a multi-action invocation
+(quick action or multiselect) counts as one move and is undone together. Separately
+invoked events remain individually undoable even when grouped for display. Thus a
+manual whose-move pass groups backward but Undo removes only that pass. The older
+per-constituent Undo wording below is superseded, not the stored exact transitions
+or immediate publication requirement. Current shortcut effects are in
+[board controls](board-and-controls.md#108-additional-controls-needed-for-complete-play).
+
 **Current rule: D-176 supersedes the older combined-node mappings named in this
 heading.** The heading is retained for existing references. Invocations issue
 individual mutations; every mutation publishes immediately and is one Undo step.
@@ -1469,6 +1518,35 @@ retries reuse stored outcomes; they neither resample nor replay the old future
 onto a new branch. No runtime priority/legality enforcement is added.
 
 ## 3.12 Resume, playback and exact timeline navigation (D-177)
+
+**Current presentation — playtests r4/r6/r7/r8/r10.** This replaces older entry,
+transport, continuation and timing text below; exact-event scrubbing, centered
+cursor, author-colored icons and endpoint animation remain current.
+
+- Persist the last node shown live locally per (game, account), independently of
+  sync revision. Debug builds retain it across Logout/account switching. Opening
+  behind head enters timeline mode and auto-plays EVERY group at normal pacing
+  to live, never capped or fast-forwarded. No bookmark starts at a hidden empty
+  root. If head is not a descendant, show “Branched” about 1 s, roll back quickly
+  group by animated group to the common ancestor, then play forward. Every step
+  is O(delta), not root replay. Live opponent updates, resume, inspect and menu
+  actions stay live; automatic timeline entry occurs only on game opening behind
+  head. Entering history manually remains available.
+- Pause AFTER each group's animation; default 1.5 s. Settings slider 100 ms–10 s,
+  local per account. Hold inspection pauses existing playback, never turns live
+  play into timeline mode. The panel overlays the board without shrinking its
+  viewport; clip the battlefield bottom only, never scale/move it. The intact
+  bottom HUD (hand, piles, life, counters) sits immediately above the timeline.
+  Darken the top bar, dim the field, show a faint centered “Timeline mode” + icon.
+  Transport is white-bordered: green play/orange pause left, large “Auto: off/on”,
+  small “Tap: toggle · Hold: branch”. Branch markers use correctly directed graph
+  lines. Download history stays in the timeline menu.
+- Holding transport branches immediately from the captured cursor, running or
+  paused, without a dialog. Arming shows only a small top-bar fork icon; tap it to
+  cancel. No banner or separate top continuation button. The first successful
+  gameplay edit creates the branch. Toggling history OFF after cursor movement
+  alone shows “Continue from here” / “Back to latest”; outside dismiss stays in
+  history. At head no chooser. Back exits review directly without that dialog.
 
 **Confirmed D-277:** return from background with unpresented updates enters
 grouped playback; catching up or deliberately continuing gameplay at a chosen

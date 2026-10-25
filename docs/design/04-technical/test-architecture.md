@@ -110,6 +110,25 @@ automatically solves canvas targeting.
 
 ## Shared-engine and random-input verification — D-261
 
+Mandatory playtest regression policy (r2/r5/r6/no-full-history-rebuild): every bug
+gets a scenario regression plus a seeded random-sequence test. Inspect crash
+coverage must run on Android (ICU regex handling can differ from JVM); exercise
+hold and explicit Inspect. Every action type round-trips stored apply/revert:
+revert(apply(s)) == s, including hidden/redacted views, random results, tokens,
+links, panel auto-close and projection cleanup, with from-check failures covered.
+
+Regular acceptance suites include shared 1k/10k-action fixtures and operation-count
+guards on command, sync, tree append, navigation, annotations/chat and persistence;
+no history-length-proportional scans/copies/root reconstruction on normal paths.
+Include a 300+ action, 60-card-deck game where Undo succeeds and last-move Undo is
+about <20 ms on desktop JVM. Measure every local action <20 ms target / 80 ms hard
+ceiling, not server RTT, and exercise rejected-prediction reconciliation. Tests
+must fail the build on regressions, not live in optional one-off benchmarks.
+Use the authoritative concerned-field oracle; do not revive exposure/fork/work-unit
+eligibility exclusions. Verify knownTop vs shuffle-set dependencies and unchanged
+recorded reseed input explicitly. Migrations cover the explicit old-format deletion
+exception with real pre-change data; quarantine one bad game without global outage.
+
 - Verify dependency boundaries so prediction and server execution invoke the same
   shared processor and state types, not merely implementations passing similar
   fixtures. jOOQ/schema types must not leak into the shared core.

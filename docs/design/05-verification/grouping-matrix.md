@@ -17,11 +17,10 @@ single-tap Actions emits no grouping input. Category counts/rules do not change.
 | --- | --- | --- |
 | T | Tap, untap; each member of Untap all or selected orientation edits | Pending tap run; only taps/pings permit a further tap to stay. |
 | M | Actual-card moves/reorders outside Stack | Ordered origin/destination tuple, including same-region rearrangement. |
-| I | Real-card Stack entry/exit, effect creation, explicit effect removal | Isolated anchor: never merge independent I operations, even same source. |
+| I | Stack projection creation and explicit removal | Isolated anchor: every entry is a projection, never a real-card Stack move. |
 | E | Corner/counter/note/face/cover edits, life/player counters, links, token Remove | Ordinary edit family, across fields/targets. |
 | C | Catalog/Blank token creation and Clone | Creation family; interleaved E customization can join without replacing C. |
 | K | Combat-area creation, declaration, occurrence layout/removal | Combat family; closure is F, source taps are T. |
-| L | Stack layout/order adjustments | Layout family, not I. |
 | V | Accepted explicit Inspect other side / View/Reveal opening | Each accepted opening is a distinct anchor, not an ordinary hold or speculative-disclosure report (D-286). |
 | H | Shuffle all | Same named Library identity. |
 | F | View/Reveal dismissal, combat closure | Pending forward segment, not backward into its displayed state. |
@@ -56,23 +55,29 @@ predicted group without adding another grouping policy or stale-group guard.
 - **Author change overrides every cell with `|`.** A first operation makes a
   leading group; there is no fake preceding event.
 
-| Current context ↓ / incoming → | T | M | I | E | C | K | L | V | H | F | R | P | B | S |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| T — pending tap run | t | + | + | + | + | + | + | + | + | + | + | + | + | \| |
-| M — non-Stack move | \| | k | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
-| I — isolated Stack action | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
-| E — ordinary edits | \| | \| | \| | + | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
-| C — creation/customization | \| | \| | \| | + | + | \| | \| | \| | \| | \| | \| | + | + | \| |
-| K — combat edits | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | \| | + | + | \| |
-| L — Stack layout | \| | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | + | + | \| |
-| V — logged opening/exposure | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
-| H — Shuffle | \| | \| | \| | \| | \| | \| | \| | \| | k | \| | \| | + | + | \| |
-| F — pending closure | \| | + | + | + | + | + | + | + | + | + | + | + | + | \| |
-| R — pending random run | \| | + | + | + | + | + | + | + | + | + | + | + | + | \| |
-| O — leading annotation(s) | t | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
-| S — ending suggestion | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| |
+Manual whose-move pass is the r2 display-only exception: group it with its
+predecessor, keep its own actor/event/Undo. Step-driven holder changes are bundled
+in the tracking event. Reveal+Hand/Top instead forces separate flip/move groups;
+Search close/shuffle is one display group. Test these explicit panel/pass rules
+beside the generic family matrix, not as new inferred card mechanics.
 
-This gives 182 context/operation cells, not 182 claimed executed tests. Expand `k`
+| Current context ↓ / incoming → | T | M | I | E | C | K | V | H | F | R | P | B | S |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T — pending tap run | t | + | + | + | + | + | + | + | + | + | + | + | \| |
+| M — non-Stack move | \| | k | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| I — isolated Stack action | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| E — ordinary edits | \| | \| | \| | + | \| | \| | \| | \| | \| | \| | + | + | \| |
+| C — creation/customization | \| | \| | \| | + | + | \| | \| | \| | \| | \| | + | + | \| |
+| K — combat edits | \| | \| | \| | \| | \| | + | \| | \| | \| | \| | + | + | \| |
+| V — logged opening/exposure | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| H — Shuffle | \| | \| | \| | \| | \| | \| | \| | k | \| | \| | + | + | \| |
+| F — pending closure | \| | + | + | + | + | + | + | + | + | + | + | + | \| |
+| R — pending random run | \| | + | + | + | + | + | + | + | + | + | + | + | \| |
+| O — leading annotation(s) | t | \| | \| | \| | \| | \| | \| | \| | \| | \| | + | + | \| |
+| S — ending suggestion | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| | \| |
+
+This gives 156 context/operation cells, not claimed executed tests. Stack reorder
+is removed, not an input category. Expand `k`
 into same/different keys and `t` into pure taps/pings versus a backward-comment/
 tracking-contaminated run. For every cell cover representative real controls;
 family-mapping coverage must include all operations in the table, not just a
@@ -98,10 +103,10 @@ separators. `move a`/`move a` means matching tuples, not necessarily the same ca
 | GM-05 | `move; ping X \| tap; ping Y; Unping Y; move` | First group's X remains; the second toggle removes only Y. No retroactive overlay at any earlier prefix. |
 | GM-06 | `tap; comment \| tap; move` and `tap; tracking \| tap; move` | Backward companions join but are not taps/pings; subsequent tap starts a new run. |
 | GM-07 | `move a; ping; move a \| move b` | Pings preserve the current move key; a different tuple still splits. |
-| GM-08 | `tap; effect X; ping \| effect X \| real card → Stack` | Independent Stack anchors stay separate despite same source/target category. |
+| GM-08 | `tap; effect X; ping \| effect X \| Hand-source projection → Stack` | Every entry is a projection; independent entries remain separate. |
 | GM-09 | `create token; note; Clone; counter \| move` | C survives interleaved E; ordinary `edit \| create token` has the opposite boundary. |
 | GM-10 | `create combat; declare; reposition; remove occurrence \| close; move` | K membership and forward closure differ; cleanup never edits source cards. |
-| GM-11 | `Stack entry \| layout; layout \| remove effect` | I/L/I separation. |
+| GM-11 | Manage Stack, inspect and remove a non-top entry | No reorder controls/action requirement; inspection draws above the dialog and removal does not open new-top bubbles. |
 | GM-12 | `move \| View \| Reveal \| dismiss; tracking; Stack entry` | Distinct V anchors; F owns its backward companion and following anchor. |
 | GM-13 | `edit \| roll; flip; tracking; edit` | Random run starts separately and fills forward; stored results do not reroll. |
 | GM-14 | `Shuffle A; ping; Shuffle A \| Shuffle B` | H compares target identity, not simply operation name. |
@@ -110,9 +115,9 @@ separators. `move a`/`move a` means matching tuples, not necessarily the same ca
 | GM-17 | `comment \| tap; move` from root | Leading B does not qualify for pure T extension. |
 | GM-18 | `A:tap; ping \| B:ping \| A:move` | Author boundary overrides every companion/matching-family cell; mode remains off on revisit. |
 | GM-19 | `tap; [own hold]; ping; tap; move` | Own hold has no event/separator/Undo barrier; opponent hold adds no hidden disclosure. Explicit Inspect other side is V instead. |
-| GM-20 | `ping X; ping Y; Unping X; ping X` in one context | Visible Y retains ordinal 2; new X gets 3. Retrying either addition creates no ordinal. |
+| GM-20 | `ping X; ping Y; Unping X; ping X` in one group | After Unping X, Y becomes 1; re-added X becomes 2. Retry changes nothing. Active rings loop in actor color about every 1.2 s. |
 | GM-21 | Historical ping/comment recorded after current G, referring to inactive E | Recording sequence controls grouping; route to E does not move records into E or activate it. |
-| GM-22 | Eligible Undo/Redo before/between groups containing pings | Preserve recorded toggle scopes, presence, ordinals and effective contexts. Block a tree edit whose relevant semantic context would change; never silently reinterpret Unping. |
+| GM-22 | Eligible Undo/Redo before/between groups containing pings | Concern only the ping target, not ancestry/display grouping; recompute groups and active ordinals. Projection pings depend on their projection, not just the source. Preserve semantic reseed input. |
 | GM-23 | `edit \| suggest draw \| ping; tracking` | The suggestion admits no backward companions. Following P/B are in a new context, with no inherited ping overlay; a rejected duplicate suggestion creates no event/group. |
 | GM-24 | `tap \| suggest win \| edit`; `roll \| suggest loss`; `View \| dismiss \| suggest draw` | Singleton S overrides pending T/R/F forward absorption. Retain every real boundary; do not merge the prior board into the suggestion. |
 | GM-25 | Opponent catches up through final board changes, then the singleton suggestion | Show the final board before the acceptance dialog. A newly received pending suggestion cannot cover earlier unreviewed groups with the dialog. Sync is not delayed; removed/inactive historical suggestions are not actionable prompts. |

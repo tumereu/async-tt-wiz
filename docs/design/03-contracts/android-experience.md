@@ -149,7 +149,7 @@ drag-target exception with native accessible equivalents, not overlapping invisi
 targets or permission to shrink ordinary 48 px buttons. The current review retires
 G00 and shows a real table under U01; historical raw artifacts remain provenance.
 New creation requires a name with fantasy adjective + thing suggestions; the
-server's creation date is shown beside state and survives later incarnations.
+   server's creation date survives later incarnations; rows display last activity.
 
 **D-294 follow-ups:** the compact **1 / ∞** affordances are tappable buttons as
 well as drag origins, with gesture arbitration preventing double transfers. A
@@ -178,6 +178,7 @@ timing and transfer of personal device state remain open; see the
 
 | Screen | Main responsibilities |
 | --- | --- |
+| Playtest supersession | The Main menu, Zone browser, History tree and Settings rows below are historical where they conflict with this paragraph: Settings is in menu/hamburger and holds Card records, Log out, version/commit and playback pause; debug account switching stays in hamburger. Main menu has up to three ranked active-game shortcuts using shared last-activity rows. Look/Reveal/Search use one game-wide left panel, plus one local searchless Graveyard/Exile view per viewer. The timeline launches the full-screen group tree; tap reviews the last event and closes, with no Make current/archive/restore. See the primary board, account and history contracts. |
 | Login/registration | Login before main menu (D-188). Register with username/email/password; login with email/password; forgotten-password reset by email (D-197). D-268 keeps login across restarts/long inactivity with a non-expiring revocable token, not a stored password or idle/absolute timeout. After explicit invalidation/token loss, same-account login returns to the same game and recovers pending actions without manual resend/duplicates (D-217). Explicit Logout clears login/private downloads while protecting recovery records/account isolation (D-241). Validation, token/reset/recovery mechanics and reauthentication-required navigation need completion. |
 | Main menu / shared navigation | Main-menu content: Games, Manage decks, Contacts, no redundant subtitles or notification-settings/direct Logout links. Shared navigation: clickable Menu/Games categories, indented destinations/current games and non-scrolling bottom Logout (D-292). Username search/add saves contacts without mutual approval (D-196). |
 | Games (formerly Play) | One current Games list including in-play and setup/lobby states, followed by Invitations (D-292), with recipient Accept/Decline and same-lobby entry on Accept (D-190/D-195). Finished-session history archives/review are optional future work, not R1 (D-214). Catch-up state, pending work and branch-change presentation remain proposed. |
@@ -233,16 +234,19 @@ Keep the complete trimmed note in state; exact placement and fitting thresholds
 remain wireframe work. Edit note uses the card context menu/multiline editor,
 with selection parity and removal on empty trimmed text.
 
-D-51 approves initial contents-browser defaults: one main-type column per card
-(Other for unclassified cards), alphabetical ordering within columns, horizontal
-column scrolling, and vertical scrolling within each column on narrow screens.
-These are a revisable starting point for wireframe review/usability testing, not
-a permanent layout constraint. Exact category mapping and covered opponent
-presentation remain open.
+Search and local Graveyard/Exile views group by type/name and copies by name (×N).
+Panels use Stack-sized cards and the fewest fitting columns up to three; when both
+are open, shared left/local right use at most two each. Look/Reveal retain source
+order and allow insertion reordering. Local pile viewing is not shared or logged.
 
 No essential action may require leaving Android for an external editing tool.
 
 ## 5.2 Persistent table context
+
+Gameplay Back first closes the top menu/dialog, then history mode, without a
+continuation chooser. On the bare table require a second Back within 2 seconds,
+showing “Press back again to leave” after the first; only the second leaves.
+This is the gameplay-specific exception to generic screen navigation.
 
 ### Short-name button tooltips — D-299
 
@@ -267,6 +271,12 @@ long explanation, shortcut hint, request metadata or a concealed card's name.
   actual availability remain exposed without requiring a timed hold. Tooltip state
   is personal UI, not sync/history/presence or an extra confirmation. Hold timing
   and exact styling remain UI implementation/verification details.
+
+Tooltips sit above the button (below near the top edge), never under the finger.
+Inspect hold is 350 ms; compact titleless hover info scrolls with finger up/down,
+has no enlarge-art control and renders native mana/tap symbols. Every custom
+button has press feedback; mutating holds give a tiny haptic tick, inspect does not.
+The full inspector uses full card images, including every face-up panel card.
 
 This supersedes earlier broad “no tooltip” wording only for these short names;
 it does not restore shortcut tutorials or attach a tooltip to a real hold command.
@@ -313,7 +323,7 @@ cursors follow D-238 parent fallback; comments/pings retain their relevant
 contexts and can block dependent removals. Cache/ID mechanics remain technical;
 do not assume an immutable old path remains.
 
-A **graphical tree explorer** allows review and explicit activation of any retained
+A **graphical tree explorer** allows review of any retained
 branch/node, including internal nodes/root; reviewing alone does not activate.
 Hide only single-player inactive continuations without exposure or event comments
 behind a separate Show hidden branches toggle. Mixed-player/exposure/event-comment
@@ -334,16 +344,21 @@ ordinary Undo or another comment. Exact event/group association, pending chat
 delivery and editor submission remain separate work. Other proposed screens/tools
 are subject to D-241's R1 exclusions, not approved by this inventory.
 
-Use text/icons as well as color. A prominent “Return to active game” control is
-available when viewing history or an inactive branch; it must not discard drafts.
+Use text/icons as well as color. History toggle-off after moving the cursor offers
+Continue from here / Back to latest; outside dismissal stays in history, at head
+there is no chooser, and Back exits directly. Hold transport branches immediately
+without a dialog; the cancellable top-bar fork icon replaces any continuation banner.
 
 ## 5.3 Catch-up flow
 
 **Confirmed D-277:** live mode applies remote updates immediately, then re-evaluates
 pending local predictions; playback mode keeps receiving accepted data but displays
-history by event groups. Return from background with unpresented updates enters
-playback from the saved local boundary, even if background sync already downloaded
-them. Catching up or deliberately continuing gameplay from a chosen boundary returns
+history by event groups. Only OPENING a game behind its head automatically enters
+timeline playback from the per-(game, account) last-seen node, or hidden empty root
+without one. No cap/fast-forward: play every group at normal pacing. Debug bookmarks
+survive Logout/account switches. On divergence show “Branched” about 1 s, animate
+rollback to the common ancestor then forward. Live updates, resume, inspection and
+menu actions stay live. Catching up or deliberately continuing gameplay returns
 to live prediction. Pause/scrub alone does not. Mode/progress is personal; do not
 teleport a paused review cursor, create read receipts or block synchronization.
 
@@ -367,8 +382,10 @@ teleport a paused review cursor, create read receipts or block synchronization.
    passing, legality approval or consent, and without losing racing arrivals.
 
 This supersedes the old proposal that normal Next must advance one mutation
-instead of one group. Exact animation timing, automatic/manual default and final
-control/accessibility layouts remain design work. Pausing playback never pauses
+instead of one group. Pause AFTER animation: default 1.5 s, Settings 100 ms–10 s,
+local per account. Timeline overlays without resizing/moving the board: clip its
+bottom only and keep the full HUD above it, with dimmed field/dark bar and faint
+Timeline mode label. Pausing playback never pauses
 publication or loses pending work. See [the primary resume contract](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
 
 If a branch changes during review, show a persistent non-destructive notice

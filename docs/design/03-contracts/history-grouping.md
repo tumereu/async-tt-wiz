@@ -18,6 +18,11 @@ capabilities; it is not yet a complete list of fully specified commands/events.
 
 ## Mutation tree versus playback groups (D-176/D-177)
 
+Playtests r2/r6 correct Undo scope: a quick action or multiselect performed at once
+is one move; independent invocations are not combined by display grouping. Manual
+whose-move pass is a separate event/Undo, displayed with its predecessor; automatic
+step-based move changes are bundled invisibly in the tracking event.
+
 One tree node is one individual mutation, such as moving or tapping one card.
 Every mutation immediately extends or branches the chosen path and publishes.
 Bulk controls issue individual operations in a sensible recorded order. The
@@ -38,6 +43,12 @@ The remaining grouping questions below concern presentation only; they are not
 questions about atomic gameplay units or which changes enter the tree.
 
 ## R1 representative group icons — D-299
+
+**Superseded by owner playtest r6b:** use the group's LAST event's icon and author
+color, and select its last event on tree tap. Recompute after tree changes. No
+significance ranking, anchor preference or first-event tie break. The old ranking
+and linked JSON fixture below are historical documentation provenance, not current
+requirements or verification oracles.
 
 The owner delegates the initial significance order. This is a **chosen R1 UI
 ranking**, revisable through normal design feedback, not a change to grouping,
@@ -181,9 +192,9 @@ semantic data; they do not assign the new recording event to an old group.
 6. Publish every effective record immediately. A trailing companion segment is
    already reviewable; no future anchor is required to finalize Ping/Unping.
    Extending a prefix does not relocate earlier markers, change ping ownership,
-   renumber past additions or reset an input mode through retroactive regrouping.
-   Recompute deterministically after eligible tree edits subject to stable ping
-   semantic dependencies below. Batch/incremental receipt gives the same result.
+    reset an input mode through retroactive regrouping. Recompute display groups
+    and active ping numbers after tree edits; neither is a concerned-field dependency.
+    Batch/incremental receipt gives the same result.
 
 Examples (one author; `|` is a group boundary):
 
@@ -210,7 +221,7 @@ update one rule and its affected tests together, not hard-code each button pair.
 Use the **current group's** anchor family and key, not merely its last operation:
 M = non-Stack moves keyed by ordered origin/destination; I = isolated Stack
 entry/removal; E = ordinary edits; C = token/Clone creation plus customization;
-K = combat edits; L = Stack layout/order; V = explicit logged inspection/View/Reveal;
+K = combat edits; V = explicit logged inspection/View/Reveal;
 H = Shuffle keyed by target; F = pending closure; R = pending dice/coin run;
 T = pending tap run; P = ping; B = backward comment/tracking; S = strict singleton
 ending suggestion, unlike companion-accepting I. These are literal categories,
@@ -230,24 +241,24 @@ Destination taps in Ping mode are P, never simultaneous T operations. A genuinel
 new group exits Ping mode; adding an anchor to an existing tap/forward segment
 does not.
 
-Once the server creates an effective event, record the addressed ping
-presence/removal and its derived owning context as semantic
-identity, independent of rendered separators. Eligible Undo/Redo cannot merge
-previously independent toggle scopes, reinterpret Unping as another event's
-removal or create duplicate same-context destinations. Apply D-224's exact
-relevant-context test: if a proposed tree edit would change those meanings, block
-it rather than rewrite pings. Equivalent presentation regrouping is allowed only
-with original scopes/ordinals/effective boundaries intact; no UI ownership picker.
-Number additions in recorded order within their context, starting at 1. Unping
-does not renumber surviving pings; re-add gets the next ordinal. A delivery retry
-adds no ordinal. Selection Ping emits additions in normalized displayed target
-order and skips already-present destinations, not independent inversions.
+Record Ping/Unping targets explicitly. For Undo/Redo a ping concerns ONLY that
+target card, projection or player, not the recording node/ancestry or display
+group. Projection targets remain projections. Grouping is recomputed bookkeeping.
+Number currently active pings in event-group order starting at 1: ping A, ping B,
+unping A leaves B numbered 1; re-add A follows B as 2. Retries add nothing.
+Selection Ping uses normalized display target order and skips present targets.
+Active markers loop an expanding actor-colored ring about every 1.2 s.
 
 ## Confirmed grouping rules (D-163–D-175)
 
 **Author boundary (D-170):** a different
 action author always starts a new group. No forward/backward companion, matching
 category or no-artificial-reset rule may bridge that author boundary.
+
+**Owner playtest r2 exception:** manual whose-move pass displays with the event
+before it, while remaining its own event/Undo move and retaining its actor. An
+automatic step-based move change is part of the tracking event, never a separate
+pass/group input. This does not introduce any other auto-pass.
 
 **Singleton boundary (D-257):** ending suggestions never group with anything,
 including same-author preparatory or backward companions. This overrides every
@@ -261,20 +272,19 @@ family/companion row below; author separation remains intact.
 | Actual-card moves outside Stack | Group moves with the same ordered (origin, destination) tuple. Hand, Battlefield, Exile, Graveyard and Library are the listed non-Stack locations. Different directions are different tuples. |
 | Same-location card moves | The tuple model includes repeated Battlefield → Battlefield rearrangements; it does not require a separate grouping rule for each card or physical position. |
 | Projection creation onto Stack | Never group it with actual-card moves or another projection creation. Each Stack projection can group with taps and pings. Do not group repeated effects merely because they share a source. |
-| Real-card Stack moves | D-164 also isolates real-card Stack actions rather than grouping them by move tuple, so individual entries remain separately visible like Stack projections. Taps/pings remain the established companions. No casting/activation label or rules effect is inferred. |
+| Stack entry | Every route creates a projection (never a real-card Stack move); each entry is isolated with the established tap/ping companions. Library entry is blocked. |
 | Ordinary card edits and token removal | D-165/D-169/D-171 group card edits together, including counter/corner/text/note, manual face/cover edits and explicit token removal across cards. More-specific move/tap/Stack rules still apply. Player-explicit spells/abilities stay separately represented on Stack. Token creation/Clone is covered below. |
 | Token creation and Clone | D-173: group token creation and Clone together, including interleaved customization edits: `[create token; edit; Clone; edit]`. Keep fresh independent token identities and every node; this is not projection creation. Do not infer a rule for arbitrary mixed categories. |
 | Player values/counters and persistent links | D-172: player value/counter edits and persistent-link creation/removal join the same ordinary edit family as card edits and token removal, not separate per-target/per-field families. Example: `[card counter; life change; link creation; card note]`. This does not classify participant-association edits or infer damage/targets. |
 | Event comments | D-172: join the preceding group without starting a new one, e.g. `[Stack entry; comment]`, except after singleton S under D-257. Author changes still start a new group. Comments keep individual nodes; they do not merge Stack entries or become game-wide Chat. D-241 excludes dedicated Edit/Delete; use eligible Undo or another comment. Historical placement needs contract completion. |
 | Combat-area creation and projection edits | Combat projections group together; D-166 includes repositioning of any kind, including role/slot/order changes. D-175 explicitly adds combat-area creation and occurrence removal to this family: `[create combat; declare; reposition; remove occurrence]`. Closure remains the separate forward case below; removal does not delete a real source. |
 | Explicit inspection/View/Reveal openings | Each explicit logged opening is a distinct V anchor, e.g. `[moves] → [View top 3] → [Reveal bottom 2]`. Pending forward companions can join it; a second opening cannot. D-252 own-area hold inspection is unlogged, so never splits a group. |
-| Stack rearrangements | D-175: repeated Stack layout/order adjustments group together, separately from Stack entries and removals. Preserve occurrence identities and each recorded boundary; this does not settle underlying ordering controls or action/event mappings. |
 | Explicit Stack-effect removal | D-175: each removal stays separately visible, like individual Stack entries: `[remove effect A] → [remove effect B]`. Existing companion rules still apply. D-176 makes bulk removal an ordered sequence of individual removal mutations, not an atomic bulk node; grouping remains presentation. Remove occurrences, not sources or sibling effects. |
 | View/Reveal display dismissal and combat closure | D-166: do not attach the dismissal/closure backward to the displayed-area group. Put it with the following action. Group-level review shows the display/combat state, then the next step applies closure plus the following action. Keep the closure node itself inspectable. |
 | Shuffle | D-167 groups successive Shuffles of the same target together. Different targets do not match; this is target identity, not simply both being Libraries. |
 | Dice/coin tools | D-167/D-171: dice and coin invocations form one random-tool run, separate from prior play and grouped with the following action. Example: `[real card → Stack] \| [roll/flip run; following effect]`, not `[real card → Stack; roll] \| [effect]`. The effect remains a player-explicit action, not inferred from the result. |
 | Phase/turn tracking | D-171: Next step, direct phase/step changes and End turn join the previous group, except singleton S under D-257. Author changes still start a new group. Keep constituent nodes and approved combined-action mappings; Draw + advance retains its two real boundaries. |
-| Undo, replacement play and resuming | Continue actual grouping context rather than insert a marker merely for navigation/Undo. D-232 edits the tree without branches; recomputation must preserve recorded ping toggle scopes/ordinals and exact relevant references, otherwise block the tree edit. Encoding/rendering remains technical/UI work. |
+| Undo, replacement play and resuming | Recompute display groups and active ping ordinals; those are not concerned state. Preserve semantic targets and the authoritative concerned-field tuples, including recorded Library reseed input. |
 | Different action authors | D-170: highest-precedence new-group boundary, overriding all other rules including pings. This is the actor, not which participant's cards were edited. |
 
 These are literal presentation rules, not casting/payment/ability interpretation.
@@ -344,6 +354,14 @@ retained nodes are impossible.
    this is unrelated to D-295's card-owner action.
 
 ## Inventory to review
+
+The older inventory below is superseded where it mentions real-card Stack moves,
+Stack rearrangement, bottom-N displays, archive/restore or unrestricted owner edits.
+Use projection-only Stack (no reorder), the nine-cell panel menu, local pile views,
+and token-only Change owner in the primary board/Stack contracts. Reveal+Hand/Top
+is explicitly TWO events in TWO groups: flip inside the same panel, then move,
+with normal pacing and no special dwell. Closing Search shuffles as one display
+group. The last panel card leaving closes it in that same event (r11).
 
 These categories cover the current catalog, including proposed capabilities.
 Excluded capability rows below are historical inventory only, never R1 algorithm

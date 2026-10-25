@@ -109,33 +109,29 @@ lightweight startup update check. The earlier Scryfall-for-both recommendation i
 not selected. This does not adopt Cockatrice's formats/token source wholesale or
 grant content rights.
 
-For MTGJSON, use a small version/date check against
-[`Meta.json`](https://mtgjson.com/api/v5/Meta.json), compare with the installed
-catalog's source metadata, and schedule a changed catalog download/import separately
-from image loading. Check source content date/version, not merely schema version.
-Bound/cache/throttle checks across rapid launches and use timeouts/backoff; do not
-make every startup download the full dataset or wait for it before opening usable
-existing games. Staged validation/atomic replacement retains the last good catalog
-when offline or when an update fails. Required missing data for a new import is
-still unresolved until actually obtained, not silently substituted. Exact check
-update presentation remains UI work. Technical defaults below fix acquisition,
-cadence and metered-network handling. A startup check reduces missing new cards; game-definition
-delivery above is the correctness mechanism when catalogs still differ.
+Automatic incremental updates fetch MTGJSON `SetList.json`, then per-set files for
+new sets and sets released in roughly the last 60 days. A changing daily build
+date never schedules a full AllPrintings import. Full re-import is MANUAL ONLY
+from Settings, except when the index format changes. Store compact records with
+only app-used fields, not full raw MTGJSON records or oversized deck sourceData.
+Existing games never wait for catalog refresh; accepted game definitions remain
+the correctness mechanism for differing catalogs. Stage and validate updates,
+retain the last good catalog on failure, and preserve unresolved import input.
 
 ### Technical downloader profile — D-284
 
-- Fetch MTGJSON v5 `AllPrintings.json.gz` with its published checksum metadata;
+- Initial/manual full import fetches MTGJSON v5 `AllPrintings.json.gz` with checksum metadata;
   stream-decompress/import to a staging catalog generation, not an in-memory JSON
   tree. Retain source date/version/checksum, set/printing UUID, language, face identity,
   Scryfall identifiers and exact display/default strings. Combine related faces by
   MTGJSON's explicit relationships, never names alone. Include supported token
   records in that source; missing token mappings remain unresolved, not a silent
   dependency on a second GitHub XML source. Blank tokens remain available.
-- Check `Meta.json` on first foreground startup when the last successful check is
-  at least 24 hours old; 10-second timeout, failed-check backoff 15 min→1 h→6 h,
-  never block existing games. Record checks independently of schema version.
-  Initial/missing-catalog download and metered bulk refresh need explicit user
-  consent showing size/network cost; otherwise use unmetered background work.
+- Incremental checks use SetList/per-set files, never automatic daily AllPrintings.
+  Bound/cache/throttle checks across rapid launches with timeout/backoff and never
+  block existing games. Initial/missing-catalog and metered bulk downloads need
+  explicit consent showing network cost. Full re-import remains manual unless
+  the index format changes, even on unmetered Wi-Fi.
   Lazy needed art can use the current connection, never prefetch all imagery.
 - Validate supported source schema, checksums, relationships, field bounds and
   import completeness before an atomic catalog-generation switch. Stage on disk
@@ -143,6 +139,8 @@ delivery above is the correctness mechanism when catalogs still differ.
   budget initially 4 GiB on disk, nesting 32, per-record bounds from runtime profile;
   explicit failure if exceeded, never partial catalog installation. Reassess this
   engineering budget when provider datasets grow, not silently truncate printings.
+- After import show a separate **Finishing up — verifying catalog…** phase for
+  validation, `PRAGMA quick_check` and token-search build; cut redundant count scans.
 - Cache image resolution by exact Scryfall printing UUID + face + image size/version.
   Use Scryfall card-object image URLs (face-level where appropriate); fetch small
   metadata once when the MTGJSON identifier alone does not supply a safe image URL.
@@ -151,6 +149,11 @@ delivery above is the correctness mechanism when catalogs still differ.
   version/contact and normal Accept headers, 429/Retry-After honored; avoid API
   traffic per animation frame/card instance. Cache 404 for 24 h; transient errors
   retry 1 min/5 min/1 h. Use HTTPS, ETag/Last-Modified where supported.
+- Standard board cards use Scryfall `art_crop` in the app's art box with app name
+  and P/T. A custom deck `imageUri` renders the whole card image, no app name,
+  with P/T on a background in the corner. Inspection uses the full card image.
+  Tokens have owner-colored chamfered corners/same footprint; projections retain
+  dashed borders and real cards remain rectangular.
 - Normal art hosts are Scryfall API/CDN. Custom definition URLs remain untrusted:
   allow only HTTPS public Internet hosts, no credentials, local/private/link-local
   or metadata IPs, unsafe ports or redirect downgrade. Revalidate DNS/each redirect,

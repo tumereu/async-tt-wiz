@@ -2,6 +2,14 @@
 
 These are specification artifacts, not application code or an approved final UI.
 
+**Historical packet:** captures and generated HTML/PDF predate playtests r1–r11.
+Current requirements/supersessions are in `review.md`, `feedback.md` and the primary
+contracts. In particular, rank fixtures, Make current/archival, tray layouts and
+old menu/zoom geometry are not acceptance oracles. The rebuild scripts referenced
+below are absent from this checkout, so generated artifacts were not regenerated
+for the 2026-10-25 spec reconciliation. Rebuild/hosting instructions below are
+historical, not an instruction to republish obsolete mockups.
+
 - **[Review packet](review.md):** original non-gameplay pilot plus the gameplay
   extension and cumulative D-292–D-299 revisions, with both orientations: 45 primary
   drafts plus four continuations, 98 captures total.
@@ -31,6 +39,11 @@ These are specification artifacts, not application code or an approved final UI.
   the phone-friendly reading edition; the PDF is the fixed-layout review edition.
 
 ## Review contract
+
+Later owner playtests supersede historical static-artifact checks below: common
+zoom, fixed Logout, tapped projections, tray placement, filled progression,
+seven-square/triplet controls, Make current and rank-based glyph tests must not
+be used to reject the current behavior. See `feedback.md`'s explicit supersessions.
 
 The owner requested both orientations and a Stitch-based non-gameplay pilot
 (D-290), then explicitly extended it to gameplay (D-291). Approximate geometry,

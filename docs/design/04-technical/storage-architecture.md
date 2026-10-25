@@ -34,6 +34,14 @@ duplicates recover original outcomes without another mutation. Receipt alone
 cannot advance a client accepted-state cursor or mark a command successful. See
 [request ordering/recovery](request-ordering-and-recovery.md).
 
+**Incremental traversal supersession (r6/no-full-history-rebuild):** all normal
+commands, sync, navigation, open and persistence use stored endpoints/nearby states
+and exact apply/unapply with from-checks, O(delta) or fixed/visible windows. No
+root reconstruction/full-history scan fallback when checkpoints are absent. The
+owner allows explicit deletion of root-replay-only old-format test games and
+removal of their replayer. The older checkpoint-cost wording below is superseded
+where it implies normal-path root replay; retained current-game history remains.
+
 **Checkpoint meaning — D-266:** checkpoints are rebuildable materialized-state
 caches/optimizations for loading, replay and baseline transfer. Evicting one may
 make reconstruction slower, not remove an inspectable history boundary or change

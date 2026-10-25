@@ -6,6 +6,10 @@ supersession explicitly rather than deleting earlier direction. Historical Stitc
 prompts/raw exports are provenance, not permission to restore rejected layouts.
 Read this alongside the interaction notes before regenerating any screen.
 
+**Current supersession:** playtests r1–r11 (2026-10-23–25), recorded at the end of
+this file, override the earlier design-review rounds below. The round numbers
+below refer to 2026-10-21 mockup review, not the later phone playtests.
+
 ## Earlier direction retained — D-290 / D-291
 
 - Both portrait and landscape are required; structural review precedes final style.
@@ -216,11 +220,85 @@ not functional tree/phase/gesture handlers or permission to implement the app.
 | F83 | A player counter without a value displays **empty**, not a dash. | Both table row and player-value menu; zero still displays 0 and absent controls remain accessible. Card-counter dash presentation is not changed by this player-specific request. |
 | F84 | End turn / End opponent's turn uses player-color **fill**. | Fill identifies the tracked player whose turn is being ended, not the next player/actor. Applies to explicit buttons and the combined progression square; preserve contrast and existing transition. |
 | F85 | Holding an icon-only button with **no assigned hold action** shows a short action-name tooltip—the text the button would have—not an explanation. | Tooltip recognition consumes click; no action on release, request or preview edit. Existing hold commands (Undo→Redo, progression→End turn, paused Play→continue, game-row context) take precedence and do not also show a tooltip. Normal movement/cancel dismisses. This supersedes the earlier blanket no-tooltip reading, not the ban on shortcut tutorials. |
-| F86 | Tree viewer is too large/button-heavy: use a compact **pannable group tree**, highlight active path/node, allow choosing what becomes active. | One explicit Make current action after local group selection, plus close. No event-letter graph or Review/Continue/Follow/Root/filter/archive button toolbar. Exact-event review/continuation and advanced filters remain in their existing context/accessibility routes, not lost semantics. |
-| F87 | Use the most significant event's icon for each group. Owner delegates sensible **R1 significance ordering** to the agent, based on MTG use and the agreed grouping rules. | Deterministic representative-event ranking is documented in the primary grouping contract and checked review fixtures. Anchor beats tap/closure/random/tracking/ping companions; ranking never changes groups, events or target boundaries and infers no card rules. |
-| F88 | Owner questions the confusing archive/return dialog as unnecessary. | Explain: older reversible branch-hiding/recovery, not needed to navigate or reactivate a retained path. Withdraw **H07's current UI proposal** and remove archive/return clutter from normal tree navigation; keep provenance. Switching alone archives/deletes nothing. This is UI cleanup, **not unrequested retirement of the older archive product/protocol contract**. |
+| F86 | Compact pannable group tree. **Activation UI superseded by playtest r6b / D-311.** | Full-screen, centered on review cursor, same dense chips/icons as timeline. Tap last event and close; no Make current, legend or bottom buttons. [Current history](../../03-contracts/history-and-undo.md#36-review-progress). |
+| F87 | Significance-ranked icons. **Superseded by playtest r6b / D-311.** | Use LAST event's icon/color, not significance rank; older JSON rank fixture is historical only. [Current grouping](../../03-contracts/history-grouping.md#r1-representative-group-icons--d-299). |
+| F88 | Earlier withdrawal of H07 UI only. **Superseded by playtest r6b / D-311.** | Branch archiving is now removed EVERYWHERE: client, actions/state and server SQL/migration. Historical captures remain provenance. [Current history §3.8](../../03-contracts/history-and-undo.md#38-deleting-an-active-interruption). |
 
 Earlier unsuperseded feedback remains. H06 replaces the oversized D-298 graph;
 G13 supplies a short-name tooltip snapshot. Retired H07's captures and source
 revision remain provenance. These are inert design artifacts, not app behavior,
 a new cloud generation or permission to advance a delivery gate.
+
+## Playtests r1–r11 — 2026-10-23–25 — D-311
+
+These are decided behavior, not the orchestrator's implementation-status notes.
+The following explicit supersessions retain earlier unrelated feedback:
+
+- F08–F09: Settings in main menu/hamburger holds Card records, Log out,
+  version/commit and playback pause; debug switching remains hamburger.
+- F24: shared white grouped/divided game rows show bold name/move chip and
+  “vs X · In play · <last activity>” (time today), not Created. Main menu has up to
+  three active shortcuts, own-move oldest first then others newest first, no blanks.
+- F41/F43/F49/F50/F61/F62: fixed HUD hands/piles/values/Stack; only battlefield+
+  center band zoom/pan. Portrait Stack right-edge/mid-screen. Left panels replace
+  reference trays, fewest columns up to three; shared-left/local-right max two each,
+  hands shrink sideways. Three-slot camera margins, per-axis rubber-band clamps.
+- F44: Change owner ONLY for tokens; hidden piles/Hand always owner destinations,
+  either battlefield allowed; opponent drops/preview redirect to owner. Owner is
+  distinct from controller. Only turn-player field tinted, other neutral grey.
+- F54/F56/F57/F84: dominant-axis 10dp value drag, right+/left−, own edge+/opponent−,
+  card controller side, anchored “+3 → 23”, no acceleration. Non-filled progression.
+  Hold transport branches immediately even running; fork icon cancels. Only
+  history-toggle-off after cursor movement asks Continue/Latest, outside stays in
+  history; at head none, Back exits review directly. Timeline overlays with intact
+  HUD above it, dim field/dark bar; Auto off/on and “Tap: toggle · Hold: branch”.
+- F63/F71: packed centered combat groups, no wide insertion gaps, faint dividers,
+  symmetric reorder/insertion preview; all projections UPRIGHT. Combat taps show
+  Undeclare/Graveyard/Ping, double tap nothing, hold inspect, no normal menu.
+- F67–F79: stationary 4×4/48dp paged card grid with tabs/swipe and 2×1 minus/value/
+  plus widgets, not unpaged icon-only/seven-square/triplet/dialog layouts. Everyday
+  has P/T and Library top/bottom/Graveyard/Exile; counters page P/T+six colors;
+  More split edits; Move fourth page. No Move-to-pile coordinates.
+- Every tap menu is immediate and uses the same opaque bordered/shadowed floating
+  button/chip component, no sheet/title/Close; outside dismisses AND passes through.
+  r11: gaps/empty cells also outside. Phase picker is EXEMPT and stays a dialog,
+  with phase+step/player title and lane labels; trigger icon+short code/no turn N.
+  Double tap 400ms/32dp, both taps press feedback; own Library double tap Draw 1;
+  hold inspect 350ms. Tooltips above/below, never under finger, mutating-hold tick,
+  press state on all custom buttons. Hover inspect compact/titleless/scrollable.
+- Library: Draw/Reveal/Look/Mill/Exile 1 and N…, Search/Shuffle, Mulligan 7/−1.
+  Remember N per action, −/+/field/confirm/select-all. ONE shared panel game-wide,
+  only grey all opening controls/confirm, no error; plus ONE local searchless pile
+  view/viewer. Search type/name/×N, one-card drag, closing shuffles one group.
+  Look/Reveal reorder; initiator rest Top/Bottom (ordered), Shuffle/Graveyard/Exile.
+  Nine-cell menu: Hand/Reveal+Hand/Battlefield/Battlefield tapped/Graveyard/Exile/
+  Top/Reveal+Top/Bottom. Reveal+move is separate events AND groups. Last card leaves
+  and closes in SAME event, no rest chooser; empty local view also closes.
+- r11 reveal overrides r8 known-face retention: public ONLY inside revealed panel,
+  hidden again on leaving for Hand/Library. Eye only for author on public Look/
+  Search cards, never Reveal/Hand/piles; centered white disc over art. Library
+  always back, no known marker. Semantic known edges/unknown middle are separate.
+- F74/F81: turn header “Your turn · N” / “X's turn · N”; MOVE is solid green
+  “Your move” plus green once-pulsed frame, else outlined “Waiting · X”, no frame.
+- Stack all projections, top-only drag, uniform destination/remove/mark bubbles,
+  shared multi-marks; Manage Remove/Battlefield/Graveyard/Copy/Controller, inspection
+  above dialog, copy destinations disabled, NO reorder. Bubble actions only open
+  next-top bubbles. Tokens cut-corner/owner-color, real rectangular, projections
+  dashed; art_crop with app labels, custom whole-card image, full-image inspect.
+- Deck pull-refresh only; background game loads/lifecycle interruptions silent,
+  real errors floating snackbar, no resume layout bounce. Back closes overlays then
+  review, bare table double Back within 2s. Tap/untap 90ms centered rotation,
+  selection border rotates throughout. Quick inventory follows r3, no tap/untap/
+  Graveyard selected quick controls; a multi-action invocation is one Undo move.
+- Playback pauses AFTER each animation, default 1.5s, account-local Settings
+  100ms–10s. Open behind head only auto-enters timeline; live updates/inspect/menu/
+  resume stay live. Uncapped playback from local game/account bookmark or hidden
+  empty root; Branched rollback then forward, every step incremental.
+- Debug automatic crash/perf/reconnect/jank reports: no jank daily quota, at most
+  3 uploads/process; server retains latest 20/account, deleting older reports.
+
+The primary [board](../../03-contracts/board-and-controls.md),
+[Stack](../../03-contracts/combat-stack-and-projections.md),
+[history](../../03-contracts/history-and-undo.md) and
+[runtime](../../04-technical/runtime-and-verification-profile.md) contracts define
+the current requirements; old captures/HTML/PDF are historical, not contrary oracles.

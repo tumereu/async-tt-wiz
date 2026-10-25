@@ -155,8 +155,10 @@ and client-supplied deck definitions retained by the service before game start.
 The [definition contract](../03-contracts/domain-model.md#game-definitions-and-local-catalog-independence--d-271)
 makes the service's retained game definitions available even when a recipient's
 general catalog lacks an opponent's card. Deck imports already require resolved
-entries under D-198, not all images or latest-catalog parity. A bounded startup
-MTGJSON `Meta.json` check and Scryfall lazy art are selected by D-280; the
+entries under D-198, not all images or latest-catalog parity. R9 replaces D-280's
+Meta/full-refresh direction with SetList/new/recent per-set updates and manual-only
+full re-import except index-format changes, with compact used-field records.
+Scryfall art remains lazy; the
 [catalog design](card-data-and-art.md#selected-providers-and-startup-update--d-280)
 distinguishes that optimization from game-definition correctness.
 
@@ -250,6 +252,13 @@ timestamps are explanatory metadata. Payload size and batch limits must not
 allow a typical deck load or shuffle to fail unexpectedly.
 
 ## 7.5 Security and privacy
+
+Debug-only automatic diagnostics are decided, not an unresolved opt-in policy:
+crashes upload next startup; slow/missed prediction, reconnect episodes and tagged
+JankStats batches use the same bounded crash-report channel. Do not add production
+analytics by inference. Jank has no daily quota: at most 3 uploads/process lifetime,
+server keeps latest 20/account and deletes older reports. See the
+[runtime profile](runtime-and-verification-profile.md) for triggers and privacy.
 
 - Enforce per-game membership on every read/write and object reference.
 - TLS in transit; platform-protected credentials on Android; no secrets in logs.
@@ -354,7 +363,7 @@ Still required before implementation:
 - Metrics for sync lag, failed/conflicted operations, replay integrity, database
   pressure, notification failures, and errors without leaking game content.
 - D-273 application artifact/signing/release mechanics, compatible upgrade paths
-  and crash-reporting consent; signed APK/manual update/API 29 direction is settled,
+  and debug automatic crash-reporting; signed APK/manual update/API 29 direction is settled,
   production host/operator cost and provisioning are external under D-272.
 
 ## 7.7 No implementation shortcuts across specification gaps

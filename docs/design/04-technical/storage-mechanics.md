@@ -24,7 +24,7 @@ physical naming is mechanical migration work, not different behavior.
 | `inbox` | Unique request identity bound to authenticated account/game/lifecycle, canonical semantic bytes/digest, ingress ordinal, stream/generation, pending/final state and result. Unique `(game, ordinal)`; pending-ordinal index. Already-authorized admitted work may finish after session revocation (D-289); no execution-time session-epoch fence is required. |
 | `node`, `transition` | Game/play/node IDs, current parent, node version, actor/request, effective order, recorded relevant before/after and invariant-closed forward/inverse effects. Index `(play,parent)` and author/effective order. Root has no parent. Removed-for-Redo nodes are detached, not browsable alternative branches. |
 | `effective_record`, `reference` | Exposure/annotation context with board boundary and effective ordinal; immutable viewed identities/revision/content; indexed incoming references and recording-path membership. Exposure-only rows need no fabricated board mutation. |
-| `branch`, `control`, `redo_entry` | Genuine branch identity/archive state; current active node and control revision; per-player/per-play ordered Redo entries with recorded insertion anchors. Snapshot activation never reloads an old Redo stack. |
+| `branch`, `control`, `redo_entry` | Genuine branch identity, current active node/control revision, per-player/per-play ordered Redo entries and insertion anchors. No archive fields, actions or SQL; remove them by migration. Historical navigation never reloads an old Redo stack. |
 | `definition`, `account_definition`, `game_definition` | Content-addressed accepted snapshot/version, account-private access and deck/game references. An ordinary complete HTTP POST retains the validated submitted definition set atomically; duplicate content reuses IDs, while duplicate names/external IDs never overwrite different contents. No application upload-session/chunk tables (D-289). |
 | `current_object`, `current_container`, `current_link` | Materialized accepted state keyed by play/object/container/endpoint; normalized membership/order and uniqueness. D-295 real cards/tokens carry required same-game owner participant metadata, creator/bringer initialized and changed only by explicit owner edit. Include owner in recorded transitions, roots/checkpoints, deltas, canonical semantic digests and complete baselines; live projections derive source owner, frozen effects retain last-live owner. Owner is not a permission/container key. Ordered containers use deterministic dense integer order in transferred state; update local affected ordering, not unrelated tree records. |
 | `revision`, `checkpoint` | Revision base/result and typed changed records, scope/request identity; optional rebuildable snapshot keyed by boundary/tree-control revision/engine version and semantic digest. |
@@ -37,6 +37,13 @@ approved capacity. Service validation plus transaction locks enforce constraints
 not expressible as simple foreign keys. Never trust client IDs to cross game scopes.
 
 ## Ordered ingress, execution and fencing
+
+Commands load a materialized accepted endpoint and only the needed changed/indexed
+records, not decode/validate-replay the whole tree. Acks, delta sync, app cache saves,
+chat/annotation updates and navigation likewise use O(delta)/fixed/visible windows,
+not total-history scans or copies. Cold open uses persisted endpoints, not root
+reconstruction; apply/revert stored transitions with from-checks. See
+[incremental history](sync-and-storage.md#66-snapshots-and-replay).
 
 Initially one Spring service instance owns an in-process FIFO ingress dispatcher
 per persistent game. A decoded/authenticated complete frame enters that dispatcher

@@ -1,6 +1,7 @@
 {
-  "status": "D-299 R1 review choices and literal document fixtures, not application configuration",
-  "selection": "If any anchor exists, consider anchors only; otherwise consider companions. Lowest rank wins; ties use first effective event on this path. Reuse the winning event's own icon.",
+  "status": "Superseded by owner playtest r6b / D-311 (2026-10-25). Rank tables, nodes and examples below are historical capture provenance, not current verification oracles or application configuration.",
+  "selection": "Use the group's LAST event's icon and author color; tree tap reviews that last event and closes. See ../../03-contracts/history-grouping.md.",
+  "historicalSelection": "If any anchor exists, consider anchors only; otherwise consider companions. Lowest rank wins; ties use first effective event on this path. Reuse the winning event's own icon.",
   "anchorRanks": {
     "ending_suggestion": 10,
     "stack_entry": 20,

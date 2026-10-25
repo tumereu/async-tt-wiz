@@ -31,6 +31,45 @@ The general rules are:
 
 ### Current table presentation and ownership — D-295–D-299
 
+**Superseded presentation summary:** the D-295–D-299 paragraphs below are historical
+where replaced by these playtest decisions (r1–r11). The current table uses a
+zoom/pan battlefield+combat world and fixed HUD hands/piles/life/counters/Stack;
+portrait Stack is right-edge, mid-screen. Camera has three-slot margins,
+rubber-band/per-axis clamping; double empty tap fits, double-tap-drag pans. Cards
+are 28×40dp with 42dp battlefield pitch and top-left peeks, no overlap during 90ms
+centered tap rotation. Selection border rotates with the card. Only the turn
+player's field is tinted, other neutral grey; opponent Hand matches your Hand.
+Header: “Your turn · N” / “X's turn · N”. Move: solid green “Your move” + pulsing-once
+green frame, otherwise outlined “Waiting · X” without frame.
+
+Token-only Change owner; Hand/Library/Graveyard/Exile route to owner, opponent-zone
+drops/preview redirect, either battlefield allowed. Tokens use owner-colored cut
+corners, projections dashed/upright. Standard card art is art_crop with app labels;
+custom images fill the card, no name, corner P/T; inspect keeps full images.
+Value drags use dominant-axis 10dp steps: right+/left−, own edge+/opponent−, card
+controller's side; anchored “+3 → 23”, no acceleration, one edit on release.
+
+All tap menus open immediately using one floating button/chip popup, no sheet/title/
+Close; outside, empty cells and gaps dismiss AND pass through. Double taps are
+400ms/32dp (both press borders register); inspect hold 350ms; own-Library double
+tap draws one. The card menu is a stationary 4×4 48dp grid with tabs/swipes,
+Everyday/Counters/More/Move pages, direct Everyday Library top/bottom/Graveyard/Exile,
+2×1 minus/value/plus P/T and counter widgets. Phase picker stays a dialog. Mode
+cycles Normal→Select→Ping on tap, Table actions opens directly, no touch-menu Redo
+(hold Undo remains). All custom buttons have press feedback; mutating holds tick
+haptically; titleless hover inspect scrolls with finger/native mana/tap symbols;
+tooltips sit above buttons or below at the top edge, never under the finger.
+
+One history mode/tree button: dense full-screen group graph centered on cursor,
+last-event icon/color; tap reviews that end and closes. No Make current, legend,
+bottom actions or branch archive/restore. Timeline overlays, clips only field
+bottom and preserves full HUD above it; dark top bar/dim field/Timeline mode label.
+Auto off/on is white-bordered with green play/orange pause, “Tap: toggle · Hold:
+branch”. Hold branches immediately without dialog, fork icon cancels; only
+toggle-off after cursor movement asks Continue/Latest, outside stays in history,
+Back exits directly and head needs no chooser. Pause AFTER animation, 1.5s default,
+Settings 100ms–10s local/account. Bare-table Back requires twice within 2s.
+
 - Own field is green, opponent field red; no battlefield area labels, visible
   slots or row separators. Logical snapping remains. Cards and ordinary visual
   piles take equal horizontal space regardless of orientation/stacking.
@@ -119,6 +158,16 @@ continuations and neither archives nor deletes them.
   [Android contract](../03-contracts/android-experience.md#android-support-distribution-and-upgrades--d-273).
 
 ### Before the table: accounts, decks, and lobby
+
+Playtest amendments supersede the old navigation/date/loading details below:
+Settings is in menu/hamburger with Card records, Log out, version/commit and
+playback pause; debug account switching stays in hamburger. Up to three active
+quick-continue rows below Games rank my-move oldest-updated first, then other games
+newest first, no empty slots. Both lists share white grouped/divided rows, bold
+name + move chip (filled if mine), “vs X · In play · <last activity>”, time today,
+not Created. Decks refresh only by pull with standard indicator. Background game
+loads and lifecycle-interruption errors are silent; real errors float in snackbars,
+never inline red text. Resume never inserts a loader or bounces the gameplay area.
 
 Across already-in-scope searches, results/loading/empty/error feedback stay in
 the search field's own card/panel, not a separate results card (D-296).
@@ -321,6 +370,28 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
 
 ### 4. Library, Graveyard, Exile, and viewing
 
+**The old browser/tray/inventory bullets below are superseded by r8–r11:** Library
+popup offers Draw/Reveal/Look/Mill/Exile for 1 and N…, Search/Shuffle, Mulligan 7/−1.
+N remembers each action's local value and has −/+/selected field/confirm. Search,
+Look, Reveal share one left-edge Stack-sized card grid (fewest fitting columns up
+to three, row-major Library-top first); shrink hands sideways. One shared panel
+GAME-WIDE: other opening buttons/confirm only grey, no error, server-enforced.
+Look/Reveal reorder; Search sorts type/name, groups copies BY NAME as ×N, drags
+one, shuffles on close as one display group. Initiator closes Look/Reveal via rest
+Top/Bottom in panel order, Shuffle, Graveyard, Exile. No Bottom(random), bottom-N,
+Move N or Reveal all. Last card departure auto-closes in the SAME event.
+
+Nine-cell card menu to panel's right/top row: Hand, Reveal+Hand, Battlefield,
+Battlefield tapped, Graveyard, Exile, Top, Reveal+Top, Bottom. Reveal variants grey
+when already public. Reveal+move is two events in SEPARATE groups, flip inside
+panel then normal-paced onward move. Visibility ends on panel exit, no persistent
+reveal in Hand/Library. Only author sees eye on public Look/Search cards, centered
+on art in a white disc; never Reveal/Hand/piles. Piles always show backs/no marker.
+Both players can use either library's full actions. Graveyard/Exile is ONE local
+searchless opponent-invisible view per viewer, type/name/×N groups, no rest chooser,
+tap pile/✕ to close or auto-close empty. Shared left/local right when both show,
+at most two columns each. Full details: [board panels](../03-contracts/board-and-controls.md#106-special-piles-library-graveyard-exile).
+
 - Library is ordered: drops insert on top and Context Move offers top/bottom.
   Graveyard and Exile are unordered: move cards into them without an insertion
   position. They have no order-related actions, including top/bottom, reorder or
@@ -425,10 +496,21 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   cards. At End of combat, an advance-and-close quick action goes to Postcombat
   main. The combination can be quick-only; advance and close remain separately
   available at other steps without an invented out-of-combat combined meaning.
-- Stack contains real cards or explicitly created ability projections. Unlimited
-  independent Stack effects may reference the same source. Contextual shortcuts
-  move a real instant/sorcery to Graveyard, a real permanent to Battlefield, or
-  remove one projection without removing its source or sibling effects.
+- EVERY Stack entry is a projection, from Battlefield/Hand/Graveyard/Exile;
+  Library entry is blocked and Hand sources stay public while projected. Tap or
+  post-add shows Battlefield/Graveyard/Remove/mark-text bubbles, double tap full
+  actions, hold inspect, never tap orientation. Only top entry drags; zone drop
+  moves its real source and removes entry (current-zone drop just removes entry).
+  Battlefield bubble uses owner's main row nearest lands/rightmost placement,
+  or removes only entry if already on field. Graveyard literally moves the real
+  source even for an ability. Only bubble actions cascade to new-top bubbles;
+  add/remove ghost-send animates, Undo reverses. Marks use titles then paragraphs,
+  one-mark drag or multi-mark Manage chips, shared colored indices on occurrence/
+  inspect only, cleared on exit. Manage shows all entries, inspection above dialog,
+  Remove/Battlefield/Graveyard/Copy/Controller icons, no reorder; copy destinations
+  disabled. Combat stays upright with Undeclare/Graveyard/Ping tap bubbles, no
+  double-tap menu. Packed centered groups use faint dividers/insertion preview,
+  symmetric reorder and new-pair drops beyond either end.
 - Stack ability projections can also be created from Graveyard or Exile, leaving
   the source in place (D-242). Keep them live-linked wherever the real source
   moves; a non-token card's zone change does not freeze the projection. Card edits
@@ -462,15 +544,29 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   The icon-only phase indicator uses one color per phase, exact-step icon and
   turn-player border. Picker rows contain each phase's steps horizontally; direct
   choice preserves player/number. End turn reads End opponent's turn when applicable.
-- During Untap: Untap all for the turn player's battlefield, alone or +advance to
-  Upkeep. No inferred exceptions/skip flags; manually re-tap exceptions.
-  During Draw: Draw one, alone or +advance to Precombat main. Standalone actions
-  preserve tracking; entering any step never executes these actions automatically.
+- Untap: Start turn (untap+draw+Main 1, one Undo); Upkeep: Draw+Main 1;
+  Main 1: Go to attacks+Select or Skip combat→End; Declare attackers with no
+  selection: No attack→Main 2; defender at blockers: No blocks+next; Main 2/End:
+  visible End turn. Show step actions only for relevant player, bordered/non-filled,
+  right-aligned beside Next step. No tap/untap-selected or Graveyard quick actions.
+  Anyone may pass whose-move, flipping holder; step changes invisibly set it to
+  turn player except blockers→defender, no other auto pass. Manual pass is its own
+  event/Undo but groups backward for display. Phase dialog shows phase+step name
+  and player, lane labels above; header icon+short code, no turn number.
 - Combined shortcuts still advance with nothing to untap or an empty Library;
   empty draws do not cause an automatic loss. No turn-number editor or extra-turn
   scheduler; handle extra turns manually, accepting approximate counting.
 
 ### 9. Pings, communication, review, and recovery
+
+Playtest r7/current concerned-field refinements supersede old stable-ordinal and
+ancestry-lock descriptions: active pings renumber (A/B, unping A → B=1) and loop
+an expanding actor-colored ring about every 1.2s. A ping concerns ONLY its target,
+including a projection as that projection; display grouping is recomputed and
+not concerned. Known-top draw concerns the taken card/topness, not the exposed
+under-card; unknown draw concerns the whole shuffle-set membership. Token→Graveyard
+deletes regardless of owner without reading owner. Never rewrite later semantic
+Library reseed input. When unsure, refuse Undo; manual reversal remains possible.
 
 - Pings are numbered visual pointers within one recorded event/group, not rules
   targets. Ping mode toggles only the touched destination, suppressing normal tap
@@ -545,7 +641,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   does not authorize branching. D-232 Undo/Redo edit the tree without branching.
   Keep the old future; never automatically replay it onto the response. An interruption
   can be left by explicitly returning to its retained original continuation;
-  branch deletion is recoverable archival. Undo does not automatically activate
+   there is no branch archiving/restore. Undo does not automatically activate
   the displaced future.
 - Ordinary edits apply at the server's current head unless genuinely impossible
   (D-187). Do not reject taps, notes, Set or other ordinary edits because their
@@ -597,8 +693,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
 - **Redo after deliberate history switches (D-258):** successful activation of a
   different node/branch, explicit interruption from the past or return to another
   continuation clears both players' Redo queues for this game, atomically with
-  the server operation. This includes archive-and-return when it switches shared
-  history, not metadata-only archival. Same-current-target no-ops, failed switches
+   the server operation. Archive/restore is removed. Same-current-target no-ops, failed switches
   and delivery retries do not add a reset; retries never clear newer entries.
   Ordinary Undo/Redo keeps its stack semantics and personal review clears nothing.
   The retained tree is not deleted and Undo targeting still follows the chosen
@@ -645,8 +740,8 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   source move includes mandatory resets/disappearance/combat-link-pair cleanup;
   no published intermediate orphan is allowed. Token disappearance captures its
   last-live state first. Independent card edits/taps/tracking remain separate.
-- A **graphical tree explorer** supports personal review and explicit shared
-  activation of **any retained branch/node**, including the root/internal states.
+- A **graphical tree explorer** supports personal review of retained groups; tap
+  reviews the last event and closes. Make current/shared activation UI is removed.
 - Hide inactive continuations only when they contain **one player's actions and
   no hidden-information exposure**, available through a separate Show hidden
   branches toggle (D-222). **An event comment also keeps the whole continuation
@@ -709,6 +804,17 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   Random once at every actual start that selects it, with no same-start resampling.
 
 ### 11. Offline and failure behavior
+
+Opening/review amendments supersede the background/cold-replay text below:
+persist last-seen live node per (game, account), retained across debug Logout and
+account switches. Open behind head → uncapped normal-paced group playback; no
+bookmark → hidden empty root. Branched → brief label, animated rollback groups
+to common ancestor then forward. Live resume/updates/inspect/menu actions stay
+live. All normal paths must use exact stored apply/unapply in O(delta) or fixed/
+visible windows, never total-history reconstruction. Every action predicts before
+response, input-to-state target <20ms/hard 80ms. Debug crashes next startup, slow/
+missed prediction, reconnect timings and tagged JankStats upload automatically.
+No jank daily quota: 3 uploads/process lifetime; server keeps latest 20/account.
 
 - Local actions update the board immediately to hide network latency. If an
   action is rejected, animate the net difference to the reconciled target; an

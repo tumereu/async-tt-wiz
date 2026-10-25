@@ -49,8 +49,8 @@ fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search
 
 /** Permission-aware presentation: backs contain no definition-derived names, types or search matches. */
 fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, search: String = ""): List<ContentsEntry> {
-    val visible = display.facesVisibleTo(viewer)
     val entries = display.cardIds.mapIndexed { index, id ->
+        val visible = display.faceVisibleTo(id, viewer)
         val card = state.board.cards.singleOrNull { it.id == id }
         val face = if (visible) state.definitions.singleOrNull { it.digest == card?.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card?.faceId } else null
@@ -61,8 +61,8 @@ fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, 
             display.selection == ContentsSelection.BOTTOM && index == display.cardIds.lastIndex, faceVisible = visible)
     }
     // Covered rows must not be removed/reordered by a hidden name query.
-    val filtered = if (visible) entries.filter { it.name.contains(search, ignoreCase = true) } else entries
-    return if (display.selection == ContentsSelection.ALL) filtered.sortedWith(contentsOrder) else filtered
+    val filtered = entries.filter { !it.faceVisible || it.name.contains(search, ignoreCase = true) }
+    return if (display.search && display.author == viewer) filtered.sortedWith(contentsOrder) else filtered
 }
 
 @Composable
@@ -147,46 +147,6 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
                 if (CombatStackRules.inspection(state.board, bubble.entryId)?.owner == viewer) OwnTableColor else OpponentTableColor,
                 preview, stackWritable) { intent ->
                 dispatch(intent)
-            }
-        }
-    }
-}
-
-/** Rendering never issues View/inspection. The adapter receives exact bound contexts only after gestures. */
-@Composable
-fun ContentsScreen(state: PlayState, display: ContentsDisplay, viewer: String, controller: LibraryController,
-    onInspect: (LibraryInspection) -> Unit, modifier: Modifier = Modifier, onActions: ((String) -> Unit)? = null,
-    names: Map<String, String> = emptyMap(), onComplete: () -> Unit = {}) {
-    var search by remember(display.id) { mutableStateOf("") }
-    var selected by remember(display.id) { mutableStateOf<String?>(null) }
-    var destination by remember(display.id) { mutableStateOf<MoveDestination?>(null) }
-    val entries = contentsEntries(state, display, viewer, search)
-    Column(modifier) {
-        Row {
-            Text(if (display.reveal) "Reveal" else "View", Modifier.weight(1f))
-            MenuButton("Dismiss", Modifier.width(128.dp), enabled = controller.available()) {
-                val result = controller.dismiss(display.id)
-                if (result.submitted > 0 && result.refused == 0) onComplete()
-            }
-        }
-        if (display.selection == ContentsSelection.ALL && display.facesVisibleTo(viewer))
-            OutlinedTextField(search, { search = it }, label = { Text("Search by name") }, singleLine = true)
-        ContentsRows(state, viewer, entries, display.selection == ContentsSelection.ALL,
-            onActions = { selected = it; onActions?.invoke(it) },
-            onInspect = { controller.inspection(state, it, viewer, hold = true,
-                displayFaceVisible = display.facesVisibleTo(viewer))?.let(onInspect) }, modifier = Modifier.weight(1f))
-        selected?.let { id ->
-            LibraryDestinationPicker(state.board, destination, { destination = it }, names, sourceIds = listOf(id))
-            Row {
-                MenuButton("Move", Modifier.weight(1f), enabled = controller.available() && destination != null) {
-                    destination?.let {
-                        val result = controller.moveCards(listOf(id), it)
-                        if (result.submitted > 0 && result.refused == 0) onComplete()
-                    }
-                }
-                MenuButton("Inspect other side", Modifier.weight(1f), enabled = controller.available()) {
-                    controller.inspection(state, id, viewer, hold = false)?.let(onInspect)
-                }
             }
         }
     }

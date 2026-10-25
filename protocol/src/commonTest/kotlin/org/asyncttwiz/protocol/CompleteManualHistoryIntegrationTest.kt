@@ -72,8 +72,8 @@ class CompleteManualHistoryIntegrationTest {
         step(PlayAction.Stack(StackAction.RemoveEffect(effect)), 118, false, HistoryCategory.I, 118)
         step(PlayAction.ShowContents(id(11), ContentsSelection.ALL), 119, false, HistoryCategory.V, 119)
         val display = state.board.contentsDisplays.single().id
-        step(PlayAction.DismissContents(display), 120, false, HistoryCategory.F, 120)
-        step(PlayAction.ShuffleLibrary(id(11), RandomV1.encodeSeed(ByteArray(32))), 121, true, HistoryCategory.H, 121)
+        step(PlayAction.DismissContents(display), 120, true, HistoryCategory.V, 119)
+        step(PlayAction.ShuffleLibrary(id(11), RandomV1.encodeSeed(ByteArray(32))), 121, false, HistoryCategory.H, 121)
         assertEquals("layers", HistoryGrouping.classify(PlayAction.Stack(StackAction.AddEffect(id(9), CombatStackRules.stackDigest(state)))).icon)
     }
 

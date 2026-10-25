@@ -3,10 +3,17 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 
 @Serializable enum class ContentsSelection { TOP, BOTTOM, ALL }
-/** References, not a second containing zone. Only provisional displays may reconcile membership. */
+@Serializable enum class ContentsRest { TOP, BOTTOM, BOTTOM_RANDOM, GRAVEYARD, SHUFFLE }
+/** A shared tray of references, not a second containing zone. Order is top first. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ContentsDisplay(val id: String, val author: String, val containerId: String,
-    val selection: ContentsSelection, val requestedCount: Int, val reveal: Boolean, val cardIds: List<String>) {
+    val selection: ContentsSelection, val requestedCount: Int, val reveal: Boolean, val cardIds: List<String>,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealedIds: Set<String> = emptySet(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelVersion: Int = 1) {
     fun facesVisibleTo(accountId: String) = reveal || author == accountId
+    fun faceVisibleTo(cardId: String, accountId: String) = facesVisibleTo(accountId) || cardId in revealedIds
+    val search get() = selection == ContentsSelection.ALL && !reveal
+    val title get() = if (reveal) "Reveal" else if (search) "Search" else "Look"
 }
 @Serializable data class LibraryOrderChange(val containerId: String, val from: List<String>, val to: List<String>)
 @Serializable data class ContentsDisplayChange(val from: ContentsDisplay? = null, val to: ContentsDisplay? = null)
@@ -32,27 +39,92 @@ object LibraryRules {
                 // Even a coincidentally identical permutation retains this fresh random invocation.
                 GameplayRules.record(state, actor, command, board.copy(containers = board.containers.map {
                     if (it.id == source.id) it.copy(cards = order) else it
-                }), GameplayTransition(libraryOrder = LibraryOrderChange(source.id, source.cards, order)))
+                }, cards = board.cards.map { if (it.containerId == source.id) it.copy(knownToAll = false) else it }),
+                    GameplayTransition(libraryOrder = LibraryOrderChange(source.id, source.cards, order)))
             }
             is PlayAction.ShowContents -> {
                 val source = board.containers.singleOrNull { it.id == action.containerId }
                     ?: return GameplayChange(reason = "missingReference")
                 if (source.zone !in specialZones || source.zone != PlayZone.LIBRARY && action.selection != ContentsSelection.ALL)
                     return GameplayChange(reason = "inapplicable")
+                if (board.contentsDisplays.any { it.author == actor }) return GameplayChange(reason = "panelAlreadyOpen")
                 val members = slice(source.cards, action.selection, action.count)
                 // ALL is orderless, including in history: no hidden Library indices in a full browser.
                 val display = ContentsDisplay(CommandIds.uuidV5(command.requestId, "contents/0"), actor, source.id,
                     action.selection, action.count, action.reveal,
-                    if (action.selection == ContentsSelection.ALL) members.sorted() else members)
+                    if (action.selection == ContentsSelection.ALL) members.sorted() else members, panelVersion = 2)
+                val viewers = if (action.reveal) board.players.map { it.accountId } else listOf(actor)
                 GameplayRules.record(state, actor, command,
-                    board.copy(contentsDisplays = board.contentsDisplays + display),
-                    GameplayTransition(contents = ContentsDisplayChange(to = display)))
+                    board.copy(contentsDisplays = board.contentsDisplays + display,
+                        cards = if (!action.reveal) board.cards else board.cards.map {
+                            if (it.id in members) it.copy(knownToAll = true) else it }),
+                    GameplayTransition(contents = ContentsDisplayChange(to = display), disclosures = members.map { id ->
+                        val card = board.cards.single { it.id == id }
+                        GameplayDisclosure(id, card.faceId, source.id, viewers)
+                    }))
             }
             is PlayAction.DismissContents -> {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
-                GameplayRules.record(state, actor, command,
-                    board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id }),
-                    GameplayTransition(contents = ContentsDisplayChange(from = display)))
+                if (display.author != actor) return GameplayChange(reason = "accessDenied")
+                val source = board.containers.single { it.id == display.containerId }
+                val ids = display.cardIds.filter { it in source.cards }
+                val rest = source.cards.filterNot { it in ids }
+                // Older clients omitted a seed on dismiss. The request still binds one reproducible result.
+                val seed = action.seed ?: RandomV1.encodeSeed(DeckJson.intent("contents-rest", command.requestId)
+                    .chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+                val resolution = if (display.search) ContentsRest.SHUFFLE else action.rest
+                val graveyard = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == PlayZone.GRAVEYARD }
+                val order = when (resolution) {
+                    ContentsRest.TOP -> ids + rest
+                    ContentsRest.BOTTOM -> rest + ids
+                    ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
+                    ContentsRest.GRAVEYARD -> rest
+                    ContentsRest.SHUFFLE -> RandomV1.shuffle(source.cards, seed)
+                }
+                if (resolution == ContentsRest.GRAVEYARD && graveyard == null) return GameplayChange(reason = "missingReference")
+                val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },
+                    containers = board.containers.map { when (it.id) {
+                        source.id -> it.copy(cards = order)
+                        graveyard?.id -> if (resolution == ContentsRest.GRAVEYARD) it.copy(cards = (it.cards + ids).sorted()) else it
+                        else -> it
+                    } }, cards = board.cards.map { card -> when {
+                        card.id in ids && resolution == ContentsRest.GRAVEYARD -> card.copy(containerId = graveyard!!.id,
+                            covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
+                            corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.corner)
+                        card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
+                        else -> card
+                    } })
+                GameplayRules.record(state, actor, command, next, GameplayTransition(contents = ContentsDisplayChange(from = display),
+                    libraryOrder = LibraryOrderChange(source.id, source.cards, order),
+                    disclosures = if (resolution != ContentsRest.GRAVEYARD) emptyList() else ids.map { id ->
+                        val card = board.cards.single { it.id == id }
+                        GameplayDisclosure(id, card.faceId, graveyard!!.id, board.players.map { it.accountId })
+                    }))
+            }
+            is PlayAction.RevealContentsCard -> {
+                val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(reason = "missingReference")
+                if (display.author != actor) return GameplayChange(reason = "accessDenied")
+                if (action.cardId !in display.cardIds) return GameplayChange(reason = "missingReference")
+                if (display.faceVisibleTo(action.cardId, board.players.first { it.accountId != actor }.accountId)) return GameplayChange(state)
+                val card = board.cards.single { it.id == action.cardId }
+                val updated = display.copy(revealedIds = display.revealedIds + card.id)
+                GameplayRules.record(state, actor, command, board.copy(
+                    contentsDisplays = board.contentsDisplays.map { if (it.id == display.id) updated else it },
+                    cards = board.cards.map { if (it.id == card.id) it.copy(knownToAll = true) else it }),
+                    GameplayTransition(contents = ContentsDisplayChange(display, updated), disclosures = listOf(
+                        GameplayDisclosure(card.id, card.faceId, card.containerId, board.players.map { it.accountId }))))
+            }
+            is PlayAction.ReorderContents -> {
+                val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(reason = "missingReference")
+                if (display.author != actor) return GameplayChange(reason = "accessDenied")
+                if (display.search || action.cardId !in display.cardIds || action.beforeId == action.cardId ||
+                    action.beforeId != null && action.beforeId !in display.cardIds) return GameplayChange(reason = "inapplicable")
+                val remaining = display.cardIds - action.cardId
+                val order = remaining.toMutableList().apply { add(action.beforeId?.let(::indexOf) ?: size, action.cardId) }
+                if (order == display.cardIds) return GameplayChange(state)
+                val updated = display.copy(cardIds = order)
+                GameplayRules.record(state, actor, command, board.copy(contentsDisplays = board.contentsDisplays.map {
+                    if (it.id == display.id) updated else it }), GameplayTransition(contents = ContentsDisplayChange(display, updated)))
             }
             else -> error("Not a Library action")
         }

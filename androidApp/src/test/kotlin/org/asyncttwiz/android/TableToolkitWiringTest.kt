@@ -454,21 +454,22 @@ class TableToolkitWiringTest {
         assertFalse(f.card(40).tapped)
     }
 
-    @Test fun fixedContentsReferencesLocalHoldLoggedInspectionAndDisconnectedGatingAreDifferent() {
+    @Test fun sharedPanelMembershipLocalHoldLoggedInspectionAndDisconnectedGatingAreDifferent() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         ui.openLibrary(f.container(PlayZone.LIBRARY))
         assertEquals("library", ui.panel)
         assertTrue(f.play.board.contentsDisplays.isEmpty())
         ui.showLibraryContents(ContentsSelection.ALL, 1, false)
         val display = f.play.board.contentsDisplays.single()
-        assertEquals("display/${display.id}", ui.panel)
+        assertNull(ui.panel) // The board panel is not a personal dialog route.
+        assertEquals(display.id, TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false).cardPanels.single().display.id)
         val before = f.commands().size
         ui.inspect(f.id(40)); assertEquals(before, f.commands().size)
         assertFalse(ui.inspection!!.explicit)
         assertTrue(ui.submit(PlayAction.InspectFace(f.id(40), f.card(40).faceId, f.card(40).containerId)))
         assertTrue(ui.inspection!!.provisional); assertEquals(f.root, f.lobby.state.acceptedPlay)
         ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))!!.draw()
-        assertEquals(display.cardIds, f.play.board.contentsDisplays.single().cardIds)
+        assertEquals(display.cardIds - f.id(40), f.play.board.contentsDisplays.single().cardIds)
         assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
         val sent = f.commands().size
         f.wire.listener.disconnected()
@@ -477,20 +478,24 @@ class TableToolkitWiringTest {
         assertEquals(sent, f.commands().size)
     }
 
-    @Test fun newViewsAndRevealsOpenOnceAndAreNotReopenedWithTheLibraryMenu() {
+    @Test fun sharedPanelsSurvivePersonalMenusAndPreventAnotherPanelUntilResolved() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         for (reveal in listOf(false, true)) {
             ui.openLibrary(f.container(PlayZone.LIBRARY))
             assertEquals("library", ui.panel)
             ui.showLibraryContents(ContentsSelection.TOP, 1, reveal)
             val display = f.play.board.contentsDisplays.last()
-            assertEquals("display/${display.id}", ui.panel)
+            assertNull(ui.panel)
             assertEquals(reveal, display.reveal)
             ui.dismiss()
             assertNull(ui.panel)
             ui.openLibrary(f.container(PlayZone.LIBRARY))
             assertEquals("library", ui.panel)
             assertEquals(display, f.play.board.contentsDisplays.last())
+            ui.showLibraryContents(ContentsSelection.TOP, 1, !reveal)
+            assertEquals(listOf(display), f.play.board.contentsDisplays)
+            ui.resolveCardPanel(display)
+            assertTrue(f.play.board.contentsDisplays.isEmpty())
         }
     }
 

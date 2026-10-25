@@ -51,7 +51,8 @@ class TableGestureCoordinator(
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
     val busy get() = capture != null || pending != null || spring != null
-    val peeking get() = capture?.let { it.phase == Phase.HOLD && it.item?.cardId != null } == true
+    private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered }
+    val peeking get() = capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
             distance(point, it.capture.start) <= slopDp * 4
@@ -120,8 +121,8 @@ class TableGestureCoordinator(
         val c = capture ?: return
         if (c.phase == Phase.PRESS && !(c.double && c.item == null) && time - c.time >= holdMillis) {
             c.phase = Phase.HOLD
-            // A pile control is not an individual card and cannot implicitly View a Library.
-            c.item?.cardId?.let { emit(TableIntent.Peek(it)) }
+            // Covered pile controls never implicitly View a Library. A known face-up top can be held.
+            peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
             preview = TableGesturePreview()
         }
     }
@@ -141,6 +142,8 @@ class TableGestureCoordinator(
             pending = null
             c.phase = when {
                 c.double && c.item == null && scene.worldInput(c.start) -> Phase.PAN
+                c.viewport?.id?.startsWith("cardPanel/") == true && abs(dy) > abs(dx) &&
+                    (c.item == null || scene.cardPanels.any { it.viewport.id == c.viewport.id && it.display.search }) -> Phase.SCROLL
                 c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> Phase.DRAG
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
                     c.item?.kind != TableItemKind.CARD && !scene.worldInput(c.start) -> Phase.SCROLL
@@ -156,7 +159,9 @@ class TableGestureCoordinator(
                 val index = ((bubble.selected ?: -1) + (dy / markStepDp).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
                 preview = TableGesturePreview(c.item?.id, point = point, marking = true, markIndex = index.takeIf { it >= 0 })
             }
-            Phase.SCROLL -> c.viewport?.let { p -> emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
+            Phase.SCROLL -> c.viewport?.let { p -> if (p.id.startsWith("cardPanel/"))
+                emit(TableIntent.Scroll(p.id, (p.scrollY - dy).coerceIn(0f, p.maxScrollY), vertical = true))
+                else emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
             Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point))
             Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
                 preview = TableGesturePreview(c.item?.id, point = point,
@@ -213,6 +218,9 @@ class TableGestureCoordinator(
                     if (delta != 0 && (bound.value.isEmpty() || Regex("[+-]?[0-9]+").matches(bound.value)))
                         emit(TableIntent.PlayerDelta(requireNotNull(bound.owner), bound.counter, delta))
                 } else if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true) {
+                    scene.panelReorder(point, c.scope)?.let {
+                        emit(TableIntent.Submit(it, null)); preview = TableGesturePreview(); return
+                    }
                     c.destination?.let { d ->
                         emit(TableIntent.Selection(c.selection.afterMove(c.scope.contextId)))
                         emit(TableIntent.Move(c.scope, d, c.sources))
@@ -220,7 +228,7 @@ class TableGestureCoordinator(
                 }
             }
             Phase.RECTANGLE -> emit(TableIntent.Selection(c.selection.copy(ids = scene.rectangle(rectangle(c.start, point)))))
-            Phase.HOLD -> if (c.item?.cardId != null) emit(TableIntent.Peek(null))
+            Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
         settleCamera()
@@ -240,7 +248,7 @@ class TableGestureCoordinator(
             emit(TableIntent.Scroll(hand.id, next))
             return
         }
-        val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" && it.bounds.contains(centroid) }
+        val sidebar = scene.viewports.firstOrNull { (it.id == "sidebar" || it.id.startsWith("cardPanel/")) && it.bounds.contains(centroid) }
         if (sidebar != null && sidebar.maxScrollY > 0 && scale in .98f..1.02f) {
             val next = (sidebar.scrollY - pan.y).coerceIn(0f, sidebar.maxScrollY)
             scene = scene.copy(viewports = scene.viewports.map { if (it.id == sidebar.id) it.copy(scrollY = next) else it })
@@ -286,7 +294,7 @@ class TableGestureCoordinator(
         single(Capture(item, item.bounds.center, 0, selection, scope, null,
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }), explicit = true)
     }
-    fun inspect(item: TableItem) { item.cardId?.let { emit(TableIntent.Inspect(it)) } }
+    fun inspect(item: TableItem) { peekId(item)?.let { emit(TableIntent.Inspect(it)) } }
     fun rotate(item: TableItem, tapped: Boolean) {
         if (item.zone == PlayZone.STACK) return
         val id = item.cardId ?: return
@@ -346,6 +354,7 @@ class TableGestureCoordinator(
         return scope?.let { scene.ownerMoveDestination(it.contextId, destination) } ?: destination
     }
     private fun rawDestination(p: TablePoint, scope: TableScope?): TableDestination? {
+        if (scene.cardPanels.any { it.bounds.contains(p) }) return null
         scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(p) }?.let { hand ->
             val cards = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.viewport == hand.id && it.cardId !in scope?.cardIds.orEmpty() }
                 .sortedBy { it.bounds.x }

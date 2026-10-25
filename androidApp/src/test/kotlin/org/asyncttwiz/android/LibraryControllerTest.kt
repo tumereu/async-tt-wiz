@@ -65,25 +65,19 @@ class LibraryControllerTest {
         assertEquals(2, samples); assertEquals(2, sent.size)
     }
 
-    @Test fun specificInspectionRetainsViewedTargetFaceAndNodeNoOfflineInspectionExceptOwnHold() {
-        val viewed = initial()
-        val current = viewed.copy(currentNodeId = id(90), board = viewed.board.copy(cards = viewed.board.cards.map {
-            it.copy(faceId = id(41), containerId = id(11)) }))
-        var online = false
-        val controller = LibraryController(id(2), id(10), id(11), { current }, { online }, { error("No inspection auto-send") })
-        val own = controller.inspection(viewed, id(20), id(7), hold = true)!!
-        assertTrue(own.localOwnAreaHold); assertEquals(id(40), own.faceId); assertEquals(id(5), own.nodeId)
-        assertFalse(own.logged)
-        assertEquals(id(10), own.source.containerId)
-        assertNull(controller.inspection(viewed, id(20), id(8), hold = true))
-        assertNull(controller.inspection(viewed, id(20), id(7), hold = false))
-        val visible = viewed.copy(board = viewed.board.copy(cards = viewed.board.cards.map { it.copy(covered = false) }))
-        assertFalse(controller.inspection(visible, id(20), id(8), hold = true)!!.logged)
-        online = true
-        val explicit = controller.inspection(viewed, id(20), id(8), hold = false)!!
-        assertFalse(explicit.localOwnAreaHold); assertEquals(id(40), explicit.faceId); assertEquals(id(5), explicit.nodeId)
-        assertTrue(explicit.logged)
-        assertNull(controller.inspection(viewed, id(99), id(8), hold = false))
+    @Test fun closePanelBindsRestAndOneSeedAndDoesNotSampleOrSendOffline() {
+        var online = true
+        var samples = 0
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        val sent = mutableListOf<PlayAction>()
+        val controller = LibraryController(id(2), id(10), id(11), { initial() }, { online }, { sent += it; true },
+            seed = { samples++; seed })
+        assertEquals(LibrarySubmission(1, 0), controller.dismiss(id(30), ContentsRest.BOTTOM_RANDOM))
+        assertEquals(listOf<PlayAction>(PlayAction.DismissContents(id(30), ContentsRest.BOTTOM_RANDOM, seed)), sent)
+        assertEquals(1, samples)
+        online = false
+        assertEquals(LibrarySubmission(0, 1), controller.dismiss(id(30)))
+        assertEquals(1, samples); assertEquals(1, sent.size)
     }
 
     @Test fun bottomMoveAndDrawCaptureIdsAndLocalAdmissionRefusalIsNotAServerAck() {

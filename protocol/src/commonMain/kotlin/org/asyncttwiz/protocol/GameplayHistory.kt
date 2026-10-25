@@ -46,9 +46,11 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size +
         listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this)
 /** Compact prefix context, not a recursive history or client-assigned group. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayGroup(val id: String, val author: String, val firstNodeId: String,
     val lastNodeId: String, val category: String, val key: String?, val count: String,
-    val tapsAndPingsOnly: Boolean = category == "tap", val representative: HistoryRepresentative? = null)
+    val tapsAndPingsOnly: Boolean = category == "tap", val representative: HistoryRepresentative? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null)
 @Serializable data class GameplayHistoryPage(val playId: String, val mutations: List<GameplayMutation>,
     val groups: List<GameplayGroup>, val throughRevision: String, val next: String? = null)
 
@@ -84,7 +86,7 @@ object GameplayHistory {
     private fun readsMatch(state: PlayState, mutation: GameplayMutation): Boolean {
         val board = state.board
         if (mutation.grouping != null && mutation.grouping != runCatching {
-            HistoryGrouping.classify(mutation.action, board.containers, mutation.transition)
+            HistoryGrouping.classify(mutation.action, board, mutation.author, mutation.transition)
         }.getOrNull()) return false
         for (field in mutation.transition.fields) {
             val card = board.cards.singleOrNull { it.id == field.targetId }
@@ -149,7 +151,7 @@ object GameplayHistory {
         mutation.transition.libraryOrder?.let { order ->
             if (board.containers.singleOrNull { it.id == order.containerId }?.cards != order.from) return false
         }
-        mutation.transition.contents?.to?.let { display ->
+        mutation.transition.contents?.to?.takeIf { mutation.action is PlayAction.ShowContents }?.let { display ->
             val container = board.containers.singleOrNull { it.id == display.containerId } ?: return false
             val slice = LibraryRules.slice(container.cards, display.selection, display.requestedCount)
             if ((if (display.selection == ContentsSelection.ALL) slice.sorted() else slice) != display.cardIds) return false

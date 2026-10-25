@@ -50,7 +50,13 @@ import kotlinx.serialization.json.*
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
         val selection: ContentsSelection, val count: Int = 1, val reveal: Boolean = false) : PlayAction
-    @Serializable @SerialName("dismissContents") data class DismissContents(val displayId: String) : PlayAction
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @Serializable @SerialName("dismissContents") data class DismissContents(val displayId: String,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val rest: ContentsRest = ContentsRest.TOP,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val seed: String? = null) : PlayAction
+    @Serializable @SerialName("revealContentsCard") data class RevealContentsCard(val displayId: String, val cardId: String) : PlayAction
+    @Serializable @SerialName("reorderContents") data class ReorderContents(val displayId: String, val cardId: String,
+        val beforeId: String? = null) : PlayAction
     @Serializable @SerialName("eventComment") data class EventComment(val reference: EventReference, val text: String) : PlayAction
     @Serializable @SerialName("ping") data class Ping(val reference: EventReference, val target: PingTarget) : PlayAction
     @Serializable @SerialName("unping") data class Unping(val reference: EventReference, val target: PingTarget) : PlayAction
@@ -121,7 +127,11 @@ object GameplayRules {
         is PlayAction.ShuffleLibrary -> DeckValidation.uuid(action.containerId) && action.algorithm == "shuffle-v1" &&
             runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.ShowContents -> DeckValidation.uuid(action.containerId) && action.count >= 0
-        is PlayAction.DismissContents -> DeckValidation.uuid(action.displayId)
+        is PlayAction.DismissContents -> DeckValidation.uuid(action.displayId) &&
+            (action.seed == null || runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess)
+        is PlayAction.RevealContentsCard -> DeckValidation.uuid(action.displayId) && DeckValidation.uuid(action.cardId)
+        is PlayAction.ReorderContents -> DeckValidation.uuid(action.displayId) && DeckValidation.uuid(action.cardId) &&
+            (action.beforeId == null || DeckValidation.uuid(action.beforeId))
         is PlayAction.EventComment -> EventAnnotations.valid(action.reference) &&
             action.text.isNotBlank() && action.text.length <= 16384 && '\u0000' !in action.text
         is PlayAction.Ping -> EventAnnotations.valid(action.reference) && EventAnnotations.valid(action.target)
@@ -145,7 +155,7 @@ object GameplayRules {
         if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep)
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 GameplayRead(state.id, GameplayField.TURN_PLAYER, state.board.turn.accountId)))
-        mutation.transition.contents?.to?.let { display ->
+        mutation.transition.contents?.to?.takeIf { mutation.action is PlayAction.ShowContents }?.let { display ->
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
@@ -212,7 +222,8 @@ object GameplayRules {
                 transition = GameplayTransition(listOf(GameplayFieldChange(account, GameplayField.LIFE, player.life, value)))
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
-            is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents ->
+            is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
+            is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
                 return LibraryRules.change(state, actor, command, action)
             PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep,
             is PlayAction.RollDie, is PlayAction.FlipCoin,
@@ -233,15 +244,22 @@ object GameplayRules {
         transition: GameplayTransition): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
-        val closed = CombatStackRules.closeInvariants(state.board, board)
+        val action = (command.action as GameAction.Play).action
+        val panel = (action as? PlayAction.MoveCard)?.let { move -> state.board.contentsDisplays.firstOrNull { move.cardId in it.cardIds } }
+        if (panel != null && panel.author != actor) return GameplayChange(reason = "accessDenied")
+        val resolved = if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.map {
+            if (it.id == panel.id) it.copy(cardIds = it.cardIds - (action as PlayAction.MoveCard).cardId,
+                revealedIds = it.revealedIds - action.cardId) else it })
+        val closed = CombatStackRules.closeInvariants(state.board, resolved)
             ?: return GameplayChange(reason = "invalidStructure")
-        val relevant = transition.copy(combatStack = CombatStackRules.transition(state, closed,
-            (command.action as GameAction.Play).action))
+        val relevant = transition.copy(combatStack = CombatStackRules.transition(state, closed, action),
+            contents = if (panel == null) transition.contents else ContentsDisplayChange(panel, closed.contentsDisplays.single { it.id == panel.id }))
         val mutation = GameplayMutation(CommandIds.uuidV5(command.requestId, "board-node"), state.currentNodeId,
             state.currentBranchId, command.requestId, actor, command.invocationId,
             command.action.action, relevant,
-            grouping = HistoryGrouping.classify(command.action.action, state.board.containers, relevant),
-            revealsInformation = relevant.disclosures.isNotEmpty() || relevant.contents?.to?.cardIds?.isNotEmpty() == true)
+            grouping = HistoryGrouping.classify(command.action.action, state.board, actor, relevant),
+            revealsInformation = relevant.disclosures.isNotEmpty() ||
+                command.action.action is PlayAction.ShowContents && relevant.contents?.to?.cardIds?.isNotEmpty() == true)
         val group = GameplayHistory.append(state.currentGroup, mutation, state.board.containers)
         return GameplayChange(state.copy(board = closed, currentNodeId = mutation.id, currentGroup = group), mutation)
     }
@@ -410,6 +428,9 @@ object GameplayRules {
         val faceDown = !hiddenZone && (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD &&
             target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val moved = card.copy(containerId = target.id, placement = placement,
+            knownToAll = card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
+                card.id in it.cardIds && (it.reveal || card.id in it.revealedIds) && hiddenZone &&
+                    (target.zone == PlayZone.HAND || destination.insertion == MoveInsertion.TOP) }),
             tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK) false else card.tapped,
             covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
             explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
@@ -421,7 +442,7 @@ object GameplayRules {
             } }))
         val from = location(board, card.id, orderedHand = coverRulesVersion >= 3)
         val to = location(next, card.id, orderedHand = coverRulesVersion >= 3)
-        if (from == to && card == moved) return GameplayChange(state)
+        if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds }) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
             GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),

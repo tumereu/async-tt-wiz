@@ -116,7 +116,8 @@ data class TableItem(
     val token: Boolean = false, val note: String = "", val counters: Map<CounterColor, String> = emptyMap(),
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
-    internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM
+    internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
+    val known: Boolean = false, val flipScale: Float = 1f
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -137,9 +138,10 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
-    val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap()) {
+    val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap(),
+    internal val cardPanels: List<CardPanelGeometry> = emptyList()) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
-        stackRegion?.contains(point) != true && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
+        stackRegion?.contains(point) != true && cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
         combatBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
@@ -281,7 +283,8 @@ object TablePresentation {
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
-                typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden)).also { if (draw) items += it }
+                 typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
+                 known = card.knownToAll && card.owner != viewer).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
@@ -329,7 +332,7 @@ object TablePresentation {
             for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
-                val hidden = top == null || !CardVisibility.isVisibleFaceUp(top, zone, player.accountId, viewer)
+                val hidden = top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
                 val b = TableBounds(76f + n * spacing - dp.scroll, rowY + 4f, hudWidth + 12f, hudHeight + 12f)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
@@ -337,7 +340,7 @@ object TablePresentation {
                     token = top?.token == true,
                     drawHandId = hand.id.takeIf { ownSide && zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
-                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
+                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden), known = top?.knownToAll == true && player.accountId != viewer)
             }
             if (counterHeights[index] > 0f) {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),
@@ -402,24 +405,27 @@ object TablePresentation {
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
-        return clip(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
+        return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
             stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
-                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), width, height)
+                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, ui), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */
     fun clip(scene: TableScene, width: Float, height: Float): TableScene {
         val screen = TableBounds(0f, 0f, width, height)
-        val ordered = scene.items.filter { it.zone == PlayZone.BATTLEFIELD } + scene.items.filter { it.zone != PlayZone.BATTLEFIELD }
+        val ordered = scene.items.filter { it.zone == PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } +
+            scene.items.filter { it.zone != PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } + scene.items.filter { it.viewport.startsWith("cardPanel/") }
         val viewports = scene.viewports.associateBy { it.id }
         val clipped = ordered.map { i ->
             val viewport = viewports[i.viewport]
             val regions = listOfNotNull((if (i.inTransit) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen))
+            val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
+                scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
-                regions.flatMap { it.subtract(scene.stackRegion) } else regions)
+                panelClipped.flatMap { it.subtract(scene.stackRegion) } else panelClipped)
         }
         val visible = clipped.mapIndexed { n, i ->
             var portions = i.visible

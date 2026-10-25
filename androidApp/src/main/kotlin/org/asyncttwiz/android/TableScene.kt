@@ -132,6 +132,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (intent.occurrenceId != null) { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
                 }
                 is TableIntent.Peek -> {
+                    if (intent.cardId != null) currentRuntime.pauseForInspection?.invoke()
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                     if (toolkit != null) toolkit.peek(intent.cardId)
                     else peek = intent.cardId?.let { id ->
@@ -291,7 +292,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             preview.scope != null || preview.delta != null, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
         val semanticItems = remember(animation, targetScene, animationRevision) {
-            (animation.frame(0f, targetScene).map { it.item } + targetScene.items).distinctBy { it.id }
+            // Target metadata owns the accepted disclosure; start-frame metadata may still be a back
+            // during a flip. Bounds continue to come exclusively from the rendered frame below.
+            (targetScene.items + animation.frame(0f, targetScene).map { it.item }).distinctBy { it.id }
         }
         LaunchedEffect(toolkit, bubbleId, IdentityKey(play)) {
             // The rendered history/animation boundary can briefly lag the session prediction during
@@ -439,6 +442,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                              stateDescription = "Related source and projections share this source identity; selection is independent"
                         onClick("Actions") { coordinator.actions(item); true }
                         val commands = mutableListOf<CustomAccessibilityAction>()
+                        if (item.cardId == null && !item.covered && item.cards.isNotEmpty())
+                            commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                         if (item.cardId != null) {
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                             commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
@@ -503,6 +508,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
+        CardPanelHeaders(scene, accountId, writable, toolkit)
         if (runtime.reviewing) Box(Modifier.fillMaxWidth().height(48.dp).background(Color.Black.copy(alpha = .14f)))
         if (runtime.reviewing) runtime.reviewPanel?.invoke()
         if (toolkit != null) {
@@ -915,6 +921,24 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawRoundRect(purple, xy(b.x + 1.5f, b.y + 1.5f), size(b.width - 3f, b.height - 3f),
             CornerRadius(3 * density), style = Stroke(3 * density))
     }
+    for (panel in scene.cardPanels) {
+        val b = panel.bounds
+        val color = if (panel.display.author == viewer) OwnTableColor else OpponentTableColor
+        drawRoundRect(Color.White, xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density))
+        drawRoundRect(color.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density), style = Stroke(density))
+        val port = panel.viewport.bounds
+        clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            for (row in panel.rows) {
+                paint.textSize = 10 * density
+                fittedText(row.entry.name, row.bounds.right + 5, row.bounds.y + 14, b.right - row.bounds.right - 10)
+                if (row.copies > 1) text("×${row.copies}", row.bounds.right + 5, row.bounds.y + 30)
+            }
+            scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
+                val y = panel.rows.firstOrNull { it.entry.cardId == reorder.beforeId }?.bounds?.y ?: panel.rows.lastOrNull()?.bounds?.bottom
+                if (reorder.displayId == panel.display.id && y != null) drawLine(color, xy(b.x + 4, y), xy(b.right - 4, y), 2 * density)
+            }
+        }
+    }
     val highlighted = preview.rectangle?.let(scene::rectangle) ?: selection.ids
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
@@ -972,7 +996,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                   val cardWidth = transform.width; val cardHeight = transform.height
                   rotate(transform.rotation, xy(b.center.x, b.center.y)) {
                      val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
-                    cardFace(i, x, y, color, i.value)
+                     scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
                      paint.textSize = 7 * z * density
                      if (i.note.isNotEmpty()) fittedText(i.note, x + 3 * z, y + 20 * z, cardWidth - 6 * z)
                      i.counters.entries.take(6).forEachIndexed { n, entry ->
@@ -982,6 +1006,13 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                      paint.textSize = 11 * density
                  }
             }
+        }
+        if (i.known && !i.covered) {
+            val x = if (i.kind == TableItemKind.PILE) b.x + 28 else b.right - 4
+            val y = if (i.kind == TableItemKind.PILE) b.y + 14 else b.y + 5
+            drawOval(Color.White, xy(x - 6, y - 4), size(12f, 8f))
+            drawOval(color, xy(x - 6, y - 4), size(12f, 8f), style = Stroke(density))
+            drawCircle(color, 2 * density, xy(x, y))
         }
         if (i.sourceId != null && i.sourceId in relatedSources) drawRect(Color(0xffbd982f), xy(b.x + 3, b.y + 3),
             size((b.width - 6).coerceAtLeast(0f), (b.height - 6).coerceAtLeast(0f)), style = Stroke(2 * density))

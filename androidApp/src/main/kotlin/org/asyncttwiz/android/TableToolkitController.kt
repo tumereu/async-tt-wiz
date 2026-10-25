@@ -217,7 +217,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
-        val previous = panel?.takeIf { it.startsWith("contents/") || it.startsWith("display/") }
+        val previous = panel?.takeIf { it.startsWith("contents/") }
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
         tapReturnPanel = previous
         explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
@@ -241,6 +241,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
         val play = current() ?: return
+        if (item.viewport.startsWith("cardPanel/")) {
+            val display = play.board.contentsDisplays.singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
+            if (display.author != viewer || !enabled()) return
+            dismiss(); popupItem = item; panel = "panelCard/${display.id}/${item.cardId}"
+            return
+        }
         if (tokens.pickingLink) {
             val occurrence = item.cardId?.let(::ProjectionEndpoint)?.takeIf { CombatStackRules.exists(play.board, it) }
             if (occurrence != null) { tokens.pick(occurrence); return }
@@ -273,15 +279,39 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
         panel = "library"
     }
-    /** A newly created display is shown once; there is no retained-display reopening route. */
+    /** Shared panels render directly from the board, including after reconnect and during review. */
     fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {
         val controller = library?.controller ?: return
-        val previous = current()?.board?.contentsDisplays?.map { it.id }?.toSet() ?: return
         val result = controller.show(selection, count, reveal)
         if (result.refused != 0 || result.submitted == 0) return
-        val display = current()?.board?.contentsDisplays?.lastOrNull { it.id !in previous } ?: return
         dismiss()
-        panel = "display/${display.id}"
+    }
+    fun closeCardPanel(display: ContentsDisplay) {
+        if (display.author != viewer || !enabled()) return
+        if (!display.search && display.cardIds.isNotEmpty()) { dismiss(); panel = "panelRest/${display.id}" }
+        else resolveCardPanel(display)
+    }
+    fun resolveCardPanel(display: ContentsDisplay, rest: ContentsRest = ContentsRest.TOP) {
+        val play = current() ?: return
+        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == display.author }
+        val result = libraryController(display.containerId, hand.id)?.dismiss(display.id, rest)
+        if (result?.refused == 0) dismiss()
+    }
+    fun cardPanelAction(display: ContentsDisplay, id: String, zone: PlayZone, reveal: Boolean = false,
+        bottom: Boolean = false, tapped: Boolean = false) {
+        if (display.author != viewer || id !in display.cardIds || !enabled()) return
+        // Disclosure and onward movement deliberately have different invocations and history groups.
+        if (reveal && !submit(PlayAction.RevealContentsCard(display.id, id), UUID.randomUUID().toString())) return
+        val play = current() ?: return
+        val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
+            play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
+                (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
+        } ?: return
+        val card = play.board.cards.single { it.id == id }
+        if (submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination), UUID.randomUUID().toString())) {
+            if (tapped) submit(PlayAction.SetTapped(id, true))
+            dismiss()
+        }
     }
     fun libraryController(source: String, hand: String): LibraryController? {
         val playId = current()?.id ?: return null
@@ -306,17 +336,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         inspection = ManualInspection(play.gameId, play.id, viewId, faces.map { it.faceId }, snapshot = if (live == null) card else null,
             stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
     }
-    fun inspect(context: LibraryInspection) {
-        val play = current()?.takeIf { it.id == context.playId } ?: return
-        val card = play.board.cards.singleOrNull { it.id == context.cardId && it.containerId == context.source.containerId &&
-            it.placement == context.source.placement } ?: return
-        if (!context.logged && context.displayFaceVisible) {
-            closeInspection()
-            inspection = ManualInspection(play.gameId, play.id, card.id, listOf(context.faceId), explicit = true)
-        } else if (context.localOwnAreaHold || !context.logged) inspect(card.id)
-        else submit(PlayAction.InspectFace(card.id, context.faceId, context.source.containerId))
-    }
-
     fun handle(intent: TableIntent): Boolean = batch {
         when (intent) {
             is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }

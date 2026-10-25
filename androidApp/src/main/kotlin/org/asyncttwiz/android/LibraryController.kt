@@ -5,10 +5,6 @@ import java.util.UUID
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.LibraryActions as SharedLibraryActions
 
-/** Exact viewed context for I17's inspection adapter, never a request to inspect the latest replacement. */
-data class LibraryInspection(val playId: String, val nodeId: String, val cardId: String,
-    val faceId: String, val source: MoveSource, val localOwnAreaHold: Boolean, val logged: Boolean,
-    val displayFaceVisible: Boolean = false)
 data class LibrarySubmission(val submitted: Int, val refused: Int)
 
 /** Input adapter only. The existing session supplies prediction/accepted state and owns all requests. */
@@ -44,7 +40,10 @@ class LibraryController(
     }
     fun show(selection: ContentsSelection = ContentsSelection.ALL, count: Int = 1, reveal: Boolean = false) =
         if (count < 0) LibrarySubmission(0, 1) else send(listOf(PlayAction.ShowContents(libraryId, selection, count, reveal)))
-    fun dismiss(displayId: String) = send(listOf(PlayAction.DismissContents(displayId)))
+    fun dismiss(displayId: String, rest: ContentsRest = ContentsRest.TOP): LibrarySubmission {
+        if (!available()) return LibrarySubmission(0, 1)
+        return send(listOf(PlayAction.DismissContents(displayId, rest, seed())))
+    }
     fun shuffle(): LibrarySubmission {
         if (!available()) return LibrarySubmission(0, 1)
         return send(listOf(PlayAction.ShuffleLibrary(libraryId, seed())))
@@ -107,17 +106,4 @@ class LibraryController(
         return LibrarySubmission(prefix.submitted + draws.submitted, prefix.refused + draws.refused)
     }
 
-    fun inspection(viewed: PlayState, cardId: String, accountId: String, hold: Boolean, displayFaceVisible: Boolean = false): LibraryInspection? {
-        if (viewed.id != playId) return null
-        val card = viewed.board.cards.singleOrNull { it.id == cardId } ?: return null
-        val area = viewed.board.containers.singleOrNull { it.id == card.containerId } ?: return null
-        val ownHold = hold && area.accountId == accountId
-        if (!hold && !connected()) return null
-        // Opponent hold is handled as visible/back content by the caller; it cannot request a hidden face.
-        if (hold && !ownHold && card.covered && !displayFaceVisible) return null
-        val faceId = if (hold || card.covered) card.faceId else viewed.definitions.singleOrNull { it.digest == card.definition }
-            ?.definition?.faces?.firstOrNull { it.faceId != card.faceId }?.faceId ?: return null
-        return LibraryInspection(viewed.id, viewed.currentNodeId, card.id, faceId,
-            MoveSource(card.containerId, card.placement), ownHold, logged = !hold, displayFaceVisible = displayFaceVisible)
-    }
 }

@@ -37,6 +37,45 @@ internal class GameplayFixture {
 }
 
 class GameplayReplicaTest {
+    @Test fun concernBasedUndoRedoPredictionMatchesAuthoritativeEngineIncludingDisclosuresAndVacancy() {
+        val f = GameplayFixture()
+        val initial = f.initial.let { state -> state.copy(board = state.board.copy(
+            cards = listOf(state.board.cards.single().copy(covered = false,
+                placement = PlayPlacement(BoardPosition(0, 0), f.id(40))),
+                state.board.cards.single().copy(id = f.id(41), containerId = f.id(42))),
+            containers = listOf(state.board.containers.single().copy(zone = PlayZone.BATTLEFIELD),
+                PlayContainer(f.id(42), PlayZone.HAND, f.other, listOf(f.id(41)))))) }
+        val replica = GameplayReplica()
+        assertTrue(replica.root(f.head(initial)))
+        var authoritative = GameplayTree(initial)
+        val inspect = f.command(PlayAction.InspectFace(f.id(9), f.id(11), f.id(10)))
+        val undo = f.command(PlayAction.PassAttention).copy(action = GameAction.Undo)
+        val redo = f.command(PlayAction.PassAttention).copy(action = GameAction.Redo)
+        for (command in listOf(inspect, undo, redo)) {
+            assertTrue(replica.predict(command, f.actor))
+            val change = HistoryContinuation.change(authoritative, f.actor, command)
+            authoritative = assertNotNull(change.tree, change.reason)
+            assertEquals(authoritative.nodes, replica.displayTree!!.nodes)
+            assertEquals(authoritative.stateAt(authoritative.currentNodeId), replica.display)
+        }
+        assertTrue(authoritative.nodes.values.single().transition.disclosures.isNotEmpty())
+
+        authoritative = GameplayTree(initial)
+        val move = f.command(PlayAction.MoveCard(f.id(9), MoveSource(f.id(10), initial.board.cards.first().placement),
+            MoveDestination(f.id(10), MoveInsertion.EMPTY, BoardPosition(1, 0))))
+        authoritative = assertNotNull(HistoryContinuation.change(authoritative, f.actor, move).tree)
+        val arrival = f.command(PlayAction.MoveCard(f.id(41), MoveSource(f.id(42)),
+            MoveDestination(f.id(10), MoveInsertion.EMPTY, BoardPosition(0, 0))))
+        authoritative = assertNotNull(HistoryContinuation.change(authoritative, f.other, arrival).tree)
+        val collisionReplica = GameplayReplica()
+        val endpoint = authoritative.stateAt(authoritative.currentNodeId)!!
+        assertTrue(collisionReplica.published(f.head(endpoint, "3"), TreeSync.generation(authoritative), "3", emptyList(), emptyList()))
+        val blockedUndo = f.command(PlayAction.PassAttention).copy(action = GameAction.Undo)
+        assertEquals("replayBlocked", HistoryContinuation.change(authoritative, f.actor, blockedUndo).reason)
+        assertFalse(collisionReplica.predict(blockedUndo, f.actor))
+        assertEquals(endpoint, collisionReplica.display)
+    }
+
     @Test fun resultFirstDeltaFirstDuplicateAndNoOpPublishOnlyNetEndpoints() {
         val f = GameplayFixture(); val replica = GameplayReplica(); assertTrue(replica.root(f.head()))
         val commands = listOf("5", "2", "-1").map { f.command(PlayAction.AdjustLife(f.actor, it)) }

@@ -55,8 +55,7 @@ class ManualTokenLinkVerificationTest {
         assertEquals(flipped.board.cards.single().copy(corner = "4/5"), reset.state!!.board.cards.single())
         assertEquals(listOf(GameplayRead(id(9), GameplayField.FACE, id(12))), reset.mutation!!.transition.reads)
         val retainedReset = GameplayHistory.replay(flipped.copy(definitions = emptyList()), reset.mutation)
-        assertEquals(reset.state.board, retainedReset.state!!.board)
-        assertEquals(reset.mutation, retainedReset.mutation)
+        assertEquals("replayBlocked", retainedReset.reason)
         assertEquals("replayBlocked", GameplayHistory.replay(original, reset.mutation).reason)
     }
 

@@ -52,7 +52,7 @@ class SelectiveUndoTest {
         }
     }
 
-    @Test fun groupedProjectionUndoCannotHideAnEarlierOpponentHandDisclosureBehindANonrevealingTail() {
+    @Test fun groupedProjectionUndoIncludesEarlierOpponentHandDisclosure() {
         var tree = GameplayTree(handStackRoot())
         val stages = mutableListOf<GameplayTree>()
         repeat(2) { index ->
@@ -64,10 +64,9 @@ class SelectiveUndoTest {
             stages += tree
         }
         assertEquals(listOf(true, false), tree.nodes.values.map { it.revealsInformation })
-        val blocked = f.undo(cold(tree), f.b)
-        assertEquals("revealingTarget", blocked.reason)
-        assertEquals(stages.first().currentNodeId, blocked.targetId)
-        assertNull(blocked.tree)
+        val removed = assertNotNull(f.undo(cold(tree), f.b).tree)
+        assertTrue(removed.nodes.isEmpty())
+        assertEquals(tree.nodes, assertNotNull(f.redo(removed, f.b).tree).nodes)
         assertEquals(2, tree.nodes.size)
         assertTrue(tree.redoByAccount.isEmpty())
     }
@@ -96,17 +95,18 @@ class SelectiveUndoTest {
             f.command(GameAction.Play(PlayAction.SetTapped(f.id(9), true)), 100).copy(invocationId = invocation)).tree)
         val second = assertNotNull(HistoryContinuation.change(first, f.a,
             f.command(GameAction.Play(PlayAction.SetTapped(f.id(12), true)), 101).copy(invocationId = invocation)).tree)
-        val revealing = second.copy(nodes = second.nodes + (first.currentNodeId to
-            second.nodes.getValue(first.currentNodeId).copy(revealsInformation = true)))
-        val blocked = f.undo(revealing)
-        assertEquals("revealingTarget", blocked.reason)
+        val original = second.nodes.getValue(first.currentNodeId)
+        val corrupted = second.copy(nodes = second.nodes + (first.currentNodeId to
+            original.copy(transition = original.transition.copy(delta = original.transition.delta!!.copy(seal = "invalid")))))
+        val blocked = f.undo(corrupted)
+        assertEquals("historyUnavailable", blocked.reason)
         assertNull(blocked.tree)
-        assertEquals(2, revealing.nodes.size)
+        assertEquals(2, corrupted.nodes.size)
         val separate = f.play(second, f.a, PlayAction.AdjustLife(f.a, "1"), 102)
         assertEquals(second.nodes, assertNotNull(f.undo(separate).tree).nodes)
     }
 
-    @Test fun revealingOpponentHandMoveIsStillBlockedAndCannotBeSkipped() {
+    @Test fun revealingOpponentHandMoveIsReversible() {
         val root = gameplayFixture()
         val hand = f.play(GameplayTree(root), f.a, PlayAction.MoveCard(gameplayId(10),
             MoveSource(gameplayId(20), edge = MoveSourceEdge.TOP),
@@ -114,10 +114,9 @@ class SelectiveUndoTest {
         val move = PlayAction.MoveCard(gameplayId(10), MoveSource(gameplayId(21)),
             MoveDestination(gameplayId(22), MoveInsertion.EMPTY, BoardPosition(0, 0)))
         val opponent = f.play(hand, f.b, move, 101)
-        val blocked = f.undo(opponent, f.b)
-        assertEquals("revealingTarget", blocked.reason)
-        assertEquals(opponent.currentNodeId, blocked.targetId)
-        assertNull(blocked.tree)
+        val opponentRemoved = assertNotNull(f.undo(opponent, f.b).tree)
+        assertEquals(hand.stateAt(hand.currentNodeId), opponentRemoved.stateAt(opponentRemoved.currentNodeId))
+        assertEquals(opponent.nodes, assertNotNull(f.redo(opponentRemoved, f.b).tree).nodes)
         // The same physical move by the Hand's holder reveals nothing new to that actor.
         val own = f.play(hand, f.a, move, 102)
         val removed = assertNotNull(f.undo(own).tree)
@@ -257,12 +256,12 @@ class SelectiveUndoTest {
         assertEquals("replayBlocked", f.undo(blocked).reason)
         val node = own.nodes.getValue(own.currentNodeId)
         val revealing = own.copy(nodes = own.nodes + (node.id to node.copy(revealsInformation = true)))
-        assertEquals("revealingTarget", f.undo(revealing).reason)
+        assertNotNull(f.undo(revealing).tree)
         assertEquals(node.id, f.undo(revealing).targetId)
         assertEquals("noCandidate", f.undo(older, f.b).reason)
     }
 
-    @Test fun ownHandPlayExceptionDoesNotPermitRevealingAnOpponentsHand() {
+    @Test fun disclosureDataIsPreservedRegardlessOfWhoseHandWasRevealed() {
         val root = f.root().let { it.copy(board = it.board.copy(containers = listOf(
             it.board.containers.single().copy(zone = PlayZone.HAND),
             PlayContainer(f.id(14), PlayZone.BATTLEFIELD, f.a)))) }
@@ -276,7 +275,7 @@ class SelectiveUndoTest {
         assertEquals(mutation, undone.redoByAccount[f.a]!!.single().mutation)
         assertEquals(own.nodes, assertNotNull(f.redo(undone).tree).nodes)
         val opponent = f.play(GameplayTree(root), f.b, action, 101)
-        assertEquals("revealingTarget", f.undo(opponent, f.b).reason)
+        assertNotNull(f.undo(opponent, f.b).tree)
         assertEquals(opponent.currentNodeId, f.undo(opponent, f.b).targetId)
     }
 

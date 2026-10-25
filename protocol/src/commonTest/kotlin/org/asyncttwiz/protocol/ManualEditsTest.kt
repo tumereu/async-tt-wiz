@@ -56,9 +56,9 @@ class ManualEditsTest {
         assertEquals("4/5", reset.state!!.board.cards.single().corner)
         assertEquals(listOf(GameplayRead(id(9), GameplayField.FACE, id(12))), reset.mutation!!.transition.reads)
         assertEquals("replayBlocked", GameplayHistory.replay(blank.state, reset.mutation).reason)
-        // Replay uses retained concrete output; it does not rerun Reset against changed metadata.
+        // New events witness definition availability, even though output remains literal.
         val differentDefaults = flipped.state.copy(definitions = emptyList())
-        assertEquals("4/5", GameplayHistory.replay(differentDefaults, reset.mutation).state!!.board.cards.single().corner)
+        assertEquals("replayBlocked", GameplayHistory.replay(differentDefaults, reset.mutation).reason)
         val missing = state().copy(definitions = emptyList())
         assertEquals("", accepted(missing, PlayAction.ResetCorner(id(9))).state!!.board.cards.single().corner)
     }

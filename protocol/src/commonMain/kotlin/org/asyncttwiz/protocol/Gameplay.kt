@@ -169,9 +169,11 @@ object GameplayRules {
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
-        val recorded = mutation.copy(schemaVersion = 2,
-            transition = mutation.transition.copy(delta = GameplayDeltas.capture(state, next, mutation.id)),
-            bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId, next.currentGroup))
+        val delta = GameplayDeltas.capture(state, next, mutation.id)
+        val recorded = GameplayHistory.recontextualize(state, mutation.copy(schemaVersion = 2,
+            transition = mutation.transition.copy(delta = delta,
+                concerns = GameplayConcerns.capture(state, next, mutation, delta)),
+            bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId, next.currentGroup)))
         return change.copy(mutation = recorded.copy(transition = recorded.transition.copy(
             delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded)))))
     }

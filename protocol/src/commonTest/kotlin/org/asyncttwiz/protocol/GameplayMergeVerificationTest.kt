@@ -37,8 +37,7 @@ class GameplayMergeVerificationTest {
         assertEquals(listOf(GameplayRead(card.id, GameplayField.FACE, face)), reset.mutation!!.transition.reads)
         assertEquals(GameplayFieldChange(card.id, GameplayField.CORNER, "custom", "7/9"), reset.mutation.transition.fields.single())
         val resetInput = changes[2].state!!
-        assertEquals("7/9", GameplayHistory.replay(resetInput.copy(definitions = emptyList()), reset.mutation)
-            .state!!.board.cards.first().corner)
+        assertEquals("replayBlocked", GameplayHistory.replay(resetInput.copy(definitions = emptyList()), reset.mutation).reason)
         assertEquals("replayBlocked", GameplayHistory.replay(changes[1].state!!, reset.mutation).reason)
         assertEquals(listOf(gameplayId(7), gameplayId(8)), changes[4].mutation!!.transition.disclosures.single().viewers)
         assertEquals(listOf(gameplayId(7)), changes[5].mutation!!.transition.disclosures.single().viewers)

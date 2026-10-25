@@ -80,7 +80,7 @@ class LibraryTurnHistoryIntegrationTest {
         assertEquals(mutations[0].id, groups[3].firstNodeId) // Earlier prefix boundaries did not migrate.
         val corrupted = shuffle.copy(grouping = shuffle.grouping.copy(icon = "casino"))
         val tapped = GameplayRules.change(initial(), id(7), command(mutations[0].action, 1)).state!!
-        assertEquals("replayBlocked", GameplayHistory.replay(tapped, corrupted).reason)
+        assertNotNull(GameplayHistory.replay(tapped, corrupted).state) // Presentation metadata is not concerned state.
     }
 
     @Test fun cleanupUsesAcceptedTurnTupleAndUnavailableAnnotationContextsFailClosed() {

@@ -18,8 +18,12 @@ import kotlinx.serialization.json.*
     val piles: List<GameplayPileDelta> = emptyList(),
     /** Applied before the action delta, reversed after it. Bounded by library size, not history. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val libraryReseeds: List<LibraryReseed> = emptyList())
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayBookkeeping(val fromGroup: GameplayGroup?, val fromBranchId: String,
-    val toGroup: GameplayGroup?)
+    val toGroup: GameplayGroup?,
+    /** An owner-independent deletion does not lock owner. Retain its traversal inverse separately
+     * from the sealed semantic tuple, just as presentation folds are recomputed after reparenting. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deletedTokenOwners: Map<String, String> = emptyMap())
 
 /** Encoding is restricted to changed entities. Applying a tap never serializes the decks, history,
  * or definitions. Unchanged immutable entities are shared by the resulting state. */
@@ -30,6 +34,29 @@ internal object GameplayDeltas {
     private val nullValue = JsonObject(mapOf("$" + "null" to JsonPrimitive(true)))
     private fun stored(value: JsonElement?) = if (value == JsonNull) nullValue else value
     private fun restored(value: JsonElement?) = if (value == nullValue) JsonNull else value
+
+    internal fun entityValue(state: PlayState, kind: String, id: String): JsonElement? {
+        val b = state.board
+        return when (kind) {
+            "card" -> b.cards.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "player" -> b.players.singleOrNull { it.accountId == id }?.let { json.encodeToJsonElement(it) }
+            "container" -> b.containers.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "contents" -> b.contentsDisplays.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "link" -> b.links.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "effect" -> b.stackEffects.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "projectionLink" -> b.projectionLinks.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "definition" -> state.definitions.singleOrNull { it.digest == id }?.let { json.encodeToJsonElement(it) }
+            "turn" -> json.encodeToJsonElement(b.turn)
+            "combat" -> b.combat?.let { json.encodeToJsonElement(it) }
+            "result" -> b.resultSuggestion?.let { json.encodeToJsonElement(it) }
+            "attention" -> JsonPrimitive(b.attentionHolder)
+            "marks" -> marks(b)
+            "comment" -> state.annotations.commentsById[id]?.let { json.encodeToJsonElement(it) }
+            "ping" -> state.annotations.pingsById[id]?.let { json.encodeToJsonElement(it) }
+            "ping-ordinal" -> state.annotations.lastOrdinals[id]?.let(::JsonPrimitive)
+            else -> error("Unknown entity kind: $kind")
+        }
+    }
 
     fun seal(mutation: GameplayMutation): String = DeckJson.intent("gameplay-event-v2", buildJsonObject {
         put("requestId", mutation.requestId)
@@ -128,16 +155,17 @@ internal object GameplayDeltas {
     })
 
     private class Mismatch : RuntimeException()
-    private fun patch(value: JsonElement?, edit: GameplayValueDelta, reverse: Boolean, depth: Int = 0): JsonElement? {
+    private fun patch(value: JsonElement?, edit: GameplayValueDelta, reverse: Boolean, depth: Int = 0,
+        relaxedNext: Boolean = false): JsonElement? {
         if (depth < edit.path.size) {
             val key = edit.path[depth]
             if (value is JsonArray && key.startsWith("@")) {
                 val index = value.indexOfFirst { (it as? JsonObject)?.get("id")?.jsonPrimitive?.content == key.drop(1) }
                 if (index < 0) throw Mismatch()
-                return JsonArray(value.toMutableList().also { it[index] = patch(it[index], edit, reverse, depth + 1) ?: throw Mismatch() })
+                return JsonArray(value.toMutableList().also { it[index] = patch(it[index], edit, reverse, depth + 1, relaxedNext) ?: throw Mismatch() })
             }
             val obj = value as? JsonObject ?: throw Mismatch()
-            val next = patch(obj[key], edit, reverse, depth + 1)
+            val next = patch(obj[key], edit, reverse, depth + 1, relaxedNext)
             return JsonObject(obj.toMutableMap().also { if (next == null) it.remove(key) else it[key] = next })
         }
         val from = restored(if (reverse) edit.to else edit.from)
@@ -159,11 +187,11 @@ internal object GameplayDeltas {
         val added = to as? JsonArray ?: throw Mismatch()
         val start = if (edit.after == null) 0 else array.indexOf(edit.after).takeIf { it >= 0 }?.plus(1) ?: throw Mismatch()
         val end = start + removed.size
-        if (end > array.size || array.subList(start, end) != removed || array.getOrNull(end) != edit.before) throw Mismatch()
+        if (end > array.size || array.subList(start, end) != removed || (!relaxedNext && array.getOrNull(end) != edit.before)) throw Mismatch()
         return JsonArray(array.take(start) + added + array.drop(end))
     }
 
-    fun apply(state: PlayState, delta: GameplayDelta, reverse: Boolean): PlayState? = try {
+    fun apply(state: PlayState, delta: GameplayDelta, reverse: Boolean, mutation: GameplayMutation? = null): PlayState? = try {
         for (pile in delta.piles) {
             val container = state.board.containers.singleOrNull { it.id == pile.containerId } ?: throw Mismatch()
             if (GameplayRules.members(state.board, container, pile.placement) != (if (reverse) pile.to else pile.from)) throw Mismatch()
@@ -173,7 +201,30 @@ internal object GameplayDeltas {
         for (entity in if (reverse) delta.entities.asReversed() else delta.entities) {
             fun <T> value(old: T?, serializer: KSerializer<T>): T? {
                 var encoded = old?.let { json.encodeToJsonElement(serializer, it) }
-                for (edit in if (reverse) entity.values.asReversed() else entity.values) encoded = patch(encoded, edit, reverse)
+                for (edit in if (reverse) entity.values.asReversed() else entity.values) {
+                    val knownDraw = mutation != null && GameplayConcerns.knownTopDraw(mutation) && entity.kind == "container" &&
+                        entity.id == (mutation.action as PlayAction.MoveCard).source.containerId
+                    if (knownDraw && edit.path == listOf("knownTop")) {
+                        val obj = encoded as? JsonObject ?: throw Mismatch()
+                        val ids = (obj["knownTop"] as? JsonArray).orEmpty()
+                        val card = JsonPrimitive(mutation.action.cardId)
+                        if ((!reverse && ids.firstOrNull() != card) || (reverse && card in ids)) throw Mismatch()
+                        val next = if (reverse) listOf(card) + ids else ids.drop(1)
+                        encoded = JsonObject(if (next.isEmpty()) obj - "knownTop" else obj + ("knownTop" to JsonArray(next)))
+                        continue
+                    }
+                    val ownerIndependent = mutation?.transition?.concerns != null && mutation.action is PlayAction.MoveCard &&
+                        entity.kind == "card" && mutation.transition.tokens.any { it.from?.card?.id == entity.id && it.to == null }
+                    val adjusted = if (ownerIndependent && !reverse && edit.path.isEmpty() && encoded is JsonObject && edit.from is JsonObject)
+                        edit.copy(from = JsonObject(edit.from + ("owner" to encoded.getValue("owner")))) else edit
+                    val relaxed = knownDraw && edit.path == listOf("cards")
+                    encoded = patch(encoded, adjusted, reverse, relaxedNext = relaxed)
+                    if (ownerIndependent && reverse && edit.path.isEmpty() && encoded is JsonObject) {
+                        mutation!!.bookkeeping?.deletedTokenOwners?.get(entity.id)?.let { owner ->
+                            encoded = JsonObject(encoded + ("owner" to JsonPrimitive(owner)))
+                        }
+                    }
+                }
                 return encoded?.let { json.decodeFromJsonElement(serializer, it) }
             }
             fun <T> members(old: List<T>, serializer: KSerializer<T>, id: (T) -> String): List<T> {

@@ -79,6 +79,9 @@ data class RetainedAnnotationContext(val context: ReferencedEventContext, val ta
 }
 fun interface EventReferenceResolver {
     fun resolve(state: PlayState, actor: String, reference: EventReference): RetainedAnnotationContext?
+    fun context(state: PlayState, actor: String, reference: EventReference): ReferencedEventContext? = resolve(state, actor, reference)?.context
+    fun targetPresent(state: PlayState, actor: String, reference: EventReference, target: PingTarget): Boolean =
+        target.kind == PingTargetKind.LOCATION || resolve(state, actor, reference)?.targets?.contains(target) == true
     companion object {
         /** Fail closed until a trusted retained-tree read is supplied, including for current-node references.
          * A node UUID alone cannot identify its re-materialized state after selective Undo/Redo. */
@@ -110,7 +113,9 @@ object EventAnnotations {
         val nodeId = CommandIds.uuidV5(command.requestId, "board-node")
         if (nodeId in state.annotations.commentsById || nodeId in state.annotations.pingsById) return GameplayChange(state)
         if (reference.playId != state.id) return GameplayChange(reason = "missingReference")
-        val retained = references.resolve(state, actor, reference)
+        val retained = (if (action is PlayAction.EventComment) references.context(state, actor, reference)?.let {
+            RetainedAnnotationContext(it, emptySet())
+        } else references.resolve(state, actor, reference))
             ?.takeIf { it.context.reference == reference } ?: return GameplayChange(reason = "missingReference")
         val target = when (action) { is PlayAction.Ping -> action.target; is PlayAction.Unping -> action.target; else -> null }
         if (target != null && target.kind != PingTargetKind.LOCATION && target !in retained.targets)

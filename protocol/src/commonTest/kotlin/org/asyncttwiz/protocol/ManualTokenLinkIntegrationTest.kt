@@ -64,7 +64,7 @@ class ManualTokenLinkIntegrationTest {
         assertEquals("3/4", current.board.cards.single { it.id == cloneId }.corner)
         assertEquals(beforeReset.board.links, current.board.links)
         val noDefaults = GameplayHistory.replay(beforeReset.copy(definitions = emptyList()), reset)
-        assertEquals("3/4", noDefaults.state!!.board.cards.single { it.id == cloneId }.corner)
+        assertEquals("replayBlocked", noDefaults.reason)
         val clear = accept(PlayAction.SetCounter(CounterTarget.CARD, cloneId, CounterColor.BLUE, " "))
         assertEquals(listOf(GameplayFieldChange(cloneId, GameplayField.COUNTER, "1", null, CounterColor.BLUE)),
             clear.transition.fields)

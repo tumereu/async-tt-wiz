@@ -72,6 +72,11 @@ import kotlin.concurrent.Volatile
         require(state.engineVersion == initial.engineVersion && state.readFormat == initial.readFormat)
         require(index.positions[currentNodeId] != null)
         retainedIndex = index
+        if (index.positions[currentNodeId]?.targets == null) {
+            val position = requireNotNull(index.positions[currentNodeId])
+            index.positions = index.positions.putShared(currentNodeId, position.copy(
+                targets = RetainedAnnotationContext.from(state, position.identity).targets))
+        }
         return checkpoint(state)
     }
 
@@ -181,7 +186,7 @@ import kotlin.concurrent.Volatile
 
     /** Race endpoint walks one edge at a time: even a distant cached endpoint cannot turn a
      * nearby review step/reference read into a walk to the root. */
-    private fun nearest(candidates: List<PlayState>, target: String): Pair<PlayState, Pair<List<GameplayMutation>, List<GameplayMutation>>>? {
+    private fun nearest(candidates: List<PlayState>, target: String, limit: Int = Int.MAX_VALUE): Pair<PlayState, Pair<List<GameplayMutation>, List<GameplayMutation>>>? {
         val positions = index().positions
         val targetDepth = positions[target]?.depth ?: return null
         class Walk(val source: PlayState) {
@@ -189,7 +194,7 @@ import kotlin.concurrent.Volatile
             var a = positions[left]?.depth ?: -1; var b = targetDepth
             val up = mutableListOf<GameplayMutation>(); val down = mutableListOf<GameplayMutation>()
             fun step(): Boolean {
-                if (left == right || a < 0) return false
+                if (left == right || a < 0 || up.size + down.size >= limit) return false
                 work.ancestrySteps++
                 if (a >= b) { val node = nodes[left] ?: return false; up += node; left = node.parentId; a-- }
                 else { val node = nodes[right] ?: return false; down += node; right = node.parentId; b-- }
@@ -297,6 +302,13 @@ import kotlin.concurrent.Volatile
             if (index().positions[id]?.identity != candidate.index().positions[id]?.identity &&
                 candidate.index().annotationReaders[id].orEmpty().isNotEmpty()) return "referenceBlocked"
             if (nodes[id]?.transition != candidate.nodes[id]?.transition) {
+                val old = nodes[id]
+                val created = old?.transition?.tokens.orEmpty().mapNotNull { it.to?.card?.id?.let { id -> PingTarget(PingTargetKind.CARD, id) } } +
+                    old?.transition?.combatStack?.occurrences.orEmpty().filter { it.from == null }.map { PingTarget(PingTargetKind.OCCURRENCE, it.id) } +
+                    old?.transition?.combatStack?.effects.orEmpty().filter { it.from == null }.map { PingTarget(PingTargetKind.OCCURRENCE, it.id) }
+                if (candidate.nodes[id] == null && created.any {
+                    index().annotationReaders["target/${it.kind}/${it.id}"].orEmpty().isNotEmpty()
+                }) return "referenceBlocked"
                 for (reader in index().readers[id].orEmpty()) {
                     val node = candidate.nodes[reader] ?: continue
                     if (!candidate.referencesMatch(node)) return "referenceBlocked"
@@ -353,26 +365,49 @@ import kotlin.concurrent.Volatile
     fun contextVersion(nodeId: String): String? = materializationId(nodeId)?.replace("-", "")
         ?.take(15)?.toLong(16)?.toString()
 
-    private fun referenceResolver() = EventReferenceResolver { _, actor, reference ->
-        if (actor !in initial.board.players.map { it.accountId } || reference.playId != initial.id) null else {
-            val identity = materializationId(reference.nodeId)
-            val version = identity?.replace("-", "")?.take(15)?.toLong(16)?.toString()
-            if (identity == null || (reference.contextVersion != null && reference.contextVersion != version)) null else {
-                // Targets require a real retained read, including inactive offshoots. Break malformed
-                // cyclic annotation dependencies rather than recursively consuming the worker stack.
-                val state = referenceState(reference.nodeId)
-                state?.let { RetainedAnnotationContext.from(it, identity, reference.contextVersion) }
+    private fun referenceResolver() = object : EventReferenceResolver {
+        override fun targetPresent(state: PlayState, actor: String, reference: EventReference, target: PingTarget): Boolean {
+            if (reference.playId != initial.id || actor !in initial.board.players.map { it.accountId }) return false
+            if (target.kind == PingTargetKind.LOCATION) return true
+            var nodeId = reference.nodeId
+            var budget = 51
+            while (nodeId != initial.root.id && nodeId !in nodes) {
+                if (budget-- == 0) return false
+                nodeId = removedParents[nodeId] ?: return false
             }
+            val targets = index().positions[nodeId]?.targets
+            return targets?.contains(target) ?: referenceState(nodeId)?.let {
+                target in RetainedAnnotationContext.from(it, materializationId(nodeId)!!).targets
+            } ?: false
+        }
+        override fun context(state: PlayState, actor: String, reference: EventReference): ReferencedEventContext? {
+            if (actor !in initial.board.players.map { it.accountId } || reference.playId != initial.id) return null
+            val identity = materializationId(reference.nodeId) ?: return null
+            if (reference.contextVersion != null && reference.contextVersion != contextVersion(reference.nodeId)) return null
+            return ReferencedEventContext(reference, identity)
+        }
+        override fun resolve(state: PlayState, actor: String, reference: EventReference): RetainedAnnotationContext? {
+            val context = context(state, actor, reference) ?: return null
+            val targets = index().positions[reference.nodeId]?.targets
+            if (targets != null) return RetainedAnnotationContext(context, targets)
+            val retained = referenceState(reference.nodeId) ?: return null
+            return RetainedAnnotationContext.from(retained, context.materializationId, reference.contextVersion)
         }
     }
 
     private fun referenceState(nodeId: String): PlayState? {
+        if (nodeId == initial.root.id) return initial
         reviewMaterialization?.takeIf { it.first == nodeId }?.let { return it.second }
         currentMaterialization?.takeIf { it.currentNodeId == nodeId }?.let { return it }
         // Stored deltas are self-contained, including overlays. Do not recursively resolve annotation
         // dependencies while deriving a target's board; the enclosing replay validates its reference.
         val endpoints = listOfNotNull(currentMaterialization, reviewMaterialization?.second).ifEmpty { listOf(initial) }
-        val (source, route) = nearest(endpoints, nodeId) ?: return null
+        // Legacy positions have no target witnesses. Never walk an unbounded old prefix merely
+        // to validate an annotation; already-prepared review endpoints above remain usable.
+        val depth = index().positions[nodeId]?.depth ?: return null
+        if (endpoints.none { kotlin.math.abs((index().positions[it.currentNodeId]?.depth ?: -100) - depth) <= 50 }) return null
+        val (source, route) = nearest(endpoints, nodeId, 50) ?: return null
+        if (route.first.size + route.second.size > 50) return null
         val (up, down) = route
         var state = source
         for (node in up) state = unapply(state, node) ?: return null

@@ -73,7 +73,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val pile = toolkit.publicContents()
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}",
-                height = if (landscape) 288.dp else 560.dp) {
+                height = if (landscape) 288.dp else 560.dp, key = panel) {
                 ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
                     onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
                     onInspect = toolkit::inspect,

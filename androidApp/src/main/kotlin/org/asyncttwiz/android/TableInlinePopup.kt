@@ -227,10 +227,14 @@ internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, 
 
 @Composable
 internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
-    content: @Composable ColumnScope.() -> Unit) {
-    val anchor = LocalInlinePopupAnchor.current
+    key: String = title, content: @Composable ColumnScope.() -> Unit) {
+    // Opening a card menu from a row clears the toolkit anchor while this panel is still visible.
+    // Capture the opening anchor and key by a stable identity (not a count-bearing title) so the
+    // input guard does not restart and swallow the row's second tap.
+    val current = LocalInlinePopupAnchor.current
+    val anchor = remember(key) { current }
     val color = if (anchor.own) OwnTableColor else OpponentTableColor
-    TableInlinePopup(title, anchor.id, anchor.bounds, anchor.own, color, dismiss, width, height, title = title) {
+    TableInlinePopup(key, anchor.id, anchor.bounds, anchor.own, color, dismiss, width, height, title = title) {
         Column(Modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)

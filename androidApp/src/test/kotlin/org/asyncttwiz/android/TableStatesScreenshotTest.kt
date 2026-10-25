@@ -357,7 +357,13 @@ class TableStatesScreenshotTest {
     @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {
         val sent = render("graveyard-contents", false)
         compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { advanceEventTime(350); doubleClick() }
+        // Real frames compose the immediately opened card menu before the second tap; that tap is
+        // then relayed back to the row's coordinator, which recognizes the double tap.
+        val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
+        val center = row.fetchSemanticsNode().boundsInRoot.center
+        row.performTouchInput { advanceEventTime(350); click() }
+        compose.mainClock.advanceTimeBy(120)
+        compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
         val card = f.initial.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)

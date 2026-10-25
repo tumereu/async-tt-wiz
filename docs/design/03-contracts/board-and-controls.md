@@ -1448,11 +1448,12 @@ shuffle may reproduce a prior permutation by chance. D-93 itself adds no shuffle
 shortcuts and does not imply that covered order was exposed; D-193 later adds
 explicit shuffle-and-draw compositions using the same recorded-randomness model.
 
-**D-224 revision:** selective Undo/Redo removes/reinserts a mutation only if all
-later mutations retain identical relevant-state `(from, to)` tuples, within a
-hard suffix-work cap N. The relevant state for a tap must allow a prior independent
+**Authoritative owner revision, 2026-10-25:** selective Undo/Redo is allowed iff all
+later game-tree events can apply with identical concerned-field `(before, after)`
+tuples; work limits do not redefine eligibility. The relevant state for a tap must allow a prior independent
 move of the same card to be removed; two edits of the same counter may instead
-block each other. Selective Undo excludes revealing targets. Per-mutation state,
+block each other. Information exposure never restricts Undo/Redo; apply the
+authoritative concerned-field tuple rule. Per-mutation state,
 N and pointer/control/Redo-queue integration remain open. The following earlier
 rewind/exposure summary does not override that selective rule.
 

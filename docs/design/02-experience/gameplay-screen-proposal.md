@@ -12,7 +12,7 @@ This authorizes design artifacts only, not implementation or a passed UI gate.
 The concrete layout below records the owner's requested design direction.
 Items described as “maybe,” “perhaps” or “I think” remain tentative, as marked.
 This proposal supplements the behavioral contracts. The interruption clarification
-below applies the existing Undo rule, not a change allowing Undo across forks.
+below follows the authoritative concerned-field Undo/Redo rule (owner, 2026-10-25).
 Trial placement and presentation remain reviewable rather than final UI approval.
 
 Scope here: the basic canvas appearance, responsive layout, live controls and
@@ -219,11 +219,12 @@ content with the current rule if it already permits that. It does:
 
 Given old `A → B → C` and new `A → X → Y`, eligible latest-own Undo can remove Y
 and then X, leaving the current boundary at A. X is a child of the fork, not the
-fork point A. Undo cannot remove A while it is a branching point, or cross an
-actual retained fork. The old B→C
+fork point A. Any subsequent Undo must preserve every later event's concerned
+tuple across all retained continuations; the fork itself is not a refusal reason.
+The old B→C
 continuation is retained, **not automatically reactivated**; explicit return is
-separate. Revealing, dependency, author, replay-work and later-fork restrictions
-still apply: this is not unconditional cancellation/recall of a sent action.
+separate. Latest-own targeting and the concerned-field dependency rule still apply,
+independent of information gained or seen: this is not cancellation/recall of a sent action.
 After each accepted Undo, recalculate from the remaining tree; a former fork does
 not impose a permanent lock if its last extra continuation has been removed.
 Any remaining future still participates in normal replay/eligibility checks.

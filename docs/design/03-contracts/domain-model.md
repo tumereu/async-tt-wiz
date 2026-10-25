@@ -260,11 +260,12 @@ Exact generator/encoding/version registry remains technical work. No gameplay
 seed-epoch or commit–reveal schema is required. See
 [randomness design](../04-technical/sync-and-storage.md#selected-shuffle-and-setup-randomness--d-274).
 
-**D-224 revision:** selective deletion/insertion of a mutation requires identical
-relevant-state `(from, to)` tuples for every later mutation in both timelines,
-within a hard suffix-work cap N. Relevant state must be defined per mutation;
-the whole-board/card state is not automatically relevant. Selective Undo excludes
-information-revealing targets. **D-232 confirms that removal/reinsertion edits the
+**Authoritative owner revision, 2026-10-25:** selective deletion/insertion is allowed
+if and only if every later event in the game tree can apply with identical
+concerned-field `(before, after)` tuples in both trees. Concerned fields include
+edits and reads/dependencies, not unrelated whole-board/card state. Only game state
+and events decide eligibility, never information gained or seen; fork/work-limit
+exclusions cannot override this rule. **D-232 confirms that removal/reinsertion edits the
 existing tree, not forks an untouched original beside a revised continuation.**
 Removed mutations enter the player's Redo stack, not a required explorer branch.
 Tree/node IDs/versioning, reference encoding, pointer mechanics and N/counting
@@ -277,7 +278,7 @@ constraint on Undo/Redo.
 The initial-state root and genuine explicit alternative continuations are retained.
 Undo removes eligible latest-own mutations; Redo reinserts from the per-player,
 per-incarnation shared stack (D-232/D-235). Personal review cannot select a target
-or truncate the retained-future replay/fork checks (D-245).
+or truncate the retained-future concerned-field replay checks (D-245).
 The graphical tree explorer permits activation of any retained branch/node, not
 just tips; personal review alone never activates. The active pointer is independent
 from retained tips and personal review. A filter hides only single-player/
@@ -294,7 +295,7 @@ viewing, separately from Flip. Accepted Library View/Reveal, die/coin and other
 revealing edits retain their exposure records; rejected/different predictions add
 no separate disclosure event under D-286. The
 [participation mapping](history-and-undo.md#exposure-participation-in-controls-and-visibility)
-defines placement, latest-own barriers, Redo clearing, replay and branch filtering.
+defines placement, latest-own targeting, ordinary Redo clearing, replay and branch filtering.
 Physical encoding/coalescing remains technical; no permanent-marker entity is required.
 
 D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
@@ -947,6 +948,6 @@ currently inapplicable. Bulk applicability is not authority to drop malformed
 references. Deleting an endpoint cannot leave a published orphan boundary; the
 triggering transition retains the inverse needed for eligible restoration.
 
-Token restoration is conditional on ordinary latest-own, exposure, dependency,
-fork and N checks; reverse traversal can inspect the inverse even when shared Undo
+Token restoration uses ordinary latest-own targeting and concerned-field dependency
+checks, never information exposure; reverse traversal can inspect the inverse even when shared Undo
 is blocked. The matrix promises no new restoration controls or trash feature.

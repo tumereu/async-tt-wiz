@@ -1747,14 +1747,14 @@ Failure/no-change likewise does not create one.</p>
 <p><strong>Undo clarification:</strong> old <code>A → B → C</code>, new
 <code>A → X → Y</code>: eligible latest-own Undo may remove Y and then
 X, including the first action immediately after the fork. It leaves the
-current boundary at A without automatically returning to B→C. The fork
-point A cannot be undone/crossed while it actually has multiple retained
-child continuations. Recompute eligibility after each accepted Undo:
-removing the last action of a new line does not leave a permanent “was
-once a fork” lock, but the remaining linear future still participates in
-ordinary replay checks. Author, revealing-action, dependency,
-replay-work and later-fork checks still apply. This addresses accidental
-branch creation using the <strong>existing rule</strong>; it is not
+current boundary at A without automatically returning to B→C. The authoritative
+owner rule (2026-10-25) allows Undo/Redo iff every later event on all retained
+continuations can apply with identical concerned-field <code>(before, after)</code>
+tuples, including read/dependency fields as well as edits. Only game state/events
+decide eligibility, never information gained or seen; forks and work limits cannot
+independently refuse an otherwise matching edit. Recompute after each accepted
+Undo, keeping latest-own targeting separate from personal review. This addresses
+accidental branch creation under the <strong>current rule</strong>; it is not
 unconditional cancellation of any action or recall of a sent
 request.</p>
 <p>Undo availability/target remains based on shared current history, not

@@ -340,8 +340,10 @@ Still required before implementation:
 - Undo/Redo cost accounting beyond suffix count N: target validation, input/output
   payload, snapshot/reference loading, cleanup fan-out, replay and cache rebuild.
   Set measured CPU/memory/latency budgets with indexing/incremental summaries;
-  exceeding validation budget leaves the operation unavailable and state unchanged,
-  never partially validated. Do not add a Stack count cap/history expiry (R-13).
+  work exhaustion leaves state unchanged until complete validation, never partially
+  edited or classified as an undo dependency failure. Scheduling/budgets must preserve
+  the owner's authoritative concerned-field iff rule (2026-10-25). Do not add a
+  Stack count cap/history expiry (R-13).
 - Local feedback and action-sync-start budgets that enforce immediate sync
   without waiting for group closure or deliberate batching.
 - API latency/availability targets, expected load, rate/storage limits.

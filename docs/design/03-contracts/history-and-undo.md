@@ -18,6 +18,26 @@ sending. Normal interaction applies locally immediately and must not routinely
 wait for network acknowledgements. This is online latency hiding, not extended
 offline play or an atomic queued sequence.
 
+## Critical authoritative Undo/Redo rule — owner, 2026-10-25
+
+**Undo/Redo is decided by GAME STATE AND EVENTS ONLY, never by what information
+players have gained or seen. This rule supersedes every earlier conflicting
+Undo/Redo restriction.**
+
+An Undo or Redo is allowed **if and only if every event after it in the game tree
+can still be applied with an identical `(before, after)` tuple for the fields
+that event concerns in the pre-edit and post-edit trees**. Compare both endpoints
+for every later event, not merely applicability or the final board. If any later
+event cannot apply or its concerned tuple differs, refuse the Undo/Redo.
+
+An event's **concerned fields** normally include the fields it edits, but also
+fields it reads or depends on, such as a moved card's source location or the top
+card taken by a draw. Do not include unrelated fields or infer dependencies from
+what either player knows, inspected, revealed or remembers. Revealing information
+is not itself a reason to refuse Undo/Redo.
+
+For example, B's ping concerning A's attacker projection blocks undoing the attack; a ping concerning only the unchanged source card does not.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree
@@ -32,17 +52,19 @@ Do not infer acceptance of the assistant's shared remembered-Redo-head proposal.
 **Conservative convenience boundary — D-257:** Undo/Redo are conveniences for
 reaching a desired board/event chain, not the only available tools. Prefer making
 a complex edge case unavailable to adding surprising recovery/navigation behavior.
-This does not discard the existing latest-own/replay/fork/stack rules. **D-258 now
-confirms the scoped simplification below:** qualifying deliberate shared-history
+This does not override the authoritative rule above or the target/stack rules.
+**D-258 confirms the scoped simplification below:** qualifying deliberate shared-history
 switches clear both players' Redo queues. Ordinary head advancement, Undo/Redo and
 personal review retain their distinct rules. F-02's advance-to-A proposal was not
 selected; its historical-activation case instead has no surviving Redo entry.
 
 ### Selective mutation Undo/Redo — D-224
 
-**Confirmed safety rule:** allow deletion/insertion of a mutation in a timeline
-only if **every subsequent mutation has an identical relevant-state `(from, to)`
-tuple in the original and candidate timelines**. Replay the subsequent mutations
+**Safety rule, corrected by the owner on 2026-10-25:** allow deletion/insertion
+if and only if **every subsequent event in the game tree can be applied with an
+identical concerned-field `(before, after)` tuple in the original and candidate
+trees**. “Relevant state” and `(from, to)` below mean these concerned fields and
+their before/after values. Replay the subsequent events
 in their recorded order and compare both their pre- and post-relevant states,
 not merely operation applicability, equal deltas or equal final board state.
 If any subsequent mutation cannot replay or either side of its tuple differs,
@@ -62,7 +84,7 @@ or recovery of removed records after clearing remains open.
 Explicit interruptions can still create branches; the explorer/filtering rules
 apply to branches that actually exist. Undo itself does not acquire historical
 continuation intent or require the next ordinary current-head edit to fork.
-The D-233 fork boundary below prevents Undo from changing existing side branches.
+Retained side branches participate in the same concerned-field comparison.
 Dependent comment/ping references are protected by the replay rule below, not
 a fresh choice to delete or retarget them. Review cursors, IDs/versioning and
 cached states still need explicit handling. This decision does not approve
@@ -110,9 +132,9 @@ D-226 removes the earlier Graveyard/Exile top/bottom, reorder and other
 order-related controls, including visual-placement variants. Browser sorting is
 still presentation only; do not infer ordering policy for other containers.
 
-The same suffix-tuple test applies to **Redo reinsertion**. In this selective
-design, Undo is not offered for a target that revealed new information; this is
-distinct from reviewing/activating a retained historical state. Replay reuses
+The same concerned-tuple test applies to **Redo reinsertion**, including actions
+that revealed information. Reviewing/activating a retained historical state remains
+distinct from Undo/Redo. Replay reuses
 stored random results and exposure context, not new random samples or UI reveals.
 
 **Target transition fidelity (R-06; derived from recorded replay):** before suffix
@@ -142,7 +164,7 @@ mandatory structural effects; exclude unrelated board/card fields. At minimum:
 | Move / ordered draw / reorder | Same source/target identities, source membership/placement, requested destination/gap/edge, capacity and ordering dependencies actually used. Draw requires the recorded top card to be top. Unordered Graveyard/Exile do not read unrelated members/indices. Include destination resets and cleanup effects. |
 | Occurrence / area / link | Occurrence/source/area/slot or endpoint identities, existence, membership/role/order and affected links/pairs. Creation cannot substitute a different source; structural cleanup is part of the transition below. |
 | Tracking / result suggestion | Actual tracking tuple or pending-suggestion identity/proposer/outcome and their recorded transition, not renewed relative progression. |
-| Annotation / exposure / random | Recording context, referenced identities/context, effective before/after presence and concrete displayed/random result. Dependent references protect their context. Revealing targets cannot be selectively removed. |
+| Annotation / exposure / random | Recording context, referenced identities/context, effective before/after presence and concrete displayed/random result. Dependent references protect their concerned context, not a player's knowledge. |
 
 Specific action mappings refine these domains; they may not broaden them into a
 whole-board lock or omit a structural/read dependency to make replay pass.
@@ -183,8 +205,8 @@ the selected shared history through:
 This is shared game state under D-259. It is not a device-local reset, an extra
 gameplay mutation, deletion of the retained tree or a reset of other games. It
 does not clear still-applied actions from latest-own Undo consideration; current
-timeline/replay/fork/exposure rules still decide Undo. No original-path copy or
-special recovery tool is required for cleared Redo entries.
+timeline targeting and the authoritative concerned-field rule still decide Undo.
+No original-path copy or special recovery tool is required for cleared Redo entries.
 Activating/restoring a historical board does not reload Redo queues from an old
 node snapshot; queues are current server control state, not historical board fields.
 
@@ -229,7 +251,7 @@ if both successive candidates are eligible, remove both, one per request.
 Do not pin both requests to the node the clients originally saw or discard the
 second merely because the first changed that target. If the next candidate is
 blocked or absent, the second request makes no further removal; it does not
-skip a target or bypass replay, exposure, N or fork restrictions.
+skip a target or bypass the concerned-field comparison.
 
 This supersedes the earlier D-161 fixed-node stale-Undo interpretation for these
 selective Undo requests. The assistant's same-target collision-suppression
@@ -248,7 +270,7 @@ control races remain design work, not a reason to reopen this policy.
 like a normal Undo/Redo stack. If you Undo A and then B, successful Redo restores
 B and then A. This is the order of Undo operations, not a sort by the mutations'
 original timeline positions. Each reinsertion still requires D-224's relevant-state
-tuple test within N; insertion anchors are not settled by this ordering rule.
+tuple test for every later event; insertion anchors are not settled by this ordering rule.
 **D-230 blocked-entry rule:** if that next mutation cannot be reinserted, disable
 Redo and keep the stack intact. Do not skip to an older eligible entry or discard
 the blocked entry. Ordinary opponent activity does not clear the stack (D-228);
@@ -260,7 +282,7 @@ actions without a board edit, even if the opponent acted later.
 Never target an opponent's action or an arbitrarily selected earlier own action.
 Later opponent mutations remain applied and must pass D-224's unchanged-tuple
 replay test. If that next Undo target
-fails the replay checks, exceeds N or is information-revealing, disable Undo;
+fails the concerned-field replay test, disable Undo;
 do not search backward for an older eligible target. After successful Undo, the
 preceding still-applied own action becomes the next candidate. If there is no own
 action, Undo is unavailable; do not fall back to an opponent's action. This
@@ -268,36 +290,25 @@ author filter is not permission to skip a blocked latest own action. The rule
 governs Undo, not personal review or explicit historical activation; interaction
 with the latter remains open. Do not replace it with parent-pointer Undo.
 
-**Fork boundary — D-233/D-245:** Undo cannot remove a branching point or reach back
-past one. A branching point is a tree node with multiple child continuations;
-if the target itself or any retained descendant is a branching point, disable
-Undo even if all replay checks would pass. Neither the personal view head nor
-an explicitly activated internal shared node truncates this check. Do not
-skip the blocked latest own target, reattach the alternatives or replay all branches
-to make removal possible. Explorer filtering does not remove a branch and cannot
-bypass this boundary. Actions strictly after the latest fork remain candidates
-under the usual latest-own, replay, exposure and N rules. For example:
-
-- `root → A`, with children B (active) and C (alternative): A cannot be undone.
-- `root → A → F`, with F's children B (active) and C (alternative): A cannot
-  be undone either; Undo would reach back past F.
-- In the same tree, an eligible own action B can be undone without removing F
-  or changing C. No branching point lies at or after B on its active path.
+**Retained forks — supersedes D-233's blanket boundary:** a fork is not an
+independent refusal reason. Apply the authoritative concerned-field test to every
+later event on every retained continuation. Neither explorer filtering, a personal
+review cursor nor an internal shared active node truncates that validation. Do not
+delete, substitute or retarget later events to make the comparison pass.
 
 **Accidental interruption clarification — D-291:** with old `A → B → C` and new
 `A → X → Y`, eligible latest-own Undo can remove Y then X. X is immediately after
-the fork A, not the forbidden branching point itself. Removing X leaves A as the
+the fork A. Removing X leaves A as the
 current boundary and retains B→C without automatically activating it; return is
-separate. All ordinary author/exposure/replay/work/later-fork checks still apply.
-This is not an exception permitting Undo of A **while A remains a branching
-point**. Recompute eligibility from the retained tree after each accepted Undo:
+separate. Target order and the concerned-field rule still apply.
+Recompute eligibility from the retained tree after each accepted Undo:
 if removing the last action of a new continuation eliminates the actual fork,
 there is no permanent “was once a fork” lock. Any next target still needs every
-ordinary check, including replay of the retained linear future beyond the shared
+concerned-field check, including replay of the retained future beyond the shared
 pointer; removing X does not by itself authorize Undo of A.
 
-**Retained linear future (D-245):** after the fork check there is at most one
-retained successor chain after the target. Validate every event on that chain,
+**Retained future (D-245, corrected by the owner rule):** validate every event on
+every retained successor continuation after the target,
 including events beyond an explicitly activated internal shared node, against its
 recorded relevant tuple. Do not stop at either player's review cursor or the
 shared active pointer. These later events all count toward N. Remove/reinsert
@@ -311,35 +322,34 @@ edits Y and all checks pass, removal yields `root → A → C`, the shared activ
 pointer falls to B's parent A, and a personal viewer on C remains on C. Simply
 viewing B while C remains shared-current changes none of the ordinary checks.
 
-**Redo fork boundary — D-234, revised by D-258:** never reinsert a queued mutation
-before a newly created fork. In normal current play, explicitly creating/activating
-that interruption is a qualifying shared-history switch and now clears both Redo
+**Redo and history switches — D-258:** in normal current play, explicitly creating/
+activating an interruption is a qualifying shared-history switch and clears both Redo
 queues. The former stranded-but-retained queue example is superseded: Redo is
 unavailable because the entry is gone, not a promised blocked restoration route.
 Do not keep the queue through the switch, reinsert at the current head, rewrite
-all branches or create a recovery branch. The structural no-cross-fork check still
-constrains any candidate; it is not a reason to bypass the confirmed reset.
+events to force a match or create a recovery branch. D-234's independent
+no-cross-fork refusal is superseded by the authoritative concerned-field rule;
+this does not recreate an entry already cleared by a history switch.
 
-**Confirmed bounded work:** impose a hard limit **N** on the subsequent actions
-subject to replay/validation, so a target followed by e.g. a thousand opponent
-actions cannot trigger a noticeably slow eligibility calculation. A valid but
-over-limit candidate is unavailable; do not validate only a convenient prefix or
-permit a changed unchecked tail. Exact N and counting of mutation nodes versus
-multi-mutation invocations remain open; no time-based grouping or gameplay limit
-is implied.
+**Bounded validation work:** N may bound a unit of validation work, not redefine
+eligibility. The earlier refusal of a tuple-preserving edit solely because its
+suffix exceeds N is superseded. Validate the complete retained future; never
+accept after checking only a convenient prefix or permit a changed unchecked tail.
+Scheduling and efficient validation remain technical work, not another undo rule.
 
-N is a hard replay bound, not by itself a complete CPU/memory bound. Technical
+N is a work bound, not by itself a complete CPU/memory bound. Technical
 design must also budget target validation, payload sizes, snapshot loading,
 reference checks, mandatory-effect fan-out and cache reconstruction. Exhausting
-a validation budget makes the candidate unavailable with no partial edit or
-unchecked tail; do not add a product Stack-count cap or expire history. Verify
-large targets/cleanup with zero or short suffixes as well as long histories.
+a work budget must not be classified as a dependency failure or commit a partial
+edit with an unchecked tail; do not add a product Stack-count cap or expire history.
+Verify large targets/cleanup with zero or short suffixes as well as long histories.
 
 **Remaining work, not an owner-question queue:** complete relevant-state and
 reinsertion-precondition mappings from the agreed rules; document anchors,
 pending-request/recovery bookkeeping, IDs/versioning, grouping and cache updates.
 Numeric N/counting and wire/storage representation are technical specification
-work, not new Undo policy. D-233/D-234/D-258 settle fork/switch boundaries, D-235 stack
+work, not new Undo policy. The owner rule supersedes D-233/D-234's blanket fork
+refusals; D-258 governs switch resets, D-235 stack
 device scope and D-236 server Undo requests. Dependent references fail D-224's
 test rather than being silently retargeted. Rejected/no-op requests create no
 successful new gameplay mutation and therefore do not trigger D-227 clearing;
@@ -399,8 +409,8 @@ not shared activation, grouping, information-exposure classification or retentio
 Concurrent/stale activation, archive integration and detailed pre-fork
 presentation remain contract work; remembered-head Redo and captured-parent Undo
 are retired designs (D-224–D-236), not current controls. Each successful Undo
-removes one eligible latest-own mutation. A revealing draw cannot be removed;
-the later tracking advance can be removed when otherwise eligible.
+removes one eligible latest-own mutation. Draw and tracking events use the same
+concerned-field test, independent of information revealed.
 
 ### Complete current-game downloads — D-276
 
@@ -756,8 +766,9 @@ Explicit connected inspections submit ordinary requests, retained in memory like
 other online work. D-286 supersedes separate reports for speculative disclosure:
 extra information shown only by a rejected/different prediction is acceptable and
 needs no additional event or provenance reconstruction, even while the process
-lives. Accepted inspection/reveal records keep their history, latest-own revealing
-barrier, Redo and reference rules. Recover the original request normally; process
+lives. Accepted inspection/reveal records keep their history, latest-own targeting,
+ordinary Redo clearing and concerned-field dependency checks, never an information
+barrier. Recover the original request normally; process
 death/Logout may lose unadmitted work. Server-retained records govern controls,
 not inferred player knowledge. No offline inspections or competitive anti-cheat
 promise is added, and no accepted server records are discarded.
@@ -1141,8 +1152,8 @@ over the same tree. See section 3.12 for returning after an interruption.
 
 Requirement U-001: **In-scope game edits have discoverable Undo or recovery under
 the eligibility and lifecycle limits in section 3.0.** This is not a promise
-that every historical mutation can always be restored: revealing targets are
-not selectively undoable, blocked entries are not skipped, own new play clears
+that every historical mutation can always be restored: dependent later events
+can prevent removal/reinsertion, blocked entries are not skipped, own new play clears
 Redo, and deliberate history switches clear both queues (D-224/D-227/D-230/D-258). Submitted
 game-wide chat (D-94) and acceptance of an ending suggestion / return to lobby
 (D-212) have no gameplay Undo. Excluded authoring/manual-group/recovery-center
@@ -1198,7 +1209,6 @@ not redefine normal Undo as a stack of heterogeneous commands.
 | Event-linked comment undone | Remove the eligible latest-own comment from the existing tree, keeping it for Redo; do not manufacture an original alternative. Dependent later references can block removal. |
 | Pending win/loss/draw suggestion | Ordinary eligible latest-own Undo removes the suggestion without ending play; acceptance remains a separate lifecycle transition (D-211/D-212). |
 | Accepted ending / return to lobby | Both players return after acceptance. Acceptance is not undoable; Undo cannot reverse this transition or reopen ended play (D-212). Pending suggestions remain undoable under D-211. |
-| Die/coin result / revealing inspection or draw | No selective Undo of an information-revealing target (D-224). Personal traversal/explicit activation of retained states is separate; recorded results are never resampled or erased. |
 
 Undo/Redo are synchronized tree-edit controls, not board-action child nodes and
 not entries to target with the next Undo. Redo reinserts the last-undone mutation
@@ -1239,8 +1249,8 @@ Shared prefix actions are never deleted by branch archival.
 
 ## 3.9 Limits of undo
 
-- A revealing mutation cannot be selectively undone; viewing or explicitly
-  activating a retained earlier state cannot erase a person's memory.
+- Undo/Redo eligibility uses only the authoritative concerned-field test, not
+  whether anyone can forget information already seen.
 - Delivered push notifications cannot reliably be retracted.
 - Exported files or screenshots cannot be recalled.
 - An external account deletion or legally required data erasure is not a
@@ -1257,7 +1267,8 @@ in-game undo capability.
 
 Actual retained alternatives follow D-222/D-223 filtering: only single-player
 paths without exposure or comments qualify for default hiding. Undo creates no
-alternative copy (D-232); revealing targets cannot be removed (D-224).
+alternative copy (D-232). Exposure classification affects filtering/records, not
+Undo/Redo eligibility.
 
 Exposure coverage, revised by D-252: explicit Inspect other side, library
 View/Reveal, and die/coin results. Own-area hold inspection shows real faces
@@ -1312,26 +1323,27 @@ separate exposure queue or reconstruction of lost/temporary disclosure is requir
 
 ### Exposure participation in controls and visibility
 
-S-04 is completed by distinguishing a board transition from an effective logged
-action. “No board edit” is not “no action.” Apply the same actor/no-skipping rules
-to a successful explicit logged inspection as to another information-revealing
-action; storage outside the mutation-node payload does not exempt it.
+S-04 distinguishes a board transition from an effective logged action. “No board
+edit” is not “no action.” Accepted logged inspection participates in latest-own
+targeting, ordinary own-new-action Redo clearing and V grouping. It can be undone
+or redone under the same authoritative concerned-field rule as any other event;
+information exposure adds no refusal condition.
 
-| Case | Effective placement / board transition | Undo / Redo | Visibility and replay participation |
-| --- | --- | --- | --- |
-| Own-area hold or permitted visible-face navigation | Local only; no record or board transition. | Does not change latest-own candidate or clear Redo. | No group/filter/replay/N participation. |
-| Accepted revealing move/Flip or View/Reveal | Exposure is associated with its accepted mutation and actual effective boundary. | That revealing latest-own action blocks Undo; a successful new own action clears own Redo. | Count once as its event plus its reference/payload work; retain concrete shown content. |
-| Explicit Inspect other side with no board edit | Effective exposure event at current recording context; viewed context retained separately. No inserted historical mutation or new gameplay branch. | It is the actor's latest own action and cannot be selectively removed. Do not skip it to Undo a prior tap. It clears that actor's Redo across devices. | V grouping anchor; recording-context membership and exact viewed references participate in suffix dependencies/N. |
-| Hidden content shown only by a rejected/different prediction | No additional server event or preserved old-context snapshot; ordinary reconciliation (D-286). | No additional Undo barrier or Redo clearing from that glimpse. The actual accepted action retains its normal effects. | No extra grouping/N/filtering/reference participation or automatic branch. |
+Associate accepted exposure with its actual effective recording boundary, keeping
+viewed context separate. Its concrete content, presence and concerned references
+participate in replay validation and reference/payload work. Own-area holds and
+permitted visible-face navigation are local only: no event, candidate, stack,
+grouping, filtering or replay effect. Rejected/different predictions add no extra
+event or old-context snapshot under D-286; a glimpse alone changes no controls.
 
 An exposure-only event has a stable causal position and effective revision at its
 recording boundary, ordered with other accepted actions. It need not add a second
 board-transition node or a child branch to an internal state with a retained
 future. Personal views can distinguish before/after that effective event without
 fabricating a card edit. Latest-own selection includes these effective actions on
-the shared timeline, not only nodes that move cards. A later opponent edit does
-not bypass the actor's revealing barrier or clear the other player's Redo.
-Exposure records on the retained successor chain also enter full D-245 dependency
+the shared timeline, not only nodes that move cards. Later opponent edits use the
+same concerned-field test and do not clear the other player's Redo.
+Exposure records on retained successor continuations also enter full dependency
 validation; their data/reference costs cannot be omitted from N/resource budgets.
 Exact side-record/node encoding and same-boundary cursor representation are technical.
 
@@ -1384,8 +1396,8 @@ Confirmed branch-level filtering (D-222/D-223 refine D-160, replacing D-91's cut
    suffix an exposure-bearing continuation.
 
 Example: explicitly continue from root beside `A → View B → C → roll D → E`.
-Keep that actual alternative A–E visible in full; Undo cannot remove B/D to create
-this outcome. Either person can inspect/activate retained states; inspection
+Keep that actual alternative A–E visible in full; Undo creates no alternative copy.
+Either person can inspect/activate retained states; inspection
 alone never activates them. Exact exposure coalescing, pre-fork
 presentation and concurrent/non-Undo control details remain open.
 
@@ -1406,9 +1418,9 @@ result; do not force a different value.
 
 Distinguish a new invocation from review, replay, redo, or retransmission of the
 same operation: those reuse its stored outcome/idempotency result, never resample.
-A die/coin result cannot be selectively undone (D-224); fresh generation
-does not erase earlier information. Exact generator/source and online
-concurrent operation protocols remain open, without reopening seed-reset policy.
+Undo/Redo uses the authoritative concerned-field rule; fresh generation and
+recorded replay remain distinct regardless of what was seen. Exact generator/source
+and online concurrent operation protocols remain open, without reopening seed-reset policy.
 
 D-93 confirms the same rule for Shuffle: every explicit new invocation samples
 a fresh order, including after undo; redo/review/retransmission reuse its recorded

@@ -289,10 +289,12 @@ provisional client application for latency hiding. Accepted replicas, prediction
 overlays and durable request recovery are not UI-owned games; see
 [the ownership matrix](domain-model.md#state-ownership-and-request-boundary--d-259).
 
-**Latest revision D-224:** selective removal/reinsertion requires every subsequent
-mutation's relevant-state `(from, to)` tuple to stay identical across timelines,
-within a hard suffix-work cap N. Information-revealing targets are not selectively
-undoable. D-230/D-231 allow Undo only for your most recent still-applied action,
+**Authoritative owner revision, 2026-10-25:** selective removal/reinsertion is allowed
+iff every later game-tree event can apply with identical concerned-field
+`(before, after)` tuples across both trees. Concerned fields include reads/dependencies
+as well as edits. Game state/events alone decide eligibility, never information
+gained or seen; blanket fork/work-limit refusals are superseded.
+D-230/D-231 target your most recent still-applied action,
 even after opponent activity; never skip a blocked own target or undo the opponent's.
 Redo is last-undone-first and blocked entries disable it without skipping. Ordinary
 own new gameplay clears own Redo; ordinary opponent play does not (D-227–D-230).
@@ -540,7 +542,7 @@ not retired parent-pointer/remembered-head controls.
 - A persistent undo entry point complements any transient snackbar.
 - Show the exact object/action/branch affected, not merely “Undo.”
 - Undo removes your latest eligible still-applied mutation. Composite actions may
-  require multiple presses; revealing/blocked targets cannot be removed/skipped.
+  require multiple presses; targets blocked by the concerned-field test cannot be skipped.
   Personal viewing never changes the target or truncates retained-future checks.
 - Branch “Delete” wording must disclose “recoverable from archived branches.”
 - Distinct Undo requests are successive server-ordered presses (D-236), not

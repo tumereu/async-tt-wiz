@@ -74,9 +74,11 @@ reference lifetime matrix constrain those mechanics. Physical deletion or
 permanent retention after Redo-queue clearing is not selected. Clients materialize
 the accepted tree revision, not an immutable-parent assumption or timestamps alone.
 
-**D-224 behavioral revision:** selective timeline removal/reinsertion requires
-every later mutation's relevant-state `(from, to)` tuple to match its original
-transition exactly, with a hard suffix-work cap N. This is stricter than D-187
+**Authoritative owner revision, 2026-10-25:** selective removal/reinsertion is allowed
+iff every later game-tree event can apply with its original concerned-field
+`(before, after)` tuple. Concerned fields include edits and reads/dependencies;
+information gained or seen never determines eligibility. Work budgets and blanket
+fork refusals cannot override this rule. This is stricter than D-187
 ordinary live acceptance. Per-mutation state, N/counting, atomic validation versus
 concurrent work, node versioning/reference retention and pointer/Redo-queue effects
 remain open technical/behavior work, not an approved storage rewrite algorithm.
@@ -90,8 +92,8 @@ each distinct request is another press, while retries recover one original resul
 Redo reinserts last-undone-first from the per-player/per-incarnation stack shared
 across that account's devices (D-235), not a remembered active head. D-245 checks
 all retained successors, including beyond an activated internal node; personal
-view heads never truncate validation. A fork anywhere at/after the target blocks
-removal; no partial suffix check. Retained genuine alternatives remain recoverable
+view heads never truncate validation. Check all later events on every retained
+continuation, not just an active path or partial suffix. Retained genuine alternatives remain recoverable
 and D-222/D-223 filtering deletes nothing. D-179 prohibits implicit conflict forks.
 
 ### Shared processing and random-input agreement — D-261
@@ -291,7 +293,7 @@ Proposed outcomes:
 | Further online-pending work after a separate explicit interruption | Ordinary requests use current state with original operands/limited guards; explicit historical requests validate their exact retained boundary. Missing predicted prerequisite rejects that reference, not independent later work. No implicit conflict fork, dependency waiting or substituted intent (protocol v1). |
 | Same request identity and semantic payload retried | Pending admission gets no second position; completed command returns its original outcome, including rejection/no-op. Never apply twice (D-275). |
 | Same identity with different intent/scope | Reject misuse without overwriting the original pending/final record. Transport credentials/connection replacement are not changed action intent (D-275). |
-| D-232 Undo/Redo tree edit is eligible at the authoritative revision | Apply removal/reinsertion once without creating a branch, subject to D-224 replay/N and D-227–D-231 target/stack rules. Exact atomic revision guard and reference reconciliation remain open. |
+| D-232 Undo/Redo tree edit is eligible at the authoritative revision | Apply removal/reinsertion once without creating a branch, using D-310's concerned-field iff rule and D-227–D-231 target/stack rules. Exact atomic revision guard and reference reconciliation remain open. |
 | Undo/Redo tree changes while validation/request is in progress | Serialize target selection, complete suffix validation and commit under one game transaction; each press uses then-current server target. No unchecked suffix, captured-parent CAS or partially validated edit (storage mechanics). |
 | Previously successful Undo request retried | Return its recorded idempotent result; no second move or false stale failure. Reconcile against current control state, not by overwriting newer state with an old success snapshot. |
 | Stale non-Undo branch control command | Resolve the exact retained target at execution; missing target rejects without substitution, otherwise perform the explicit control meaning. Same-current selection/no metadata change is no-op. Apply D-258 only on an actual shared switch; no blanket stale-head rejection or silent nearest-parent activation. |
@@ -422,7 +424,7 @@ account/play-fenced; no offline event or inferred post-crash report is authorize
 Exposure-only records have the control/visibility participation defined in
 [history](../03-contracts/history-and-undo.md#exposure-participation-in-controls-and-visibility),
 even if encoded outside board mutation nodes. Include their effective ordering,
-latest-own revealing barrier, player-specific Redo clearing and reference checks;
+latest-own targeting, ordinary player-specific Redo clearing and concerned-reference checks;
 do not let storage layout silently exempt them. Own-area hold is unlogged (D-252).
 Effective record encoding/coalescing and per-boundary revision cursors remain
 technical choices constrained by those outcomes.
@@ -682,8 +684,8 @@ feature is later approved. Both have equal tabletop rights, including hidden
 zone inspection.
 
 D-286 supersedes D-89/D-91's requirement to report rejected/different predicted
-disclosures separately; D-224 still excludes revealing accepted selective-Undo
-targets. Follow the
+disclosures separately. Accepted revealing events use the same authoritative
+concerned-field Undo/Redo rule as other events; exposure is not a refusal reason. Follow the
 [exposure lifecycle](../03-contracts/history-and-undo.md#exposure-lifecycle-and-offline-inspection--d-246):
 submit ordinary explicit-inspection requests, keep accepted viewed versus recording
 contexts and request identity, and retry retained uncertain requests on same-process

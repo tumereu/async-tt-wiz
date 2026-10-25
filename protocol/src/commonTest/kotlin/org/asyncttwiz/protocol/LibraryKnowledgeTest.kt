@@ -281,7 +281,7 @@ class LibraryKnowledgeTest {
         play(tree, PlayAction.SetNote(id(1000), "continued"), b, target)
     }
 
-    @Test fun selectiveUndoRedoAcrossRetainedForkReseedsPreservesRecordedOrderAndTraversal() {
+    @Test fun legacySelectiveUndoRedoAcrossRetainedForkReseedsPreservesRecordedOrderAndTraversal() {
         var base = GameplayTree(root())
         base = place(base, library(base).cards[3], MoveInsertion.TOP)
         base = place(base, library(base).cards[8], MoveInsertion.BOTTOM)
@@ -290,7 +290,12 @@ class LibraryKnowledgeTest {
         val ownFork = play(displaced, PlayAction.AdjustLife(a, "1"), target = anchor)
         val own = ownFork.currentNodeId
         val otherFork = play(ownFork, PlayAction.SetNote(id(1000), "other branch"), b, anchor)
-        val continued = play(otherFork, PlayAction.SetNote(id(1001), "retained"), b, own)
+        val current = play(otherFork, PlayAction.SetNote(id(1001), "retained"), b, own)
+        // Explicit compatibility fixture: pre-concern retained events still rebase their reseeds.
+        val continued = current.copy(nodes = current.nodes.mapValues { (_, node) ->
+            val old = node.copy(transition = node.transition.copy(concerns = null))
+            old.copy(transition = old.transition.copy(delta = old.transition.delta!!.copy(seal = GameplayDeltas.seal(old))))
+        })
         val suffix = continued.currentNodeId
         val before = state(continued)
         val originalReseeds = continued.nodes.getValue(suffix).transition.delta!!.libraryReseeds
@@ -324,7 +329,7 @@ class LibraryKnowledgeTest {
         tree = play(tree, PlayAction.SetNote(id(1000), "continued"), b, own)
         val before = state(tree)
         val blocked = HistoryContinuation.change(tree, a, command(tree, GameAction.Undo))
-        assertEquals("referenceBlocked", blocked.reason)
+        assertEquals("replayBlocked", blocked.reason) // The retained reseed tuple is checked before the offshoot reference.
         assertEquals(own, blocked.targetId)
         assertNull(blocked.tree)
         assertEquals(before, state(tree))

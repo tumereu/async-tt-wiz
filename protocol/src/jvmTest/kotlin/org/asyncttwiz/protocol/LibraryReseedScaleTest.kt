@@ -45,7 +45,7 @@ class LibraryReseedScaleTest {
         assertTrue(tree.work.indexedNodes <= 20)
         tree.work.reset()
 
-        // Removing a fork must not make a retained opponent fork's reseed depend on the old input order.
+        // A retained fork's reseed input is semantic: removing an earlier reseed must refuse.
         edit(F.command(tree, GameAction.Play(PlayAction.SetNote(F.card, "inactive")), 800103)
             .copy(continuation = Continuation(target, true)), F.b)
         val inactive = tree.preparedState(tree.currentNodeId)!!
@@ -53,12 +53,13 @@ class LibraryReseedScaleTest {
             .copy(continuation = Continuation(forked.currentNodeId, true)), F.b)
         val continued = tree.preparedState(tree.currentNodeId)!!
         val continuedNodes = tree.nodes
-        edit(F.command(tree, GameAction.Undo, 800105))
-        assertFalse(forked.currentNodeId in tree.nodes)
+        val reseedBlocked = HistoryContinuation.change(tree, F.a, F.command(tree, GameAction.Undo, 800105))
+        assertEquals("replayBlocked", reseedBlocked.reason)
+        assertNull(reseedBlocked.tree)
+        assertTrue(forked.currentNodeId in tree.nodes)
         assertEquals(continued.board.containers, tree.preparedState(tree.currentNodeId)!!.board.containers)
         assertEquals(inactive, tree.prepareReview(inactive.currentNodeId))
         assertNotNull(tree.prepareReview(continued.currentNodeId))
-        edit(F.command(tree, GameAction.Redo, 800106))
         assertEquals(continued, tree.preparedState(tree.currentNodeId))
         assertEquals(continuedNodes, tree.nodes)
 
@@ -70,7 +71,7 @@ class LibraryReseedScaleTest {
         edit(F.command(tree, GameAction.Play(PlayAction.SetNote(F.card, "referenced continuation")), 800109)
             .copy(continuation = Continuation(forked.currentNodeId, true)), F.b)
         val blocked = HistoryContinuation.change(tree, F.a, F.command(tree, GameAction.Undo, 800110))
-        assertEquals("referenceBlocked", blocked.reason)
+        assertEquals("replayBlocked", blocked.reason) // Exact reseed input already refuses the edit.
         assertEquals(forked.currentNodeId, blocked.targetId)
         assertNull(blocked.tree)
         assertEquals(0, tree.work.rootMaterializations)

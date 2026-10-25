@@ -134,7 +134,6 @@ class GameplaySessionTest {
     @Test fun rejectedUndoAndRedoExplainTheBlockWithoutRefreshAndDoNotBlockNewPlay() {
         val f = Fixture(); val d = f.data; f.connect()
         for ((action, reason, explanation) in listOf(
-            Triple(GameAction.Undo, "revealingTarget", "revealed hidden information"),
             Triple(GameAction.Undo, "replayBlocked", "another recorded transition"),
             Triple(GameAction.Undo, "workLimit", "check safely"),
             Triple(GameAction.Redo, "missingAnchor", "original place"))) {

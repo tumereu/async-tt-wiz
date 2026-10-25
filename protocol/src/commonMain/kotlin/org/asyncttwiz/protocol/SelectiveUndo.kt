@@ -10,6 +10,7 @@ object SelectiveUndo {
         if (command.scope.gameId != tree.initial.gameId || command.scope.playId != tree.initial.id)
             return GameplayTreeChange(reason = "inapplicable")
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
+        val budget = Budget()
         return run {
             if (command.action == GameAction.Undo) {
                 val target = target(tree, actor) ?: return@run GameplayTreeChange(reason = candidateFailure(tree))
@@ -17,15 +18,16 @@ object SelectiveUndo {
                 if (target.invocationId != null) {
                     var previous = tree.nodes[target.parentId]
                     while (previous != null && previous.author == actor && previous.invocationId == target.invocationId && previous.branchId == target.branchId) {
+                        if (members.size >= 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
                         members += previous; previous = tree.nodes[previous.parentId]
                     }
                 }
                 var candidate = tree
                 val keys = mutableSetOf<GameplayTreeKey>()
-                // Each constituent keeps the same replay/disclosure/fork checks. Failure publishes
+                // Each constituent keeps the same tuple/fork checks and shares the work budget. Failure publishes
                 // none of the candidate edits, rather than undoing only the tail of a user action.
                 repeat(members.size) {
-                    val change = undo(candidate, actor)
+                    val change = undo(candidate, actor, budget)
                     if (change.reason != null) return@run change
                     candidate = change.tree ?: return@run change
                     keys += candidate.editKeys
@@ -36,11 +38,12 @@ object SelectiveUndo {
                 val target = queue.lastOrNull()?.mutation
                     ?: return@run GameplayTreeChange(reason = "noCandidate")
                 val members = if (target.invocationId == null) 1 else queue.asReversed()
-                    .takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
+                    .take(52).takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
+                if (members > 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
                 var candidate = tree
                 val keys = mutableSetOf<GameplayTreeKey>()
                 repeat(members) {
-                    val change = redo(candidate, actor)
+                    val change = redo(candidate, actor, budget)
                     if (change.reason != null) return@run change
                     candidate = change.tree ?: return@run change
                     keys += candidate.editKeys
@@ -79,15 +82,17 @@ object SelectiveUndo {
         return result
     }
 
-    private fun undo(tree: GameplayTree, actor: String): GameplayTreeChange {
+    private class Budget(var remaining: Int = 51) {
+        fun spend(events: Int): Boolean { remaining -= events; return remaining >= 0 }
+    }
+
+    private fun undo(tree: GameplayTree, actor: String, budget: Budget): GameplayTreeChange {
         val target = target(tree, actor) ?: return GameplayTreeChange(reason = candidateFailure(tree))
-        if (target.revealsInformation && !ownLibraryDisclosure(tree, target, actor) && !ownHandDisclosure(tree, target, actor))
-            return GameplayTreeChange(reason = "revealingTarget", targetId = target.id)
         val children = tree.index().children
         if (children[target.id].orEmpty().size > 1) return GameplayTreeChange(reason = "forkBoundary", targetId = target.id)
         val later = suffix(tree, children[target.id]?.singleOrNull()?.let(tree.nodes::get), children)
             ?: return GameplayTreeChange(reason = "suffixUnavailable", targetId = target.id)
-        if (later.size > 50) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+        if (later.size > 50 || !budget.spend(later.size + 1)) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
         var state = beforeSuffix(tree, later, target.id) ?: return GameplayTreeChange(reason = "historyUnavailable")
         if (!tree.referencesMatch(target))
             return GameplayTreeChange(reason = "targetTransitionBlocked", targetId = target.id)
@@ -133,32 +138,7 @@ object SelectiveUndo {
         return state
     }
 
-    /** Playing/projecting an already-known own Hand card must be reversible. Keep its disclosure on the
-     * recorded mutation (including in Redo). Reproducible Library disclosures have a separate exception;
-     * flips or moves that reveal an opponent's Hand to the actor remain protected. */
-    private fun ownHandDisclosure(tree: GameplayTree, target: GameplayMutation, actor: String): Boolean {
-        val effect = ((target.action as? PlayAction.Stack)?.action as? StackAction.AddEffect)
-        if (effect != null) return target.transition.disclosures.isNotEmpty() && target.transition.disclosures.all { disclosure ->
-            actor !in disclosure.viewers && tree.initial.board.containers.any {
-                it.id == disclosure.containerId && it.zone == PlayZone.HAND && it.accountId == actor }
-        }
-        if (target.action !is PlayAction.MoveCard || target.transition.disclosures.any { actor in it.viewers }) return false
-        val move = target.transition.movement ?: return false
-        val containers = tree.initial.board.containers
-        return containers.any { it.id == move.from.containerId && it.zone == PlayZone.HAND && it.accountId == actor } &&
-            containers.any { it.id == move.to.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD) }
-    }
-
-    private fun ownLibraryDisclosure(tree: GameplayTree, target: GameplayMutation, actor: String): Boolean = when (val action = target.action) {
-        is PlayAction.ShowContents, is PlayAction.RevealContentsCard, is PlayAction.DismissContents -> true
-        is PlayAction.MoveCard -> tree.initial.board.containers.any {
-            it.id == action.source.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
-        is PlayAction.InspectFace -> tree.initial.board.containers.any {
-            it.id == action.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
-        else -> false
-    }
-
-    private fun redo(tree: GameplayTree, actor: String): GameplayTreeChange {
+    private fun redo(tree: GameplayTree, actor: String, budget: Budget): GameplayTreeChange {
         val queue = tree.redoByAccount[actor].orEmpty()
         val entry = queue.lastOrNull() ?: return GameplayTreeChange(reason = "noCandidate")
         val target = entry.mutation
@@ -190,7 +170,7 @@ object SelectiveUndo {
             return GameplayTreeChange(reason = "missingAnchor", targetId = target.id)
         val later = suffix(tree, successor, children)
             ?: return GameplayTreeChange(reason = "suffixUnavailable", targetId = target.id)
-        if (later.size > 50) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+        if (later.size > 50 || !budget.spend(later.size + 1)) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
         var state = beforeSuffix(tree, later, target.parentId) ?: return GameplayTreeChange(reason = "historyUnavailable")
         if (!tree.referencesMatch(target)) return GameplayTreeChange(reason = "referenceBlocked", targetId = target.id)
         // Exact target transition FIRST, even if there is no suffix. No fresh arithmetic/defaults/targets.

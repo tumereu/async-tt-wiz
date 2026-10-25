@@ -118,7 +118,11 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     private fun edgeKeys(node: GameplayMutation) = buildSet {
         add(Triple("children", node.parentId, node.id))
         node.references.forEach { add(Triple("readers", it.nodeId, node.id)) }
-        node.transition.annotation?.reference?.reference?.nodeId?.let { add(Triple("annotations", it, node.id)) }
+        node.transition.annotation?.let { annotation ->
+            val key = if (node.transition.concerns == null || node.action is PlayAction.EventComment) annotation.reference.reference.nodeId
+                else annotation.target?.takeIf { it.kind != PingTargetKind.LOCATION }?.let { "target/${it.kind}/${it.id}" }
+            key?.let { add(Triple("annotations", it, node.id)) }
+        }
     }
 
     private fun flushEdges() {

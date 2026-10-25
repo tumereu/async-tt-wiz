@@ -13,7 +13,16 @@ internal fun <T> Set<T>.removeShared(value: T): Set<T> = if (this is IndexedSet<
 
 /** Disposable topology metadata. Built once at cold import, then edited only along changed edges.
  * No boards or caller-provided identities are stored here. */
-@kotlinx.serialization.Serializable data class RetainedPosition(val depth: Int, val identity: String)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@kotlinx.serialization.Serializable data class RetainedPosition(val depth: Int, val identity: String,
+    /** Persistent ID-only witness, shared across events that do not create/remove targets.
+     * Null only on pre-concern persisted endpoints, never a reason for root replay. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val targets: Set<PingTarget>? = null)
+
+internal fun GameplayMutation.annotationIndexKey(): String? = transition.annotation?.let { annotation ->
+    if (transition.concerns == null || action is PlayAction.EventComment) annotation.reference.reference.nodeId
+    else annotation.target?.takeIf { it.kind != PingTargetKind.LOCATION }?.let { "target/${it.kind}/${it.id}" }
+}
 class RetainedIndex(
     var children: Map<String, Set<String>> = emptyMap(),
     var readers: Map<String, Set<String>> = emptyMap(),
@@ -31,7 +40,7 @@ class RetainedIndex(
         }
         children = update(children, node.parentId)
         for (reference in node.references) readers = update(readers, reference.nodeId)
-        node.transition.annotation?.reference?.reference?.nodeId?.let { annotationReaders = update(annotationReaders, it) }
+        node.annotationIndexKey()?.let { annotationReaders = update(annotationReaders, it) }
     }
 
     fun descendants(ids: Collection<String>): Set<String> {
@@ -56,7 +65,7 @@ class RetainedIndex(
             val node = next[id] ?: continue
             val parent = result.positions[node.parentId] ?: continue
             result.positions = result.positions.putShared(id, RetainedPosition(parent.depth + 1,
-                CommandIds.uuidV5(parent.identity, "retained/$id")))
+                CommandIds.uuidV5(parent.identity, "retained/$id"), targets(parent.targets, node)))
             nextPaths[node.parentId]?.let { nextPaths = nextPaths.put(id, it.add(id)) }
             result.children[id].orEmpty().filterTo(pending) { it in affected }
         }
@@ -65,9 +74,31 @@ class RetainedIndex(
     }
 
     companion object {
+        private fun targets(parent: Set<PingTarget>?, node: GameplayMutation): Set<PingTarget>? {
+            var result = parent ?: return null
+            fun change(kind: PingTargetKind, id: String, present: Boolean) {
+                val target = PingTarget(kind, id)
+                result = if (present) result.addShared(target) else result.removeShared(target)
+            }
+            for (token in node.transition.tokens) {
+                val id = token.to?.card?.id ?: token.from!!.card.id
+                change(PingTargetKind.CARD, id, token.to != null)
+            }
+            node.transition.combatStack?.let { effects ->
+                effects.area?.let { area ->
+                    area.from?.let { change(PingTargetKind.AREA, it, false) }
+                    area.to?.let { change(PingTargetKind.AREA, it, true) }
+                }
+                effects.occurrences.forEach { change(PingTargetKind.OCCURRENCE, it.id, it.to != null) }
+                effects.effects.forEach { change(PingTargetKind.OCCURRENCE, it.id, it.to != null) }
+            }
+            return result
+        }
+
         fun build(tree: GameplayTree): RetainedIndex {
             var paths = mapOf(tree.initial.root.id to persistentListOf(tree.initial.root.id)).toPersistentMap()
-            val result = RetainedIndex(positions = mapOf(tree.initial.root.id to RetainedPosition(0, tree.initial.root.id)),
+            val result = RetainedIndex(positions = mapOf(tree.initial.root.id to RetainedPosition(0, tree.initial.root.id,
+                RetainedAnnotationContext.from(tree.initial, tree.initial.root.id).targets.toPersistentSet())),
                 incremental = tree.nodes.values.all { it.schemaVersion == 2 && it.transition.delta != null && it.bookkeeping != null })
             for (node in tree.nodes.values) result.edge(node, true)
             val pending = ArrayDeque(result.children[tree.initial.root.id].orEmpty().toList())
@@ -77,7 +108,7 @@ class RetainedIndex(
                 val node = tree.nodes[id] ?: continue
                 val parent = result.positions[node.parentId] ?: continue
                 result.positions = result.positions.putShared(id, RetainedPosition(parent.depth + 1,
-                    CommandIds.uuidV5(parent.identity, "retained/$id")))
+                    CommandIds.uuidV5(parent.identity, "retained/$id"), targets(parent.targets, node)))
                 paths = paths.put(id, paths.getValue(node.parentId).add(id))
                 result.children[id].orEmpty().forEach(pending::add)
             }

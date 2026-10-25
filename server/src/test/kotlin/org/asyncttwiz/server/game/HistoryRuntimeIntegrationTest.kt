@@ -162,7 +162,7 @@ class HistoryRuntimeIntegrationTest {
                 val library = f.root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a.account.accountId }
                 val card = library.cards.first()
                 f.owner.execute(f.owner.command(PlayAction.SetLife(f.a.account.accountId, "21")))
-                // Use a nonrevealing reorder: drawing now correctly blocks selective Undo.
+                // The retained tap concerns eligibility, not the source's Library position.
                 val move = f.owner.execute(f.owner.command(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
                     MoveDestination(library.id, MoveInsertion.BOTTOM))))
                 f.recipient.execute(f.recipient.command(PlayAction.SetTapped(card, true)))
@@ -193,7 +193,7 @@ class HistoryRuntimeIntegrationTest {
                 assertEquals("accepted", continued.outcome, "retained continuation: ${continued.reason}")
                 val crossBranch = tree(db, f)
                 val blocked = f.owner.execute(control(f.owner, GameAction.Undo))
-                assertEquals("referenceBlocked", blocked.reason); assertEquals(branchTarget, blocked.targetNodeId)
+                assertEquals("replayBlocked", blocked.reason); assertEquals(branchTarget, blocked.targetNodeId) // Exact reseed input refuses first.
                 assertEquals(crossBranch, tree(db, f)); assertEquals(crossBranch, download(f.games, f).second)
                 db.connection().use { connection ->
                     connection.createStatement().executeQuery("SELECT count(*) FROM game_revision WHERE payload::jsonb #>> '{scope,playId}' IS NOT NULL AND payload::jsonb -> 'play' <> 'null'::jsonb").use {
@@ -270,17 +270,10 @@ class HistoryRuntimeIntegrationTest {
                     assertEquals(after, retained.stateAt(retained.currentNodeId)!!.copy(annotations = EventAnnotationState()))
                     if (undo) {
                         val removed = f.owner.execute(control(f.owner, GameAction.Undo))
-                        val libraryDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard ||
-                            action is PlayAction.DismissContents || action is PlayAction.MoveCard && before.board.containers.any {
-                                it.id == action.source.containerId && it.zone == PlayZone.LIBRARY && it.accountId == actor }
-                        if (result.mutation!!.revealsInformation && !libraryDisclosure) {
-                            assertEquals("revealingTarget", removed.reason); assertEquals(after, state())
-                        } else {
-                            assertEquals("accepted", removed.outcome, "$action Undo: ${removed.reason}")
-                            assertEquals(before.board, state().board)
-                            assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Redo)).outcome)
-                            assertEquals(after, state())
-                        }
+                        assertEquals("accepted", removed.outcome, "$action Undo: ${removed.reason}")
+                        assertEquals(before.board, state().board)
+                        assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Redo)).outcome)
+                        assertEquals(after, state())
                     }
                     return result
                 }

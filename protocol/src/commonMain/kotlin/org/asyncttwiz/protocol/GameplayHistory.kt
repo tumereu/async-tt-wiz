@@ -30,7 +30,9 @@ import kotlinx.serialization.Serializable
     val delta: GameplayDelta? = null,
     /** Version 2 expires contents visibility and dismisses emptied displays in the removing event.
      * Omit the legacy default so existing event seals and retained deltas remain unchanged. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val contentsRulesVersion: Int = 1)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val contentsRulesVersion: Int = 1,
+    /** Absent on retained v2 events: their validation and seals must not change. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val concerns: ConcernSet? = null)
 @Serializable enum class RandomTool { DIE, COIN }
 @Serializable data class GameplayRandomResult(val tool: RandomTool, val value: String, val sides: String? = null)
 @Serializable data class GameplayMutation(val id: String, val parentId: String, val branchId: String,
@@ -68,8 +70,10 @@ object GameplayHistory {
             mutation.transition.delta?.seal != GameplayDeltas.seal(mutation)) return null
         val context = mutation.bookkeeping ?: return null
         if (state.currentGroup != context.fromGroup || state.currentBranchId != context.fromBranchId ||
+            !GameplayConcerns.matches(state, mutation, false) ||
             !readsMatch(state, mutation)) return null
-        val next = GameplayDeltas.apply(state, mutation.transition.delta, false) ?: return null
+        val next = GameplayDeltas.apply(state, mutation.transition.delta, false, mutation) ?: return null
+        if (!GameplayConcerns.matches(next, mutation, true)) return null
         return next.copy(currentNodeId = mutation.id, currentBranchId = mutation.branchId, currentGroup = context.toGroup)
     }
 
@@ -79,19 +83,26 @@ object GameplayHistory {
             mutation.transition.delta?.seal != GameplayDeltas.seal(mutation)) return null
         val context = mutation.bookkeeping ?: return null
         if (state.currentGroup != context.toGroup || state.currentBranchId != mutation.branchId) return null
-        val previous = GameplayDeltas.apply(state, mutation.transition.delta, true) ?: return null
+        if (!GameplayConcerns.matches(state, mutation, true)) return null
+        val previous = GameplayDeltas.apply(state, mutation.transition.delta, true, mutation) ?: return null
+        if (!GameplayConcerns.matches(previous, mutation, false)) return null
         if (!readsMatch(previous, mutation)) return null
         return previous.copy(currentNodeId = mutation.parentId, currentBranchId = context.fromBranchId, currentGroup = context.fromGroup)
     }
 
     internal fun recontextualize(state: PlayState, mutation: GameplayMutation): GameplayMutation = mutation.copy(
         bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId,
-            append(state.currentGroup, mutation, state.board.containers)))
+            append(state.currentGroup, mutation, state.board.containers),
+            if (mutation.transition.concerns != null && mutation.action is PlayAction.MoveCard)
+                mutation.transition.tokens.mapNotNull { token -> token.from?.card?.id?.takeIf { token.to == null }?.let { id ->
+                    state.board.cards.singleOrNull { it.id == id }?.owner?.let { id to it }
+                } }.toMap() else emptyMap()))
 
     /** Only selective suffix replay may rebase a fork's inverse reseed input. All action effects and
      * the accepted output order stay exact; normal traversal continues to validate the sealed tuple. */
     internal fun recontextualizeRetained(state: PlayState, mutation: GameplayMutation): GameplayMutation? {
         val delta = mutation.transition.delta ?: return null
+        if (mutation.transition.concerns != null) return recontextualize(state, mutation)
         if (delta.libraryReseeds.isEmpty()) return recontextualize(state, mutation)
         if (delta.seal != GameplayDeltas.seal(mutation)) return null
         val reseeds = LibraryKnowledge.rebaseReseeds(state, delta.libraryReseeds) ?: return null
@@ -104,7 +115,7 @@ object GameplayHistory {
     private fun readsMatch(state: PlayState, mutation: GameplayMutation): Boolean {
         val board = (LibraryKnowledge.applyReseeds(state, mutation.transition.delta?.libraryReseeds.orEmpty(), false)
             ?: return false).board
-        if (mutation.grouping != null && mutation.grouping != runCatching {
+        if (mutation.transition.concerns == null && mutation.grouping != null && mutation.grouping != runCatching {
             HistoryGrouping.classify(mutation.action, board, mutation.author, mutation.transition)
         }.getOrNull()) return false
         for (field in mutation.transition.fields) {
@@ -180,12 +191,14 @@ object GameplayHistory {
         }
         mutation.transition.movement?.let { move ->
             if (board.cards.none { it.id == move.cardId }) return false
-            if (GameplayRules.location(board, move.cardId, orderedHand = true) != move.from) return false
+            val location = GameplayRules.location(board, move.cardId, orderedHand = true)
+            if (if (GameplayConcerns.knownTopDraw(mutation)) location.copy(beforeId = move.from.beforeId) != move.from
+                else location != move.from) return false
             if (move.stackFrom != null && GameplayRules.stackDigest(state) != move.stackFrom) return false
         }
         mutation.transition.combatStack?.stackGuard?.let { if (GameplayRules.stackDigest(state) != it.from) return false }
         mutation.transition.annotation?.let { annotation ->
-            if (append(state.currentGroup, mutation, board.containers).id != annotation.groupId ||
+            if ((mutation.transition.concerns == null && append(state.currentGroup, mutation, board.containers).id != annotation.groupId) ||
                 mutation.branchId != annotation.branchId || state.id != annotation.playId) return false
         }
         for (link in mutation.transition.combatStack?.addedLinks.orEmpty()) {
@@ -231,7 +244,14 @@ object GameplayHistory {
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
         if (mutation.bookkeeping == null || mutation.transition.delta == null) return GameplayChange(reason = "replayBlocked")
         if (mutation.schemaVersion == 2) {
-            mutation.transition.annotation?.let { annotation ->
+            mutation.transition.annotation?.target?.takeIf { mutation.transition.concerns != null }?.let { target ->
+                if (!references.targetPresent(state, mutation.author, mutation.transition.annotation.reference.reference, target))
+                    return GameplayChange(reason = "replayBlocked")
+            }
+            if (mutation.transition.concerns != null && mutation.action is PlayAction.EventComment &&
+                references.context(state, mutation.author, mutation.action.reference) != mutation.transition.annotation?.reference)
+                return GameplayChange(reason = "replayBlocked")
+            mutation.transition.annotation?.takeIf { mutation.transition.concerns == null }?.let { annotation ->
                 val retained = references.resolve(state, mutation.author, annotation.reference.reference)
                 if (retained?.context != annotation.reference ||
                     (annotation.target != null && annotation.target.kind != PingTargetKind.LOCATION && annotation.target !in retained.targets))
@@ -246,8 +266,10 @@ object GameplayHistory {
 
     /** Exact recorded inverse for traversal; selective Undo selection/topology/suffix validation remains I23. */
     fun reverse(state: PlayState, mutation: GameplayMutation): BoardState? {
-        if (mutation.schemaVersion == 2) return GameplayDeltas.apply(state, mutation.transition.delta ?: return null, true)
-            ?.takeIf { readsMatch(it, mutation) && mutation.transition.delta.seal == GameplayDeltas.seal(mutation) }?.board
+        if (mutation.schemaVersion == 2 && GameplayConcerns.matches(state, mutation, true))
+            return GameplayDeltas.apply(state, mutation.transition.delta ?: return null, true, mutation)
+                ?.takeIf { readsMatch(it, mutation) && GameplayConcerns.matches(it, mutation, false) &&
+                    mutation.transition.delta.seal == GameplayDeltas.seal(mutation) }?.board
         return null
     }
     /** Exact lifecycle/link-only inverse. Compound combat/Stack effects require I23's shared traversal;
@@ -259,7 +281,7 @@ object GameplayHistory {
      * This hook deliberately refuses a compound inverse rather than returning a partially restored board. */
     fun inverseProjectionLinks(board: BoardState, transition: GameplayTransition): BoardState? {
         val effects = transition.combatStack ?: return null
-        if (transition.copy(combatStack = null, delta = null) != GameplayTransition() ||
+        if (transition.copy(combatStack = null, delta = null, concerns = null) != GameplayTransition() ||
             effects.copy(removedLinks = emptyList(), addedLinks = emptyList()) != CombatStackTransition()) return null
         if (effects.removedLinks.isEmpty() && effects.addedLinks.isEmpty()) return null
         var next = board

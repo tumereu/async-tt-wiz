@@ -104,7 +104,7 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
         }) {
         SpeechBubbleTail(geometry.anchor.copy(x = geometry.anchor.x - b.x, y = geometry.anchor.y - b.y),
             b.copy(x = 0f, y = 0f), ownerColor)
-        Surface(Modifier.fillMaxSize().semantics {
+        Surface(Modifier.fillMaxSize().ringInputTarget(draggable = marker).semantics {
             contentDescription = item.label
             if (!enabled) disabled()
             if (marker) {

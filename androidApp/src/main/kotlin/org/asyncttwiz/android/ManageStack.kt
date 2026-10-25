@@ -71,7 +71,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
     InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", height = 520.dp, key = "manage-stack", sheet = true) {
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
                 val card = CombatStackRules.inspection(state.board, id)
@@ -101,7 +101,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz)
                         StackMenuActions.controls(state, id, enabled, perform).forEachIndexed { action, control ->
                             FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp)) {
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()) {
                                 Icon(icons[action], control.name, Modifier.size(22.dp))
                             }
                         }
@@ -109,7 +109,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                     stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
-                            enabled = enabled, leadingIcon = { StackMarkChip(option) },
+                            enabled = enabled, modifier = Modifier.ringInputTarget(), leadingIcon = { StackMarkChip(option) },
                             label = { CardText(text.text, maxLines = 3) })
                     }
                     HorizontalDivider()

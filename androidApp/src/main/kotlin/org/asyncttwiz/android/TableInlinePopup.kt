@@ -39,6 +39,7 @@ import org.asyncttwiz.protocol.TableActions
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
 private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
+/** Register controls (or a list's scroll viewport), never a button grid's container or gaps. */
 internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
     val register = LocalRingInputTargets.current
     val key = remember { Any() }

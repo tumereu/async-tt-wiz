@@ -69,7 +69,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                             val entry = play.board.cards.single { it.id == id }
                             val title = if (entry.covered) "Covered card" else play.definitions.singleOrNull { it.digest == entry.definition }
                                 ?.definition?.faces?.singleOrNull { it.faceId == entry.faceId }?.name ?: "Card unavailable"
-                            TextButton(onClick = { open(id) }) { Text(title) }
+                            TextButton(onClick = { open(id) }, modifier = Modifier.ringInputTarget()) { Text(title) }
                         }
                     }
                 }

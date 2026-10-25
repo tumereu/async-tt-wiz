@@ -508,7 +508,8 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   mutations and pauses playback first if necessary. “Continue playing from here”
   arms personal intent; only a subsequent successful mutation creates/activates
   the new continuation. An eligible first action after a fork can be undone;
-  the fork itself cannot, and Undo does not automatically return to the old line.
+  all later events on retained continuations use the concerned-field test, and
+  Undo does not automatically return to the old line.
   The [gameplay brief](gameplay-screen-proposal.md) and
   [review packet](ui/README.md) show the still-reviewable placement proposals.
 - Core grouping rules: a tap begins a new group unless the current group contains
@@ -565,21 +566,21 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   continuation still requires an explicit flag/boundary and makes its new branch
    current. D-232 Undo/Redo edit the existing tree rather than supply interruption
    intent or create branches.
-- **Latest Undo/Redo revision (D-224):** selective deletion/reinsertion is allowed
-  only when **every later mutation's relevant-state `(from, to)` tuple stays
-  identical** in both timelines. This is stricter than live action applicability:
+- **Authoritative Undo/Redo revision (owner, 2026-10-25):** selective deletion/reinsertion
+  is allowed if and only if **every later game-tree event can apply with identical
+  concerned-field `(before, after)` tuples** in both trees, using game state and
+  events only, never information gained or seen. This is stricter than live action applicability:
   successive increments of the same counter prevent removing the earlier one,
-  but a move followed by a tap of the same card can be independent. Set a hard
-  limit N on the suffix work; the value/counting unit and per-mutation relevant
-  states still need definition. Selective Undo excludes information-revealing
-   targets. No compensating edit is appended. Redo also requires the target's exact
+  but a move followed by a tap of the same card can be independent. Concerned
+  fields include edits and read/dependency fields, not unrelated state. Work
+  budgets cannot replace this eligibility rule. No compensating edit is appended.
+   Redo also requires the target's exact
    recorded relevant input/result at its insertion boundary, not fresh arithmetic
    or defaults. Encoding and resource budgets remain technical work.
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
   alternative. Later actions replay in the edited tree, under D-224. Removed
-  mutations are held for Redo, not placed in an explorer branch. D-233 below
-  prevents Undo at or before a fork. A dependent comment/ping blocks removal of
+  mutations are held for Redo, not placed in an explorer branch. A dependent comment/ping blocks removal of
   its referenced mutation under the replay rule; deleting or retargeting it is
   not an alternative. If the history node you are viewing is deleted, fall back
   to its parent, staying in personal review (D-238). Repeat if that parent is
@@ -589,7 +590,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
 - **Redo after ordinary new play (D-227/D-228):** after Undo, your own new gameplay
   edit clears your Redo queue, even if the removed mutations could still be
   safely reinserted. Ordinary opponent actions retain your queue, but can make reinsertion
-  fail the replay checks or exceed N. No original explorer path is required by
+  fail the concerned-field replay checks. No original explorer path is required by
   queue clearing (D-232). Rejected/no-op requests do not create a successful new
   gameplay mutation and therefore do not clear it; exact clearing bookkeeping
   remains technical work.
@@ -619,7 +620,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   UX is not a priority; exact sync/protocol and other control races remain open.
 - **Redo order (D-229):** restore the most recently undone mutation first, as in
   a normal Undo/Redo stack. Every reinsertion must still pass the replay checks
-  within N. If that next entry is blocked, disable Redo and retain the stack;
+  for every later event. If that next entry is blocked, disable Redo and retain the stack;
   never skip to an older entry (D-230). Insertion anchors remain open.
 - **Undo target order (D-230/D-231):** only your most recent still-applied action can be
   undone. If it is blocked, disable Undo rather than skip to an older eligible
@@ -627,16 +628,12 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   their presence alone does not block Undo. Never Undo an opponent's action,
   including when you have no own action to undo. Personal review and explicit
   historical activation remain distinct controls.
-- **Fork boundary (D-233):** Undo cannot remove a branching point or reach back
-  past one, even if replay would be safe. Disable Undo when the latest own target
-   is a fork or has any later retained fork; do not skip it
-  or reattach alternatives. Actions after the latest fork remain eligible under
-   the usual checks. Hiding a branch in the explorer does not bypass this rule.
-  D-245 clarifies that personal viewing never changes eligibility. Check the
-  complete retained successor chain even beyond an explicitly activated internal
-  shared node; dependent future events still block Undo and all count toward N.
-- **Redo fork boundary (D-234/D-258):** never reinsert before a newly created
-  fork. Creating/activating an explicit interruption now clears both queues, so
+- **Retained future:** the owner rule supersedes D-233/D-234's blanket fork
+  refusals. Check every later event on all retained continuations, including
+  beyond an explicitly activated internal shared node. Personal viewing and
+  explorer filtering never change eligibility; do not delete or retarget events
+  to force a match.
+- **Redo after interruption (D-258):** creating/activating an explicit interruption clears both queues, so
   the earlier stranded-but-retained Redo example is superseded. Do not retain its
   queue through that switch, retarget to the head or create a recovery branch.
 - **Container order (D-225/D-226):** Library is ordered; Graveyard/Exile are
@@ -657,7 +654,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   event-comment paths remain visible in full; this filter deletes nothing. It does
   not require preserving a path removed by D-232 Undo. Explicit logged inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
-  Already-visible inspection does not. Undo cannot erase a person's knowledge.
+  Already-visible inspection does not. This classification does not restrict Undo/Redo.
 - No offline operation may create a game event (D-246), including covered-face/
   other-face inspection requiring new exposure logging. Own-area hold is unlogged
   and may read downloaded real faces; opponent holds conceal hidden information.
@@ -673,9 +670,10 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   the selected historical context separately. Do not insert them into old history,
   activate it, merge non-contiguous groups or render future overlays at old boundaries.
   Later-added references are separately identified with their recording event.
-- A successful logged inspection is an own revealing action even without a card
-  edit: it blocks skipping back through Undo and clears that player's Redo. Own-area
-  hold does neither. Exposure-only records use recording-context branch membership,
+- A successful logged inspection is an own action even without a card edit:
+  it participates in latest-own targeting and ordinary own-new-action Redo clearing.
+  Undo/Redo uses the same concerned-field rule, not an information barrier. Own-area
+  hold changes neither targeting nor stacks. Exposure-only records use recording-context branch membership,
   retain their viewed-context route and do not create an automatic gameplay branch.
 
 ### 10. Ending play

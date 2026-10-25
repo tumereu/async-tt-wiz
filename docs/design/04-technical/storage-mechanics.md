@@ -112,11 +112,14 @@ epoch locks do not serialize independent games with each other.
 ## Undo/Redo and reference repair
 
 Select latest-own Undo or next Redo **inside the game transaction**, not from the
-client's old candidate. N is initially **1000 effective successor actions**, counting
-board mutations and exposure-only records, including the entire retained future
-beyond an internal active node. Check for a fork at/after target before replay; any
-such fork blocks removal under D-245. A revealing latest-own action cannot be
-skipped. N is an eligibility/work bound, not a history size cap or group count.
+client's old candidate. The authoritative owner rule (2026-10-25) allows Undo/Redo
+iff every later game-tree event can apply with identical concerned-field
+`(before, after)` tuples, never based on information gained or seen. Include board
+mutations and exposure-only records on every retained continuation, even beyond
+an internal active node. Forks are not independent refusal reasons. The earlier
+**N = 1000 effective successor actions** refusal cap is superseded; validation
+scheduling/budgets must preserve the owner rule, not introduce an eligibility,
+history-size or group-count cap. Never skip a blocked latest-own candidate.
 
 Construct candidate topology in a transaction-local overlay. Removal reparents the
 next surviving successor to the target's surviving parent; reinsertion restores
@@ -129,10 +132,12 @@ context, source/order/default, cleanup or effect blocks the edit. Exclude unrela
 location from tap/text comparisons and unrelated unordered-bin members from moves.
 
 Initial additional validation budgets: 250 ms CPU, 100,000 referenced/effect records,
-64 MiB decoded temporary payload. A budget failure leaves the entire operation,
-stacks and pointer unchanged; never truncate a check. Measure CPU as charged work,
-not a client clock guard. Keep deterministic eligibility causes separate from
-machine-dependent safety exhaustion. Tests sweep limits and cold caches; these
+64 MiB decoded temporary payload are engineering starting points, not eligibility
+conditions. Work exhaustion leaves the operation,
+stacks and pointer unchanged until complete validation; never truncate a check or
+classify exhaustion as an undo dependency failure. Measure CPU as charged work,
+not a client clock guard. Scheduling/continuation of validation must preserve the
+owner's eligibility rule. Tests sweep limits and cold caches; these
 are starting engineering budgets, not a guarantee on every Pi/device.
 
 On success update topology/node versions/current state/stack and a single shared

@@ -1266,12 +1266,13 @@ no empty branch to delete. Failure/no-change likewise does not create one.
 **Undo clarification:** old `A → B → C`, new `A → X → Y`: eligible latest-own Undo
 may remove Y and then X, including the first action immediately after the fork.
 It leaves the current boundary at A without automatically returning to B→C.
-The fork point A cannot be undone/crossed while it actually has multiple retained
-child continuations. Recompute eligibility after each accepted Undo: removing the
-last action of a new line does not leave a permanent “was once a fork” lock, but
-the remaining linear future still participates in ordinary replay checks.
-Author, revealing-action, dependency, replay-work and later-fork checks still
-apply. This addresses accidental branch creation using the **existing rule**;
+The authoritative owner rule (2026-10-25) allows Undo/Redo iff every later event
+on all retained continuations can apply with identical concerned-field
+`(before, after)` tuples, including read/dependency fields as well as edits.
+Only game state/events decide eligibility, never information gained or seen;
+forks and work limits cannot independently refuse an otherwise matching edit.
+Recompute after each accepted Undo, keeping latest-own targeting separate from
+personal review. This addresses accidental branch creation under the **current rule**;
 it is not unconditional cancellation of any action or recall of a sent request.
 
 Undo availability/target remains based on shared current history, not the

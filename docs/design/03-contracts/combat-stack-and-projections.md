@@ -410,7 +410,9 @@ D-148–D-150: a node is one individual mutation, not a combined shortcut or bul
 operation. Every mutation immediately extends or branches the chosen path and
 publishes. Each Undo removes **one eligible latest-own mutation** (D-231/D-232);
 restoring an entire invocation may require multiple presses and is not guaranteed
-when exposure/dependency/fork/work limits block a target.
+when a later event's concerned-field tuple would change. The authoritative owner
+rule (2026-10-25) uses game state/events only, never information exposure; blanket
+fork/work-limit refusals are superseded.
 
 D-177 makes groups navigation/playback steps with concurrent animation, not
 atomic tree events. A paused player can scrub to any constituent mutation and

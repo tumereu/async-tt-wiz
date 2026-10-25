@@ -235,14 +235,17 @@ Exact event mappings and historical placement still need detailed review.
   silently pointing at a replacement object.
 - Display only applicable path/context records when reviewing a branch, with a
   route to messages/pings on retained alternatives.
-- **D-224 revision:** selective mutation removal/reinsertion preserves every later
-  mutation's exact relevant-state `(from, to)` tuple under a hard suffix-work cap
-  N; information-revealing targets are not selectively undoable. D-231 restricts
+- **Authoritative owner revision, 2026-10-25:** selective mutation removal/reinsertion
+  preserves every later event's exact concerned-field `(before, after)` tuple
+  across the complete retained future. Eligibility is allowed iff every such event
+  can still apply with that identical tuple. The rule makes eligibility
+  depend only on game-state/event concerned tuples, never information gained or
+  seen; concerned fields include reads/dependencies as well as edits. D-231 restricts
   Undo to the latest own action. **D-232 edits the existing tree**, not creates
   replacement branches or preserves an untouched original path. References/grouping
   follow the stable-context rules; cache/ID encoding remains technical. D-238
-  settles cursor fallback and D-233
-  blocks edits across retained forks. Do not present this as appended
+  settles cursor fallback; D-310 supersedes D-233's blanket fork refusal.
+  Do not present this as appended
   compensation, require an explorer branch for removed mutations, or silently
   reattach/delete pings/comments to force eligibility.
 - A graphical explorer can explicitly activate retained branch/nodes. Only
@@ -281,7 +284,7 @@ notes/pings stay distinct. D-172 makes event comments join the preceding group
 without a new group-start marker; D-170's author-change boundary still wins.
 **D-241 confirms no dedicated event-comment Edit/Delete.** Correct a comment
 through ordinary eligible Undo or by adding another comment; do not bypass
-latest-own, replay/dependency, exposure, fork or N checks. Dedicated revision
+latest-own targeting or concerned-field replay/dependency checks. Dedicated revision
 controls are not required. Historical placement and unsent-chat delivery handling
 still need contract completion, not another correction-scope decision.
 

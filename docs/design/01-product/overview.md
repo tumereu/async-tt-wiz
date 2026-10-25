@@ -47,21 +47,18 @@ The app remembers and presents what happened; the players interpret the rules.
    guards are limited to moves and Stack additions: an addition sends the current
    Stack state and is rejected if it differs in the selected execution context
    (current play, or the explicit historical boundary). Rejection never
-   creates a branch. The latest selective Undo/Redo design allows removing or
-   reinserting a mutation only if every later mutation keeps its exact relevant
-   before/after states, within a bounded suffix-work limit (D-224). This is stricter
-   than live action acceptance; revealing mutations cannot be selectively undone.
+    creates a branch.
+    **Critical rule:** Undo/Redo is allowed iff every later game-tree event preserves its concerned fields' identical `(before, after)` tuple, decided by game state/events only, never information gained or seen; see the [authoritative rule](../03-contracts/history-and-undo.md#critical-authoritative-undoredo-rule--owner-2026-10-25).
    Undo targets only your latest still-applied action; Redo is last-undone-first.
    Your per-game Undo/Redo stack is shared game state across your devices, while
    remaining separate from the opponent's stack (D-235).
    Undo requests act on the server's current state; two requests count as two
    presses, including from different devices (D-236).
-   Neither skips a blocked target. Undo cannot remove a branching point or reach
-    back past one (D-233). A successful deliberate history switch—activation,
+    Neither skips a blocked target. A successful deliberate history switch—activation,
     interruption from the past or return—clears both Redo queues (D-258), rather
     than retaining entries across the switch. Ordinary own new play clears only
     your queue; ordinary opponent play, Undo/Redo and personal review retain their
-    distinct rules. Redo never crosses a newly created fork (D-234).
+     distinct rules.
    Personal viewing never changes eligibility: check all later retained events,
    even beyond an explicitly activated internal state. Redo must restore its own
    recorded relevant transition as well as preserving later ones.

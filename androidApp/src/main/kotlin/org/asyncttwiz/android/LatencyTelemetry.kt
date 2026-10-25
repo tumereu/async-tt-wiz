@@ -52,6 +52,7 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
 
     inner class Trace internal constructor(gameId: String, action: String, nodes: Int) {
         private val start = now()
+        private val workStart = DebugJank.beginWork("apply")
         private val id = UUID.randomUUID().toString()
         private var finished = false
         private var sample = ActionLatency(timestamp(), gameId, action, nodes, predicted = false, submitted = false)
@@ -65,6 +66,7 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
         fun finish() {
             if (finished) return
             finished = true
+            DebugJank.endWork("apply", workStart)
             if (sample.predicted) {
                 sample = sample.copy(localApplyMs = elapsed())
                 frames[id] = this
@@ -95,8 +97,11 @@ internal object DebugLatency {
     private val forced = AtomicBoolean()
     private val started = AtomicBoolean()
 
-    fun begin(gameId: String, action: String, nodes: Int) =
-        if (BuildConfig.DEBUG) recorder?.begin(gameId, action, nodes) else null
+    fun begin(gameId: String, action: String, nodes: Int): LatencyRecorder.Trace? {
+        if (!BuildConfig.DEBUG) return null
+        DebugJank.action(action)
+        return recorder?.begin(gameId, action, nodes)
+    }
     fun result(requestId: String) { if (BuildConfig.DEBUG) recorder?.result(requestId) }
     fun drawn() { if (BuildConfig.DEBUG) recorder?.drawn() }
     fun reconnect(value: ReconnectEpisode) {

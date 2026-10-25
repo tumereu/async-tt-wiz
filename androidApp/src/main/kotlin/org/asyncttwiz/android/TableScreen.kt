@@ -157,6 +157,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
     val selection = toolkit.selectionState.value
+    SideEffect { DebugJank.state("screen" to "table", "history_nodes" to (tree?.nodes?.size ?: 0).toString()) }
+    DisposableEffect(Unit) { onDispose { DebugJank.state("screen" to "games", "table_mode" to "play",
+        "history_nodes" to "0", "visible_cards" to "0", "popup" to "none", "dragging" to "false") } }
     val overlay = toolkit.hasBackOverlay || explorerOpen || history.continuationTarget != null || state.chatOpen
     LaunchedEffect(overlay, reviewing, history.armed, selection) {
         if (overlay || reviewing || history.armed != null || selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty()) back.reset()

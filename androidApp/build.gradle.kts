@@ -206,6 +206,7 @@ dependencies {
     implementation(libs.ktor.client.android)
     implementation(libs.okhttp)
     implementation(libs.work.runtime)
+    implementation(libs.metrics.performance)
     if (fcmEnabled) implementation(libs.firebase.messaging)
     implementation(libs.serialization.json)
     implementation(libs.coil.compose)

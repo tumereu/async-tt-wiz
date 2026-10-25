@@ -19,7 +19,7 @@ internal class CrashReportStore(private val directory: File) {
         directory.listFiles()?.filter { it.isFile && it.extension == "part" }?.forEach { it.delete() }
     }
     @Synchronized fun pending(): List<File> = directory.listFiles()?.filter { it.isFile && it.extension == "json" }
-        ?.filter { it.name != "latency-buffer.json" }
+        ?.filter { it.name !in setOf("latency-buffer.json", "jank-buffer.json") }
         .orEmpty().sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })
 
     @Synchronized fun write(report: CrashReport) {
@@ -35,6 +35,17 @@ internal class CrashReportStore(private val directory: File) {
 
     @Synchronized fun bufferLatency(report: CrashReport?) {
         val file = File(directory, "latency-buffer.json")
+        if (report == null) { file.delete(); return }
+        check(directory.isDirectory || directory.mkdirs())
+        atomicWrite(file, report)
+    }
+
+    @Synchronized fun bufferedJank(): CrashReport? = runCatching {
+        AccountJson.format.decodeFromString<CrashReport>(File(directory, "jank-buffer.json").readText())
+    }.getOrNull()
+
+    @Synchronized fun bufferJank(report: CrashReport?) {
+        val file = File(directory, "jank-buffer.json")
         if (report == null) { file.delete(); return }
         check(directory.isDirectory || directory.mkdirs())
         atomicWrite(file, report)
@@ -100,9 +111,11 @@ internal object DebugCrashes {
         Thread.setDefaultUncaughtExceptionHandler(CrashExceptionHandler(reports,
             Thread.getDefaultUncaughtExceptionHandler(), version, device))
         DebugLatency.install(application, reports, version, device)
+        DebugJank.install(application, reports, version, device)
     }
 
     fun authenticated(token: String?) {
+        if (BuildConfig.DEBUG) DebugJank.authenticated(token)
         if (BuildConfig.DEBUG) DebugLatency.authenticated(token)
         if (!BuildConfig.DEBUG || token == null || store == null || !started.compareAndSet(false, true)) return
         val reports = store!!

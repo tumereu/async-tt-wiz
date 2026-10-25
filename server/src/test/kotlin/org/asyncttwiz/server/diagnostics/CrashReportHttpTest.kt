@@ -16,6 +16,8 @@ import org.asyncttwiz.protocol.ActionLatency
 import org.asyncttwiz.protocol.LatencyBatch
 import org.asyncttwiz.protocol.ReconnectEpisode
 import org.asyncttwiz.protocol.ReconnectStep
+import org.asyncttwiz.protocol.JankBatch
+import org.asyncttwiz.protocol.JankEpisode
 import org.asyncttwiz.server.activity.ActivityFixture
 import org.asyncttwiz.server.activity.ActivityClock
 import org.junit.jupiter.api.Assertions.*
@@ -66,6 +68,18 @@ class CrashReportHttpTest {
                 assertEquals(400, post("{}", kind = "latency"))
                 assertEquals(400, post(body, kind = "other"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
+
+                val jank = JankEpisode(now.toString(), 800.0, 3, 2, 710.0, 8.0, 710.0, 120f,
+                    mapOf("screen" to "table", "popup" to "library"), listOf("Actions", "Play.MoveCard"), true, false, true)
+                val jankBody = AccountJson.format.encodeToString(JankBatch(listOf(jank)))
+                assertEquals(204, post(jankBody, kind = "jank"))
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE kind='jank' AND body='$jankBody'"))
+                assertEquals(400, post("{}", kind = "jank"))
+                assertEquals(400, post(AccountJson.format.encodeToString(JankBatch(listOf(jank.copy(jankyCount = 4)))), kind = "jank"))
+                assertEquals(413, post(" ".repeat(65_537), kind = "jank"))
+                repeat(2) { assertEquals(204, post(jankBody, kind = "jank")) }
+                assertEquals(429, post(jankBody, kind = "jank"))
+                assertEquals(3L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
 
                 val episode = ReconnectEpisode("episode", "game", now.toString(), "socketClose:1001:Reconnect",
                     listOf(ReconnectStep("socketConnectedHttpAuthenticated", 20, 20), ReconnectStep("ready", 70, 50)), 70, true)

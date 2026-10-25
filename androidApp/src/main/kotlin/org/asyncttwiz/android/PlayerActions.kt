@@ -13,9 +13,7 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
     names: Map<String, String>, viewer: String = scope.contextId, submit: (PlayAction) -> Boolean) {
     val player = state.board.players.single { it.accountId == scope.contextId }
     CompositionLocalProvider(LocalValueDragSide provides if (player.accountId == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP) {
-    TableMenuPanel(actions::close, width = 400.dp, title = "Life / counters",
-        titleDescription = "${names[player.accountId] ?: "Player"}, life / counters",
-        titleColor = if (player.accountId == viewer) OwnTableColor else OpponentTableColor) {
+    InlinePopupPanel(actions::close, title = "Life / counters", height = 440.dp) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { MenuIcon("Life") }
                 ManualActionSquare("Set life", player.life, enabled,

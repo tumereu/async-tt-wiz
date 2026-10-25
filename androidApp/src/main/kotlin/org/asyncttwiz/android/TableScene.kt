@@ -123,6 +123,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         lateinit var owner: TableGestureCoordinator
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
+            if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll)
+                DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {
                 TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null; combatBubbleId = null }
                 is TableIntent.CombatBubbles -> {
@@ -174,9 +176,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
-        }, density = density, singleTapIsLocal = {
-            (toolkit == null || it.zone != PlayZone.LIBRARY) && toolkit?.tokens?.pickingLink != true
-        }, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) })
+        }, density = density, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -284,6 +284,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 frame.associate { it.item.id to it.alpha })
         } }
         val scene = targetScene
+        JankTableState(runtime.reviewing, selection.mode,
+            toolkit?.panel ?: "card".takeIf { actions != null || toolkit?.capture != null || toolkit?.manual?.scope != null },
+            preview.scope != null || preview.delta != null, { progress.isRunning },
+            { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
         val semanticItems = remember(animation, targetScene, animationRevision) {
             (animation.frame(0f, targetScene).map { it.item } + targetScene.items).distinctBy { it.id }
         }

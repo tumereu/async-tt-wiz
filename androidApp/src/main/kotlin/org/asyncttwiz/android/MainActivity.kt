@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
                 val state = auth.controller.state
                 val token = auth.controller.sessionToken()
                 SideEffect {
+                    if (auth.lobby.state.detail == null) DebugJank.state("screen" to state.destination.name.lowercase())
                     if (!state.restoring && !state.busy) {
                         DebugCrashes.authenticated(if (state.account != null) token else null)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()

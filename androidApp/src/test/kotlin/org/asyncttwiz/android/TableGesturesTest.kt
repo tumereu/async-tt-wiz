@@ -165,24 +165,27 @@ class TableGesturesTest {
         assertEquals("card/a/BATTLEFIELD/1", f.events.filterIsInstance<TableIntent.Actions>().single().itemId)
     }
 
-    @Test fun sharedSingleTapKeepsWaitingAndDoubleDoesNotPerformOrDismissIt() {
+    @Test fun librarySingleTapIsImmediateAndDoubleDismissesThenDrawsWithoutOpeningSharedContents() {
         val scene = TableFixture.scene()
-        val point = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
+        val library = scene.items.single { it.id == "a/LIBRARY" }
+        val point = library.visible.first().center
         val events = mutableListOf<TableIntent>()
-        val coordinator = TableGestureCoordinator(events::add, singleTapIsLocal = { false })
+        val coordinator = TableGestureCoordinator(events::add)
         coordinator.update(scene, TableSelection(), true)
         coordinator.down(point, 0); coordinator.up(point, 20)
-        assertTrue(events.isEmpty())
-        assertFalse(coordinator.replacesTap(point, 100))
+        assertIs<TableIntent.Actions>(events.single())
+        assertTrue(coordinator.replacesTap(point, 100))
         coordinator.tick(419)
-        assertTrue(events.isEmpty())
+        assertEquals(1, events.size)
         coordinator.tick(420)
         assertIs<TableIntent.Actions>(events.single())
         events.clear()
         coordinator.down(point, 500); coordinator.up(point, 520)
         coordinator.down(point, 600); coordinator.up(point, 620)
-        assertEquals(1, events.filterIsInstance<TableIntent.Rotate>().size)
-        assertTrue(events.none { it is TableIntent.Actions || it == TableIntent.DismissTapUi })
+        assertIs<TableIntent.Actions>(events[0])
+        assertEquals(TableIntent.DismissTapUi, events[1])
+        assertEquals(library.id, events.filterIsInstance<TableIntent.Draw>().single().libraryId)
+        assertTrue(events.none { it is TableIntent.Submit })
     }
 
     @Test fun peekEndsOnReleaseCancelAndSecondPointerButExplicitInspectPersists() {
@@ -819,11 +822,11 @@ class TableGesturesTest {
         f.gestures.transform(TablePoint(-20f, 0f), 1f, p)
         assertEquals(TableIntent.Scroll("a/HAND", 20f), f.events.single())
     }
-    @Test fun librarySingleTapOpensActionsAfterDoubleWindowAndDragBindsActualTop() {
+    @Test fun librarySingleTapOpensActionsImmediatelyAndDragBindsActualTop() {
         val f = Fixture()
         val pile = f.scene.items.single { it.id == "a/LIBRARY" }; val p = pile.visible.first().center
         f.tap(0, p)
-        assertTrue(f.events.isEmpty())
+        assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
         f.gestures.tick(420)
         assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
         f.events.clear(); f.gestures.down(p, 450)
@@ -833,14 +836,15 @@ class TableGesturesTest {
         assertTrue(f.events.filterIsInstance<TableIntent.Move>().single().sources.getValue("a/LIBRARY/0").libraryTop)
     }
 
-    @Test fun libraryDoubleTapDrawsOnlyOwnCapturedTopAndDoesNotOpenActions() {
+    @Test fun libraryDoubleTapDismissesImmediateActionsAndDrawsOnlyOwnCapturedTop() {
         for (owner in listOf("a", "b")) for (writable in listOf(true, false)) for (mode in listOf(TableMode.NORMAL, TableMode.SELECT)) {
             val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0"), mode), writable = writable)
             val pile = f.scene.items.single { it.id == "$owner/LIBRARY" }
             val p = pile.visible.first().center
             f.tap(0, p); f.tap(100, p); f.gestures.tick(1000)
-            assertEquals(if (owner == "a" && writable)
-                listOf<TableIntent>(TableIntent.Draw("a/LIBRARY", "a/HAND", "a/LIBRARY/0")) else emptyList(), f.events)
+            val expected = listOf<TableIntent>(TableIntent.Actions(pile.id, null), TableIntent.DismissTapUi) +
+                if (owner == "a" && writable) listOf(TableIntent.Draw("a/LIBRARY", "a/HAND", "a/LIBRARY/0")) else emptyList()
+            assertEquals(expected, f.events)
         }
     }
 

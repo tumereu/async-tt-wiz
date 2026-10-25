@@ -20,7 +20,9 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     if (item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
         val manual = remember(play.id, captured) { ManualActions().apply { player(play, requireNotNull(item.owner)) } }
         if (manual.scope == null) { SideEffect(dismiss); return }
-        ManualActionsHost(play, viewer, manual, enabled, landscape, names) { action -> submit(action, UUID.randomUUID().toString()) }
+        CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(item.id, item.bounds, item.owner == viewer)) {
+            ManualActionsHost(play, viewer, manual, enabled, landscape, names) { action -> submit(action, UUID.randomUUID().toString()) }
+        }
         return
     }
     val context = captured.scope?.contextId
@@ -43,7 +45,8 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
         }
         return
     }
-    TableMenuPanel(dismiss, title = "Contents") {
+    CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(item.id, item.bounds, item.owner == viewer)) {
+    InlinePopupPanel(dismiss, title = "Contents", height = 480.dp) {
                 if (container != null) {
                     Text(item.label)
                     if (container.zone == PlayZone.LIBRARY) {
@@ -71,6 +74,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
                     }
                 }
                 if (!enabled) Text("Read-only")
+    }
     }
 }
 

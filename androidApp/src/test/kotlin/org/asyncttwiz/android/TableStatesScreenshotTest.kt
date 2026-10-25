@@ -198,11 +198,12 @@ class TableStatesScreenshotTest {
         }
         compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onNodeWithText("Put to battlefield").assertIsDisplayed()
-        compose.onAllNodesWithText("Card actions").assertCountEquals(2)
+        compose.onNodeWithContentDescription("Put to battlefield").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Card actions").assertCountEquals(2)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
-        compose.onAllNodesWithText("Card actions").onFirst().performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onAllNodesWithContentDescription("Card actions").onFirst().performTouchInput { advanceEventTime(350); click() }
         compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
         compose.onNodeWithText("Manage Stack · 2").assertDoesNotExist()
         assertTrue(sent.isEmpty())
@@ -234,7 +235,8 @@ class TableStatesScreenshotTest {
         val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
         val row = compose.onNodeWithText("Top ·", substring = true)
         compose.mainClock.autoAdvance = false
-        row.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(350)
+        row.performTouchInput { advanceEventTime(350); down(center) }
         compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
         val popup = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
@@ -329,7 +331,8 @@ class TableStatesScreenshotTest {
     @Test fun graveyardSearchAndTapUseExistingCardActionMenu() {
         val sent = render("graveyard-contents", false)
         compose.onNodeWithText("Search by name").performTextInput("Sentinel")
-        compose.onNodeWithText("Meadow Sentinel", substring = false).performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { advanceEventTime(350); click() }
         compose.ringPage(4)
         compose.onNodeWithContentDescription("Graveyard").assertExists()
         compose.onNodeWithContentDescription("Library top").assertExists()
@@ -341,7 +344,8 @@ class TableStatesScreenshotTest {
         val sent = render("graveyard-contents", false)
         compose.mainClock.autoAdvance = false
         val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
-        row.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(350)
+        row.performTouchInput { advanceEventTime(350); down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
@@ -352,7 +356,8 @@ class TableStatesScreenshotTest {
     }
     @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {
         val sent = render("graveyard-contents", false)
-        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { doubleClick() }
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { advanceEventTime(350); doubleClick() }
         compose.mainClock.advanceTimeBy(400)
         val card = f.initial.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)

@@ -1,20 +1,12 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
 import org.asyncttwiz.protocol.*
 
 /** Reusable production controls. I16 embeds these at the bound Library, not in Table actions. */
@@ -22,84 +14,66 @@ import org.asyncttwiz.protocol.*
 fun LibraryActions(controller: LibraryController, board: BoardState, displayedHand: List<String>, modifier: Modifier = Modifier,
     onComplete: () -> Unit = {},
     onShow: ((ContentsSelection, Int, Boolean) -> Unit)? = null) {
-    var quantity by remember(controller) { mutableIntStateOf(1) }
-    var bottom by remember(controller) { mutableStateOf(false) }
-    val selection = if (bottom) ContentsSelection.BOTTOM else ContentsSelection.TOP
+    val owner = board.containers.single { it.id == controller.libraryId }.accountId.orEmpty()
+    val context = LocalContext.current
+    val quantities = remember(owner) { LibraryQuantityStore(context, owner) }
+    var editing by remember(controller) { mutableStateOf<String?>(null) }
+    var text by remember { mutableStateOf("") }
     val enabled = controller.available()
     fun finish(result: LibrarySubmission) { if (result.refused == 0 && result.submitted > 0) onComplete() }
     fun show(slice: ContentsSelection, count: Int, reveal: Boolean = false) {
         if (onShow != null) onShow(slice, count, reveal) else finish(controller.show(slice, count, reveal))
     }
     val destinations = libraryDestinations(board, sourceContainerId = controller.libraryId).map { it.second }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            LibraryButton("Draw 1", Modifier.weight(1f), enabled) { finish(controller.draw()) }
-            LibraryButton("Search", Modifier.weight(1f), enabled) { show(ContentsSelection.ALL, 1) }
-            LibraryButton("Reveal all", Modifier.weight(1f), enabled) { show(ContentsSelection.ALL, 1, true) }
-            LibraryButton("Shuffle", Modifier.weight(1f), enabled) { finish(controller.shuffle()) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            LibraryQuantity(quantity, { quantity = it })
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                LibraryButton("Top", Modifier.weight(1f), selected = !bottom) { bottom = false }
-                LibraryButton("Bottom", Modifier.weight(1f), selected = bottom) { bottom = true }
+    fun perform(action: String, count: Int) {
+        when (action) {
+            "Draw" -> finish(controller.draw(count))
+            "Look" -> show(ContentsSelection.TOP, count)
+            "Reveal" -> show(ContentsSelection.TOP, count, true)
+            else -> {
+                val zone = if (action == "Mill") PlayZone.GRAVEYARD else PlayZone.EXILE
+                destinations.firstOrNull { d -> board.containers.any { it.id == d.containerId && it.zone == zone } }
+                    ?.let { finish(controller.move(ContentsSelection.TOP, count, it)) }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            LibraryButton("Draw N", Modifier.weight(1f), enabled) { finish(controller.draw(quantity, selection)) }
-            LibraryButton("Look at N", Modifier.weight(1f), enabled) { show(selection, quantity) }
-            LibraryButton("Reveal N", Modifier.weight(1f), enabled) { show(selection, quantity, true) }
-        }
-        Text("Move N to:", style = MaterialTheme.typography.labelMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND, PlayZone.BATTLEFIELD)) {
-                val destination = destinations.firstOrNull { d -> board.containers.any { it.id == d.containerId && it.zone == zone } }
-                LibraryButton(moveZoneLabel(zone), Modifier.weight(1f), enabled && destination != null) {
-                    destination?.let { finish(controller.move(selection, quantity, it)) }
-                }
+    }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (many in listOf(false, true)) Row {
+            for (action in listOf("Draw", "Reveal", "Look", "Mill", "Exile")) {
+                InlinePopupCell(MenuControl("$action ${if (many) "N…" else "1"}", enabled) {
+                    if (many) { text = quantities.read(action).toString(); editing = action }
+                    else perform(action, 1)
+                })
             }
+        }
+        Row {
+            InlinePopupCell(MenuControl("Search", enabled) { show(ContentsSelection.ALL, 1) })
+            InlinePopupCell(MenuControl("Shuffle", enabled) { finish(controller.shuffle()) })
         }
         Text("Mulligan (hand → shuffle → draw)", style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            LibraryButton("Draw 7", Modifier.weight(1f), enabled) { finish(controller.mulligan(displayedHand, 7)) }
-            LibraryButton("Draw one fewer", Modifier.weight(1f), enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) }
+            InlinePopupCell(MenuControl("Draw 7", enabled) { finish(controller.mulligan(displayedHand, 7)) })
+            InlinePopupCell(MenuControl("Draw one fewer", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
         }
     }
-}
-
-@Composable
-private fun LibraryButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true,
-    selected: Boolean = false, click: () -> Unit) {
-    Surface(onClick = click, enabled = enabled,
-        modifier = modifier.height(48.dp).semantics { contentDescription = label; this.selected = selected },
-        shape = RoundedCornerShape(3.dp), color = if (selected) OwnTableColor.copy(alpha = .12f) else Color.White,
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) OwnTableColor else MenuBorder)) {
-        Column(Modifier.fillMaxSize().padding(2.dp), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center) {
-            val ink = MenuInk.copy(alpha = if (enabled) 1f else .38f)
-            MenuIcon(label, tint = ink)
-            Text(label, color = ink, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun LibraryQuantity(value: Int, onValue: (Int) -> Unit) {
-    var editing by remember { mutableStateOf(false) }
-    var text by remember { mutableStateOf("") }
-    Row(Modifier.border(1.dp, MenuBorder, RoundedCornerShape(4.dp)), verticalAlignment = Alignment.CenterVertically) {
-        ManualActionSquare("Decrease N", "−", value > 0, bordered = false, onClick = { onValue(value - 1) })
-        ManualActionSquare("Set N", value.toString(), bordered = false, onClick = { text = value.toString(); editing = true })
-        ManualActionSquare("Increase N", "+", value < Int.MAX_VALUE, bordered = false, onClick = { onValue(value + 1) })
-    }
-    if (editing) TableMenuPanel({ editing = false }, title = "Number of cards") {
+    if (editing != null) TableMenuPanel({ editing = null }, title = "${editing} N") {
         OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
             isError = text.toIntOrNull()?.let { it >= 0 } != true)
-        MenuButton("Set", enabled = text.toIntOrNull()?.let { it >= 0 } == true) {
-            text.toIntOrNull()?.takeIf { it >= 0 }?.let { onValue(it); editing = false }
+        MenuButton("OK", enabled = enabled && text.toIntOrNull()?.let { it >= 0 } == true) {
+            text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
+                val action = editing ?: return@MenuButton
+                quantities.write(action, count); editing = null; perform(action, count)
+            }
         }
     }
+}
+
+internal class LibraryQuantityStore(context: Context, account: String) {
+    private val preferences = context.applicationContext.getSharedPreferences("library-quantities", Context.MODE_PRIVATE)
+    private val prefix = "${account.length}:$account:"
+    fun read(action: String) = preferences.getInt(prefix + action, 1).coerceAtLeast(0)
+    fun write(action: String, value: Int) { preferences.edit().putInt(prefix + action, value.coerceAtLeast(0)).apply() }
 }
 
 @Composable

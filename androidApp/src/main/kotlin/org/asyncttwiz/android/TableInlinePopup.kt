@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import android.os.SystemClock
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -16,6 +18,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
@@ -25,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import org.asyncttwiz.protocol.TableActions
@@ -32,7 +36,7 @@ import org.asyncttwiz.protocol.TableActions
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
 private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
-private fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
+internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = composed {
     val register = LocalRingInputTargets.current
     val key = remember { Any() }
     DisposableEffect(register, key) { onDispose { register(key, null, draggable) } }
@@ -70,9 +74,51 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
     val anchor = LocalCardRingAnchors.current[viewId]
-    val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val selectPage: (Int) -> Unit = { page = it; store.write(it) }
     val switchPage: (Int) -> Unit = { delta -> selectPage((selectedPage + delta).mod(pages.size)) }
+    TableInlinePopup(identity, viewId, anchor, own, ownerColor, dismiss,
+        description = "Card action ring", title = "Card actions", switchPage = switchPage) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
+            key(identity, viewId, selectedPage) {
+                Column(Modifier.size(CardRingGeometry.gridSide.dp)) {
+                    repeat(4) { row ->
+                        Row {
+                            var column = 0
+                            while (column < 4) {
+                                val slot = slots.firstOrNull { it.cell == row * 4 + column }
+                                val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } }
+                                if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
+                                else if (entry.compound != null) RingWidget(entry, ownerColor)
+                                else InlinePopupCell(entry.control, entry.label, ownerColor,
+                                    fill = entry.fill, drag = entry.drag, dragValue = entry.dragValue)
+                                column += slot?.span ?: 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal data class InlinePopupAnchor(val id: String, val bounds: TableBounds?, val own: Boolean)
+internal val LocalInlinePopupAnchor = compositionLocalOf { InlinePopupAnchor("table", null, true) }
+private val LocalInlinePopupDismiss = compositionLocalOf<(() -> Unit)?> { null }
+internal object InlinePopupStyle {
+    const val enterMillis = 90
+    const val exitMillis = 70
+    const val initialScale = .88f
+}
+
+/** All on-table context panels share placement, animation, input guard, relay and visual chrome.
+ * The table host owns outside gestures, so a second tap can dismiss and draw/rotate immediately. */
+@Composable
+internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
+    ownerColor: Color, dismiss: () -> Unit, width: Dp = CardRingGeometry.squareSide.dp,
+    height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
+    title: String = description, switchPage: (Int) -> Unit = {}, content: @Composable () -> Unit) {
+    val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
     val inputTargets = remember { mutableMapOf<Any, TableBounds>() }
@@ -84,29 +130,41 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
         Unit
     } }
     val currentDismiss by rememberUpdatedState(dismiss)
+    var entered by remember(identity, viewId) { mutableStateOf(false) }
+    var closing by remember(identity, viewId) { mutableStateOf(false) }
+    val requestDismiss = { closing = true }
+    val currentRequestDismiss by rememberUpdatedState(requestDismiss)
+    LaunchedEffect(identity, viewId) {
+        DebugJank.animation("popup", true)
+        entered = true
+        kotlinx.coroutines.delay(InlinePopupStyle.enterMillis.toLong())
+        DebugJank.animation("popup", false)
+    }
+    DisposableEffect(identity, viewId) { onDispose { DebugJank.animation("popup", false) } }
+    val progress by animateFloatAsState(if (entered && !closing) 1f else 0f,
+        tween(if (closing) InlinePopupStyle.exitMillis else InlinePopupStyle.enterMillis), label = "popup",
+        finishedListener = { if (closing && it == 0f) currentDismiss() })
     DisposableEffect(relay, identity, viewId) {
         val input = TableRingInput(viewId, { screen ->
             inputTargets.values.none { it.contains(TablePoint(screen.x, screen.y)) }
-        }, { currentDismiss() })
+        }, { currentRequestDismiss() })
         relay?.ring = input
         onDispose { if (relay?.ring === input) relay.ring = null }
     }
-    BackHandler(onBack = dismiss)
-    CompositionLocalProvider(LocalRingInputTargets provides registerTarget) {
-    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = "Card action ring"; paneTitle = "Card actions" }) {
+    BackHandler(onBack = requestDismiss)
+    CompositionLocalProvider(LocalRingInputTargets provides registerTarget, LocalInlinePopupDismiss provides requestDismiss) {
+    BoxWithConstraints(Modifier.fillMaxSize().semantics { contentDescription = description; paneTitle = title }) {
         val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
         // Capture the opening anchor/viewport only: neither sync nor a page switch moves this square.
-        val placement = remember(identity, viewId) { CardRingGeometry.place(maxWidth.value, maxHeight.value, card, own) }
-        if (placement == null) {
-            LaunchedEffect(identity, viewId) { dismiss() }
-            return@BoxWithConstraints
+        val square = remember(identity, viewId, maxWidth, maxHeight) {
+            inlinePopupBounds(maxWidth.value, maxHeight.value, card, own, width.value, height.value)
         }
-        val square = placement.square
         // Standalone fallback; the stable table host relays outside presses before they reach here.
-        Box(Modifier.fillMaxSize().pointerInput(dismiss) { detectTapGestures(onTap = { dismiss() }) })
+        Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { requestDismiss() }) })
         Surface(Modifier.offset(square.x.dp, square.y.dp).size(square.width.dp, square.height.dp)
+            .graphicsLayer { alpha = progress; scaleX = InlinePopupStyle.initialScale + (1 - InlinePopupStyle.initialScale) * progress; scaleY = scaleX }
             .onGloballyPositioned { origin = it.localToScreen(Offset.Zero) }
-            .ringInputTarget().semantics { contentDescription = "Card action grid" }
+            .ringInputTarget().semantics { contentDescription = if (description == "Card action ring") "Card action grid" else "Context action grid" }
             .pointerInput(guard) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -115,7 +173,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                     val screen = origin + down.position
                     val valueDrag = dragTargets.values.any { it.contains(TablePoint(screen.x, screen.y)) }
                     // The opening gesture's tail must not adjust a counter either, so value drags respect the guard.
-                    val blocked = !guard.accepts(down.uptimeMillis)
+                    val blocked = closing || !guard.accepts(down.uptimeMillis)
                     var swipe = false
                     var delta = Offset.Zero
                     if (blocked) down.consume()
@@ -133,39 +191,53 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
             }
         }, shape = RoundedCornerShape(8.dp), color = Color.White,
             border = BorderStroke(1.dp, ownerColor), shadowElevation = 4.dp) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                Row(Modifier.width(CardRingGeometry.gridSide.dp).height(16.dp).semantics {
-                    contentDescription = "Action page ${selectedPage + 1} of ${pages.size}, ${pages[selectedPage].name}"
-                }) {
-                    pages.forEachIndexed { index, tab ->
-                        RingPress(MenuControl("${tab.name} page", selected = index == selectedPage) { selectPage(index) },
-                            Modifier.weight(1f).fillMaxHeight(), ownerColor, fill = if (index == selectedPage) ownerColor.copy(alpha = .18f) else Color.White,
-                            role = Role.Tab) {
-                            Text(tab.name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                color = MenuInk, fontWeight = if (index == selectedPage) FontWeight.Bold else FontWeight.Normal)
-                        }
-                    }
-                }
-                key(identity, viewId, selectedPage) {
-                    Column(Modifier.size(CardRingGeometry.gridSide.dp)) {
-                        repeat(4) { row ->
-                            Row {
-                                var column = 0
-                                while (column < 4) {
-                                    val slot = slots.firstOrNull { it.cell == row * 4 + column }
-                                    val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } }
-                                    if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
-                                    else if (entry.compound != null) RingWidget(entry, ownerColor)
-                                    else RingCell(entry, ownerColor, Modifier.size(CardRingGeometry.cell.dp))
-                                    column += slot?.span ?: 1
-                                }
-                            }
-                        }
-                    }
-                }
+            content()
+        }
+    }
+    }
+}
+
+/** Preserve the card grid's opening position, falling back to a clamped anchor for tight screens. */
+internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
+    desiredWidth: Float, desiredHeight: Float): TableBounds {
+    if (desiredWidth == CardRingGeometry.squareSide && desiredHeight == CardRingGeometry.squareSide)
+        CardRingGeometry.place(width, height, anchor, own)?.let { return it.square }
+    val w = desiredWidth.coerceAtMost((width - 24).coerceAtLeast(0f))
+    val h = desiredHeight.coerceAtMost((height - 24).coerceAtLeast(0f))
+    val y = if (anchor.y >= h + 20) anchor.y - h - 8 else anchor.bottom + 8
+    return TableBounds((anchor.center.x - w / 2).coerceIn(12f, (width - w - 12).coerceAtLeast(12f)),
+        y.coerceIn(12f, (height - h - 12).coerceAtLeast(12f)), w, h)
+}
+
+@Composable
+internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, select: (Int) -> Unit) {
+    Row(Modifier.width(CardRingGeometry.gridSide.dp).height(16.dp).semantics {
+        contentDescription = "Action page ${selected + 1} of ${pages.size}, ${pages[selected]}"
+    }) {
+        pages.forEachIndexed { index, name ->
+            RingPress(MenuControl("$name page", selected = index == selected) { select(index) },
+                Modifier.weight(1f).fillMaxHeight(), color,
+                fill = if (index == selected) color.copy(alpha = .18f) else Color.White, role = Role.Tab) {
+                Text(name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MenuInk, fontWeight = if (index == selected) FontWeight.Bold else FontWeight.Normal)
             }
         }
     }
+}
+
+@Composable
+internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
+    content: @Composable ColumnScope.() -> Unit) {
+    val anchor = LocalInlinePopupAnchor.current
+    val color = if (anchor.own) OwnTableColor else OpponentTableColor
+    TableInlinePopup(title, anchor.id, anchor.bounds, anchor.own, color, dismiss, width, height, title = title) {
+        Column(Modifier.padding(8.dp).verticalScroll(rememberScrollState())) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                InlinePopupCell(MenuControl("Close", click = LocalInlinePopupDismiss.current ?: dismiss), "Close", color)
+            }
+            content()
+        }
     }
 }
 
@@ -197,7 +269,10 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
 }
 
 @Composable
-private fun RingCell(entry: RingEntry, owner: Color, modifier: Modifier) {
+internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = OwnTableColor,
+    modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null,
+    drag: ((Long) -> Unit)? = null, dragValue: String = "0") {
+    val entry = RingEntry(control.name, label, control, fill = fill, drag = drag, dragValue = dragValue)
     var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
     val dragModifier = if (entry.drag != null) Modifier.ringInputTarget(draggable = true)
         .valueDragGestures(entry.control.enabled && TableActions.numeric(entry.dragValue),

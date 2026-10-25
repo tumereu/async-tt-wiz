@@ -186,7 +186,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
     val background = fill ?: Color.White
     val dragModifier = if (onDelta != null) Modifier.valueDragGestures(enabled && TableActions.numeric(dragValue ?: "0"),
         preview = { delta = it }, commit = onDelta) else Modifier
-    Box(modifier.then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp))
+    Box(modifier.then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget(draggable = onDelta != null)
         .pressFeedback(enabled).then(dragModifier).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button

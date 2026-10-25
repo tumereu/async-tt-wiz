@@ -26,6 +26,17 @@ import kotlin.test.*
 class TableStatesScreenshotTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
+    private val graveyardState = f.initial.let { play ->
+        val graveyard = f.id("a/GRAVEYARD")
+        val river = play.board.cards.single { it.containerId == f.id("a/HAND") && it.corner == "1/2" }
+        play.copy(board = play.board.copy(
+            cards = play.board.cards.map { if (it.id == river.id) it.copy(containerId = graveyard, covered = false) else it },
+            containers = play.board.containers.map { container -> when (container.id) {
+                graveyard -> container.copy(cards = listOf(river.id) + container.cards)
+                river.containerId -> container.copy(cards = container.cards - river.id)
+                else -> container
+            } }))
+    }
 
     @OptIn(ExperimentalRoborazziApi::class)
     private fun render(kind: String, landscape: Boolean): List<PlayAction> {
@@ -65,7 +76,7 @@ class TableStatesScreenshotTest {
         val current = { if (kind in listOf("stack-bubbles", "stack-preview")) stackSample
             else if (kind.startsWith("tokens")) tokenState
             else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
-            else if (kind == "graveyard-contents") f.initial else f.combat() }
+            else if (kind == "graveyard-contents") graveyardState else f.combat() }
         val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
@@ -143,11 +154,19 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithText("Manage Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
-                compose.onNodeWithContentDescription("Alice graveyard, 2 cards").performClick()
-                compose.onNodeWithText("Graveyard · 2").assertIsDisplayed()
-                compose.onNodeWithText("Search by name").assertIsDisplayed()
-                compose.onNodeWithText("Creature", substring = false).assertIsDisplayed()
-                compose.onNodeWithText("Meadow Sentinel", substring = false).assertIsDisplayed()
+                compose.onNodeWithContentDescription("Alice graveyard, 3 cards").performClick()
+                compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
+                compose.onNode(isDialog()).assertDoesNotExist()
+                compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+                val scene = TablePresentation.scene(f.game, current(), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
+                val panel = scene.cardPanels.single()
+                assertEquals(PlayZone.GRAVEYARD, panel.localZone)
+                assertEquals(0f, panel.bounds.x)
+                // Headers and names are canvas-rendered; verify the geometry used to draw them.
+                assertEquals(listOf("Creature", "Land"), panel.typeHeaders.map { it.title })
+                assertEquals(listOf("Meadow Sentinel", "River Adept", "Forest"), panel.rows.map { it.entry.name })
+                for (name in listOf("Meadow Sentinel", "River Adept", "Forest"))
+                    compose.onNodeWithContentDescription("Graveyard panel: $name").assertIsDisplayed()
             }
             "history-start" -> compose.onNodeWithContentDescription("Previous").assertIsNotEnabled()
             "history-end" -> compose.onNodeWithContentDescription("Next").assertIsNotEnabled()
@@ -332,47 +351,67 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
-    @Test fun graveyardSearchAndTapUseExistingCardActionMenu() {
+    @Test fun graveyardTapOpensFixedPanelCardMenuWithoutSending() {
         val sent = render("graveyard-contents", false)
-        compose.onNodeWithText("Search by name").performTextInput("Sentinel")
         compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithText("Meadow Sentinel", substring = false).performTouchInput { advanceEventTime(350); click() }
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Graveyard").assertExists()
-        compose.onNodeWithContentDescription("Library top").assertExists()
-        compose.onNodeWithContentDescription("Library bottom").assertExists()
-        compose.onNodeWithContentDescription("Exile").assertExists()
+        compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel").performTouchInput { advanceEventTime(350); click() }
+        compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel").assertIsSelected()
+        val labels = listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom")
+        val first = compose.onNodeWithContentDescription("Hand").fetchSemanticsNode().boundsInRoot
+        for ((index, label) in labels.withIndex()) {
+            val cell = compose.onNodeWithContentDescription(label).assertIsDisplayed()
+            if (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top")) cell.assertIsNotEnabled()
+            else cell.assertIsEnabled()
+            val bounds = cell.fetchSemanticsNode().boundsInRoot
+            assertEquals(CardRingGeometry.cell, bounds.width)
+            assertEquals(CardRingGeometry.cell, bounds.height)
+            assertEquals(first.left + index % 3 * (first.width + 2f), bounds.left, .1f)
+            assertEquals(first.top + index / 3 * (first.height + 2f), bounds.top, .1f)
+        }
         assertTrue(sent.isEmpty())
     }
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)
         compose.mainClock.autoAdvance = false
-        val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
+        val row = compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel")
         compose.mainClock.advanceTimeBy(350)
         row.performTouchInput { advanceEventTime(350); down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
-        compose.onNodeWithText("Search by name").performTouchInput { up() }
+        assertTrue(sent.isEmpty())
+        row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
     @Test fun graveyardDoubleTapOnlyRotatesTheAddressedCard() {
         val sent = render("graveyard-contents", false)
+        compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeBy(350)
         // Real frames compose the immediately opened card menu before the second tap; that tap is
-        // then relayed back to the row's coordinator, which recognizes the double tap.
-        val row = compose.onNodeWithText("Meadow Sentinel", substring = false)
+        // then relayed back to the table's coordinator, which recognizes the double tap.
+        // Keep idle synchronization from auto-advancing past the recognition window between taps.
+        val row = compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel")
         val center = row.fetchSemanticsNode().boundsInRoot.center
         row.performTouchInput { advanceEventTime(350); click() }
+        compose.waitForIdle()
         compose.mainClock.advanceTimeBy(120)
+        compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
         compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
-        val card = f.initial.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
+        compose.mainClock.autoAdvance = true
+        val card = graveyardState.board.cards.single { it.containerId == f.id("a/GRAVEYARD") && it.corner == "1/3" }
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(card.id, true)), sent)
-        compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
-        compose.onNodeWithText("Graveyard · 2").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackLandscape() { render("stack-contents", true) }
     @Test fun historyStartPortrait() { render("history-start", false) }

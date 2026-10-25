@@ -87,7 +87,7 @@ class HistoryPlayback(initial: HistoryTree) {
     var tree: HistoryTree by mutableStateOf(initial); private set
     var position by mutableStateOf(HistoryPosition(initial.sharedHeadId, displayVersion = initial.liveVersion)); private set
     var foreground by mutableStateOf(true); private set
-    /** A remote panel flip is still LIVE, but its endpoint must settle and pause before moving on. */
+    /** A remote flip or final board is still LIVE, but must settle before moving on. */
     var livePanelReveal by mutableStateOf(false); private set
     private var panelViewer: String? = null
     private var removedParents: Map<String, String> = emptyMap()
@@ -133,7 +133,7 @@ class HistoryPlayback(initial: HistoryTree) {
             foreground && position.mode == HistoryMode.LIVE -> HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
             !foreground && position.mode == HistoryMode.LIVE && position.displayVersion == tree.liveVersion ->
                 position.copy(cursorId = tree.sharedHeadId) // Expected own confirmation: no unseen presentation difference.
-            cursor != position.cursorId -> position.copy(cursorId = cursor, mode = HistoryMode.PLAYBACK,
+            cursor != position.cursorId -> position.copy(cursorId = cursor,
                 playing = false, displayVersion = tree.version(cursor))
             foreground && position.mode == HistoryMode.PLAYBACK -> position.copy(displayVersion = tree.version(cursor))
             else -> position // Accepted receipt never advances a paused or background cursor.
@@ -142,12 +142,13 @@ class HistoryPlayback(initial: HistoryTree) {
     }
 
     private fun nextPanelReveal(after: String): String? {
-        val viewer = panelViewer ?: return null
+        val viewer = panelViewer
         if (!tree.isAncestor(after, tree.sharedHeadId)) return null
         val path = tree.path(tree.sharedHeadId)
         for (index in tree.depth(after) + 1 until path.size) {
             val node = tree.nodes.getValue(path[index])
-            if (node.author != viewer && node.action is PlayAction.RevealContentsCard) return node.id
+            if (viewer != null && node.author != viewer && node.action is PlayAction.RevealContentsCard) return node.id
+            if (node.action is PlayAction.SuggestResult && index > tree.depth(after) + 1) return node.parentId
         }
         return null
     }
@@ -160,12 +161,19 @@ class HistoryPlayback(initial: HistoryTree) {
         val target = reveal ?: tree.sharedHeadId
         position = HistoryPosition(target, displayVersion = tree.version(target))
     }
+    /** Present the final board before a result without enabling personal timeline mode. */
+    fun holdLiveAt(id: String) {
+        if (position.mode != HistoryMode.LIVE || !tree.contains(id)) return
+        livePanelReveal = true
+        position = HistoryPosition(id, displayVersion = tree.version(id))
+    }
 
     fun background() { foreground = false }
     fun foreground() {
+        val resuming = !foreground
         foreground = true
-        if (position.mode == HistoryMode.LIVE && (position.cursorId != tree.sharedHeadId || position.displayVersion != tree.liveVersion))
-            pause()
+        if (resuming && position.mode == HistoryMode.LIVE && (position.cursorId != tree.sharedHeadId || position.displayVersion != tree.liveVersion))
+            position = position.copy(mode = HistoryMode.PLAYBACK, playing = false)
     }
     private fun resolveCursor(id: String): String {
         var cursor = id
@@ -183,8 +191,11 @@ class HistoryPlayback(initial: HistoryTree) {
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         rollbackPlan = null; branched = false
     }
-    fun pause() { livePanelReveal = false; position = position.copy(mode = HistoryMode.PLAYBACK, playing = false) }
-    fun play() { livePanelReveal = false; position = position.copy(mode = HistoryMode.PLAYBACK, playing = true); planRollback() }
+    fun pause() { position = position.copy(playing = false) }
+    fun play() {
+        if (position.mode != HistoryMode.PLAYBACK) return
+        livePanelReveal = false; position = position.copy(playing = true); planRollback()
+    }
 
     fun previous() {
         scrub(tree.previousGroup(position.cursorId))
@@ -193,6 +204,7 @@ class HistoryPlayback(initial: HistoryTree) {
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
     fun next(automatic: Boolean = false) {
         if (automatic && (!foreground || !position.playing)) return
+        livePanelReveal = false
         val common = planRollback()
         val target: String
         if (position.cursorId != common) {
@@ -266,7 +278,12 @@ class HistorySceneAnimation(initial: TableScene) {
                 cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
             fun mix(x: Float, y: Float) = x + (y - x) * t
             val flipping = a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
-            val item = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
+            val shown = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
+            // A flying face cannot expose a Library top, including at the exact departure frame.
+            val item = if (t < 1f && shown.kind == TableItemKind.CARD && a.bounds != b.bounds &&
+                listOf(a.item, b.item).any { it.zone == PlayZone.LIBRARY && !it.viewport.startsWith("cardPanel/") })
+                shown.copy(covered = true, known = false, artwork = null, value = "", note = "", corner = "",
+                    typeIcon = "", counters = emptyMap(), label = "Covered card") else shown
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
                 TableCardTransform(mix(from.width, to.width), mix(from.height, to.height), mix(from.rotation, to.rotation))
@@ -320,7 +337,8 @@ class HistorySceneAnimation(initial: TableScene) {
             }
             val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
             val bounds = TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, 28f, 40f)
-            start = start + (arrival.item.animationId to arrival.copy(bounds = bounds))
+            start = start + (arrival.item.animationId to arrival.copy(bounds = bounds,
+                item = arrival.item.copy(zone = pile.zone, viewport = pile.viewport)))
         }
         // A removed occurrence flies home independently of the real card, which stays drawn in place.
         // Membership (not the top-three drawings) distinguishes removal from a newly covered peek.
@@ -333,10 +351,13 @@ class HistorySceneAnimation(initial: TableScene) {
                 end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
             }
         }
-        // A panel reference returning to a special pile still flies to that pile, rather than fading in place.
-        for (departure in start.values.filter { it.item.viewport.startsWith("cardPanel/") && it.item.animationId !in end }) {
+        // Hidden pile arrivals have no individual destination drawing; fly back to the pile.
+        for (departure in start.values.filter { it.item.kind == TableItemKind.CARD && !it.item.projection && it.item.animationId !in end }) {
             target.realCardBounds(departure.item.cardId)?.let { bounds ->
-                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
+                val pile = target.items.firstOrNull { it.kind == TableItemKind.PILE && departure.item.cardId in it.cards }
+                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f,
+                    item = departure.item.copy(zone = pile?.zone ?: departure.item.zone,
+                        viewport = pile?.viewport ?: departure.item.viewport)))
             }
         }
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other

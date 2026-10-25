@@ -97,11 +97,11 @@ data class TablePlacement(val column: Float, val row: Float, val pileIndex: Int 
     constructor(column: Int, row: Int, pileIndex: Int = 0, pileId: String? = null) : this(column.toFloat(), row.toFloat(), pileIndex, pileId)
 }
 
-/** Reserve the same footprint for either orientation and all three top-left peeks. */
+/** Rotate in place; lower pile members peek left/up without changing the column pitch. */
 internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, pileIndex: Int, zoom: Float): TableBounds {
     val peek = pileIndex.coerceIn(0, 2) * 4f
-    return TableBounds(footprint.x + (8f - peek) * zoom,
-        footprint.y + (footprint.height - height) / 2 + (4f - peek) * zoom, width, height)
+    return TableBounds(footprint.center.x - width / 2 - peek * zoom,
+        footprint.center.y - height / 2 + (4f - peek) * zoom, width, height)
 }
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap())
@@ -132,6 +132,7 @@ data class TableViewport(val id: String, val bounds: TableBounds, val contentWid
     val maxScroll get() = (contentWidth - bounds.width).coerceAtLeast(0f)
     val maxScrollY get() = (contentHeight - bounds.height).coerceAtLeast(0f)
 }
+internal const val WORLD_PAN_REGION = "world/camera"
 data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val viewports: List<TableViewport> = emptyList(), val cardWidth: Float = 28f, val cardHeight: Float = 40f,
     val footprint: Float = 56f, val camera: TableCamera = TableCamera(),
@@ -159,6 +160,16 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }
+    /** Resolve once on first down, before a centroid can cross into another region. */
+    fun panRegion(point: TablePoint): String? {
+        cardPanels.firstOrNull { it.bounds.contains(point) }?.let { return it.viewport.id }
+        if (stackRegion?.contains(point) == true)
+            return items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.viewport
+        items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(point) }?.let { return it.viewport }
+        if (worldInput(point)) return WORLD_PAN_REGION
+        return viewports.firstOrNull { it.bounds.contains(point) && (it.maxScroll > 0 || it.maxScrollY > 0) }?.id
+            ?: viewport(point)?.id
+    }
     val stackTopId get() = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         ?.cards?.firstOrNull() ?: items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }?.cards?.firstOrNull()
     fun canDrag(item: TableItem): Boolean = !item.frozen && (item.zone != PlayZone.STACK ||
@@ -171,6 +182,7 @@ internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bound
 
 object TablePresentation {
     const val GRID = 56f
+    const val COLUMN_PITCH = 42f
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
@@ -242,14 +254,14 @@ object TablePresentation {
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         val combatX = (worldViewport.width - combat.width) / 2
-        val worldLeft = minOf(0f, logicalLeft * GRID, combatX)
-        val worldRight = maxOf(worldViewport.width, logicalRight * GRID + 32f, combatX + combat.width)
+        val worldLeft = minOf(0f, logicalLeft * COLUMN_PITCH, combatX)
+        val worldRight = maxOf(worldViewport.width, logicalRight * COLUMN_PITCH + 32f, combatX + combat.width)
         val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
             worldRight - worldLeft,
             logicalFields.last().bottom - logicalFields.first().y)
         // Empty columns are navigable without making Fit table zoom out to include unused space.
         val world = TableWorld(worldViewport, contentBounds,
-            contentBounds.copy(x = worldLeft - 3 * GRID, width = contentBounds.width + 6 * GRID))
+            contentBounds.copy(x = worldLeft - 3 * COLUMN_PITCH, width = contentBounds.width + 6 * COLUMN_PITCH))
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         val camera = world.normalize(ui.camera)
         val zoom = camera.zoom
@@ -310,17 +322,17 @@ object TablePresentation {
             battlefield.cards.sortedWith(compareByDescending<String> { positions[it]?.pileIndex ?: 0 }.thenBy { battlefield.cards.indexOf(it) })
                 .forEach { id -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
-                    val x = field.gridBounds.x + p.column * GRID * zoom + 16f * zoom
+                    val x = field.gridBounds.x + p.column * COLUMN_PITCH * zoom + 16f * zoom
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
                     val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
                     val y = rowY + (rowHeight - envelope) / 2
                     val cardHeight = if (c.tapped) cw else ch
-                    val footprint = TableBounds(x, y, envelope, envelope)
+                    val footprint = TableBounds(x, y, COLUMN_PITCH * zoom, envelope)
                     val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, zoom)
                     card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 } }
-            val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * GRID
+            val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * COLUMN_PITCH
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
                 else if (index == 0) HEADER else ownDockY
@@ -333,15 +345,16 @@ object TablePresentation {
             for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
-                val hidden = top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
+                val hidden = zone == PlayZone.LIBRARY || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
                 val b = TableBounds(76f + n * spacing - dp.scroll, rowY + 4f, hudWidth + 12f, hudHeight + 12f)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = TableBounds(b.x, b.y, hudEnvelope, hudEnvelope), peekOwners = c.cards.take(3).mapNotNull { byId[it]?.owner },
                     token = top?.token == true,
-                    drawHandId = hand.id.takeIf { ownSide && zone == PlayZone.LIBRARY },
+                    drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
-                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden), known = top?.knownToAll == true && player.accountId != viewer)
+                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
+                    known = zone != PlayZone.LIBRARY && top?.knownToAll == true && player.accountId != viewer)
             }
             if (counterHeights[index] > 0f) {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),

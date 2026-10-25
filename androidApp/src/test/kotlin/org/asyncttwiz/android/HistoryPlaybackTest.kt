@@ -5,6 +5,42 @@ import org.junit.Test
 import kotlin.test.*
 
 class HistoryPlaybackTest {
+    @Test fun holdInspectPauseAtHeadAfterCatchupOrBranchNeverEntersTimeline() {
+        val a = node(1, 0); val b = node(2, 1)
+        val player = HistoryPlayback(tree(listOf(a, b)))
+        val scene = TableFixture.scene()
+        val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD }
+        val gestures = TableGestureCoordinator({ if (it is TableIntent.Peek && it.cardId != null) player.pause() })
+        gestures.update(scene, TableSelection(), true)
+        player.openFrom(id(0))
+        while (player.position.mode == HistoryMode.PLAYBACK) player.next(true)
+        gestures.down(card.bounds.center, 0); gestures.tick(400)
+        assertTrue(gestures.peeking)
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        gestures.up(card.bounds.center, 420)
+        player.scrub(id(1)); player.continuationApplied()
+        gestures.down(card.bounds.center, 1000); gestures.tick(1400)
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        player.play() // A stale transport callback cannot reactivate review either.
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertFalse(player.position.playing)
+    }
+
+    @Test fun remoteActionWhileLiveIncludingInspectionAndReconnectStaysLive() {
+        val a = node(1, 0); val b = node(2, 1)
+        val player = HistoryPlayback(tree(listOf(a)))
+        player.pause()
+        player.receive(tree(listOf(a, b)), id(71))
+        player.foreground() // Reconnect while already open is not a resume.
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals(id(2), player.position.cursorId)
+        assertEquals("v2", player.position.displayVersion)
+        // Remote undo/branch removal must not turn a live cursor into personal review.
+        player.receive(tree(listOf(a)), id(71))
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals(id(1), player.position.cursorId)
+    }
+
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a"): GameplayMutation {
         val semantic = HistorySemantic(kind, "icon-$kind", if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)

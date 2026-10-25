@@ -141,6 +141,7 @@ class HistoryUiSpineTest {
             val accepted = h.tree.stateAt(h.tree.currentNodeId)!!
             h.update()
             assertEquals(parent.currentNodeId, h.history.playback!!.position.cursorId)
+            assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
             h.history.presented(parent, accepted, false)
             assertNull(h.history.gate)
             h.history.playback!!.next()

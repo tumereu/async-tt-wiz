@@ -10,6 +10,58 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class LibraryOrderIntegrationTest {
+    @Test fun `non owner can draw mill mulligan shuffle and author panels on opponents library`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime, deckSize = 12)
+                val actor = f.a.account.accountId
+                val owner = f.b.account.accountId
+                var tree = GameplayTree(f.root)
+                fun state() = tree.stateAt(tree.currentNodeId)!!
+                fun zone(zone: PlayZone) = state().board.containers.single { it.zone == zone && it.accountId == owner }
+                fun play(action: PlayAction) {
+                    val command = f.owner.command(action)
+                    val prediction = HistoryContinuation.change(tree, actor, command)
+                    assertNotNull(prediction.tree, prediction.reason)
+                    val result = f.owner.execute(command)
+                    assertEquals("accepted", result.outcome, result.reason)
+                    tree = prediction.tree!!
+                    assertEquals(tree.nodes[tree.currentNodeId], result.mutation)
+                    assertEquals(state().board, f.games.head(f.a, f.game.id).play!!.board)
+                }
+                val library = zone(PlayZone.LIBRARY).id
+                val hand = zone(PlayZone.HAND).id
+                val graveyard = zone(PlayZone.GRAVEYARD).id
+                val drawn = zone(PlayZone.LIBRARY).cards.first()
+                LibraryActions.draw(state().board, library, hand, 1).forEach(::play)
+                assertEquals(hand, state().board.cards.single { it.id == drawn }.containerId)
+                val milled = zone(PlayZone.LIBRARY).cards.first()
+                LibraryActions.moveSlice(state().board, library, ContentsSelection.TOP, 1,
+                    MoveDestination(graveyard, MoveInsertion.UNORDERED)).forEach(::play)
+                assertEquals(graveyard, state().board.cards.single { it.id == milled }.containerId)
+                val seed = RandomV1.encodeSeed(ByteArray(32))
+                play(PlayAction.ShuffleLibrary(library, seed))
+                for (selection in ContentsSelection.entries) for (reveal in listOf(false, true)) {
+                    play(PlayAction.ShowContents(library, selection, 2, reveal))
+                    val panel = state().board.contentsDisplays.single()
+                    assertEquals(actor, panel.author)
+                    assertEquals(library, panel.containerId)
+                    assertTrue(panel.cardIds.all { id -> state().board.cards.single { it.id == id }.owner == owner })
+                    play(PlayAction.DismissContents(panel.id, ContentsRest.BOTTOM, seed))
+                    assertTrue(state().board.contentsDisplays.isEmpty())
+                    if (!panel.search) assertEquals(panel.cardIds, zone(PlayZone.LIBRARY).cards.takeLast(panel.cardIds.size))
+                }
+                val plan = LibraryActions.mulligan(state().board, library, hand, zone(PlayZone.HAND).cards, seed, count = 3)
+                plan.prefix().forEach(::play)
+                LibraryActions.draw(state().board, library, hand, plan.drawCount).forEach(::play)
+                assertEquals(3, zone(PlayZone.HAND).cards.size)
+                assertTrue(zone(PlayZone.HAND).cards.all { id -> state().board.cards.single { it.id == id }.owner == owner })
+            }
+        }
+    }
+
     @Test fun `server secret persisted forks and own library undo match independent client prediction and sync`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

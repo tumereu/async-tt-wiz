@@ -42,12 +42,12 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
                     old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
             val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->
-                val x = field.gridBounds.x + p.x * TablePresentation.GRID * zoom + 16 * zoom
+                val x = field.gridBounds.x + p.x * TablePresentation.COLUMN_PITCH * zoom + 16 * zoom
                 val dy = p.y * field.rowHeight
                 val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight - dy else field.gridBounds.y + dy
                 val baseY = rowY + (field.rowHeight - scene.footprint) / 2
                 val b = outline(id, 0f, 0f)
-                battlefieldCardBounds(TableBounds(x, baseY, scene.footprint, scene.footprint), b.width, b.height, n, zoom)
+                battlefieldCardBounds(TableBounds(x, baseY, TablePresentation.COLUMN_PITCH * zoom, scene.footprint), b.width, b.height, n, zoom)
                     .intersection(field.bounds)
             } }.filterNotNull()
             TableDragLanding(slots)

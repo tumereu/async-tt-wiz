@@ -5,6 +5,56 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun firstDownOwnsPanAcrossAllViewportBoundariesAndPinchScalesUntilRelease() {
+        val world = TableWorld(TableBounds(200f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
+        val ports = listOf(
+            TableViewport("cardPanel/test", TableBounds(0f, 0f, 100f, 200f), 100f, 0f, contentHeight = 800f, scrollY = 50f),
+            TableViewport("hand", TableBounds(200f, 400f, 300f, 50f), 800f, 50f, hand = true),
+            TableViewport("stack", TableBounds(100f, 0f, 100f, 200f), 800f, 50f),
+            TableViewport("other", TableBounds(0f, 200f, 100f, 200f), 800f, 50f))
+        val scene = TableScene(emptyList(), emptyList(), ports, world = world)
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        for (port in ports) {
+            gestures.update(scene, TableSelection(), true)
+            gestures.down(port.bounds.center, 0)
+            gestures.transform(TablePoint(-10f, -10f), 1f, world.viewport.center)
+            gestures.transform(TablePoint(-10f, -10f), 1.5f, ports.last().bounds.center)
+            assertEquals(listOf(port.id, port.id), events.filterIsInstance<TableIntent.Scroll>().map { it.viewportId })
+            assertTrue(events.none { it is TableIntent.Camera })
+            val scrolls = events.filterIsInstance<TableIntent.Scroll>()
+            assertEquals(60f, scrolls.first().offset)
+            assertEquals(70f, scrolls.last().offset)
+            gestures.cancel(); events.clear()
+        }
+        gestures.update(scene, TableSelection(), true)
+        gestures.down(world.viewport.center, 0)
+        for (port in ports) gestures.transform(TablePoint(10f, 10f), 1f, port.bounds.center)
+        assertEquals(ports.size, events.filterIsInstance<TableIntent.Camera>().size)
+        assertTrue(events.none { it is TableIntent.Scroll })
+        gestures.cancel(); events.clear()
+        gestures.down(ports.first().bounds.center, 100)
+        gestures.transform(TablePoint(0f, -10f), 1f, world.viewport.center)
+        assertEquals(ports.first().id, events.filterIsInstance<TableIntent.Scroll>().single().viewportId)
+    }
+
+    @Test fun oneFingerViewportScrollAndSecondPointerKeepOriginalOwnerAcrossWorld() {
+        val port = TableViewport("cardPanel/test", TableBounds(0f, 0f, 100f, 200f), 100f, 0f,
+            contentHeight = 600f)
+        val world = TableWorld(TableBounds(100f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
+        val scene = TableScene(emptyList(), emptyList(), listOf(port), world = world)
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(scene, TableSelection(), true)
+        gestures.down(TablePoint(50f, 100f), 0)
+        gestures.move(TablePoint(60f, 80f), 20)
+        gestures.move(TablePoint(300f, 50f), 40)
+        gestures.transform(TablePoint(0f, -10f), 1f, world.viewport.center)
+        assertEquals(3, events.filterIsInstance<TableIntent.Scroll>().size)
+        assertTrue(events.filterIsInstance<TableIntent.Scroll>().all { it.viewportId == port.id && it.vertical })
+        assertTrue(events.none { it is TableIntent.Camera || it is TableIntent.Move })
+    }
+
     @Test fun hitTestingSamplesTheDrawnSceneWithoutCompositionUpdates() {
         val card = TableItem("card/a", TableBounds(0f, 0f, 28f, 40f), "Card", "",
             kind = TableItemKind.CARD, cardId = "a")
@@ -836,14 +886,14 @@ class TableGesturesTest {
         assertTrue(f.events.filterIsInstance<TableIntent.Move>().single().sources.getValue("a/LIBRARY/0").libraryTop)
     }
 
-    @Test fun libraryDoubleTapDismissesImmediateActionsAndDrawsOnlyOwnCapturedTop() {
+    @Test fun libraryDoubleTapDismissesImmediateActionsAndDrawsEitherOwnersCapturedTop() {
         for (owner in listOf("a", "b")) for (writable in listOf(true, false)) for (mode in listOf(TableMode.NORMAL, TableMode.SELECT)) {
             val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0"), mode), writable = writable)
             val pile = f.scene.items.single { it.id == "$owner/LIBRARY" }
             val p = pile.visible.first().center
             f.tap(0, p); f.tap(100, p); f.gestures.tick(1000)
             val expected = listOf<TableIntent>(TableIntent.Actions(pile.id, null), TableIntent.DismissTapUi) +
-                if (owner == "a" && writable) listOf(TableIntent.Draw("a/LIBRARY", "a/HAND", "a/LIBRARY/0")) else emptyList()
+                if (writable) listOf(TableIntent.Draw("$owner/LIBRARY", "$owner/HAND", "$owner/LIBRARY/0")) else emptyList()
             assertEquals(expected, f.events)
         }
     }
@@ -915,6 +965,9 @@ class TableGesturesTest {
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
         val sidebar = scene.viewports.single { it.id == "sidebar" }
+        // The narrow gutter beside the Stack belongs to the sidebar, not the horizontal counter rail.
+        val background = TablePoint(sidebar.bounds.x + 1f, scene.stackRegion!!.center.y)
+        f.gestures.down(background, 0)
         f.gestures.transform(TablePoint(0f, -60f), 1f, sidebar.bounds.center)
         assertEquals(TableIntent.Scroll("sidebar", 60f, true), f.events.single())
         assertTrue(f.events.none { it is TableIntent.Camera || it is TableIntent.Move })

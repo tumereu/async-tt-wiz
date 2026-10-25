@@ -14,8 +14,8 @@ class TableWorldTest {
             val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape, placements = positions)
             val world = scene.world!!
-            assertTrue(world.panBounds.x <= -7 * TablePresentation.GRID)
-            assertTrue(world.panBounds.right >= 16 * TablePresentation.GRID)
+            assertTrue(world.panBounds.x <= -7 * TablePresentation.COLUMN_PITCH)
+            assertTrue(world.panBounds.right >= 16 * TablePresentation.COLUMN_PITCH)
             for (zoom in listOf(.65f, 1f, 2f)) {
                 val left = world.clamp(TableCamera(-10000f, zoom = zoom))
                 val right = world.clamp(TableCamera(10000f, zoom = zoom))

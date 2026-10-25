@@ -36,6 +36,34 @@ class LibraryActionsTest {
     }
     private fun members(state: PlayState, container: Int = 10) = state.board.containers.single { it.id == id(container) }.cards
 
+    @Test fun nonOwnerAuthorsLookRevealSearchAndRestTargetsTheOriginalOwnersLibrary() {
+        for (selection in ContentsSelection.entries) for (reveal in listOf(false, true)) {
+            val initial = state()
+            val shown = apply(initial, listOf(PlayAction.ShowContents(id(10), selection, 2, reveal)))
+            val panel = shown.board.contentsDisplays.single()
+            assertEquals(id(8), panel.author)
+            assertEquals(id(10), panel.containerId)
+            assertTrue(panel.cardIds.all { card -> initial.board.cards.single { it.id == card }.owner == id(7) })
+            assertTrue(panel.facesVisibleTo(id(8)))
+            val closed = apply(shown, listOf(PlayAction.DismissContents(panel.id, ContentsRest.BOTTOM, seed)))
+            assertTrue(closed.board.contentsDisplays.isEmpty())
+            assertEquals(members(initial).toSet(), members(closed).toSet())
+            assertTrue(members(closed, 12).isEmpty())
+            if (!panel.search) assertEquals(panel.cardIds, members(closed).takeLast(panel.cardIds.size))
+        }
+    }
+
+    @Test fun nonOwnerDrawAndMulliganUseTheLibraryOwnersHand() {
+        val initial = state(hand = listOf(24, 25))
+        val drawn = apply(initial, LibraryActions.draw(initial.board, id(10), id(11), 1))
+        assertEquals(id(11), drawn.board.cards.single { it.id == id(20) }.containerId)
+        val plan = LibraryActions.mulligan(drawn.board, id(10), id(11), members(drawn, 11), seed, count = 2)
+        val shuffled = apply(drawn, plan.prefix())
+        val result = apply(shuffled, LibraryActions.draw(shuffled.board, id(10), id(11), plan.drawCount))
+        assertEquals(2, members(result, 11).size)
+        assertTrue(result.board.cards.all { it.owner == id(7) })
+    }
+
     @Test fun topAndBottomSlicesClampInSourceOrderAndDrawIndividually() {
         val initial = state()
         assertEquals(listOf(id(22), id(23)), LibraryRules.slice(members(initial), ContentsSelection.BOTTOM, 2))

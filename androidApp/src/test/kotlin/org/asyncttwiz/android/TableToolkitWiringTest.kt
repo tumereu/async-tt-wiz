@@ -6,6 +6,47 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun opponentsLibraryOpensTheSameToolsAndActionsKeepOwnerZonesAndActingPanelAuthor() {
+        val f = BasicTableFixture()
+        val root = f.root.copy(board = f.root.board.copy(
+            cards = f.root.board.cards.map { it.copy(owner = f.other, containerId = f.container(PlayZone.LIBRARY, f.other)) },
+            containers = f.root.board.containers.map { container -> container.copy(cards =
+                if (container.id == f.container(PlayZone.LIBRARY, f.other)) f.root.board.cards.map { it.id } else emptyList()) }))
+        f.connect(root)
+        val ui = toolkit(f)
+        try {
+            val library = f.container(PlayZone.LIBRARY, f.other)
+            val hand = f.container(PlayZone.HAND, f.other)
+            val graveyard = f.container(PlayZone.GRAVEYARD, f.other)
+            fun open(): LibraryController {
+                ui.openLibrary(library)
+                assertEquals("library", ui.panel)
+                return assertNotNull(ui.library).controller.also { assertEquals(hand, it.handId) }
+            }
+            assertEquals(1, open().draw().submitted)
+            assertEquals(hand, f.card(40).containerId)
+            assertEquals(1, open().move(ContentsSelection.TOP, 1, MoveDestination(graveyard, MoveInsertion.UNORDERED)).submitted)
+            assertEquals(graveyard, f.card(41).containerId)
+            for (selection in ContentsSelection.entries) for (reveal in listOf(false, true)) {
+                open()
+                ui.showLibraryContents(selection, 1, reveal)
+                val display = f.play.board.contentsDisplays.single()
+                assertEquals(f.actor, display.author)
+                assertEquals(library, display.containerId)
+                ui.resolveCardPanel(display, ContentsRest.BOTTOM)
+                assertTrue(f.play.board.contentsDisplays.isEmpty())
+                assertTrue(f.play.board.containers.single { it.id == library }.cards.all { id ->
+                    f.play.board.cards.single { it.id == id }.owner == f.other })
+            }
+            assertEquals(1, open().shuffle().submitted)
+            val controller = open()
+            val displayed = ui.library!!.handIds
+            val mulligan = controller.mulligan(displayed, count = 2)
+            assertEquals(0, mulligan.refused)
+            assertEquals(2, f.play.board.containers.single { it.id == hand }.cards.size)
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     private fun quick(ui: TableToolkitController, name: String): Boolean {
         val play = ui.current()!!
         return ui.perform(QuickActions.contextual(play,

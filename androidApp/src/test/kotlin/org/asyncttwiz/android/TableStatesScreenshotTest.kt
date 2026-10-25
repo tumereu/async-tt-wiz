@@ -311,11 +311,13 @@ class TableStatesScreenshotTest {
             MoveDestination(f.id("a/HAND"), MoveInsertion.UNORDERED))), sent)
         compose.onNodeWithText("Library contents").assertDoesNotExist()
     }
-    @Test fun opponentLibraryDoubleTapDoesNothing() {
+    @Test fun opponentLibraryDoubleTapDrawsIntoOwnersHandWithoutView() {
         val sent = render("combat", false)
         compose.onNodeWithContentDescription("Bob library, 50 cards").performTouchInput { doubleClick() }
         compose.mainClock.advanceTimeBy(400)
-        assertTrue(sent.isEmpty())
+        val library = f.combat().board.containers.single { it.id == f.id("b/LIBRARY") }
+        assertEquals(listOf(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
+            MoveDestination(f.id("b/HAND"), MoveInsertion.UNORDERED))), sent)
         compose.onNodeWithText("Library contents").assertDoesNotExist()
     }
     @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }

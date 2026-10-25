@@ -20,12 +20,14 @@ class InlinePopupTest {
         assertEquals(expected, inlinePopupBounds(412f, 892f, anchor, true, 216f, 216f))
     }
 
-    @Test fun onlyLibraryOwnerCanOpenActionsAndOpeningNeverSubmitsSharedView() {
+    @Test fun eitherLibraryOpensTheSameActionsWithoutSubmittingSharedView() {
         val play = LiveTableFixture.play()
         val sent = mutableListOf<org.asyncttwiz.protocol.PlayAction>()
         val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; true })
         toolkit.openLibrary("b/LIBRARY")
-        assertNull(toolkit.panel); assertNull(toolkit.library)
+        assertEquals("library", toolkit.panel); assertNotNull(toolkit.library)
+        assertEquals("b/LIBRARY", toolkit.library!!.controller.libraryId)
+        assertEquals("b/HAND", toolkit.library!!.controller.handId)
         toolkit.openLibrary("a/LIBRARY")
         assertEquals("library", toolkit.panel); assertNotNull(toolkit.library)
         assertTrue(sent.isEmpty())

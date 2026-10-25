@@ -70,14 +70,42 @@ Graveyard. Use normal card-move/reset/token-removal behavior. Virtual combat slo
 placement and occurrence cleanup are distinct from changing the real card;
 operation disambiguation still needs case-by-case design. D-124 removes combat
 projections when their source leaves the battlefield, regardless of entry point;
-D-125 retains Stack effects until explicit removal/resolution, even if a move was
-performed through the Stack projection itself or the source no longer exists.
+D-125 retains Stack effects after independent source moves or disappearance.
+A normal Stack drag is an exception: only the top entry is draggable, and its
+zone drop removes that projection as well as moving the real source if needed.
 D-242 keeps Stack sources linked across locations, including Graveyard/Exile
 sources and creation there. Only token disappearance freezes last-live source
 information for read-only inspection. Do not offer source-card edits on the frozen
 copy or recreate the token; occurrence layout/removal remains available.
 
 ## 10.2 Proposed board areas
+
+**Current layout (playtests r2–r11):** the battlefields and center combat band are
+one zoom/pan surface. Hands, piles, life and counters are fixed-size HUD, with
+piles below your hand and above the opponent's. Portrait Stack is fixed-size at
+the right edge, vertically centered; landscape keeps its sidebar. Battlefield
+backgrounds extend indefinitely sideways. Camera bounds allow three card slots
+beyond the outermost cards; overscroll rubber-bands and springs back. Clamp each
+axis independently: wide content cannot expose space beyond its ends, and narrow
+content cannot be pushed partly off-screen. Empty-space double tap fits the table;
+double tap then drag pans one-handed; plain empty drag rectangle-selects, showing
+would-be selections during the drag. Pans stay in their starting region (panel,
+field, hand or Stack). Battlefield cards are 28×40dp at base scale with 42dp column
+pitch. Peeks go top-left; adjacent cards/piles never overlap at any tapped angle,
+including mid-animation. Selection borders rotate with the card throughout.
+
+Real cards are rectangular, tokens have owner-colored chamfered corners with the
+same footprint, and projections have dashed borders. Standard cards use Scryfall
+`art_crop` inside app-rendered name/P/T; custom-image cards show the whole image
+without an app name and with corner P/T on a background. Inspect uses full images.
+Opponent hand background matches your own, not the opponent's battlefield tint.
+Only the turn player's field is tinted; the other is neutral grey. The header's
+first line is “Your turn · N” or “X's turn · N”. Whose-move is separate: solid green
+“Your move” and a green screen frame that pulses once on arrival, otherwise outlined
+“Waiting · X” and no frame.
+
+The older layout paragraphs below, up to “Uniform card scale”, are superseded by
+this layout. They are historical mockup direction, not requirements.
 
 **Current gameplay review direction — D-291:** both portrait and landscape are
 required. The [gameplay layout brief](../02-experience/gameplay-screen-proposal.md)
@@ -118,6 +146,10 @@ dash/selection/token/ping signals. See G01–G06 and H01–H03 in the review pac
 
 ### Uniform card scale and pile totals — D-296
 
+**Scale portion superseded by the current layout above:** only the world surface
+zooms; HUD representations keep their fixed size even when on-screen card sizes
+differ. The total-count badge/accessibility requirements below remain current.
+
 All table card representations use one card size at the same zoom: battlefield,
 combat/Stack projections and real cards, Hand/covered Hand, reveals, Library,
 Graveyard and Exile. Do not fit an area by shrinking only its cards or derive card
@@ -143,6 +175,9 @@ silently issue a new logged disclosure or add a new search capability.
 D-297 makes the results heading a small subordinate label, not a new title.
 
 ### Compact hands and direct card actions — D-297
+
+**Card-menu bullets below are superseded by the current card menu in the next
+section.** Compact, pannable hands and captured target IDs remain current.
 
 - Reduce Hand inter-card gaps. Both hands pan horizontally in either direction
   when content exceeds available width, without shrinking their card scale,
@@ -183,6 +218,27 @@ D-297 makes the results heading a small subordinate label, not a new title.
   and retained updated states, not a working editor or authorization to implement.
 
 ### Compact action layout and source relationships — D-298
+
+**Current card menu and controls (r3–r10):** a stationary 4×4 grid of 48dp cells
+(icon plus one short label) occupies one reserved square of about 200dp. Pages
+never move the square; edge tabs and swipes switch Everyday / Counters / More /
+Move pages. Anchor on the side with most room, usually above own cards and below
+opponent cards. Everyday includes P/T, Library top/bottom, Graveyard and Exile;
+other zone moves use Move. No “Move to pile (col,row)” entries; drag onto a card
+still piles. P/T and each counter use a 2×1 widget: minus left, value center
+(tap edit / drag adjust), plus right. Counters has P/T and all six colors;
+More retains split +/• controls. Hold a cell for its full action-name tooltip.
+Outside dismissal/pass-through follows section 10.3.
+
+Mode is a floating 48dp square at the board's bottom-right; tap cycles
+Normal → Select → Ping without a chooser. Next step occupies the bottom-right
+corner, with bordered, non-filled contextual squares right-aligned beside it.
+Hold Next step ends the turn. Table actions opens its dialog directly with its
+own icon: no intermediate controls menu, Redo, Return to current, View·N or
+retained-display reopening. Download history stays in the timeline menu.
+
+The older quick-allocation and menu-geometry bullets below (through the counter
+triplets) are superseded by this contract. Relationship emphasis remains current.
 
 - Center fitting Hand cards in their allocated display viewport. If they overflow,
   preserve compact spacing and left/right reach to both ends; centering must not
@@ -231,8 +287,9 @@ D-297 makes the results heading a small subordinate label, not a new title.
   Expose equivalent relationship descriptions to accessibility. Offscreen views
   may be navigated normally; do not leak concealed faces/names or fabricate a live
   source for a frozen effect whose token disappeared. No request is sent merely
-  for highlighting. Source orientation is shown through combat projections too:
-  a tapped source is not rendered upright merely because it is in combat.
+  for highlighting. Stack and combat projections always render upright, regardless
+  of source orientation. Combat tap opens Undeclare / Graveyard / Ping bubbles;
+  double tap does nothing and hold inspects. Undeclare never untaps the source.
 
 ### Player values: row, life menu and drag preview — D-296
 
@@ -260,12 +317,11 @@ D-297 makes the results heading a small subordinate label, not a new title.
   may edit either player. Hidden portrait rows/absent colors remain accessible
   here without a new Add/Initialize step. Completed +/- and Set retain the menu
   as before; field trimming/empty removal and nonnumeric applicability persist.
-- Drag **up to increase / down to decrease** on life or a numeric counter
-  affordance. Bind the addressed participant/field at gesture start. Display a
-  local signed **+N / −N delta**, not a succession of shared edits or a prematurely
-  changed stored value. The two directions can reverse during the same drag.
-  Touch slop and distance-to-integer-step mapping are reviewable geometry/timing
-  details, not per-area arithmetic policies.
+- Life/counter drags use the dominant axis, one step per 10dp, without acceleration:
+  right increases, left decreases, toward the other player decreases, toward your
+  own edge increases. Card counters use the controller's side. Bind the field at
+  gesture start and show an anchored bubble such as **+3 → 23**, above the counter
+  (below near the top edge). Preview is local; release sends one relative edit.
 - On a valid release, issue **one relative delta-N request** for that field if N
   is nonzero. Apply normal provisional prediction immediately then; no extra
   confirmation and no N separate +1/-1 requests. Server execution applies that
@@ -295,7 +351,7 @@ D-297 makes the results heading a small subordinate label, not a new title.
   creating a new instance/token/Clone. Creating a projection does not create a
   new owner: live occurrences display their real source's owner. A frozen token
   effect retains the source's last-live owner with its other frozen information.
-- **Change owner** in card Actions selects one of the game's two participants.
+- **Change owner** exists only for tokens and selects one of the two participants.
   Either participant may perform it; existing captured-selection scope applies.
   Opening/closing the chooser is personal UI; choosing a changed value is an
   ordinary connected server-authoritative card-field mutation with immediate
@@ -306,6 +362,12 @@ D-297 makes the results heading a small subordinate label, not a new title.
   Resetting other card fields does not silently change owner; only explicit owner
   editing does. Keep owner through retained state/history/recovery and ordinary
   eligible selective Undo/Redo; token disappearance still removes the real token.
+- Hand, Library, Graveyard and Exile are owner-only destinations; either battlefield
+  is allowed. An opponent-zone drop redirects to the owner's zone, including its
+  preview. Menus omit other-player destinations and player names. Both players can
+  still manipulate either side; a card's controller is its battlefield side, not
+  its owner. Moving a token to Graveyard deletes it regardless of owner and does
+  not concern its owner field for Undo/Redo.
 - Relevant `(from,to)` for an owner edit is that source's owner value. Different
   card fields remain independent unless their own contract reads owner. Accepted
   moves retain their original destination, not a destination recomputed from owner.
@@ -345,9 +407,8 @@ not an R1 area/named-value authoring editor. The engine does not interpret label
   the explicitly selected container/placement fields.
 - Each participant has labeled library, graveyard, and exile slots. Their card
   counts remain visible even when empty or covered.
-- The shared Stack, renamed from Cast (D-113), supports actual cards and virtual
-  projections. D-114 adds contextual quick actions; entry controls, ordering,
-  lifecycle, and exact layout need case-by-case design, not automatic resolution.
+- Every Stack entry is a projection; sources may be in Battlefield, Hand,
+  Graveyard or Exile, never Library. A Hand source is public while projected.
 - A temporary combat area supports projected attackers/blockers in visual paired
   groups, without individual attacker↔blocker assignments (D-112/D-139);
   projection creation preserves source positions,
@@ -364,9 +425,8 @@ not an R1 area/named-value authoring editor. The engine does not interpret label
   size or one-for-one restrictions; own Ready clears and saved decks stay unchanged.
 - Player controls and review/undo stay reachable while the table pans/zooms.
 - D-291's first draft uses bottom-left tap Undo / hold Redo; a recognized hold
-  emits only Redo, never an earlier Undo or a release-time Undo. Explicit Redo
-  remains in the controls menu and accessibility actions. Exact timing is not
-  selected; ordinary server eligibility/recovery rules apply to either route.
+  emits only Redo, never an earlier Undo or a release-time Undo. Redo is absent
+  from touch menus; accessible Redo remains available.
 - Exact sizing, dock placement, large-screen layouts, and whether both zone
   docks fit at the default phone zoom require annotated wireframes.
 
@@ -394,7 +454,11 @@ card, without adding it to the former set. With no selection, affect only the
 addressed card. Pile membership alone does not expand the affected set.
 Tapped presentation is a 90-degree clockwise rotation from untapped, and
 untapping returns to the untapped presentation rather than rotating another
-quarter-turn. Confirmed mixed-orientation behavior (D-36): follow the touched
+quarter-turn. Animate either direction about the card center in 90 ms, without a
+morph; the selection border rotates with it throughout. Other card travel uses
+minimum velocity initially ~2.5dp/ms, ease-out and a 180ms scene-duration cap;
+short moves arrive early and wait, with debug speed tuning in Settings.
+Confirmed mixed-orientation behavior (D-36): follow the touched
 card's pre-operation presentation. If it is untapped, set all selected cards tapped;
 if it is tapped, set all selected cards untapped. Do not invert each member
 independently. Preserve the selected set and unrelated fields.
@@ -407,13 +471,17 @@ provide selection-aware tapping. Exact command placement remains open; D-176
 records individual card-orientation mutations. No tap/untap infers activation, mana, combat, or any
 other game meaning.
 
-Double-tap recognition requires a bounded single-tap decision window. Show
-immediate pressed feedback, but do not open the single-tap Actions menu while a
-normal-mode double tap is still possible, then retract it or emit a game edit for
-that first tap. A recognized double tap emits the orientation operation once,
-not Actions or two orientation toggles. This
-gesture-recognition interval is not a batching delay after a completed action.
-Exact timing/slop and accessibility behavior remain to be approved.
+Single-tap context menus open immediately, including Library. Double tap uses a
+400 ms window and 32dp distance; both taps visibly register a press border. A
+recognized double tap rotates the card once even if the first tap opened a menu.
+Double-tapping your Library draws one. Inspect hold is 350 ms. Menus must never
+block table double taps or drags.
+
+All tap menus use one reusable floating popup for anchoring, animation, cells,
+dismissal and input arbitration: opaque square bordered buttons/chips with a light
+shadow, no sheet background, title or Close button. Outside tap dismisses and
+passes through; only buttons/chips count as inside, not empty cells or gaps.
+Back dismisses. The phase/step picker is exempt and remains a dialog.
 
 **Confirmed mode behavior — D-281:** Select/Ping modes have no dedicated double-tap
 recognizer; each single tap performs its mode action immediately. Two quick taps
@@ -543,6 +611,13 @@ Confirmed context controls (D-37):
 
 ### Side-sensitive inspection — D-252
 
+Inspect hold is 350 ms. Hover inspection is compact and titleless, with no
+enlarge-art affordance and a tight art/text gap; finger up/down scrolls its info.
+Render mana/tap symbols natively in rules text. Full inspection keeps full card
+images. Tooltips appear above their button (below near the top edge), never under
+the finger. Every custom button app-wide has press feedback. Mutating holds give
+a tiny haptic tick; inspection does not.
+
 D-252 revises D-38/D-89's blanket covered-face hold behavior:
 
 - **Own-area hold/hover inspection** shows the real face art/text despite covering,
@@ -611,8 +686,8 @@ Confirmed movement rules (D-21–D-24, D-28–D-29, D-34):
   a rules attachment, copy, or mechanically merged object. Special container
   slots retain their configured ordered or unordered movement behavior.
 - The single-tap Actions sheet includes Move to Library top/bottom, Graveyard,
-  and Exile. Either participant's corresponding containers are accessible; the
-  exact destination-picker layout remains open. Graveyard/Exile have no top/bottom
+  and Exile, always the source card's owner destinations, without player names or
+  opponent alternatives. Graveyard/Exile have no top/bottom
   variants or other order-related actions (D-226). These are literal moves,
   not inferred draw/discard/etc. commands.
 - Multi-card selection permits dragging several cards; D-176 records individual
@@ -733,6 +808,59 @@ Whole-pile movement must not be inferred from dragging an unselected single
 card. It operates on multiple cards only after ordinary explicit selection.
 
 ## 10.6 Special piles: library, graveyard, exile
+
+**Current panel/Library contract — playtests r8–r11.** The older D-41–D-51
+inventory, trays, dismissal and category-column UI below are superseded in full
+by this section's current contract. Unordered Graveyard/Exile membership and
+ordinary movement/reset rules are unchanged.
+
+- Library always shows a back, for either viewer, without a known-card marker.
+  Tap opens immediately: Draw / Reveal / Look / Mill / Exile for 1, then the same
+  five N… actions, Search / Shuffle, and Mulligan 7 / Mulligan −1. No bottom-N,
+  Top/Bottom toggle, Move N row or Reveal all. Each N… dialog remembers that
+  action's last local quantity and shows [−][+][field][action confirm]; field focus
+  selects all. Oversized N clamps to available cards. Double tap own Library draws.
+  Either participant can use all actions, including Mulligan, on either Library;
+  actual card destinations obey owner-only zone routing.
+- Look, Reveal and Search use ONE shared, server-authoritative left-edge panel
+  model. Cards have per-card visibility: private faces only to the initiator,
+  backs/count to the other viewer; Reveal starts all face up. At most ONE such
+  panel is open in the whole game. While open, both libraries' Look/Reveal/Search
+  controls, including N… confirm, are only greyed out—no error/snackbar. The server
+  enforces the invariant as a safety net. Continuous top-card reveals are excluded.
+- Header: icon, title, total count, ✕. Cards are Stack-card size in row-major order
+  (left→right, top→bottom; position 1 is Library top). Use the fewest columns that
+  fit all cards without scrolling, up to three in either orientation; then scroll.
+  The panel spans the life rows; hands shrink sideways while any panel is open.
+  Search is private, sorted by type then name, copies grouped BY NAME as ×N;
+  dragging takes one. Closing Search shuffles and records one display group.
+  Look/Reveal retain top-N order and allow in-panel insertion reordering; Search
+  does not reorder. Drag outside moves the card; an insertion bar previews reorder.
+- Tap a panel card for one fixed 3×3 floating menu to the panel's right, aligned
+  to its top card row: Hand, Reveal+Hand, Battlefield, Battlefield tapped,
+  Graveyard, Exile, Top, Reveal+Top, Bottom. Use icons and readable labels;
+  already-revealed cards grey out the reveal variants rather than removing cells.
+  Reveal+Hand/Top flips inside the same panel in one event/group, then moves in a
+  SEPARATE event/group; ordinary playback pacing provides viewing time, no special
+  dwell or second panel. Hold-inspect works on every face-up card live or in the
+  timeline; holding pauses playback without entering timeline mode from live.
+- Only the initiator resolves Look/Reveal. Manual ✕ with cards remaining opens
+  one floating rest row at ✕: Top, Bottom (both preserve panel order), Shuffle,
+  Graveyard, Exile. No Bottom(random). The last card leaving Look/Reveal/Search
+  closes the panel in the SAME event, without a rest chooser. No retained display
+  can be reopened. Reveals do NOT persist: leaving the revealed panel for Hand or
+  Library hides the card again. No retained eye/knowledge badge in hands or piles.
+  Only the panel author sees the eye on currently public cards in Look/Search,
+  never Reveal: centered on the art in a white disc.
+- Tap either Graveyard/Exile for ONE local, opponent-invisible view per viewer,
+  with no history or game-panel-limit contribution. Type headers and types are
+  alphabetical, cards alphabetical within type, reusing Search's type/×N grouping;
+  no name search, no reorder and no rest chooser. It uses the same 3×3 card menu,
+  drag-out and inspect. Tap the pile or ✕ to close; empty pile auto-closes. When
+  both panels are open, the shared panel stays left and the local view sits to its
+  right, with at most two columns each (otherwise up to three).
+
+### Superseded pile/browser specification (D-41–D-51)
 
 Special piles represent container contents, unlike the layout-only piles above.
 
@@ -1115,6 +1243,9 @@ batch:
    remains editable. Neither counter edits nor corner-text edits calculate
    card characteristics, affect other fields, or cause automatic cleanup.
 
+Historical control exclusions below are superseded by the 4×4 menu and value
+widgets in section 10.2; numeric/text semantics remain unchanged.
+
 This does not approve the previous always-visible tracker +/- controls,
 double-tap -> Counters submenu, or tap-number-to-edit proposal. D-267's single tap
 opens card Actions; D-61 confirms inline
@@ -1212,9 +1343,8 @@ Ordinary card edits likewise do not check previous orientation/text. D-187 limit
 optimistic conflict guards to moves and Stack additions, superseding the earlier
 [25-rule proposal](optimistic-locking.md) rather than approving its other details.
 
-1. Put counter controls directly in the card context menu rather than requiring
-   a separate Counters submenu. Each color exposes -1/+1/Set, e.g.
-   `[ -1 Red ] Red: 3 [ +1 Red ] [ Set Red ]`. Keep action availability separate
+1. Put counter controls in the Counters page, each as a 2×1 minus/value/plus
+   widget; tap the value to Set or drag to adjust. Keep action availability separate
    from the field's plain text: nonnumeric text makes arithmetic unusable, not
    a reason to replace it with Add/Initialize.
 2. Tapping a participant's player panel opens the equivalent counter controls;
@@ -1494,7 +1624,21 @@ D-99 requires quick-action offerings to vary with phase/step. Entering a step
 does not by itself execute a shortcut. D-100 confirms the first shortcuts below;
 other mappings remain under review. Do not infer card rules from these controls.
 
-Confirmed first shortcuts (D-100):
+Current shortcuts (playtest r3; supersedes D-100/D-101's inventory below):
+
+- Untap: Start turn = untap + draw + Main 1, one Undo.
+- Upkeep: Draw + go to Main 1. Draw: Draw one + Main 1.
+- Main 1: Go to attacks → Declare attackers and Select mode; Skip combat → End step.
+- Declare attackers without selection: No attack → Main 2; with selection retain
+  Declare + tap / Declare without tapping.
+- Declare blockers: defender gets No blocks + next.
+- Main 2 / End step: visible End turn. No automatic combat-damage math.
+- Show step actions only to the relevant turn player/defender. No tap/untap-selected
+  or Graveyard quick actions; double tap/drag cover those. Underlying actions stay
+  available through their full paths. A multi-action invocation is one Undo move;
+  display grouping alone never combines separate invocations into an Undo.
+
+Historical shortcut inventory (superseded):
 
 1. Untap step: Untap all for the turn player's battlefield cards.
 2. Draw step: Draw one from the turn player's Library to their Hand, using the
@@ -1516,6 +1660,15 @@ main. Do not skip Upkeep/Draw after Untap or automatically execute another card
 operation on arrival. There is no priority/pass state under D-105.
 
 Confirmed progression controls (D-102):
+
+The picker remains a dialog, exempt from floating menus. Its title shows phase
+and step name (e.g. “Combat · Declare attackers”) plus turn player, with turn number
+least prominent. Lane labels sit above steps. Header trigger is step icon + short
+code, no turn number. Anyone can pass whose-move: the button flips its holder to
+the other player, so a non-holder takes it. A step change sets move to the turn
+player except Declare blockers → defender; bundle that invisibly in the step
+event. Only a manual pass creates its own event, grouped backward for DISPLAY
+only; Undo undoes just the pass. There are no other auto-passes or priority rules.
 
 1. A standalone Next step control advances tracking without card edits, so
    players can finish a step without using its card-operation shortcut.

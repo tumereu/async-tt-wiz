@@ -30,8 +30,8 @@ limited [gameplay review extension](../02-experience/ui/README.md), including tr
 central Stack/combat lanes in both orientations. This is not full combat/Stack
 visual-state completion, final geometry approval or application authorization.
 
-**D-295 Stack display:** no gameplay entry-count capacity for actual cards or
-independent projections. Render a diagonal corner-peek pile with the top entry
+**Stack display:** every entry is a projection, with no gameplay entry-count
+capacity. Render a top-left diagonal corner-peek pile with the top entry
 and at most two underneath, using the ordinary visual-pile vocabulary without
 importing its membership limit. Preserve total count, every entry's identity/order
 and access to ordered contents. A visible-three bound cannot discard/collapse
@@ -41,20 +41,25 @@ changes do not move/remove occurrences. Portrait Stack is right of central
 libraries. Combat-between-libraries/Stack-beside is a tentative trial; faint
 vertical dividers separate paired combat slots, never battlefield rows.
 
-D-296 refines the display: all card/occurrence drawings share the table's current
-card scale, including combat; there is no smaller combat-card scale. Landscape
-Stack moves between the side panel's player-info blocks. Portrait placement stays.
+D-296's common zoom is superseded: Stack is fixed-size HUD, right-edge/vertically
+centered in portrait and between sidebar player blocks in landscape. Combat is
+part of the zoom/pan world. Stack has a roughly 3dp very dark purple border and
+soft shadow for a floating appearance.
 Stack's total appears in the same top-left circular count badge as other special
 piles; the pile/badge opens its retained ordered contents. Geometry/count display
 changes no source/occurrence guards, capacity or lifecycle behavior.
 
-**D-297 combat geometry:** each paired group is only as wide as its wider side's
+**Combat geometry (r5/r7 supersedes D-297's wide insertion slots):** each paired group is only as wide as its wider side's
 actual card envelopes plus tiny inner/inter-card margins; do not stretch all pairs
 equally across the area. A multi-card side grows its pair while the other side
 remains aligned with that group. Keep the same table card scale, accommodating
-rotation and horizontal navigation rather than shrinking combat cards. Whenever
-combat is open, show one-card-width **new-pair drop targets** before, between and
-after active pairs; with no active pairs show one empty target. Both blocker and
+horizontal navigation rather than shrinking combat cards. Center all packed
+groups together and re-center on insertion; center cards within either side
+(one attacker centered over two blockers). Single faint dark dividers have margins
+of about two card-border widths; retain inter-card gaps but no card-wide gaps or
+per-column borders. Drops anywhere beyond either end create a pair there; near a
+divider creates one between groups. A faint shorter insertion divider previews
+the landing position. Reordering works symmetrically in both directions. Both blocker and
 attacker halves remain addressable, including blocker-only entry. These are local
 insertion affordances, not empty shared pairs: D-138 still removes every fully
 empty semantic pair. A valid drop uses existing create/reuse/move/insert guards;
@@ -64,9 +69,10 @@ visible empty row from these affordances. Exact margins/artwork remain reviewabl
 
 D-298 changes only their drawing: use faint vertical paired-slot dividers, **no
 empty card rectangles, dashed boxes or plus signs**. Empty insertion hit regions
-and accessible entry before/between/after pairs remain. Combat cards can be tapped:
-fit the full rotated card envelopes at the same scale, and render source orientation
-through projections, not an independently untapped combat copy. The board contract's
+and accessible entry before/between/after pairs remain. Stack and combat projections
+are always upright. Combat single tap opens Undeclare (occurrence only, no untap),
+Graveyard (real source to owner's Graveyard), and Ping bubbles; double tap does
+nothing, hold inspects, and no normal card menu opens. The board contract's
 source-identity relationship emphasis highlights real source/other projections
 without expanding selection or changing source-versus-occurrence action scope.
 
@@ -103,17 +109,15 @@ rule was approved; do not introduce one or treat it as a required owner decision
    after source departure. D-242 keeps Stack sources live across locations and
    freezes read-only source state only when a token disappears. Exact identity/
    schema and cleanup mappings remain contract/technical work.
-3. **Stack naming and ability projections (D-113):** rename the former Cast area
-   to Stack. D-242 explicitly permits ability projections from Graveyard and
-   Exile as well as Battlefield, without moving the original card. D-134 allows
+3. **Stack projections (r2 supersedes D-113's mixed entry model):** every route
+   onto Stack creates an AddEffect projection, never a real-card move. Sources
+   may be Battlefield, Hand, Graveyard or Exile; Library → Stack is blocked.
+   A Hand source is revealed to both while projected. D-134 allows
    unlimited independent Stack projections, including several from the same source.
    This is an explicit player action, not ability detection, automatic cost payment
    or priority tracking.
-4. **Contextual Stack actions (D-114):** offer quick actions according to what is
-   there: actual instant/sorcery card → Graveyard; actual permanent card →
-   Battlefield; projection → remove that projection, not its source card. These
-   are user-invoked conveniences, not automatic resolution or legality checks.
-   Exact category/default routing and interaction must be designed case by case.
+4. **Stack actions:** every entry offers the same literal Battlefield / Graveyard /
+   Remove bubbles; no type-based resolution or legal-ability interpretation.
 
 These explicit combat associations and projection roles refine the earlier
 blanket no-mechanics-entities wording. They do not authorize inferred attack/
@@ -216,6 +220,37 @@ other endpoint kinds need separate review.
 
 ## 13.3 Review sequence and unresolved contracts
 
+**Settled Stack interaction (r1/r3/r6b/r7/r8; supersedes the Stack questions below):**
+
+- Single tap and post-add open animated floating bubbles; outside tap dismisses
+  and passes through. Double tap opens full card actions; hold inspects. Entries
+  cannot tap and always stay upright. Only the TOP entry can be dragged normally.
+- Above: Battlefield removes the entry. If its real source is not on Battlefield,
+  put it on its owner's main non-land row nearest lands, immediately right of the
+  rightmost card (first slot if empty); if already on Battlefield remove only the
+  entry. Below: Graveyard removes the entry and moves the real source to its
+  owner's Graveyard, even for a permanent's ability projection. Remove leaves the
+  source unchanged. Normal top-entry zone drops also remove the entry and move
+  the real source, or remove only the entry when dropping in its current zone.
+- A bubble Battlefield/Graveyard/Remove action opens the new top's bubbles. Drags
+  and Manage Stack removal do not. Add/remove animate a ghost card source→Stack /
+  Stack→source, reversed by Undo; bubbles animate in.
+- The center-facing mark-text handle previews ONE mark live while dragged up/down;
+  release sets it. Options are part titles first (split/adventure/MDFC etc.), then
+  rules-text paragraphs. No legal-ability parsing. Manage Stack offers toggle chips
+  for MULTIPLE marks per entry. Shared indices use a 6–10 color palette, appear
+  together at the occurrence corner and in inspect, never on the source, and clear
+  on Stack exit.
+- Manage Stack shows ALL entries and can remove non-top entries. Inspection draws
+  above the dialog. Under each entry: square icon buttons Remove, Battlefield,
+  Graveyard, Copy, Change controller. Copy adds a projection on top; controller
+  changes the projection only, never the real card owner. Battlefield/Graveyard
+  are disabled for copy projections. **NO reordering**, arrows or replacement
+  reorder route (owner clarification, 2026-10-25).
+
+The older six-item review checklist below is historical where these decisions
+settle it; unchanged reference/correctness questions are not new UI requirements.
+
 Review behavior in these cases separately; capability approval is not approval
 of unanswered semantics or controls. UI drafts/concrete gesture choices are
 stage 3; schemas/technical choices follow in the relevant implementation work:
@@ -266,7 +301,7 @@ history/branch recovery still applies.
 
 D-123/D-242: while its source exists, card actions through a projection apply to
 that real source card. Projections are live views, not editable snapshots.
-Tap/untap, corners, counters, notes, faces/cover and other card-state changes refer
+Corners, counters, notes, faces/cover and other supported card-state changes refer
 to the same shared card state, whether invoked through the source or a projection. No separate local
 copy of those card fields is introduced for combat or Stack occurrences while
 the source exists. D-242's token-disappearance fallback below is read-only.
@@ -284,8 +319,8 @@ token-disappearance presentation/actions follow D-242 below.
 
 ## 13.5 Confirmed area-specific lifetime (D-124/D-125)
 
-Do not apply a universal remove-the-dragged-projection policy. Lifetime depends
-on the occurrence's role, not on which view was used to edit/move the card.
+Independent source moves retain Stack entries. Explicit top-Stack zone drags and
+destination bubbles remove the acted-on entry, as specified in section 13.3.
 
 **Combat (D-124):** anything that removes the real card from the battlefield
 removes all its combat projections, whether attackers or blockers. This includes
@@ -299,8 +334,8 @@ disappears; do not remove or move their real source cards.
 
 **Stack (D-125):** the source leaving the battlefield, moving elsewhere, or a token
 source being removed does not remove its Stack projections. Each effect occurrence remains
-until explicitly removed/resolved, including when a move was performed through
-that Stack projection itself. Removing/resolving the occurrence removes its
+until explicitly removed/resolved. Top-Stack zone drags and destination bubbles
+explicitly remove the acted-on occurrence too. Removing the occurrence removes its
 incident projection links, not the source card, and does not apply card-text
 effects automatically. Links between surviving projections are not removed just
 because their sources changed location. No priority or automatic resolution is
@@ -421,12 +456,13 @@ boundaries. See [history mutation sequences, section 3.11](history-and-undo.md).
 
 ## 13.10 Confirmed advance-and-close tree representation (D-132)
 
-**D-176 supersedes D-132's one-node mapping.** Advance-and-close issues distinct
+**Undo scope corrected by r2/r6:** one multi-action invocation is one Undo move;
+display grouping alone does not merge moves. Advance-and-close records distinct
 tracking and area mutations: advance first, then invariant-closed combat closure
 with contained occurrences/links/pairs removed together. Preserve deterministic
 forward/rollback data and immediate publication of each valid boundary. Playback
 grouping does not remove intermediate nodes
-or turn the invocation into one Undo step. This is not runtime MTG timing adjudication.
+while the combined invocation is one Undo move. This is not runtime MTG timing adjudication.
 
 ## 13.11 Confirmed repeated attacker declaration (D-133)
 
@@ -534,10 +570,9 @@ not a collection of individual attacker↔blocker assignments. See section 13.16
   by this layout alone; normal undo/history must retain the prior slot/ordering
   context. Exact event/concurrency composition remains open.
 
-Ordering the moved collection itself, first/last/empty-area drop targeting,
-between-pair side targeting, and any separate whole-pair reorder control
-remain behavior questions. D-138 approves the described behavior, not final screen
-geometry or an implementation-stage transition.
+Drop targeting at either end and between groups follows the packed geometry
+above. Existing collection-order rules below remain; no separate whole-pair
+reorder control is required.
 
 ## 13.16 Confirmed visual combat groups without per-card assignments (D-139)
 

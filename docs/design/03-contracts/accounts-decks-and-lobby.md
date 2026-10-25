@@ -6,14 +6,17 @@
   guest entry to the main menu is not part of this flow.
 - App name: **Async Tabletop Wizards**. Subtitle: **Specialized tabletop simulator
   for asynchronous wizardry** (D-292).
-- The main menu provides **Games**, **Manage decks** and **Contacts**, without
+- The main menu provides **Games**, **Manage decks**, **Contacts** and **Settings**, without
   explanatory destination subtitles, a notification-settings shortcut or direct
   Logout. **Games** is the current label for the earlier **Play** destination.
 - Post-login hamburger navigation has two clickable top-level categories:
-  **Menu** opens the main menu, with indented **Manage decks** and **Contacts**;
+  **Menu** opens the main menu, with indented **Manage decks**, **Contacts** and **Settings**;
   **Games** opens the games browser, with each current game indented beneath it.
   Contextual screens such as import/preparation are not global menu destinations.
-  Logout is pinned to the navigation's bottom, outside its scrolling list.
+  Settings contains Card records (moved out of Manage decks) and Log out. Debug
+  account switching stays in the hamburger. Settings shows version/build commit,
+  the account-local playback pause slider (100 ms–10 s, default 1.5 s), manual
+  catalog re-import and debug animation-speed tuning.
   Landscape non-gameplay screens always show this navigation; gameplay in either
   orientation and portrait non-gameplay use the hamburger drawer. D-294 removes
   all app Back/home arrows; native Android Back remains. Hamburger and gameplay
@@ -40,8 +43,11 @@
   Logout has its own icon. Top-level Menu/Games remain text. Button actions normally
   have meaningful icons plus text where space permits; tight gameplay controls use
   icons with accessible names. Preserve meaningful state values, not instructional filler.
-- D-294 game-list rows use the **game name**, with opponent identity and creation
-  date beside lifecycle state in their details, without “With”/“Game with” filler,
+- Game-list and main-menu quick-continue rows share grouped white surfaces and
+  dividers: bold **game name** + whose-move chip (filled when mine), then
+  “vs X · In play · <last activity>” (time if today), replacing Created. Main menu
+  shows up to three in-progress games below Games: mine-to-move first, oldest
+  updated first, then others newest updated first; hide empty slots. No filler,
   and a right chevron to open. Reinvite is inside the exact existing lobby, not on
   the browser row. Long press a game row (including navigation) opens contextual
   Cancel game for setup or Delete game for active play. Native accessibility exposes
@@ -308,9 +314,10 @@ does not create a game/invitation. The final create request binds the chosen nam
 recipient and original request ID; retries never regenerate/rename the game.
 
 The server records the creation instant once when the persistent game and first
-invitation are accepted. Display its date beside state text in details, using the
-game name as the browser/navigation/lobby/table title and retaining the opponent
-as metadata. Creation date belongs to the persistent game, not each play incarnation:
+invitation are accepted. Game rows display last activity, not Created; the gameplay
+header shows “Your turn · N” / “X's turn · N”, not the game name. Elsewhere the name
+identifies the game and opponent remains metadata. Creation date belongs to the
+persistent game, not each play incarnation:
 acceptance, reinvite, Ready/start and result-return/fresh start preserve name/date.
 They synchronize to the recipient and other own devices. Names are labels, never
 identities or ordering keys; the stable game ID distinguishes repeated suggestions
@@ -323,6 +330,11 @@ post-creation rename UI, name-generation service, age expiry or archive. Exact w
 lists/date formatting are presentation/technical detail, not unresolved game policy.
 
 ## Confirmed deck-management scope — D-189
+
+Deck browser refresh is manual pull-to-refresh with the standard indicator, never
+a background refresh. Background game loads are silent. Lifecycle-interruption
+errors show nothing; real errors use a floating snackbar, not inline red text.
+Resuming gameplay never inserts a loader or shifts/bounces the table layout.
 
 - Saved deck **card-list editing is import-only**. Naming/renaming and selecting
   cover art are separately supported (D-199). A full manual

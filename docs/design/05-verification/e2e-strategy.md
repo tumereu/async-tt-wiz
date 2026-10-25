@@ -1,5 +1,14 @@
 # Full-stack Android test strategy
 
+**Current playtest oracles:** use acceptance T-716–T-725 and the corrected stable
+IDs. Historical archive-and-return/metadata-archive journeys below are retired:
+branch archiving has no UI, protocol/state or SQL. Make current is gone; tree tap
+reviews the last event and closes. Cold/opening playback is uncapped from local
+game/account bookmark or hidden empty root; live resume stays live. Scale/inverse/
+performance gates are regular acceptance, and bug fixes need scenario plus seeded
+random-sequence tests; Android inspect crash tests cannot be replaced by JVM-only
+coverage. Historical captures/rank fixtures are not contrary test oracles.
+
 ## Confirmed direction — D-243/D-244
 
 - Game/card definitions, descriptive metadata and artwork are dynamically loaded
@@ -212,8 +221,8 @@ misuse and exact ingress/fencing races. Preserve app/database state within each
 journey and observe final UI/history, not receipt/server logs alone as success.
 D-276 full-download journeys build retained offshoots through both players' normal
 UIs, then open the existing current game on a fresh normal instance. Verify all
-retained branches/futures are available after completion, including filtered or
-archived-retained alternatives; disconnect and review without new data requests or
+retained branches/futures are available after completion, including filtered
+alternatives; disconnect and review without new data requests or
 shared activation (T-640/T-641). Keep artwork availability separate and test
 interrupted full recovery without resetting app/backend state mid-checkpoint. Very
 large/pathological trees and chunk-resource measurements remain lower-layer tests,

@@ -653,28 +653,32 @@ treat its absence as an unresolved owner decision.
 
 ## 6.6 Snapshots and replay
 
-Snapshots accelerate loading but are disposable caches. Their key identifies an
-action boundary **and its accepted tree/control revision**, reducer/schema version,
-and integrity digest. Reusing a surviving node ID after a tree edit must not reuse
-an obsolete snapshot. Replay from root
-or a verified snapshot must produce the same logical board.
+Every event stores the exact transition needed to apply AND unapply it, with
+from-checks in either direction. Shared pure apply/revert covers every transition,
+including Library, token, projection, link, annotation and hidden/redacted views.
+Undo inverse-applies backwards from the materialized head to before the target,
+then reapplies later recorded events, comparing concerned tuples; no root replay,
+byte/work-unit meter or silent reseed-input rewrite. Presentation groups recompute.
 
-D-266 explicitly confirms that these checkpoints are a cache/optimization, not a
-replacement durable history. They can be evicted and regenerated from retained
-initial/root state, essential definitions and recorded tree/mutation/control data.
-Missing checkpoints affect reconstruction cost, not the promised reviewable
-history or correctness. A fresh baseline can be generated from that durable basis;
-bounded sync-delta retention must not make its only reconstruction source vanish.
+On normal command, sync, navigation and persistence paths, never rebuild state or
+tree from the start or do work proportional to total history length. Use O(delta)
+apply/unapply from an already-materialized nearby state, fixed windows (Undo's
+N=50 later-move work window) or visible content. Do not copy/scan full node maps,
+ancestry, annotations or chat on every action/ack. Navigation steps incrementally;
+persist accepted endpoints and changed records, not whole-cache rewrites. The
+authoritative concerned-field rule still governs safety; never truncate validation.
 
-Versioned accepted mutation-tree records and stored outcomes are the durable
-gameplay record. An immutable physical audit/event log may encode tree revisions,
-but logical ancestry is edited by Undo/Redo; immutable parents are not a contract.
-Schema migrations must preserve accepted histories and recorded redo results. An
-upgrade cannot reinterpret an old literal action using newly inferred semantics.
+Materializations are revision-qualified and integrity-checked; persist enough
+accepted state to open/recover incrementally. Optional sparse checkpoints (about
+every tenth event) are only a fallback if an exact inverse cannot be represented,
+not permission for root replay on normal paths or a cache of every board.
+History and recorded outcomes remain durable independently of rolling sync deltas.
 
-If local corruption is detected, retain/export drafts, invalidate derived data,
-and rebuild from trusted records. Never clear all app storage as an automatic
-“repair.”
+Narrow owner exception (local testing phase, 2026-10-25): an explicit destructive
+migration may delete old-format games that require root replay, then remove their
+legacy replayer. This supersedes mandatory v1 preservation/fallback, not ordinary
+accepted-state durability. An undecodable game must be isolated/quarantined rather
+than taking the whole service unready. Never clear all storage as generic repair.
 
 ## 6.7 Access and information
 
@@ -711,9 +715,9 @@ revision floor obtains a fresh baseline; that is not authority to expire retaine
 current-game history or delete matching request outcomes. See
 [baseline recovery](#bounded-revision-window-and-baseline-recovery--d-265).
 
-Proposed default: retain complete history and archived branches for a retained
-game. Cache eviction removes only refetchable local data, never unsynchronized
-drafts. In-game branch deletion is archival, not garbage collection.
+Retain complete current-game history and genuine alternative branches. Branch
+archiving/restore is removed from UI, protocol/state and SQL. Cache eviction only
+removes refetchable data; the explicit old-format migration exception is above.
 
 D-283 retains required current-game records and dedup outcomes without automatic
 age expiry; production erasure/backup obligations are explicit operator work in

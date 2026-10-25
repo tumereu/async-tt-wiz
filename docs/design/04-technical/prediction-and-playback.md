@@ -87,9 +87,10 @@ late acceptance remains an ordinary incoming change. Logout discards volatile wo
   historical boundary progresses by groups, automatically or stepwise. Incoming
   data can extend the known continuation without jumping a paused cursor or
   waiting for group closure. D-238 handles deletion of the viewed node.
-- Foregrounding with unpresented updates enters playback. Persist presentation
-  boundary/mode separately from accepted sync revision, because background delivery
-  may already have advanced the latter. Expected own confirmations/receipt-only
+- Only opening behind head automatically enters timeline playback. Foregrounding,
+  opponent updates, inspect and menu actions stay live. Persist the last node shown
+  live per (game, account), separately from sync revision; debug builds keep it
+  across Logout/account switches. Expected own confirmations/receipt-only
   traffic are not newly unseen board play. If the saved display includes local
   predictions, resolve their identities against accepted history/recovery before
   choosing a valid catch-up anchor; never fabricate published nodes for predictions.
@@ -118,7 +119,15 @@ Retarget an unfinished animation from current rendered geometry to the new targe
 not via an obsolete pose. Drawing/hit testing/accessibility share that geometry;
 interpolation never becomes a stored board state or affects conflict/randomness.
 Pause/scrub selects real nodes, not interpolated poses. Exposure/random/reference
-records are not inferred away merely because endpoints coincide. Timing, easing,
-reduced motion, exact mode controls/autoplay defaults and first-open presentation
-remain UI completion. First open without saved presentation starts at accepted
-current state; racing catch-up/live handoff is specified in protocol v1.
+records are not inferred away merely because endpoints coincide. First open without
+a bookmark starts at a hidden empty root; opening behind head plays EVERY group
+normally with no cap/fast-forward. Divergence shows “Branched” about 1 s, animates
+quick rollback by groups to the common ancestor, then normal forward playback.
+Pause AFTER each group animation, default 1.5 s, account-local Settings 100 ms–10 s.
+Every step uses exact stored apply/unapply in O(delta), never root replay. Racing
+catch-up/live handoff remains serialized with incoming updates.
+
+Movement has a minimum card velocity, initially about 2.5dp/ms, ease-out and at most
+180 ms scene duration; short moves arrive early and wait. Debug Settings tunes
+speed. Tap/untap is only a centered 90° rotation, 90 ms in either direction, never
+a morph; the selection border rotates with it throughout the animation.

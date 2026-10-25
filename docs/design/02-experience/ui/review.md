@@ -6,6 +6,18 @@ lang: en
 
 # Review scope
 
+**2026-10-25 playtest supersession:** these static captures predate phone rounds
+r1–r11. Conflicting requirements are explicitly retired in the notes below and
+[cumulative feedback](feedback.md#playtests-r1r11--2026-10-2325--d-311).
+Use the linked current contracts, not old pictures, as acceptance oracles. The
+referenced PDF/HTML generator is absent from this worktree; those editions and
+captures remain historical artifacts, not a regenerated current UI specification.
+
+App-wide loading/error supersession (r3/r5/r7): background game loads have no
+indicator/snackbar, lifecycle interruptions show nothing, genuine errors use
+floating snackbars rather than the inline/local red error panels described in
+older screen notes. Resume must not insert a loader or bounce table layout.
+
 **Draft for owner review. Structure matters; style is provisional.** This is the
 Stitch-based UI documentation pilot and gameplay extension, not an approved final
 interface or a working Android app. Confirmed branding: **Async Tabletop Wizards**;
@@ -111,6 +123,8 @@ History → Continue playing from here → H03 armed intent
     └─ first successful mutation → active continuation
 ```
 
+Gameplay Back first closes popups/dialogs/history directly, then requires two
+Back presses within 2s on the bare table (“Press back again to leave”). Elsewhere
 Back leaves a screen; it is not a game cancellation, Ready withdrawal, gameplay
 Undo or publication step. Rotation preserves the current screen and surviving
 in-process input/selection; it does not repeat a request or submit an unfinished
@@ -295,6 +309,11 @@ but not separately pictured in this pilot.
 ::: {.screen-section}
 ## N01 — Main menu
 
+**Navigation/rows supersession (r3/r5):** add Settings with Card records/Log out/
+version+commit/playback pause. Up to three active shortcuts below Games, mine-to-move
+oldest first then others newest first, hide blanks. Same white divided row as Games:
+bold name+move chip, “vs X · In play · <last activity>”, time today, not Created.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![N01 portrait — main destinations and hamburger, no utility links](images/home-portrait.png)
@@ -322,6 +341,10 @@ logout confirmation or expose account-email data in shared player lists.
 
 ::: {.screen-section}
 ## N02 — Shared Menu / Games navigation
+
+**F08 superseded:** Settings in menu/hamburger, Log out inside Settings rather than
+fixed drawer footer; debug account switching remains hamburger. The older route
+diagram and capture are historical in these fields.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -363,6 +386,9 @@ or working navigation. The surrounding screenshots apply the same shared shell.
 
 ::: {.screen-section}
 ## P01 — Games and invitations
+
+**Created-row requirement superseded by r5:** use the shared last-activity rows
+described at N01; only real errors float as snackbars, no inline red text.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -511,6 +537,11 @@ these example names or the placement of the Search button.
 
 ::: {.screen-section}
 ## D01 — Saved decks
+
+**Refresh/error amendment (r3/r5):** no background refresh; pull-to-refresh with
+standard indicator. Background game loads and lifecycle-interruption errors are
+silent; real errors use floating snackbars, not inline red text. Resume must not
+insert a loader or bounce gameplay layout. This overrides older inline-error notes.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1011,6 +1042,17 @@ not functioning offline gameplay or a passed reconnect/accessibility test.
 ::: {.screen-section}
 ## G01 — Live table and fixed hand
 
+**Geometry/rendering supersession (r2–r11):** only battlefield+combat zoom/pan;
+hands/piles/values/Stack fixed HUD, portrait Stack right-edge/mid-screen, piles
+under own hand/over opponent hand. Three-slot margin, rubber-band/per-axis bounds,
+double empty tap fit / double-drag pan; region-sticky pans. Cards 28×40dp, pitch
+42dp, top-left peeks, no tapped-animation overlap. Only turn field tinted, other
+neutral grey; both hand backgrounds match. Header Your turn/X's turn · N, MOVE
+solid green Your move+once-pulsed frame or outlined Waiting · X/no frame. Tokens
+owner-colored cut corners, projections dashed/upright; art_crop with app labels,
+whole custom image/no name/corner P/T, full inspect. These replace older placement,
+scale and color requirements below.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![G01 portrait — own green/opponent red bands, middle special zones and fixed own Hand](images/gameplay-live-portrait.png)
@@ -1092,6 +1134,19 @@ top Hand and control shapes remain review proposals.
 ::: {.screen-section}
 ## G02 — Live combat and populated Stack
 
+**Current Stack/combat replaces older mixed-entry/type-dependent/open geometry:**
+every Stack entry a projection (Hand/Battlefield/Graveyard/Exile, Library blocked),
+Hand source public while projected; top-only drag removes entry and moves source,
+current-zone drop only removes. Tap/post-add bubbles Battlefield/Graveyard/Remove/
+mark-text, double tap actions, hold inspect, no tapping. Shared title/paragraph
+indices support one-mark drag and multi-mark Manage chips, no legality parsing.
+Only bubble exits open next-top bubbles; ghost-send add/remove reverses with Undo.
+Manage shows all, inspection above, Remove/Battlefield/Graveyard/Copy/Controller,
+no reorder; copy destinations disabled. Combat upright, tap Undeclare/Graveyard/
+Ping, double tap nothing. Packed centered groups, faint dividers/tiny margins,
+centered cards, symmetric reorder/short insertion preview and end-drop new pairs.
+See [current Stack contract](../../03-contracts/combat-stack-and-projections.md).
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![G02 portrait — central Stack and paired combat projections with sources retained](images/gameplay-combat-portrait.png)
@@ -1161,6 +1216,15 @@ many-pair and frozen-token-effect visuals remain further review states.
 ::: {.screen-section}
 ## H01 — Historical review paused at an exact event
 
+**H01/H02 chrome and continuation supersession (r4/r6/r7):** timeline overlays the
+unchanged viewport, bottom-clips field only, full HUD unchanged above it. Dark bar,
+dim field/faint Timeline mode label. White-bordered Auto off/on with green play/
+orange pause, “Tap: toggle · Hold: branch”. Hold immediately arms even running,
+no dialog; small cancellable fork icon, no top continuation button/banner. Only
+toggle-off after cursor move asks Continue/Latest; outside stays in history, head
+no chooser, Back exits directly. Old transport/paused-only/top-button text below
+is superseded; centered exact-event navigation remains.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![H01 portrait — paused timeline selecting exact mutation X and separate continuation action](images/gameplay-history-paused-portrait.png)
@@ -1218,6 +1282,13 @@ explanation is printed for this shortcut; the top/accessibility route remains.
 ::: {.screen-section}
 ## H02 — Grouped playback running
 
+**Timing is decided (r4/r8/r10), replacing the open questions below:** pause AFTER
+each group animation, default 1.5s, local per-account Settings slider 100ms–10s.
+Only opening behind head auto-enters timeline: uncapped normal playback from local
+game/account last-seen node or hidden empty root; Branched label ~1s, animated
+group rollback to common ancestor then forward. Debug bookmarks survive Logout/
+switching. Live opponent updates, resume, inspect and menu actions stay live.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![H02 portrait — running group playback with Pause and exact timeline marker](images/gameplay-history-playing-portrait.png)
@@ -1245,6 +1316,10 @@ is chosen by this mockup.
 
 ::: {.screen-section}
 ## H03 — Historical continuation armed before first action
+
+**Older affordances superseded:** hold transport immediately, no dialog or paused
+restriction; cancellable top fork icon only. First accepted gameplay edit creates
+the branch. No Continuing banner, top continuation button or return catch-up prompt.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1288,6 +1363,12 @@ replaced with the live head just because they are not printed in a banner.
 ::: {.screen-section}
 ## G03 — Explicit Redo and mode chooser routes
 
+**Superseded routes (r3/r6b):** mode is a floating 48dp tap-cycle Normal→Select→Ping,
+not chooser. Table actions opens its dialog directly. No touch-menu Redo, Return
+to current, View·N or retained-display reopening. Hold Undo remains Redo; download
+history belongs in timeline menu. Next step bottom-right, quick squares bordered/
+non-filled and right-aligned beside it, all with press feedback.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![G03 portrait — overflow with explicit Redo and Table actions; Chat/tree have direct buttons](images/gameplay-controls-portrait.png)
@@ -1319,6 +1400,16 @@ enabled/disabled color proves the complete eligibility computation.
 
 ::: {.screen-section}
 ## G04 — Card context actions
+
+**G04/G06 geometry superseded (r4/r5/r8/r10):** stationary 4×4/48dp grid with short
+icon labels, edge tabs/swipes, pages Everyday/Counters/More/Move in same square.
+Everyday P/T and Library top/bottom/Graveyard/Exile; 2×1 minus/value/plus widgets,
+value tap edit/drag adjust; counters page P/T+six colors, More split edits. Anchor
+on most-room side. Token-only Change owner, owner-only pile/Hand destinations,
+no named/opponent moves or pile coordinates. One immediate floating button/chip
+popup, no sheet/title/Close; outside AND gaps/empty cells dismiss/pass through.
+400ms/32dp double tap, both press borders; 350ms inspect. These replace all older
+unpaged icon-only/dialog/seven-square/triplet requirements below.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1366,6 +1457,14 @@ and actual availability; hidden faces/names never leak into the preview.
 
 ::: {.screen-section}
 ## G05 — Tokens, numbered pings and reveal placement
+
+**Tray/reveal/ping supersession:** one left shared panel game-wide, plus one local
+pile view per viewer, replaces pictured trays. Last card departure closes in the
+same event, no rest chooser. Reveals last ONLY in panel; no persistent revealed
+Hand/Library. Eye only author/public Look/Search, centered white disc on art,
+never Reveal/Hand/piles. Library piles always back/no marker. Active ping A/B,
+unping A renumbers B=1; expanding actor-colored rings loop ~1.2s. See
+[current panels](../../03-contracts/board-and-controls.md#106-special-piles-library-graveyard-exile).
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1428,6 +1527,9 @@ Undo rules. This does not add controller, permission or rules-engine semantics.
 ::: {.screen-section}
 ## G07 — Life and player-counter context menu
 
+**r10 supersedes title/X/triplets:** same floating button/chip component as cards,
+minus/value/plus controls; outside/gaps pass through. See G04/current board contract.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![G07 portrait — life-tap menu with life and every player-counter color](images/gameplay-player-actions-portrait.png)
@@ -1454,6 +1556,10 @@ and portrait counter rows span the full middle strip, not just the library colum
 
 ::: {.screen-section}
 ## G08 — Life drag: positive preview before release
+
+**G08/G08b vertical-only preview superseded (r4/r6b):** dominant-axis 10dp steps,
+right+/left−, toward own edge+/other player−, card controller's side. Anchored
+“+3 → 23” above/below near top, no acceleration, one relative release edit.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1588,6 +1694,10 @@ never choose another boundary or fabricate events. **Basis:** D-297.
 ::: {.screen-section}
 ## G11 — Phase/step picker and active-player emphasis
 
+**r11 exemption:** picker is a dialog, not the floating popup. Title phase+step
+name and turn player (number least important), lane labels above steps; trigger
+icon+short code/no number. Only turn field tinted; move pill/frame is separate.
+
 ::: {.screen-pair}
 ::: {.portrait}
 ![G11 portrait — five colored phase rows, exact step icons and opponent-turn border](images/gameplay-phase-picker-portrait.png)
@@ -1658,6 +1768,12 @@ custom tracker/area authoring, in-game Sideboard or automatic resolution is adde
 
 ::: {.screen-section}
 ## H06 — Compact pannable group tree
+
+**Interaction/icon/archival text below superseded (r4/r6b):** ONE history mode,
+timeline button opens full-screen dense group tree centered at cursor. LAST event
+icon/color; tap last event to review AND close. Selected description only, no
+legend, Make current, Continue/Branch details or bottom buttons. Branch archiving
+removed from UI/protocol/state/SQL, not merely hidden. Old captures are provenance.
 
 ::: {.screen-pair}
 ::: {.portrait}
@@ -1749,6 +1865,13 @@ same local icon font as the captures, not unexplained font-ligature names.
 
 ## Four-slot quick strip: every situation
 
+**Inventory table below superseded (r3):** Untap Start turn=untap+draw+Main 1;
+Upkeep Draw+Main 1; Main 1 attacks+Select or skip→End; no-selection attackers
+No attack→Main 2; defender No blocks+next; Main 2/End visible End turn. Relevant
+player only. No tap/untap-selected or Graveyard quick actions; no damage math.
+Bordered/non-filled, right-aligned next to Next step, hold End turn. One invocation
+is one Undo move; display grouping alone cannot combine separate invocations.
+
 **Trial layout:** three contextual squares + one fixed progression square. Blank
 positions keep their space but draw no fake button. Contextual offerings beyond
 three pan in the same reserved rail; they do not move Hand/Undo/mode or hide the
@@ -1829,6 +1952,9 @@ the existing picker. The app does not calculate damage, execute cleanup/discard 
 infer triggered effects. Entering any step alone performs no card operation.
 
 ## R1 group-icon significance order
+
+**Entire ranking and its fixture/oracles below superseded by r6b:** use the LAST
+event's icon/color, not significance, and tap its last event. No rank-based tests.
 
 The owner delegates this initial choice. **Use the actual most significant event's
 icon**, not a synthetic icon for an inferred spell/effect. First consider real

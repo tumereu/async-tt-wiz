@@ -21,8 +21,8 @@ continued with the owner once the initial UI draft is ready.
 
 ## 1. Battlefield/card areas
 
-Use two subtly different bands per participant: **own green, opponent red**
-(D-295 supersedes the initial both-green coloring):
+Use land/main bands per participant; r11 supersedes always-green/red fields:
+only the turn player's field is tinted, the other neutral grey.
 
 - **Outer band: darker, one card row.** Intended mainly for lands.
 - **Inner band: lighter, two card rows.** Intended mainly for creatures and
@@ -36,12 +36,12 @@ Logical snapping is unchanged. Upright, tapped and every ordinary visual-pile
 configuration use equal horizontal allocation containing the complete rotated/
 corner-peek envelope; no tap-dependent margin/reflow. Card/token owner colors
 remain independent of field color/placement. Default owner is creator/bringer;
-Change owner in card Actions is an explicit shared field edit, not controller or
+Change owner is token-only, an explicit shared field edit, not controller or
 permission. P/T is bottom-right. See the primary board owner contract.
 
 Both bands extend conceptually without a fixed left/right edge. Horizontal
 navigation is bounded to **N card slots beyond the outermost card** on each side,
-so the user cannot pan endlessly into empty space. N is deliberately unspecified;
+so the user cannot pan endlessly into empty space. R6b fixes N at three card slots;
 this is a camera margin, unrelated to the history replay limit also called N.
 The empty-board bounds and whether the outermost-card calculation is shared
 between bands/participants are geometry details still to specify, not permission
@@ -52,12 +52,10 @@ usable zoom level that shows the full game area vertically rather than making
 vertical scrolling the normal requirement. No exact zoom or minimum card size is
 selected here.
 
-**D-296:** at any given zoom, every table card uses the same size, including
-combat, Stack, hands/backs, reveals and special piles. Area/row height never
-silently changes scale. Preserve uniform horizontal footprints; use pan/scroll
-when necessary. The review's 40 px card height is one illustrative shared zoom,
-not a selected native minimum, fixed device size or permission to miniaturize
-only one area. Magnified inspection remains deliberately separate.
+**D-296 uniform zoom superseded by r2:** field/combat zoom together, HUD stays
+fixed-size even if its card drawings differ on screen. Base battlefield cards
+28×40dp with 42dp pitch and no overlap in any tapped animation configuration.
+Inspection is deliberately magnified.
 
 ## 2. Participant symmetry and card facing
 
@@ -74,6 +72,14 @@ constraint: swap top/bottom (vertical position), not left/right. It is not an
 instruction to reflect x coordinates or card faces.
 
 ## 3. Responsive special-zone/life placement
+
+**Placement/scale supersession (r2/r3/r6b):** piles, hands and values are fixed HUD,
+piles below own hand/above opponent hand. Portrait Stack is fixed-size right-edge,
+vertically centered; landscape retains sidebar. Only battlefields+center combat
+zoom/pan. Three-slot margins, rubber-band/per-axis clamps, empty double tap fit /
+double-tap-drag pan, plain empty drag selection. Gesture regions remain sticky.
+This replaces older middle-pile/common-zoom requirements in this brief. Base field
+cards are 28×40dp at 42dp pitch; top-left peeks and no tapped-animation overlap.
 
 | Orientation | Requested arrangement |
 | --- | --- |
@@ -98,6 +104,14 @@ capture, nonnumeric/absent values and concurrent server arithmetic.
 
 ## 4. Live-mode screen chrome
 
+**Current control routes supersede the old table/chooser below:** floating 48dp
+mode cycles Normal→Select→Ping; bottom-right Next step holds End turn, contextual
+bordered/non-filled squares align right beside it. Direct Table actions opens its
+dialog, not an overflow submenu. Redo only hold Undo/accessibility, not touch menu;
+history download is in timeline menu. Whose-turn header is Your turn/X's turn · N,
+only turn-player field tinted; whose-move is solid green Your move+once-pulsed
+frame, or outlined Waiting · X without frame. Hand backgrounds match.
+
 Reserve a **fixed bottom control area**, independent of board panning/zooming:
 
 | Position | Proposed content | Certainty |
@@ -117,6 +131,11 @@ and native accessibility presentation remain design work. Disabled operations
 must explain their actual eligibility; the shortcut does not bypass Undo checks.
 
 ### Hands and central lanes — D-291 first draft
+
+The Stack real-card/central placement, wide combat insertion gaps and reveal-tray
+paragraphs below are superseded: all Stack entries are upright projections,
+portrait Stack is right-edge HUD, combat groups are packed/centered with faint
+dividers and end/inter-group insert drops, and panels glue to the left edge.
 
 - Put the owner's Hand below the darker land band in initial framing, hovering
   immediately above the fixed bottom controls. It is an expandable row/fan and
@@ -156,6 +175,14 @@ must explain their actual eligibility; the shortcut does not bypass Undo checks.
 
 ## 5. Historical-mode screen chrome and timeline
 
+Timeline overlays without shrinking the viewport; field is clipped only at bottom,
+never moved/scaled, and the whole intact hand/pile/life/counter HUD sits above it.
+Dark top bar, dim board and faint centered Timeline mode + icon identify the mode.
+Use white-bordered Auto: off/on transport, green play/orange pause at left,
+“Tap: toggle · Hold: branch”. Pause AFTER group animation, default 1.5s; local
+account Settings 100ms–10s. These supersede old transport mockup details below;
+exact centered event scrubbing and group stepping remain.
+
 Historical viewing replaces the live action chrome:
 
 - **No gameplay actions or gameplay-edit controls** while browsing history.
@@ -194,6 +221,12 @@ Animation follows the selected displayed endpoints,
 not a queue that forces every intermediate event to finish animating.
 
 ## 6. Continue playing from a historical point
+
+**Superseded continuation affordances below (r6):** hold transport immediately
+arms from the captured cursor, running or paused, no dialog. A small top fork icon
+cancels, no banner/top continuation button. Only toggling history off after moving
+the cursor shows Continue from here / Back to latest; outside stays in history,
+at head no dialog, Back exits directly. First successful edit creates the branch.
 
 Provide an explicit **“Continue playing from here”**-type button (wording and
 placement to design), separate from the timeline's Play/Pause transport. D-296

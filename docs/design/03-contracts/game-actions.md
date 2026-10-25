@@ -48,6 +48,18 @@ Incomplete input does not stream malformed or half-selected game actions.
 
 ## 4.2 Coverage matrix
 
+**Playtest amendments:** all Stack entry routes are projections (Battlefield,
+Hand, Graveyard, Exile; Library blocked), with shared marks and Manage Stack's
+Remove/Battlefield/Graveyard/Copy/Controller actions, no reorder. Top-only normal
+zone drag removes its projection too. Copies disable Battlefield/Graveyard.
+Change owner is token-only; Hand/Library/Graveyard/Exile route to owner, either
+battlefield remains allowed. Library inventory is Draw/Reveal/Look/Mill/Exile
+1/N…, Search/Shuffle and Mulligan 7/−1; bottom-N/Move-N routes below are retired.
+One shared game-wide panel plus one local pile view per viewer replaces old
+reference trays and logged Graveyard/Exile browsing. Reveals end on panel exit.
+These supersede conflicting matrix/older capability paragraphs below; see
+[board controls](board-and-controls.md#106-special-piles-library-graveyard-exile).
+
 | ID | Capability | Required manual behavior |
 | --- | --- | --- |
 | A-001 | Create game | Choose an added user, name the game (required; procedural fantasy adjective + thing suggestions) and Create & invite atomically (D-294). Retain server creation date/name through retries and later incarnations; display name/title and date beside state. Recipient Accept/Decline; Accept opens same lobby (D-195). Inviter can prepare/Ready while waiting; Cancel removes pending invite, Decline retains lobby (D-208). Reinvite in opponent slot; title-row Cancel. Deck picker highlights a personal draft and confirms at bottom; both Ready starts (D-189/D-190/D-294). |
@@ -106,7 +118,8 @@ layout is a UI trial (three contextual positions plus tap-Next/hold-End), not a
 new cap or new inferred phase action. **Table actions** explicitly contains the
 full table-level tools; Library/card/player tools keep their existing direct
 routes. The graphical tree UI separates personal review, arming continuation,
-shared activation and reversible archive/restore under the primary history rules.
+personal review and explicit continuation under the primary history rules.
+Branch archiving/restore and Make current are removed (r6b).
 
 D-123 applies normal card actions through projections to the real source card,
 not a local copy. This includes moves into Graveyard/other destinations with

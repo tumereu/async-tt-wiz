@@ -220,11 +220,14 @@ owns the accepted-replica/prediction/UI/recovery distinction. The
 Do not interpret a reusable local core as offline game authority: new game actions
 require a connection, while downloaded read-only review remains supported.
 
-Keep replay, database work and image decoding away from the UI thread. Draw from
-a prepared scene and cached artwork. Scope invalidation to affected visual state;
-do not replay the full history or rebuild the whole scene for every pointer move.
-Reference devices, scene/history sizes and measured frame/input budgets remain to
-define in the performance plan; canvas alone is not a performance guarantee.
+Keep database work and image decoding away from the UI thread. Draw from a prepared
+scene/cached art and invalidate affected state only. EVERY event has exact stored
+apply/unapply with from-checks. All normal command, sync, review, tree and persistence
+paths use O(delta), fixed-window or visible-window work from materialized nearby
+states; never root replay, full node-map copies, ancestry scans or whole-cache
+rewrites on each action/ack. Local input-to-visible-state apply targets <20 ms,
+hard ceiling 80 ms, including Undo/Redo; server round trip is not that budget.
+Regular 1k/10k-history operation-count gates catch regressions.
 
 ## Remaining technical work
 

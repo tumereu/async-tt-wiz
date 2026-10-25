@@ -548,6 +548,18 @@ Confirmed missing/offline/multi-face defaults (D-65):
 
 ## 2.4 Areas, containers, and ordering
 
+**Playtest amendments (r2/r5/r8–r11):** Hand/Library/Graveyard/Exile destinations
+belong only to the card's owner; either battlefield is allowed. Controller is the
+battlefield side, not ownership, and only tokens expose Change owner. Stack holds
+only projections from Battlefield/Hand/Graveyard/Exile (Library blocked); Hand
+sources are public while projected. Stack/combat render upright, not with source
+orientation. Top-Stack zone drag removes that entry and moves its real source,
+or removes only the entry when dropped in the source's current zone. Independent
+source movement retains other Stack entries. Stack marks are occurrence-local
+shared sets of colored title/paragraph indices, cleared on exit; copy projections
+and their controller are distinct from real source ownership. Manage Stack has no
+reordering. These replace older conflicting projection/owner descriptions below.
+
 Generic configuration supports free-grid areas, designated slots, ordered piles,
 and hand-like rows/fans. Display labels and ordering/cover settings are separate
 fields. Renaming a pile to Library, Graveyard, Exile, Stack, or another label cannot change
@@ -714,6 +726,12 @@ moves into them. Do not retain top/bottom or reorder as visual-placement actions
 personal browser sorting/filtering remains presentation only. Do not infer
 whole-container replay locks or an ordering policy for other containers.
 
+**Superseded browser geometry (D-42–D-51):** the following category-column
+description is replaced by the left-edge panel contract in
+[board controls](board-and-controls.md#106-special-piles-library-graveyard-exile).
+Search is type/name sorted and groups copies by name, closing with a shuffle;
+Graveyard/Exile browsing is local, searchless and opponent-invisible.
+
 Confirmed library-browser convention (D-42): the full contents view does not
 expose actual library order. Its order-independent presentation does not alter
 the underlying ordered container. In contrast, View/Reveal top N show source
@@ -752,6 +770,26 @@ Confirmed ordinary-stack layout limit (D-39): at most three actual member cards.
 This limit is not applied to the special container piles or to selection
 size. A placement exceeding it is invalid rather than partially applied or
 automatically split; see [the primary pile contract](board-and-controls.md#105-ordinary-battlefield-piles).
+
+Library semantic order is knownTop (ordered), unknown middle (seeded hidden order),
+knownBottom (ordered). Top/bottom actions exhaust their known edge first. Edge
+placement makes cards known; Shuffle clears that knowledge. Every branch reseeds
+both unknown middles using H(game secret, fork node, forking player), preserving
+known edges and recording the semantic input for exact replay. Identical fork
+inputs and draw/Undo/draw reproduce cards. Piles always show backs, no marker.
+
+At most ONE shared Search/Look/Reveal panel exists game-wide, across both players;
+the server enforces it and opening UI only greys controls (also N… confirm), without
+errors. One local Graveyard/Exile view per viewer is additional and invisible to
+the opponent. Look/Reveal reorder and are resolved by their initiator via Top,
+Bottom (panel order), Shuffle, Graveyard or Exile. Last-card departure closes any
+panel in the same event; local pile views close when empty. Reveal visibility ends
+on leaving the panel, with no retained reveal in Hand/Library. Only the author
+sees a centered white-disc eye on public cards in Look/Search, never Reveal/Hand/
+piles. Panel references are not duplicate card instances and do not auto-refill.
+
+**D-46/D-47 reference-lifetime text below is superseded** by this panel model,
+including moved-card retention and either-player dismissal.
 
 Confirmed View/Reveal reference model (D-46): a temporary shared display
 references existing card IDs without becoming a second containing location or
@@ -927,6 +965,12 @@ editors are excluded (D-241). In-scope edits still have typed reversible changes
 and readable summaries; no arbitrary scripts or unvalidated database blobs.
 
 ## 2.8 Reference lifetime and reachability
+
+**Panel-reference supersession (r8–r11):** panel entries leave when their real card
+leaves the panel; last departure closes it in the same event. No moved-card entry
+with an updated location and no either-player dismiss or retained reveal badge.
+The initiator resolves remaining Look/Reveal cards; local pile views close empty.
+This replaces tray-lifetime cells below only, not card/projection/link identity.
 
 This matrix completes S-07 from existing identity, cleanup, D-47/D-238/D-242 and
 D-248 rules. It does not apply Stack's last-live snapshot policy universally.

@@ -66,7 +66,8 @@ The app remembers and presents what happened; the players interpret the rules.
    the existing tree, not a new branch or a preserved original alternative.
    Personal review remains distinct from changing shared play. Explicit historical
    continuation branches to a new active head. A graphical tree explorer can activate any
-   retained branch/node. Only single-player/no-exposure alternatives qualify for
+   retained branch/node for personal review; there is no Make current or branch
+   archiving UI. Continue explicitly to branch. Only single-player/no-exposure alternatives qualify for
    hiding behind a separate toggle; mixed-player/exposure paths stay visible.
    Event comments also keep the whole alternative visible, even without a reveal.
     UI actions send requests; the server creates events, grouped by deterministic
@@ -74,8 +75,10 @@ The app remembers and presents what happened; the players interpret the rules.
     not tree nodes or a menu-bound part of a request.
     Live mode applies incoming changes immediately while preserving valid local
     predictions; old acknowledgements do not rewind newer local moves (D-277).
-    Return from background with unseen updates uses grouped playback, rolling back
-    to the fork first if needed. Catching up or deliberately continuing play returns
+     Opening behind head uses uncapped normally paced group playback from the
+     account/game last-seen node (hidden empty root if absent), rolling back to the
+     common ancestor first if branched. Live updates/resume/inspect stay live.
+     Catching up or deliberately continuing play returns
     to live. Animate previous board → next board, not every same-card waypoint;
     pause/scrub still selects exact mutation boundaries inside groups.
 7. **Cooperation, not enforced secrecy or legality.** Either participant can edit
@@ -107,8 +110,9 @@ The app remembers and presents what happened; the players interpret the rules.
   contains only taps/pings; its next substantive action joins that tap run, except
   an ending suggestion, which always stands alone (D-257).
 - Existing exceptions include ordinary piles capped at three cards, counter/text
-  resets on entry to configured Library/Graveyard/Exile, token disappearance in
-  those destinations, and retained information-exposure history after Undo.
+   resets on entry to configured Library/Graveyard/Exile and token disappearance in
+   those destinations. A multi-action invocation is one Undo move, not a display
+   group. Reveals last only inside their panel and never veto Undo.
   To end play, suggest a win/loss/draw as undoable board state; the other player
   accepts before both return to lobby. **Acceptance is not undoable**; pending
   suggestions still are. Each suggestion is a group by itself, so group playback
@@ -124,6 +128,13 @@ The app remembers and presents what happened; the players interpret the rules.
   rules execution are outside the documented release direction.
 
 ## How this design should stay simple
+
+Every action, including Undo/Redo, predicts the same visible state locally before
+the server response: target input-to-state apply <20 ms, hard ceiling 80 ms. Every
+event stores exact apply/unapply data with from-checks. Normal command, sync,
+navigation and persistence work is O(delta), fixed-window or bounded by visible
+content, never proportional to total game history. Root-replay-only old-format
+test games may be deleted by an explicit migration; no legacy hot-path fallback.
 
 Crash recovery stays deliberately simple (D-278): restart from synchronized server
 state, not a durable outgoing replay queue. Local uncommitted actions/predictions

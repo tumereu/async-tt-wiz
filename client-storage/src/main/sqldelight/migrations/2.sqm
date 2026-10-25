@@ -1,0 +1,5 @@
+-- Trees and staged chunks predate the incremental-only protocol. Keep account/catalog data.
+DELETE FROM accepted_record WHERE scope_id LIKE 'game-tree:%';
+DELETE FROM accepted_cursor WHERE scope_id LIKE 'game-tree:%';
+DELETE FROM personal_state WHERE scope_id LIKE 'game-tree-%';
+DELETE FROM personal_state WHERE scope_id = 'installation' AND state_key LIKE 'game-tree-fence:%';

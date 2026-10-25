@@ -199,7 +199,7 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
                             check(driver.longValue("SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name != 'android_metadata'") == 0L)
                             ClientDatabase.Schema.create(driver)
                         }
-                        version == 1L -> {
+                        version in 1L until ClientDatabase.Schema.version -> {
                             validateColumns(driver, version)
                             failure = StorageOpenFailure.MIGRATION_FAILED
                             ClientDatabase.Schema.migrate(driver, version, ClientDatabase.Schema.version)

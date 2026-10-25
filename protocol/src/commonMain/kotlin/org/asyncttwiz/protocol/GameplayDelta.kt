@@ -39,7 +39,7 @@ internal object GameplayDeltas {
         put("delta", mutation.transition.delta?.let { json.encodeToJsonElement(GameplayDelta.serializer(), it.copy(seal = "")) } ?: JsonNull)
     }.let(DeckJson::canonicalElement))
 
-    fun capture(from: PlayState, to: PlayState): GameplayDelta {
+    fun capture(from: PlayState, to: PlayState, nodeId: String): GameplayDelta {
         val changes = mutableListOf<GameplayEntityDelta>()
         fun <T> entity(kind: String, id: String, index: Int, old: T?, next: T?, serializer: KSerializer<T>) {
             if (old == next) return
@@ -76,7 +76,14 @@ internal object GameplayDeltas {
         entity("result", "", 0, a.resultSuggestion, b.resultSuggestion, ResultSuggestion.serializer())
         entity("attention", "", 0, JsonPrimitive(a.attentionHolder), JsonPrimitive(b.attentionHolder), JsonElement.serializer())
         entity("marks", "", 0, marks(a), marks(b), JsonElement.serializer())
-        entity("annotations", "", 0, from.annotations, to.annotations, EventAnnotationState.serializer())
+        if (from.annotations !== to.annotations) {
+            entity("comment", nodeId, 0, from.annotations.commentsById[nodeId], to.annotations.commentsById[nodeId], RecordedEventComment.serializer())
+            entity("ping", nodeId, 0, from.annotations.pingsById[nodeId], to.annotations.pingsById[nodeId], RecordedPingChange.serializer())
+            to.annotations.pingsById[nodeId]?.recording?.groupId?.let { group ->
+                entity("ping-ordinal", group, 0, from.annotations.lastOrdinals[group]?.let(::JsonPrimitive),
+                    to.annotations.lastOrdinals[group]?.let(::JsonPrimitive), JsonElement.serializer())
+            }
+        }
         val piles = mutableListOf<GameplayPileDelta>()
         val relocated = changes.filter { it.kind == "card" && it.values.any { value ->
             value.path.isEmpty() || value.path.first() in setOf("placement", "containerId") } }.map { it.id }.toSet()
@@ -201,7 +208,12 @@ internal object GameplayDeltas {
                 "attention" -> result.copy(board = b.copy(attentionHolder = value(JsonPrimitive(b.attentionHolder), JsonElement.serializer())?.jsonPrimitive?.contentOrNull))
                 "marks" -> result.copy(board = b.copy(stackTextMarks = value(marks(b), JsonElement.serializer())!!.jsonObject
                     .mapValues { json.decodeFromJsonElement(StackTextMarksSerializer, it.value) }))
-                "annotations" -> result.copy(annotations = value(result.annotations, EventAnnotationState.serializer()) ?: throw Mismatch())
+                "comment" -> result.copy(annotations = result.annotations.comment(entity.id,
+                    value(result.annotations.commentsById[entity.id], RecordedEventComment.serializer())))
+                "ping" -> result.copy(annotations = result.annotations.ping(entity.id,
+                    value(result.annotations.pingsById[entity.id], RecordedPingChange.serializer())))
+                "ping-ordinal" -> result.copy(annotations = result.annotations.ordinal(entity.id,
+                    value(result.annotations.lastOrdinals[entity.id]?.let(::JsonPrimitive), JsonElement.serializer())?.jsonPrimitive?.long))
                 else -> throw Mismatch()
             }
         }

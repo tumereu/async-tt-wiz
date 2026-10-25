@@ -16,12 +16,12 @@ import kotlin.concurrent.Volatile
 // Stored/cached trees from older releases contain removed control metadata. It has no effect on play.
 @JsonIgnoreUnknownKeys
 @Serializable data class GameplayTree(val initial: PlayState,
-    val nodes: Map<String, GameplayMutation> = emptyMap(), val currentNodeId: String = initial.root.id,
-    val redoByAccount: Map<String, List<GameplayRedoEntry>> = emptyMap(),
-    val removedParents: Map<String, String> = emptyMap(),
-    val branches: Map<String, GameplayBranch> = emptyMap(),
+    @Serializable(with = SharedMapSerializer::class) val nodes: Map<String, GameplayMutation> = emptyMap(), val currentNodeId: String = initial.root.id,
+    @Serializable(with = RedoQueuesSerializer::class) val redoByAccount: Map<String, List<GameplayRedoEntry>> = emptyMap(),
+    @Serializable(with = SharedMapSerializer::class) val removedParents: Map<String, String> = emptyMap(),
+    @Serializable(with = SharedMapSerializer::class) val branches: Map<String, GameplayBranch> = emptyMap(),
     val currentBranchId: String = nodes[currentNodeId]?.branchId ?: initial.root.branchId,
-    val branchHeads: Map<String, String> = mapOf(initial.root.branchId to initial.root.id),
+    @Serializable(with = SharedMapSerializer::class) val branchHeads: Map<String, String> = mapOf(initial.root.branchId to initial.root.id),
     val selectionControlId: String? = null) {
     init { require(initial.currentNodeId == initial.root.id) }
 
@@ -33,6 +33,35 @@ import kotlin.concurrent.Volatile
     // One disposable worker-prepared review endpoint, not a per-node snapshot map or accepted data.
     // Tree edits/copy/decoding discard it.
     @Transient @Volatile private var reviewMaterialization: Pair<String, PlayState>? = null
+    @Transient private var retainedIndex: RetainedIndex? = null
+    @Transient internal val generationToken: Any = Any()
+    @Transient internal var editBase: Any? = null
+    @Transient internal var editKeys: Set<GameplayTreeKey> = emptySet()
+    @Transient var work: GameplayWork = GameplayWork()
+        private set
+
+    internal fun index(): RetainedIndex = retainedIndex ?: RetainedIndex.build(this).also {
+        work.fullHistoryScans++; work.indexedNodes += nodes.size; retainedIndex = it
+    }
+
+    /** Reducers publish their write set, not a diff of the retained history. */
+    internal fun changedFrom(previous: GameplayTree, keys: Set<GameplayTreeKey>): GameplayTree {
+        editBase = previous.generationToken
+        editKeys = keys
+        work = previous.work
+        val ids = keys.filter { it.kind == "node" }.map { it.id }.toSet()
+        retainedIndex = if (nodes === previous.nodes) previous.index() else previous.index().edited(previous.nodes, nodes, ids)
+        work.indexedNodes += ids.size
+        return this
+    }
+
+    internal fun unapply(state: PlayState, node: GameplayMutation): PlayState? {
+        work.unappliedNodes++
+        return GameplayHistory.unapply(state, node)
+    }
+
+    /** A reducer's already-materialized boundary while it validates a sparse edited suffix. */
+    internal fun nearby(state: PlayState) { reviewMaterialization = state.currentNodeId to state }
 
     /** Prepare the exact personal cursor on a worker before enabling historical mutation callbacks.
      * The UI cannot inject a board; only this tree's shared replay can populate the disposable slot. */
@@ -47,6 +76,7 @@ import kotlin.concurrent.Volatile
     fun materializedCopy(): GameplayTree = copy().also {
         it.currentMaterialization = currentMaterialization
         it.reviewMaterialization = reviewMaterialization
+        it.retainedIndex = retainedIndex
     }
 
     /** Transfer a worker-derived endpoint back to the identical immutable presentation generation. */
@@ -82,8 +112,7 @@ import kotlin.concurrent.Volatile
         return cursor
     }
 
-    /** Walk from the nearest known endpoint, reversing to the common ancestor then applying down.
-     * Only an old event lacking inverse data requires the legacy root replay. */
+    /** Walk from the nearest known endpoint. LCA work is proportional to distance, not root depth. */
     fun stateAt(nodeId: String): PlayState? {
         if (nodeId == currentNodeId) currentMaterialization?.let { return it }
         reviewMaterialization?.takeIf { it.first == nodeId }?.let { return it.second }
@@ -91,7 +120,7 @@ import kotlin.concurrent.Volatile
         for (source in candidates) {
             val node = nodes[source.currentNodeId]
             val adjacent = when {
-                node?.parentId == nodeId -> GameplayHistory.unapply(source, node)
+                node?.parentId == nodeId -> unapply(source, node)
                 nodes[nodeId]?.parentId == source.currentNodeId -> nodes[nodeId]?.takeIf(::referencesMatch)?.let { replay(source, it) }
                 else -> null
             }
@@ -101,42 +130,50 @@ import kotlin.concurrent.Volatile
                 return state
             }
         }
-        val targetPath = path(nodeId) ?: return null
-        val targetIds = targetPath.map { it.id }.toSet() + initial.root.id
-        fun distance(state: PlayState): Int {
-            var cursor = state.currentNodeId
-            var up = 0
-            while (cursor !in targetIds) { cursor = nodes[cursor]?.parentId ?: return Int.MAX_VALUE; up++ }
-            return up + targetPath.size - (targetPath.indexOfFirst { it.id == cursor } + 1)
-        }
-        val source = candidates.minByOrNull(::distance)
-        val reconstructed = source?.let { traverse(it, nodeId) } ?: materialize(nodeId) ?: return null
+        val nearest = nearest(candidates, nodeId)
+        // A failed inverse/delta is a rejection, never an excuse to replay the entire root on
+        // a normal path. Root reconstruction is reserved for a genuinely cold tree.
+        val reconstructed = (if (candidates.isEmpty()) materialize(nodeId)
+            else nearest?.let { traverse(it.first, it.second) }) ?: return null
         val state = if (nodeId == currentNodeId) reconstructed.copy(currentBranchId = currentBranchId) else reconstructed
         if (nodeId == currentNodeId) currentMaterialization = state else reviewMaterialization = nodeId to state
         return state
     }
 
-    private fun traverse(source: PlayState, nodeId: String): PlayState? {
-        val down = mutableListOf<GameplayMutation>()
-        val ancestors = mutableSetOf(initial.root.id)
-        var cursor = source.currentNodeId
-        while (cursor != initial.root.id) {
-            if (!ancestors.add(cursor)) return null
-            cursor = nodes[cursor]?.parentId ?: return null
+    /** Race endpoint walks one edge at a time: even a distant cached endpoint cannot turn a
+     * nearby review step/reference read into a walk to the root. */
+    private fun nearest(candidates: List<PlayState>, target: String): Pair<PlayState, Pair<List<GameplayMutation>, List<GameplayMutation>>>? {
+        val positions = index().positions
+        val targetDepth = positions[target]?.depth ?: return null
+        class Walk(val source: PlayState) {
+            var left = source.currentNodeId; var right = target
+            var a = positions[left]?.depth ?: -1; var b = targetDepth
+            val up = mutableListOf<GameplayMutation>(); val down = mutableListOf<GameplayMutation>()
+            fun step(): Boolean {
+                if (left == right || a < 0) return false
+                work.ancestrySteps++
+                if (a >= b) { val node = nodes[left] ?: return false; up += node; left = node.parentId; a-- }
+                else { val node = nodes[right] ?: return false; down += node; right = node.parentId; b-- }
+                return true
+            }
         }
-        cursor = nodeId
-        val seen = mutableSetOf<String>()
-        while (cursor !in ancestors) {
-            if (!seen.add(cursor)) return null
-            val node = nodes[cursor] ?: return null
-            down += node; cursor = node.parentId
+        val walks = candidates.map(::Walk).filter { it.a >= 0 }
+        while (walks.isNotEmpty()) {
+            var progressed = false
+            for (walk in walks) {
+                if (walk.left == walk.right) return walk.source to (walk.up to walk.down.asReversed())
+                progressed = walk.step() || progressed
+            }
+            if (!progressed) return null
         }
+        return null
+    }
+
+    private fun traverse(source: PlayState, route: Pair<List<GameplayMutation>, List<GameplayMutation>>): PlayState? {
+        val (up, down) = route
         var state = source
-        while (state.currentNodeId != cursor) {
-            val node = nodes[state.currentNodeId] ?: return null
-            state = GameplayHistory.unapply(state, node) ?: return null
-        }
-        for (node in down.asReversed()) {
+        for (node in up) state = unapply(state, node) ?: return null
+        for (node in down) {
             if (!referencesMatch(node)) return null
             state = replay(state, node) ?: return null
         }
@@ -151,7 +188,7 @@ import kotlin.concurrent.Volatile
     }
 
     internal fun preservingCheckpoint(next: GameplayTree): GameplayTree {
-        if (next.initial == initial && next.nodes == nodes && next.currentNodeId == currentNodeId)
+        if (next.initial === initial && next.nodes === nodes && next.currentNodeId == currentNodeId)
             currentMaterialization?.let { next.checkpoint(it) }
         return next
     }
@@ -164,24 +201,32 @@ import kotlin.concurrent.Volatile
         if (!GameWire.valid(command) || command.action !is GameAction.Play)
             return GameplayTreeChange(reason = "invalidInput")
         val target = command.continuation?.nodeId ?: currentNodeId
+        if (!index().incremental) return GameplayTreeChange(reason = "historyUnavailable")
         val state = stateAt(target) ?: return GameplayTreeChange(reason = "historyUnavailable")
         // A retained future also exists beyond an explicitly activated internal current pointer.
         // Merely viewing/arming never reaches this code. Allocate metadata only after real success.
-        val forks = target != currentNodeId || nodes.values.any { it.parentId == target }
+        val forks = target != currentNodeId || index().children[target].orEmpty().isNotEmpty()
         val branchId = if (forks) CommandIds.uuidV5(command.requestId, "history-branch") else currentBranchId
         val change = GameplayRules.change(state.copy(currentBranchId = branchId), actor, command, referenceResolver())
         val mutation = change.mutation?.let { GameplayHistory.recontextualize(state, it) }
             ?: return GameplayTreeChange(reason = change.reason)
         if (mutation.id in nodes || mutation.id in removedParents) return GameplayTreeChange(reason = "duplicateNode")
-        val next = copy(nodes = nodes + (mutation.id to mutation), currentNodeId = mutation.id,
+        val next = copy(nodes = nodes.putShared(mutation.id, mutation), currentNodeId = mutation.id,
             currentBranchId = branchId,
-            branchHeads = branchHeads + (branchId to mutation.id),
+            branchHeads = branchHeads.putShared(branchId, mutation.id),
             selectionControlId = if (forks) command.requestId else selectionControlId,
-            branches = if (!forks) branches else branches + (branchId to GameplayBranch(branchId,
+            branches = if (!forks) branches else branches.putShared(branchId, GameplayBranch(branchId,
                 target, mutation.id, command.requestId, actor, currentNodeId, currentBranchId,
                 materializationId(currentNodeId))),
-            redoByAccount = if (forks) emptyMap() else redoByAccount - actor)
+            redoByAccount = if (forks) emptyMap() else redoByAccount.removeShared(actor))
         next.currentMaterialization = change.state
+        next.reviewMaterialization = reviewMaterialization
+        val keys = mutableSetOf(GameplayTreeKey("node", mutation.id), GameplayTreeKey("current", "current"),
+            GameplayTreeKey("selected-branch", "current"), GameplayTreeKey("branch-head", branchId))
+        (if (forks) redoByAccount.keys else setOf(actor)).forEach { keys += GameplayTreeKey("redo", it) }
+        if (forks) keys += setOf(GameplayTreeKey("branch", branchId), GameplayTreeKey("branch-lineage", branchId),
+            GameplayTreeKey("selection-control", "current"))
+        next.changedFrom(this, keys)
         return GameplayTreeChange(next, targetId = mutation.id)
     }
 
@@ -195,18 +240,22 @@ import kotlin.concurrent.Volatile
 
     /** The linear replay suffix is not the whole reference domain: an inactive offshoot may
      * annotate the target or a re-materialized successor. Protect it without replaying branches or
-     * widening the 50-event suffix. This scan checks references, never serialized board data. */
+     * widening the 50-event suffix. Reverse indices avoid scanning unrelated retained references. */
     internal fun selectiveReferenceFailure(candidate: GameplayTree): String? {
-        val changed = (nodes.keys - candidate.nodes.keys + (candidate.nodes.keys - nodes.keys)).toMutableSet()
-        candidate.nodes.forEach { (id, node) -> if (nodes[id]?.parentId != node.parentId) changed.add(id) }
-        val children = (nodes.values + candidate.nodes.values).groupBy { it.parentId }
-        val pending = ArrayDeque(changed.toList())
-        while (pending.isNotEmpty()) for (child in children[pending.removeFirst()].orEmpty()) {
-            if (changed.add(child.id)) pending.add(child.id)
-        }
-        for (node in candidate.nodes.values) {
-            if (node.references.any { it.nodeId !in candidate.nodes } || node.transition.annotation?.reference?.reference?.nodeId in changed)
-                return "referenceBlocked"
+        val edited = candidate.editKeys.filter { it.kind == "node" }.map { it.id }
+        val changed = index().descendants(edited) + candidate.index().descendants(edited)
+        for (id in changed) {
+            // An unchanged transition does not invalidate event dependencies. An ancestry change
+            // does invalidate annotation contexts; a nonempty reverse index is sufficient to block,
+            // even if ten thousand inactive comments name that one event.
+            if (index().positions[id]?.identity != candidate.index().positions[id]?.identity &&
+                candidate.index().annotationReaders[id].orEmpty().isNotEmpty()) return "referenceBlocked"
+            if (nodes[id]?.transition != candidate.nodes[id]?.transition) {
+                for (reader in index().readers[id].orEmpty()) {
+                    val node = candidate.nodes[reader] ?: continue
+                    if (!candidate.referencesMatch(node)) return "referenceBlocked"
+                }
+            }
         }
         return null
     }
@@ -225,6 +274,7 @@ import kotlin.concurrent.Volatile
     }
 
     internal fun materialize(nodeId: String): PlayState? {
+        work.rootMaterializations++
         val path = path(nodeId) ?: return null
         var state = initial
         for (node in path) {
@@ -243,16 +293,15 @@ import kotlin.concurrent.Volatile
 
     internal fun replay(state: PlayState, node: GameplayMutation): PlayState? {
         replayedNodes++
+        work.replayedNodes++
+        nearby(state)
         return GameplayHistory.replay(state, node, referenceResolver()).state
     }
 
     /** Opaque public topology identity, never a hash of hidden faces/order/board values. Mutations
      * are immutable except parent pointers; the complete ancestry identifies the materialization. */
     fun materializationId(nodeId: String): String? {
-        val path = path(nodeId) ?: return null
-        var identity = initial.root.id
-        for (node in path) identity = CommandIds.uuidV5(identity, "retained/${node.id}")
-        return identity
+        return index().positions[nodeId]?.identity
     }
 
     fun contextVersion(nodeId: String): String? = materializationId(nodeId)?.replace("-", "")
@@ -274,15 +323,14 @@ import kotlin.concurrent.Volatile
     private fun referenceState(nodeId: String): PlayState? {
         reviewMaterialization?.takeIf { it.first == nodeId }?.let { return it.second }
         currentMaterialization?.takeIf { it.currentNodeId == nodeId }?.let { return it }
-        // Annotation overlays never change entity existence. Reconstruct the actual target board
-        // iteratively without following annotations' references (which may name later offshoots).
-        // Full annotation tuples are still checked on the main replay path, not elided there.
-        var state = initial
-        for (node in path(nodeId) ?: return null) {
-            state = if (node.transition.annotation != null) state.copy(currentNodeId = node.id,
-                currentGroup = GameplayHistory.append(state.currentGroup, node, state.board.containers), currentBranchId = node.branchId)
-            else GameplayHistory.replay(state, node).state ?: return null
-        }
+        // Stored deltas are self-contained, including overlays. Do not recursively resolve annotation
+        // dependencies while deriving a target's board; the enclosing replay validates its reference.
+        val endpoints = listOfNotNull(currentMaterialization, reviewMaterialization?.second).ifEmpty { listOf(initial) }
+        val (source, route) = nearest(endpoints, nodeId) ?: return null
+        val (up, down) = route
+        var state = source
+        for (node in up) state = unapply(state, node) ?: return null
+        for (node in down) { work.replayedNodes++; state = GameplayHistory.apply(state, node) ?: return null }
         return state
     }
 }

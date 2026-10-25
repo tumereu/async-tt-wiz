@@ -51,10 +51,11 @@ tasks.register("verifyModuleBoundaries") {
     doLast {
         val expected = mapOf(
             ":core" to emptySet(),
-            ":protocol" to setOf(":core"),
+            ":protocol" to setOf(":core", ":scale-fixtures"),
             ":client-storage" to setOf(":core"),
-            ":androidApp" to setOf(":core", ":protocol", ":client-storage"),
-            ":server" to setOf(":core", ":protocol"),
+            ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":scale-fixtures"),
+            ":server" to setOf(":core", ":protocol", ":scale-fixtures"),
+            ":scale-fixtures" to setOf(":protocol"),
         )
         subprojects.forEach { project ->
             val actual = project.configurations.flatMap { configuration ->

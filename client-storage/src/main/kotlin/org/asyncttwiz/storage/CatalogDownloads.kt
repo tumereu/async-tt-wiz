@@ -6,20 +6,42 @@ import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
 import java.util.zip.GZIPInputStream
+import java.time.LocalDate
 
 interface CatalogSource {
     fun metadata(): CatalogMetadata
     fun size(): Long?
     fun checksum(): String
     fun download(output: OutputStream, progress: (Long) -> Unit)
+    fun setList(): CatalogSetList = error("Set list unavailable")
+    fun setSource(code: String): CatalogSource = error("Set source unavailable")
+}
+
+data class CatalogSetList(val metadata: CatalogMetadata, val sets: List<CatalogSet>)
+data class CatalogUpdatePlan(val metadata: CatalogMetadata, val sets: List<CatalogSet> = emptyList(), val full: Boolean = false)
+
+/** MTGJSON escapes Windows reserved filenames (CON is the Conflux set). Never accept a path. */
+internal fun catalogSetFilename(code: String): String {
+    require(Regex("[A-Z0-9]{1,16}").matches(code))
+    return if (code in setOf("CON", "PRN", "AUX", "NUL") || Regex("(?:COM|LPT)[1-9]").matches(code)) "${code}_" else code
 }
 
 object CatalogUpdatePolicy {
     fun changed(installed: CatalogMetadata?, available: CatalogMetadata?): Boolean = available != null &&
-        (installed == null || installed.date != available.date || installed.version != available.version ||
-            installed.indexVersion != available.indexVersion)
+        (installed == null || installed.indexVersion != available.indexVersion)
     fun download(installed: CatalogMetadata?, available: CatalogMetadata?, metered: Boolean, consent: Boolean): Boolean =
         changed(installed, available) && (consent || (installed != null && !metered))
+    fun plan(installed: CatalogMetadata?, installedSets: List<CatalogSet>, available: CatalogSetList,
+        today: LocalDate = LocalDate.now()): CatalogUpdatePlan? {
+        if (changed(installed, available.metadata)) return CatalogUpdatePlan(available.metadata, full = true)
+        val codes = installedSets.map { it.code }.toSet()
+        // Future releases are previews too; keep refreshing them until sixty days after release.
+        val sets = available.sets.filter { it.code !in codes || !LocalDate.parse(it.releaseDate).isBefore(today.minusDays(60)) }
+        return sets.takeIf { it.isNotEmpty() }?.let { CatalogUpdatePlan(available.metadata, it) }
+    }
+    fun canDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean, consent: Boolean): Boolean =
+        plan != null && (consent || (installed != null && !metered))
+    fun fullRefresh(available: CatalogMetadata) = CatalogUpdatePlan(available, full = true)
 }
 
 /** Dedicated public provider connection: no service client, bearer, cookies or user-controlled URL. */
@@ -27,9 +49,11 @@ class HttpCatalogSource(
     private val base: String = "https://mtgjson.com/api/v5/",
     private val syntheticOrigin: String? = null,
     private val userAgent: String = "AsyncTabletopWizards/0.1.0 (catalog client)",
+    private val filename: String = "AllPrintings",
 ) : CatalogSource {
     init {
         val uri = URI(base)
+        require(filename == "AllPrintings" || Regex("[A-Z0-9]{1,16}_?").matches(filename))
         require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null && base.endsWith('/'))
         if (syntheticOrigin == null) require(uri.scheme == "https" && uri.host == "mtgjson.com" && uri.port == -1)
         else {
@@ -43,15 +67,20 @@ class HttpCatalogSource(
     override fun metadata(): CatalogMetadata = request("Meta.json", 10_000) { connection ->
         connection.inputStream.use { MtgJsonCatalog().metadata(LimitedInput(it, 1024 * 1024)) }
     }
-    override fun size(): Long? = request("AllPrintings.json.gz", 10_000, "HEAD") { connection ->
-        connection.contentLengthLong.takeIf { it > 0 && it <= MAX_BYTES }
+    override fun setList(): CatalogSetList = request("SetList.json", 10_000) { connection ->
+        connection.inputStream.use { MtgJsonCatalog().setList(LimitedInput(it, 16 * 1024 * 1024)) }
     }
-    override fun checksum(): String = request("AllPrintings.json.gz.sha256", 10_000) { connection ->
+    override fun setSource(code: String): CatalogSource = HttpCatalogSource(base, syntheticOrigin, userAgent, catalogSetFilename(code))
+    private val maximum get() = if (filename == "AllPrintings") MAX_BYTES else MAX_SET_BYTES
+    override fun size(): Long? = request("$filename.json.gz", 10_000, "HEAD") { connection ->
+        connection.contentLengthLong.takeIf { it > 0 && it <= maximum }
+    }
+    override fun checksum(): String = request("$filename.json.gz.sha256", 10_000) { connection ->
         connection.inputStream.use { LimitedInput(it, 1024).readBytes().toString(Charsets.US_ASCII).trim() }
             .also { check(Regex("[a-fA-F0-9]{64}").matches(it)) }.lowercase()
     }
-    override fun download(output: OutputStream, progress: (Long) -> Unit) = request("AllPrintings.json.gz", 30 * 60_000) { connection ->
-        check(connection.contentLengthLong <= MAX_BYTES)
+    override fun download(output: OutputStream, progress: (Long) -> Unit) = request("$filename.json.gz", 30 * 60_000) { connection ->
+        check(connection.contentLengthLong <= maximum)
         connection.inputStream.use { input ->
             var count = 0L
             val bytes = ByteArray(64 * 1024)
@@ -60,7 +89,7 @@ class HttpCatalogSource(
                 val read = input.read(bytes)
                 if (read == -1) break
                 count += read
-                check(count <= MAX_BYTES)
+                check(count <= maximum)
                 output.write(bytes, 0, read)
                 progress(count)
             }
@@ -120,6 +149,8 @@ class HttpCatalogSource(
 
     companion object {
         const val MAX_BYTES = 4L * 1024 * 1024 * 1024
+        const val MAX_SET_BYTES = 256L * 1024 * 1024
+        const val MAX_DECODED_SET_BYTES = 1024L * 1024 * 1024
         private fun origin(uri: URI): String = "${uri.scheme}://${uri.rawAuthority}"
     }
 }
@@ -131,7 +162,7 @@ internal class LimitedInput(input: InputStream, private val maximum: Long) : Fil
     private fun add(size: Int) { count += size; check(count <= maximum) { "Catalog size limit" } }
 }
 
-enum class CatalogPhase { DOWNLOADING, INDEXING }
+enum class CatalogPhase { DOWNLOADING, INDEXING, FINISHING }
 
 /** Byte counts always refer to the compressed download, including during gzip decoding. */
 data class CatalogProgress(val phase: CatalogPhase, val done: Long, val total: Long?, val records: Long = 0)
@@ -169,7 +200,7 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
             }
             check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
             val indexingTotal = size ?: download.length()
-            return repository.stage { index ->
+            return repository.stage(finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, 0, null)) }) { index ->
                 progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
                 CountingInput(FileInputStream(download)).use { compressedInput ->
                     GZIPInputStream(compressedInput, 64 * 1024).use { gzip ->
@@ -181,6 +212,58 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
                 }
             }
         } finally { download.delete() }
+    }
+
+    fun install(plan: CatalogUpdatePlan, size: Long? = null, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
+        if (plan.full) return install(plan.metadata, size, progress)
+        require(plan.sets.isNotEmpty() && plan.sets.map { it.code }.distinct().size == plan.sets.size)
+        check(repository.metadata()?.indexVersion == CATALOG_INDEX_VERSION)
+        check(directory.isDirectory || directory.mkdirs())
+        val downloads = mutableListOf<Triple<CatalogSet, File, String>>()
+        val reserve = 64L * 1024 * 1024
+        try {
+            plan.sets.forEach { set ->
+                val setSource = source.setSource(set.code)
+                val total = setSource.size()
+                val compressed = total ?: HttpCatalogSource.MAX_SET_BYTES
+                val installedSize = directory.listFiles()?.filter { it.extension == "db" }?.sumOf { it.length() } ?: 0
+                check(freeBytes() >= installedSize + compressed + minOf(HttpCatalogSource.MAX_DECODED_SET_BYTES, compressed * 12) + reserve) {
+                    "Not enough free space"
+                }
+                val file = File(directory, "${catalogSetFilename(set.code)}.gz.part")
+                val checksum = setSource.checksum()
+                downloads += Triple(set, file, checksum)
+                val digest = MessageDigest.getInstance("SHA-256")
+                progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, total))
+                FileOutputStream(file).use { output ->
+                    java.security.DigestOutputStream(output, digest).use { checked ->
+                        setSource.download(checked) { bytes ->
+                            check(bytes <= HttpCatalogSource.MAX_SET_BYTES && freeBytes() >= reserve)
+                            progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, total))
+                        }
+                        checked.flush(); output.fd.sync()
+                    }
+                }
+                check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
+            }
+            return repository.stage(copyInstalled = true,
+                finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, 0, null)) }) { index ->
+                downloads.forEach { (set, file, checksum) ->
+                    index.removeSet(set.code)
+                    progress(CatalogProgress(CatalogPhase.INDEXING, 0, file.length()))
+                    CountingInput(FileInputStream(file)).use { compressed ->
+                        GZIPInputStream(compressed, 64 * 1024).use { gzip ->
+                            MtgJsonCatalog().import(LimitedInput(gzip, minOf(decodedLimit, HttpCatalogSource.MAX_DECODED_SET_BYTES)),
+                                index, plan.metadata.copy(checksum = checksum), set.code) { count ->
+                                check(freeBytes() >= reserve)
+                                progress(CatalogProgress(CatalogPhase.INDEXING, compressed.count, file.length(), count))
+                            }
+                        }
+                    }
+                }
+                plan.metadata.copy(checksum = "") // A mixed catalog has no AllPrintings checksum.
+            }
+        } finally { downloads.forEach { it.second.delete() } }
     }
 }
 

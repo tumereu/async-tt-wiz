@@ -18,7 +18,32 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         metadata(root.getAsJsonObject("data"))
     }
 
-    fun import(input: InputStream, index: CatalogIndex, expected: CatalogMetadata, progress: (Long) -> Unit = {}): CatalogMetadata {
+    fun setList(input: InputStream): CatalogSetList = reader(input).use { reader ->
+        var meta: CatalogMetadata? = null
+        val sets = linkedMapOf<String, CatalogSet>()
+        var sawData = false
+        objectFields(reader) { key -> when (key) {
+            "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
+            "data" -> {
+                sawData = true
+                reader.beginArray()
+                while (reader.hasNext()) {
+                    val json = value(reader, 2, intArrayOf(0)).asJsonObject
+                    val code = string(json, "code", true)
+                    catalogSetFilename(code) // Reject path-like codes before planning or downloading.
+                    val date = string(json, "releaseDate", true).also { LocalDate.parse(it) }
+                    check(sets.size < 20_000 && sets.put(code, CatalogSet(code, date)) == null)
+                }
+                reader.endArray()
+            }
+            else -> skip(reader, 1)
+        } }
+        check(sawData && reader.peek() == JsonToken.END_DOCUMENT)
+        CatalogSetList(checkNotNull(meta), sets.values.toList())
+    }
+
+    fun import(input: InputStream, index: CatalogIndex, expected: CatalogMetadata, setCode: String? = null,
+        progress: (Long) -> Unit = {}): CatalogMetadata {
         var meta: CatalogMetadata? = null
         var sawData = false
         var count = 0L
@@ -30,66 +55,69 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         val reasons = sortedMapOf<String, Long>()
         val batch = ArrayList<CatalogPrinting>(100)
         reader(input).use { reader ->
+            fun readSet(set: String) {
+                check(set.length in 1..32)
+                var sawCards = false
+                var sawCode = false
+                var releaseDate = ""
+                objectFields(reader) { field -> when (field) {
+                    "code" -> { check(reader.nextString() == set); sawCode = true }
+                    "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
+                    "cards", "tokens" -> {
+                        if (field == "cards") sawCards = true
+                        reader.beginArray()
+                        while (reader.hasNext()) {
+                            check(!Thread.currentThread().isInterrupted)
+                            // Consume the complete value even when it exceeds the per-record
+                            // budget, so one unsupported record cannot strand the stream.
+                            val budget = intArrayOf(0, 0)
+                            val element = value(reader, 4, budget)
+                            val record = try {
+                                require(budget[1] == 0) { "record/field size limit" }
+                                printing(element.asJsonObject, set, field == "tokens")
+                            } catch (error: IllegalArgumentException) {
+                                reasons.merge("unsupported fields", 1L, Long::plus)
+                                null
+                            } catch (error: IllegalStateException) {
+                                reasons.merge("invalid record", 1L, Long::plus)
+                                null
+                            } catch (error: UnsupportedOperationException) {
+                                reasons.merge("unsupported fields", 1L, Long::plus)
+                                null
+                            }
+                            if (record == null) { skipped++; continue }
+                            batch += record
+                            count++
+                            if (record.token) tokens++
+                            if (record.name.startsWith("A-")) alchemy++
+                            if (element.asJsonObject.get("isOnlineOnly")?.let { it.isJsonPrimitive && it.asBoolean } == true) onlineOnly++
+                            languages.merge(record.language.ifEmpty { "unspecified" }, 1L, Long::plus)
+                            if (batch.size == 100) { index.addBatch(batch); batch.clear(); progress(count) }
+                        }
+                        reader.endArray()
+                    }
+                    else -> skip(reader, 3)
+                } }
+                check(sawCards && (setCode == null || sawCode))
+                index.addBatch(batch); batch.clear()
+                index.addSet(set, releaseDate, expected.checksum)
+            }
             objectFields(reader) { key -> when (key) {
                 "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
                 "data" -> {
                     sawData = true
-                    objectFields(reader) { set ->
-                        check(set.length in 1..32)
-                        var sawCards = false
-                        var releaseDate = ""
-                        objectFields(reader) { field -> when (field) {
-                            "code" -> check(reader.nextString() == set)
-                            "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
-                            "cards", "tokens" -> {
-                                if (field == "cards") sawCards = true
-                                reader.beginArray()
-                                while (reader.hasNext()) {
-                                    check(!Thread.currentThread().isInterrupted)
-                                    // Consume the complete value even when it exceeds the per-record
-                                    // budget, so one unsupported record cannot strand the stream.
-                                    val budget = intArrayOf(0, 0)
-                                    val element = value(reader, 4, budget)
-                                    val record = try {
-                                        require(budget[1] == 0) { "record/field size limit" }
-                                        printing(element.asJsonObject, set, field == "tokens")
-                                    } catch (error: IllegalArgumentException) {
-                                        reasons.merge("unsupported fields", 1L, Long::plus)
-                                        null
-                                    } catch (error: IllegalStateException) {
-                                        reasons.merge("invalid record", 1L, Long::plus)
-                                        null
-                                    } catch (error: UnsupportedOperationException) {
-                                        reasons.merge("unsupported fields", 1L, Long::plus)
-                                        null
-                                    }
-                                    if (record == null) { skipped++; continue }
-                                    batch += record
-                                    count++
-                                    if (record.token) tokens++
-                                    if (record.name.startsWith("A-")) alchemy++
-                                    if (element.asJsonObject.get("isOnlineOnly")?.let { it.isJsonPrimitive && it.asBoolean } == true) onlineOnly++
-                                    languages.merge(record.language.ifEmpty { "unspecified" }, 1L, Long::plus)
-                                    if (batch.size == 100) { index.addBatch(batch); batch.clear(); progress(count) }
-                                }
-                                reader.endArray()
-                            }
-                            else -> skip(reader, 3)
-                        } }
-                        check(sawCards)
-                        index.addSet(set, releaseDate)
-                    }
+                    if (setCode == null) objectFields(reader, ::readSet) else readSet(setCode)
                 }
                 else -> skip(reader, 1)
             } }
             check(reader.peek() == JsonToken.END_DOCUMENT)
         }
-        check(sawData && meta?.date == expected.date && meta?.version == expected.version)
+        check(sawData && meta != null && meta.version == expected.version && (setCode != null || meta.date == expected.date))
         index.addBatch(batch)
         progress(count)
         Logger.getLogger(MtgJsonCatalog::class.java.name).info(
             "MTGJSON records: imported=$count skipped=$skipped reasons=$reasons tokens=$tokens alchemy=$alchemy onlineOnly=$onlineOnly languages=$languages")
-        return expected.copy(records = index.count())
+        return expected.copy(records = count)
     }
 
     private fun reader(input: InputStream): JsonReader = JsonReader(BoundedJsonText(InputStreamReader(input,
@@ -123,10 +151,27 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         }
         json.get("identifiers")?.takeUnless { it.isJsonNull }?.asJsonObject
             ?.get("scryfallOracleId")?.takeUnless { it.isJsonNull }?.let { uuid(it.asString) }
-        val raw = json.toString()
+        val raw = retainedRecord(json).toString()
         check(raw.toByteArray(Charsets.UTF_8).size <= recordBytes)
         return CatalogPrinting(id, string(json, "name", true), set, string(json, "number", true),
             string(json, "language"), side, scryfall, token, other, raw)
+    }
+
+    companion object {
+        // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,
+        // CatalogIndex aliases/token search and ArtworkReference. Never retain unrelated provider data.
+        internal val retainedFields = setOf("uuid", "name", "setCode", "number", "language", "side", "otherFaceIds",
+            "faceName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty", "defense",
+            "availability", "isOnlineOnly", "isPromo")
+        internal fun retainedRecord(json: JsonObject): JsonObject = JsonObject().apply {
+            retainedFields.forEach { key -> json.get(key)?.let { add(key, it) } }
+            json.get("identifiers")?.let { ids ->
+                if (ids.isJsonNull) add("identifiers", ids)
+                else add("identifiers", JsonObject().apply {
+                    listOf("scryfallId", "scryfallOracleId").forEach { key -> ids.asJsonObject.get(key)?.let { add(key, it) } }
+                })
+            }
+        }
     }
 
     private fun uuid(value: String): String { check(UUID.fromString(value).toString() == value); return value }

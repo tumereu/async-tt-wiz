@@ -82,8 +82,8 @@ class DeckImportTest {
             val faces = result.entries[1].faces
             assertEquals(listOf("a", "b"), faces.map { it.side })
             assertTrue(faces.all { it.otherFaces.single() == faces.first { other -> other.id != it.id }.id })
-            assertEquals(multi, com.google.gson.JsonParser.parseString(faces.first().json))
-            assertEquals(regular, com.google.gson.JsonParser.parseString(result.entries.first().printing.json))
+            assertEquals(MtgJsonCatalog.retainedRecord(multi), com.google.gson.JsonParser.parseString(faces.first().json))
+            assertEquals(MtgJsonCatalog.retainedRecord(regular), com.google.gson.JsonParser.parseString(result.entries.first().printing.json))
             println("PASS $family actual file-backed name/printing, complete faces, unchanged raw/default metadata, duplicate arithmetic and sections")
         }
     }

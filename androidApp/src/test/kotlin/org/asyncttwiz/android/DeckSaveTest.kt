@@ -12,8 +12,13 @@ import java.util.UUID
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.test.*
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import java.io.ByteArrayInputStream
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 
 class DeckSaveTest {
+    @get:Rule val temporary = TemporaryFolder()
     private val first = UUID.randomUUID().toString()
     private val second = UUID.randomUUID().toString()
     private val summary = DeckSummary(UUID.randomUUID().toString(), " Exact name ", "1", "2026-10-22T00:00:00Z")
@@ -41,6 +46,38 @@ class DeckSaveTest {
         assertEquals(listOf(4, 2), plan.deck.entries.map { it.quantity })
         assertEquals(SavedDeckSection.entries, plan.deck.entries.map { it.section })
         assertFailsWith<DeckFailure> { DeckSavePlan.from(result(), " \n") }
+    }
+    @Test fun trimmedCatalogImportsProduceValidServerDefinitionsWithoutUnusedProviderData() {
+        val directory = temporary.newFolder()
+        val repository = CatalogRepository(directory) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
+        repository.stage { index ->
+            MtgJsonCatalog().import(ByteArrayInputStream("""{"meta":{"date":"2026-10-25","version":"5.2.2"},"data":{"TST":{
+                "code":"TST","releaseDate":"2026-10-25","cards":[{"uuid":"$first","name":"Trimmed fixture","number":"1",
+                "setCode":"TST","language":"English","type":"Creature","manaCost":"{G}","text":"Exact rules text 🧙",
+                "power":"2","toughness":"3","side":"a","otherFaceIds":["$second"],"layout":"transform",
+                "identifiers":{"scryfallId":"$first","scryfallOracleId":"$first","mtgArenaId":"42"},
+                "foreignData":[{"name":"Unused"}],"legalities":{"modern":"Legal"},"purchaseUrls":{"x":"unused"}},
+                {"uuid":"$second","name":"Trimmed fixture","number":"1","side":"b","otherFaceIds":["$first"],
+                "faceName":"Back","text":"Exact back","layout":"transform"}]}}}""".toByteArray()),
+                index, CatalogMetadata("2026-10-25", "5.2.2"))
+        }
+        val result = DeckImportResolver(repository).resolve("2 Trimmed fixture (TST) 1")
+        assertTrue(result.resolved, result.issues.toString())
+        val plan = DeckSavePlan.from(result, "Trimmed deck")
+        val definition = plan.definitions.definitions.single().definition
+        // This is the same shared validation used by the server definitions endpoint.
+        assertTrue(DeckValidation.definition(definition))
+        assertEquals("Exact rules text 🧙", definition.faces.first().rulesText)
+        assertEquals("Exact back", definition.faces.last().rulesText)
+        assertEquals("2/3", definition.faces.first().corner)
+        assertEquals(first, definition.faces.first().scryfallId)
+        assertEquals(listOf(second), definition.faces.first().otherFaceIds)
+        definition.faces.forEach { face ->
+            assertFalse(face.sourceData!!.contains("foreignData"))
+            assertFalse(face.sourceData!!.contains("purchaseUrls"))
+            assertFalse(face.sourceData!!.contains("mtgArenaId"))
+        }
+        assertEquals(definition, DeckJson.format.decodeFromString<CardDefinition>(DeckJson.format.encodeToString(definition)))
     }
     @Test fun uncertainRetryKeepsIdentitiesAndInputButChangedIntentGetsNewIds() {
         val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()

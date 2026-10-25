@@ -9,11 +9,13 @@ import java.util.Locale
 import java.util.UUID
 import java.util.logging.Logger
 
-internal const val CATALOG_INDEX_VERSION = 1
+internal const val CATALOG_INDEX_VERSION = 2
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
     val indexVersion: Int = CATALOG_INDEX_VERSION)
 
-/** Raw provider JSON retains exact display strings, optional defaults and explicit face identities. */
+data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "")
+
+/** Minimal provider snapshot retains exact display strings, defaults and explicit face identities. */
 data class CatalogPrinting(val id: String, val name: String, val set: String, val number: String,
     val language: String, val side: String, val scryfallId: String?, val token: Boolean,
     val otherFaces: List<String>, val json: String, val releaseDate: String = "")
@@ -29,6 +31,13 @@ class CatalogGenerationChangedException : IllegalStateException("Card records ch
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
 class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
     init { check(directory.isDirectory || directory.mkdirs()) }
+    // Token search and deck import may use separate repository objects for the same public DB.
+    // Publication/reclamation must share their read lock, not just this object's monitor.
+    private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
+
+    private companion object {
+        val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+    }
 
     private fun activeFile(): File? {
         val pointer = File(directory, "current")
@@ -38,25 +47,30 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         return File(directory, name).also { check(it.isFile) }
     }
 
-    @Synchronized fun metadata(): CatalogMetadata? = activeFile()?.let { file ->
-        CatalogIndex(openDriver(file)).use { it.metadata() }
+    fun metadata(): CatalogMetadata? = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.metadata() } }
+    }
+
+    fun installedSets(): List<CatalogSet> = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.installedSets() } }.orEmpty()
     }
 
     /** Exact normalized name, optionally exact set/collector number. Ambiguity is returned, not guessed. */
-    @Synchronized fun find(name: String, set: String? = null, number: String? = null, limit: Int = 100): List<CatalogPrinting> =
+    fun find(name: String, set: String? = null, number: String? = null, limit: Int = 100): List<CatalogPrinting> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.find(name, set, number, limit) } }.orEmpty()
+    }
 
-    @Synchronized fun printing(id: String): CatalogPrinting? = activeFile()?.let { file ->
-        CatalogIndex(openDriver(file)).use { it.printing(id) }
+    fun printing(id: String): CatalogPrinting? = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.printing(id) } }
     }
 
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
-    @Synchronized fun tokenGeneration(): String? = activeFile()?.name
+    fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
 
     /** Literal, case-normalized substring search, bounded keyset pages. Never scans the full catalog per query.
      * Compatibility indexing of pre-search generations is transactional/non-destructive and worker-only.
      */
-    @Synchronized fun searchTokens(query: String, cursor: CatalogTokenCursor? = null, limit: Int = 40): CatalogTokenPage {
+    fun searchTokens(query: String, cursor: CatalogTokenCursor? = null, limit: Int = 40): CatalogTokenPage = synchronized(lock) {
         require(limit in 1..100)
         val normalized = query.trim().lowercase(Locale.ROOT)
         require(normalized.length <= 512) { "Search is too long." }
@@ -83,22 +97,31 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     }
 
     /** Keep every line/face of an import on one generation while a refresh waits. */
-    @Synchronized internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = activeFile()?.let { file ->
-        CatalogIndex(openDriver(file)).use { read(it) }
-    } ?: read(null)
+    internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
+    }
 
     /** Unpublished generations may survive process death; only the atomic pointer is readable. */
-    @Synchronized fun stage(block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata {
+    fun stage(copyInstalled: Boolean = false, finishing: () -> Unit = {},
+        block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
         val file = File(directory, "${UUID.randomUUID()}.db")
         var published = false
         try {
+            if (copyInstalled) {
+                val active = checkNotNull(activeFile())
+                active.copyTo(file)
+            }
             val metadata = CatalogIndex(openDriver(file)).use { index ->
-                index.create()
+                if (!copyInstalled) index.create()
                 val result = block(index)
-                index.validate()
+                finishing()
+                val start = System.nanoTime()
+                val records = index.validate()
                 index.prepareTokenSearch()
-                index.finish(result)
-                result.copy(records = index.count())
+                val completed = result.copy(records = records)
+                index.finish(completed)
+                Logger.getLogger(CatalogRepository::class.java.name).info("Catalog finishing: ${(System.nanoTime() - start) / 1_000_000} ms")
+                completed
             }
             // SQLite's FULL synchronous commit precedes publication; do not switch an open staging DB.
             val pointer = File(directory, "current.new")
@@ -127,12 +150,37 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE INDEX name_lookup ON printing(normalized, set_code, number)")
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE INDEX face_target ON face(target, source)")
-        sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL)")
+        sql("CREATE INDEX set_lookup ON printing(set_code)")
+        sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, installed_at INTEGER NOT NULL, checksum TEXT NOT NULL)")
         createImportNames()
         sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
 
-    internal fun addSet(code: String, releaseDate: String) = sql("INSERT INTO catalog_set VALUES (?, ?)", listOf(code, releaseDate))
+    internal fun addSet(code: String, releaseDate: String, checksum: String = "") =
+        sql("INSERT INTO catalog_set VALUES (?, ?, ?, ?)", listOf(code, releaseDate, System.currentTimeMillis().toString(), checksum))
+
+    internal fun installedSets(): List<CatalogSet> {
+        if (long("PRAGMA user_version") < CATALOG_INDEX_VERSION) return emptyList()
+        return driver.executeQuery(null, "SELECT code, release_date, installed_at, checksum FROM catalog_set", { cursor ->
+            val sets = mutableListOf<CatalogSet>()
+            while (cursor.next().value) sets += CatalogSet(cursor.getString(0)!!, cursor.getString(1)!!,
+                cursor.getLong(2)!!, cursor.getString(3)!!)
+            QueryResult.Value(sets)
+        }, 0).value
+    }
+
+    /** Only used on an unpublished copy. Other sets, including cross-set broken links, survive until validation. */
+    internal fun removeSet(code: String) = transaction {
+        val ids = "SELECT id FROM printing WHERE set_code=?"
+        sql("DELETE FROM import_name WHERE printing_id IN ($ids)", listOf(code))
+        sql("DELETE FROM face WHERE source IN ($ids)", listOf(code))
+        if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_search')") != 0L) {
+            sql("DELETE FROM token_search WHERE printing_id IN ($ids)", listOf(code))
+            sql("DELETE FROM token_search_ready")
+        }
+        sql("DELETE FROM printing WHERE set_code=?", listOf(code))
+        sql("DELETE FROM catalog_set WHERE code=?", listOf(code))
+    }
 
     fun addBatch(records: List<CatalogPrinting>) = transaction {
         records.forEach { record ->
@@ -145,7 +193,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
     }
 
-    internal fun validate() {
+    internal fun validate(): Long {
         // Unsupported/missing faces quarantine the whole connected printing, not the catalog.
         // Work stays on disk, including propagation when a malformed provider group has many links.
         transaction {
@@ -167,17 +215,24 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             sql("DELETE FROM printing WHERE id IN (SELECT id FROM unsupported_printing)")
             sql("DROP TABLE unsupported_printing")
             Logger.getLogger(CatalogIndex::class.java.name).info(
-                "Catalog index: installed=${count()} skippedDuplicates=$duplicateRecords quarantinedFaces=$quarantined")
+                "Catalog index: skippedDuplicates=$duplicateRecords quarantinedFaces=$quarantined")
         }
-        check(count() > 0) { "Empty catalog" }
-        check(long("SELECT count(*) FROM face f LEFT JOIN printing p ON p.id=f.target WHERE p.id IS NULL OR f.source=f.target") == 0L)
-        check(long("SELECT count(*) FROM face f LEFT JOIN face r ON r.source=f.target AND r.target=f.source WHERE r.source IS NULL") == 0L)
-        check(long("SELECT count(*) FROM face f JOIN printing a ON a.id=f.source JOIN printing b ON b.id=f.target WHERE a.set_code != b.set_code OR a.side='' OR b.side='' OR a.side=b.side") == 0L)
+        val records = count()
+        check(records > 0) { "Empty catalog" }
+        // One short-circuit integrity query replaces three full edge scans. Check both endpoints too.
+        check(long("""SELECT EXISTS(SELECT 1 FROM face f
+            LEFT JOIN printing a ON a.id=f.source LEFT JOIN printing b ON b.id=f.target
+            LEFT JOIN face r ON r.source=f.target AND r.target=f.source
+            WHERE a.id IS NULL OR b.id IS NULL OR f.source=f.target OR r.source IS NULL OR
+                a.set_code != b.set_code OR a.side='' OR b.side='' OR a.side=b.side)""") == 0L)
         check(texts("PRAGMA quick_check") == listOf("ok"))
+        return records
     }
 
-    internal fun finish(meta: CatalogMetadata) = sql("INSERT INTO metadata VALUES (?, ?, ?, ?)",
-        listOf(meta.date, meta.version, meta.checksum, count().toString()))
+    internal fun finish(meta: CatalogMetadata) = transaction {
+        sql("DELETE FROM metadata")
+        sql("INSERT INTO metadata VALUES (?, ?, ?, ?)", listOf(meta.date, meta.version, meta.checksum, meta.records.toString()))
+    }
 
     fun count(): Long = long("SELECT count(*) FROM printing")
     fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->

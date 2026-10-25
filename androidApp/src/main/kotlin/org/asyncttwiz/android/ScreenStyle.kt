@@ -144,7 +144,7 @@ internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage
 
 @Composable
 internal fun CatalogProgressBar(progress: org.asyncttwiz.storage.CatalogProgress, modifier: Modifier = Modifier) {
-    val total = progress.total?.takeIf { it > 0 }
+    val total = progress.total?.takeIf { it > 0 && progress.phase != org.asyncttwiz.storage.CatalogPhase.FINISHING }
     if (total == null) LinearProgressIndicator(modifier)
     else LinearProgressIndicator(progress = { (progress.done.toFloat() / total).coerceIn(0f, 1f) }, modifier = modifier)
 }

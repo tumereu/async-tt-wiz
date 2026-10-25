@@ -54,6 +54,8 @@ class CatalogTest {
                 .install(source.metadata(), total, events::add)
             val downloading = events.filter { it.phase == CatalogPhase.DOWNLOADING }
             val indexing = events.filter { it.phase == CatalogPhase.INDEXING }
+            assertEquals(CatalogPhase.FINISHING, events.last().phase)
+            assertNull(events.last().total)
             assertEquals(0, downloading.first().done)
             assertEquals(bytes, downloading.last().done)
             assertEquals(0, indexing.first().done)
@@ -90,7 +92,7 @@ class CatalogTest {
                 for (section in listOf("cards", "tokens")) value.asJsonObject.getAsJsonArray(section).forEach { element ->
                     val json = element.asJsonObject
                     val record = repo().printing(json.get("uuid").asString)!!
-                    assertEquals(json, JsonParser.parseString(record.json))
+                    assertEquals(MtgJsonCatalog.retainedRecord(json), JsonParser.parseString(record.json))
                     assertEquals(set, record.set)
                     assertEquals(section == "tokens", record.token)
                     assertTrue(repo().find(record.name, set, record.number).contains(record))
@@ -223,7 +225,7 @@ class CatalogTest {
         assertTrue(defaults.resolved, defaults.issues.toString())
         assertEquals("", defaults.entries.single().printing.language)
         assertNull(defaults.entries.single().printing.scryfallId)
-        assertEquals(missingOptions, JsonParser.parseString(defaults.entries.single().printing.json))
+        assertEquals(MtgJsonCatalog.retainedRecord(missingOptions), JsonParser.parseString(defaults.entries.single().printing.json))
         assertTrue(DeckImportResolver(repo()).resolve("1 Velvet Prism Engine").resolved)
     }
 
@@ -249,7 +251,7 @@ class CatalogTest {
 
     @Test fun initialAndMeteredDownloadsRequireConsentButUnchangedStartupNeverDownloads() {
         val old = CatalogMetadata("2026-01-01", "5.2.2")
-        val new = old.copy(date = "2026-01-02")
+        val new = old.copy(date = "2026-01-02", indexVersion = old.indexVersion + 1)
         for (metered in listOf(false, true)) {
             assertFalse(CatalogUpdatePolicy.download(null, new, metered, false))
             assertTrue(CatalogUpdatePolicy.download(null, new, metered, true))
@@ -259,7 +261,8 @@ class CatalogTest {
         assertFalse(CatalogUpdatePolicy.download(old, new, true, false))
         assertTrue(CatalogUpdatePolicy.download(old, new, true, true))
         assertTrue(CatalogUpdatePolicy.download(old, new, false, false))
-        assertTrue(CatalogUpdatePolicy.changed(old, old.copy(version = "5.2.3")))
+        assertFalse(CatalogUpdatePolicy.changed(old, old.copy(version = "5.2.3")))
+        assertFalse(CatalogUpdatePolicy.changed(old, old.copy(date = "2026-02-01")))
     }
 
     @Test fun metadataTimeoutIsBoundedToTenSeconds() {

@@ -134,37 +134,6 @@ object ManualEditRules {
         }
     }
 
-    /** Replay applies accepted tuples, not a fresh Reset/default/arithmetic operation. */
-    internal fun replay(state: PlayState, mutation: GameplayMutation, command: GameCommand): GameplayChange {
-        val transition = mutation.transition
-        fun value(id: String, field: GameplayField, color: CounterColor? = null): String? {
-            val card = state.board.cards.singleOrNull { it.id == id }
-            return when (field) {
-                GameplayField.CORNER -> card?.corner
-                GameplayField.COUNTER -> card?.counters?.get(color)
-                GameplayField.PLAYER_COUNTER -> state.board.players.singleOrNull { it.accountId == id }?.counters?.get(color)
-                GameplayField.NOTE -> card?.note
-                GameplayField.OWNER -> card?.owner
-                GameplayField.FACE -> card?.faceId
-                GameplayField.COVERED -> card?.covered?.toString()
-                GameplayField.EXPLICITLY_COVERED -> card?.explicitlyCovered?.toString()
-                GameplayField.CONTAINER -> card?.containerId
-                else -> null
-            }
-        }
-        val targets = state.board.cards.map { it.id } + state.board.players.map { it.accountId }
-        if (!GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId } ||
-            transition.movement != null || transition.tokens.isNotEmpty() || transition.links.isNotEmpty() ||
-            transition.libraryOrder != null || transition.contents != null || transition.random != null ||
-            transition.annotation != null || transition.combatStack != null ||
-            transition.cloneRead != null || transition.tokenMoveRead != null || transition.fields.any { it.targetId !in targets ||
-                value(it.targetId, it.field, it.color) != it.from } ||
-            transition.reads.any { value(it.targetId, it.field) != it.value } ||
-            transition.disclosures.any { disclosure -> state.board.cards.none { it.id == disclosure.cardId &&
-                it.containerId == disclosure.containerId } }) return GameplayChange(reason = "replayBlocked")
-        return GameplayRules.record(state, mutation.author, command, apply(state.board, transition.fields), transition)
-    }
-
     private fun apply(board: BoardState, fields: List<GameplayFieldChange>): BoardState {
         var next = board
         for (field in fields) {

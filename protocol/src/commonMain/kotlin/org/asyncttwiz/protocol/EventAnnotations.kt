@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /** Stable predicted/accepted node UUIDs, scoped to their original play. No client-assigned group. */
 @Serializable data class EventReference(val playId: String, val nodeId: String, val contextVersion: String? = null)
@@ -17,8 +18,44 @@ import kotlinx.serialization.Serializable
 @Serializable data class AnnotationTransition(val playId: String, val branchId: String, val groupId: String,
     val reference: ReferencedEventContext, val target: PingTarget? = null, val from: PingPresence? = null,
     val to: PingPresence? = null, val comment: String? = null)
-@Serializable data class EventAnnotationState(val comments: List<RecordedEventComment> = emptyList(),
-    val pings: List<RecordedPingChange> = emptyList())
+@Serializable data class EventAnnotationState(@Serializable(with = SharedMapSerializer::class) val commentsById: Map<String, RecordedEventComment>,
+    @Serializable(with = SharedMapSerializer::class) val pingsById: Map<String, RecordedPingChange>,
+    @Serializable(with = SharedMapSerializer::class) val lastOrdinals: Map<String, Long> = emptyMap()) {
+    constructor(comments: List<RecordedEventComment> = emptyList(), pings: List<RecordedPingChange> = emptyList()) :
+        this(comments.associateBy { it.recording.nodeId }, pings.associateBy { it.recording.nodeId },
+            pings.groupBy { it.recording.groupId }.mapValues { (_, records) -> records.maxOf { it.to?.ordinal?.toLong() ?: 0L } })
+    val comments: List<RecordedEventComment> get() = commentsById.values.toList()
+    val pings: List<RecordedPingChange> get() = pingsById.values.toList()
+    fun copy(comments: List<RecordedEventComment> = this.comments, pings: List<RecordedPingChange> = this.pings) = EventAnnotationState(comments, pings)
+
+    @Transient private var activeIndex: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>>? = null
+    private fun active(): Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = activeIndex ?: run {
+        var groups: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = emptyMap()
+        for (record in pingsById.values) {
+            val group = record.recording.groupId; val key = record.reference to record.target
+            val members = groups[group].orEmpty().let { if (record.to == null) it.removeShared(key) else it.putShared(key, record) }
+            groups = groups.putShared(group, members)
+        }
+        groups.also { activeIndex = it }
+    }
+    internal fun active(group: String) = active()[group].orEmpty()
+    internal fun comment(id: String, next: RecordedEventComment?): EventAnnotationState =
+        copy(commentsById = if (next == null) commentsById.removeShared(id) else commentsById.putShared(id, next))
+            .also { it.activeIndex = activeIndex }
+
+    internal fun ping(id: String, next: RecordedPingChange?): EventAnnotationState {
+        val old = pingsById[id]
+        val record = next ?: old ?: return this
+        val group = record.recording.groupId; val key = record.reference to record.target
+        val presence = if (next == null) old?.from else next.to
+        val restored = presence?.let { if (next != null) next else pingsById[it.additionNodeId] }
+        val members = active(group).let { if (restored == null) it.removeShared(key) else it.putShared(key, restored) }
+        return copy(pingsById = if (next == null) pingsById.removeShared(id) else pingsById.putShared(id, next))
+            .also { it.activeIndex = active().putShared(group, members) }
+    }
+    internal fun ordinal(group: String, value: Long?): EventAnnotationState = copy(lastOrdinals =
+        if (value == null) lastOrdinals.removeShared(group) else lastOrdinals.putShared(group, value)).also { it.activeIndex = activeIndex }
+}
 
 /** A trusted retained-tree read, after account access checking. Never accept a context/version supplied
  * by a request as evidence. Inactive retained nodes are resolved here without activating them or exposing faces. */
@@ -52,12 +89,7 @@ object EventAnnotations {
         else target.position == null && target.id?.let(DeckValidation::uuid) == true
 
     fun activePings(annotations: EventAnnotationState, groupId: String): List<RecordedPingChange> {
-        val active = linkedMapOf<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>()
-        for (record in annotations.pings) if (record.recording.groupId == groupId) {
-            val key = record.reference to record.target
-            if (record.to == null) active.remove(key) else active[key] = record
-        }
-        return active.values.sortedBy { it.to!!.ordinal.toLong() }
+        return annotations.active(groupId).values.sortedBy { it.to!!.ordinal.toLong() }
     }
 
     /** Called only through GameplayRules, so validation/scope/access remain the common request boundary. */
@@ -71,32 +103,30 @@ object EventAnnotations {
         }
         // The server's durable request outcome path remains the delivery authority; this also prevents
         // duplicate records when the shared reducer is presented an already-applied request.
-        if (state.annotations.comments.any { it.recording.requestId == command.requestId } ||
-            state.annotations.pings.any { it.recording.requestId == command.requestId }) return GameplayChange(state)
+        val nodeId = CommandIds.uuidV5(command.requestId, "board-node")
+        if (nodeId in state.annotations.commentsById || nodeId in state.annotations.pingsById) return GameplayChange(state)
         if (reference.playId != state.id) return GameplayChange(reason = "missingReference")
         val retained = references.resolve(state, actor, reference)
             ?.takeIf { it.context.reference == reference } ?: return GameplayChange(reason = "missingReference")
         val target = when (action) { is PlayAction.Ping -> action.target; is PlayAction.Unping -> action.target; else -> null }
         if (target != null && target.kind != PingTargetKind.LOCATION && target !in retained.targets)
             return GameplayChange(reason = "missingReference")
-        val nodeId = CommandIds.uuidV5(command.requestId, "board-node")
         val semantic = HistoryGrouping.classify(action)
         val group = HistoryGrouping.append(state.currentGroup, nodeId, command.requestId, actor, semantic)
         val recording = AnnotationRecording(state.id, state.currentBranchId, state.currentNodeId, nodeId, group.id, command.requestId, actor)
-        val from = if (target == null) null else activePings(state.annotations, group.id)
-            .singleOrNull { it.reference == retained.context && it.target == target }?.to
+        val from = if (target == null) null else state.annotations.active(group.id)[retained.context to target]?.to
         val to: PingPresence?
         val annotations: EventAnnotationState
         if (action is PlayAction.EventComment) {
             to = null
-            annotations = state.annotations.copy(comments = state.annotations.comments + RecordedEventComment(recording, retained.context, action.text))
+            annotations = state.annotations.comment(nodeId, RecordedEventComment(recording, retained.context, action.text))
         } else {
             if ((action is PlayAction.Unping && from == null) || (action is PlayAction.Ping && from != null)) return GameplayChange(state)
-            val lastOrdinal = state.annotations.pings.filter { it.recording.groupId == group.id }
-                .mapNotNull { it.to?.ordinal?.toLong() }.maxOrNull() ?: 0L
+            val lastOrdinal = state.annotations.lastOrdinals[group.id] ?: 0L
             if (action is PlayAction.Ping && lastOrdinal == Long.MAX_VALUE) return GameplayChange(reason = "inapplicable")
             to = if (action is PlayAction.Unping) null else PingPresence(requireNotNull(target), (lastOrdinal + 1).toString(), nodeId)
-            annotations = state.annotations.copy(pings = state.annotations.pings + RecordedPingChange(recording, retained.context, requireNotNull(target), from, to))
+            annotations = state.annotations.ping(nodeId, RecordedPingChange(recording, retained.context, requireNotNull(target), from, to))
+                .let { if (to == null) it else it.ordinal(group.id, lastOrdinal + 1) }
         }
         val transition = GameplayTransition(annotation = AnnotationTransition(state.id, state.currentBranchId, group.id,
             retained.context, target, from, to, (action as? PlayAction.EventComment)?.text))

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameplayPerformanceTest {
-    @Test fun `360 legacy events are loaded once and subsequent commands stay below 50ms`() {
+    @Test fun `360 incremental events are loaded once and subsequent commands stay below 50ms`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
@@ -16,13 +16,6 @@ class GameplayPerformanceTest {
                 val f = GameplayFixture(runtime, deckSize = 60)
                 val actor = f.a.account.accountId
                 repeat(360) { assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.AdjustLife(actor, "1"))).outcome) }
-                db.connection().use { connection ->
-                    connection.prepareStatement("""UPDATE gameplay_mutation SET payload =
-                        jsonb_set((payload - 'bookkeeping') #- '{transition,delta}', '{schemaVersion}', '1'::jsonb)
-                        WHERE play_id = ?""").use {
-                        it.setObject(1, java.util.UUID.fromString(f.root.id)); assertEquals(360, it.executeUpdate())
-                    }
-                }
                 // New service = empty memory cache, as after process ownership recovery.
                 val games = GameService(runtime)
                 fun execute(action: GameAction): Long {

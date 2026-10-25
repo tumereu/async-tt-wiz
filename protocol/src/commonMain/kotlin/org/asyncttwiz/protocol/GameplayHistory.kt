@@ -205,6 +205,7 @@ object GameplayHistory {
     /** Recorded replay never accepts a different relevant transition, including changed numeric inputs. */
     fun replay(state: PlayState, mutation: GameplayMutation,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
+        if (mutation.bookkeeping == null || mutation.transition.delta == null) return GameplayChange(reason = "replayBlocked")
         if (mutation.schemaVersion == 2) {
             mutation.transition.annotation?.let { annotation ->
                 val retained = references.resolve(state, mutation.author, annotation.reference.reference)
@@ -216,127 +217,14 @@ object GameplayHistory {
             return apply(state, rebased)?.let { GameplayChange(it, rebased) }
             ?: GameplayChange(reason = "replayBlocked")
         }
-        if (mutation.id != CommandIds.uuidV5(mutation.requestId, "board-node")) return GameplayChange(reason = "replayBlocked")
-        val command = GameCommand(mutation.requestId, GameScope(state.gameId, playId = state.id),
-            GameAction.Play(mutation.action), state.id, "0", invocationId = mutation.invocationId)
-        val execution = state.copy(currentBranchId = mutation.branchId)
-        var candidate = when (mutation.action) {
-            is PlayAction.Manual -> ManualEditRules.replay(execution, mutation, command)
-            is PlayAction.MoveCard -> GameplayRules.replayMove(execution, mutation, command)
-            else -> GameplayRules.legacyChange(execution, mutation.author, command, references)
-        }
-        // Old step events predate the attention rule. Keep their recorded transition and the
-        // legacy fallback, rather than retroactively passing to the defender during cold replay.
-        if (mutation.transition.attention == null && mutation.action.let {
-                it == PlayAction.NextStep || it == PlayAction.EndTurn || it is PlayAction.ChooseStep }) {
-            candidate = candidate.copy(mutation = candidate.mutation?.let {
-                it.copy(transition = it.transition.copy(attention = null)) },
-                state = candidate.state?.let { it.copy(board = it.board.copy(attentionHolder = state.board.attentionHolder)) })
-        }
-        return if (mutation.schemaVersion == 1 && candidate.mutation?.transition?.copy(delta = null) == mutation.transition &&
-            (mutation.grouping == null || candidate.mutation.grouping == mutation.grouping)) {
-            // Tree edits change topology, not logical identities/recorded choices or authorship.
-            candidate.copy(mutation = mutation, state = candidate.state!!.copy(currentNodeId = mutation.id,
-                currentGroup = append(state.currentGroup, mutation, state.board.containers), currentBranchId = mutation.branchId))
-        } else GameplayChange(reason = "replayBlocked")
+        return GameplayChange(reason = "replayBlocked")
     }
 
     /** Exact recorded inverse for traversal; selective Undo selection/topology/suffix validation remains I23. */
     fun reverse(state: PlayState, mutation: GameplayMutation): BoardState? {
         if (mutation.schemaVersion == 2) return GameplayDeltas.apply(state, mutation.transition.delta ?: return null, true)
             ?.takeIf { readsMatch(it, mutation) && mutation.transition.delta.seal == GameplayDeltas.seal(mutation) }?.board
-        if (mutation.schemaVersion != 1) return null
-        // This scalar/movement helper must never return a partial inverse for a merged family.
-        val transition = mutation.transition
-        if (transition.libraryOrder != null || transition.contents != null || transition.random != null ||
-            transition.annotation != null || transition.tokens.isNotEmpty() || transition.links.isNotEmpty() ||
-            transition.cloneRead != null || transition.tokenMoveRead != null || transition.combatStack != null) return null
-        for (read in mutation.transition.reads) {
-            val card = state.board.cards.singleOrNull { it.id == read.targetId } ?: return null
-            val value = when (read.field) {
-                GameplayField.FACE -> card.faceId
-                GameplayField.COVERED -> card.covered.toString()
-                GameplayField.EXPLICITLY_COVERED -> card.explicitlyCovered.toString()
-                GameplayField.CONTAINER -> card.containerId
-                else -> return null
-            }
-            if (value != read.value) return null
-        }
-        var board = state.board
-        transition.attention?.let {
-            if (board.attentionHolder != it.to) return null
-            board = board.copy(attentionHolder = it.from)
-        }
-        for (field in mutation.transition.fields.asReversed()) {
-            when (field.field) {
-                GameplayField.LIFE -> {
-                    val player = board.players.singleOrNull { it.accountId == field.targetId } ?: return null
-                    if (player.life != field.to || field.from == null) return null
-                    board = board.copy(players = board.players.map { if (it == player) it.copy(life = field.from) else it })
-                }
-                GameplayField.PLAYER_COUNTER -> {
-                    val player = board.players.singleOrNull { it.accountId == field.targetId } ?: return null
-                    val color = field.color ?: return null
-                    if (player.counters[color] != field.to) return null
-                    board = board.copy(players = board.players.map { if (it == player) it.copy(counters =
-                        if (field.from == null) it.counters - color else it.counters + (color to field.from)) else it })
-                }
-                else -> {
-                    val card = board.cards.singleOrNull { it.id == field.targetId } ?: return null
-                    val current = when (field.field) {
-                        GameplayField.TAPPED -> card.tapped.toString()
-                        GameplayField.CORNER -> card.corner
-                        GameplayField.COUNTER -> card.counters[field.color]
-                        GameplayField.NOTE -> card.note
-                        GameplayField.OWNER -> card.owner
-                        GameplayField.FACE -> card.faceId
-                        GameplayField.COVERED -> card.covered.toString()
-                        GameplayField.EXPLICITLY_COVERED -> card.explicitlyCovered.toString()
-                        else -> return null
-                    }
-                    if (current != field.to) return null
-                    val next = when (field.field) {
-                        GameplayField.TAPPED -> card.copy(tapped = field.from?.toBooleanStrictOrNull() ?: return null)
-                        GameplayField.CORNER -> card.copy(corner = field.from ?: return null)
-                        GameplayField.COUNTER -> card.copy(counters = if (field.from == null) card.counters - (field.color ?: return null)
-                            else card.counters + ((field.color ?: return null) to field.from))
-                        GameplayField.NOTE -> card.copy(note = field.from ?: return null)
-                        GameplayField.OWNER -> card.copy(owner = field.from ?: return null)
-                        GameplayField.FACE -> card.copy(faceId = field.from ?: return null)
-                        GameplayField.COVERED -> card.copy(covered = field.from?.toBooleanStrictOrNull() ?: return null)
-                        GameplayField.EXPLICITLY_COVERED -> card.copy(explicitlyCovered = field.from?.toBooleanStrictOrNull() ?: return null)
-                        else -> return null
-                    }
-                    board = board.copy(cards = board.cards.map { if (it == card) next else it })
-                }
-            }
-        }
-        val move = mutation.transition.movement ?: return board
-        if (board.cards.none { it.id == move.cardId } || GameplayRules.location(board, move.cardId, orderedHand = move.coverRulesVersion >= 3) != move.to) return null
-        if (move.stackTo != null && GameplayRules.stackDigest(state.copy(board = board)) != move.stackTo) return null
-        val source = board.containers.singleOrNull { it.id == move.from.containerId } ?: return null
-        val members = GameplayRules.members(board, source, move.from.placement).filter { it != move.cardId }
-        val unordered = source.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE) || source.zone == PlayZone.HAND && move.coverRulesVersion < 3
-        val insert = if (unordered) (members + move.cardId).sorted() else {
-            val left = move.from.afterId?.let { members.indexOf(it).takeIf { index -> index >= 0 } ?: return null } ?: -1
-            if (members.getOrNull(left + 1) != move.from.beforeId) return null
-            members.toMutableList().also { it.add(left + 1, move.cardId) }
-        }
-        if (source.zone == PlayZone.BATTLEFIELD) {
-            if (move.from.placement == null || members.size >= 3) return null
-            if (board.cards.any { it.id != move.cardId && it.containerId == source.id &&
-                it.placement?.position == move.from.placement.position && it.placement.pileId != move.from.placement.pileId }) return null
-        }
-        board = board.copy(cards = board.cards.map { if (it.id == move.cardId)
-            it.copy(containerId = move.from.containerId, placement = move.from.placement) else it },
-            containers = board.containers.map { container -> when (container.id) {
-                source.id -> container.copy(cards = if (source.zone == PlayZone.BATTLEFIELD)
-                    container.cards.filter { it != move.cardId && it !in members } + insert else insert)
-                move.to.containerId -> container.copy(cards = container.cards.filter { it != move.cardId })
-                else -> container
-            } })
-        if (move.stackFrom != null && GameplayRules.stackDigest(state.copy(board = board)) != move.stackFrom) return null
-        return GameplayRules.canonicalBoard(board)
+        return null
     }
     /** Exact lifecycle/link-only inverse. Compound combat/Stack effects require I23's shared traversal;
      * never partially undo them here. Shared Undo eligibility remains the history owner's job. */

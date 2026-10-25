@@ -24,6 +24,7 @@ val schemaTools = sourceSets.create("schemaTools") {
 }
 
 dependencies {
+    testImplementation(project(":scale-fixtures"))
     implementation(project(":core"))
     implementation(project(":protocol"))
     implementation(libs.flyway.core)

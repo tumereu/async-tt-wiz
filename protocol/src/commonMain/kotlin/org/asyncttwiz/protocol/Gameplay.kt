@@ -150,7 +150,7 @@ object GameplayRules {
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
         val recorded = mutation.copy(schemaVersion = 2,
-            transition = mutation.transition.copy(delta = GameplayDeltas.capture(state, next)),
+            transition = mutation.transition.copy(delta = GameplayDeltas.capture(state, next, mutation.id)),
             bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId, next.currentGroup))
         return change.copy(mutation = recorded.copy(transition = recorded.transition.copy(
             delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded)))))
@@ -229,9 +229,6 @@ object GameplayRules {
         return record(state, actor, command, next, transition)
     }
 
-    internal fun legacyChange(state: PlayState, actor: String, command: GameCommand,
-        references: EventReferenceResolver) = execute(state, actor, command, references)
-
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
         transition: GameplayTransition): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
@@ -262,13 +259,6 @@ object GameplayRules {
 
     /** D-247: semantic ordered entries only; no face, text, orientation, coordinates or owner. */
     fun stackDigest(state: PlayState): String = CombatStackRules.stackDigest(state)
-
-    internal fun replayMove(state: PlayState, mutation: GameplayMutation, command: GameCommand): GameplayChange {
-        val version = mutation.transition.movement?.coverRulesVersion ?: 1
-        if (version !in 1..4 || !GameWire.valid(command) || mutation.author !in state.board.players.map { it.accountId })
-            return GameplayChange(reason = "replayBlocked")
-        return move(state, mutation.author, command, mutation.action as PlayAction.MoveCard, version)
-    }
 
     private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
     private fun moveProjection(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,

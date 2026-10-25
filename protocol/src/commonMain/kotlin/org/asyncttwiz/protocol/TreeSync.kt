@@ -2,6 +2,8 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
+import kotlinx.collections.immutable.toPersistentMap
+import kotlinx.collections.immutable.toPersistentList
 
 /** Flat accepted-record codec for the shared GameplayTree on the existing I14 baseline and
  * GameRevision transport. Retained relational mutations/control records are the exporter input;
@@ -25,6 +27,20 @@ object TreeSync {
     fun generation(tree: GameplayTree) = DownloadedTree(tree, branchIds(tree).associateWith { buildJsonObject { put("id", it) } })
 
     fun delta(before: GameplayTree, after: GameplayTree): GameplayTreeDelta {
+        if (after.editBase === before.generationToken) {
+            val upserts = mutableListOf<TreeSyncRecord>()
+            val removals = mutableListOf<GameplayTreeKey>()
+            for (key in after.editKeys) {
+                val old = record(before, key)
+                val next = record(after, key)
+                if (old != next) {
+                    if (next == null) { if (old != null) removals += key } else upserts += next
+                }
+            }
+            return GameplayTreeDelta(upserts, removals)
+        }
+        // Explicit cold/external-tree comparison only. Shared reducers always carry a write set.
+        after.work.fullHistoryScans++
         // Compare immutable records BEFORE encoding. Ordinary appends must not serialize every
         // retained offshoot/board/control merely to discover that their bytes did not change.
         val upserts = mutableListOf<TreeSyncRecord>()
@@ -50,20 +66,37 @@ object TreeSync {
         return GameplayTreeDelta(upserts, removals)
     }
 
+    private fun record(tree: GameplayTree, key: GameplayTreeKey): TreeSyncRecord? {
+        val payload: JsonElement? = when (key.kind) {
+            "node" -> tree.nodes[key.id]?.let { GameWire.json.encodeToJsonElement(it) }
+            "current" -> JsonPrimitive(tree.currentNodeId)
+            "selected-branch" -> JsonPrimitive(tree.currentBranchId)
+            "selection-control" -> tree.selectionControlId?.let(::JsonPrimitive)
+            "redo" -> tree.redoByAccount[key.id]?.let { GameWire.json.encodeToJsonElement(TreeRedoQueue(it)) }
+            "removed-parent" -> tree.removedParents[key.id]?.let(::JsonPrimitive)
+            "branch-head" -> tree.branchHeads[key.id]?.let(::JsonPrimitive)
+            "branch-lineage" -> tree.branches[key.id]?.let { GameWire.json.encodeToJsonElement(it) }
+            "branch" -> if (key.id == tree.initial.root.branchId || key.id in tree.branchHeads || key.id in tree.branches)
+                buildJsonObject { put("id", key.id) } else null
+            else -> error("Unsupported reducer write: $key")
+        }
+        return payload?.let { TreeSyncRecord(key.kind, key.id, it) }
+    }
+
     fun apply(tree: DownloadedTree, delta: GameplayTreeDelta): DownloadedTree {
         require(delta.upserts.map { GameplayTreeKey(it.kind, it.id) }.distinct().size == delta.upserts.size)
         require(delta.removals.distinct().size == delta.removals.size)
         var next = tree.tree.copy()
-        val branches = tree.branches.toMutableMap()
+        var branches = tree.branches
         val definitions = next.initial.definitions.associateByTo(linkedMapOf()) { it.digest }
         for (key in delta.removals) when (key.kind) {
-            "node" -> { require(key.id in next.nodes); next = next.copy(nodes = next.nodes - key.id) }
+            "node" -> { require(key.id in next.nodes); next = next.copy(nodes = next.nodes.removeShared(key.id)) }
             "definition" -> require(definitions.remove(key.id) != null)
-            "redo" -> { require(key.id in next.redoByAccount); next = next.copy(redoByAccount = next.redoByAccount - key.id) }
-            "removed-parent" -> { require(key.id in next.removedParents); next = next.copy(removedParents = next.removedParents - key.id) }
-            "branch-head" -> { require(key.id in next.branchHeads); next = next.copy(branchHeads = next.branchHeads - key.id) }
-            "branch-lineage" -> { require(key.id in next.branches); next = next.copy(branches = next.branches - key.id) }
-            "branch" -> require(branches.remove(key.id) != null)
+            "redo" -> { require(key.id in next.redoByAccount); next = next.copy(redoByAccount = next.redoByAccount.removeShared(key.id)) }
+            "removed-parent" -> { require(key.id in next.removedParents); next = next.copy(removedParents = next.removedParents.removeShared(key.id)) }
+            "branch-head" -> { require(key.id in next.branchHeads); next = next.copy(branchHeads = next.branchHeads.removeShared(key.id)) }
+            "branch-lineage" -> { require(key.id in next.branches); next = next.copy(branches = next.branches.removeShared(key.id)) }
+            "branch" -> { require(key.id in branches); branches = branches.removeShared(key.id) }
             "selection-control" -> { require(key.id == "current" && next.selectionControlId != null); next = next.copy(selectionControlId = null) }
             else -> require(obsoleteControl(key.kind))
         }
@@ -81,7 +114,7 @@ object TreeSync {
                 }
                 "node" -> {
                     val node = GameWire.json.decodeFromJsonElement<GameplayMutation>(record.payload)
-                    require(node.id == record.id); next = next.copy(nodes = next.nodes + (record.id to node))
+                    require(node.id == record.id); next = next.copy(nodes = next.nodes.putShared(record.id, node))
                 }
                 "current", "selected-branch", "selection-control" -> {
                     require(record.id == "current")
@@ -92,20 +125,23 @@ object TreeSync {
                         else -> next.copy(selectionControlId = value)
                     }
                 }
-                "redo" -> next = next.copy(redoByAccount = next.redoByAccount + (record.id to GameWire.json.decodeFromJsonElement<TreeRedoQueue>(record.payload).entries))
-                "removed-parent" -> next = next.copy(removedParents = next.removedParents + (record.id to record.payload.jsonPrimitive.content))
-                "branch-head" -> next = next.copy(branchHeads = next.branchHeads + (record.id to record.payload.jsonPrimitive.content))
+                "redo" -> next = next.copy(redoByAccount = next.redoByAccount.putShared(record.id, GameWire.json.decodeFromJsonElement<TreeRedoQueue>(record.payload).entries.toPersistentList()))
+                "removed-parent" -> next = next.copy(removedParents = next.removedParents.putShared(record.id, record.payload.jsonPrimitive.content))
+                "branch-head" -> next = next.copy(branchHeads = next.branchHeads.putShared(record.id, record.payload.jsonPrimitive.content))
                 "branch-lineage" -> {
                     val branch = GameWire.json.decodeFromJsonElement<GameplayBranch>(record.payload)
-                    require(branch.id == record.id); next = next.copy(branches = next.branches + (record.id to branch))
+                    require(branch.id == record.id); next = next.copy(branches = next.branches.putShared(record.id, branch))
                 }
-                "branch" -> branches[record.id] = record.payload.jsonObject
+                "branch" -> branches = branches.putShared(record.id, record.payload.jsonObject)
                 else -> require(obsoleteControl(record.kind))
             }
         }
-        next = next.copy(initial = next.initial.copy(definitions = definitions.values.sortedBy { it.digest }))
+        if (delta.upserts.any { it.kind == "definition" || it.kind == "root" } || delta.removals.any { it.kind == "definition" })
+            next = next.copy(initial = next.initial.copy(definitions = definitions.values.sortedBy { it.digest }))
         require(next.initial.gameId == tree.tree.initial.gameId && next.initial.id == tree.tree.initial.id)
-        return DownloadedTree(next, branches).also { validate(it, tree.tree) }
+        val keys = (delta.upserts.map { GameplayTreeKey(it.kind, it.id) } + delta.removals).toSet()
+        next.changedFrom(tree.tree, keys)
+        return DownloadedTree(next, branches).also { validateIncremental(it, tree.tree, keys) }
     }
 
     /** No recursive graph or per-node board snapshots. Definitions and common ancestors occur once. */
@@ -177,9 +213,10 @@ object TreeSync {
         }
         val root = requireNotNull(initial).copy(definitions = definitions.values.sortedBy { it.digest })
         require(root.gameId == gameId && root.id == playId)
-        val result = DownloadedTree(GameplayTree(root, nodes, requireNotNull(current), redo, removed, lineage,
+        val result = DownloadedTree(GameplayTree(root, nodes.toPersistentMap(), requireNotNull(current),
+            redo.mapValues { it.value.toPersistentList() }.toPersistentMap(), removed.toPersistentMap(), lineage.toPersistentMap(),
             selectedBranch ?: nodes[current]?.branchId ?: root.root.branchId,
-            if (heads.isEmpty()) mapOf(root.root.branchId to root.root.id) else heads, selectionControl), branches)
+            (if (heads.isEmpty()) mapOf(root.root.branchId to root.root.id) else heads).toPersistentMap(), selectionControl), branches.toPersistentMap())
         validate(result)
         return result
     }
@@ -192,6 +229,7 @@ object TreeSync {
 
     private fun validate(generation: DownloadedTree, previous: GameplayTree?) {
         val tree = generation.tree
+        require(tree.index().incremental) { "Retained events require recorded deltas and inverse data" }
         val root = tree.initial
         require(root.engineVersion == 1 && root.readFormat == 1 && root.board.schemaVersion == 1 && root.root.parentId == null &&
             root.currentNodeId == root.root.id && root.currentGroup == null)
@@ -218,7 +256,7 @@ object TreeSync {
         tree.selectionControlId?.let { require(DeckValidation.uuid(it)) }
         require(tree.nodes.all { (id, node) -> id == node.id && node.author in players &&
             listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
-            node.schemaVersion in 1..2 && tree.referencesMatch(node) })
+            node.schemaVersion == 2 && node.transition.delta != null && node.bookkeeping != null && tree.referencesMatch(node) })
         val children = tree.nodes.values.groupBy { it.parentId }
         val pending = ArrayDeque<Pair<GameplayMutation, PlayState?>>()
         children[root.root.id].orEmpty().forEach { pending.add(it to root) }
@@ -264,8 +302,48 @@ object TreeSync {
         val referencePayloads = tree.nodes + detached.associateBy { it.id }
         require(detached.all { node -> node.id !in tree.nodes && node.id in tree.removedParents && node.author in players &&
             listOf(node.id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
-            node.schemaVersion in 1..2 && node.parentId in resolved && node.references.all {
+             node.schemaVersion == 2 && node.transition.delta != null && node.bookkeeping != null && node.parentId in resolved && node.references.all {
                 referencePayloads[it.nodeId]?.transition == it.transition } })
+    }
+
+    private fun validateIncremental(generation: DownloadedTree, previous: GameplayTree, keys: Set<GameplayTreeKey>) {
+        val tree = generation.tree
+        if (tree.initial !== previous.initial) { validate(generation); return }
+        val index = tree.index()
+        val edited = keys.filter { it.kind == "node" }.map { it.id }
+        val affected = index.descendants(edited) + previous.index().descendants(edited)
+        require(tree.currentNodeId in index.positions)
+        require(tree.currentBranchId in generation.branches)
+        val players = tree.initial.board.players.map { it.accountId }
+        require(previous.selectiveReferenceFailure(tree) == null) { "Changed retained reference" }
+        for (id in affected) tree.nodes[id]?.let { node ->
+            require(id == node.id && node.schemaVersion == 2 && node.transition.delta != null && node.bookkeeping != null &&
+                node.author in players && node.id in index.positions && node.branchId in generation.branches &&
+                listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) && tree.referencesMatch(node))
+        }
+        for (key in keys) when (key.kind) {
+            "branch" -> require(key.id in generation.branches && DeckValidation.uuid(key.id))
+            "branch-head" -> tree.branchHeads[key.id]?.let { require(key.id in generation.branches && tree.resolveCursor(it) != null) }
+            "removed-parent" -> tree.removedParents[key.id]?.let { require(key.id !in tree.nodes && DeckValidation.uuid(key.id) && tree.resolveCursor(key.id) != null) }
+            "redo" -> tree.redoByAccount[key.id]?.let { queue ->
+                require(key.id in players)
+                for (entry in queue) require(entry.mutation.author == key.id && entry.mutation.schemaVersion == 2 &&
+                    entry.mutation.id !in tree.nodes && entry.mutation.id in tree.removedParents &&
+                    tree.resolveCursor(entry.mutation.parentId) != null &&
+                    (entry.successorId == null || tree.resolveCursor(entry.successorId) != null) &&
+                    entry.otherChildIds.all { tree.resolveCursor(it) != null })
+            }
+            "selection-control" -> tree.selectionControlId?.let { require(DeckValidation.uuid(it)) }
+        }
+        // Move the old head backwards in the old topology before applying a reparented suffix.
+        val unchanged = object : AbstractSet<String>() {
+            override val size: Int get() = error("Membership-only boundary")
+            override fun iterator(): Iterator<String> = error("Membership-only boundary")
+            override fun contains(element: String) = element !in affected && element in index.positions
+        }
+        tree.inheritMaterialization(previous, unchanged)
+        for (id in affected) if (id in tree.nodes) requireNotNull(tree.stateAt(id)) { "Unreplayable retained node" }
+        requireNotNull(tree.stateAt(tree.currentNodeId))
     }
 
     private fun obsoleteControl(kind: String) = kind in setOf("archived", "archive-control", "archive-record")

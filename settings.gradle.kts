@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "async-tt-wiz"
 include(":core", ":protocol", ":client-storage", ":androidApp", ":server")
+include(":scale-fixtures")

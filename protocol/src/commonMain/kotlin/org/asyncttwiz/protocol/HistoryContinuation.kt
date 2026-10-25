@@ -29,17 +29,27 @@ object HistoryContinuation {
         if (command.action == GameAction.Undo || command.action == GameAction.Redo) {
             tree.selectiveReferenceFailure(next)?.let { return GameplayTreeChange(reason = it, targetId = change.targetId) }
         }
-        val heads = next.branchHeads.mapValues { (_, node) -> next.resolveCursor(node) ?: next.initial.root.id }.toMutableMap()
+        if (command.action is GameAction.Play) return change
+        var heads = next.branchHeads
+        val keys = next.editKeys.toMutableSet()
+        // Only removed/restored events can change a branch's terminal boundary.
+        val affectedBranches = keys.filter { it.kind == "node" }.mapNotNull { tree.nodes[it.id]?.branchId ?: next.nodes[it.id]?.branchId }.toSet()
+        for (branch in affectedBranches) {
+            val old = heads[branch] ?: continue
+            val resolved = next.resolveCursor(old) ?: next.initial.root.id
+            if (old != resolved) { heads = heads.putShared(branch, resolved); keys += GameplayTreeKey("branch-head", branch) }
+        }
         if (command.action == GameAction.Redo) {
             // Undo of an actual branch head records its surviving parent. Reinsertion at that same
             // still-terminal boundary restores the head; it must not leave catalog/head behind the
             // current board or overwrite a newer opponent continuation.
             for (entry in tree.redoByAccount[actor].orEmpty().asReversed().takeWhile { it.mutation.id in next.nodes }) {
                 if (entry.successorId == null && heads[entry.mutation.branchId] == entry.mutation.parentId)
-                    heads[entry.mutation.branchId] = entry.mutation.id
+                    { heads = heads.putShared(entry.mutation.branchId, entry.mutation.id)
+                        keys += GameplayTreeKey("branch-head", entry.mutation.branchId) }
             }
         }
-        if (heads == next.branchHeads) return change
-        return change.copy(tree = next.preservingCheckpoint(next.copy(branchHeads = heads)))
+        if (heads === next.branchHeads) return change
+        return change.copy(tree = next.preservingCheckpoint(next.copy(branchHeads = heads)).changedFrom(tree, keys))
     }
 }

@@ -5,12 +5,10 @@ import org.junit.Test
 import kotlin.test.*
 
 class HistoryProjectionPerformanceTest {
-    @Test fun incrementalTextProjectionReusesLegacyPrefixAndInvalidatesReparentedSuffix() {
+    @Test fun incrementalTextProjectionReusesPrefixAndInvalidatesReparentedSuffix() {
         val f = DownloadedTreeFixture
         var tree = f.root()
         repeat(360) { n -> tree = f.tap(tree, 2000 + n, tapped = n % 2 == 0) }
-        tree = tree.copy(nodes = tree.nodes.mapValues { (_, node) -> node.copy(schemaVersion = 1,
-            transition = node.transition.copy(delta = null), bookkeeping = null) })
         tree = TreeSync.decode(TreeSync.records(TreeSync.generation(tree)), tree.initial.gameId, tree.initial.id).tree
         val texts = historyTexts(tree, f.a, emptyMap())
         val next = f.tap(tree, 3000)

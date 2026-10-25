@@ -44,7 +44,7 @@ class CardVisibilityTest {
             PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(foreignHand))), 208).reason)
     }
 
-    @Test fun oldRealStackMovesStillReplayWhenTheSameCardAlsoHasAHandProjection() {
+    @Test fun realStackMovesReplayButSchemaOneMovesAreRejected() {
         val field = move(gameplayFixture(), PlayZone.BATTLEFIELD, 300).state!!
         val card = field.board.cards.first()
         val effect = gameplayChange(field, PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(field))), 301).state!!
@@ -58,10 +58,9 @@ class CardVisibilityTest {
             movement = realStack.mutation.transition.movement!!.copy(coverRulesVersion = 3),
             disclosures = listOf(GameplayDisclosure(card.id, card.faceId, CombatStackRules.stack(hand.board).id, listOf(gameplayId(8))))),
             revealsInformation = true)
-        val replayed = GameplayHistory.replay(hand, legacy)
-        assertEquals("accepted", replayed.outcome)
-        assertEquals(realStack.state!!.board, replayed.state!!.board)
-        assertEquals(legacy, replayed.mutation)
+        assertEquals("replayBlocked", GameplayHistory.replay(hand, legacy).reason)
+        val replayed = GameplayHistory.replay(hand, realStack.mutation)
+        assertNotNull(replayed.state)
         val target = replayed.state.board.containers.single { it.zone == PlayZone.GRAVEYARD }
         val removed = gameplayChange(replayed.state, PlayAction.MoveCard(card.id, MoveSource(CombatStackRules.stack(replayed.state.board).id),
             MoveDestination(target.id, MoveInsertion.UNORDERED)), 304)
@@ -198,18 +197,16 @@ class CardVisibilityTest {
         assertEquals(legacy.board, GameplayHistory.reverse(down.state, down.mutation))
     }
 
-    @Test fun persistedMovesFromBeforeZoneVisibilityRulesStillReplayWithoutChangingRecordedHistory() {
+    @Test fun persistedMovesWithoutIncrementalDataAreRejected() {
         val root = gameplayFixture()
         val current = move(root, PlayZone.BATTLEFIELD, 100)
         val mutation = current.mutation!!
         val legacy = mutation.copy(schemaVersion = 1, bookkeeping = null, transition = mutation.transition.copy(delta = null, fields = emptyList(), disclosures = emptyList(),
             movement = mutation.transition.movement!!.copy(coverRulesVersion = 1)), revealsInformation = false)
         val restored = GameplayHistory.replay(root, legacy)
-        assertEquals("accepted", restored.outcome)
-        assertTrue(restored.state!!.board.cards.first().covered)
-        assertFalse(restored.state.board.cards.first().isFaceDown)
-        assertEquals(root.board, GameplayHistory.reverse(restored.state, legacy))
-        assertEquals(restored.state, GameplayTree(root, mapOf(legacy.id to legacy), legacy.id).stateAt(legacy.id))
+        assertEquals("replayBlocked", restored.reason)
+        assertNull(GameplayHistory.reverse(current.state!!, legacy))
+        assertNull(GameplayTree(root, mapOf(legacy.id to legacy), legacy.id).stateAt(legacy.id))
     }
 
     @Test fun defaultMoveWireIntentDoesNotChangeForPreviouslyAdmittedRequests() {

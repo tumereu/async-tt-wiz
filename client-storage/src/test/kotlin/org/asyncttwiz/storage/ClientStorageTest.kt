@@ -52,9 +52,30 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(Long.MAX_VALUE, listOf(first.copy(payload = StoredPayload(3, "{}")))), storage.accepted("replica-a"))
             assertNull(storage.accepted("replica-b"))
         }
-        assertEquals("2", scalar("PRAGMA user_version"))
+        assertEquals("3", scalar("PRAGMA user_version"))
         assertEquals("ok", scalar("PRAGMA integrity_check"))
         println("PASS actual SQLite ${scalar("SELECT sqlite_version()")} file-backed create/commit/reopen, exact signed-64-bit cursor")
+    }
+
+    @Test fun incrementalOnlyMigrationDropsTreesAndStagingButRetainsOtherScopes() {
+        open().use { storage ->
+            storage.commitAccepted("game-tree:game", null, 5, listOf(first))
+            storage.commitAccepted("account:profile", null, 2, listOf(second))
+            storage.savePersonal("game-tree-staging:game", "chunk:0", StoredPayload(1, "legacy"))
+            storage.savePersonal("game-tree-review:game", "cursor", StoredPayload(1, "legacy"))
+            storage.savePersonal("installation", "game-tree-fence:game", StoredPayload(1, "legacy"))
+            storage.cachePublic("catalog", StoredPayload(1, "keep"))
+        }
+        execute("PRAGMA user_version = 2")
+        open().use { storage ->
+            assertNull(storage.accepted("game-tree:game"))
+            assertNull(storage.personal("game-tree-staging:game", "chunk:0"))
+            assertNull(storage.personal("game-tree-review:game", "cursor"))
+            assertNull(storage.personal("installation", "game-tree-fence:game"))
+            assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
+            assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
+        }
+        assertEquals("3", scalar("PRAGMA user_version"))
     }
 
     @Test fun accountActivationRetainsOnlySameProfileAndLogoutDeletesAllPrivateScopes() {
@@ -160,7 +181,7 @@ class ClientStorageTest {
                 assertNull(storage.publicCache("missing"))
             }
         }
-        assertEquals("2", scalar("PRAGMA user_version"))
+        assertEquals("3", scalar("PRAGMA user_version"))
         open().use { storage ->
             storage.commitAccepted("replica-a", 9007199254740993, 9007199254740994, listOf(second))
             storage.cachePublic("new", StoredPayload(2, "{}"))

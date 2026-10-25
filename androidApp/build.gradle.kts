@@ -210,6 +210,7 @@ dependencies {
     implementation(libs.serialization.json)
     implementation(libs.coil.compose)
     testImplementation(libs.kotlin.test)
+    testImplementation(project(":scale-fixtures"))
     testImplementation(libs.compose.ui.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)

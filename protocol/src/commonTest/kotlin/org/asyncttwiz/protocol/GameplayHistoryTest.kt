@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol
 import kotlin.test.*
 
 class GameplayHistoryTest {
-    @Test fun versionOneMovementWithoutOptionalGroupingReplaysWithRetainedZoneContext() {
+    @Test fun versionOneMovementIsRejectedWithoutRulesReplay() {
         val root = gameplayFixture()
         val library = root.board.containers[0]; val hand = root.board.containers[1]
         val draw = gameplayChange(root, PlayAction.MoveCard(library.cards.first(),
@@ -11,11 +11,9 @@ class GameplayHistoryTest {
         val legacy = draw.mutation!!.let { it.copy(schemaVersion = 1, grouping = null, bookkeeping = null,
             transition = it.transition.copy(delta = null)) }
         val replay = GameplayHistory.replay(root, legacy)
-        assertEquals(draw.state, replay.state)
-        assertEquals(legacy, replay.mutation)
+        assertEquals("replayBlocked", replay.reason)
         val cold = GameplayTree(root, mapOf(legacy.id to legacy), legacy.id)
-        assertEquals(draw.state, cold.stateAt(legacy.id))
-        assertEquals("download", cold.stateAt(legacy.id)!!.currentGroup!!.representative!!.semantic.icon)
+        assertNull(cold.stateAt(legacy.id))
     }
 
     @Test fun multiplePilesRetainCanonicalInventoryAndExactInverseWithoutUnrelatedOrderLocks() {

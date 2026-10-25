@@ -92,7 +92,7 @@ class AttentionTest {
         assertNull(changed.mutation!!.transition.attention)
     }
 
-    @Test fun legacySnapshotsAndStepHistoriesKeepTurnPlayerFallbackIncludingDeclareBlockers() {
+    @Test fun legacySnapshotsKeepTurnPlayerFallbackButSchemaOneEventsAreRejected() {
         val initial = state(TurnPosition.DECLARE_ATTACKERS)
         val json = GameWire.json
         val encoded = json.encodeToJsonElement(initial).jsonObject
@@ -104,16 +104,12 @@ class AttentionTest {
         val oldMutation = mutation.copy(schemaVersion = 1, bookkeeping = null,
             transition = mutation.transition.copy(attention = null, delta = null, reads = emptyList()))
         val replay = GameplayHistory.replay(legacy, oldMutation)
-        assertEquals("accepted", replay.outcome)
-        assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(replay.state!!.board.turn))
-        assertNull(replay.state.board.attentionHolder)
-        assertEquals(a, replay.state.board.effectiveAttentionHolder)
+        assertEquals("replayBlocked", replay.reason)
         val oldTree = GameplayTree(legacy, mapOf(oldMutation.id to oldMutation), oldMutation.id)
-        assertEquals(replay.state, oldTree.stateAt(oldMutation.id))
+        assertNull(oldTree.stateAt(oldMutation.id))
         val boundary = GameplayRules.change(state(TurnPosition.CLEANUP), a, play(PlayAction.NextStep, 21)).mutation!!
         val oldBoundary = boundary.copy(schemaVersion = 1, bookkeeping = null,
             transition = boundary.transition.copy(attention = null, delta = null, reads = emptyList()))
-        val next = GameplayHistory.replay(state(TurnPosition.CLEANUP), oldBoundary).state!!
-        assertEquals(b, next.board.effectiveAttentionHolder)
+        assertEquals("replayBlocked", GameplayHistory.replay(state(TurnPosition.CLEANUP), oldBoundary).reason)
     }
 }

@@ -27,15 +27,12 @@ class TreeSyncTest {
             redoByAccount = detached.redoByAccount, removedParents = detached.removedParents))
     }
 
-    @Test fun acceptedDeltaKeepsWarmHeadAcross360LegacyEventsWithoutRootReplay() {
+    @Test fun acceptedDeltaKeepsWarmHeadAcross360EventsWithoutRootReplay() {
         var tree = root()
         repeat(360) { n ->
             val next = f.play(tree, f.a, PlayAction.SetLife(f.a, (n + 21).toString()), 2000 + n)
             tree = next
         }
-        // Persisted pre-GameplayDelta mutations are still a realistic cold-load path.
-        tree = tree.copy(nodes = tree.nodes.mapValues { (_, node) -> node.copy(schemaVersion = 1,
-            transition = node.transition.copy(delta = null), bookkeeping = null) })
         var accepted = decode(TreeSync.records(generation(tree)))
         val baselineReplays = accepted.tree.replayedNodes
         assertEquals(360, baselineReplays)
@@ -54,7 +51,18 @@ class TreeSyncTest {
         val undone = assertNotNull(f.undo(accepted.tree).tree)
         val published = TreeSync.apply(accepted, TreeSync.delta(accepted.tree, undone))
         assertEquals(undone.stateAt(undone.currentNodeId), published.tree.stateAt(published.tree.currentNodeId))
-        assertEquals(0, published.tree.replayedNodes, "Undo must reverse the old head, not replay legacy ancestry")
+        assertEquals(0, published.tree.replayedNodes, "Undo must reverse the old head, not replay ancestry")
+    }
+
+    @Test fun schemaOneAndMissingInverseDataAreRejectedRatherThanReexecuted() {
+        val tree = f.tap(root())
+        val node = tree.nodes.getValue(tree.currentNodeId)
+        for (invalid in listOf(node.copy(schemaVersion = 1), node.copy(bookkeeping = null),
+            node.copy(transition = node.transition.copy(delta = null)))) {
+            val bad = tree.copy(nodes = mapOf(node.id to invalid))
+            assertFails { decode(TreeSync.records(generation(bad))) }
+            assertNull(bad.stateAt(node.id))
+        }
     }
 
     @Test fun incrementalValidationRejectsCorruptOffshootAndReparentedDescendants() {

@@ -220,9 +220,12 @@ class GameService(private val runtime: ServiceRuntime) {
     }
 
     /** Candidate games are independent; every selected game executes its lowest pending ordinal. */
-    fun executeOne(): Boolean {
+    fun executeOne(): Boolean = executeOne(null)
+
+    internal fun executeOne(listener: org.jooq.ExecuteListener?): Boolean {
         var committedTree: Pair<Long, GameplayTree>? = null
-        val executed = transaction { sql ->
+        val executed = transaction { context ->
+        val sql = if (listener == null) context else DSL.using(context.configuration().derive(listener))
         val game = sql.selectFrom(GAME).where(DSL.exists(sql.selectOne().from(GAME_INBOX)
             .where(GAME_INBOX.GAME_ID.eq(GAME.ID)).and(GAME_INBOX.RESULT.isNull)))
             .orderBy(GAME.ID).limit(1).forUpdate().skipLocked().fetchOne() ?: return@transaction false
@@ -240,10 +243,9 @@ class GameService(private val runtime: ServiceRuntime) {
         var createdMutation: GameplayMutation? = null
         var insertedChat: ChatMessage? = null
         val gameplay = if (isGameplay) {
-            val state = PlayStore.read(sql, game.id!!)
-            if (game.lifecycle != "ACTIVE" || state == null) GameplayTreeChange(reason = "lifecycleEnded")
+            val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
+            if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
             else {
-                val tree = gameplayStore.read(sql, state, before)
                 historyLoaded = System.nanoTime()
                 HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->
                     reduced = System.nanoTime()
@@ -269,20 +271,30 @@ class GameService(private val runtime: ServiceRuntime) {
         val revision = if (rejection == null && (gameplay == null || gameplay.tree != null)) Math.addExact(before, 1) else null
         val mutation = createdMutation
         var update: GameRevision? = null
+        var encodedUpdate: String? = null
         if (revision != null) {
+            // Reused summaries must have the same precision as PostgreSQL's timestamp(6).
+            val updatedAt = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
+                .truncatedTo(java.time.temporal.ChronoUnit.MICROS)
             sql.update(GAME).set(GAME.REVISION, revision)
-                .set(GAME.UPDATED_AT, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC))
+                .set(GAME.UPDATED_AT, updatedAt)
                 .where(GAME.ID.eq(game.id)).execute()
-            val summary = lobby.summary(sql, game.id!!)
-            val play = if (summary.lifecycle == GameLifecycle.ACTIVE) PlayStore.read(sql, game.id!!) else null
+            val next = gameplay?.tree
+            val reducedPlay = next?.stateAt(next.currentNodeId)
+            val summary = if (reducedPlay != null) {
+                game.revision = revision; game.updatedAt = updatedAt
+                lobby.summary(sql, game, reducedPlay.board.effectiveAttentionHolder)
+            } else lobby.summary(sql, game.id!!)
+            val play = reducedPlay ?: if (summary.lifecycle == GameLifecycle.ACTIVE) PlayStore.read(sql, game.id!!) else null
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
                 if (gameplay == null && command.action !is GameAction.SendChat) play else null, mutation,
                 if (mutation != null) play?.currentGroup else null,
                 insertedChat, treeDelta)
+            encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
-                .set(GAME_REVISION.PAYLOAD, GameWire.encode(update)).execute()
+                .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
             // The shared reducer/store already chose the accepted group, including extensions.
             // Record within THIS execution transaction, never from a delivery timer or a retry.
             mutation?.let { mutation ->
@@ -314,14 +326,14 @@ class GameService(private val runtime: ServiceRuntime) {
         sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, encoded).where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game.id).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
-            .set(GAME_OUTBOX.REVISION, update?.let(GameWire::encode)).execute()
+            .set(GAME_OUTBOX.REVISION, encodedUpdate).execute()
         true
         } finally {
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).info(
-                "Gameplay command game={} action={} processingMs={} historyLoadMs={} reduceMs={} saveMs={}", command.scope.gameId,
+                "Gameplay command game={} action={} processingMs={} historyLoadMs={} reduceMs={} saveMs={} bookkeepingMs={}", command.scope.gameId,
                 command.action.latencyType(), (System.nanoTime() - processingStarted) / 1_000_000.0,
                 (historyLoaded - processingStarted) / 1_000_000.0, (reduced - historyLoaded) / 1_000_000.0,
-                (saved - reduced) / 1_000_000.0)
+                (saved - reduced) / 1_000_000.0, (System.nanoTime() - saved) / 1_000_000.0)
         }
     }
         committedTree?.let { (revision, tree) -> gameplayStore.committed(revision, tree) }

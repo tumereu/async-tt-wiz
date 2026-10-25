@@ -15,6 +15,7 @@ import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
 import org.asyncttwiz.server.generated.tables.GameplayTreeControl.GAMEPLAY_TREE_CONTROL
 import org.jooq.DSLContext
 import org.jooq.JSONB
+import org.jooq.impl.DSL
 
 /** Relational mutations and coherent exports share the existing game-locked execution domain. */
 internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
@@ -72,20 +73,29 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
     private val json = GameWire.json
     private fun id(value: String) = UUID.fromString(value)
     fun initialize(sql: DSLContext, state: PlayState) {
-        for (record in TreeSync.records(TreeSync.generation(GameplayTree(state)))) {
-            if (record.kind !in setOf("root", "definition", "node")) control(sql, state.id, record)
-        }
+        controls(sql, state.id, TreeSync.records(TreeSync.generation(GameplayTree(state))).filter { it.kind !in setOf("root", "definition", "node") }.toList())
         GameplayEndpoint(sql, state.id).initialize(GameplayTree(state), 0)
     }
 
     /** Versioned endpoint plus transaction-scoped keyed reads, including on a cache miss. */
-    fun read(sql: DSLContext, state: PlayState, revision: Long? = null): GameplayTree {
+    fun readCurrent(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord): GameplayTree? {
+        val play = game.currentPlay ?: return null
+        val checkpoint = GameplayEndpoint.checkpoint(sql, play)
+        val state = json.decodeFromString<PlayState>(checkpoint.payload)
+        check(state.gameId == game.id.toString() && state.id == play.toString())
+        return read(sql, state, game.revision, checkpoint)
+    }
+
+    fun read(sql: DSLContext, state: PlayState, revision: Long? = null,
+        checkpoint: GameplayEndpoint.Checkpoint? = null): GameplayTree {
         val cached = synchronized(heads) { heads[state.id]?.takeIf { it.revision == revision } }
         cached?.tree?.takeIf { it.preparedState(it.currentNodeId) == state }?.let { return it.materializedCopy() }
         val root = cached?.root ?: json.decodeFromString<PlayState>(sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY)
             .where(GAME_PLAY.ID.eq(id(state.id))).fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!)
         val records = cached?.records?.copy() ?: EndpointReadCache()
-        return GameplayEndpoint(sql, state.id, records).read(state, root).also { transactionRecords.set(java.lang.ref.WeakReference(it) to records) }
+        val endpoint = GameplayEndpoint(sql, state.id, records)
+        return endpoint.read(state, root, checkpoint ?: GameplayEndpoint.checkpoint(sql, id(state.id)))
+            .also { transactionRecords.set(java.lang.ref.WeakReference(it) to records) }
     }
 
     /** Explicit exhaustive maintenance only. Never called by exports, commands, or recovery. */
@@ -119,54 +129,59 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
             .where(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD.PLAY_ID.eq(id(state.id))).execute()
         sql.deleteFrom(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE)
             .where(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE.PLAY_ID.eq(id(state.id))).execute()
-        for (record in TreeSync.records(TreeSync.generation(tree))) if (record.kind.startsWith("redo-")) control(sql, state.id, record)
+        controls(sql, state.id, TreeSync.records(TreeSync.generation(tree)).filter { it.kind.startsWith("redo-") }.toList())
         sql.deleteFrom(GAMEPLAY_TREE_CONTROL).where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(state.id))).and(GAMEPLAY_TREE_CONTROL.KIND.eq("redo")).execute()
         GameplayEndpoint(sql, state.id).initialize(tree, revision)
     }
 
-    private fun control(sql: DSLContext, play: String, record: TreeSyncRecord) {
-        sql.insertInto(GAMEPLAY_TREE_CONTROL).set(GAMEPLAY_TREE_CONTROL.PLAY_ID, id(play))
-            .set(GAMEPLAY_TREE_CONTROL.KIND, record.kind).set(GAMEPLAY_TREE_CONTROL.ID, record.id)
-            .set(GAMEPLAY_TREE_CONTROL.PAYLOAD, JSONB.valueOf(record.payload.toString()))
-            .onConflict(GAMEPLAY_TREE_CONTROL.PLAY_ID, GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID).doUpdate()
-            .set(GAMEPLAY_TREE_CONTROL.PAYLOAD, JSONB.valueOf(record.payload.toString())).execute()
+    private fun controls(sql: DSLContext, play: String, records: List<TreeSyncRecord>) {
+        for (chunk in records.chunked(1000)) {
+            val insert = sql.insertInto(GAMEPLAY_TREE_CONTROL, GAMEPLAY_TREE_CONTROL.PLAY_ID,
+                GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID, GAMEPLAY_TREE_CONTROL.PAYLOAD)
+            for (record in chunk) insert.values(id(play), record.kind, record.id, JSONB.valueOf(record.payload.toString()))
+            insert.onConflict(GAMEPLAY_TREE_CONTROL.PLAY_ID, GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID).doUpdate()
+                .set(GAMEPLAY_TREE_CONTROL.PAYLOAD, DSL.excluded(GAMEPLAY_TREE_CONTROL.PAYLOAD)).execute()
+        }
     }
 
     /** Same transaction as the original inbox/result/revision/outbox. Only changed records are written. */
     fun save(sql: DSLContext, before: GameplayTree, next: GameplayTree, revision: Long): GameplayTreeDelta {
         val delta = TreeSync.delta(before, next)
-        for (key in delta.removals) {
-            if (key.kind == "node") sql.update(GAMEPLAY_MUTATION).set(GAMEPLAY_MUTATION.RETAINED, false)
-                .where(GAMEPLAY_MUTATION.PLAY_ID.eq(id(next.initial.id))).and(GAMEPLAY_MUTATION.ID.eq(id(key.id))).execute()
-            else if (key.kind !in setOf("root", "definition")) sql.deleteFrom(GAMEPLAY_TREE_CONTROL)
-                .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(next.initial.id))).and(GAMEPLAY_TREE_CONTROL.KIND.eq(key.kind))
-                .and(GAMEPLAY_TREE_CONTROL.ID.eq(key.id)).execute()
-        }
+        val removedNodes = delta.removals.filter { it.kind == "node" }.map { id(it.id) }
+        if (removedNodes.isNotEmpty()) sql.update(GAMEPLAY_MUTATION).set(GAMEPLAY_MUTATION.RETAINED, false)
+            .where(GAMEPLAY_MUTATION.PLAY_ID.eq(id(next.initial.id))).and(GAMEPLAY_MUTATION.ID.`in`(removedNodes)).execute()
+        val removedControls = delta.removals.filter { it.kind !in setOf("root", "definition", "node") }
+        if (removedControls.isNotEmpty()) sql.deleteFrom(GAMEPLAY_TREE_CONTROL)
+            .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(next.initial.id)))
+            .and(DSL.row(GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID).`in`(removedControls.map { DSL.row(it.kind, it.id) })).execute()
         for (record in delta.upserts) when (record.kind) {
             "node" -> {
                 val mutation = next.nodes.getValue(record.id)
                 val state = requireNotNull(next.stateAt(mutation.id))
                 val group = requireNotNull(state.currentGroup)
+                val groupPayload = JSONB.valueOf(json.encodeToString(group))
+                val mutationPayload = JSONB.valueOf(record.payload.toString())
                 sql.insertInto(GAMEPLAY_GROUP).set(GAMEPLAY_GROUP.ID, id(group.id)).set(GAMEPLAY_GROUP.GAME_ID, id(state.gameId))
                     .set(GAMEPLAY_GROUP.PLAY_ID, id(state.id)).set(GAMEPLAY_GROUP.AUTHOR_ID, id(group.author))
                     .set(GAMEPLAY_GROUP.FIRST_NODE_ID, id(group.firstNodeId)).set(GAMEPLAY_GROUP.LAST_NODE_ID, id(group.lastNodeId))
-                    .set(GAMEPLAY_GROUP.PAYLOAD, JSONB.valueOf(json.encodeToString(group)))
+                    .set(GAMEPLAY_GROUP.PAYLOAD, groupPayload)
                     .onConflict(GAMEPLAY_GROUP.ID).doUpdate().set(GAMEPLAY_GROUP.LAST_NODE_ID, id(group.lastNodeId))
-                    .set(GAMEPLAY_GROUP.PAYLOAD, JSONB.valueOf(json.encodeToString(group))).execute()
+                    .set(GAMEPLAY_GROUP.PAYLOAD, groupPayload).execute()
                 sql.insertInto(GAMEPLAY_MUTATION).set(GAMEPLAY_MUTATION.ID, id(mutation.id))
                     .set(GAMEPLAY_MUTATION.GAME_ID, id(state.gameId)).set(GAMEPLAY_MUTATION.PLAY_ID, id(state.id))
                     .set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId)).set(GAMEPLAY_MUTATION.BRANCH_ID, id(mutation.branchId))
                     .set(GAMEPLAY_MUTATION.AUTHOR_ID, id(mutation.author)).set(GAMEPLAY_MUTATION.REQUEST_ID, id(mutation.requestId))
                     .set(GAMEPLAY_MUTATION.GROUP_ID, id(group.id)).set(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL, revision)
-                    .set(GAMEPLAY_MUTATION.PAYLOAD, JSONB.valueOf(json.encodeToString(mutation)))
+                    .set(GAMEPLAY_MUTATION.PAYLOAD, mutationPayload)
                     .onConflict(GAMEPLAY_MUTATION.ID).doUpdate().set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId))
                     .set(GAMEPLAY_MUTATION.RETAINED, true).set(GAMEPLAY_MUTATION.GROUP_ID, id(group.id))
                     .set(GAMEPLAY_MUTATION.NODE_VERSION, GAMEPLAY_MUTATION.NODE_VERSION.plus(1))
-                    .set(GAMEPLAY_MUTATION.PAYLOAD, JSONB.valueOf(json.encodeToString(mutation))).execute()
+                    .set(GAMEPLAY_MUTATION.PAYLOAD, mutationPayload).execute()
             }
             "root", "definition" -> Unit
-            else -> control(sql, next.initial.id, record)
+            else -> Unit
         }
+        controls(sql, next.initial.id, delta.upserts.filter { it.kind !in setOf("root", "definition", "node") })
         val records = transactionRecords.get()?.takeIf { it.first.get() === before }?.second ?: EndpointReadCache()
         GameplayEndpoint(sql, next.initial.id, records).save(before, next, delta, revision)
         transactionRecords.set(java.lang.ref.WeakReference(next) to records)

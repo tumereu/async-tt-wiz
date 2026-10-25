@@ -83,14 +83,24 @@ class LobbyService(private val runtime: ServiceRuntime) {
 
     fun summary(sql: DSLContext, id: UUID): GameSummary {
         val game = sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle()
-        val invitation = sql.selectFrom(INVITATION).where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
-        fun identity(id: UUID) = AccountIdentity(id.toString(), sql.select(ACCOUNT.USERNAME).from(ACCOUNT)
-            .where(ACCOUNT.ID.eq(id)).fetchSingle(ACCOUNT.USERNAME)!!)
-        return GameSummary(id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
-            identity(game.inviterId!!), identity(game.recipientId!!), game.preparationRound.toString(),
-            invitation.id.toString(), InvitationState.valueOf(invitation.state!!), GameLifecycle.valueOf(game.lifecycle!!),
+        return summary(sql, game, if (game.lifecycle == "ACTIVE")
+            org.asyncttwiz.server.game.PlayStore.read(sql, id)?.board?.effectiveAttentionHolder else null)
+    }
+
+    /** Execution already owns the locked game row and the reduced board. Do not reload either. */
+    internal fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord,
+        attentionHolder: String?): GameSummary {
+        val inviter = ACCOUNT.`as`("inviter")
+        val recipient = ACCOUNT.`as`("recipient")
+        val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME).from(INVITATION)
+            .join(inviter).on(inviter.ID.eq(game.inviterId)).join(recipient).on(recipient.ID.eq(game.recipientId))
+            .where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
+        return GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
+            AccountIdentity(game.inviterId.toString(), identities.value2()!!),
+            AccountIdentity(game.recipientId.toString(), identities.value3()!!), game.preparationRound.toString(),
+            game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
-            if (game.lifecycle == "ACTIVE") org.asyncttwiz.server.game.PlayStore.read(sql, id)?.board?.effectiveAttentionHolder else null,
+            attentionHolder,
             game.updatedAt!!.toInstant().toString())
     }
 

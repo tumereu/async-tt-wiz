@@ -109,6 +109,8 @@ class GameplayDurabilityTest {
                 assertEquals(2, results.last().createdIds.size)
                 assertEquals(CommandIds.uuidV5(inputs.last().requestId, "board-node"), results.last().createdIds.first())
                 val accepted = games.head(a, fixture.game.id)
+                assertEquals(accepted.summary, games.revisions(a, fixture.game.id,
+                    (accepted.revision.toLong() - 1).toString()).revisions.single().summary)
                 val noOp = fixture.owner.command(PlayAction.SetTapped(first, true))
                 assertEquals("noOp", fixture.owner.execute(noOp).outcome)
                 assertEquals(accepted, games.head(a, fixture.game.id))
@@ -139,6 +141,10 @@ class GameplayDurabilityTest {
                 runtime.start(); gameplayAwait(runtime::ready)
                 val fixture = GameplayFixture(runtime); actor = fixture.a
                 before = fixture.games.head(actor, fixture.game.id)
+                val endpointRecords = number(db, "SELECT count(*) FROM gameplay_endpoint_record")
+                val controlRecords = number(db, "SELECT count(*) FROM gameplay_tree_control")
+                val activityEvents = number(db, "SELECT count(*) FROM account_activity")
+                val activityCursor = number(db, "SELECT sum(high_water) FROM activity_cursor")
                 pending = fixture.owner.command(PlayAction.AdjustLife(actor.account.accountId, "-5")); hello = fixture.owner.hello
                 fixture.owner.admit(pending)
                 sql(db, """CREATE FUNCTION fail_gameplay_commit() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
@@ -148,6 +154,11 @@ class GameplayDurabilityTest {
                 gameplayAwait(runtime::ready) // SQL faults invalidate writer ownership until its ordinary recovery tick.
                 assertEquals(before, fixture.games.head(actor, fixture.game.id))
                 assertEquals(0, number(db, "SELECT count(*) FROM gameplay_mutation")); assertEquals(0, number(db, "SELECT count(*) FROM gameplay_group"))
+                assertEquals(0, number(db, "SELECT count(*) FROM gameplay_endpoint_edge"))
+                assertEquals(endpointRecords, number(db, "SELECT count(*) FROM gameplay_endpoint_record"))
+                assertEquals(controlRecords, number(db, "SELECT count(*) FROM gameplay_tree_control"))
+                assertEquals(activityEvents, number(db, "SELECT count(*) FROM account_activity"))
+                assertEquals(activityCursor, number(db, "SELECT sum(high_water) FROM activity_cursor"))
                 assertEquals(before.revision.toLong(), number(db, "SELECT count(*) FROM game_revision"))
                 assertEquals(before.revision.toLong(), number(db, "SELECT count(*) FROM game_outbox"))
                 assertEquals("pending", fixture.games.results(actor, fixture.game.id, listOf(pending.requestId)).statuses.single().status)

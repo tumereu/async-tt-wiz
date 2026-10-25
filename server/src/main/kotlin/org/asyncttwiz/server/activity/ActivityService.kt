@@ -166,9 +166,9 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         fun record(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, identity: UUID,
             author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)) {
             if (author == owner) return
-            sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner).onConflictDoNothing().execute()
-            val id = sql.update(CURSOR).set(CURSOR.HIGH_WATER, CURSOR.HIGH_WATER.plus(1L))
-                .where(CURSOR.ACCOUNT_ID.eq(owner)).returning(CURSOR.HIGH_WATER).fetchSingle().highWater!!
+            val id = sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner).set(CURSOR.HIGH_WATER, 1L)
+                .onConflict(CURSOR.ACCOUNT_ID).doUpdate().set(CURSOR.HIGH_WATER, CURSOR.HIGH_WATER.plus(1L))
+                .returning(CURSOR.HIGH_WATER).fetchSingle().highWater!!
             sql.insertInto(EVENT).set(EVENT.ACCOUNT_ID, owner).set(EVENT.ACTIVITY_ID, id).set(EVENT.KIND, kind.name)
                 .set(EVENT.GAME_ID, game).set(EVENT.IDENTITY, identity).set(EVENT.AUTHOR_ID, author).set(EVENT.CREATED_AT, time).execute()
             sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, kind.name)

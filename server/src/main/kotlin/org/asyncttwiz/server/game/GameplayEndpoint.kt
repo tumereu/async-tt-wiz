@@ -11,6 +11,7 @@ import org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_EN
 import org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE as E
 import org.jooq.DSLContext
 import org.jooq.JSONB
+import org.jooq.impl.DSL
 
 /** All reads stay inside the owning game transaction. Only the bounded board is serialized as a
  * checkpoint; history, annotation records, redo slots, and topology indices are independently keyed. */
@@ -20,6 +21,8 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     private val json = GameWire.json
     var recordsRead = 0; private set
     var recordsWritten = 0; private set
+    private val pending = linkedMapOf<Pair<String, String>, JsonElement?>()
+    private val edgeChanges = linkedMapOf<Triple<String, String, String>, Boolean>()
 
     private fun get(kind: String, key: String): JsonElement? {
         recordsRead++
@@ -28,10 +31,20 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     }
     fun put(kind: String, key: String, value: JsonElement?) {
         recordsWritten++
-        if (value == null) sql.deleteFrom(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).and(R.ID.eq(key)).execute()
-        else sql.insertInto(R).set(R.PLAY_ID, id).set(R.KIND, kind).set(R.ID, key).set(R.PAYLOAD, JSONB.valueOf(value.toString()))
-            .onConflict(R.PLAY_ID, R.KIND, R.ID).doUpdate().set(R.PAYLOAD, JSONB.valueOf(value.toString())).execute()
+        pending[kind to key] = value
         cache.write("record/$kind/$key", value)
+    }
+    private fun flush() {
+        val removals = pending.filterValues { it == null }.keys
+        for (chunk in removals.chunked(1000)) sql.deleteFrom(R).where(R.PLAY_ID.eq(id))
+            .and(DSL.row(R.KIND, R.ID).`in`(chunk.map { DSL.row(it.first, it.second) })).execute()
+        val upserts = pending.filterValues { it != null }
+        for (chunk in upserts.entries.chunked(1000)) {
+            val insert = sql.insertInto(R, R.PLAY_ID, R.KIND, R.ID, R.PAYLOAD)
+            for ((key, value) in chunk) insert.values(id, key.first, key.second, JSONB.valueOf(value.toString()))
+            insert.onConflict(R.PLAY_ID, R.KIND, R.ID).doUpdate().set(R.PAYLOAD, DSL.excluded(R.PAYLOAD)).execute()
+        }
+        pending.clear()
     }
     private fun keys(kind: String) = sql.select(R.ID).from(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).fetch(R.ID).filterNotNull().toSet()
     private inline fun <reified T : Any> map(kind: String): Map<String, T> = EndpointMap(
@@ -64,11 +77,7 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         return EventAnnotationState(map("comment"), map("ping"), map("ping-ordinal")).restoreActive(active)
     }
 
-    fun read(state: PlayState, root: PlayState): GameplayTree {
-        val row = sql.select(GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION, GAME_PLAY.CHECKPOINT_DIGEST, GAME_PLAY.PAYLOAD)
-            .from(GAME_PLAY).where(GAME_PLAY.ID.eq(id)).fetchSingle()
-        check(row.value1() == 1) { "Run server checkpoint-gameplay after upgrading" }
-        check(row.value3() == digest(row.value4()!!, row.value2()!!)) { "Invalid gameplay checkpoint; run explicit maintenance" }
+    fun read(state: PlayState, root: PlayState, checkpoint: Checkpoint = checkpoint(sql, id)): GameplayTree {
         val nodes = EndpointMap<String, GameplayMutation>({ key ->
             recordsRead++
             cache.read("node/$key") { sql.select(GAMEPLAY_MUTATION.PAYLOAD).from(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id))
@@ -83,7 +92,7 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         } }, { sizes.keys.filter { sizes[it]!! > 0 }.toSet() })
         val current = controls<String>("current")["current"]
         val branch = controls<String>("selected-branch")["current"]
-        check(current == state.currentNodeId && branch == state.currentBranchId && row.value2() >= 0)
+        check(current == state.currentNodeId && branch == state.currentBranchId && checkpoint.revision >= 0)
         return GameplayTree(root, nodes, state.currentNodeId, redo, controls("removed-parent"), controls("branch-lineage"),
             state.currentBranchId, controls("branch-head"), controls<String>("selection-control")["current"])
             .restoreEndpoint(state.copy(annotations = annotations()), RetainedIndex(edges("children"), edges("readers"), map("position"), true, edges("annotations")))
@@ -92,7 +101,7 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     fun initialize(tree: GameplayTree, revision: Long) {
         val index = tree.endpointIndex()
         for ((key, value) in index.positions) put("position", key, json.encodeToJsonElement(value))
-        for (node in tree.nodes.values) edge(node, true)
+        for (node in tree.nodes.values) for (key in edgeKeys(node)) edgeChanges[key] = true
         val state = requireNotNull(tree.stateAt(tree.currentNodeId))
         for ((key, value) in state.annotations.commentsById) put("comment", key, json.encodeToJsonElement(value))
         for ((key, value) in state.annotations.pingsById) {
@@ -101,19 +110,37 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
             put("active/${value.recording.groupId}", pingKey(value.reference, value.target), active?.let { json.encodeToJsonElement(it) })
         }
         for ((key, value) in state.annotations.lastOrdinals) put("ping-ordinal", key, JsonPrimitive(value))
+        flushEdges()
+        flush()
         checkpoint(state, revision)
     }
 
-    private fun edge(node: GameplayMutation, add: Boolean) {
-        fun change(kind: String, source: String) {
-            recordsWritten++
-            val changed = if (add) sql.insertInto(E).set(E.PLAY_ID, id).set(E.KIND, kind).set(E.SOURCE_ID, source).set(E.TARGET_ID, node.id).onConflictDoNothing().execute()
-            else sql.deleteFrom(E).where(E.PLAY_ID.eq(id)).and(E.KIND.eq(kind)).and(E.SOURCE_ID.eq(source)).and(E.TARGET_ID.eq(node.id)).execute()
-            if (changed == 1) put("degree/$kind", source, JsonPrimitive((get("degree/$kind", source)?.jsonPrimitive?.int ?: 0) + if (add) 1 else -1))
+    private fun edgeKeys(node: GameplayMutation) = buildSet {
+        add(Triple("children", node.parentId, node.id))
+        node.references.forEach { add(Triple("readers", it.nodeId, node.id)) }
+        node.transition.annotation?.reference?.reference?.nodeId?.let { add(Triple("annotations", it, node.id)) }
+    }
+
+    private fun flushEdges() {
+        val degrees = linkedMapOf<Pair<String, String>, Int>()
+        fun changed(rows: org.jooq.Result<out org.jooq.Record>, amount: Int) {
+            for (row in rows) {
+                val key = row.get(E.KIND)!! to row.get(E.SOURCE_ID)!!
+                degrees[key] = (degrees[key] ?: 0) + amount
+            }
         }
-        change("children", node.parentId)
-        node.references.forEach { change("readers", it.nodeId) }
-        node.transition.annotation?.reference?.reference?.nodeId?.let { change("annotations", it) }
+        recordsWritten += edgeChanges.size
+        for (chunk in edgeChanges.filterValues { !it }.keys.chunked(1000)) changed(sql.deleteFrom(E).where(E.PLAY_ID.eq(id))
+            .and(DSL.row(E.KIND, E.SOURCE_ID, E.TARGET_ID).`in`(chunk.map { DSL.row(it.first, it.second, it.third) }))
+            .returning(E.KIND, E.SOURCE_ID).fetch(), -1)
+        for (chunk in edgeChanges.filterValues { it }.keys.chunked(1000)) {
+            val insert = sql.insertInto(E, E.PLAY_ID, E.KIND, E.SOURCE_ID, E.TARGET_ID)
+            for (key in chunk) insert.values(id, key.first, key.second, key.third)
+            changed(insert.onConflictDoNothing().returning(E.KIND, E.SOURCE_ID).fetch(), 1)
+        }
+        for ((key, amount) in degrees) if (amount != 0) put("degree/${key.first}", key.second,
+            JsonPrimitive((get("degree/${key.first}", key.second)?.jsonPrimitive?.int ?: 0) + amount))
+        edgeChanges.clear()
     }
 
     fun save(before: GameplayTree, next: GameplayTree, delta: GameplayTreeDelta, revision: Long) {
@@ -121,7 +148,9 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         val index = next.endpointIndex()
         for (key in ids) {
             val old = before.nodes[key]; val node = next.nodes[key]
-            old?.let { edge(it, false) }; node?.let { edge(it, true) }
+            val oldEdges = old?.let(::edgeKeys).orEmpty(); val newEdges = node?.let(::edgeKeys).orEmpty()
+            for (key in oldEdges - newEdges) edgeChanges[key] = false
+            for (key in newEdges - oldEdges) edgeChanges[key] = true
         }
         // Reparenting changes every descendant's ancestry identity, even when its recorded
         // transition bytes are unchanged and therefore absent from the wire upserts.
@@ -149,6 +178,8 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         }
         for (record in delta.upserts) cache.write(if (record.kind == "node") "node/${record.id}" else "control/${record.kind}/${record.id}", record.payload)
         for (key in delta.removals) cache.write(if (key.kind == "node") "node/${key.id}" else "control/${key.kind}/${key.id}", null)
+        flushEdges()
+        flush()
         checkpoint(state, revision)
     }
 
@@ -157,5 +188,15 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         check(sql.update(GAME_PLAY).set(GAME_PLAY.PAYLOAD, payload).set(GAME_PLAY.CHECKPOINT_DIGEST, digest(payload, revision))
             .set(GAME_PLAY.CHECKPOINT_VERSION, 1).set(GAME_PLAY.CHECKPOINT_REVISION, revision).where(GAME_PLAY.ID.eq(id)).execute() == 1)
     }
-    private fun digest(payload: String, revision: Long) = GameplaySync.digest("1/$revision/$payload".toByteArray(Charsets.UTF_8))
+    data class Checkpoint(val payload: String, val revision: Long)
+    companion object {
+        fun checkpoint(sql: DSLContext, id: UUID): Checkpoint {
+            val row = sql.select(GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION, GAME_PLAY.CHECKPOINT_DIGEST, GAME_PLAY.PAYLOAD)
+                .from(GAME_PLAY).where(GAME_PLAY.ID.eq(id)).fetchSingle()
+            check(row.value1() == 1) { "Run server checkpoint-gameplay after upgrading" }
+            check(row.value3() == digest(row.value4()!!, row.value2()!!)) { "Invalid gameplay checkpoint; run explicit maintenance" }
+            return Checkpoint(row.value4()!!, row.value2()!!)
+        }
+        private fun digest(payload: String, revision: Long) = GameplaySync.digest("1/$revision/$payload".toByteArray(Charsets.UTF_8))
+    }
 }

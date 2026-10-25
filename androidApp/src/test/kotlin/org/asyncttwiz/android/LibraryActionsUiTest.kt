@@ -4,6 +4,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
+import android.content.Context
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -20,91 +22,77 @@ class LibraryActionsUiTest {
     private val library = play.board.containers.single { it.id == "a/LIBRARY" }
     private val hand = play.board.containers.single { it.id == "a/HAND" }
     private val sent = mutableListOf<PlayAction>()
-    private val moves = mutableListOf<TableIntent.Move>()
     private var completed = 0
+    private val labels = listOf("Draw", "Reveal", "Look", "Mill", "Exile")
 
     private fun render(connected: Boolean = true) {
+        ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("library-quantities", 0).edit().clear().commit()
         val controller = LibraryController(play.id, library.id, hand.id, { play }, { connected },
-            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) },
-            moveRequest = { moves += it; LibrarySubmission(it.scope.cardIds.size, 0) })
+            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) })
         compose.setContent { MaterialTheme {
-            TableMenuPanel({}, title = "Library") {
+            InlinePopupPanel({}, "Library", width = 264.dp, height = 304.dp) {
                 LibraryActions(controller, play.board, hand.cards, onComplete = { completed++ })
             }
         } }
         compose.waitForIdle()
     }
-
-    private fun click(label: String) = compose.onNodeWithContentDescription(label).performClick()
-
-    @Test fun allControlsFitPortraitAndOneTapButtonsDispatchWithoutChangingN() {
-        render()
-        for (label in listOf("Draw 1", "Search", "Reveal all", "Shuffle", "Decrease N", "Set N", "Increase N",
-            "Top", "Bottom", "Draw N", "Look at N", "Reveal N", "Graveyard", "Exile", "Hand", "Battlefield", "Draw 7", "Draw one fewer")) {
-            compose.onNodeWithContentDescription(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp)
-        }
-        click("Draw 1")
-        assertEquals(library.cards.take(1), sent.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
-        assertTrue(sent.filterIsInstance<PlayAction.MoveCard>().all { it.destination.containerId == hand.id })
-        sent.clear()
-        click("Search")
-        assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.ALL, 1, false)), sent)
-        sent.clear()
-        click("Reveal all")
-        assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.ALL, 1, true)), sent)
-        sent.clear()
-        click("Shuffle")
-        assertEquals(library.id, sent.filterIsInstance<PlayAction.ShuffleLibrary>().single().containerId)
-        assertEquals(4, completed)
+    private fun click(label: String) {
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription(label).performTouchInput { advanceEventTime(350); click() }
+        compose.waitForIdle()
     }
-
-    @Test fun quantityToggleAndEverySliceButtonDispatchTheSelectedBottomSlice() {
-        render()
-        click("Increase N"); click("Bottom")
-        click("Draw N")
-        assertEquals(library.cards.takeLast(2), sent.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
-        assertTrue(sent.filterIsInstance<PlayAction.MoveCard>().all { it.destination.containerId == hand.id })
-        sent.clear()
-        click("Look at N")
-        assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.BOTTOM, 2, false)), sent)
-        sent.clear()
-        click("Reveal N")
-        assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.BOTTOM, 2, true)), sent)
-        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND)) {
-            sent.clear()
-            click(moveZoneLabel(zone))
-            val actions = sent.filterIsInstance<PlayAction.MoveCard>()
-            assertEquals(library.cards.takeLast(2), actions.map { it.cardId })
-            assertTrue(actions.all { it.destination.containerId == "a/$zone" })
-        }
-        click("Battlefield")
-        val move = moves.single()
-        assertEquals(library.cards.takeLast(2), move.scope.cardIds)
-        val destination = assertIs<TableDestination.Grid>(move.destination)
-        assertEquals("a/BATTLEFIELD", destination.containerId)
-        val lastColumn = play.board.cards.filter { it.containerId == destination.containerId }.mapNotNull { it.placement?.position?.x }.maxOrNull()
-        assertEquals(lastColumn?.plus(1) ?: 0, destination.column)
-        assertTrue(destination.ownerOnly)
-    }
-
-    @Test fun valueTapEditsNAndMulligansKeepSevenAndHandMinusOneIndependentOfN() {
-        render()
-        click("Set N")
-        // Let the nested dialog attach and lay out before pausing Compose's clock.
-        val input = compose.onNode(hasSetTextAction()).assertIsDisplayed().assertTextEquals("1")
-        // Keep the text field's cursor animation on a controlled clock while editing.
+    private fun quantity(action: String, n: Int) {
+        click("$action N…")
+        val input = compose.onNode(hasSetTextAction()).assertIsDisplayed()
         compose.mainClock.autoAdvance = false
-        input.performTextReplacement("3")
+        input.performTextReplacement(n.toString())
         compose.mainClock.advanceTimeByFrame()
-        click("Set")
+        click("OK")
         compose.mainClock.autoAdvance = true
-        compose.onNode(hasSetTextAction()).assertDoesNotExist()
-        compose.onNodeWithContentDescription("Set N").assertTextEquals("3")
-        click("Draw N")
-        assertEquals(3, sent.filterIsInstance<PlayAction.MoveCard>().size)
+    }
+
+    @Test fun inlineRowsFitAndOneTapActionsUseTopCard() {
+        render()
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Draw 7", "Draw one fewer"))
+            compose.onNodeWithContentDescription(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+        for ((action, zone) in listOf("Draw" to PlayZone.HAND, "Mill" to PlayZone.GRAVEYARD, "Exile" to PlayZone.EXILE)) {
+            sent.clear(); click("$action 1")
+            val move = sent.filterIsInstance<PlayAction.MoveCard>().single()
+            assertEquals(library.cards.first(), move.cardId)
+            assertEquals("a/$zone", move.destination.containerId)
+        }
+        for ((action, reveal) in listOf("Look" to false, "Reveal" to true)) {
+            sent.clear(); click("$action 1")
+            assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.TOP, 1, reveal)), sent)
+        }
+        sent.clear(); click("Search")
+        assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.ALL, 1, false)), sent)
+        sent.clear(); click("Shuffle")
+        assertEquals(library.id, sent.filterIsInstance<PlayAction.ShuffleLibrary>().single().containerId)
+        compose.onNodeWithContentDescription("Reveal all").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Bottom").assertDoesNotExist()
+    }
+
+    @Test fun quantitiesAreIndependentAndRememberedPerActionAndAccount() {
+        render()
+        quantity("Draw", 3)
+        assertEquals(library.cards.take(3), sent.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
+        sent.clear(); quantity("Mill", 2)
+        assertEquals(library.cards.take(2), sent.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
+        assertTrue(sent.filterIsInstance<PlayAction.MoveCard>().all { it.destination.containerId == "a/GRAVEYARD" })
+        click("Draw N…")
+        compose.onNode(hasSetTextAction()).assertTextEquals("3")
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        assertEquals(3, LibraryQuantityStore(context, "a").read("Draw"))
+        assertEquals(2, LibraryQuantityStore(context, "a").read("Mill"))
+        assertEquals(1, LibraryQuantityStore(context, "a").read("Reveal"))
+        assertEquals(1, LibraryQuantityStore(context, "b").read("Draw"))
+    }
+
+    @Test fun mulligansAreIndependentOfQuantities() {
+        render()
         for ((label, count) in listOf("Draw 7" to 7, "Draw one fewer" to hand.cards.size - 1)) {
-            sent.clear()
-            click(label)
+            sent.clear(); click(label)
             assertEquals(hand.cards, sent.filterIsInstance<PlayAction.MoveCard>().take(hand.cards.size).map { it.cardId })
             assertEquals(1, sent.filterIsInstance<PlayAction.ShuffleLibrary>().size)
             assertEquals(hand.cards.size + count, sent.filterIsInstance<PlayAction.MoveCard>().size)
@@ -112,10 +100,9 @@ class LibraryActionsUiTest {
     }
 
     @Test fun disconnectedActionsCannotDispatch() {
-        render(connected = false)
-        for (label in listOf("Draw 1", "Search", "Reveal all", "Shuffle", "Draw N", "Look at N", "Reveal N",
-            "Graveyard", "Exile", "Hand", "Battlefield", "Draw 7", "Draw one fewer"))
+        render(false)
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Draw 7", "Draw one fewer"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
-        assertTrue(sent.isEmpty()); assertTrue(moves.isEmpty())
+        assertTrue(sent.isEmpty())
     }
 }

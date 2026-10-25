@@ -21,6 +21,9 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
     val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
     val bound = toolkit.capture
+    val popup = toolkit.popupItem
+    CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
+        popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
     val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
         cardExtraTools(toolkit, play, bound, selection, select, names, enabled) else emptyList()
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
@@ -39,7 +42,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 })
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
-        "library" -> toolkit.library?.let { library -> ToolkitDialog(toolkit::dismiss, "Library") {
+        "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {
             LibraryActions(library.controller, play.board, library.handIds,
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
@@ -69,7 +72,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         else -> if (panel?.startsWith("contents/") == true) {
             val pile = toolkit.publicContents()
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
-            else TableMenuPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}") {
+            else InlinePopupPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}",
+                height = if (landscape) 288.dp else 560.dp, key = panel) {
                 ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
                     onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
                     onInspect = toolkit::inspect,
@@ -98,6 +102,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 }
             }
         }
+    }
     }
     TokenCatalogDialog(toolkit.tokens, play.definitions, enabled = enabled,
         loading = tokenCatalog?.loading == true, catalogError = tokenCatalog?.error,

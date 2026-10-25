@@ -53,7 +53,7 @@ internal fun menuIcon(name: String): ImageVector {
         n.startsWith("decrease") -> Icons.Outlined.Remove
         n == "declare blockers" -> Icons.Outlined.Shield
         "other side" in n || "reveal" in n -> Icons.Outlined.Visibility
-        "inspect" in n || "view" in n || "contents" in n || "look at" in n || n == "search" -> Icons.Outlined.ZoomIn
+        "inspect" in n || "view" in n || "contents" in n || n.startsWith("look") || n == "search" -> Icons.Outlined.ZoomIn
         "face down" in n -> Icons.Outlined.Flip
         "face up" in n -> Icons.Outlined.FlipToFront
         "printed face" in n -> Icons.Outlined.FlipCameraAndroid
@@ -62,7 +62,7 @@ internal fun menuIcon(name: String): ImageVector {
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
         "top" in n -> Icons.Outlined.VerticalAlignTop
-        "graveyard" in n -> Icons.Outlined.Inventory2
+        "graveyard" in n || n.startsWith("mill") -> Icons.Outlined.Inventory2
         "exile" in n -> Icons.Outlined.Block
         "clone" in n -> Icons.Outlined.ControlPointDuplicate
         "unlink" in n || n == "links" || "remove link" in n -> Icons.Outlined.LinkOff

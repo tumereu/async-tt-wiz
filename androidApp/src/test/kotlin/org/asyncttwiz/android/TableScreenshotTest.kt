@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.test.click
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -301,11 +303,13 @@ class TableScreenshotTest {
 
     @Test fun counterEditsRetainMenuAndDrawClosesIt() {
         val (toolkit, sent) = menu("player-actions", false)
-        compose.onNodeWithContentDescription("Increase blue counter").performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Increase blue counter").performTouchInput { advanceEventTime(350); click() }
         assertTrue(sent.last() is PlayAction.AdjustCounter)
         compose.onNodeWithText("Life / counters").assertExists()
         compose.runOnIdle { toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N) }
-        compose.onNodeWithContentDescription("Draw 1").performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Draw 1").performTouchInput { advanceEventTime(350); click() }
         compose.onNodeWithText("Library").assertDoesNotExist()
         assertEquals(null, toolkit.panel)
     }
@@ -353,7 +357,7 @@ class TableScreenshotTest {
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun libraryMulliganRemainsReachableInLandscape() {
         menu("library-actions", true)
-        compose.onNodeWithText("Draw one fewer").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Draw one fewer").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun movePageKeepsStackDestinationReachable() {

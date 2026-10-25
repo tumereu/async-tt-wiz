@@ -17,6 +17,16 @@ data class ActionLatency(val reportedAt: String, val gameId: String, val actionT
 data class LatencyBatch(val actions: List<ActionLatency>, val reconnects: List<ReconnectEpisode> = emptyList())
 
 @Serializable
+data class JankBatch(val episodes: List<JankEpisode>)
+
+/** UI labels only; never card identities, chat contents, credentials or intent payloads. */
+@Serializable
+data class JankEpisode(val startedAt: String, val durationMs: Double, val frameCount: Int,
+    val jankyCount: Int, val worstFrameMs: Double, val p50FrameMs: Double, val p95FrameMs: Double,
+    val refreshRate: Float, val states: Map<String, String>, val recentActions: List<String>,
+    val localApplyInFlight: Boolean, val treeWorkInFlight: Boolean, val frozen: Boolean)
+
+@Serializable
 data class ReconnectStep(val stage: String, val elapsedMs: Long, val durationMs: Long)
 
 /** No credentials, message bodies or exception messages. Server handling times live in server logs. */

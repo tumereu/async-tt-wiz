@@ -18,7 +18,6 @@ class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
     private val slopDp: Float = 8f, private val doubleMillis: Long = 400, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
-    private val singleTapIsLocal: (TableItem) -> Boolean = { it.zone != PlayZone.LIBRARY },
     private val onPeekScroll: (Float) -> Unit = {} // Incremental content scroll in dp; positive reveals lower text.
 ) {
     init { require(density.isFinite() && density > 0f) }
@@ -89,7 +88,7 @@ class TableGestureCoordinator(
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() },
             bubble = if (item?.id?.startsWith("combatBubble/") == true) scene.combatBubbles else scene.stackBubbles,
             phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
-            suppressTapUi = dismissedRingCard != null && item?.cardId == dismissedRingCard, camera = navigationCamera ?: scene.camera)
+            suppressTapUi = dismissedRingCard != null && (item?.cardId == dismissedRingCard || item?.id == dismissedRingCard), camera = navigationCamera ?: scene.camera)
         val old = pending
         if (old != null) {
             if (((item?.zone == PlayZone.STACK && old.capture.item?.zone == PlayZone.STACK) ||
@@ -192,10 +191,10 @@ class TableGestureCoordinator(
                 }
             } else if (doubleTapEnabled && ((c.selection.mode != TableMode.PING && c.item?.kind == TableItemKind.CARD) ||
                 (c.selection.mode != TableMode.PING && c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK)))) {
-                // Shared single-tap routes (Library View, link picking) retain the decision window.
-                val local = singleTapIsLocal(requireNotNull(c.item))
-                if (local) single(c)
-                pending = Tap(c, time + doubleMillis, local)
+                // Opening personal UI never waits for double-tap recognition. The second gesture
+                // dismisses that UI before drawing/rotating/entering explicit Stack actions.
+                single(c)
+                pending = Tap(c, time + doubleMillis, true)
             } else {
                 single(c)
                 // Empty taps remain immediate; retain only recognition metadata for navigation.

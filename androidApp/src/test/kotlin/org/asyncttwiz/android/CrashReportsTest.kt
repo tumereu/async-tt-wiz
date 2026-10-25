@@ -35,6 +35,18 @@ class CrashReportsTest {
         assertEquals(10, directory.listFiles()!!.size)
     }
 
+    @Test fun jankBufferSurvivesReopeningWithoutEnteringCrashUploadQueue() {
+        val directory = temporary.newFolder()
+        val store = CrashReportStore(directory)
+        val jank = report().copy(kind = "jank", body = "{\"episodes\":[]}")
+        store.bufferJank(jank)
+        val restored = CrashReportStore(directory)
+        assertEquals(jank, restored.bufferedJank())
+        assertTrue(restored.pending().isEmpty())
+        restored.bufferJank(null)
+        assertNull(CrashReportStore(directory).bufferedJank())
+    }
+
     @Test fun deletesOnlySuccessfulUploadsAndRetriesFailuresOnLaterStart() = runBlocking {
         val store = CrashReportStore(temporary.newFolder())
         repeat(3) { store.write(report(it)) }

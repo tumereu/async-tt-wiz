@@ -34,6 +34,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private var invocation: String? = null
     private var lastInvocation: String? = null
     var panel by mutableStateOf<String?>(null); private set
+    var popupItem by mutableStateOf<TableItem?>(null); private set
     var library by mutableStateOf<ToolkitLibrary?>(null); private set
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
     var inspection by mutableStateOf<ManualInspection?>(null); private set
@@ -143,7 +144,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; tapReturnPanel = null }
+    fun dismiss() { panel = null; library = null; manual.close(); capture = null; tapReturnPanel = null; popupItem = null }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
         tokens.showingCatalog || tokens.showingLinks || tokens.pickingLink
@@ -259,11 +260,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
             else -> openPublicPile(item.id)
         }
+        popupItem = item
     }
 
     fun openLibrary(id: String, tool: LibraryTool = LibraryTool.CONTENTS, handIds: List<String>? = null) {
         val play = current() ?: return
         val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
+        if (source.accountId != viewer) return
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == source.accountId }
         dismiss()
         val controller = libraryController(source.id, hand.id) ?: return

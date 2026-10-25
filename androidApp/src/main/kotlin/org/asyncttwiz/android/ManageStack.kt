@@ -53,7 +53,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    TableMenuPanel(dismiss, title = "Manage Stack · ${order.size}") {
+    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", height = 520.dp, key = "manage-stack") {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -80,16 +80,16 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
                     Row {
-                        TextButton({ perform(TableIntent.Submit(StackMenuActions.remove(id), null)) }, enabled = enabled && projection) { Text("Remove from Stack") }
-                        TextButton({ StackMenuActions.reorder(state.board, id, -1)?.let { perform(TableIntent.Submit(it, null)) } },
-                            modifier = Modifier.semantics { contentDescription = "Move up" },
-                            enabled = enabled && projection && index > 0) { Text("↑") }
-                        TextButton({ StackMenuActions.reorder(state.board, id, 1)?.let { perform(TableIntent.Submit(it, null)) } },
-                            modifier = Modifier.semantics { contentDescription = "Move down" },
-                            enabled = enabled && projection && index < order.lastIndex) { Text("↓") }
+                        InlinePopupCell(MenuControl("Remove from Stack", enabled && projection) { perform(TableIntent.Submit(StackMenuActions.remove(id), null)) })
+                        InlinePopupCell(MenuControl("Move up", enabled && projection && index > 0) {
+                            StackMenuActions.reorder(state.board, id, -1)?.let { perform(TableIntent.Submit(it, null)) }
+                        })
+                        InlinePopupCell(MenuControl("Move down", enabled && projection && index < order.lastIndex) {
+                            StackMenuActions.reorder(state.board, id, 1)?.let { perform(TableIntent.Submit(it, null)) }
+                        })
                     }
                     Row {
-                        TextButton({ source?.let { cardActions(it.id) } }, enabled = source != null) { Text("Card actions") }
+                        InlinePopupCell(MenuControl("Card actions", source != null) { source?.let { cardActions(it.id) } })
                     }
                     stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
@@ -98,8 +98,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             label = { CardText(text.text, maxLines = 3) })
                     }
                     if (index == 0) Row {
-                        TextButton({ perform(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)) }, enabled = enabled) { Text("Put to battlefield") }
-                        TextButton({ perform(TableIntent.StackDestination(id, PlayZone.GRAVEYARD)) }, enabled = enabled) { Text("Put to graveyard") }
+                        InlinePopupCell(MenuControl("Put to battlefield", enabled) { perform(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)) })
+                        InlinePopupCell(MenuControl("Put to graveyard", enabled) { perform(TableIntent.StackDestination(id, PlayZone.GRAVEYARD)) })
                     }
                     HorizontalDivider()
                 }

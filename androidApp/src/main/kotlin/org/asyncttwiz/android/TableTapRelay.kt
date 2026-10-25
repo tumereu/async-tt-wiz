@@ -31,8 +31,10 @@ internal fun Modifier.tableRingRelay(relay: TableTapRelay): Modifier = composed 
         awaitEachGesture {
             val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val ring = relay.ring
-            if (!first.isConsumed && ring != null && ring.outside(origin + first.position)) {
-                val replacement = relay.replacement?.takeIf { it.accepts(origin + first.position, first.uptimeMillis) }
+            val replacement = relay.replacement?.takeIf { it.accepts(origin + first.position, first.uptimeMillis) }
+            // A recognized second tap belongs to its originating surface even when the menu it just
+            // opened overlaps that spot (e.g. a card menu over a pile-browser row).
+            if (!first.isConsumed && ring != null && (replacement != null || ring.outside(origin + first.position))) {
                 val owner = replacement ?: relay
                 ring.dismiss()
                 if (replacement != null) owner.down(origin + first.position, first.uptimeMillis)

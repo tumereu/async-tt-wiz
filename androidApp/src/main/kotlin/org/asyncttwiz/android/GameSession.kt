@@ -41,10 +41,10 @@ class GameSession(private val connection: GameConnection, private val credential
     private val statusChanged: () -> Unit, private val installationId: String = UUID.randomUUID().toString(),
     private val accountId: () -> String? = { null },
     private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
-    private val treeWorker: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val treeWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
     reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DEBUG) DebugLatency.reconnect(it) },
-    private val reviewWorker: ExecutorService = Executors.newSingleThreadExecutor()) : AutoCloseable {
+    private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor())) : AutoCloseable {
     private val reviews = LatestReview(reviewWorker)
     private val reviewVersions = ConcurrentHashMap<String, Long>()
     // Only treeWorker touches these coordinators and their mutable materializations.

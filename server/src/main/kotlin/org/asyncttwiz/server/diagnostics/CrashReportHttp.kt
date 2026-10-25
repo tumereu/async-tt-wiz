@@ -13,6 +13,7 @@ import kotlinx.serialization.SerializationException
 import org.asyncttwiz.protocol.AccountJson
 import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.LatencyBatch
+import org.asyncttwiz.protocol.JankBatch
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
@@ -47,7 +48,20 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
                 response.status = 400; return true
             }
             if (input.appVersion.length > 512 || input.device.length > 512) { response.status = 400; return true }
-            if (input.kind !in setOf("crash", "latency")) { response.status = 400; return true }
+            if (input.kind !in setOf("crash", "latency", "jank")) { response.status = 400; return true }
+            if (input.kind == "jank") {
+                if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
+                val batch = AccountJson.format.decodeFromString<JankBatch>(input.body)
+                if (batch.episodes.isEmpty() || batch.episodes.size > 30 || batch.episodes.any { entry ->
+                        runCatching { Instant.parse(entry.startedAt) }.isFailure ||
+                            entry.frameCount !in 1..4096 || entry.jankyCount !in 0..entry.frameCount ||
+                            !entry.refreshRate.isFinite() || entry.refreshRate <= 0 ||
+                            listOf(entry.durationMs, entry.worstFrameMs, entry.p50FrameMs, entry.p95FrameMs).any { !it.isFinite() || it < 0 } ||
+                            entry.p50FrameMs > entry.p95FrameMs || entry.p95FrameMs > entry.worstFrameMs ||
+                            entry.states.size > 16 || entry.states.any { it.key.length > 100 || it.value.length > 100 } ||
+                            entry.recentActions.size > 8 || entry.recentActions.any { it.length > 100 }
+                    }) { response.status = 400; return true }
+            }
             if (input.kind == "latency") {
                 // Unlike stack traces, structured batches must not be silently truncated into invalid JSON.
                 if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
@@ -84,7 +98,7 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             WHERE debug_crash_daily_count.reports < ? RETURNING reports
         """.trimIndent()).use {
             it.setObject(1, account); it.setObject(2, now.toLocalDate())
-            it.setString(3, input.kind); it.setInt(4, if (input.kind == "latency") 60 else 20)
+            it.setString(3, input.kind); it.setInt(4, when (input.kind) { "latency" -> 60; "jank" -> 3; else -> 20 })
             it.executeQuery().use { rows -> rows.next() }
         }
         if (accepted) connection.prepareStatement("""

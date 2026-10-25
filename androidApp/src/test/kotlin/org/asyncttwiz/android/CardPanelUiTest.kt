@@ -228,8 +228,8 @@ class CardPanelUiTest {
         val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
         compose.onAllNodesWithContentDescription(item.label)[0].performClick()
         compose.mainClock.advanceTimeBy(350)
-        for ((name, label) in listOf("Reveal+Hand" to "Hand", "Battlefield tapped" to "Tapped",
-            "Reveal+Top" to "Top")) {
+        for ((name, label) in listOf("Reveal+Hand" to "Reveal\nhand", "Battlefield tapped" to "Tapped",
+            "Reveal+Top" to "Reveal\ntop")) {
             compose.onNodeWithContentDescription(name).assertWidthIsEqualTo(CardRingGeometry.cell.dp)
                 .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
             assertEquals(label, panelCardActionLabel(panelCardActions.single { it.label == name }))

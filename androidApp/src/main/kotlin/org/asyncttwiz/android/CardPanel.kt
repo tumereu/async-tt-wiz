@@ -156,8 +156,9 @@ internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDi
     action.zone != localZone && (!action.reveal || localZone == null && !display.reveal && id !in display.revealedIds && !known)
 
 internal fun panelCardActionLabel(action: PanelCardAction) = when (action.label) {
-    "Reveal+Hand" -> "Hand"
-    "Reveal+Top" -> "Top"
+    // Two lines keep the reveal variants distinguishable from plain Hand/Top without truncation.
+    "Reveal+Hand" -> "Reveal\nhand"
+    "Reveal+Top" -> "Reveal\ntop"
     "Battlefield tapped" -> "Tapped"
     else -> action.label
 }

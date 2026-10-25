@@ -8,7 +8,8 @@ internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 internal object CardRingPages {
     const val capacity = 16
     val defaults = listOf(
-        CardRingPage("Everyday", listOf("inspect", "Declare + tap", "Declare without tapping", "owner", "note", "corner", "Clone", "Ping / Unping")),
+        CardRingPage("Everyday", listOf("inspect", "Declare + tap", "Declare without tapping", "owner", "note", "corner", "Clone", "Ping / Unping",
+            "Library top", "Library bottom", "Graveyard", "Exile")),
         CardRingPage("Counters", listOf("corner/counters") + org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
         CardRingPage("More", listOf("flip", "otherSide", "Link", "Unlink", "resetCorner",
             "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "Add Stack effect")),
@@ -17,7 +18,7 @@ internal object CardRingPages {
     private fun defaultLayout(available: List<String>) = defaults.mapIndexed { index, page ->
         when (index) {
             2 -> page.copy(actions = page.actions.take(2) + available.filter { it.startsWith("face/") } + page.actions.drop(2))
-            3 -> page.copy(actions = available.filter(::isMove).sortedBy { it != "Move to Stack" })
+            3 -> page.copy(actions = available.filter { isMove(it) && it !in defaults[0].actions }.sortedBy { it != "Move to Stack" })
             else -> page
         }
     }

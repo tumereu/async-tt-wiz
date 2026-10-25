@@ -8,6 +8,49 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class StackQuickActionsRuntimeTest {
+    @Test fun `Stack copies and controllers are validated persisted and exactly undoable without changing the source`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime)
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                fun apply(action: PlayAction): GameResult {
+                    val command = f.owner.command(action)
+                    val expected = GameplayRules.change(state(), f.a.account.accountId, command)
+                    val result = f.owner.execute(command)
+                    assertEquals(expected.outcome, result.outcome)
+                    assertEquals(expected.reason, result.reason)
+                    if (expected.state != null) assertEquals(expected.state, state())
+                    return result
+                }
+                assertEquals("accepted", apply(PlayAction.CreateToken(TokenCatalog.blank)).outcome)
+                val token = state().board.cards.single { it.token }
+                apply(PlayAction.Stack(StackAction.AddEffect(token.id, GameplayRules.stackDigest(state()))))
+                val original = state().board.stackEffects.single().id
+                assertEquals("accepted", apply(PlayAction.Stack(StackAction.CopyEffect(original, GameplayRules.stackDigest(state())))).outcome)
+                val copy = state().board.stackEffects.last()
+                assertTrue(copy.isCopy)
+                assertEquals(copy.id, CombatStackRules.stack(state().board).cards.first())
+                val before = state().board
+                assertEquals("accepted", apply(PlayAction.Stack(StackAction.SetController(copy.id, f.b.account.accountId))).outcome)
+                assertEquals(token, state().board.cards.single { it.id == token.id })
+                assertEquals(f.b.account.accountId, f.games.head(f.b, f.game.id).play!!.board.stackEffects.last().controller)
+                val controlled = state().board
+                val undo = f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)
+                assertEquals("accepted", f.owner.execute(undo).outcome)
+                assertEquals(before, state().board)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Redo)).outcome)
+                assertEquals(controlled, state().board)
+                assertEquals("rejected", apply(PlayAction.Stack(StackAction.SetController(token.id, f.b.account.accountId))).outcome)
+                assertEquals("rejected", apply(PlayAction.Stack(StackAction.SetController(copy.id, gameplayId()))).outcome)
+                assertEquals("rejected", apply(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
+                    MoveDestination(state().board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == token.owner }.id,
+                        MoveInsertion.UNORDERED), removeStackEntryId = copy.id)).outcome)
+            }
+        }
+    }
+
     @Test fun `hand projections reveal and hide in opponent views and all source destinations replay with Undo Redo`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package org.asyncttwiz.protocol
 
 import kotlinx.serialization.SerialName
@@ -13,7 +15,9 @@ import kotlinx.serialization.Serializable
 }
 @Serializable data class CombatArea(val id: String, val pairs: List<CombatPair> = emptyList())
 /** Only disappearance retains card data. Live effects never cache fields or a creation-time snapshot. */
-@Serializable data class StackEffect(val id: String, val sourceId: String, val frozen: PlayCard? = null)
+@Serializable data class StackEffect(val id: String, val sourceId: String, val frozen: PlayCard? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val controller: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isCopy: Boolean = false)
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
 @Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)
@@ -38,6 +42,8 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
     @Serializable @SerialName("toggleTextMark") data class ToggleTextMark(val entryId: String, val optionIndex: Int) : StackAction
     @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String) : StackAction
+    @Serializable @SerialName("copyEffect") data class CopyEffect(val entryId: String, val expectedStackDigest: String) : StackAction
+    @Serializable @SerialName("setController") data class SetController(val occurrenceId: String, val accountId: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
     @Serializable @SerialName("reorderEffect") data class ReorderEffect(val occurrenceId: String,
         val expected: IdentityGap, val destination: IdentityGap) : StackAction
@@ -99,6 +105,8 @@ object CombatStackRules {
     }
     fun inspection(board: BoardState, viewId: String): PlayCard? =
         board.stackEffects.singleOrNull { it.id == viewId }?.frozen ?: liveSource(board, viewId)
+    fun controller(board: BoardState, viewId: String): String? =
+        board.stackEffects.singleOrNull { it.id == viewId }?.controller ?: inspection(board, viewId)?.owner
     fun relatedViews(board: BoardState, viewId: String): Set<String> {
         val source = board.cards.find { it.id == viewId }?.id ?: board.stackEffects.find { it.id == viewId }?.sourceId
             ?: occurrences(board.combat).find { it.id == viewId }?.sourceId ?: return emptySet()
@@ -126,6 +134,8 @@ object CombatStackRules {
         is StackAction.MarkText -> DeckValidation.uuid(action.entryId) && (action.optionIndex == null || action.optionIndex >= 0)
         is StackAction.ToggleTextMark -> DeckValidation.uuid(action.entryId) && action.optionIndex >= 0
         is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest)
+        is StackAction.CopyEffect -> DeckValidation.uuid(action.entryId) && DeckValidation.digest(action.expectedStackDigest)
+        is StackAction.SetController -> DeckValidation.uuid(action.occurrenceId) && DeckValidation.uuid(action.accountId)
         is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
         is StackAction.ReorderEffect -> DeckValidation.uuid(action.occurrenceId) && valid(action.expected) && valid(action.destination)
     }
@@ -223,6 +233,22 @@ object CombatStackRules {
                         containers = board.containers.map { if (it.zone == PlayZone.STACK)
                             it.copy(cards = it.cards - action.occurrenceId) else it })
                 }
+                is StackAction.CopyEffect -> {
+                    if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
+                    if (action.entryId !in stack(board).cards) return reject("missingReference")
+                    val source = inspection(board, action.entryId) ?: return reject("missingReference")
+                    val original = board.stackEffects.singleOrNull { it.id == action.entryId }
+                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
+                        original?.frozen, controller(board, action.entryId), isCopy = true)
+                    board.copy(stackEffects = board.stackEffects + effect,
+                        containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
+                }
+                is StackAction.SetController -> {
+                    if (board.players.none { it.accountId == action.accountId }) return reject("missingReference")
+                    val effect = board.stackEffects.singleOrNull { it.id == action.occurrenceId } ?: return reject("missingReference")
+                    if (controller(board, effect.id) == action.accountId) board else
+                        board.copy(stackEffects = board.stackEffects.map { if (it.id == effect.id) it.copy(controller = action.accountId) else it })
+                }
                 is StackAction.ReorderEffect -> {
                     if (board.stackEffects.none { it.id == action.occurrenceId }) return reject("missingReference")
                     val stack = stack(board)
@@ -281,6 +307,8 @@ object CombatStackRules {
             allOccurrences.map { it.id }.distinct().size != allOccurrences.size ||
             combat?.pairs.orEmpty().map { it.id }.distinct().size != combat?.pairs.orEmpty().size ||
             effects.map { it.id }.distinct().size != effects.size || effects.any {
+                it.controller != null && candidate.players.none { player -> player.accountId == it.controller }
+            } || effects.any {
                 if (it.frozen == null) live[it.sourceId] == null
                 else it.frozen.id != it.sourceId || !it.frozen.token || live[it.sourceId] != null
             }) return null
@@ -341,7 +369,7 @@ object CombatStackRules {
             if (from == to) null else StackTextMarkChange(id, from, to)
         }
         val area = if (before.combat?.id == next.combat?.id) null else CombatAreaChange(before.combat?.id, next.combat?.id)
-        val guard = if ((action as? PlayAction.Stack)?.action is StackAction.AddEffect)
+        val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect })
             StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
         return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
             orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && guard == null) null else

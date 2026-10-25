@@ -17,7 +17,7 @@ class CardRingTest {
 
     @Test fun pagesAreDataAndEveryAvailableActionIsOnExactlyOnePage() {
         val ids = CardRingPages.defaults.take(2).flatMap { it.actions } +
-            listOf("flip", "otherSide", "face/0", "face/1", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token", "Library top", "Graveyard")
+            listOf("flip", "otherSide", "face/0", "face/1", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token")
         val pages = CardRingPages.resolve(ids)
         assertEquals(listOf("Everyday", "Counters", "More", "Move"), pages.map { it.name })
         assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
@@ -26,7 +26,10 @@ class CardRingTest {
         assertEquals(7, pages[1].actions.size)
         assertEquals(14, CardRingPages.layout(pages[1].actions).sumOf { it.span })
         assertTrue(pages.all { CardRingPages.layout(it.actions).all { slot -> slot.cell + slot.span <= 16 } })
-        assertTrue(pages[3].actions.containsAll(listOf("Move to Stack", "Library top", "Graveyard")))
+        assertTrue("Move to Stack" in pages[3].actions)
+        val everydayMoves = listOf("Library top", "Library bottom", "Graveyard", "Exile")
+        assertTrue(pages[0].actions.containsAll(everydayMoves))
+        assertTrue(pages[3].actions.none { it in everydayMoves })
         assertTrue(pages[2].actions.indexOf("face/0") < pages[2].actions.indexOf("Link"))
         val custom = CardRingPages.defaults.toMutableList().apply { this[0] = this[0].copy(actions = listOf("Clone", "inspect")) }
         assertEquals(listOf("Clone", "inspect"), CardRingPages.resolve(ids, custom)[0].actions)

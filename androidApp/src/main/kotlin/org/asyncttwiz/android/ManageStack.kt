@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,6 +19,20 @@ internal object StackMenuActions {
     fun remove(entryId: String): PlayAction = PlayAction.Stack(StackAction.RemoveEffect(entryId))
     fun mark(entryId: String, index: Int?): PlayAction = PlayAction.Stack(StackAction.MarkText(entryId, index))
     fun toggleMark(entryId: String, index: Int): PlayAction = PlayAction.Stack(StackAction.ToggleTextMark(entryId, index))
+    fun copy(state: PlayState, entryId: String): PlayAction =
+        PlayAction.Stack(StackAction.CopyEffect(entryId, CombatStackRules.stackDigest(state)))
+    fun changeController(state: PlayState, entryId: String): PlayAction = PlayAction.Stack(StackAction.SetController(entryId,
+        state.board.players.single { it.accountId != CombatStackRules.controller(state.board, entryId) }.accountId))
+    fun controls(state: PlayState, entryId: String, enabled: Boolean, perform: (TableIntent) -> Unit): List<MenuControl> {
+        val effect = state.board.stackEffects.find { it.id == entryId }
+        val movable = effect?.isCopy != true
+        return listOf(
+            MenuControl("Remove from Stack", enabled && effect != null) { perform(TableIntent.Submit(remove(entryId), null)) },
+            MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
+            MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
+            MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
+            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) })
+    }
     fun reorder(board: BoardState, entryId: String, delta: Int): PlayAction? {
         val order = CombatStackRules.stack(board).cards
         val at = order.indexOf(entryId)
@@ -28,8 +44,9 @@ internal object StackMenuActions {
             IdentityGap(remaining.getOrNull(to - 1), remaining.getOrNull(to))))
     }
     fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
-        require(entryId == CombatStackRules.stack(state.board).cards.firstOrNull())
+        require(entryId in CombatStackRules.stack(state.board).cards)
         require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
+        require(state.board.stackEffects.none { it.id == entryId && it.isCopy })
         val source = CombatStackRules.liveSource(state.board, entryId)
         if (state.board.stackEffects.any { it.id == entryId } && source != null &&
             state.board.containers.single { it.id == source.containerId }.zone == zone) return listOf(remove(entryId))
@@ -58,9 +75,9 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
                 val card = CombatStackRules.inspection(state.board, id)
-                val source = CombatStackRules.liveSource(state.board, id)
                 val projection = state.board.stackEffects.any { it.id == id }
-                val owner = if (card?.owner == viewer) OwnTableColor else OpponentTableColor
+                val controlled = CombatStackRules.controller(state.board, id) == viewer
+                val owner = if (controlled) OwnTableColor else OpponentTableColor
                 Column {
                     Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
                         inspect = { inspect(id, false) }, peek = { held -> if (held) inspect(id, true) else if (peeking) inspection = null }),
@@ -70,7 +87,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
                         Box(Modifier.size(32.dp, 44.dp).cardFrame(card?.token == true, owner, projection)
-                            .semantics { contentDescription = if (card?.owner == viewer) "Your Stack entry" else "Opponent Stack entry" },
+                            .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
                             contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
                             else MenuIcon("Inspect")
@@ -79,27 +96,21 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                         StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
-                    Row {
-                        InlinePopupCell(MenuControl("Remove from Stack", enabled && projection) { perform(TableIntent.Submit(StackMenuActions.remove(id), null)) })
-                        InlinePopupCell(MenuControl("Move up", enabled && projection && index > 0) {
-                            StackMenuActions.reorder(state.board, id, -1)?.let { perform(TableIntent.Submit(it, null)) }
-                        })
-                        InlinePopupCell(MenuControl("Move down", enabled && projection && index < order.lastIndex) {
-                            StackMenuActions.reorder(state.board, id, 1)?.let { perform(TableIntent.Submit(it, null)) }
-                        })
-                    }
-                    Row {
-                        InlinePopupCell(MenuControl("Card actions", source != null) { source?.let { cardActions(it.id) } })
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val icons = listOf(Icons.Outlined.Close, Icons.Outlined.TableRows, Icons.Outlined.Inventory2,
+                            Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz)
+                        StackMenuActions.controls(state, id, enabled, perform).forEachIndexed { action, control ->
+                            FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp)) {
+                                Icon(icons[action], control.name, Modifier.size(22.dp))
+                            }
+                        }
                     }
                     stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
                             enabled = enabled, leadingIcon = { StackMarkChip(option) },
                             label = { CardText(text.text, maxLines = 3) })
-                    }
-                    if (index == 0) Row {
-                        InlinePopupCell(MenuControl("Put to battlefield", enabled) { perform(TableIntent.StackDestination(id, PlayZone.BATTLEFIELD)) })
-                        InlinePopupCell(MenuControl("Put to graveyard", enabled) { perform(TableIntent.StackDestination(id, PlayZone.GRAVEYARD)) })
                     }
                     HorizontalDivider()
                 }

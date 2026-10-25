@@ -177,6 +177,9 @@ object GameplayHistory {
                     val source = board.cards.singleOrNull { it.id == stack.sourceId } ?: return false
                     if (!CombatStackRules.canProject(board, source) || GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
                 }
+                is StackAction.CopyEffect -> if (stack.entryId !in CombatStackRules.stack(board).cards ||
+                    GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
+                is StackAction.SetController -> if (board.players.none { it.accountId == stack.accountId }) return false
                 is StackAction.MarkText -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false
                 is StackAction.ToggleTextMark -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false
                 else -> Unit

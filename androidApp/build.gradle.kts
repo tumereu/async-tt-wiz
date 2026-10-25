@@ -18,7 +18,10 @@ require(allocatedCodes.isNotEmpty() && allocatedCodes.all { it in 1..2100000000 
 val allocatedVersion = allocatedVersions.last()
 val allocatedVersionName = allocatedVersion["versionName"] as String
 val gitCommit = providers.exec { commandLine("git", "rev-parse", "--short=12", "HEAD"); isIgnoreExitValue = true }
-    .standardOutput.asText.map { it.trim().takeIf { value -> value.matches(Regex("[0-9a-f]{7,40}")) } ?: "unknown" }.get()
+    .standardOutput.asText.map { it.trim().takeIf { value -> value.matches(Regex("[0-9a-f]{7,40}")) } ?: "unknown" }
+    .zip(providers.exec { commandLine("git", "status", "--porcelain"); isIgnoreExitValue = true }.standardOutput.asText) { commit, status ->
+        commit + if (status.isNotBlank()) "-dirty" else ""
+    }.get()
 require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?").matches(allocatedVersionName))
 
 // Only external file references/alias are configuration inputs, never secret values in Git or command lines.

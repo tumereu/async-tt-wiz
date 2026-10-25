@@ -266,7 +266,7 @@ object GameplayRules {
         val board = state.board
         val entry = action.removeStackEntryId!!
         val effect = board.stackEffects.singleOrNull { it.id == entry } ?: return GameplayChange(reason = "missingReference")
-        if (CombatStackRules.stack(board).cards.firstOrNull() != entry) return GameplayChange(reason = "stackChanged")
+        if (effect.isCopy) return GameplayChange(reason = "inapplicable")
         val card = CombatStackRules.liveSource(board, entry) ?: return GameplayChange(reason = "missingReference")
         if (card.id != action.cardId || effect.sourceId != card.id || card.containerId != action.source.containerId ||
             card.placement != action.source.placement) return GameplayChange(reason = "movementConflict")

@@ -212,6 +212,7 @@ internal val TableScene.animationTargets get() = (items + stackProjections).asso
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
+    internal var cardMoveSpeedDpPerMs: Float = DEFAULT_CARD_MOVE_SPEED
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
@@ -222,7 +223,7 @@ class HistorySceneAnimation(initial: TableScene) {
         if (target.animationTargets == destination.animationTargets) destination = target
     }
     fun frame(progress: Float, presentation: TableScene = destination): List<HistoryAnimatedItem> {
-        val t = progress.coerceIn(0f, 1f)
+        val sceneProgress = progress.coerceIn(0f, 1f)
         if (presentation !== latestScene) {
             latestScene = presentation
             latestItems = presentation.items.associateBy { it.animationId }
@@ -230,6 +231,8 @@ class HistorySceneAnimation(initial: TableScene) {
         return (end.keys + start.keys).map { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
+            val t = if (b.item.kind == TableItemKind.CARD && durationMillis != 90)
+                cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
             fun mix(x: Float, y: Float) = x + (y - x) * t
             val item = latestItems[id] ?: b.item
             val face = if (item.kind == TableItemKind.CARD) {

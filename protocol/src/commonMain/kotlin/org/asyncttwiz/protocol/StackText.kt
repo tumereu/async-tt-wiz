@@ -22,6 +22,7 @@ object StackQuickActions {
     fun actions(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
         require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
         require(entryId in CombatStackRules.stack(state.board).cards)
+        require(state.board.stackEffects.none { it.id == entryId && it.isCopy })
         val remove = if (state.board.stackEffects.any { it.id == entryId })
             listOf(PlayAction.Stack(StackAction.RemoveEffect(entryId))) else emptyList()
         val card = CombatStackRules.liveSource(state.board, entryId) ?: return remove

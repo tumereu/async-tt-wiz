@@ -12,6 +12,27 @@ import java.util.zip.GZIPOutputStream
 import kotlinx.serialization.encodeToString
 
 class GameplaySessionTest {
+    @Test fun tapDuringReconnectWithUncertainOriginalIsPredictedAndResentOnlyAfterNotAdmittedRecovery() {
+        val f = Fixture(); val d = f.data; f.connect()
+        assertTrue(f.gameplay(PlayAction.SetTapped(d.id(9), true)))
+        val original = f.commands().single()
+        f.wire.listener.disconnected(); f.drain()
+        var captured: GameCommand? = null
+        assertTrue(f.session.gameplay(d.game, d.actor, PlayAction.SetTapped(d.id(9), false), captured = { captured = it }))
+        assertFalse(f.session.play(d.game)!!.board.cards.single().tapped)
+        assertEquals(1, f.commands().size)
+        val commands = listOf(original, assertNotNull(captured))
+        f.connect(commands.map { GameRequestStatus(it.requestId, "notAdmitted") }, "2")
+        assertEquals(commands.map { it.copy(generation = "2") }, f.commands().drop(1))
+        assertFalse(f.session.play(d.game)!!.board.cards.single().tapped)
+        var state = d.initial
+        commands.forEachIndexed { index, command ->
+            val update = d.update(state, command, (index + 1).toString(), (index + 2).toString())
+            f.message(update); f.message(d.result(command, update.resultRevision)); state = update.play!!
+        }
+        assertFalse(f.session.pending(d.game.id)); assertEquals(state, f.session.acceptedPlay(d.game))
+        f.session.close()
+    }
     private class Wire : GameConnection {
         lateinit var listener: GameConnection.Listener
         val frames = mutableListOf<GameClientMessage>()
@@ -29,8 +50,11 @@ class GameplaySessionTest {
         val data = GameplayFixture(); val wire = Wire(); val posts = ArrayDeque<() -> Unit>()
         var token: String? = "A".repeat(43); var account: String? = data.actor
         val targets = mutableListOf<BoardState?>(); val results = mutableListOf<GameResult>()
+        var now = 0L
+        val reconnects = mutableListOf<ReconnectEpisode>()
         val session: GameSession = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, result -> results.add(result) },
-            { targets.add(sessionDisplay()) }, accountId = { account })
+            { targets.add(sessionDisplay()) }, accountId = { account }, now = { now }, reconnectTelemetry = reconnects::add)
+        fun expireHeadGrace() { now += 2_000; session.tick() }
         private fun sessionDisplay() = session.play(data.game)?.board
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
@@ -42,6 +66,36 @@ class GameplaySessionTest {
         }
         fun gameplay(action: PlayAction) = session.gameplay(data.game, data.actor, action)
         fun commands() = wire.frames.filterIsInstance<GameCommand>()
+    }
+    @Test fun heartbeatBeforeDeltaWaitsWithoutRecoveringAndClearsTheGraceDeadline() {
+        val f = Fixture(); val d = f.data; f.connect()
+        val update = d.update(d.initial, d.command(PlayAction.SetTapped(d.id(9), true)), "1", "2")
+        f.message(d.head(update.play!!, "2"))
+        assertTrue(f.wire.reads.isEmpty())
+        assertTrue(f.session.ready(d.game.id))
+        f.now = 1_999; f.session.tick()
+        assertTrue(f.wire.reads.isEmpty())
+        f.message(update)
+        f.expireHeadGrace()
+        assertTrue(f.wire.reads.isEmpty())
+        assertEquals(update.play, f.session.acceptedPlay(d.game))
+        assertTrue(f.reconnects.isEmpty())
+        f.session.close()
+    }
+    @Test fun missingDeltaRecoversAfterBoundedGraceEvenWhenHeartbeatsKeepArriving() {
+        val f = Fixture(); val d = f.data; f.connect()
+        val update = d.update(d.initial, d.command(PlayAction.SetTapped(d.id(9), true)), "1", "2")
+        f.message(d.head(update.play!!, "2"))
+        f.now = 1_999; f.message(d.head(update.play!!, "2"))
+        assertTrue(f.wire.reads.isEmpty())
+        f.now = 2_000; f.session.tick()
+        assertEquals(1, f.wire.reads.size)
+        assertFalse(f.session.ready(d.game.id))
+        assertTrue(f.reconnects.last().steps.any { it.stage.startsWith("headDeltaGraceExpired:") })
+        f.wire.reads.single().complete(GameplayBaseline(d.snapshot(update), emptyList())); f.drain()
+        assertTrue(f.session.ready(d.game.id))
+        assertEquals(update.play, f.session.acceptedPlay(d.game))
+        f.session.close()
     }
     @Test fun passIsPredictedImmediatelyAndAuthoritativeAcceptanceKeepsTheSameHolder() {
         val f = Fixture(); val d = f.data; f.connect()
@@ -139,24 +193,24 @@ class GameplaySessionTest {
         val f = Fixture(); val d = f.data; f.connect()
         f.gameplay(PlayAction.AdjustLife(d.actor, "5")); val own = f.commands().single()
         val first = d.update(d.initial, own, "1", "2")
-        f.message(d.head(first.play!!, "2")); assertFalse(f.session.ready(d.game.id))
+        f.message(d.head(first.play!!, "2")); f.expireHeadGrace(); assertFalse(f.session.ready(d.game.id))
         val read = f.wire.reads.single(); assertEquals(listOf(own.requestId), read.ids)
         read.complete(GameplayBaseline(d.snapshot(first), listOf(GameRequestStatus(own.requestId, "final", d.result(own, "2")))))
         f.drain(); assertTrue(f.session.ready(d.game.id)); assertEquals("25", d.life(f.session.play(d.game)))
         assertFalse(f.session.pending(d.game.id)); assertEquals(1, f.commands().size)
-        f.message(d.head(first.play!!, "3")); val late = f.wire.reads.last()
+        f.message(d.head(first.play!!, "3")); f.expireHeadGrace(); val late = f.wire.reads.last()
         f.session.clear(); late.complete(GameplayBaseline(d.snapshot(first), emptyList())); f.drain()
         assertNull(f.session.play(d.game)); assertFalse(f.session.ready(d.game.id))
     }
     @Test fun newerHeadDuringDownloadCannotMarkStaleBaselineReadyAndAccountSwitchFencesReadBeforeTick() {
         val f = Fixture(); val d = f.data; f.connect()
         val first = d.update(d.initial, d.command(PlayAction.AdjustLife(d.actor, "1")), "1", "2")
-        f.message(d.head(first.play!!, "2")); val read = f.wire.reads.single()
+        f.message(d.head(first.play!!, "2")); f.expireHeadGrace(); val read = f.wire.reads.single()
         f.message(d.head()); assertFalse(f.session.ready(d.game.id))
         assertFalse(f.gameplay(PlayAction.AdjustLife(d.actor, "1")))
         read.complete(GameplayBaseline(d.snapshot(), emptyList())); f.drain()
         assertFalse(f.session.ready(d.game.id)); assertEquals(d.initial, f.session.acceptedPlay(d.game))
-        f.connect(generation = "2"); f.message(d.head(first.play!!, "2")); val next = f.wire.reads.last()
+        f.connect(generation = "2"); f.message(d.head(first.play!!, "2")); f.expireHeadGrace(); val next = f.wire.reads.last()
         f.account = d.other
         next.complete(GameplayBaseline(d.snapshot(first), emptyList())); f.drain()
         assertEquals(d.initial, f.session.acceptedPlay(d.game))
@@ -225,7 +279,7 @@ class GameplaySessionTest {
             d.game.copy(revision = "2"), play = d.initial)
         val edit = d.update(d.initial, d.command(PlayAction.AdjustLife(d.actor, "1")), "2", "3")
         val snapshot = d.snapshot(record, edit).let { it.copy(head = it.head.copy(chat = listOf(chat))) }
-        f.message(snapshot.head); val read = f.wire.reads.single()
+        f.message(snapshot.head); f.expireHeadGrace(); val read = f.wire.reads.single()
         val tail = chat.copy(id = d.id(801), text = "tail chat", revision = "4")
         f.message(GameRevision(d.game.id, "3", "4", tail.id, d.other, record.scope,
             d.game.copy(revision = "4"), play = edit.play, chatMessage = tail))
@@ -233,6 +287,7 @@ class GameplaySessionTest {
         assertTrue(f.session.ready(d.game.id)); assertEquals(edit.play, f.session.acceptedPlay(d.game))
         assertEquals(listOf(chat, tail), f.session.chat(d.game.id))
         f.message(snapshot.head.copy(revision = "5", summary = d.game.copy(revision = "5")))
+        f.expireHeadGrace()
         val late = f.wire.reads.last()
         val removed = d.game.copy(lifecycle = GameLifecycle.DELETED, revision = "6")
         f.message(GameHead(d.game.id, "6", removed))

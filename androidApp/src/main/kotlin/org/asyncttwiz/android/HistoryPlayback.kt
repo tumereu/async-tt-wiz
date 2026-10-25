@@ -262,6 +262,7 @@ class HistorySceneAnimation(initial: TableScene) {
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
     var durationMillis: Int = 180; private set
+    internal var rotatingCardIds: Set<String> = emptySet(); private set
     private var latestScene = initial
     private var latestItems = initial.items.associateBy { it.animationId }
     fun updateMetadata(target: TableScene) {
@@ -276,6 +277,13 @@ class HistorySceneAnimation(initial: TableScene) {
         return (end.keys + start.keys).map { id ->
             val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
             val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
+            // Most of a large board is stationary during a tap. Reuse its immutable drawings
+            // instead of allocating transforms and copied items for every card on every frame.
+            if (a.bounds == b.bounds && a.alpha == b.alpha && a.item.tapped == b.item.tapped &&
+                a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
+                val shown = latestItems[id] ?: b.item
+                return@map if (shown === b.item) b else HistoryAnimatedItem(shown, b.bounds, b.alpha)
+            }
             val t = if (b.item.kind == TableItemKind.CARD && durationMillis != 90)
                 cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
             fun mix(x: Float, y: Float) = x + (y - x) * t
@@ -364,6 +372,11 @@ class HistorySceneAnimation(initial: TableScene) {
         }
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other
         // transition (including a move alongside a tap) keeps the longer scene duration.
+        rotatingCardIds = end.values.mapNotNull { b ->
+            val a = start[b.item.animationId] ?: return@mapNotNull null
+            b.item.cardId?.takeIf { b.item.kind == TableItemKind.CARD &&
+                a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation }
+        }.toSet()
         durationMillis = if ((start.keys + end.keys).all { id ->
             val a = start[id]; val b = end[id]
             a != null && b != null && a.alpha == b.alpha && (a.bounds == b.bounds && a.item.tapped == b.item.tapped ||

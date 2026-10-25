@@ -18,7 +18,8 @@ class TableGestureCoordinator(
     private val emit: (TableIntent) -> Unit,
     private val slopDp: Float = 8f, private val doubleMillis: Long = 400, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
-    private val onPeekScroll: (Float) -> Unit = {} // Incremental content scroll in dp; positive reveals lower text.
+    private val onPeekScroll: (Float) -> Unit = {}, // Incremental content scroll in dp; positive reveals lower text.
+    private val diagnostic: (String) -> Unit = {}
 ) {
     init { require(density.isFinite() && density > 0f) }
     private val markStepDp = 28f
@@ -34,6 +35,8 @@ class TableGestureCoordinator(
     private var transformRegion: String? = null
     private var transforming = false
     private var pending: Tap? = null
+    private var recentTap: Tap? = null // One bounded near-miss observation, even after recognition expires.
+    private var pendingCleared: String? = null
     private var sceneSnapshot = TableScene(emptyList(), emptyList())
     private var sceneSource: (() -> TableScene)? = null
     private var lastSample: TableScene? = null
@@ -67,14 +70,17 @@ class TableGestureCoordinator(
         val c = capture
         if (c?.scope != null && c.phase !in listOf(Phase.PAN, Phase.SCROLL, Phase.TRANSFORM) &&
             c.scope.cardIds.any { id -> scene.items.none { it.cardId == id || id in it.cards } }) {
+            if (c.double) diagnostic("nearMiss:targetRemoved")
             if (c.phase == Phase.HOLD) emit(TableIntent.Peek(null))
             // Invalidate the card operation, not the first-down region. A later second pointer
             // must not acquire the region underneath its new centroid after a remote removal.
             c.phase = Phase.TRANSFORM
-            pending = null; preview = TableGesturePreview()
+            pendingCleared = "targetRemoved"; pending = null; preview = TableGesturePreview()
         }
         val p = pending
-        if (p?.capture?.item != null && scene.items.none { it.id == p.capture.item.id }) pending = null
+        if (p?.capture?.item != null && scene.items.none { it.id == p.capture.item.id }) {
+            pendingCleared = "targetRemoved"; pending = null
+        }
     }
     private fun order() = scene.items.filter { it.kind == TableItemKind.CARD }.mapNotNull { it.cardId }
     fun down(point: TablePoint, time: Long, dismissedRingCard: String? = null) {
@@ -103,6 +109,16 @@ class TableGestureCoordinator(
             suppressTapUi = dismissedRingCard != null && (item?.cardId == dismissedRingCard || item?.id == dismissedRingCard),
             camera = navigationCamera ?: scene.camera, panRegion = region)
         val old = pending
+        val recent = recentTap
+        if (recent?.capture?.item?.kind == TableItemKind.CARD && item?.id == recent.capture.item.id &&
+            time - (recent.deadline - doubleMillis) in 0..600 &&
+            (old == null || distance(point, recent.capture.start) > slopDp * 4 || time > recent.deadline)) {
+            diagnostic("nearMiss:" + when {
+                distance(point, recent.capture.start) > slopDp * 4 -> "distance"
+                time > recent.deadline -> "deadline"
+                else -> pendingCleared ?: "pendingCleared"
+            })
+        }
         if (old != null) {
             if (((item?.zone == PlayZone.STACK && old.capture.item?.zone == PlayZone.STACK) ||
                     (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
@@ -113,6 +129,7 @@ class TableGestureCoordinator(
                 // The first press's stable scope wins even if sync/selection changed between taps.
                 capture = next.copy(scope = old.capture.scope, selection = old.capture.selection, sources = old.capture.sources)
                 pending = null
+                recentTap = null
             } else { pending = null; if (!old.shown) single(old.capture); capture = next }
         } else capture = next
         preview = TableGesturePreview(pressedId = item?.id)
@@ -132,6 +149,7 @@ class TableGestureCoordinator(
         if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
         if (c.phase == Phase.PRESS && !(c.double && c.item == null) && time - c.time >= holdMillis) {
+            if (c.double && c.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:becameHold")
             c.phase = Phase.HOLD
             // Covered pile controls never implicitly View a Library.
             peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
@@ -150,6 +168,7 @@ class TableGestureCoordinator(
         if (c.phase == Phase.TRANSFORM) return
         val dx = point.x - c.start.x; val dy = point.y - c.start.y
         if (c.phase == Phase.PRESS && hypot(dx, dy) > slopDp) {
+            if (c.double && c.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:becameDrag")
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.
             pending = null
             c.phase = when {
@@ -191,6 +210,8 @@ class TableGestureCoordinator(
         move(point, time)
         capture = null
         transforming = false; transformRegion = null
+        if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.STACK && c.phase == Phase.PRESS)
+            diagnostic("recognized")
         if (c.replacingLocal && c.phase == Phase.PRESS) emit(TableIntent.DismissTapUi)
         when (c.phase) {
             Phase.PRESS -> if (c.double && c.item == null && scene.worldInput(c.start)) {
@@ -201,19 +222,25 @@ class TableGestureCoordinator(
                 if (writable && hand != null && top != null) emit(TableIntent.Draw(c.item.id, hand, top))
             } else if (c.double && c.item?.viewport == "combat") {
                 // Combat has no double-tap source action or ordinary card menu.
+                diagnostic("dropped:combatHasNoRotation")
             } else if (c.double && c.item?.zone == PlayZone.STACK) {
                 single(c, explicit = true)
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
                 if (writable && c.scope != null && targetsExist(c.scope)) {
                     emit(TableIntent.Selection(c.selection.afterDoubleTap(c.scope.contextId)))
-                    emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources))
-                }
+                    emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources, toggle = true))
+                } else diagnostic("dropped:" + when {
+                    !writable -> "writable"
+                    c.scope == null -> "scopeMissing"
+                    else -> "targetMissing"
+                })
             } else if (doubleTapEnabled && ((c.selection.mode != TableMode.PING && c.item?.kind == TableItemKind.CARD) ||
                 (c.selection.mode != TableMode.PING && c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK)))) {
                 // Opening personal UI never waits for double-tap recognition. The second gesture
                 // dismisses that UI before drawing/rotating/entering explicit Stack actions.
                 single(c)
                 pending = Tap(c, time + doubleMillis, true)
+                recentTap = pending; pendingCleared = null
             } else {
                 single(c)
                 // Empty taps remain immediate; retain only recognition metadata for navigation.
@@ -251,7 +278,8 @@ class TableGestureCoordinator(
     /** A second pointer cancels the single-pointer operation; lifting one never resumes a drag. */
     fun transform(pan: TablePoint, scale: Float, centroid: TablePoint) {
         if (!scale.isFinite() || scale <= 0f) return
-        pending = null
+        if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:secondPointer")
+        pendingCleared = "secondPointer"; pending = null
         if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
@@ -301,7 +329,8 @@ class TableGestureCoordinator(
     }
     fun cancel() {
         if (capture?.phase == Phase.HOLD) emit(TableIntent.Peek(null))
-        capture = null; pending = null; preview = TableGesturePreview()
+        if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:cancelled")
+        capture = null; pendingCleared = "cancelled"; pending = null; preview = TableGesturePreview()
         transforming = false; transformRegion = null
         settleCamera()
     }

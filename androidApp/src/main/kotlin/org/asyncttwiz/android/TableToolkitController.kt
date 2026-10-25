@@ -112,7 +112,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val pending = if (source != null && play != null) PendingStackBubble(play.currentNodeId,
             CombatStackRules.stack(play.board).cards.toSet(), source, action is PlayAction.Stack) else null
         return gameplay(action, invocationId).also { sent ->
-            if (!sent) error = if (waitingForConnection()) null else "One or more actions could not be queued. Already queued actions are retained."
+            if (!sent) error = if (waitingForConnection()) "Not queued. Reconnect and try again. Already queued actions are retained."
+                else "One or more actions could not be queued. Already queued actions are retained."
             else {
                 if (pending != null) pendingStackBubble = pending
                 refreshStackBubbles()
@@ -387,7 +388,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (intent.scope.contextId in stackIds) return@batch false
                 val scope = intent.scope.copy(cardIds = intent.scope.cardIds.filterNot { it in stackIds })
                 val bound = bind(scope, intent.sources) ?: return@batch false
-                basic.handle(intent.copy(scope = TableScope(bound.sourceIds.firstOrNull() ?: return@batch false, bound.sourceIds)))
+                val context = CombatStackRules.liveSource(current()!!.board, scope.contextId)?.id ?: return@batch false
+                basic.handle(intent.copy(scope = TableScope(context, bound.sourceIds))).also {
+                    if (!it && error == null) error = "Rotation could not be queued. Reconnect and try again."
+                }
             }
             is TableIntent.Submit -> submit(intent.action, intent.invocationId ?: invocation)
             else -> basic.handle(intent)

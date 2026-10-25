@@ -51,7 +51,8 @@ sealed interface TableIntent {
     data class Peek(val cardId: String?) : TableIntent
     data object DismissTapUi : TableIntent
     data class Draw(val libraryId: String, val handId: String, val topId: String) : TableIntent
-    data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap()) : TableIntent
+    data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap(),
+        val toggle: Boolean = false) : TableIntent
     data class Move(val scope: TableScope, val destination: TableDestination,
         val sources: Map<String, TableMoveSource> = emptyMap(), val invocationId: String? = null) : TableIntent
     data class Ping(val itemId: String?, val point: TablePoint) : TableIntent

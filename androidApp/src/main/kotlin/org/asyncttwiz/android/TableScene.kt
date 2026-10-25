@@ -98,6 +98,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var layout by layoutState
     var selection by selectionState
     var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
+    var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     var localStackBubble by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     var combatBubbleId by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     val inspector = remember(play.id, accountId) { CardInspectionController() }
@@ -129,7 +130,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll)
                 DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {
-                TableIntent.DismissTapUi -> { actions = null; toolkit?.dismissTapUi(); localStackBubble = null; combatBubbleId = null }
+                TableIntent.DismissTapUi -> {
+                    DebugLatency.tap(game.id, "popupClosing")
+                    actions = null; toolkit?.dismissTapUi(); localStackBubble = null; combatBubbleId = null
+                }
                 is TableIntent.CombatBubbles -> {
                     combatBubbleId = intent.occurrenceId
                     if (intent.occurrenceId != null) { actions = null; toolkit?.dismissTapUi(); localStackBubble = null }
@@ -177,10 +181,18 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 else -> {
                     if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                     val sent = currentWritable && callback?.invoke(intent) == true
+                    if (intent is TableIntent.Rotate && intent.toggle) {
+                        gestureError = if (sent) null else "Rotation not queued. Reconnect and try again."
+                        DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused",
+                            cardId = intent.scope.contextId)
+                    }
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
-        }, density = density, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) })
+        }, density = density, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) }, diagnostic = { event ->
+            if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
+            DebugLatency.tap(game.id, event, actions != null || toolkit?.popupItem != null)
+        })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -263,6 +275,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
             if (animation.retarget(targetScene, progress.value)) {
+                DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
                 if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
@@ -315,7 +328,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val pingProjection = remember(play.id) { ActivePingProjection() }
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId, pingProjection)
         val artwork = tableArtwork(scene.copy(items = semanticItems))
-        val drawCache = remember(density, targetScene) { TableDrawCache(density) }
+        val drawCache = remember(density, play.id) { TableDrawCache(density) }
+        val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
         val activePings = pingProjection.records(play)
         val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
@@ -391,6 +405,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
             Canvas(Modifier.fillMaxSize()) {
+                DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
@@ -528,8 +543,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
         }
-        FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
-            { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
+        FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError,
+            { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else gestureError = null },
             Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
         if (!runtime.reviewing) Box(Modifier.offset(
@@ -767,17 +782,20 @@ private fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) 
     }
 }
 
-/** Scoped to an endpoint/density, so labels and native resources are bounded and reused in flight. */
+/** Retained across tap endpoints: don't rebuild every text metric/path on the first rotation frame. */
 private class TableDrawCache(density: Float) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
     private data class FitKey(val text: TextKey, val width: Float)
     private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
-    private val measurements = mutableMapOf<TextKey, Float>()
-    private val centerOffsets = mutableMapOf<Float, Float>()
-    private val labels = mutableMapOf<FitKey, String>()
-    private val outlines = mutableMapOf<FaceKey, androidx.compose.ui.graphics.Path>()
+    private fun <K, V> bounded() = object : java.util.LinkedHashMap<K, V>(256, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > 256
+    }
+    private val measurements = bounded<TextKey, Float>()
+    private val centerOffsets = bounded<Float, Float>()
+    private val labels = bounded<FitKey, String>()
+    private val outlines = bounded<FaceKey, androidx.compose.ui.graphics.Path>()
     fun measure(value: String): Float = measurements.getOrPut(TextKey(value, paint.textSize, paint.isFakeBoldText)) { paint.measureText(value) }
     fun centerOffset(): Float = centerOffsets.getOrPut(paint.textSize) { paint.fontMetrics.let { (it.ascent + it.descent) / 2 } }
     fun fitted(value: String, width: Float): String = labels.getOrPut(FitKey(TextKey(value, paint.textSize, paint.isFakeBoldText), width)) {

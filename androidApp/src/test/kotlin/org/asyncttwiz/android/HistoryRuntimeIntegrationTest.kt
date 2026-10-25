@@ -12,6 +12,79 @@ import kotlin.test.*
 /** Actual production GameSession/replica/I26 coordinator. The socket/store scheduling boundaries
  * are controlled doubles here; real PostgreSQL and file-backed SQLDelight execute in the combined pass. */
 class HistoryRuntimeIntegrationTest {
+    @Test fun twoClientsInterleavingPredictionsDuplicateDeliveriesAndHeartbeatWhileTreeWorkerIsBusy() {
+        Fixture().use { a -> Fixture(owner = f.b).use { b ->
+            a.connect(); a.publish(); b.connect(); b.publish()
+            val release = java.util.concurrent.CountDownLatch(1)
+            val started = java.util.concurrent.CountDownLatch(2)
+            for (x in listOf(a, b)) x.worker.execute { started.countDown(); release.await(10, TimeUnit.SECONDS) }
+            assertTrue(started.await(10, TimeUnit.SECONDS))
+            try {
+                assertTrue(a.session.gameplay(a.game, f.a, PlayAction.SetTapped(f.id(9), true)))
+                assertTrue(b.session.gameplay(b.game, f.b, PlayAction.AdjustLife(f.b, "1")))
+                val own = a.commands().last()
+                val opponent = b.commands().last()
+                for ((command, author) in listOf(opponent to f.b, own to f.a)) {
+                    val update = a.execute(command, author)
+                    b.execute(command, author)
+                    val decoded = GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(update))
+                    for (x in listOf(a, b)) {
+                        x.wire.listener.message(x.head()) // Committed head arrives before its delta.
+                        while (true) (x.posts.poll() ?: break).invoke()
+                        assertEquals(1, x.wire.reads.size, "An in-flight delta gets a grace period")
+                        x.wire.listener.message(decoded)
+                        x.wire.listener.message(decoded) // Subscription/publication overlap before UI publication.
+                        x.wire.listener.message(GameResult(command.requestId, command.scope, "accepted", "", "1", update.resultRevision))
+                    }
+                }
+                for (x in listOf(a, b)) {
+                    x.wire.listener.message(x.head()) // Heartbeat observes committed state ahead of the worker.
+                    while (true) (x.posts.poll() ?: break).invoke()
+                    x.now += 3_000; x.session.tick()
+                    assertEquals(1, x.wire.reads.size, "A contiguous queued delta is not missing history")
+                }
+            } finally { release.countDown() }
+            for (x in listOf(a, b)) {
+                x.drain()
+                assertEquals(x.tree.stateAt(x.tree.currentNodeId), x.session.acceptedPlay(x.game))
+                assertEquals(x.session.acceptedPlay(x.game), x.session.play(x.game))
+                assertTrue(x.session.ready(x.game.id))
+                assertFalse(x.session.pending(x.game.id))
+            }
+        } }
+    }
+    @Test fun tapCapturedDuringCatchUpPredictsImmediatelyAndSendsOnceAfterPublication() {
+        val root = f.root().initial
+        val initial = GameplayTree(root.copy(board = root.board.copy(containers = root.board.containers +
+            PlayContainer(f.id(6000), PlayZone.STACK))))
+        Fixture(initial = initial).use { x ->
+            x.connect(); x.publish()
+            // A genuinely missing accepted event still requires recovery.
+            x.execute(GameCommand(f.id(5100), GameScope(x.game.id, playId = x.tree.initial.id),
+                GameAction.Play(PlayAction.NextStep), f.id(90), "1"), f.b)
+            x.message(x.head())
+            assertEquals(1, x.wire.reads.size)
+            x.now = 1_999; x.message(x.head())
+            assertEquals(1, x.wire.reads.size)
+            x.now = 2_000; x.session.tick()
+            assertEquals(2, x.wire.reads.size)
+            assertTrue(x.reconnects.last().steps.any { it.stage.startsWith("headDeltaGraceExpired:") })
+            assertFalse(x.session.ready(x.game.id))
+            val toolkit = TableToolkitController(f.a, { x.session.play(x.game) }, { true },
+                { action, group -> x.session.gameplay(x.game, f.a, action, group) }, waitingForConnection = { true })
+            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(f.id(9), listOf(f.id(9))), true, toggle = true)))
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            assertTrue(x.commands().isEmpty(), "Capture must not send through a recovering stream")
+            x.publish()
+            val original = x.commands().single()
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped, "Publication must retain the captured prediction")
+            x.message(x.execute(original))
+            x.message(GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = x.revision.toString()))
+            assertTrue(x.session.acceptedPlay(x.game)!!.board.cards.first().tapped)
+            assertEquals(1, x.commands().size)
+            assertFalse(x.session.pending(x.game.id))
+        }
+    }
     @Test fun revisionsArrivingDuringStagingCatchUpWithoutDownloadingAnotherManifest() {
         Fixture().use { x ->
             x.connect()
@@ -111,16 +184,18 @@ class HistoryRuntimeIntegrationTest {
         override fun disconnect() = Unit
         override fun close() = Unit
     }
-    private inner class Fixture(persistent: Boolean = true, initial: GameplayTree = f.root()) : AutoCloseable {
+    private inner class Fixture(persistent: Boolean = true, initial: GameplayTree = f.root(), owner: String = f.a) : AutoCloseable {
         val wire = Wire()
         val posts = LinkedBlockingQueue<() -> Unit>()
         val worker = Executors.newSingleThreadExecutor()
         val reviewWorker = Executors.newSingleThreadExecutor()
-        val cache = TreeStoreFixture()
-        var actor: String? = f.a
+        val cache = TreeStoreFixture(owner)
+        var actor: String? = owner
         var token: String? = "A".repeat(43)
         var tree = initial
         var revision = 1L
+        var now = 0L
+        val reconnects = mutableListOf<ReconnectEpisode>()
         val game = GameSummary(tree.initial.gameId, "Runtime", "2026-10-23T00:00:00Z", AccountIdentity(f.a, "A"),
             AccountIdentity(f.b, "B"), tree.initial.preparationRound, f.id(90), InvitationState.ACCEPTED,
             lifecycle = GameLifecycle.ACTIVE, revision = "1", playId = tree.initial.id)
@@ -128,7 +203,7 @@ class HistoryRuntimeIntegrationTest {
         val session = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, result -> results.add(result) }, {},
             accountId = { actor }, treeCache = if (!persistent) null else { account, game, play ->
                 assertEquals(cache.accountId, account); assertEquals(cache.gameId, game); assertEquals(cache.playId, play); cache
-            }, treeWorker = worker, reviewWorker = reviewWorker)
+            }, treeWorker = worker, reviewWorker = reviewWorker, now = { now }, reconnectTelemetry = reconnects::add)
         fun head() = GameHead(game.id, revision.toString(), game.copy(revision = revision.toString()),
             play = tree.stateAt(tree.currentNodeId))
         fun drain() {
@@ -253,6 +328,7 @@ class HistoryRuntimeIntegrationTest {
             val predicted = x.session.play(x.game)
             val updates = commands.take(2).map { x.execute(it) } // Lose both accepted envelopes/results.
             x.message(x.head())
+            x.now += 2_000; x.session.tick()
             val statuses = commands.mapIndexed { index, command ->
                 if (index >= 2) GameRequestStatus(command.requestId, "pending")
                 else GameRequestStatus(command.requestId, "final", GameResult(command.requestId, command.scope,
@@ -420,6 +496,7 @@ class HistoryRuntimeIntegrationTest {
                 }
             }
             x.connect("2", statuses)
+            x.now += 2_000; x.session.tick()
             x.publish(x.wire.reads.last().first.map { id -> statuses.single { it.requestId == id } })
             assertEquals(sentCount, x.commands().size)
             assertEquals(x.tree, x.session.retainedTree(x.game.id))
@@ -607,6 +684,7 @@ class HistoryRuntimeIntegrationTest {
                 MoveDestination(f.id(13), MoveInsertion.TOP))), command.streamId, command.generation)
             x.execute(move)
             x.message(x.head()) // lose both deltas; original acceptance is recovered from the same full tree.
+            x.now += 2_000; x.session.tick()
             val result = GameResult(command.requestId, command.scope, "accepted", ingressOrdinal = "1", commitRevision = disclosure.resultRevision)
             x.publish(listOf(GameRequestStatus(command.requestId, "final", result)))
             assertTrue(events.isEmpty()); assertFalse(subscription.active)

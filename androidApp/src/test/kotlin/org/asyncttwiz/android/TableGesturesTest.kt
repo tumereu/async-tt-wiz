@@ -5,6 +5,41 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    @Test fun doubleTapDiagnosticsDistinguishGatesNearMissesAndBenignSceneUpdates() {
+        val item = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
+            kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
+        val scene = TableScene(listOf(item), emptyList())
+        val events = mutableListOf<TableIntent>()
+        val diagnostics = mutableListOf<String>()
+        val g = TableGestureCoordinator(events::add, diagnostic = diagnostics::add)
+        val point = item.bounds.center
+        fun first(time: Long) { g.down(point, time); g.up(point, time + 10) }
+        g.update(scene, TableSelection(), true)
+        first(0)
+        g.update(scene.copy(items = listOf(item.copy(tapped = true))), TableSelection(), true)
+        first(100)
+        assertEquals(listOf("recognized"), diagnostics)
+        assertTrue(events.filterIsInstance<TableIntent.Rotate>().single().toggle)
+        diagnostics.clear(); events.clear()
+        first(1000); g.update(scene, TableSelection(), false); first(1100)
+        assertEquals(listOf("recognized", "dropped:writable"), diagnostics)
+        assertTrue(events.none { it is TableIntent.Rotate })
+        g.update(scene, TableSelection(), true); diagnostics.clear()
+        first(2000); first(2450)
+        assertTrue("nearMiss:deadline" in diagnostics)
+        g.cancel(); diagnostics.clear()
+        first(3000); g.down(TablePoint(90f, 50f), 3100); g.up(TablePoint(90f, 50f), 3110)
+        assertTrue("nearMiss:distance" in diagnostics)
+        g.cancel(); diagnostics.clear()
+        first(4000); g.down(point, 4100); g.move(TablePoint(60f, 50f), 4110); g.up(TablePoint(60f, 50f), 4120)
+        assertEquals(listOf("nearMiss:becameDrag"), diagnostics)
+        g.cancel(); diagnostics.clear()
+        first(5000); g.down(point, 5100); g.tick(5800); g.up(point, 5810)
+        assertEquals(listOf("nearMiss:becameHold"), diagnostics)
+        g.cancel(); diagnostics.clear()
+        first(6000); g.cancel(); first(6100)
+        assertEquals(listOf("nearMiss:cancelled"), diagnostics)
+    }
     @Test fun firstDownOwnsPanAcrossAllViewportBoundariesAndPinchScalesUntilRelease() {
         val world = TableWorld(TableBounds(200f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
         val ports = listOf(

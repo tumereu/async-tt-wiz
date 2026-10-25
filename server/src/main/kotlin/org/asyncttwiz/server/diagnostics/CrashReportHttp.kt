@@ -66,13 +66,17 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
                 // Unlike stack traces, structured batches must not be silently truncated into invalid JSON.
                 if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
                 val batch = AccountJson.format.decodeFromString<LatencyBatch>(input.body)
-                if ((batch.actions.isEmpty() && batch.reconnects.isEmpty()) || batch.actions.size > 200 || batch.actions.any { entry ->
+                if ((batch.actions.isEmpty() && batch.reconnects.isEmpty() && batch.taps.isEmpty()) || batch.actions.size > 200 || batch.actions.any { entry ->
                         entry.historyNodeCount < 0 || entry.actionType.length > 100 || entry.gameId.length > 100 ||
                             listOfNotNull(entry.localApplyMs, entry.firstFrameMs, entry.serverResultMs).any { !it.isFinite() || it < 0 }
                     } || batch.reconnects.size > 200 || batch.reconnects.any { entry ->
                         entry.id.length > 100 || entry.gameId.length > 100 || entry.cause.length > 160 ||
                             runCatching { Instant.parse(entry.startedAt) }.isFailure || entry.durationMs < 0 ||
                             entry.steps.size > 32 || entry.steps.any { it.stage.length > 160 || it.elapsedMs < 0 || it.durationMs < 0 }
+                    } || batch.taps.size > 100 || batch.taps.any { entry ->
+                        entry.gameId.length > 100 || entry.outcome !in setOf("rotated", "dropped", "nearMiss") ||
+                            entry.reason.length > 100 || runCatching { Instant.parse(entry.reportedAt) }.isFailure ||
+                            entry.droppedFrames < 0 || entry.firstAnimationFrameMs?.let { !it.isFinite() || it < 0 } == true
                     }) { response.status = 400; return true }
             }
             val accepted = store(UUID.fromString(principal.account.accountId), reported, input)
@@ -92,13 +96,13 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
         connection.prepareStatement("DELETE FROM debug_crash_daily_count WHERE day < ?").use {
             it.setObject(1, now.toLocalDate()); it.executeUpdate()
         }
-        val accepted = connection.prepareStatement("""
+        val accepted = input.kind == "jank" || connection.prepareStatement("""
             INSERT INTO debug_crash_daily_count(account_id, day, kind, reports) VALUES (?, ?, ?, 1)
             ON CONFLICT (account_id, day, kind) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
             WHERE debug_crash_daily_count.reports < ? RETURNING reports
         """.trimIndent()).use {
             it.setObject(1, account); it.setObject(2, now.toLocalDate())
-            it.setString(3, input.kind); it.setInt(4, when (input.kind) { "latency" -> 60; "jank" -> 3; else -> 20 })
+            it.setString(3, input.kind); it.setInt(4, if (input.kind == "latency") 60 else 20)
             it.executeQuery().use { rows -> rows.next() }
         }
         if (accepted) connection.prepareStatement("""
@@ -112,6 +116,14 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             val body = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.IGNORE)
                 .decode(ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString().replace("\u0000", "")
             it.setString(7, body); it.setString(8, input.kind); it.executeUpdate()
+        }
+        if (input.kind == "jank") connection.prepareStatement("""
+            DELETE FROM debug_crash_report WHERE id IN (
+                SELECT id FROM debug_crash_report WHERE account_id = ? AND kind = 'jank'
+                ORDER BY received_at DESC, id DESC OFFSET 20
+            )
+        """.trimIndent()).use {
+            it.setObject(1, account); it.executeUpdate()
         }
         connection.prepareStatement("DELETE FROM debug_crash_report WHERE received_at < ?").use {
             it.setObject(1, now.minusDays(30)); it.executeUpdate()

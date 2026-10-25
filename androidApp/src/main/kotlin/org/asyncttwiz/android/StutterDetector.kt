@@ -55,7 +55,7 @@ internal class StutterDetector(private val timestamp: (Long) -> String,
     }
 }
 
-/** Bounded across process death by its owner. Attempt quota is persisted BEFORE network IO. */
+/** Bounded across process death by its owner; upload allowance is process-local. */
 internal class JankBuffer(private val capacity: Int = 30) {
     private val episodes = ArrayDeque<JankEpisode>()
     fun restore(values: List<JankEpisode>) { values.takeLast(capacity).forEach(::add) }

@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
 class CrashReportHttpTest {
-    @Test fun `authenticated endpoint stores truncates retains both kinds and enforces independent daily quotas`() {
+    @Test fun `authenticated endpoint retains latest jank per account and enforces crash and latency daily quotas`() {
         ActivityFixture().use { f ->
             val now = Instant.now()
             val clock = ActivityClock(now)
@@ -80,9 +80,27 @@ class CrashReportHttpTest {
                 assertEquals(400, post("{}", kind = "jank"))
                 assertEquals(400, post(AccountJson.format.encodeToString(JankBatch(listOf(jank.copy(jankyCount = 4)))), kind = "jank"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "jank"))
-                repeat(19) { assertEquals(204, post(jankBody, kind = "jank")) }
-                assertEquals(429, post(jankBody, kind = "jank"))
-                assertEquals(20L, f.number("SELECT reports FROM debug_crash_daily_count WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
+                repeat(25) { index ->
+                    clock.time = now.plusSeconds(index + 1L)
+                    assertEquals(204, post(jankBody, kind = "jank"))
+                }
+                assertEquals(20L, f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
+                assertEquals(20L, f.number("""SELECT count(*) FROM debug_crash_report
+                    WHERE account_id='${f.a.account.accountId}' AND kind='jank'
+                    AND received_at BETWEEN '${now.plusSeconds(6)}' AND '${now.plusSeconds(25)}'"""))
+                assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_daily_count WHERE kind='jank'"))
+
+                // Equal timestamps use id as the tiebreaker, without pruning another account.
+                f.sql("""INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
+                    SELECT lpad(to_hex(i), 32, '0')::uuid, '${f.b.account.accountId}'::uuid,
+                        '${now}'::timestamptz, '${now}'::timestamptz, 'debug', 'test', 'tied', 'jank'
+                    FROM generate_series(1,22) i""")
+                assertEquals(204, post(jankBody, token = f.tokenB, kind = "jank"))
+                assertEquals(20L, f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='${f.b.account.accountId}' AND kind='jank'"))
+                assertEquals(19L, f.number("""SELECT count(*) FROM debug_crash_report
+                    WHERE account_id='${f.b.account.accountId}' AND kind='jank' AND body='tied'
+                    AND id >= lpad(to_hex(4), 32, '0')::uuid"""))
+                assertEquals(20L, f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='${f.a.account.accountId}' AND kind='jank'"))
 
                 val episode = ReconnectEpisode("episode", "game", now.toString(), "socketClose:1001:Reconnect",
                     listOf(ReconnectStep("socketConnectedHttpAuthenticated", 20, 20), ReconnectStep("ready", 70, 50)), 70, true)

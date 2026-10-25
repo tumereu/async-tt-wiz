@@ -96,7 +96,7 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
         connection.prepareStatement("DELETE FROM debug_crash_daily_count WHERE day < ?").use {
             it.setObject(1, now.toLocalDate()); it.executeUpdate()
         }
-        val accepted = connection.prepareStatement("""
+        val accepted = input.kind == "jank" || connection.prepareStatement("""
             INSERT INTO debug_crash_daily_count(account_id, day, kind, reports) VALUES (?, ?, ?, 1)
             ON CONFLICT (account_id, day, kind) DO UPDATE SET reports = debug_crash_daily_count.reports + 1
             WHERE debug_crash_daily_count.reports < ? RETURNING reports
@@ -116,6 +116,14 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
             val body = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.IGNORE)
                 .decode(ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString().replace("\u0000", "")
             it.setString(7, body); it.setString(8, input.kind); it.executeUpdate()
+        }
+        if (input.kind == "jank") connection.prepareStatement("""
+            DELETE FROM debug_crash_report WHERE id IN (
+                SELECT id FROM debug_crash_report WHERE account_id = ? AND kind = 'jank'
+                ORDER BY received_at DESC, id DESC OFFSET 20
+            )
+        """.trimIndent()).use {
+            it.setObject(1, account); it.executeUpdate()
         }
         connection.prepareStatement("DELETE FROM debug_crash_report WHERE received_at < ?").use {
             it.setObject(1, now.minusDays(30)); it.executeUpdate()

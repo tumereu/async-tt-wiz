@@ -11,8 +11,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
@@ -22,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 internal object DebugJank {
     @Volatile private var token: String? = null
     private var installed = false
+    private val uploadQuota = JankUploadQuota()
     private val frames = Channel<RenderFrame>(4096)
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private val localApply = AtomicInteger()
@@ -92,13 +91,11 @@ internal object DebugJank {
         installed = true
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val buffer = JankBuffer()
-        val preferences = application.getSharedPreferences("jank-upload-quota", 0)
         fun report(values: List<JankEpisode>) = CrashReport(Instant.now().toString(), version, device,
             AccountJson.format.encodeToString(JankBatch(values)), "jank")
         // Frame timestamps use the uptime clock, not elapsedRealtime (which includes deep sleep).
         val wallOrigin = System.currentTimeMillis() - SystemClock.uptimeMillis()
         var dirty = false
-        var lastAttempt = 0L
         val detector = StutterDetector({ Instant.ofEpochMilli(wallOrigin + it / 1_000_000).toString() }) {
             buffer.add(it); dirty = true; wake.trySend(Unit)
         }
@@ -116,13 +113,7 @@ internal object DebugJank {
                         if (dirty) { persist(); dirty = false }
                         val credential = token
                         val batch = buffer.batch()
-                        val day = LocalDate.now(ZoneOffset.UTC).toString()
-                        val used = if (preferences.getString("day", null) == day) preferences.getInt("attempts", 0) else 0
-                        val now = System.nanoTime()
-                        if (credential != null && batch.isNotEmpty() && used < 20 &&
-                            (lastAttempt == 0L || now - lastAttempt >= 60_000_000_000L) &&
-                            preferences.edit().putString("day", day).putInt("attempts", used + 1).commit()) {
-                            lastAttempt = now
+                        if (credential != null && batch.isNotEmpty() && uploadQuota.tryAcquire(System.nanoTime())) {
                             AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api ->
                                 if (api.uploadCrashReport(credential, report(batch))) { buffer.acknowledge(batch); persist() }
                             }

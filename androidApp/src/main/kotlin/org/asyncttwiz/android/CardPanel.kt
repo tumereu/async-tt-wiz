@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,20 +27,33 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, ui: 
     val items = mutableListOf<TableItem>()
     val cards = play.board.cards.associateBy { it.id }
     val definitions = play.definitions.associateBy { it.digest }
-    val height = (world.height / displays.size).coerceAtLeast(1f)
-    for ((index, display) in displays.withIndex()) {
-        val b = TableBounds((world.x - 6f).coerceAtLeast(0f), world.y + index * height, 124f, height)
+    val cardWidth = 68f
+    val cardHeight = cardWidth * 40f / 28f
+    val rowHeight = cardHeight + 12f
+    val grouped = displays.map { display ->
         val entries = contentsEntries(play, display, viewer)
         // Private opponent copies must never be grouped by their concealed names.
-        val groups = if (display.search && display.author == viewer) entries.groupBy { it.name }.values.toList()
-            else entries.map { listOf(it) }
-        val rowHeight = scene.cardHeight + 12f
+        if (display.search && display.author == viewer) entries.groupBy { it.name }.values.toList()
+        else entries.map { listOf(it) }
+    }
+    // Short panels give their unused share to longer ones. All panels remain inside the game area.
+    val heights = FloatArray(displays.size)
+    var remaining = (world.height - 4f * (displays.size - 1)).coerceAtLeast(0f)
+    for ((n, index) in grouped.indices.sortedBy { grouped[it].size }.withIndex()) {
+        heights[index] = minOf(36f + grouped[index].size * rowHeight, remaining / (displays.size - n))
+        remaining -= heights[index]
+    }
+    var y = world.y
+    for ((index, display) in displays.withIndex()) {
+        val b = TableBounds((world.x - 6f).coerceAtLeast(0f), y, 84f, heights[index])
+        y = b.bottom + 4f
+        val groups = grouped[index]
         val portBounds = TableBounds(b.x, b.y + 36f, b.width, (b.height - 36f).coerceAtLeast(0f))
         val content = groups.size * rowHeight
         val scroll = (ui.scrollY["cardPanel/${display.id}"] ?: 0f).coerceIn(0f, (content - portBounds.height).coerceAtLeast(0f))
         val port = TableViewport("cardPanel/${display.id}", portBounds, b.width, 0f, contentHeight = content, scrollY = scroll)
         val rows = groups.mapIndexedNotNull { n, group ->
-            val bounds = TableBounds(b.x + 8f, portBounds.y + n * rowHeight - scroll + 6f, scene.cardWidth, scene.cardHeight)
+            val bounds = TableBounds(b.x + 8f, portBounds.y + n * rowHeight - scroll + 6f, cardWidth, cardHeight)
             if (bounds.intersection(portBounds) == null) null else CardPanelRow(group.first(), group.size, bounds)
         }
         panels += CardPanelGeometry(display, b, port, rows)
@@ -49,11 +64,12 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, ui: 
             val art = if (!row.entry.faceVisible || face == null || face.scryfallId == null && face.imageUri == null) null else
                 ArtworkReference(face.scryfallId, definition.faces.indexOf(face), card.definition, customUrl = face.imageUri).forTable()
             items += TableItem("card/${card.id}", row.bounds,
-                "${display.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}", row.entry.name,
+                "${display.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}", if (row.entry.faceVisible) row.entry.name else "",
                 owner = card.owner, zone = play.board.containers.single { it.id == card.containerId }.zone,
                 kind = TableItemKind.CARD, viewport = port.id, cardId = card.id, covered = !row.entry.faceVisible,
                 frozen = display.author != viewer, artwork = art, known = card.knownToAll && display.author != viewer,
-                corner = if (row.entry.faceVisible) card.corner else "")
+                corner = if (row.entry.faceVisible) card.corner else "", copies = row.copies, token = card.token,
+                typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
         }
     }
     // Panel cards replace any ordinary drawing of these references, never duplicate card identities.
@@ -74,12 +90,15 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
     for (panel in scene.cardPanels) key(panel.display.id) {
         val display = panel.display
         Row(Modifier.offset(panel.bounds.x.dp, panel.bounds.y.dp).size(panel.bounds.width.dp, 36.dp)
-            .semantics { contentDescription = "${if (display.author == viewer) "Your" else "Opponent"} ${display.title} panel, ${display.cardIds.size} cards" },
+            .semantics { contentDescription = "${if (display.author == viewer) "Your" else "Opponent"} ${display.title} panel, ${display.cardIds.size} cards" }
+            .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             CompositionLocalProvider(LocalContentColor provides if (display.author == viewer) OwnTableColor else OpponentTableColor) {
-                MenuIcon(display.title, Modifier.size(16.dp))
-                Text(display.title, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1)
-                Text(display.cardIds.size.toString(), fontSize = 11.sp)
+                Icon(if (display.search && !display.reveal) Icons.Outlined.Search else menuIcon(display.title),
+                    display.title, Modifier.size(16.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(display.cardIds.size.toString(), fontSize = 11.sp, maxLines = 1)
+                }
                 if (display.author == viewer) IconButton({ toolkit?.closeCardPanel(display) }, enabled = writable && toolkit != null,
                     modifier = Modifier.size(32.dp)) { Icon(menuIcon("Close"), "Close ${display.title} panel") }
                 else Spacer(Modifier.width(8.dp))
@@ -109,6 +128,11 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState) {
             for (row in actions.chunked(3)) Row {
                 for ((label, zone, reveal) in row) InlinePopupCell(MenuControl(label, toolkit.enabled()) {
                     toolkit.cardPanelAction(display, id, zone, reveal, bottom = label == "Bottom", tapped = label == "Battlefield tapped")
+                }, label = when (label) {
+                    "Reveal+Hand" -> "Reveal\n+ Hand"
+                    "Battlefield tapped" -> "Battlefield\ntapped"
+                    "Reveal+Top" -> "Reveal\n+ Top"
+                    else -> label
                 })
             }
         }

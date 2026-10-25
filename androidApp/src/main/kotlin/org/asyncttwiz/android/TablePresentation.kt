@@ -7,7 +7,8 @@ import kotlin.math.max
 /** An accepted prediction must not briefly fall back to an older asynchronous history view. */
 internal class TableEndpointPresentation {
     private var presented: PlayState? = null
-    fun live(live: PlayState?, indexed: PlayState?, awaitingIndex: Boolean): PlayState? {
+    fun live(live: PlayState?, indexed: PlayState?, awaitingIndex: Boolean, panelReveal: String? = null): PlayState? {
+        if (panelReveal != null) return indexed?.takeIf { it.currentNodeId == panelReveal } ?: presented
         val matchesPresented = live != null && live.id == presented?.id &&
             (live.board == presented?.board || live.currentNodeId == presented?.currentNodeId)
         return if (awaitingIndex && !matchesPresented) indexed else live
@@ -117,7 +118,7 @@ data class TableItem(
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
-    val known: Boolean = false, val flipScale: Float = 1f
+    val known: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -444,7 +445,7 @@ object TablePresentation {
     }
     fun nonzero(value: String): Boolean = value.trim().let { s -> s.isNotEmpty() &&
         (!Regex("[+-]?[0-9]+").matches(s) || s.removePrefix("+").removePrefix("-").any { it != '0' }) }
-    private fun cardTypeIcon(type: String) = when {
+    internal fun cardTypeIcon(type: String) = when {
         "Land" in type -> "♧"; "Creature" in type -> "♙"; "Instant" in type -> "ϟ"
         "Sorcery" in type -> "◇"; "Artifact" in type -> "⚙"; "Enchantment" in type -> "☆"; else -> "◇"
     }

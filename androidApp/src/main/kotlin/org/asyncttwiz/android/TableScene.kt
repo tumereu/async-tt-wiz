@@ -928,11 +928,6 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         drawRoundRect(color.copy(alpha = .6f), xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density), style = Stroke(density))
         val port = panel.viewport.bounds
         clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
-            for (row in panel.rows) {
-                paint.textSize = 10 * density
-                fittedText(row.entry.name, row.bounds.right + 5, row.bounds.y + 14, b.right - row.bounds.right - 10)
-                if (row.copies > 1) text("×${row.copies}", row.bounds.right + 5, row.bounds.y + 30)
-            }
             scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
                 val y = panel.rows.firstOrNull { it.entry.cardId == reorder.beforeId }?.bounds?.y ?: panel.rows.lastOrNull()?.bounds?.bottom
                 if (reorder.displayId == panel.display.id && y != null) drawLine(color, xy(b.x + 4, y), xy(b.right - 4, y), 2 * density)
@@ -999,9 +994,18 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                      scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
                      paint.textSize = 7 * z * density
                      if (i.note.isNotEmpty()) fittedText(i.note, x + 3 * z, y + 20 * z, cardWidth - 6 * z)
-                     i.counters.entries.take(6).forEachIndexed { n, entry ->
+                      i.counters.entries.take(6).forEachIndexed { n, entry ->
                           drawCircle(counterColor(entry.key), 5 * z * density, xy(x + (6 + n * 7) * z, y + cardHeight - 18 * z))
                           text(entry.value, x + (3 + n * 7) * z, y + cardHeight - 16 * z, 3)
+                       }
+                      if (i.copies > 1) {
+                          val label = "×${i.copies}"
+                          paint.textSize = 11 * density
+                          val badgeWidth = cache.measure(label) / density + 6f
+                          drawRoundRect(color, xy(x, y + cardHeight - 16f), size(badgeWidth, 16f), CornerRadius(3 * density))
+                          paint.color = android.graphics.Color.WHITE
+                          text(label, x + 3f, y + cardHeight - 4f, label.length)
+                          paint.color = android.graphics.Color.DKGRAY
                       }
                      paint.textSize = 11 * density
                  }

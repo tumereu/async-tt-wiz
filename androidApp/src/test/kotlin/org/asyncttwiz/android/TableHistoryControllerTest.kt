@@ -23,6 +23,45 @@ class TableHistoryControllerTest {
     private fun view(tree: GameplayTree) = DownloadedHistoryState(1L, tree.currentNodeId,
         state = tree.stateAt(tree.currentNodeId))
 
+    @Test fun livePanelRevealRequestsHistoricalFaceUpEndpointInsteadOfLatestMove() {
+        val fixture = BasicTableFixture()
+        fixture.connect()
+        try {
+            assertTrue(fixture.lobby.gameplay(PlayAction.ShowContents(fixture.container(PlayZone.LIBRARY), ContentsSelection.TOP, 2)))
+            val opened = fixture.lobby.displayTree()!!.materializedCopy()
+            val panel = fixture.play.board.contentsDisplays.single()
+            val card = panel.cardIds.first()
+            val toolkit = TableToolkitController(fixture.actor, { fixture.lobby.state.play }, { true }, fixture.lobby::gameplay)
+            toolkit.cardPanelAction(panel, card, PlayZone.HAND, reveal = true)
+            val onward = fixture.lobby.displayTree()!!.materializedCopy()
+            val reveal = onward.nodes.values.single { it.action is PlayAction.RevealContentsCard }.id
+            val requests = mutableListOf<String?>()
+            val history = TableHistoryController(Executor { it.run() }, { it() }, { node, complete ->
+                requests += node
+                val cursor = node ?: onward.currentNodeId
+                complete(DownloadedHistoryState(1L, cursor, state = onward.stateAt(cursor))); true
+            }, { _, _, _ -> error("Presentation must not submit gameplay") })
+            history.use {
+                history.update(opened, "open", viewer = fixture.other)
+                history.update(onward, "onward", viewer = fixture.other)
+                history.displayPosition()
+                assertEquals(listOf<String?>(reveal), requests)
+                val shown = history.view!!.state!!
+                assertEquals(reveal, shown.currentNodeId)
+                assertTrue(shown.board.contentsDisplays.single().faceVisibleTo(card, fixture.other))
+                assertEquals(HistoryMode.LIVE, history.playback!!.position.mode)
+                val endpoint = TableEndpointPresentation()
+                endpoint.presented(opened.stateAt(opened.currentNodeId))
+                assertEquals(opened.currentNodeId, endpoint.live(fixture.play, fixture.play, false, reveal)!!.currentNodeId)
+                assertEquals(reveal, endpoint.live(fixture.play, shown, false, reveal)!!.currentNodeId)
+                history.playback!!.finishPanelReveal()
+                history.displayPosition()
+                assertNull(requests.last())
+                assertEquals(onward.currentNodeId, history.view!!.state!!.currentNodeId)
+            }
+        } finally { fixture.lobby.close(); fixture.worker.drain() }
+    }
+
     @Test fun continueAtCurrentHeadReturnsLiveWithoutConfirmationOrArming() {
         Harness().use { h ->
             val tree = f.tap(f.root())

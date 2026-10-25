@@ -61,7 +61,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     DisposableEffect(history) { onDispose { history.leaving() } }
     val playback = history.playback
     val position = playback?.position
-    LaunchedEffect(position, IdentityKey(tree), playback?.tree) { history.displayPosition() }
+    LaunchedEffect(position, IdentityKey(tree), playback?.tree, playback?.livePanelReveal) { history.displayPosition() }
     val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
@@ -85,8 +85,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         playback?.tree?.sharedHeadId != displayTree.currentNodeId
     val endpoint = remember(history) { TableEndpointPresentation() }
     val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
-        else endpoint.live(live, history.view?.state, awaitingIndex)
+        else endpoint.live(live, history.view?.state, awaitingIndex,
+            position?.cursorId?.takeIf { playback.livePanelReveal })
     SideEffect { endpoint.presented(play) }
+    LivePanelRevealPacing(playback, playbackPause,
+        settledCursor == position?.cursorId && play?.currentNodeId == position?.cursorId)
     LaunchedEffect(target, IdentityKey(tree)) {
         if (target?.destination == ActivityDestination.GROUP && target != appliedActivity && target.playId != null && target.boundaryNodeId != null) {
             val captured = CapturedHistoryTarget(accountId, target.gameId, requireNotNull(target.playId), target.groupId, requireNotNull(target.boundaryNodeId))

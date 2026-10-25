@@ -39,6 +39,33 @@ class HistoryPlaybackTest {
         assertEquals(id(5), playback.position.cursorId) // Racing continuation not lost in catch-up/live handoff.
     }
 
+    @Test fun onlyRemotePanelRevealsHoldLiveAcrossSeparateOrBatchedReceipts() {
+        val open = node(1, 0).copy(action = PlayAction.ShowContents(id(80), ContentsSelection.TOP, 2))
+        val reveal = node(2, 1).copy(action = PlayAction.RevealContentsCard(id(81), id(82)))
+        val onward = node(3, 2)
+        for (batched in listOf(false, true)) {
+            val player = HistoryPlayback(tree(listOf(open)))
+            if (!batched) {
+                player.receive(tree(listOf(open, reveal)), id(71))
+                assertTrue(player.livePanelReveal)
+            }
+            player.receive(tree(listOf(open, reveal, onward)), id(71))
+            assertEquals(id(2), player.position.cursorId)
+            assertEquals(HistoryMode.LIVE, player.position.mode)
+            player.finishPanelReveal()
+            assertEquals(id(3), player.position.cursorId)
+            assertFalse(player.livePanelReveal)
+        }
+        val own = HistoryPlayback(tree(listOf(open)))
+        own.receive(tree(listOf(open, reveal, onward)), id(70))
+        assertEquals(id(3), own.position.cursorId)
+        assertFalse(own.livePanelReveal)
+        val ordinary = HistoryPlayback(tree(emptyList()))
+        ordinary.receive(tree(listOf(open)), id(71))
+        assertEquals(id(1), ordinary.position.cursorId)
+        assertFalse(ordinary.livePanelReveal)
+    }
+
     @Test fun ownConfirmationsDoNotManufactureCatchupAndHistoricalReviewSurvivesForeground() {
         val a = node(1,0)
         val playback = HistoryPlayback(tree(emptyList(), version = "predicted-a"))

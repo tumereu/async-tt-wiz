@@ -104,7 +104,7 @@ internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height:
         footprint.y + (footprint.height - height) / 2 + (4f - peek) * zoom, width, height)
 }
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
-    val scrollY: Map<String, Float> = emptyMap())
+    val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null)
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,
@@ -230,6 +230,10 @@ object TablePresentation {
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
         val worldViewport = TableBounds(sidebar + 6f, worldTop, (width - sidebar - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
+        val panelArea = if (landscape) worldViewport.copy(x = sidebar, width = width - sidebar)
+            else TableBounds(0f, worldTop - railHeight, width, ownDockY - (worldTop - railHeight))
+        val panels = cardPanelGeometry(play, viewer, ui, panelArea)
+        val panelRight = panels.maxOfOrNull { it.bounds.right + 4f } ?: 0f
         // Reserve room for a normal open combat lane at home without changing row spacing when it opens.
         val normalCombatBand = (hudHeight + 2 * hudWidth * .04f) * 2 + 4f
         val rowHeight = ((worldViewport.height - normalCombatBand) / 6).coerceAtLeast(12f)
@@ -290,11 +294,13 @@ object TablePresentation {
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             val hand = container(player.accountId, PlayZone.HAND)
-            val handBounds = if (!ownSide) {
+            val normalHandBounds = if (!ownSide) {
                 if (landscape) TableBounds(sidebar + 10f, 0f, (width - sidebar - toolbarWidth - 10f).coerceAtLeast(28f), HEADER)
                 else TableBounds(0f, worldTop - railHeight, width, railHeight)
             } else TableBounds(if (landscape) 64f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                (width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
+                 (width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
+            val handBounds = if (!landscape && panels.isNotEmpty()) normalHandBounds.copy(x = panelRight,
+                width = (normalHandBounds.right - panelRight).coerceAtLeast(28f)) else normalHandBounds
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (hudWidth + 4f) + hudWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll
@@ -409,7 +415,7 @@ object TablePresentation {
         return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
             stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
-                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, ui), width, height)
+                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, panels), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

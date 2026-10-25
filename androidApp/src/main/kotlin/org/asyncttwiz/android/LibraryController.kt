@@ -46,7 +46,8 @@ class LibraryController(
         return send(SharedLibraryActions.draw(current.board, libraryId, handId, count))
     }
     fun show(selection: ContentsSelection = ContentsSelection.ALL, count: Int = 1, reveal: Boolean = false) =
-        if (count < 0) LibrarySubmission(0, 1) else send(listOf(PlayAction.ShowContents(libraryId, selection, count, reveal)))
+        if (count < 0 || current()?.board?.contentsDisplays?.isNotEmpty() != false) LibrarySubmission(0, 1)
+        else send(listOf(PlayAction.ShowContents(libraryId, selection, count, reveal)))
     fun dismiss(displayId: String, rest: ContentsRest = ContentsRest.TOP): LibrarySubmission {
         if (!available()) return LibrarySubmission(0, 1)
         return send(listOf(PlayAction.DismissContents(displayId, rest, seed())))

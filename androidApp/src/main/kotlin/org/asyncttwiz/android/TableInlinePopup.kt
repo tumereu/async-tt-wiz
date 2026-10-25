@@ -117,7 +117,7 @@ internal object InlinePopupStyle {
 internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBounds?, own: Boolean,
     ownerColor: Color, dismiss: () -> Unit, width: Dp = CardRingGeometry.squareSide.dp,
     height: Dp = CardRingGeometry.squareSide.dp, description: String = "Table context popup",
-    title: String = description, switchPage: (Int) -> Unit = {}, content: @Composable () -> Unit) {
+    title: String = description, switchPage: (Int) -> Unit = {}, placement: TableBounds? = null, content: @Composable () -> Unit) {
     val guard = remember(identity, viewId) { CardRingInputGuard(SystemClock.uptimeMillis()) }
     val currentSwitch by rememberUpdatedState(switchPage)
     val relay = LocalTableTapRelay.current
@@ -157,7 +157,9 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
         val card = anchor ?: TableBounds(maxWidth.value / 2 - 20, maxHeight.value / 2 - 28, 40f, 56f)
         // Capture the opening anchor/viewport only: neither sync nor a page switch moves this square.
         val square = remember(identity, viewId, maxWidth, maxHeight) {
-            inlinePopupBounds(maxWidth.value, maxHeight.value, card, own, width.value, height.value)
+            placement?.let { b -> b.copy(x = b.x.coerceIn(0f, (maxWidth.value - b.width).coerceAtLeast(0f)),
+                y = b.y.coerceIn(0f, (maxHeight.value - b.height).coerceAtLeast(0f))) }
+                ?: inlinePopupBounds(maxWidth.value, maxHeight.value, card, own, width.value, height.value)
         }
         // Standalone fallback; the stable table host relays outside presses before they reach here.
         Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { requestDismiss() }) })

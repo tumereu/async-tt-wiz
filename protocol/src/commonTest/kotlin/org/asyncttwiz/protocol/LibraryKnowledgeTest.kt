@@ -123,7 +123,7 @@ class LibraryKnowledgeTest {
                 ContentsRest.BOTTOM -> assertEquals(ids, library(tree).knownBottom.takeLast(4))
                 ContentsRest.BOTTOM_RANDOM -> assertEquals(RandomV1.shuffle(ids, seed), library(tree).knownBottom.takeLast(4))
                 ContentsRest.SHUFFLE -> { assertTrue(library(tree).knownTop.isEmpty()); assertTrue(library(tree).knownBottom.isEmpty()) }
-                ContentsRest.GRAVEYARD -> assertTrue(ids.none { it in library(tree).cards })
+                ContentsRest.GRAVEYARD, ContentsRest.EXILE -> assertTrue(ids.none { it in library(tree).cards })
             }
         }
         var tree = GameplayTree(root())

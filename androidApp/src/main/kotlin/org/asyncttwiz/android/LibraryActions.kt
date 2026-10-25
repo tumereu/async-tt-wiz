@@ -20,7 +20,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     var editing by remember(controller) { mutableStateOf<String?>(null) }
     var text by remember { mutableStateOf("") }
     val enabled = controller.available()
-    val mayOpen = enabled && board.contentsDisplays.none { it.author == owner }
+    val mayOpen = enabled && board.contentsDisplays.isEmpty()
     fun finish(result: LibrarySubmission) { if (result.refused == 0 && result.submitted > 0) onComplete() }
     fun show(slice: ContentsSelection, count: Int, reveal: Boolean = false) {
         if (onShow != null) onShow(slice, count, reveal) else finish(controller.show(slice, count, reveal))
@@ -39,6 +39,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
         }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        board.contentsDisplays.firstOrNull()?.let { Text("Close the open ${it.title} first", style = MaterialTheme.typography.labelSmall) }
         for (many in listOf(false, true)) Row {
             for (action in listOf("Draw", "Reveal", "Look", "Mill", "Exile")) {
                 InlinePopupCell(MenuControl("$action ${if (many) "N…" else "1"}", if (action in listOf("Look", "Reveal")) mayOpen else enabled) {

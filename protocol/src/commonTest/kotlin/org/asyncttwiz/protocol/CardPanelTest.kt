@@ -105,17 +105,19 @@ class CardPanelTest {
                 ContentsRest.TOP -> order + untouched
                 ContentsRest.BOTTOM -> untouched + order
                 ContentsRest.BOTTOM_RANDOM -> untouched + RandomV1.shuffle(order, seed)
-                ContentsRest.GRAVEYARD -> untouched
+                ContentsRest.GRAVEYARD, ContentsRest.EXILE -> untouched
                 ContentsRest.SHUFFLE -> RandomV1.shuffle((20..24).map(::id), seed)
             }
             assertEquals(expected, closed.board.containers.first().cards)
-            if (resolution == ContentsRest.GRAVEYARD) {
-                assertEquals(order.toSet(), closed.board.containers.single { it.id == id(12) }.cards.toSet())
+            if (resolution == ContentsRest.GRAVEYARD || resolution == ContentsRest.EXILE) {
+                val zone = if (resolution == ContentsRest.EXILE) PlayZone.EXILE else PlayZone.GRAVEYARD
+                assertEquals(order.toSet(), closed.board.containers.single { it.zone == zone }.cards.toSet())
                 assertTrue(closed.board.cards.filter { it.id in order }.all { !it.covered && !it.knownToAll })
+                assertTrue(closed.board.cards.filter { it.id in order }.all { it.containerId == closed.board.containers.single { it.zone == zone }.id })
             }
         }
     }
-    @Test fun eachAuthorHasOnePanelAndOnlyTheAuthorMayChangeIt() {
+    @Test fun wholeGameHasOnePanelAndOnlyTheAuthorMayChangeItAndLegacyPanelsCanClose() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2))
         val display = opened.board.contentsDisplays.single()
         for (selection in ContentsSelection.entries) assertEquals("panelAlreadyOpen",
@@ -124,8 +126,12 @@ class CardPanelTest {
             PlayAction.ReorderContents(display.id, id(20)),
             PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED))))
             assertEquals("accessDenied", change(opened, action, b).reason)
-        val both = step(opened, PlayAction.ShowContents(id(15), ContentsSelection.TOP), b)
-        assertEquals(2, both.board.contentsDisplays.size)
+        assertEquals("panelAlreadyOpen", change(opened, PlayAction.ShowContents(id(15), ContentsSelection.TOP), b).reason)
+        val legacy = opened.copy(board = opened.board.copy(contentsDisplays = listOf(display,
+            display.copy(id = id(99), author = b, containerId = id(15), cardIds = emptyList()))))
+        val remaining = step(legacy, PlayAction.DismissContents(display.id))
+        assertEquals(1, remaining.board.contentsDisplays.size)
+        assertTrue(step(remaining, PlayAction.DismissContents(id(99)), b).board.contentsDisplays.isEmpty())
         assertFalse(GameplayRules.valid(PlayAction.ReorderContents("bad", id(20))))
         assertFalse(GameplayRules.valid(PlayAction.RevealContentsCard(display.id, "bad")))
         assertFalse(GameplayRules.valid(PlayAction.DismissContents(display.id, seed = "bad")))

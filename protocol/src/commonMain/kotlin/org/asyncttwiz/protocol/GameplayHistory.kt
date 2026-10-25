@@ -198,7 +198,9 @@ object GameplayHistory {
         }
         mutation.transition.combatStack?.stackGuard?.let { if (GameplayRules.stackDigest(state) != it.from) return false }
         mutation.transition.annotation?.let { annotation ->
-            if ((mutation.transition.concerns == null && append(state.currentGroup, mutation, board.containers).id != annotation.groupId) ||
+            // Records and ping ordinals are keyed by the accepted group. Until they can be
+            // migrated together, refuse regrouping rather than strand retained annotations.
+            if (append(state.currentGroup, mutation, board.containers).id != annotation.groupId ||
                 mutation.branchId != annotation.branchId || state.id != annotation.playId) return false
         }
         for (link in mutation.transition.combatStack?.addedLinks.orEmpty()) {

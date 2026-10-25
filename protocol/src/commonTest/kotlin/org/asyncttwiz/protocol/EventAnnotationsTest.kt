@@ -108,7 +108,8 @@ class EventAnnotationsTest {
         val root = state()
         val tapped = change(root, PlayAction.SetTapped(id(9), true), 20).state!!
         val ping = change(tapped, PlayAction.Ping(rootRef, x), 21)
-        assertNotNull(GameplayHistory.replay(root, ping.mutation!!, resolver(root)).state) // Target identity survives the tap.
+        // Target identity survives, but the recording/ordinal cannot be left in the removed tap's group.
+        assertEquals("replayBlocked", GameplayHistory.replay(root, ping.mutation!!, resolver(root)).reason)
         val changedRoot = root.copy(board = root.board.copy(turn = root.board.turn.copy(number = "2")))
         val revisedLookup = EventReferenceResolver { _, _, _ -> RetainedAnnotationContext.from(changedRoot, "revised-materialization") }
         assertNotNull(GameplayHistory.replay(tapped, ping.mutation, revisedLookup).state)

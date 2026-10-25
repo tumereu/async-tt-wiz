@@ -80,7 +80,17 @@ internal object GameplayConcerns {
         fun container(id: String) = b.containers.single { it.id == id }
         return when (field) {
             is ConcernField.Written -> written(state, mutation, field, after)
-            is ConcernField.Entity -> at(GameplayDeltas.entityValue(state, field.kind, field.id), field.path) ?: JsonNull
+            is ConcernField.Entity -> {
+                val value = at(GameplayDeltas.entityValue(state, field.kind, field.id), field.path)
+                // A known-top draw concerns only the taken card's knowledge edge, not the
+                // untouched known cards beneath it. Still witness its removal after the draw.
+                if (knownTopDraw(mutation) && field.kind == "container" &&
+                    field.id == (mutation.action as PlayAction.MoveCard).source.containerId && field.path == listOf("knownTop")) {
+                    val ids = (value as? JsonArray).orEmpty()
+                    val card = JsonPrimitive(mutation.action.cardId)
+                    encoded(if (after) card !in ids else ids.firstOrNull() == card)
+                } else value ?: JsonNull
+            }
             is ConcernField.Cell -> encoded(b.cards.filter { it.containerId == field.container && it.placement?.position == field.position }
                 .map { it.id to it.placement!!.pileId }.sortedBy { it.first })
             is ConcernField.Incident -> buildJsonObject {
@@ -153,6 +163,9 @@ internal object GameplayConcerns {
                 for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped")) entity("card", c.id, key)
                 val source = from.board.containers.single { it.id == a.source.containerId }
                 if (source.zone == PlayZone.LIBRARY) {
+                    // Removal/repositioning normalizes both edges even when they stay empty.
+                    // Retained replay must not skip cleanup made necessary by an earlier undo.
+                    entity("container", source.id, "knownTop"); entity("container", source.id, "knownBottom")
                     if (a.source.edge == MoveSourceEdge.TOP && c.id in source.knownTop && a.destination.containerId != source.id)
                         fields += ConcernField.Top(source.id, c.id)
                     else if (c.id in source.unknownMiddle && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))

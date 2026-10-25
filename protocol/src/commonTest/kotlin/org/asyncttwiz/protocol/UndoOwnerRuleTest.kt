@@ -211,8 +211,10 @@ class UndoOwnerRuleTest {
 
     @Test fun projectionPingProtectsProjectionRatherThanSourceCardOrAncestry() {
         var tree = play(GameplayTree(root()), b, PlayAction.Combat(CombatAction.Open))
-        tree = play(tree, a, PlayAction.Combat(CombatAction.Declare(state(tree).board.combat!!.id, id(10))))
-        val occurrence = CombatStackRules.occurrences(state(tree).board.combat).single().id
+         tree = play(tree, a, PlayAction.Combat(CombatAction.Declare(state(tree).board.combat!!.id, id(10))))
+         val occurrence = CombatStackRules.occurrences(state(tree).board.combat).single().id
+        // Keep the ping's group stable so this tests target scope, not annotation regrouping.
+        tree = play(tree, b, PlayAction.AdjustLife(b, "1"))
         val reference = EventReference(tree.initial.id, tree.currentNodeId, tree.contextVersion(tree.currentNodeId))
         val pinged = play(tree, b, PlayAction.Ping(reference, PingTarget(PingTargetKind.OCCURRENCE, occurrence)))
         assertEquals("replayBlocked", control(pinged).reason)
@@ -272,6 +274,94 @@ class UndoOwnerRuleTest {
         var tree = play(GameplayTree(initial), a, PlayAction.ShowContents(id(20), ContentsSelection.TOP))
         tree = play(tree, b, PlayAction.ShuffleLibrary(id(20), RandomV1.encodeSeed(ByteArray(32))))
         assertEquals("replayBlocked", control(tree).reason)
+    }
+
+    @Test fun everyLibrarySourceEdgeConcernsUnchangedKnowledgeCleanup() {
+        val ids = listOf(id(10), id(11))
+        val seed = (0..20).map { n -> RandomV1.encodeSeed(ByteArray(32) { n.toByte() }) }
+            .first { RandomV1.shuffle(ids, it) == ids }
+        for (knownTop in listOf(true, false)) for (edge in MoveSourceEdge.entries) for (within in listOf(false, true)) {
+            val initial = gameplayFixture().let { r -> r.copy(board = r.board.copy(cards = r.board.cards.take(2),
+                containers = r.board.containers.map { if (it.id == id(20)) it.copy(cards = ids,
+                    knownTop = if (knownTop) listOf(ids.first()) else emptyList(),
+                    knownBottom = if (knownTop) emptyList() else listOf(ids.last())) else it })) }
+            var tree = play(GameplayTree(initial), a, PlayAction.ShuffleLibrary(id(20), seed))
+            assertEquals(ids, state(tree).board.containers.single { it.id == id(20) }.cards)
+            val card = if (edge == MoveSourceEdge.BOTTOM) ids.last() else ids.first()
+            val destination = if (within) MoveDestination(id(20), MoveInsertion.GAP,
+                afterId = if (card == ids.first()) ids.last() else null,
+                beforeId = if (card == ids.last()) ids.first() else null)
+                else MoveDestination(id(21), MoveInsertion.UNORDERED)
+            tree = play(tree, b, PlayAction.MoveCard(card, MoveSource(id(20), edge = edge), destination))
+            val fields = tree.nodes.getValue(tree.currentNodeId).transition.concerns!!.fields
+            for (key in listOf("knownTop", "knownBottom")) {
+                val tuple = fields.single { it.field == ConcernField.Entity("container", id(20), listOf(key)) }
+                assertEquals(tuple.before, tuple.after, "$edge within=$within $key is an unchanged cleanup")
+            }
+            tree.work.reset()
+            val refused = control(tree)
+            assertEquals("replayBlocked", refused.reason, "$edge within=$within knownTop=$knownTop")
+            assertNull(refused.tree)
+            assertEquals(0, tree.work.rootMaterializations)
+            assertEquals(0, tree.work.fullHistoryScans)
+        }
+    }
+
+    @Test fun undoRefusesToStrandRegroupedPingsCommentsAndOrdinals() {
+        for (comment in listOf(false, true)) {
+            var tree = play(GameplayTree(root()), b, PlayAction.SetNote(id(10), "B"))
+            tree = play(tree, a, PlayAction.SetNote(id(11), "A"))
+            val reference = EventReference(tree.initial.id, tree.initial.root.id, tree.contextVersion(tree.initial.root.id))
+            val action = if (comment) PlayAction.EventComment(reference, "retained comment")
+                else PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, id(10)))
+            tree = play(tree, b, action)
+            val before = state(tree)
+            val group = before.currentGroup!!.id
+            if (comment) assertEquals(group, before.annotations.comments.single().recording.groupId)
+            else {
+                assertEquals("1", EventAnnotations.activePings(before.annotations, group).single().to!!.ordinal)
+                assertEquals(1L, before.annotations.lastOrdinals[group])
+            }
+            tree.work.reset()
+            val refused = control(tree)
+            assertEquals("replayBlocked", refused.reason)
+            assertNull(refused.tree)
+            assertEquals(before, state(tree))
+            assertEquals(0, tree.work.rootMaterializations)
+            assertEquals(0, tree.work.fullHistoryScans)
+        }
+    }
+
+    @Test fun redoRefusesToStrandRegroupedPingOrdinal() {
+        var tree = play(GameplayTree(root()), b, PlayAction.SetNote(id(10), "B"))
+        tree = play(tree, a, PlayAction.SetNote(id(11), "A"))
+        tree = undo(tree)
+        val reference = EventReference(tree.initial.id, tree.initial.root.id, tree.contextVersion(tree.initial.root.id))
+        tree = play(tree, b, PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, id(10))))
+        val before = state(tree)
+        val refused = control(tree, redo = true)
+        assertEquals("replayBlocked", refused.reason)
+        assertNull(refused.tree)
+        assertEquals("1", EventAnnotations.activePings(state(tree).annotations, before.currentGroup!!.id).single().to!!.ordinal)
+        assertEquals(1L, state(tree).annotations.lastOrdinals[before.currentGroup.id])
+    }
+
+    @Test fun annotationsWithStableGroupSurviveIndependentUndoAndRedo() {
+        var tree = play(GameplayTree(root()), a, PlayAction.SetTapped(id(11), true))
+        tree = play(tree, b, PlayAction.SetNote(id(10), "B"))
+        val reference = EventReference(tree.initial.id, tree.initial.root.id, tree.contextVersion(tree.initial.root.id))
+        tree = play(tree, b, PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, id(10))))
+        tree = play(tree, b, PlayAction.EventComment(reference, "retained"))
+        val before = state(tree)
+        val undone = undo(tree)
+        val redone = assertNotNull(control(undone, redo = true).tree)
+        for (candidate in listOf(undone, redone)) {
+            val after = state(candidate)
+            assertEquals(before.currentGroup!!.id, after.currentGroup!!.id)
+            assertEquals(before.annotations, after.annotations)
+            assertEquals("1", EventAnnotations.activePings(after.annotations, after.currentGroup.id).single().to!!.ordinal)
+            assertEquals(after.currentGroup.id, after.annotations.comments.single().recording.groupId)
+        }
     }
 
     @Test fun independentForkIsBlockedEvenWithTinySuffix() {

@@ -236,7 +236,7 @@ class CardPanelUiTest {
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithText(label, useUnmergedTree = true).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertEquals(2, layouts.single().lineCount)
-            assertFalse(layouts.single().hasVisualOverflow, "$name must fit: ${layouts.single()}")
+            assertFalse((0 until layouts.single().lineCount).any(layouts.single()::isLineEllipsized), "$name must not ellipsize")
         }
         compose.onNodeWithContentDescription("Hand").assertWidthIsEqualTo(CardRingGeometry.cell.dp)
             .assertHeightIsEqualTo(CardRingGeometry.cell.dp)

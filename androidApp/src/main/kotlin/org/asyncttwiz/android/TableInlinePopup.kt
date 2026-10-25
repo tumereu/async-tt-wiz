@@ -284,9 +284,9 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
     RingPress(entry.control, modifier.then(dragModifier), entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             val twoLines = '\n' in entry.label
-            MenuIcon(entry.control.name, Modifier.size(if (twoLines) 20.dp else 24.dp),
+            MenuIcon(entry.control.name, Modifier.size(if (twoLines) 18.dp else 24.dp),
                 tint = (entry.control.color ?: owner).copy(alpha = if (entry.control.enabled) 1f else .35f))
-            val textModifier = if (twoLines) Modifier.height(20.dp).semantics { hideFromAccessibility() }
+            val textModifier = if (twoLines) Modifier.semantics { hideFromAccessibility() }
                 else Modifier.clearAndSetSemantics {}
             Text(entry.label, Modifier.padding(horizontal = 2.dp).then(textModifier),
                 fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,

@@ -387,7 +387,8 @@ object TablePresentation {
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
-            countBadge = if (landscape) null else TableBounds(sb.x - 14f, sb.y - 22f, 20f, 20f))
+            // Outside the lower-left corner: clear of card titles and the shortcuts above/below the pile.
+            countBadge = if (landscape) null else TableBounds(sb.x - 28f, sb.bottom - 6f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)

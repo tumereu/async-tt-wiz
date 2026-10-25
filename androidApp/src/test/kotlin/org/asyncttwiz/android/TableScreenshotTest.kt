@@ -384,7 +384,7 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
         val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
         val start = minOf(field.bounds.right - 8, overlay?.x?.minus(24) ?: Float.MAX_VALUE).toInt()
         val x = (start downTo field.bounds.x.toInt() + 2).first { x -> scene.items.none { item ->
-            item.kind != TableItemKind.HAND && item.visible.any { part ->
+            item.kind != TableItemKind.HAND && (item.visible + listOfNotNull(item.countBadge)).any { part ->
                 x >= part.x - 4 && x <= part.right + 4 && part.intersection(field.bounds) != null }
         } }
         for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until minOf(field.bounds.bottom.toInt(), overlayTop)) {

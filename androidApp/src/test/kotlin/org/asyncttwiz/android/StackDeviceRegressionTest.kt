@@ -51,7 +51,11 @@ class StackDeviceRegressionTest {
                 bubble.controls.forEach { control ->
                     assertEquals(control.bounds, control.bounds.intersection(TableBounds(0f, 0f, width, height)))
                     assertTrue(bubble.controls.filter { it != control }.none { it.bounds.intersection(control.bounds) != null })
+                    assertEquals(control, after.hit(control.bounds.center))
+                    if (width < height) assertNull(control.bounds.intersection(pile.stackBadge),
+                        "Stack count must not overlap ${control.label}")
                 }
+                assertEquals(pile.id, after.hit(pile.stackBadge.center)?.id)
                 // A tap elsewhere dismisses the real gesture-generated bubbles.
                 val outside = TablePoint(width - 80, height / 2 + 90)
                 gestures.down(outside, 200); gestures.up(outside, 220)
@@ -64,9 +68,11 @@ class StackDeviceRegressionTest {
                 assertNull(ui.publicContents())
                 assertEquals(listOf<TableIntent>(TableIntent.StackBubbles(entry)), events)
                 scene()
+                val beforeBadge = f.commands().size
                  gestures.down(pile.stackBadge.center, 900); gestures.up(pile.stackBadge.center, 920)
                  gestures.down(pile.stackBadge.center, 960); gestures.up(pile.stackBadge.center, 980)
                  assertEquals("manageStack", ui.panel)
+                assertEquals(beforeBadge, f.commands().size, "Opening Stack contents must not move its source")
                 assertNull(ui.stackBubbleEntry)
                 ui.dismiss(); scene(); events.clear()
                 gestures.down(top.bounds.center, 1500); gestures.up(top.bounds.center, 1520)

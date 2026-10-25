@@ -1,9 +1,23 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
@@ -18,7 +32,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     val context = LocalContext.current
     val quantities = remember(owner) { LibraryQuantityStore(context, owner) }
     var editing by remember(controller) { mutableStateOf<String?>(null) }
-    var text by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf(selectedLibraryQuantity("")) }
     val enabled = controller.available()
     val mayOpen = enabled && board.contentsDisplays.none { it.author == owner }
     fun finish(result: LibrarySubmission) { if (result.refused == 0 && result.submitted > 0) onComplete() }
@@ -38,37 +52,60 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             }
         }
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (many in listOf(false, true)) Row {
+    if (editing == null) Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (many in listOf(false, true)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             for (action in listOf("Draw", "Reveal", "Look", "Mill", "Exile")) {
                 InlinePopupCell(MenuControl("$action ${if (many) "N…" else "1"}", if (action in listOf("Look", "Reveal")) mayOpen else enabled) {
-                    if (many) { text = quantities.read(action).toString(); editing = action }
+                    if (many) { text = selectedLibraryQuantity(quantities.read(action).toString()); editing = action }
                     else perform(action, 1)
                 })
             }
         }
-        Row {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             InlinePopupCell(MenuControl("Search", mayOpen) { show(ContentsSelection.ALL, 1) })
             InlinePopupCell(MenuControl("Shuffle", enabled) { finish(controller.shuffle()) })
         }
-        Text("Mulligan (hand → shuffle → draw)", style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            InlinePopupCell(MenuControl("Draw 7", enabled) { finish(controller.mulligan(displayedHand, 7)) })
-            InlinePopupCell(MenuControl("Draw one fewer", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
+            InlinePopupCell(MenuControl("Mulligan 7", enabled) { finish(controller.mulligan(displayedHand, 7)) })
+            InlinePopupCell(MenuControl("Mulligan −1", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
         }
     }
-    if (editing != null) TableMenuPanel({ editing = null }, title = "${editing} N") {
-        OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true,
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-            isError = text.toIntOrNull()?.let { it >= 0 } != true)
-        MenuButton("OK", enabled = enabled && text.toIntOrNull()?.let { it >= 0 } == true) {
-            text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
-                val action = editing ?: return@MenuButton
+    if (editing != null) {
+        BackHandler { editing = null }
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+        for ((label, delta) in listOf("−" to -1, "+" to 1)) InlinePopupCell(MenuControl(label, enabled) {
+            text = selectedLibraryQuantity(stepLibraryQuantity(text.text, delta).toString())
+        })
+        val color = LocalInlinePopupColor.current
+        Surface(Modifier.size(96.dp, 48.dp).ringInputTarget(), shape = RoundedCornerShape(3.dp),
+            color = androidx.compose.ui.graphics.Color.White, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
+            Box(contentAlignment = Alignment.Center) {
+                BasicTextField(text, { text = it }, Modifier.fillMaxWidth().padding(8.dp)
+                    .semantics { contentDescription = "$editing quantity" }
+                    .onFocusChanged { if (it.isFocused) text = selectedLibraryQuantity(text.text) }
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do { val event = awaitPointerEvent(PointerEventPass.Final) } while (event.changes.any { it.pressed })
+                            text = selectedLibraryQuantity(text.text)
+                        }
+                    }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MenuInk, textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+            }
+        }
+        InlinePopupCell(MenuControl("OK", enabled = enabled && text.text.toIntOrNull()?.let { it >= 0 } == true) {
+            text.text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
+                val action = editing ?: return@MenuControl
                 quantities.write(action, count); editing = null; perform(action, count)
             }
+        })
         }
     }
 }
+
+internal fun selectedLibraryQuantity(text: String) = TextFieldValue(text, TextRange(0, text.length))
+internal fun stepLibraryQuantity(text: String, delta: Int): Int =
+    ((text.toIntOrNull() ?: 0).toLong() + delta).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
 
 internal class LibraryQuantityStore(context: Context, account: String) {
     private val preferences = context.applicationContext.getSharedPreferences("library-quantities", Context.MODE_PRIVATE)

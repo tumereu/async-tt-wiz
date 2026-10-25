@@ -70,7 +70,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", height = 520.dp, key = "manage-stack") {
+    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", height = 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId

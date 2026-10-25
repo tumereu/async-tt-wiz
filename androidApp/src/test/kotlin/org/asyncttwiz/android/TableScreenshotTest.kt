@@ -306,11 +306,11 @@ class TableScreenshotTest {
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Increase blue counter").performTouchInput { advanceEventTime(350); click() }
         assertTrue(sent.last() is PlayAction.AdjustCounter)
-        compose.onNodeWithText("Life / counters").assertExists()
+        compose.onNodeWithContentDescription("Life / counters").assertExists()
         compose.runOnIdle { toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N) }
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Draw 1").performTouchInput { advanceEventTime(350); click() }
-        compose.onNodeWithText("Library").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Library").assertDoesNotExist()
         assertEquals(null, toolkit.panel)
     }
 
@@ -345,11 +345,12 @@ class TableScreenshotTest {
         val (toolkit, _) = menu("library-actions", false, submitOk = false)
         compose.onNodeWithContentDescription("Draw 1").performClick()
         assertEquals("library", toolkit.panel)
-        compose.onNodeWithText("Library").assertExists()
+        compose.onNodeWithContentDescription("Library").assertExists()
     }
 
     @Test fun choosingStepClosesPickerAndDoesNotPerformCardActions() {
         val (toolkit, sent) = menu("phase-picker", false)
+        compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Untap").performClick()
         assertEquals(listOf(PlayAction.ChooseStep(TurnPosition.UNTAP)), sent)
         assertEquals(null, toolkit.panel)
@@ -357,7 +358,7 @@ class TableScreenshotTest {
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun libraryMulliganRemainsReachableInLandscape() {
         menu("library-actions", true)
-        compose.onNodeWithContentDescription("Draw one fewer").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Mulligan −1").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun movePageKeepsStackDestinationReachable() {

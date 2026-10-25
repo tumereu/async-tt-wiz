@@ -87,33 +87,25 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
     controller: TableActionController, onDismiss: () -> Unit, onComplete: () -> Unit = onDismiss,
     names: Map<String, String> = emptyMap()) {
     val scope = TableActionScope(play.gameId, play.id)
-    val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val turn = play.board.turn
-    TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = turnStepName(turn),
-        border = endingPlayerColor, gap = if (landscape) 4.dp else 8.dp, contentPadding = if (landscape) 8.dp else 12.dp) {
-        Text(names[turn.accountId]?.let { "$it's turn" } ?: if (turn.accountId == viewerId) "Your turn" else "Opponent's turn",
-            style = MaterialTheme.typography.bodySmall)
+    val player = names[turn.accountId]?.let { "$it's turn" } ?: if (turn.accountId == viewerId) "Your turn" else "Opponent's turn"
+    InlinePopupPanel(onDismiss, title = "${turnStepName(turn)}, $player", key = "phase-step") {
         for ((phase, steps) in TurnPosition.entries.groupBy { it.phase }) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(phaseName(phase), style = MaterialTheme.typography.labelSmall, color = MenuInk.copy(alpha = .7f))
-                Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
-                    .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (step in steps) ManualActionSquare(step.label, "", controller.enabled(scope),
-                        iconTint = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
-                        selected = TurnPosition.of(turn) == step,
-                        onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (step in steps) InlinePopupCell(MenuControl(step.label, controller.enabled(scope),
+                    selected = TurnPosition.of(turn) == step) {
+                    if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete()
+                }, owner = endingPlayerColor, fill = phaseColor(phase))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            InlinePopupCell(MenuControl("Next step", controller.enabled(scope)) {
                 if (controller.perform(TableActionIntent.Next(scope))) onComplete()
-            }
-            MenuButton(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",
-                Modifier.weight(1f), controller.enabled(scope), endingPlayerColor) {
+            }, owner = endingPlayerColor)
+            InlinePopupCell(MenuControl(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",
+                controller.enabled(scope)) {
                 if (controller.perform(TableActionIntent.End(scope))) onComplete()
-            }
+            }, owner = endingPlayerColor)
         }
     }
 }

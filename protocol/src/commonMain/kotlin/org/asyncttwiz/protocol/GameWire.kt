@@ -61,7 +61,8 @@ import kotlinx.serialization.json.*
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
     val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
-    val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false) : GameServerMessage
+    val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false,
+    val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

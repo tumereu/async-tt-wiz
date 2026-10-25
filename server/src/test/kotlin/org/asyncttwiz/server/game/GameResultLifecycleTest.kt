@@ -224,6 +224,7 @@ class GameResultLifecycleTest {
                 val principal = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "A"))
                 val recipient = AccountService.Principal(UUID.randomUUID(), AccountIdentity(b, "B"))
                 val games = GameService(runtime); assertEquals(play, games.head(principal, gameId).play)
+                games.checkpointGameplay()
                 assertEquals(original, games.results(recipient, gameId, listOf(request)).statuses.single().result)
                 val author = Stream(games, principal, gameId); val other = Stream(games, recipient, gameId)
                 author.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))

@@ -11,8 +11,11 @@ public final class ServiceCommand {
 
     public static void main(String[] args) {
         if (args.length == 1 && args[0].equals("migrate")) { MigrationCommand.main(args); return; }
+        if (args.length == 1 && args[0].equals("checkpoint-gameplay")) {
+            org.asyncttwiz.server.game.GameplayMaintenance.run(); return;
+        }
         if (args.length != 1 || !args[0].equals("serve")) {
-            System.err.println("Usage: server serve|migrate");
+            System.err.println("Usage: server serve|migrate|checkpoint-gameplay");
             System.exit(2);
         }
         // Library startup/SQL exceptions may include raw URLs/credentials. Only fixed messages below

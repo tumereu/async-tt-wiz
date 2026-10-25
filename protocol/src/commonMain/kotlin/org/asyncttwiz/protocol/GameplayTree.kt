@@ -7,7 +7,7 @@ import kotlin.concurrent.Volatile
 
 /** The boundary is a stable parent plus the removed continuation, not a captured shared head. */
 @Serializable data class GameplayRedoEntry(val mutation: GameplayMutation, val successorId: String?,
-    val otherChildIds: Set<String>)
+    val otherChildIds: Set<String>, val otherChildCount: Int? = null)
 
 /** One immutable retained tree. Root data is immutable; materialized boards are derived, not per-node snapshots.
  * Queue order is oldest to newest (last entry is next). These queues are current account control state.
@@ -43,6 +43,18 @@ import kotlin.concurrent.Volatile
     internal fun index(): RetainedIndex = retainedIndex ?: RetainedIndex.build(this).also {
         work.fullHistoryScans++; work.indexedNodes += nodes.size; retainedIndex = it
     }
+
+    /** Trusted persistence adapter only: the endpoint and indices must be committed atomically with
+     * the accepted records. No replay/validation bypass is exposed on the client wire codec. */
+    fun restoreEndpoint(state: PlayState, index: RetainedIndex): GameplayTree {
+        require(state.id == initial.id && state.gameId == initial.gameId && state.currentNodeId == currentNodeId)
+        require(state.engineVersion == initial.engineVersion && state.readFormat == initial.readFormat)
+        require(index.positions[currentNodeId] != null)
+        retainedIndex = index
+        return checkpoint(state)
+    }
+
+    fun endpointIndex(): RetainedIndex = index()
 
     /** Reducers publish their write set, not a diff of the retained history. */
     internal fun changedFrom(previous: GameplayTree, keys: Set<GameplayTreeKey>): GameplayTree {

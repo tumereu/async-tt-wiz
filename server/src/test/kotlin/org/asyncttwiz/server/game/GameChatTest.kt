@@ -92,10 +92,13 @@ class GameChatTest {
                 assertEquals(listOf(first.requestId), accepted.createdIds)
                 val head = f.games.head(f.a, f.game.id); assertEquals(head, f.games.head(f.b, f.game.id))
                 assertEquals(before.play, head.play); assertEquals(before.preparation, head.preparation)
-                assertEquals(listOf(first.requestId, second.requestId), head.chat.map { it.id })
-                assertEquals(listOf("  Hello\n😀  ", "Correction"), head.chat.map { it.text })
-                assertEquals(listOf(f.a.account.accountId, f.b.account.accountId), head.chat.map { it.author })
-                assertTrue(head.chat.all { it.playId == before.play!!.id && it.createdAt.endsWith("Z") })
+                assertTrue(head.chat.isEmpty())
+                assertEquals(ChatSync(head.revision, second.requestId), head.chatSync)
+                val chat = f.games.chat(f.a, f.game.id).messages
+                assertEquals(listOf(first.requestId, second.requestId), chat.map { it.id })
+                assertEquals(listOf("  Hello\n😀  ", "Correction"), chat.map { it.text })
+                assertEquals(listOf(f.a.account.accountId, f.b.account.accountId), chat.map { it.author })
+                assertTrue(chat.all { it.playId == before.play!!.id && it.createdAt.endsWith("Z") })
                 assertEquals(accepted, f.owner.admit(first))
                 assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
                     f.owner.admit(first.copy(action = GameAction.SendChat("changed"))) }.code)
@@ -105,7 +108,11 @@ class GameChatTest {
                 assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) {
                     f.games.revisions(f.other, f.game.id, "0") }.code)
                 val revisions = f.games.revisions(f.b, f.game.id, before.revision).revisions
-                assertEquals(head.chat, revisions.map { it.chatMessage }); assertEquals(2, revisions.size)
+                assertEquals(chat, revisions.map { it.chatMessage }); assertEquals(2, revisions.size)
+                assertEquals(chat.drop(1), f.games.chat(f.b, f.game.id, after = chat.first().revision).messages)
+                assertEquals(chat.take(1), f.games.chat(f.b, f.game.id, before = chat.last().revision).messages)
+                assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { f.games.chat(f.other, f.game.id) }.code)
+                assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) { f.games.chat(f.a, f.game.id, "1", "1") }.code)
                 assertEquals(2, count(db, "game_chat")); assertEquals(1, count(db, "game_play"))
                 println("PASS real PostgreSQL durable shared FIFO, two real account principals, exact multiline text, immutable message/correction, duplicate original outcomes, private results/nonparticipant read denial, unchanged play/tree, revision fanout payload")
             }
@@ -142,7 +149,7 @@ class GameChatTest {
                 val result = resume.statuses.single().result!!; assertEquals("accepted", result.outcome)
                 assertEquals(result, games.admit(actor, hello, connection, original.copy(generation = resume.generation)))
                 assertEquals(1, count(db, "game_chat")); assertEquals(before.play, games.head(actor, before.gameId).play)
-                assertEquals(original.requestId, games.head(actor, before.gameId).chat.single().id)
+                assertEquals(original.requestId, games.chat(actor, before.gameId).messages.single().id)
                 println("PASS atomic chat/message/revision/result/outbox rollback, durable pending worker restart and original stream result recovery exactly once")
             }
         }
@@ -173,7 +180,8 @@ class GameChatTest {
                 val undone = f.owner.execute(undo)
                 assertEquals("accepted", undone.outcome)
                 assertEquals(f.owner.result(edit).mutation!!.id, undone.targetNodeId)
-                assertEquals(head.chat, f.games.head(f.a, f.game.id).chat)
+                val chat = f.games.chat(f.a, f.game.id).messages
+                assertEquals(listOf(first.requestId, second.requestId), chat.map { it.id })
                 assertEquals("accepted", f.owner.execute(edit.copy(requestId = id(), action = GameAction.Redo)).outcome)
                 assertEquals(undone, f.owner.admit(undo))
                 head = f.games.head(f.a, f.game.id)
@@ -187,7 +195,7 @@ class GameChatTest {
                 val snapshot = GameplaySnapshot(manifest.head!!, emptyList(), records)
                 GameplaySync.validate(snapshot)
                 assertEquals(head, snapshot.head); assertTrue(snapshot.records.all { it.chatMessage == null })
-                assertEquals(listOf(first.requestId, second.requestId), snapshot.head.chat.map { it.id })
+                assertTrue(snapshot.head.chat.isEmpty()); assertEquals(head.chatSync, snapshot.head.chatSync)
                 val retained = TreeSync.decode(records.asSequence(), head.gameId, head.play!!.id).tree
                 assertEquals(listOf(edit.requestId), retained.nodes.values.map { it.requestId })
                 assertEquals(head.play, retained.stateAt(retained.currentNodeId))
@@ -198,7 +206,7 @@ class GameChatTest {
                 assertEquals("accepted", f.recipient.execute(accept).outcome)
                 val returned = f.games.head(f.a, f.game.id)
                 assertEquals(GameLifecycle.LOBBY, returned.summary.lifecycle); assertNull(returned.play)
-                assertEquals(head.chat, returned.chat); assertTrue(returned.preparation!!.players.none { it.ready })
+                assertEquals(chat, f.games.chat(f.a, f.game.id).messages); assertTrue(returned.preparation!!.players.none { it.ready })
                 assertEquals(ActivityDestination.CURRENT, activity.target(f.b, ActivityKind.GAME, f.game.id, groupTarget.groupId!!).destination)
                 assertEquals(2, count(db, "gameplay_mutation")); assertEquals(0, count(db, "game_play_mutation"))
                 assertEquals("accepted", f.owner.admit(first).let { it as GameResult }.outcome)

@@ -217,6 +217,7 @@ class GameplayDurabilityTest {
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val games = GameService(runtime)
                 val actor = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "OldA"))
+                games.checkpointGameplay() // Explicit one-off endpoint upgrade, never a cold command scan.
                 assertEquals(before, games.head(actor, game).play)
                 assertEquals(result, games.results(actor, game, listOf(start)).statuses.single().result)
                 val connection = UUID.randomUUID(); val hello = GameHello(gameplayId(), gameplayId())

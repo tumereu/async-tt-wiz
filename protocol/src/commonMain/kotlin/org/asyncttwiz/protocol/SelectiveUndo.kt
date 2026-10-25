@@ -1,7 +1,5 @@
 package org.asyncttwiz.protocol
 
-import kotlinx.collections.immutable.toPersistentList
-
 /** Pure processing-time engine. The caller owns admission order, deduplication, lifecycle and atomic SQL.
  * Never call this again for a completed request: recover its original inbox result instead.
  */
@@ -100,11 +98,11 @@ object SelectiveUndo {
             if (successor == null) nodes else nodes.putShared(successor.id, successor.copy(parentId = target.parentId))
         }
         val entry = GameplayRedoEntry(target, successor?.id,
-            children[target.parentId].orEmpty().removeShared(target.id))
+            emptySet(), otherChildCount = children[target.parentId].orEmpty().size - 1)
         var candidate = tree.copy(nodes = nodes,
             currentNodeId = if (tree.currentNodeId == target.id) target.parentId else tree.currentNodeId,
             currentBranchId = if (tree.currentNodeId == target.id) state.currentBranchId else tree.currentBranchId,
-            redoByAccount = tree.redoByAccount.putShared(actor, tree.redoByAccount[actor].orEmpty().toPersistentList().add(entry)),
+            redoByAccount = tree.redoByAccount.putShared(actor, tree.redoByAccount[actor].orEmpty().appendShared(entry)),
             removedParents = tree.removedParents.putShared(target.id, target.parentId))
         candidate.changedFrom(tree, editKeys(target, later, actor))
         candidate.nearby(state)
@@ -168,9 +166,12 @@ object SelectiveUndo {
         }
         if (cursor != target.parentId) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
         val childIds = children[target.parentId].orEmpty()
-        val continuationCount = childIds.size - entry.otherChildIds.size
+        // Siblings are frozen while this queue survives: any explicit continuation/fork clears
+        // all queues. A count is sufficient, and avoids copying/encoding thousands of siblings
+        // when undoing one terminal child of a popular historical fork.
+        val continuationCount = childIds.size - (entry.otherChildCount ?: entry.otherChildIds.size)
         if (continuationCount > 1) return GameplayTreeChange(reason = "forkBoundary", targetId = target.id)
-        val successor = activeChild?.takeIf { it.id !in entry.otherChildIds } ?: entry.successorId
+        val successor = activeChild?.takeIf { entry.otherChildCount != null || it.id !in entry.otherChildIds } ?: entry.successorId
             ?.takeIf { it in childIds && it !in entry.otherChildIds }?.let(tree.nodes::get)
         if (continuationCount != (if (successor == null) 0 else 1)) return GameplayTreeChange(reason = "missingAnchor", targetId = target.id)
         if (entry.successorId != null && successor?.id != entry.successorId)
@@ -188,7 +189,7 @@ object SelectiveUndo {
         var candidate = tree.copy(nodes = nodes,
             currentNodeId = if (tree.currentNodeId == target.parentId) target.id else tree.currentNodeId,
             currentBranchId = if (tree.currentNodeId == target.parentId) target.branchId else tree.currentBranchId,
-            redoByAccount = if (queue.size == 1) tree.redoByAccount.removeShared(actor) else tree.redoByAccount.putShared(actor, queue.toPersistentList().removeAt(queue.lastIndex)),
+            redoByAccount = if (queue.size == 1) tree.redoByAccount.removeShared(actor) else tree.redoByAccount.putShared(actor, queue.dropLastShared()),
             removedParents = tree.removedParents.removeShared(target.id))
         candidate.changedFrom(tree, editKeys(target, later, actor))
         candidate.nearby(state)

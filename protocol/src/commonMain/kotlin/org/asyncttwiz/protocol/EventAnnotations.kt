@@ -29,6 +29,9 @@ import kotlinx.serialization.Transient
     fun copy(comments: List<RecordedEventComment> = this.comments, pings: List<RecordedPingChange> = this.pings) = EventAnnotationState(comments, pings)
 
     @Transient private var activeIndex: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>>? = null
+    /** Transaction-scoped indexed presentation state, separate from historical records. */
+    fun restoreActive(index: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>>): EventAnnotationState =
+        also { activeIndex = index }
     private fun active(): Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = activeIndex ?: run {
         var groups: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = emptyMap()
         for (record in pingsById.values) {
@@ -39,6 +42,7 @@ import kotlinx.serialization.Transient
         groups.also { activeIndex = it }
     }
     internal fun active(group: String) = active()[group].orEmpty()
+    fun activePing(group: String, reference: ReferencedEventContext, target: PingTarget): RecordedPingChange? = active(group)[reference to target]
     internal fun comment(id: String, next: RecordedEventComment?): EventAnnotationState =
         copy(commentsById = if (next == null) commentsById.removeShared(id) else commentsById.putShared(id, next))
             .also { it.activeIndex = activeIndex }

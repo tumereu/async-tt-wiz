@@ -97,6 +97,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private val resultIntents = linkedMapOf<String, ResultIntent>()
     private val messages = mutableMapOf<String, List<ChatMessage>>()
     private val chatRevisions = mutableMapOf<String, String>()
+    private val chatCursors = mutableMapOf<String, String>()
+    private val olderChat = mutableMapOf<String, String>()
+    private val chatReads = mutableSetOf<String>()
     private val chatSubmissions = linkedMapOf<String, ChatSubmission>()
     fun chat(gameId: String) = messages[gameId].orEmpty()
     fun outgoingChat(gameId: String) = chatSubmissions.values.filter { it.command.scope.gameId == gameId }
@@ -175,7 +178,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)
         recoveries.remove(gameId)
-        messages.remove(gameId); chatRevisions.remove(gameId)
+        messages.remove(gameId); chatRevisions.remove(gameId); chatCursors.remove(gameId); olderChat.remove(gameId); chatReads.remove(gameId)
         chatSubmissions.entries.removeAll { it.value.command.scope.gameId == gameId }
         selections.entries.removeAll { it.value.command.scope.gameId == gameId }
         transfers.entries.removeAll { it.value.command.scope.gameId == gameId }
@@ -580,7 +583,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 // A leading HTTP summary is deliberately not this accepted-state boundary.
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
-                installChat(message.gameId, message.revision, message.chat, snapshot = true)
+                installChatHead(message)
                 observePlay(message.summary)
                 recoveries[message.gameId]?.let { if (newerOrEqual(message.revision, it.through)) it.through = message.revision }
                 if (message.play != null) {
@@ -703,6 +706,49 @@ class GameSession(private val connection: GameConnection, private val credential
         messages[gameId] = retained.distinctBy { it.id }.sortedBy { GameWire.ordinal(it.revision) }
         if (oldRevision == null || newerOrEqual(revision, oldRevision)) chatRevisions[gameId] = revision
         incoming.forEach { chatSubmissions.remove(it.id) }
+    }
+    private fun installChatHead(head: GameHead) {
+        val sync = head.chatSync
+        if (sync == null) { installChat(head.gameId, head.revision, head.chat, snapshot = true); return }
+        if (!ended(head.summary)) fetchChat(head.gameId, sync)
+    }
+
+    /** Bounded initial window, independent revision catch-up. Heads never replace chat with an
+     * empty snapshot. Live deliveries may race pages, so merge by immutable message identity. */
+    private fun fetchChat(gameId: String, sync: ChatSync) {
+        val cursor = chatCursors[gameId]
+        if (cursor != null && GameWire.ordinal(cursor) >= GameWire.ordinal(sync.revision)) return
+        if (!chatReads.add(gameId)) return
+        val generation = epoch; val owner = account
+        if (!connection.chatPage(gameId, after = cursor) { page -> post {
+            if (closed || generation != epoch || owner != account || !sameAccount()) return@post
+            chatReads.remove(gameId)
+            if (page != null && available(gameId)) {
+                installChat(gameId, page.sync.revision, page.messages, snapshot = false)
+                if (cursor == null) page.older?.let { olderChat[gameId] = it }
+                chatCursors[gameId] = page.next ?: page.sync.revision
+                statusChanged()
+                if (page.next != null) fetchChat(gameId, page.sync)
+                else if (GameWire.ordinal(sync.revision) > GameWire.ordinal(page.sync.revision)) fetchChat(gameId, sync)
+            }
+        } }) chatReads.remove(gameId)
+    }
+
+    fun loadOlderChat(gameId: String): Boolean {
+        val cursor = olderChat[gameId] ?: return false
+        if (!chatReads.add(gameId)) return false
+        val generation = epoch; val owner = account
+        val started = connection.chatPage(gameId, before = cursor) { page -> post {
+            if (closed || generation != epoch || owner != account || !sameAccount()) return@post
+            chatReads.remove(gameId)
+            if (page != null && available(gameId)) {
+                installChat(gameId, page.sync.revision, page.messages, snapshot = false)
+                olderChat.remove(gameId); page.older?.let { olderChat[gameId] = it }
+                statusChanged()
+            }
+        } }
+        if (!started) chatReads.remove(gameId)
+        return started
     }
     private fun result(result: GameResult) {
         if (BuildConfig.DEBUG) DebugLatency.result(result.requestId)
@@ -885,7 +931,7 @@ class GameSession(private val connection: GameConnection, private val credential
                         ?.takeIf { it.resultRevision == replica.revision }
                     val head = baseline.snapshot.head
                     install(latest?.summary ?: head.summary, replica.revision!!, null, replica.accepted)
-                    installChat(gameId, head.revision, head.chat, snapshot = true)
+                    installChatHead(head)
                     recovery.tail.forEach { update -> update.chatMessage?.let {
                         installChat(gameId, update.resultRevision, listOf(it), snapshot = false)
                     } }
@@ -987,7 +1033,7 @@ class GameSession(private val connection: GameConnection, private val credential
             val summary = appliedTail.lastOrNull { it.resultRevision == replica.revision }?.summary ?: transfer.manifest.head!!.summary
             install(summary, replica.revision!!, null, replica.accepted)
             val head = requireNotNull(transfer.manifest.head)
-            installChat(gameId, head.revision, head.chat, snapshot = true)
+            installChatHead(head)
             appliedTail.forEach { update -> update.chatMessage?.let { installChat(gameId, update.resultRevision, listOf(it), snapshot = false) } }
             for (status in transfer.manifest.statuses) if (status.status == "final") result(requireNotNull(status.result))
             streams[gameId]?.head = true; error = null; flush(); recoveryReady(); statusChanged()
@@ -1054,12 +1100,12 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun disconnect() {
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
-        epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear()
+        epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear(); chatReads.clear()
         recoveries.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        messages.clear(); chatRevisions.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; error = null; statusChanged() }
+        messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

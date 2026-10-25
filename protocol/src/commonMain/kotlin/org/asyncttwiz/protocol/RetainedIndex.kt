@@ -4,15 +4,15 @@ import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.collections.immutable.toPersistentSet
 
 /** Preserve insertion order and share all untouched trie pages. Wire properties remain ordinary maps. */
-internal fun <K, V> Map<K, V>.putShared(key: K, value: V): Map<K, V> = toPersistentMap().put(key, value)
-internal fun <K, V> Map<K, V>.removeShared(key: K): Map<K, V> = toPersistentMap().remove(key)
-internal fun <T> Set<T>.addShared(value: T): Set<T> = toPersistentSet().add(value)
-internal fun <T> Set<T>.removeShared(value: T): Set<T> = toPersistentSet().remove(value)
+internal fun <K, V> Map<K, V>.putShared(key: K, value: V): Map<K, V> = if (this is IndexedMap<K, V>) putting(key, value) else toPersistentMap().put(key, value)
+internal fun <K, V> Map<K, V>.removeShared(key: K): Map<K, V> = if (this is IndexedMap<K, V>) removing(key) else toPersistentMap().remove(key)
+internal fun <T> Set<T>.addShared(value: T): Set<T> = if (this is IndexedSet<T>) adding(value) else toPersistentSet().add(value)
+internal fun <T> Set<T>.removeShared(value: T): Set<T> = if (this is IndexedSet<T>) removing(value) else toPersistentSet().remove(value)
 
 /** Disposable topology metadata. Built once at cold import, then edited only along changed edges.
  * No boards or caller-provided identities are stored here. */
-internal data class RetainedPosition(val depth: Int, val identity: String)
-internal class RetainedIndex(
+@kotlinx.serialization.Serializable data class RetainedPosition(val depth: Int, val identity: String)
+class RetainedIndex(
     var children: Map<String, Set<String>> = emptyMap(),
     var readers: Map<String, Set<String>> = emptyMap(),
     var positions: Map<String, RetainedPosition> = emptyMap(),

@@ -137,6 +137,13 @@ class GameService(private val runtime: ServiceRuntime) {
         locked(sql, uuid(gameId), actor(principal))
         readHead(sql, principal, gameId)
     }
+    /** Stack reordering is retired: a same-Stack card move is the legacy reorder route, so new ones are refused here. */
+    private fun reordersStack(tree: GameplayTree, command: GameCommand): Boolean {
+        val move = (command.action as? GameAction.Play)?.action as? PlayAction.MoveCard ?: return false
+        if (move.source.containerId != move.destination.containerId) return false
+        return tree.stateAt(tree.currentNodeId)?.board?.containers
+            ?.any { it.id == move.source.containerId && it.zone == PlayZone.STACK } == true
+    }
     /** A socket may learn removal and recover originals, never reopen the removed replica. */
     fun subscriptionHead(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         val game = locked(sql, uuid(gameId), actor(principal), recovery = true)
@@ -247,6 +254,7 @@ class GameService(private val runtime: ServiceRuntime) {
         else if (isGameplay) {
             val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
             if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
+            else if (reordersStack(tree, command)) GameplayTreeChange(reason = "stackReorderingRemoved")
             else {
                 historyLoaded = System.nanoTime()
                 HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->

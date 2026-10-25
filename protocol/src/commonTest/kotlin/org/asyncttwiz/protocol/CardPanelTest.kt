@@ -45,8 +45,8 @@ class CardPanelTest {
         val moved = step(revealed, PlayAction.MoveCard(card.id, MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED)))
         assertNotEquals(revealed.currentGroup.id, moved.currentGroup!!.id)
         assertEquals(display.cardIds.drop(1), moved.board.contentsDisplays.single().cardIds)
-        assertTrue(moved.board.cards.first().knownToAll)
-        assertTrue(CardVisibility.isVisibleFaceUp(moved.board, moved.board.cards.first(), b))
+        assertFalse(moved.board.cards.first().knownToAll)
+        assertFalse(CardVisibility.isVisibleFaceUp(moved.board, moved.board.cards.first(), b))
         val returned = step(moved, PlayAction.MoveCard(card.id, MoveSource(id(11)), MoveDestination(id(10), MoveInsertion.TOP)))
         assertFalse(returned.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(returned.board, returned.board.cards.first(), b))
@@ -79,17 +79,88 @@ class CardPanelTest {
         assertFalse(reordered.mutation!!.revealsInformation)
         assertTrue(reordered.mutation.transition.disclosures.isEmpty())
     }
-    @Test fun revealedTopStaysKnownAfterClosingButNotAfterDrawingToAnotherZone() {
+    @Test fun revealTopExpiresEvenForASameContainerMoveAndAutoClosesTheLastCard() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 1))
         val panel = opened.board.contentsDisplays.single()
         val revealed = step(opened, PlayAction.RevealContentsCard(panel.id, id(20)))
         val placed = step(revealed, PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(10), MoveInsertion.TOP)))
-        val closed = step(placed, PlayAction.DismissContents(panel.id))
-        assertTrue(closed.board.cards.first().knownToAll)
-        assertTrue(CardVisibility.isVisibleFaceUp(closed.board, closed.board.cards.first(), b))
-        val drawn = step(closed, PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED)))
+        assertTrue(placed.board.contentsDisplays.isEmpty())
+        assertFalse(placed.board.cards.first().knownToAll)
+        assertFalse(CardVisibility.isVisibleFaceUp(placed.board, placed.board.cards.first(), b))
+        assertEquals("noOp", change(placed, PlayAction.DismissContents(panel.id)).outcome)
+        val drawn = step(placed, PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED)))
         assertFalse(drawn.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(drawn.board, drawn.board.cards.first(), b))
+    }
+    @Test fun everyPanelAutoClosesInTheLastMoveAndAllowsAnImmediateNewPanel() {
+        for ((selection, reveal) in listOf(ContentsSelection.TOP to false, ContentsSelection.TOP to true, ContentsSelection.ALL to false)) {
+            var state = step(root(), PlayAction.ShowContents(id(10), selection, 2, reveal))
+            val ids = state.board.contentsDisplays.single().cardIds
+            for ((index, card) in ids.withIndex()) {
+                val before = state
+                val result = change(before, PlayAction.MoveCard(card, MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED)))
+                state = assertNotNull(result.state)
+                val event = assertNotNull(result.mutation)
+                assertEquals(2, event.transition.contentsRulesVersion)
+                assertEquals(5, event.transition.movement!!.coverRulesVersion)
+                assertEquals(before, GameplayHistory.unapply(state, event))
+                assertEquals(state, GameplayHistory.apply(before, event))
+                assertFalse(CardVisibility.isVisibleFaceUp(state.board, state.board.cards.single { it.id == card }, b))
+                assertEquals(index == ids.lastIndex, state.board.contentsDisplays.isEmpty())
+                if (index == ids.lastIndex) assertNull(event.transition.contents!!.to)
+            }
+            step(state, PlayAction.ShowContents(id(10), ContentsSelection.TOP))
+        }
+    }
+    @Test fun revealedRestInEveryHiddenLibraryPositionExpiresAndUndoRestoresTheWindow() {
+        for (reveal in listOf(false, true)) for (rest in listOf(ContentsRest.TOP, ContentsRest.BOTTOM, ContentsRest.BOTTOM_RANDOM, ContentsRest.SHUFFLE)) {
+            val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2, reveal))
+            val panel = opened.board.contentsDisplays.single()
+            val visible = if (reveal) opened else step(opened, PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()))
+            val card = visible.board.cards.first()
+            assertTrue(CardVisibility.isVisibleFaceUp(visible.board, card, b))
+            val closed = step(visible, PlayAction.DismissContents(panel.id, rest, seed))
+            assertFalse(CardVisibility.isVisibleFaceUp(closed.board, closed.board.cards.first(), b))
+            assertTrue(closed.board.cards.none { it.knownToAll })
+        }
+    }
+    @Test fun legacyContentsEffectsRetainPersistentKnowledgeAndAnEmptyPanelOnRecordedTraversal() {
+        fun command(state: PlayState, action: PlayAction) = GameCommand(id(request++),
+            GameScope(state.gameId, playId = state.id), GameAction.Play(action), id(90), "1")
+        fun retained(before: PlayState, raw: GameplayChange): PlayState {
+            val next = assertNotNull(raw.state)
+            val event = assertNotNull(raw.mutation).let { it.copy(schemaVersion = 2,
+                transition = it.transition.copy(delta = GameplayDeltas.capture(before, next, it.id)),
+                bookkeeping = GameplayBookkeeping(before.currentGroup, before.currentBranchId, next.currentGroup)) }
+            val sealed = event.copy(transition = event.transition.copy(delta = event.transition.delta!!.copy(seal = GameplayDeltas.seal(event))))
+            val encoded = GameWire.json.encodeToString(GameplayMutation.serializer(), sealed)
+            assertFalse(encoded.contains("contentsRulesVersion"))
+            val wire = GameWire.json.decodeFromString(GameplayMutation.serializer(), encoded)
+            assertEquals(next, GameplayHistory.apply(before, wire))
+            assertEquals(before, GameplayHistory.unapply(next, wire))
+            assertEquals(next, GameplayHistory.replay(before, wire).state)
+            return next
+        }
+        val root = root()
+        val show = PlayAction.ShowContents(id(10), ContentsSelection.TOP, 1, reveal = true)
+        val opened = retained(root, LibraryRules.change(root, a, command(root, show), show, contentsRulesVersion = 1))
+        assertEquals(2, opened.board.contentsDisplays.single().panelVersion)
+        val close = PlayAction.DismissContents(opened.board.contentsDisplays.single().id)
+        val closed = retained(opened, LibraryRules.change(opened, a, command(opened, close), close, contentsRulesVersion = 1))
+        assertTrue(CardVisibility.isVisibleFaceUp(closed.board, closed.board.cards.first(), b))
+        val card = opened.board.cards.first()
+        val move = PlayAction.MoveCard(card.id, MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED))
+        val board = opened.board.copy(cards = opened.board.cards.map { if (it.id == card.id) it.copy(containerId = id(11)) else it },
+            containers = opened.board.containers.map { when (it.id) {
+                id(10) -> it.copy(cards = it.cards - card.id)
+                id(11) -> it.copy(cards = listOf(card.id))
+                else -> it
+            } })
+        val moved = retained(opened, GameplayRules.record(opened, a, command(opened, move), board,
+            GameplayTransition(movement = GameplayMoveChange(card.id, GameplayRules.location(opened.board, card.id, true),
+                GameplayRules.location(board, card.id, true), coverRulesVersion = 4)), contentsRulesVersion = 1))
+        assertTrue(moved.board.contentsDisplays.single().cardIds.isEmpty())
+        assertTrue(CardVisibility.isVisibleFaceUp(moved.board, moved.board.cards.first(), b))
     }
     @Test fun restResolvesInPanelOrderForEveryDestinationAndReordersAreReversible() {
         for (resolution in ContentsRest.entries) {

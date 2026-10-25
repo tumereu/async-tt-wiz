@@ -305,6 +305,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(IdentityKey(play), runtime.reviewing) {
             if (runtime.reviewing || CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) combatBubbleId = null
         }
+        LaunchedEffect(IdentityKey(play), layout.localPileId) {
+            if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
+                layout = layout.copy(localPileId = null)
+        }
         val pingProjection = remember(play.id) { ActivePingProjection() }
         val annotations = TableAnnotationGeometry(scene, game.inviter.accountId, pingProjection)
         val artwork = tableArtwork(scene.copy(items = semanticItems))
@@ -1003,7 +1007,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                   val cardWidth = transform.width; val cardHeight = transform.height
                   rotate(transform.rotation, xy(b.center.x, b.center.y)) {
                      val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
-                     scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
+                      scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
+                      if (i.panelRevealed && !i.covered) {
+                          // Center in the art crop (11..30), clear of the title and corner text.
+                          val cx = x + cardWidth / 2; val cy = y + 20.5f * z
+                          drawCircle(Color.White, 6.5f * z * density, xy(cx, cy))
+                          drawOval(color, xy(cx - 5f * z, cy - 3f * z), size(10f * z, 6f * z), style = Stroke(.8f * z * density))
+                          drawCircle(color, 1.6f * z * density, xy(cx, cy))
+                      }
                      paint.textSize = 7 * z * density
                      if (i.note.isNotEmpty()) fittedText(i.note, x + 3 * z, y + 20 * z, cardWidth - 6 * z)
                       i.counters.entries.take(6).forEachIndexed { n, entry ->
@@ -1022,13 +1033,6 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                      paint.textSize = 11 * density
                  }
             }
-        }
-        if (i.known && !i.covered) {
-            val x = if (i.kind == TableItemKind.PILE) b.x + 28 else b.right - 4
-            val y = if (i.kind == TableItemKind.PILE) b.y + 14 else b.y + 5
-            drawOval(Color.White, xy(x - 6, y - 4), size(12f, 8f))
-            drawOval(color, xy(x - 6, y - 4), size(12f, 8f), style = Stroke(density))
-            drawCircle(color, 2 * density, xy(x, y))
         }
         if (i.sourceId != null && i.sourceId in relatedSources) drawRect(Color(0xffbd982f), xy(b.x + 3, b.y + 3),
             size((b.width - 6).coerceAtLeast(0f), (b.height - 6).coerceAtLeast(0f)), style = Stroke(2 * density))

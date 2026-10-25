@@ -284,7 +284,7 @@ class HistorySceneAnimation(initial: TableScene) {
             // A flying face cannot expose a Library top, including at the exact departure frame.
             val item = if (t < 1f && shown.kind == TableItemKind.CARD && a.bounds != b.bounds &&
                 listOf(a.item, b.item).any { it.zone == PlayZone.LIBRARY && !it.viewport.startsWith("cardPanel/") })
-                shown.copy(covered = true, known = false, artwork = null, value = "", note = "", corner = "",
+                shown.copy(covered = true, panelRevealed = false, artwork = null, value = "", note = "", corner = "",
                     typeIcon = "", counters = emptyMap(), label = "Covered card") else shown
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)

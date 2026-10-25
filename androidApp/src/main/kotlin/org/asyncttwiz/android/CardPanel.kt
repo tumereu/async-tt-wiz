@@ -41,6 +41,7 @@ internal fun panelColumnCount(groupCounts: List<Int>, height: Float, maxColumns:
 internal fun localPanelDisplay(play: PlayState, viewer: String, ui: TableLayoutState): ContentsDisplay? {
     val pile = play.board.containers.singleOrNull { it.id == ui.localPileId && it.zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE) }
         ?: return null
+    if (pile.cards.isEmpty()) return null
     return ContentsDisplay("local:${pile.id}", viewer, pile.id, ContentsSelection.ALL, pile.cards.size, false, pile.cards)
 }
 
@@ -54,8 +55,10 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
         val localZone = if (display == local) play.board.containers.single { it.id == display.containerId }.zone else null
         val entries = if (localZone != null) contentsEntries(play, PileContents(display.containerId, "", display.cardIds), viewer)
             else contentsEntries(play, display, viewer)
-        val grouped = if (localZone != null || display.search && display.author == viewer) panelGroups(entries)
-            else entries.map { listOf(it) }
+        val grouped = if (localZone != null) panelGroups(entries)
+            else if (display.search && display.author == viewer) entries.groupBy {
+                it.name to (it.cardId in display.revealedIds)
+            }.values.toList() else entries.map { listOf(it) }
         val sections = if (localZone != null) grouped.groupBy { it.first().category }.toSortedMap().values.toList() else listOf(grouped)
         val columns = panelColumnCount(sections.map { it.size }, area.height, if (displays.size == 1) 3 else 2, localZone != null)
         val width = maxOf(64f, columns * 32f + 8f)
@@ -103,7 +106,8 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,
             viewport = panel.viewport.id, cardId = card.id, covered = !row.entry.faceVisible,
             frozen = panel.localZone == null && panel.display.author != viewer, artwork = art,
-            known = card.knownToAll && panel.display.author != viewer,
+            panelRevealed = panel.localZone == null && panel.display.author == viewer && !panel.display.reveal &&
+                card.id in panel.display.revealedIds,
             corner = if (row.entry.faceVisible) card.corner else "", copies = row.copies, token = card.token,
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
     } }
@@ -152,8 +156,8 @@ internal val panelCardActions = listOf(PanelCardAction("Hand", PlayZone.HAND), P
     PanelCardAction("Graveyard", PlayZone.GRAVEYARD), PanelCardAction("Exile", PlayZone.EXILE),
     PanelCardAction("Top", PlayZone.LIBRARY), PanelCardAction("Reveal+Top", PlayZone.LIBRARY, reveal = true),
     PanelCardAction("Bottom", PlayZone.LIBRARY, bottom = true))
-internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDisplay, id: String, localZone: PlayZone?, known: Boolean = false): Boolean =
-    action.zone != localZone && (!action.reveal || localZone == null && !display.reveal && id !in display.revealedIds && !known)
+internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDisplay, id: String, localZone: PlayZone?): Boolean =
+    action.zone != localZone && (!action.reveal || localZone == null && !display.reveal && id !in display.revealedIds)
 
 internal fun panelCardActionLabel(action: PanelCardAction) = when (action.label) {
     // Two lines keep the reveal variants distinguishable from plain Hand/Top without truncation.
@@ -187,8 +191,7 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
         } else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             for (row in panelCardActions.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 for (action in row) InlinePopupCell(MenuControl(action.label,
-                    toolkit.enabled() && panelCardActionEnabled(action, display, id!!, panel.localZone,
-                        play.board.cards.firstOrNull { it.id == id }?.knownToAll == true)) {
+                    toolkit.enabled() && panelCardActionEnabled(action, display, id!!, panel.localZone)) {
                     if (panel.localZone != null) toolkit.localPanelAction(id!!, action.zone, action.bottom, action.tapped)
                     else toolkit.cardPanelAction(display, id!!, action.zone, action.reveal, action.bottom, action.tapped)
                 }, label = panelCardActionLabel(action))

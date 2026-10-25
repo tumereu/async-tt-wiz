@@ -48,7 +48,7 @@ class CardPanelUiTest {
     private fun panel() = f.play.board.contentsDisplays.single()
     @After fun close() { f.lobby.close(); f.worker.drain() }
 
-    @Test fun libraryOpensFloatingPanelTapMovesOneAndNewPanelActionsAreDisabled() {
+    @Test fun libraryPanelAutoClosesOnLastMenuMoveAndAnotherCanOpenImmediately() {
         setup(); ui.openLibrary(f.container(PlayZone.LIBRARY)); mount()
         click("Look 1")
         compose.onNodeWithContentDescription("Your Look panel, 1 cards").assertIsDisplayed()
@@ -57,13 +57,16 @@ class CardPanelUiTest {
         compose.onNodeWithContentDescription(item.label).performClick()
         click("Hand")
         assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
-        assertTrue(panel().cardIds.isEmpty())
+        assertTrue(f.play.board.contentsDisplays.isEmpty())
+        compose.onNodeWithContentDescription("Close Look panel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Panel rest choices").assertDoesNotExist()
         compose.runOnIdle { ui.openLibrary(f.container(PlayZone.LIBRARY)) }
         compose.mainClock.advanceTimeBy(350)
         for (name in listOf("Search", "Look 1", "Look N…", "Reveal 1", "Reveal N…"))
-            compose.onNodeWithContentDescription(name).assertIsNotEnabled()
-        compose.runOnIdle { ui.dismiss() }
+            compose.onNodeWithContentDescription(name).assertIsEnabled()
+        click("Look 1")
         click("Close Look panel")
+        click("Top")
         assertTrue(f.play.board.contentsDisplays.isEmpty())
     }
 
@@ -97,9 +100,13 @@ class CardPanelUiTest {
         val disclosure = GameplayRules.change(f.root, f.actor, f.commands().first()).state!!
         val revealed = GameplayRules.change(disclosure, f.actor, commands[0]).state!!
         assertNotEquals(revealed.currentGroup!!.id, f.play.currentGroup!!.id)
-        assertTrue(f.card(40).knownToAll)
+        assertFalse(f.card(40).knownToAll)
         val opponent = scene(f.other).items.single { it.cardId == f.id(40) }
-        assertFalse(opponent.covered); assertTrue(opponent.known)
+        assertTrue(opponent.covered); assertFalse(opponent.panelRevealed)
+        assertEquals("", opponent.value)
+        assertNull(opponent.artwork)
+        val moved = f.lobby.displayTree()!!.nodes.values.last { it.action is PlayAction.MoveCard }
+        assertTrue(historyText(moved, revealed, f.other).description.contains(f.definition.faces.single().name))
     }
 
     @Test fun panelDragUsesTableLandingAndRestChooserPreservesPanelOrder() {
@@ -276,12 +283,9 @@ class CardPanelUiTest {
         }
         compose.waitForIdle()
         assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
-        assertTrue(scene().cardPanels.last().rows.isEmpty())
+        assertTrue(scene().cardPanels.none { it.localZone != null })
         assertTrue(f.commands().drop(beforeOpen).none { (it.action as GameAction.Play).action is PlayAction.ReorderContents })
-        val beforeClose = f.commands().size
-        click("Close Graveyard panel")
         assertNull(ui.layoutState.value.localPileId)
-        assertEquals(beforeClose, f.commands().size)
         assertEquals(1, scene().cardPanels.size)
     }
 

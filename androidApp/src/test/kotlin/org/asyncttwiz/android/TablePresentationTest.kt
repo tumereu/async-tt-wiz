@@ -130,13 +130,13 @@ class TablePresentationTest {
             val scene = TablePresentation.scene(TableFixture.game, play, viewer, 400f, 800f, false)
             for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY }) {
                 assertTrue(pile.covered)
-                assertFalse(pile.known)
+                assertFalse(pile.panelRevealed)
                 assertNull(pile.artwork)
                 assertEquals("", pile.note)
                 assertEquals("", pile.corner)
                 assertNotNull(pile.drawHandId)
             }
-            assertTrue(scene.items.any { it.zone == PlayZone.HAND && it.owner != viewer && it.known && !it.covered })
+            assertTrue(scene.items.none { it.panelRevealed })
         }
     }
 

@@ -134,7 +134,7 @@ class LibraryKnowledgeTest {
         LibraryActions.moveCaptured(state(tree).board, listOf(card), MoveDestination(id(20), MoveInsertion.TOP))
             .forEach { tree = play(tree, it) }
         assertEquals(card, library(tree).knownTop.first())
-        assertTrue(state(tree).board.cards.single { it.id == card }.knownToAll)
+        assertFalse(state(tree).board.cards.single { it.id == card }.knownToAll)
         tree = play(tree, PlayAction.DismissContents(panel.id, ContentsRest.BOTTOM, seed))
         val fixed = tree
         for (search in listOf(false, true)) {

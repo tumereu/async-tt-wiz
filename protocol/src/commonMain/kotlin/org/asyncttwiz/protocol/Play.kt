@@ -40,6 +40,8 @@ object CardVisibility {
     fun isVisibleFaceUp(board: BoardState, card: PlayCard, viewer: String): Boolean {
         val container = board.containers.singleOrNull { it.id == card.containerId } ?: return false
         if (card.knownToAll) return true
+        if (board.contentsDisplays.any { it.panelVersion >= 3 && it.containerId == card.containerId &&
+                card.id in it.cardIds && it.faceVisibleTo(card.id, viewer) }) return true
         if (container.zone == PlayZone.HAND && container.accountId == card.owner &&
             board.stackEffects.any { it.sourceId == card.id && it.frozen == null &&
                 it.id in board.containers.singleOrNull { c -> c.zone == PlayZone.STACK }?.cards.orEmpty() }) return true

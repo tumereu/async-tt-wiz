@@ -29,15 +29,18 @@ object LibraryRules {
         }
     }
 
-    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction): GameplayChange {
+    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
+        contentsRulesVersion: Int = 2): GameplayChange {
         val board = state.board
+        fun record(next: BoardState, transition: GameplayTransition) =
+            GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion)
         return when (action) {
             is PlayAction.ShuffleLibrary -> {
                 val source = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
                     ?: return GameplayChange(reason = "missingReference")
                 val order = RandomV1.shuffle(source.cards, action.seed, action.algorithm)
                 // Even a coincidentally identical permutation retains this fresh random invocation.
-                GameplayRules.record(state, actor, command, board.copy(containers = board.containers.map {
+                record(board.copy(containers = board.containers.map {
                     if (it.id == source.id) it.copy(cards = order) else it
                 }, cards = board.cards.map { if (it.containerId == source.id) it.copy(knownToAll = false) else it }),
                     GameplayTransition(libraryOrder = LibraryOrderChange(source.id, source.cards, order)))
@@ -52,12 +55,13 @@ object LibraryRules {
                 // ALL is orderless, including in history: no hidden Library indices in a full browser.
                 val display = ContentsDisplay(CommandIds.uuidV5(command.requestId, "contents/0"), actor, source.id,
                     action.selection, action.count, action.reveal,
-                    if (action.selection == ContentsSelection.ALL) members.sorted() else members, panelVersion = 2)
+                    if (action.selection == ContentsSelection.ALL) members.sorted() else members,
+                    panelVersion = if (contentsRulesVersion >= 2) 3 else 2)
                 val viewers = if (action.reveal) board.players.map { it.accountId } else listOf(actor)
-                GameplayRules.record(state, actor, command,
+                record(
                     board.copy(contentsDisplays = board.contentsDisplays + display,
-                        cards = if (!action.reveal) board.cards else board.cards.map {
-                            if (it.id in members) it.copy(knownToAll = true) else it }),
+                        cards = if (!action.reveal && contentsRulesVersion < 2) board.cards else board.cards.map {
+                            if (it.id in members) it.copy(knownToAll = action.reveal && contentsRulesVersion < 2) else it }),
                     GameplayTransition(contents = ContentsDisplayChange(to = display), disclosures = members.map { id ->
                         val card = board.cards.single { it.id == id }
                         GameplayDisclosure(id, card.faceId, source.id, viewers)
@@ -97,9 +101,10 @@ object LibraryRules {
                             covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
                             corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.corner)
                         card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
+                        contentsRulesVersion >= 2 && card.id in ids -> card.copy(knownToAll = false)
                         else -> card
                     } })
-                GameplayRules.record(state, actor, command, next, GameplayTransition(contents = ContentsDisplayChange(from = display),
+                record(next, GameplayTransition(contents = ContentsDisplayChange(from = display),
                     libraryOrder = LibraryOrderChange(source.id, source.cards, order),
                     disclosures = if (restZone == null) emptyList() else ids.map { id ->
                         val card = board.cards.single { it.id == id }
@@ -112,10 +117,11 @@ object LibraryRules {
                 if (action.cardId !in display.cardIds) return GameplayChange(reason = "missingReference")
                 if (display.faceVisibleTo(action.cardId, board.players.first { it.accountId != actor }.accountId)) return GameplayChange(state)
                 val card = board.cards.single { it.id == action.cardId }
-                val updated = display.copy(revealedIds = display.revealedIds + card.id)
-                GameplayRules.record(state, actor, command, board.copy(
+                val updated = display.copy(revealedIds = display.revealedIds + card.id,
+                    panelVersion = if (contentsRulesVersion >= 2) 3 else display.panelVersion)
+                record(board.copy(
                     contentsDisplays = board.contentsDisplays.map { if (it.id == display.id) updated else it },
-                    cards = board.cards.map { if (it.id == card.id) it.copy(knownToAll = true) else it }),
+                    cards = board.cards.map { if (it.id == card.id) it.copy(knownToAll = contentsRulesVersion < 2) else it }),
                     GameplayTransition(contents = ContentsDisplayChange(display, updated), disclosures = listOf(
                         GameplayDisclosure(card.id, card.faceId, card.containerId, board.players.map { it.accountId }))))
             }
@@ -128,7 +134,7 @@ object LibraryRules {
                 val order = remaining.toMutableList().apply { add(action.beforeId?.let(::indexOf) ?: size, action.cardId) }
                 if (order == display.cardIds) return GameplayChange(state)
                 val updated = display.copy(cardIds = order)
-                GameplayRules.record(state, actor, command, board.copy(contentsDisplays = board.contentsDisplays.map {
+                record(board.copy(contentsDisplays = board.contentsDisplays.map {
                     if (it.id == display.id) updated else it }), GameplayTransition(contents = ContentsDisplayChange(display, updated)))
             }
             else -> error("Not a Library action")

@@ -7,6 +7,31 @@ import kotlin.test.*
 class CardPanelLayoutTest {
     private val f = BasicTableFixture()
 
+    @Test fun eyeBadgesBelongOnlyToTheAuthorOfLookAndSearchAndSplitMixedVisibilityCopies() {
+        val root = f.root
+        val library = f.container(PlayZone.LIBRARY)
+        val ids = root.board.containers.single { it.id == library }.cards
+        for (search in listOf(false, true)) for (reveal in listOf(false, true)) for (viewer in listOf(f.actor, f.other)) {
+            val display = ContentsDisplay(f.id(600), f.actor, library,
+                if (search) ContentsSelection.ALL else ContentsSelection.TOP, ids.size, reveal, ids,
+                revealedIds = setOf(ids.last()), panelVersion = 3)
+            val play = root.copy(board = root.board.copy(contentsDisplays = listOf(display)))
+            val scene = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+            val badges = scene.items.filter { it.panelRevealed }
+            if (!reveal && viewer == f.actor) {
+                assertEquals(listOf(ids.last()), badges.map { it.cardId })
+                assertTrue(badges.all { it.viewport.startsWith("cardPanel/") && !it.covered })
+                if (search) assertEquals(2, scene.cardPanels.single().rows.size)
+            } else assertTrue(badges.isEmpty())
+        }
+    }
+
+    @Test fun emptyLocalPilesHaveNoPanelGeometry() {
+        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+            assertNull(localPanelDisplay(f.root, f.actor, TableLayoutState(localPileId = f.container(zone))))
+        }
+    }
+
     @Test fun fewestColumnsThatFitAreChosenAndOverflowIsCapped() {
         assertEquals(1, panelColumnCount(listOf(4), 236f, 3))
         assertEquals(2, panelColumnCount(listOf(5), 236f, 3))
@@ -97,7 +122,6 @@ class CardPanelLayoutTest {
         assertEquals(9, panelCardActions.size)
         assertEquals(listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom"), panelCardActions.map { it.label })
         assertTrue(panelCardActions.all { panelCardActionEnabled(it, display, id, null) })
-        assertEquals(2, panelCardActions.count { !panelCardActionEnabled(it, display, id, null, known = true) })
         for (revealed in listOf(display.copy(reveal = true), display.copy(revealedIds = setOf(id)))) {
             assertEquals(listOf("Reveal+Hand", "Reveal+Top"), panelCardActions.filterNot { panelCardActionEnabled(it, revealed, id, null) }.map { it.label })
         }

@@ -251,19 +251,25 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action
         val panel = (action as? PlayAction.MoveCard)?.let { move -> state.board.contentsDisplays.firstOrNull { move.cardId in it.cardIds } }
         if (panel != null && panel.author != actor) return GameplayChange(reason = "accessDenied")
-        val resolved = LibraryKnowledge.after(state.board, if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.map {
-            if (it.id == panel.id) it.copy(cardIds = it.cardIds - (action as PlayAction.MoveCard).cardId,
-                revealedIds = it.revealedIds - action.cardId) else it }), action)
+        val resolved = LibraryKnowledge.after(state.board, if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.mapNotNull {
+            if (it.id != panel.id) it else {
+                val updated = it.copy(cardIds = it.cardIds - (action as PlayAction.MoveCard).cardId,
+                    revealedIds = it.revealedIds - action.cardId)
+                updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
+            }
+        }), action)
         val closed = CombatStackRules.closeInvariants(state.board, resolved)
             ?: return GameplayChange(reason = "invalidStructure")
         val relevant = transition.copy(combatStack = CombatStackRules.transition(state, closed, action),
-            contents = if (panel == null) transition.contents else ContentsDisplayChange(panel, closed.contentsDisplays.single { it.id == panel.id }))
+            contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)
+                contentsRulesVersion else transition.contentsRulesVersion,
+            contents = if (panel == null) transition.contents else ContentsDisplayChange(panel, closed.contentsDisplays.singleOrNull { it.id == panel.id }))
         val mutation = GameplayMutation(CommandIds.uuidV5(command.requestId, "board-node"), state.currentNodeId,
             state.currentBranchId, command.requestId, actor, command.invocationId,
             command.action.action, relevant,
@@ -324,9 +330,10 @@ object GameplayRules {
     }
 
     private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
-        // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility.
+        // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility;
+        // version 5 expires reveal knowledge when a card leaves its display.
         // Old recorded disclosures must still replay using the visibility rules they were made under.
-        coverRulesVersion: Int = 4): GameplayChange {
+        coverRulesVersion: Int = 5): GameplayChange {
         if (action.removeStackEntryId != null) return moveProjection(state, actor, command, action, coverRulesVersion)
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
@@ -438,7 +445,7 @@ object GameplayRules {
         val faceDown = !hiddenZone && (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD &&
             target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val moved = card.copy(containerId = target.id, placement = placement,
-            knownToAll = card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
+            knownToAll = coverRulesVersion < 5 && card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
                 card.id in it.cardIds && (it.reveal || card.id in it.revealedIds) && hiddenZone &&
                     (target.zone == PlayZone.HAND || destination.insertion == MoveInsertion.TOP) }),
             tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK) false else card.tapped,
@@ -474,7 +481,7 @@ object GameplayRules {
             if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null,
             if (stackChanged) stackDigest(state) else null,
             if (stackChanged) stackDigest(state.copy(board = next)) else null, coverRulesVersion))
-        return record(state, actor, command, next, transition)
+        return record(state, actor, command, next, transition, contentsRulesVersion = if (coverRulesVersion >= 5) 2 else 1)
     }
 
     internal fun members(board: BoardState, container: PlayContainer, placement: PlayPlacement?): List<String> =

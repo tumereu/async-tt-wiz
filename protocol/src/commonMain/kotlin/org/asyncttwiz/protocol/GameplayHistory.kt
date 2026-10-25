@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class GameplayDisclosure(val cardId: String, val faceId: String, val containerId: String,
     val viewers: List<String>)
 @Serializable data class AttentionChange(val from: String?, val to: String)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayTransition(val fields: List<GameplayFieldChange> = emptyList(),
     val movement: GameplayMoveChange? = null, val libraryOrder: LibraryOrderChange? = null,
     val contents: ContentsDisplayChange? = null, val random: GameplayRandomResult? = null,
@@ -26,7 +27,10 @@ import kotlinx.serialization.Serializable
     val links: List<LinkChange> = emptyList(), val cloneRead: CloneRead? = null,
     val tokenMoveRead: TokenMoveRead? = null, val combatStack: CombatStackTransition? = null,
     val resultSuggestion: ResultSuggestionChange? = null, val attention: AttentionChange? = null,
-    val delta: GameplayDelta? = null)
+    val delta: GameplayDelta? = null,
+    /** Version 2 expires contents visibility and dismisses emptied displays in the removing event.
+     * Omit the legacy default so existing event seals and retained deltas remain unchanged. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val contentsRulesVersion: Int = 1)
 @Serializable enum class RandomTool { DIE, COIN }
 @Serializable data class GameplayRandomResult(val tool: RandomTool, val value: String, val sides: String? = null)
 @Serializable data class GameplayMutation(val id: String, val parentId: String, val branchId: String,

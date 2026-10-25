@@ -118,7 +118,7 @@ data class TableItem(
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
-    val known: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1
+    val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -300,8 +300,7 @@ object TablePresentation {
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
-                 typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
-                 known = card.knownToAll && card.owner != viewer).also { if (draw) items += it }
+                  typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden)).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
@@ -359,8 +358,7 @@ object TablePresentation {
                     token = top?.token == true,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
-                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
-                    known = zone != PlayZone.LIBRARY && top?.knownToAll == true && player.accountId != viewer)
+                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }
             if (counterHeights[index] > 0f) {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),

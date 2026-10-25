@@ -98,8 +98,12 @@ import kotlin.concurrent.Volatile
     internal fun nearby(state: PlayState) { reviewMaterialization = state.currentNodeId to state }
 
     /** Prepare the exact personal cursor on a worker before enabling historical mutation callbacks.
-     * The UI cannot inject a board; only this tree's shared replay can populate the disposable slot. */
-    fun prepareReview(nodeId: String): PlayState? = stateAt(nodeId)?.also { reviewMaterialization = nodeId to it }
+     * The UI cannot inject a board; only this tree's derived endpoints populate the disposable slot.
+     * The initial endpoint is O(1) for first-open playback and seeds incremental forward steps.
+     * Reducers must use stateAt: inverse traversal also preserves persistence adapters' write sets. */
+    fun prepareReview(nodeId: String): PlayState? =
+        (if (nodeId == initial.root.id && nodeId != currentNodeId) initial else stateAt(nodeId))
+            ?.also { reviewMaterialization = nodeId to it }
 
     /** Read-only cache lookup: never replay on a presentation thread. */
     fun preparedState(nodeId: String): PlayState? =
@@ -151,9 +155,6 @@ import kotlin.concurrent.Volatile
     fun stateAt(nodeId: String): PlayState? {
         if (nodeId == currentNodeId) currentMaterialization?.let { return it }
         reviewMaterialization?.takeIf { it.first == nodeId }?.let { return it.second }
-        // The initial endpoint is already materialized. First-open playback must not unapply
-        // the entire live history merely to show it, nor replay it to begin stepping forward.
-        if (nodeId == initial.root.id) return initial.also { reviewMaterialization = nodeId to it }
         val candidates = listOfNotNull(currentMaterialization, reviewMaterialization?.second)
         for (source in candidates) {
             val node = nodes[source.currentNodeId]

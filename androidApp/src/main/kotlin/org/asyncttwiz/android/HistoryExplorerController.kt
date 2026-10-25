@@ -35,6 +35,18 @@ data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<S
 data class HistoryGraph(val ranges: List<HistoryRange>, val positions: Map<String, HistoryPoint>,
     val activeNodeIds: Set<String>, val currentNodeId: String, val width: Float, val height: Float,
     val events: List<HistoryTimelineEvent> = emptyList(), val branchHeadIds: Set<String> = emptySet()) {
+    val rangesById = ranges.associateBy { it.id }
+    val eventsById = events.associateBy { it.id }
+    val rangeOf = ranges.flatMap { range -> range.nodeIds.map { it to range.id } }.toMap()
+    val activeRanges = ranges.filter { range -> range.nodeIds.any { it in activeNodeIds } }.map { it.id }.toSet()
+    val headRanges = branchHeadIds.mapNotNull { rangeOf[it] }.toSet()
+    private val spatial = HistorySpatialIndex(ranges.map { range ->
+        val parent = rangesById[range.parentRangeId]?.position ?: range.position
+        HistorySpatialEntry(range, minOf(parent.x, range.position.x) - 12f, minOf(parent.y, range.position.y) - 16f,
+            maxOf(parent.x, range.position.x) + 12f, maxOf(parent.y, range.position.y) + 16f)
+    })
+    fun visible(x: Float, y: Float, width: Float, height: Float) = spatial.query(x, y, x + width, y + height)
+    val spatialVisits get() = spatial.visits
     fun pan(current: HistoryPoint, dx: Float, dy: Float, viewportWidth: Float, viewportHeight: Float) =
         HistoryPoint((current.x + dx).coerceIn(-width, viewportWidth),
             (current.y + dy).coerceIn(-height, viewportHeight))
@@ -147,7 +159,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         if (closed) return
         val sameScope = tree?.initial?.let { it.gameId == value.initial.gameId && it.id == value.initial.id } == true
         if (!sameScope) state = HistoryExplorerState()
-        tree = value; membership = groups.toMap(); visible = visibleNodeIds.toSet(); this.showHidden = showHidden
+        tree = value; membership = groups; visible = visibleNodeIds; this.showHidden = showHidden
         val selection = openingNodeId ?: if (sameScope) state.selectedNodeId else null
         rebuild(selection ?: value.currentNodeId)
     }
@@ -155,6 +167,11 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
     /** Exact timeline/detail access (including group interiors). A new group tap passes its range end. */
     fun select(nodeId: String) { if (!closed) rebuild(nodeId) }
     private var showHidden = true
+    private var graphTree: GameplayTree? = null
+    private var graphGroups: Map<String, String>? = null
+    private var graphFilter: Set<String>? = null
+    private var graphHidden = true
+    private var cachedGraph: HistoryGraph? = null
 
     private fun rebuild(nodeId: String) {
         val value = tree ?: return
@@ -167,13 +184,20 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
             val result = runCatching {
                 val selected = checkNotNull(value.resolveCursor(nodeId)) { "Cannot resolve retained cursor $nodeId" }
                 val reviewed = checkNotNull(value.stateAt(selected)) { "Cannot reconstruct retained boundary $selected" }
+                val cached = cachedGraph?.takeIf { graphTree === value && graphGroups === groups &&
+                    graphFilter === filter && graphHidden == includeHidden && selected in it.positions }
+                val graph = cached ?: run {
                 val hidden = if (includeHidden) emptySet() else {
                     val comments = value.nodes.values.filter { it.action is PlayAction.EventComment }.map { it.id }.toSet()
                     value.branches.values.filter { branch ->
                         simpleAlternative(value, branch, comments)
                     }.map { it.id }.toSet()
                 }
-                Triple(HistoryGraphLayout.build(value, groups, (filter.filter { value.nodes[it]?.branchId !in hidden }.toSet() + selected)), selected, reviewed)
+                HistoryGraphLayout.build(value, groups, (filter.filter { value.nodes[it]?.branchId !in hidden }.toSet() + selected)).also {
+                    graphTree = value; graphGroups = groups; graphFilter = filter; graphHidden = includeHidden; cachedGraph = it
+                }
+                }
+                Triple(graph, selected, reviewed)
             }
             result.exceptionOrNull()?.let { failure ->
                 // Diagnostics must not prevent the friendly error (including in host tests without Android).
@@ -204,7 +228,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
             suffix.none { it.revealsInformation || it.id in comments }
     }
 
-    override fun close() { closed = true; epoch++; tree = null; state = HistoryExplorerState() }
+    override fun close() { closed = true; epoch++; tree = null; graphTree = null; cachedGraph = null; state = HistoryExplorerState() }
 }
 
 /** Personal armed intent used by the existing individual-action lowering path, not an outgoing queue.

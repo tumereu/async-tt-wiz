@@ -77,14 +77,15 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         }
                     }
                     if (graph != null) {
+                        val visible = graph.visible(-pan.x, -pan.y, maxWidth.value, maxHeight.value)
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
-                            val ranges = graph.ranges.associateBy { it.id }
-                            for (range in graph.ranges) {
+                            val ranges = graph.rangesById
+                            for (range in visible) {
                                 ranges[range.parentRangeId]?.position?.let { parent ->
                                     val point = range.position
                                     val from = parent.screen(); val to = point.screen()
-                                    val active = range.nodeIds.any { it in graph.activeNodeIds }
+                                    val active = range.id in graph.activeRanges
                                     // A branch changes lanes only at its fork; subsequent groups remain parallel.
                                     val corner = Offset(from.x, to.y)
                                     drawLine(if (active) activeColor else edgeColor, from, corner, (if (active) 2f else 1f) * density)
@@ -92,15 +93,15 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                                 }
                             }
                         }
-                        val events = graph.events.associateBy { it.id }
-                        for (range in graph.ranges) {
+                        val events = graph.eventsById
+                        for (range in visible) {
                             val event = events.getValue(range.targetId)
                             val point = range.position
                             val x = point.x + pan.x; val y = point.y + pan.y
                             if (x >= -12f && x <= maxWidth.value + 12 && y >= -16 && y <= maxHeight.value + 16) {
                                 val text = texts[event.id]
                                 HistoryEventChip(event.copy(description = text?.description ?: event.description),
-                                    authorColors[event.author] ?: Color(0xff59656a), state.selectedNodeId in range.nodeIds,
+                                    authorColors[event.author] ?: Color(0xff59656a), graph.rangeOf[state.selectedNodeId] == range.id,
                                     Modifier.offset { IntOffset(((x - 10) * density).roundToInt(), ((y - 10) * density).roundToInt()) }
                                         .background(Color(0xfff4f8f6)).combinedClickable(
                                             onClick = { picked = event.id; controller.select(event.id) },
@@ -109,7 +110,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         }
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
-                            for (id in graph.branchHeadIds) graph.positions[id]?.let {
+                            for (range in visible) if (range.id in graph.headRanges) graph.positions[range.targetId]?.let {
                                 drawCircle(activeColor, 2.5f * density, it.screen() + Offset(0f, 14 * density))
                             }
                             graph.positions[graph.currentNodeId]?.let {
@@ -124,7 +125,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                     if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp))
                     state.error?.let { Text(it, Modifier.align(Alignment.Center)) }
                 }
-                state.selectedNodeId?.let { id -> Text(texts[id]?.description ?: graph?.events?.find { it.id == id }?.description.orEmpty(),
+                state.selectedNodeId?.let { id -> Text(texts[id]?.description ?: graph?.eventsById?.get(id)?.description.orEmpty(),
                     style = MaterialTheme.typography.labelSmall, maxLines = 2) }
             }
         }

@@ -36,15 +36,22 @@ data class HistoryTimelineEvent(val id: String, val icon: String, val descriptio
 
 object HistoryTimelineLayout {
     fun events(tree: HistoryTree, endpoint: String): List<HistoryTimelineEvent> {
-        val path = tree.path(endpoint); val groups = tree.groups(path)
-        val children = tree.nodes.values.groupingBy { it.parentId }.eachCount()
-        return path.map { id ->
+        return IndexedHistoryEvents(tree, endpoint)
+    }
+    internal class IndexedHistoryEvents(private val tree: HistoryTree, endpoint: String) : AbstractList<HistoryTimelineEvent>() {
+        var projectedEvents = 0; private set
+        private val path = tree.path(endpoint)
+        override val size get() = path.size
+        fun positionOf(id: String): Int = if (tree.contains(id) && path.getOrNull(tree.depth(id)) == id) tree.depth(id) else -1
+        override fun get(index: Int): HistoryTimelineEvent {
+            projectedEvents++
+            val id = path[index]
             val mutation = tree.nodes[id]
             val text = tree.texts[id] ?: historyText(mutation)
-            HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
+            return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
                 org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
                 text.description,
-                mutation?.author, groups[id]?.id, ((children[id] ?: 0) - 1).coerceAtLeast(0), text.label)
+                mutation?.author, tree.index.boundaries[id]?.group?.id, ((tree.index.children[id]?.size ?: 0) - 1).coerceAtLeast(0), text.label)
         }
     }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) = width / 2f + (index - selected) * pitch
@@ -65,15 +72,16 @@ object HistoryTimelineLayout {
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
     eventIcon: @Composable (String) -> Unit = { HistoryEventIcon(it) }) {
-    require(events.isNotEmpty() && events.map { it.id }.distinct().size == events.size)
-    val selected = events.indexOfFirst { it.id == selectedId }; require(selected >= 0)
+    val positions = remember(IdentityKey(events)) { if (events is HistoryTimelineLayout.IndexedHistoryEvents) null else events.withIndex().associate { it.value.id to it.index } }
+    val selected = (events as? HistoryTimelineLayout.IndexedHistoryEvents)?.positionOf(selectedId) ?: positions?.get(selectedId) ?: -1
+    require(selected >= 0)
     val pause by rememberUpdatedState(onPause); val select by rememberUpdatedState(onSelect)
     val selectedNow by rememberUpdatedState(selected)
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val pitch = 24f
     BoxWithConstraints(modifier.fillMaxWidth().height(48.dp).clipToBounds().pointerInput(Unit) {
         awaitEachGesture { awaitFirstDown(requireUnconsumed = false); pause(); waitForUpOrCancellation() }
-    }.pointerInput(events, density) {
+    }.pointerInput(IdentityKey(events), density) {
         var start = selectedNow; var delta = 0f
         detectDragGestures(onDragStart = { pause(); start = selectedNow; delta = 0f }) { change, amount ->
             change.consume(); delta += amount.x / density
@@ -143,8 +151,8 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     require(pauseMillis > 0)
     val position = playback.position
     val endpoint = when {
-        playback.tree.contains(timelineEndpoint) && position.cursorId in playback.tree.path(timelineEndpoint) -> timelineEndpoint
-        position.cursorId in playback.tree.path(playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
+        playback.tree.isAncestor(position.cursorId, timelineEndpoint) -> timelineEndpoint
+        playback.tree.isAncestor(position.cursorId, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
         else -> position.cursorId
     }
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
@@ -160,7 +168,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val timeline: @Composable () -> Unit = {
         var options by remember { mutableStateOf(false) }
-        val index = events.indexOfFirst { it.id == position.cursorId }
+        val index = (events as HistoryTimelineLayout.IndexedHistoryEvents).positionOf(position.cursorId)
         Row(Modifier.fillMaxWidth().height(16.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${if (position.playing) "Playing groups" else "Paused"} · ${if (index == events.lastIndex) "Last" else index + 1} · ${events[index].label}",
                 Modifier.clickable { options = true }.semantics { contentDescription = "History options" },

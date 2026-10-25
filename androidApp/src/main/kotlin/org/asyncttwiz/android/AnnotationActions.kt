@@ -13,7 +13,8 @@ internal val LocalTableMenuAnnotations = staticCompositionLocalOf<TableMenuAnnot
  * Use the same footprint/camera/own-side inversion as table grid destinations. Interleave logical
  * rows by the stable inviter/recipient side because LOCATION has no container ID; signed rows are
  * retained, including personal camera margins. The inverse is shared by markers and input. */
-internal class TableAnnotationGeometry(private val scene: TableScene, private val firstPlayer: String) {
+internal class TableAnnotationGeometry(private val scene: TableScene, private val firstPlayer: String,
+    private val pings: ActivePingProjection = ActivePingProjection()) {
     private fun cell(value: Float) = floor(value / scene.footprint).toInt()
     private fun rowHeight(field: TableField) = field.rowHeight
 
@@ -60,23 +61,41 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
         // A shortcut belongs to its captured card even if it covers another card's ping marker.
         if (hit?.id == "combatBubble/ping") {
             val card = scene.items.find { it.cardId == scene.combatBubbles?.entryId }
-            return tablePingTarget(play, card)?.let { tablePingIntent(play, reference, it) }
+            return tablePingTarget(play, card)?.let { tablePingIntent(play, reference, it, pings) }
         }
         // A drawn marker addresses its recorded reference, not the newer node produced by its Ping.
-        val marker = active(play).asReversed().firstOrNull { record -> endpoint(record.target)?.let {
+        val marker = pings.records(play).asReversed().firstOrNull { record -> endpoint(record.target)?.let {
             hypot(point.x - it.x, point.y - it.y) <= 10f
         } == true }
         if (marker != null) return EventPingIntent(marker.reference.reference, listOf(marker.target), false)
         val target = if (hit == null) location(point) else tablePingTarget(play, hit)
-        return target?.let { tablePingIntent(play, reference, it) }
+        return target?.let { tablePingIntent(play, reference, it, pings) }
     }
 
-    private fun active(play: PlayState) = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
+}
+
+/** Shared by rendering, pointer capture and accessibility; keyed by identity, never annotation equality. */
+internal class ActivePingProjection {
+    private var annotations: EventAnnotationState? = null
+    private var group: String? = null
+    private var records = emptyList<RecordedPingChange>()
+    private var targets = emptyMap<PingTarget, RecordedPingChange>()
+    var projectedRecords = 0; private set
+    fun records(play: PlayState): List<RecordedPingChange> {
+        if (annotations !== play.annotations || group != play.currentGroup?.id) {
+            annotations = play.annotations; group = play.currentGroup?.id
+            records = group?.let { numberedActivePings(play.annotations, it) }.orEmpty()
+            projectedRecords += records.size
+            targets = records.associateBy { it.target }
+        }
+        return records
+    }
+    fun target(play: PlayState, target: PingTarget): RecordedPingChange? { records(play); return targets[target] }
 }
 
 /** Capture an explicit operation; a later group change must never turn Unping into Ping. */
-internal fun tablePingIntent(play: PlayState, reference: EventReference, target: PingTarget): EventPingIntent {
-    val existing = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }
-        ?.lastOrNull { it.target == target }
+internal fun tablePingIntent(play: PlayState, reference: EventReference, target: PingTarget,
+    projection: ActivePingProjection = ActivePingProjection()): EventPingIntent {
+    val existing = projection.target(play, target)
     return EventPingIntent(existing?.reference?.reference ?: reference, listOf(target), existing == null)
 }

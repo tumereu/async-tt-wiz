@@ -240,7 +240,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val timelineVisible = runtime.reviewing && runtime.reviewPanel != null
-        val targetScene = remember(game, play, accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight)
                 .let { if (timelineVisible) timelineLayout(it, accountId, maxWidth.value, maxHeight.value, landscape) else it }
@@ -270,7 +270,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
         // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
         // and clipping are shared once per frame, not repeated for every accessibility child.
-        val rendered = remember(animation, targetScene, bubbleId, combatBubbleId, runtime.reviewing, play, maxWidth, maxHeight) { derivedStateOf {
+        val rendered = remember(animation, targetScene, bubbleId, combatBubbleId, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
             animationRevision
             val frame = animation.frame(progress.value, targetScene)
             val base = TablePresentation.clip(targetScene.copy(items = frame.filter { it.alpha > 0f }
@@ -287,20 +287,21 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val semanticItems = remember(animation, targetScene, animationRevision) {
             (animation.frame(0f, targetScene).map { it.item } + targetScene.items).distinctBy { it.id }
         }
-        LaunchedEffect(toolkit, bubbleId, play) {
+        LaunchedEffect(toolkit, bubbleId, IdentityKey(play)) {
             // The rendered history/animation boundary can briefly lag the session prediction during
             // acceptance. Validate personal focus against the session, not that older rendered board.
             if (toolkit != null) toolkit.refreshStackBubbles()
             else if (bubbleId != null && bubbleId != CombatStackRules.stack(play.board).cards.firstOrNull()) localStackBubble = null
         }
-        LaunchedEffect(play, runtime.reviewing) {
+        LaunchedEffect(IdentityKey(play), runtime.reviewing) {
             if (runtime.reviewing || CombatStackRules.occurrences(play.board.combat).none { it.id == combatBubbleId }) combatBubbleId = null
         }
-        val annotations = TableAnnotationGeometry(scene, game.inviter.accountId)
+        val pingProjection = remember(play.id) { ActivePingProjection() }
+        val annotations = TableAnnotationGeometry(scene, game.inviter.accountId, pingProjection)
         val artwork = tableArtwork(scene.copy(items = semanticItems))
         val drawCache = remember(density, targetScene) { TableDrawCache(density) }
         val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
-        val activePings = play.currentGroup?.id?.let { numberedActivePings(play.annotations, it) }.orEmpty()
+        val activePings = pingProjection.records(play)
         val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight; previousTimeline = timelineVisible }
@@ -337,7 +338,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     val point = coordinator.pointFromPixels(first.position.x, first.position.y)
                     val state = currentPlay
                     val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
-                    pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
+                    pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId, pingProjection).capture(state, reference, point) }
                     coordinator.down(point, first.uptimeMillis)
                     pointerTime = first.uptimeMillis; clockEpoch++; preview = coordinator.preview
                     first.consume()
@@ -393,7 +394,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     contentDescription = "${player.username} Battlefield, ${play.board.containers.single { it.id == field.containerId }.cards.size} cards"
                     stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
                     if (runtime.ping != null && runtime.controlsConnected == true) customActions = annotations.locations(field).map { (target, _) ->
-                        val captured = tablePingIntent(play, pingReference, target)
+                        val captured = tablePingIntent(play, pingReference, target, pingProjection)
                         val position = requireNotNull(target.position)
                         CustomAccessibilityAction("${if (captured.add) "Ping" else "Unping"} location column ${position.x}, row ${Math.floorDiv(position.y, 2)}") {
                             currentRuntime.controlsConnected == true && currentRuntime.ping?.invoke(captured) == true

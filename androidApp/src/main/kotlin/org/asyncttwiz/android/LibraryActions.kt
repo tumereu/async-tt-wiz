@@ -75,7 +75,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
         for ((label, delta) in listOf("−" to -1, "+" to 1)) InlinePopupCell(MenuControl(label, enabled) {
             text = selectedLibraryQuantity(stepLibraryQuantity(text.text, delta).toString())
-        })
+        }, label = "")
         val color = LocalInlinePopupColor.current
         Surface(Modifier.size(96.dp, 48.dp).ringInputTarget(), shape = RoundedCornerShape(3.dp),
             color = androidx.compose.ui.graphics.Color.White, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
@@ -93,7 +93,8 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = MenuInk, textAlign = androidx.compose.ui.text.style.TextAlign.Center))
             }
         }
-        InlinePopupCell(MenuControl("OK", enabled = enabled && text.text.toIntOrNull()?.let { it >= 0 } == true) {
+        // The floating row has no title, so the confirm cell names the action it performs.
+        InlinePopupCell(MenuControl(editing ?: "OK", enabled = enabled && text.text.toIntOrNull()?.let { it >= 0 } == true) {
             text.text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
                 val action = editing ?: return@MenuControl
                 quantities.write(action, count); editing = null; perform(action, count)

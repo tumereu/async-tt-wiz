@@ -56,9 +56,12 @@ class HistoryPlayback(initial: HistoryTree) {
     var tree: HistoryTree by mutableStateOf(initial); private set
     var position by mutableStateOf(HistoryPosition(initial.sharedHeadId, displayVersion = initial.liveVersion)); private set
     var foreground by mutableStateOf(true); private set
+    /** A remote panel flip is still LIVE, but its endpoint must settle and pause before moving on. */
+    var livePanelReveal by mutableStateOf(false); private set
+    private var panelViewer: String? = null
     private var removedParents: Map<String, String> = emptyMap()
 
-    fun receive(next: HistoryTree) {
+    fun receive(next: HistoryTree, viewer: String? = null) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
         removedParents = if (next.source != null) next.removedParents else {
             var parents = removedParents.toPersistentMap()
@@ -66,8 +69,15 @@ class HistoryPlayback(initial: HistoryTree) {
             parents
         }
         tree = next
+        panelViewer = viewer
         val cursor = resolveCursor(position.cursorId)
+        val held = livePanelReveal && tree.contains(position.cursorId) && tree.isAncestor(position.cursorId, tree.sharedHeadId)
+        val reveal = if (foreground && position.mode == HistoryMode.LIVE) {
+            if (held) position.cursorId else nextPanelReveal(cursor)
+        } else null
+        livePanelReveal = reveal != null
         position = when {
+            reveal != null -> HistoryPosition(reveal, displayVersion = tree.version(reveal))
             foreground && position.mode == HistoryMode.LIVE -> HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
             !foreground && position.mode == HistoryMode.LIVE && position.displayVersion == tree.liveVersion ->
                 position.copy(cursorId = tree.sharedHeadId) // Expected own confirmation: no unseen presentation difference.
@@ -78,11 +88,31 @@ class HistoryPlayback(initial: HistoryTree) {
         }
     }
 
+    private fun nextPanelReveal(after: String): String? {
+        val viewer = panelViewer ?: return null
+        if (!tree.isAncestor(after, tree.sharedHeadId)) return null
+        val path = tree.path(tree.sharedHeadId)
+        for (index in tree.depth(after) + 1 until path.size) {
+            val node = tree.nodes.getValue(path[index])
+            if (node.author != viewer && node.action is PlayAction.RevealContentsCard) return node.id
+        }
+        return null
+    }
+
+    /** Called after the face-up endpoint's animation and the configured history group pause. */
+    fun finishPanelReveal() {
+        if (!foreground || !livePanelReveal || position.mode != HistoryMode.LIVE) return
+        val reveal = nextPanelReveal(position.cursorId)
+        livePanelReveal = reveal != null
+        val target = reveal ?: tree.sharedHeadId
+        position = HistoryPosition(target, displayVersion = tree.version(target))
+    }
+
     fun background() { foreground = false }
     fun foreground() {
         foreground = true
         if (position.mode == HistoryMode.LIVE && (position.cursorId != tree.sharedHeadId || position.displayVersion != tree.liveVersion))
-            position = position.copy(mode = HistoryMode.PLAYBACK, playing = false)
+            pause()
     }
     private fun resolveCursor(id: String): String {
         var cursor = id
@@ -96,10 +126,11 @@ class HistoryPlayback(initial: HistoryTree) {
     fun scrub(id: String) {
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
         val cursor = resolveCursor(id)
+        livePanelReveal = false
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
     }
-    fun pause() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = false) }
-    fun play() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = true) }
+    fun pause() { livePanelReveal = false; position = position.copy(mode = HistoryMode.PLAYBACK, playing = false) }
+    fun play() { livePanelReveal = false; position = position.copy(mode = HistoryMode.PLAYBACK, playing = true) }
 
     fun previous() {
         val ends = tree.ends(position.cursorId)
@@ -133,7 +164,7 @@ class HistoryPlayback(initial: HistoryTree) {
     /** Capture on pointer down. Deletion/fallback must never silently arm a different boundary. */
     fun canContinue(capturedId: String) = position.mode == HistoryMode.PLAYBACK && !position.playing &&
         position.cursorId == capturedId && tree.contains(capturedId)
-    fun continuationApplied() { position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion) }
+    fun continuationApplied() { livePanelReveal = false; position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion) }
 }
 
 data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val alpha: Float)

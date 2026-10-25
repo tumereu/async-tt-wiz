@@ -140,6 +140,18 @@ internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selecte
     }
 }
 
+/** Only remote panel flips need a paced endpoint while the ordinary table remains LIVE. */
+@Composable
+internal fun LivePanelRevealPacing(playback: HistoryPlayback?, pauseMillis: Long, animationFinished: Boolean) {
+    val latestPauseMillis by rememberUpdatedState(pauseMillis)
+    LaunchedEffect(playback, playback?.position, playback?.livePanelReveal, playback?.foreground, animationFinished) {
+        if (playback?.livePanelReveal == true && playback.foreground && animationFinished) {
+            delay(latestPauseMillis)
+            playback.finishPanelReveal()
+        }
+    }
+}
+
 /** Ready-to-host native history chrome. The host resolves position.cursorId/version into the shared
  * replayed board, forwards lifecycle/accepted updates to playback, and reports completed animations.
  * Each tick selects one group endpoint; receipt of a whole network batch never skips those stages. */

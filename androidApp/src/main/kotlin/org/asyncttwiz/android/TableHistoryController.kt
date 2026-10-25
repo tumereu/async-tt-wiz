@@ -58,7 +58,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                     indexedEpoch = generation
                     val old = playback
                     if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index)
-                    else old.receive(index)
+                    else old.receive(index, viewer)
                     if (!foreground) playback?.background()
                     val result = value.nodes[value.currentNodeId]?.takeIf { it.action is PlayAction.SuggestResult }
                     if (result != null && (old == null || old.position.mode == HistoryMode.LIVE) &&
@@ -80,14 +80,15 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         val index = playback.tree
         val treeGeneration = epoch
         val generation = ++displayEpoch
-        val node = if (position.mode == HistoryMode.LIVE) null else position.cursorId
+        val atHead = position.mode == HistoryMode.LIVE && !playback.livePanelReveal
+        val node = if (atHead) null else position.cursorId
         if (!review(node) { next ->
             if (!closed && generation == displayEpoch && treeGeneration == epoch && this.playback === playback &&
                 playback.position == position && playback.tree === index) {
                 // Session review captures independently of this asynchronously built index. It may
                 // already be ahead even before update() is called; wait for the matching index.
                 if (next.cursor != null && (!index.contains(next.cursor) ||
-                        (position.mode == HistoryMode.LIVE && next.cursor != index.sharedHeadId))) return@review
+                        (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
                 if (next.cursor != null && next.cursor != position.cursorId) playback.scrub(next.cursor)
             }

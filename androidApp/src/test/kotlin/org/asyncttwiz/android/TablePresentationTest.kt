@@ -100,12 +100,43 @@ class TablePresentationTest {
                 assertEquals(28 * scale, minOf(c.bounds.width, c.bounds.height), .001f)
                 assertEquals(40 * scale, maxOf(c.bounds.width, c.bounds.height), .001f)
                 if (c.zone == PlayZone.BATTLEFIELD) {
-                    assertEquals(TablePresentation.GRID * zoom, c.footprint.width, .001f)
-                    assertTrue(c.bounds.x >= c.footprint.x && c.bounds.right <= c.footprint.right)
+                    assertEquals(TablePresentation.COLUMN_PITCH * zoom, c.footprint.width, .001f)
+                    assertTrue(c.bounds.x >= c.footprint.x - 8 * zoom && c.bounds.right <= c.footprint.right)
                     assertTrue(c.bounds.y >= c.footprint.y && c.bounds.bottom <= c.footprint.bottom)
                 }
             }
             scene.items.filter { it.kind == TableItemKind.PILE }.forEach { assertTrue(it.bounds.width >= 28f) }
+        }
+    }
+
+    @Test fun battlefieldColumnsHaveFixed42DpPitchAndRotateAroundTheSameCenter() {
+        val play = TableFixture.play(board = 2)
+        for (tapped in listOf(false, true)) {
+            val state = play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(tapped = tapped) }))
+            val scene = TableFixture.scene(state)
+            val cards = (0..1).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }
+            assertEquals(42f, cards[1].bounds.x - cards[0].bounds.x, .001f)
+            assertEquals(if (tapped) 2f else 14f, cards[1].bounds.x - cards[0].bounds.right, .001f)
+            val upright = TableFixture.scene(play).items.single { it.cardId == cards[0].cardId }
+            assertEquals(upright.bounds.center, cards[0].bounds.center)
+            assertEquals(56f, cards[0].footprint.height)
+        }
+    }
+
+    @Test fun knownLibraryTopsStayCoveredWithoutArtworkOrEyeBadgeForEitherViewer() {
+        val play = TableFixture.play(library = 2, hand = 1).let { p -> p.copy(board = p.board.copy(
+            cards = p.board.cards.map { it.copy(knownToAll = true, covered = false) })) }
+        for (viewer in listOf("a", "b")) {
+            val scene = TablePresentation.scene(TableFixture.game, play, viewer, 400f, 800f, false)
+            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY }) {
+                assertTrue(pile.covered)
+                assertFalse(pile.known)
+                assertNull(pile.artwork)
+                assertEquals("", pile.note)
+                assertEquals("", pile.corner)
+                assertNotNull(pile.drawHandId)
+            }
+            assertTrue(scene.items.any { it.zone == PlayZone.HAND && it.owner != viewer && it.known && !it.covered })
         }
     }
 

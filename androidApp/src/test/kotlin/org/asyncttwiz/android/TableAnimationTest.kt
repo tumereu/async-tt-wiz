@@ -5,6 +5,31 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    @Test fun libraryArrivalsAndDeparturesStayFaceDownUntilClearOfPile() {
+        val inLibrary = TableFixture.play(library = 1)
+        val id = "a/LIBRARY/0"
+        val card = inLibrary.board.cards.single { it.id == id }
+        val inHand = inLibrary.copy(board = inLibrary.board.copy(
+            cards = inLibrary.board.cards.map { if (it.id == id) it.copy(containerId = "a/HAND", knownToAll = true) else it },
+            containers = inLibrary.board.containers.map { when (it.id) {
+                "a/LIBRARY" -> it.copy(cards = emptyList())
+                "a/HAND" -> it.copy(cards = listOf(card.id))
+                else -> it
+            } }))
+        for ((from, to) in listOf(inLibrary to inHand, inHand to inLibrary)) {
+            val animation = HistorySceneAnimation(TableFixture.scene(from))
+            animation.retarget(TableFixture.scene(to), 1f)
+            for (progress in listOf(0f, .01f, .5f, .99f)) {
+                val moving = animation.frame(progress).single { it.item.cardId == id }.item
+                if (moving.inTransit || progress == 0f) {
+                    assertTrue(moving.covered)
+                    assertFalse(moving.known)
+                    assertNull(moving.artwork)
+                    assertEquals("", moving.value)
+                }
+            }
+        }
+    }
     private fun halfwayX(from: TableBounds, to: TableBounds): Float = from.center.x +
         (to.center.x - from.center.x) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED) -
         (from.width + (to.width - from.width) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED)) / 2
@@ -34,7 +59,7 @@ class TableAnimationTest {
         }
     }
 
-    @Test fun threeAdjacentColumnsNeverIntersectThroughoutAllTapCombinations() {
+    @Test fun adjacentColumnsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
         // Null placement is the old-game fallback; retained integer and fractional presentation
         // anchors must behave identically. All columns remain one grid unit apart.
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f))
@@ -68,13 +93,17 @@ class TableAnimationTest {
                                 val footprint = card.item.footprint
                                 assertEquals(card.bounds.width, b.width, .001f)
                                 assertEquals(card.bounds.height, b.height, .001f)
-                                assertTrue(b.x >= footprint.x - .001f && b.right <= footprint.right + .001f &&
-                                    b.y >= footprint.y - .001f && b.bottom <= footprint.bottom + .001f,
-                                    "Outside column: $from->$to frame $step zoom $zoom pile $pileIndex: $b / $footprint")
+                                val endpoint = scenes[to].items.single { it.cardId == card.item.cardId }.bounds
+                                assertEquals(endpoint.center.x, b.center.x, .001f, "Tap rotates in place")
+                                assertEquals(endpoint.center.y, b.center.y, .001f, "Tap rotates in place")
+                                assertEquals(42f * zoom, footprint.width, .001f)
+                                // A rigid 28x40 face sweeps wider than the 42dp pitch mid-rotation.
+                                assertTrue(b.width <= 49f * zoom && b.height <= 49f * zoom)
                                 b
                             }
-                            for (a in drawn.indices) for (b in a + 1 until drawn.size) assertNull(drawn[a].intersection(drawn[b]),
-                                "Overlapping columns: $from->$to frame $step zoom $zoom")
+                            drawn.zipWithNext().forEach { (a, b) -> assertEquals(42f * zoom, b.center.x - a.center.x, .001f) }
+                            if (step == 0 || step == 20) for (a in drawn.indices) for (b in a + 1 until drawn.size)
+                                assertNull(drawn[a].intersection(drawn[b]), "Overlapping endpoints: $from->$to frame $step zoom $zoom")
                         }
                     }
                 }
@@ -229,7 +258,7 @@ class TableAnimationTest {
                 assertEquals(library.bounds.x + 8f, start.bounds.x)
                 assertEquals(library.bounds.y + 8f, start.bounds.y)
                 assertEquals(1f, start.alpha)
-                assertEquals(owner != "a", start.item.covered)
+                assertTrue(start.item.covered) // Even the viewer's draw leaves a face-down Library pile.
                 val half = animation.frame(.5f).single { it.item.cardId == id }
                 val endBounds = target.items.single { it.cardId == id }.bounds
                 assertEquals(cardMoveProgress(start.bounds, endBounds, .5f, 180, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)

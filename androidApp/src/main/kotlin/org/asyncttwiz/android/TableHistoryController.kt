@@ -65,10 +65,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                     if (!foreground) playback?.background()
                     val result = value.nodes[value.currentNodeId]?.takeIf { it.action is PlayAction.SuggestResult }
                     if (result != null && playback?.position?.mode == HistoryMode.LIVE &&
-                        precedingPresented !in setOf(result.parentId, result.id)) {
-                        playback?.scrub(result.parentId)
-                        playback?.play()
-                    }
+                        precedingPresented !in setOf(result.parentId, result.id)) playback?.holdLiveAt(result.parentId)
                     val boundary = armed
                     if (!provisional && boundary != null && value.resolveCursor(boundary) != boundary) cancel()
                 }
@@ -93,7 +90,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (next.cursor != null && (!index.contains(next.cursor) ||
                         (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
-                if (next.cursor != null && next.cursor != position.cursorId) playback.scrub(next.cursor)
+                if (position.mode == HistoryMode.PLAYBACK && next.cursor != null && next.cursor != position.cursorId)
+                    playback.scrub(next.cursor)
             }
         }) error = "History is not downloaded yet."
     }

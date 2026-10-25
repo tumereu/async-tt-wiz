@@ -276,7 +276,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openLibrary(id: String, tool: LibraryTool = LibraryTool.CONTENTS, handIds: List<String>? = null) {
         val play = current() ?: return
         val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
-        if (source.accountId != viewer) return
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == source.accountId }
         dismiss()
         val controller = libraryController(source.id, hand.id) ?: return
@@ -297,7 +296,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun resolveCardPanel(display: ContentsDisplay, rest: ContentsRest = ContentsRest.TOP) {
         val play = current() ?: return
-        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == display.author }
+        val owner = play.board.containers.single { it.id == display.containerId }.accountId
+        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }
         val result = libraryController(display.containerId, hand.id)?.dismiss(display.id, rest)
         if (result?.refused == 0) dismiss()
     }

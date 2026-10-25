@@ -16,6 +16,15 @@ class HistoryRuntimeIntegrationTest {
     private fun tree(db: OwnedPostgres, f: GameplayFixture) = db.connection().use {
         GameplayStore().readFull(DSL.using(it, SQLDialect.POSTGRES), f.games.head(f.a, f.game.id).play!!) }
     private fun sql(db: OwnedPostgres, text: String) = db.connection().use { it.createStatement().execute(text) }
+    private fun assertNoCheckpointAnnotations(db: OwnedPostgres, f: GameplayFixture) = db.connection().use { connection ->
+        connection.prepareStatement("SELECT count(*) FROM gameplay_endpoint_record WHERE play_id = ? AND kind IN ('comment', 'ping', 'ping-ordinal')").use {
+            it.setObject(1, UUID.fromString(f.root.id))
+            it.executeQuery().use { rows ->
+                assertTrue(rows.next())
+                assertEquals(0, rows.getInt(1), "root fork must persist displaced annotation deletions")
+            }
+        }
+    }
     private fun download(games: GameService, f: GameplayFixture, ids: List<String> = emptyList()): Pair<GameplayManifest, GameplayTree> {
         val manifest = games.baseline(f.a, f.game.id, ids)
         GameplaySync.validate(manifest)
@@ -83,9 +92,11 @@ class HistoryRuntimeIntegrationTest {
                         val fork = f.owner.command(PlayAction.AdjustLife(actor, "1"))
                             .copy(continuation = Continuation(f.root.root.id, true))
                         assertEquals("accepted", f.owner.execute(fork).outcome)
+                        assertNoCheckpointAnnotations(db, f)
                         val continuePlay = f.owner.command(PlayAction.AdjustLife(actor, "1"))
                             .copy(continuation = Continuation(displaced, true))
-                        assertEquals("accepted", f.owner.execute(continuePlay).outcome)
+                        val continued = f.owner.execute(continuePlay)
+                        assertEquals("accepted", continued.outcome, "retained continuation: ${continued.reason}")
                         assertEquals(3, tree(db, f).branchHeads.size)
                     }
                     for (projection in listOf(false, true)) {
@@ -173,11 +184,13 @@ class HistoryRuntimeIntegrationTest {
                 assertEquals(before, tree(db, f)); assertTrue(before.redoByAccount.isEmpty())
                 val branchTarget = f.owner.execute(f.owner.command(PlayAction.SetLife(f.a.account.accountId, "24"))
                     .copy(continuation = Continuation(f.root.root.id, true))).mutation!!.id
+                assertNoCheckpointAnnotations(db, f)
                 val crossReference = EventReference(f.root.id, branchTarget, tree(db, f).contextVersion(branchTarget))
                 assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.EventComment(crossReference,
                     "inactive cross-branch reference")).copy(continuation = Continuation(f.root.root.id, true))).outcome)
-                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.SetNote(card, "continued"))
-                    .copy(continuation = Continuation(branchTarget, true))).outcome)
+                val continued = f.recipient.execute(f.recipient.command(PlayAction.SetNote(card, "continued"))
+                    .copy(continuation = Continuation(branchTarget, true)))
+                assertEquals("accepted", continued.outcome, "retained continuation: ${continued.reason}")
                 val crossBranch = tree(db, f)
                 val blocked = f.owner.execute(control(f.owner, GameAction.Undo))
                 assertEquals("referenceBlocked", blocked.reason); assertEquals(branchTarget, blocked.targetNodeId)

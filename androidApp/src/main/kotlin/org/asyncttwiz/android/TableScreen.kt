@@ -53,12 +53,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val tree = controller.retainedTree()
     val displayTree = controller.displayTree()
-    LaunchedEffect(displayTree, live?.currentNodeId, live?.board, game.revision) {
+    LaunchedEffect(IdentityKey(displayTree), live?.currentNodeId, IdentityKey(live?.board), game.revision) {
         displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
     }
     val playback = history.playback
     val position = playback?.position
-    LaunchedEffect(position, tree, playback?.tree) { history.displayPosition() }
+    LaunchedEffect(position, IdentityKey(tree), playback?.tree) { history.displayPosition() }
     val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
@@ -69,7 +69,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
     val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
-    LaunchedEffect(tree, explorerOpen, showHidden) {
+    LaunchedEffect(IdentityKey(tree), explorerOpen, showHidden) {
         // The live timeline includes provisional nodes; the explorer's review targets
         // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
         if (explorerOpen && tree != null) {
@@ -85,7 +85,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val play = if (waitingActivity) null else if (reviewing) history.view?.state ?: live
         else endpoint.live(live, history.view?.state, awaitingIndex)
     SideEffect { endpoint.presented(play) }
-    LaunchedEffect(target, tree) {
+    LaunchedEffect(target, IdentityKey(tree)) {
         if (target?.destination == ActivityDestination.GROUP && target != appliedActivity && target.playId != null && target.boundaryNodeId != null) {
             val captured = CapturedHistoryTarget(accountId, target.gameId, requireNotNull(target.playId), target.groupId, requireNotNull(target.boundaryNodeId))
             controller.reviewHistoryTarget(captured, { controller.state.activityTarget == target }) {
@@ -110,12 +110,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         if (playback != null && position != null) {
             val endpoint = timelineEnd
             if (position.mode == HistoryMode.LIVE) timelineEnd = playback.tree.sharedHeadId
-            else if (endpoint == null || !playback.tree.contains(endpoint) || position.cursorId !in playback.tree.path(endpoint))
+            else if (endpoint == null || !playback.tree.isAncestor(position.cursorId, endpoint))
                 timelineEnd = position.cursorId
         }
     }
     var dismissedResult by remember(history) { mutableStateOf<String?>(null) }
-    LaunchedEffect(play?.currentNodeId, state.acceptedPlay, position?.mode, history.armed) {
+    LaunchedEffect(play?.currentNodeId, IdentityKey(state.acceptedPlay), position?.mode, history.armed) {
         if (play != null) {
             withFrameNanos { }
             history.presented(play, controller.state.acceptedPlay,

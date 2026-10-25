@@ -33,6 +33,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var texts = emptyMap<String, HistoryText>()
     private var textNames = emptyMap<String, String>()
     private var cachedViewer: String? = null
+    private var textIndex: HistoryTree? = null
 
     fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null) {
         val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
@@ -42,12 +43,16 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         val isolated = value.materializedCopy()
         indexes.submit("index") {
             if (generation != epoch) return@submit
+            val previous = textIndex?.takeIf { it.rootId == value.initial.root.id }
+            val index = HistoryTree(value.initial.root.id, emptyList(), value.currentNodeId, version,
+                containers = value.initial.board.containers, source = isolated, previous = previous)
+            val incremental = previous?.source?.let { isolated.changedNodeIdsSince(it) } != null
             val projected = historyTexts(isolated, viewer, names,
-                textTree.takeIf { textNames == names && cachedViewer == viewer }, texts) { generation == epoch }
+                textTree.takeIf { incremental && textNames == names && cachedViewer == viewer }, texts,
+                index.index.affected) { generation == epoch }
             if (generation != epoch) return@submit
             textTree = isolated; texts = projected; textNames = names; cachedViewer = viewer
-            val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version,
-                texts = projected, containers = value.initial.board.containers)
+            index.texts = projected; textIndex = index
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
@@ -188,8 +193,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         if (state.board.resultSuggestion != null && state.currentNodeId != accepted?.currentNodeId) { gate = null; return }
         val suggestion = accepted?.board?.resultSuggestion
         val node = suggestion?.let { tree?.nodes?.get(it.id) }
-            ?: tree?.nodes?.values?.singleOrNull { (it.action as? PlayAction.SuggestResult) != null &&
-                it.id == accepted?.currentNodeId }
+            ?: accepted?.currentNodeId?.let { tree?.nodes?.get(it) }?.takeIf { it.action is PlayAction.SuggestResult }
         if (suggestion == null || node == null || !live || state.id != accepted.id ||
             state.currentNodeId != accepted.currentNodeId || state.board.resultSuggestion?.id != suggestion.id) {
             gate = null

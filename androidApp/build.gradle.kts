@@ -194,6 +194,7 @@ if (!fcmEnabled) {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
     implementation(project(":core"))
     implementation(project(":protocol"))
     implementation(project(":client-storage"))

@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.protocol.*
+import kotlinx.collections.immutable.toPersistentMap
 
 enum class HistoryMode { LIVE, PLAYBACK }
 data class HistoryPosition(val cursorId: String, val mode: HistoryMode = HistoryMode.LIVE,
@@ -13,30 +14,39 @@ data class HistoryPosition(val cursorId: String, val mode: HistoryMode = History
  * coherent accepted tree and a version of its already-rebased live target (not an acknowledgement revision). */
 class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sharedHeadId: String,
     val liveVersion: String, val versions: Map<String, String> = emptyMap(),
-    val texts: Map<String, HistoryText> = emptyMap(), val containers: List<PlayContainer> = emptyList()) {
-    val nodes = mutations.associateBy { it.id }
-    init {
-        require(nodes.size == mutations.size && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))
-        val done = mutableSetOf(rootId)
-        for (node in nodes.keys) {
-            val visiting = mutableSetOf<String>(); var current = node
-            while (current !in done) {
-                require(visiting.add(current)) { "Cyclic history" }
-                current = requireNotNull(nodes[current]) { "Incomplete retained history" }.parentId
-            }
-            done.addAll(visiting)
+    texts: Map<String, HistoryText> = emptyMap(), val containers: List<PlayContainer> = emptyList(),
+    internal val source: GameplayTree? = null, previous: HistoryTree? = null) {
+    val nodes = source?.nodes ?: mutations.associateBy { it.id }
+    var texts = texts; internal set
+    private val changed = if (source != null && previous?.source != null) source.changedNodeIdsSince(previous.source) else null
+    internal val index: HistoryIndex = HistoryIndex.build(rootId, nodes, containers, previous?.index.takeIf { changed != null },
+        previous?.nodes.orEmpty(), changed ?: nodes.keys)
+    val indexedNodes get() = index.visited
+    var navigationReads = 0; private set
+    val removedParents: Map<String, String> = run {
+        var result = previous?.removedParents.orEmpty().toPersistentMap()
+        for (id in changed ?: emptySet()) previous?.nodes?.get(id)?.takeIf { id !in nodes }?.let {
+            result = result.put(id, it.parentId)
         }
+        result
+    }
+    init {
+        require((source != null || nodes.size == mutations.size) && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))
     }
     fun contains(id: String) = id == rootId || id in nodes
     fun path(id: String): List<String> {
         require(contains(id))
-        val reverse = mutableListOf<String>(); var cursor = id
-        while (cursor != rootId) { reverse += cursor; cursor = nodes.getValue(cursor).parentId }
-        return listOf(rootId) + reverse.asReversed()
+        return index.boundaries.getValue(id).path
     }
+    fun depth(id: String): Int { navigationReads++; return index.boundaries.getValue(id).path.lastIndex }
+    fun isAncestor(ancestor: String, endpoint: String): Boolean {
+        navigationReads++
+        val a = index.boundaries[ancestor] ?: return false
+        return index.boundaries[endpoint]?.path?.getOrNull(a.path.lastIndex) == ancestor
+    }
+    internal fun ends(id: String): List<String> { navigationReads++; return index.boundaries.getValue(id).groupEnds }
     fun groups(path: List<String>): Map<String, GameplayGroup> {
-        var previous: GameplayGroup? = null
-        return path.drop(1).associateWith { id -> GameplayHistory.append(previous, nodes.getValue(id), containers).also { previous = it } }
+        return path.drop(1).associateWith { id -> index.boundaries.getValue(id).group!! }
     }
     fun version(id: String) = if (id == sharedHeadId) liveVersion else versions[id] ?: id
 }
@@ -46,11 +56,15 @@ class HistoryPlayback(initial: HistoryTree) {
     var tree: HistoryTree by mutableStateOf(initial); private set
     var position by mutableStateOf(HistoryPosition(initial.sharedHeadId, displayVersion = initial.liveVersion)); private set
     var foreground by mutableStateOf(true); private set
-    private val removedParents = mutableMapOf<String, String>()
+    private var removedParents: Map<String, String> = emptyMap()
 
     fun receive(next: HistoryTree) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
-        for ((id, node) in tree.nodes) if (id !in next.nodes) removedParents[id] = node.parentId
+        removedParents = if (next.source != null) next.removedParents else {
+            var parents = removedParents.toPersistentMap()
+            for ((id, node) in tree.nodes) if (id !in next.nodes) parents = parents.put(id, node.parentId)
+            parents
+        }
         tree = next
         val cursor = resolveCursor(position.cursorId)
         position = when {
@@ -88,30 +102,28 @@ class HistoryPlayback(initial: HistoryTree) {
     fun play() { position = position.copy(mode = HistoryMode.PLAYBACK, playing = true) }
 
     fun previous() {
-        val path = tree.path(position.cursorId)
-        val groups = tree.groups(path)
-        val currentGroup = groups[position.cursorId]?.id
-        val first = path.indexOfFirst { groups[it]?.id == currentGroup && it != tree.rootId }
-        scrub(if (first <= 0) tree.rootId else path[first - 1])
+        val ends = tree.ends(position.cursorId)
+        scrub(ends.getOrElse(ends.lastIndex - 1) { tree.rootId })
     }
 
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
     fun next(automatic: Boolean = false) {
         if (automatic && (!foreground || !position.playing)) return
-        val oldPath = tree.path(position.cursorId)
-        val active = tree.path(tree.sharedHeadId)
-        val common = oldPath.zip(active).takeWhile { it.first == it.second }.last().first
+        var common = position.cursorId
+        while (!tree.isAncestor(common, tree.sharedHeadId)) common = tree.nodes.getValue(common).parentId
         val target: String
         if (position.cursorId != common) {
-            val groups = tree.groups(oldPath); val group = groups.getValue(position.cursorId).id
-            val start = oldPath.indexOfFirst { groups[it]?.id == group }
-            target = oldPath[maxOf(start - 1, oldPath.indexOf(common))]
+            val ends = tree.ends(position.cursorId)
+            val previous = ends.getOrElse(ends.lastIndex - 1) { tree.rootId }
+            target = if (tree.depth(previous) < tree.depth(common)) common else previous
         } else {
-            val index = active.indexOf(position.cursorId)
-            if (index == active.lastIndex) target = tree.sharedHeadId else {
-                val groups = tree.groups(active); val nextGroup = groups.getValue(active[index + 1]).id
-                target = active.drop(index + 1).takeWhile { groups.getValue(it).id == nextGroup }.last()
-            }
+            val depth = tree.depth(position.cursorId)
+            val ends = tree.ends(tree.sharedHeadId)
+            // Binary search the maintained group boundaries, never fold a root path per tick.
+            var lo = 0; var hi = ends.size
+            while (lo < hi) { val mid = (lo + hi) ushr 1
+                if (tree.depth(ends[mid]) <= depth) lo = mid + 1 else hi = mid }
+            target = ends.getOrElse(lo) { tree.sharedHeadId }
         }
         val live = target == tree.sharedHeadId
         position = HistoryPosition(target, if (live) HistoryMode.LIVE else HistoryMode.PLAYBACK,

@@ -37,6 +37,27 @@ import kotlin.concurrent.Volatile
     @Transient internal val generationToken: Any = Any()
     @Transient internal var editBase: Any? = null
     @Transient internal var editKeys: Set<GameplayTreeKey> = emptySet()
+    // Keys only: never retain old trees/boards. Presentation consumers can cross coalesced updates
+    // and prediction/confirmation forks in O(delta), without comparing every retained mutation.
+    private class Edits(val parent: Edits?, val keys: Set<GameplayTreeKey>) {
+        val depth: Int = (parent?.depth ?: -1) + 1
+        val origin: Any = parent?.origin ?: Any()
+    }
+    @Transient private var edits = Edits(null, emptySet())
+
+    /** Null denotes an unrelated cold generation, not permission to diff on the UI thread. */
+    fun changedNodeIdsSince(previous: GameplayTree): Set<String>? {
+        if (nodes === previous.nodes) return emptySet()
+        var a = edits; var b = previous.edits
+        if (a.origin !== b.origin) return null
+        val ids = mutableSetOf<String>()
+        fun collect(edit: Edits) { for (key in edit.keys) if (key.kind == "node") ids.add(key.id) }
+        while (a !== b) {
+            if (a.depth >= b.depth) { collect(a); a = a.parent ?: return null }
+            else { collect(b); b = b.parent ?: return null }
+        }
+        return ids
+    }
     @Transient var work: GameplayWork = GameplayWork()
         private set
 
@@ -48,6 +69,7 @@ import kotlin.concurrent.Volatile
     internal fun changedFrom(previous: GameplayTree, keys: Set<GameplayTreeKey>): GameplayTree {
         editBase = previous.generationToken
         editKeys = keys
+        edits = Edits(previous.edits, keys)
         work = previous.work
         val ids = keys.filter { it.kind == "node" }.map { it.id }.toSet()
         retainedIndex = if (nodes === previous.nodes) previous.index() else previous.index().edited(previous.nodes, nodes, ids)
@@ -77,6 +99,7 @@ import kotlin.concurrent.Volatile
         it.currentMaterialization = currentMaterialization
         it.reviewMaterialization = reviewMaterialization
         it.retainedIndex = retainedIndex
+        it.edits = edits
     }
 
     /** Transfer a worker-derived endpoint back to the identical immutable presentation generation. */

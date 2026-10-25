@@ -19,7 +19,9 @@ import org.asyncttwiz.protocol.*
 
 /** Only intersecting laid-out rows count as presented; lazy prefetch is not viewing. */
 internal fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any>, panelVisible: Boolean): Set<String> =
-    if (!panelVisible) emptySet() else visibleKeys.filterIsInstance<String>().toSet().intersect(messages.map { it.id }.toSet())
+    if (!panelVisible) emptySet() else visibleKeys.filterIsInstance<String>().filter { id ->
+        if (messages is IndexedChatMessages) messages.byId(id) != null else messages.any { it.id == id }
+    }.toSet()
 
 @Composable
 internal fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier) {

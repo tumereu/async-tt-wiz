@@ -699,8 +699,8 @@ class GameSession(private val connection: GameConnection, private val credential
         require(incoming.all { it.gameId == gameId && GameWire.ordinal(it.revision) <= GameWire.ordinal(revision) })
         val oldRevision = chatRevisions[gameId]
         if (snapshot && oldRevision != null && !newerOrEqual(revision, oldRevision)) return
-        val retained = if (snapshot) incoming else chat(gameId) + incoming
-        messages[gameId] = retained.distinctBy { it.id }.sortedBy { GameWire.ordinal(it.revision) }
+        val retained = if (snapshot) IndexedChatMessages() else (messages[gameId] as? IndexedChatMessages) ?: IndexedChatMessages()
+        messages[gameId] = retained.upsert(incoming)
         if (oldRevision == null || newerOrEqual(revision, oldRevision)) chatRevisions[gameId] = revision
         incoming.forEach { chatSubmissions.remove(it.id) }
     }

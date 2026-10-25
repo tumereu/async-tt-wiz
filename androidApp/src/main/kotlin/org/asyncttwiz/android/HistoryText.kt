@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import kotlinx.collections.immutable.toPersistentMap
+
 import org.asyncttwiz.protocol.*
 
 data class HistoryText(val description: String, val label: String)
@@ -155,10 +157,26 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
 /** Worker-only text projection. Replay each retained edge once with the shared reducer; keep
  * boards only along open fork paths, never a second per-event board cache. Annotations do not
  * change card visibility, so their board projection needs no reference resolution. */
+internal class HistoryTextWork { var projectedEvents = 0; var scannedEvents = 0 }
+
 internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<String, String>,
     previous: GameplayTree? = null, previousTexts: Map<String, HistoryText> = emptyMap(),
+    changed: Set<String>? = previous?.let { tree.changedNodeIdsSince(it) },
+    work: HistoryTextWork = HistoryTextWork(),
     current: () -> Boolean = { true }): Map<String, HistoryText> {
+    if (previous != null && changed != null) {
+        var result = previousTexts.toPersistentMap()
+        for (id in changed) {
+            if (!current()) return emptyMap()
+            val event = tree.nodes[id]
+            if (event != null) work.projectedEvents++
+            result = if (event == null) result.remove(id) else result.put(id,
+                historyText(event, tree.stateAt(event.parentId), viewer, usernames))
+        }
+        return result
+    }
     val children = tree.nodes.values.groupBy { it.parentId }
+    work.scannedEvents += tree.nodes.size
     val texts = mutableMapOf(tree.initial.root.id to historyText(null))
     val pending = ArrayDeque<Pair<GameplayMutation, PlayState?>>()
     val unchanged = mutableSetOf<String>()
@@ -178,7 +196,7 @@ internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<St
         }
         children[event.id].orEmpty().forEach { pending.addLast(it to state) }
     }
-    return texts
+    return texts.toPersistentMap()
 }
 
 internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>): HistoryText {

@@ -4,6 +4,8 @@ import android.graphics.Paint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +22,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -390,7 +393,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) {
                 val frame = rendered.value
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
-                drawTable(frame.scene, accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
+                drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
                     pingPulse?.value ?: 0f)
             }
@@ -568,10 +571,39 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 })
         }
         }
+        MoveFrame(play, accountId, runtime.liveView && !runtime.reviewing, runtime.attentionEvent)
     }
     CardInspection(inspector, token = inspectedCard?.token == true,
         owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
     peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true, peekScroll = peekScroll) }
+    }
+}
+
+/** Draw-only overlay: it cannot take input from the table or its floating controls. */
+@Composable
+private fun MoveFrame(play: PlayState, viewer: String, live: Boolean, event: GameplayMutation?) {
+    val visible = live && play.board.effectiveAttentionHolder == viewer
+    val tracker = remember(play.id, viewer) { MoveArrivalTracker(viewer) }
+    var arrivals by remember(tracker) { mutableIntStateOf(0) }
+    val pulse = remember(tracker) { Animatable(0f) }
+    LaunchedEffect(tracker, play.currentNodeId, play.board.effectiveAttentionHolder, live) {
+        if (tracker.observe(play, live, event)) arrivals++
+    }
+    LaunchedEffect(arrivals) {
+        pulse.snapTo(0f)
+        if (visible && arrivals > 0) pulse.animateTo(0f, keyframes {
+            durationMillis = 600
+            0f at 0
+            1f at 120
+            0f at 600
+        })
+    }
+    LaunchedEffect(visible) { if (!visible) pulse.snapTo(0f) }
+    if (visible) Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
+        val width = (4 + 3 * pulse.value).dp.toPx()
+        val inset = 2.dp.toPx() + width / 2
+        drawRect(lerp(OwnTableColor, Color(0xff65bb80), pulse.value), Offset(inset, inset),
+            Size((size.width - 2 * inset).coerceAtLeast(0f), (size.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(width))
     }
 }
 
@@ -627,19 +659,17 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
         .fillMaxWidth(if (landscape) .366f else 1f), verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
         Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-            Text(game.gameName, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+            Text(turnHeader(game, play.board.turn, viewer), Modifier.semantics { contentDescription = game.gameName },
+                color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             ActionSquare(attention.label, "", attention.enabled,
-                Modifier.fillMaxWidth().height(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(15.dp)),
-                fill = attention.color.copy(alpha = .12f), ink = attention.color,
+                Modifier.fillMaxWidth().height(30.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(15.dp))
+                    .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(15.dp))),
+                fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
                 icon = {
                     Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (attention.own) Text("Your move", fontSize = 11.sp, maxLines = 1)
-                        else {
-                            Text(attention.name, Modifier.weight(1f, fill = false), fontSize = 11.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("'s move", fontSize = 11.sp, maxLines = 1)
-                        }
+                        Text(attention.label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            fontWeight = if (attention.own) FontWeight.Bold else FontWeight.Normal)
                     }
                 }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }
@@ -763,7 +793,7 @@ private class TableDrawCache(density: Float) {
     }
 }
 
-private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: TableSelection, preview: TableGesturePreview,
+private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
     cache: TableDrawCache, pingPhase: Float = 0f) {
@@ -872,13 +902,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
         val b = f.gridBounds
         val viewport = scene.world?.horizontalBand(b) ?: f.bounds
         clipRect(viewport.x * density, viewport.y * density, viewport.right * density, viewport.bottom * density) {
-        val color = if (f.owner == viewer) Color(0xffe2efe6) else Color(0xfff4e8ea)
+        val color = battlefieldColor(f.owner, viewer, turnPlayer, lands = false)
         drawRect(color, xy(viewport.x, b.y), size(viewport.width, b.height))
         val lands = f.landsBounds(f.owner == viewer, scene.camera)
-        drawRect(if (f.owner == viewer) Color(0xffc4dcd0) else Color(0xffe9d1d3),
+        drawRect(battlefieldColor(f.owner, viewer, turnPlayer, lands = true),
             xy(viewport.x, lands.y), size(viewport.width, lands.height))
-        if (f.holdsAttention) drawRect((if (f.owner == viewer) OwnTableColor else OpponentTableColor).copy(alpha = .12f),
-            xy(viewport.x, viewport.y), size(viewport.width, viewport.height))
         }
     }
     scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
@@ -953,11 +981,30 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
     val highlighted = preview.rectangle?.let(scene::rectangle) ?: selection.ids
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
-    for (i in scene.items) for (part in i.visible) clipRect(part.x * density, part.y * density, part.right * density, part.bottom * density) {
+    fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {
+        if (i.sourceId != null && i.sourceId in relatedSources) {
+            val inset = if (card) -2f else 3f
+            drawRect(Color(0xffbd982f), xy(b.x + inset, b.y + inset),
+                size((b.width - 2 * inset).coerceAtLeast(0f), (b.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(2 * density))
+        }
+        val outset = if (card) 2f else 0f
+        if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x - outset, b.y - outset),
+            size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(3 * density))
+        if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
+            size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
+    }
+    for (i in scene.items) for (part in i.visible) {
+        // Preserve clipped/occluded edges, but leave room around a whole face for its outline.
+        val outset = if (i.kind == TableItemKind.CARD) 4f else 0f
+        val left = part.x - if (part.x == i.bounds.x) outset else 0f
+        val top = part.y - if (part.y == i.bounds.y) outset else 0f
+        val right = part.right + if (part.right == i.bounds.right) outset else 0f
+        val bottom = part.bottom + if (part.bottom == i.bounds.bottom) outset else 0f
+        clipRect(left * density, top * density, right * density, bottom * density) {
         val alpha = alphas[i.id] ?: 1f
         // Opaque cards need only the existing clip, not a separate GPU render target per fragment.
-        if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(part.x * density, part.y * density,
-            part.right * density, part.bottom * density), cache.layerPaint.apply { this.alpha = alpha })
+        if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(left * density, top * density,
+            right * density, bottom * density), cache.layerPaint.apply { this.alpha = alpha })
         try {
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
@@ -1031,14 +1078,13 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, selection: Ta
                           paint.color = android.graphics.Color.DKGRAY
                       }
                      paint.textSize = 11 * density
+                     outlines(i, TableBounds(x, y, cardWidth, cardHeight), card = true)
                  }
             }
         }
-        if (i.sourceId != null && i.sourceId in relatedSources) drawRect(Color(0xffbd982f), xy(b.x + 3, b.y + 3),
-            size((b.width - 6).coerceAtLeast(0f), (b.height - 6).coerceAtLeast(0f)), style = Stroke(2 * density))
-        if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x, b.y), size(b.width, b.height), style = Stroke(3 * density))
-        if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x, b.y), size(b.width, b.height), style = Stroke(2 * density))
+        if (i.kind != TableItemKind.CARD) outlines(i, b)
         } finally { if (alpha < 1f) drawContext.canvas.restore() }
+    }
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
     for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {

@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import com.github.takahirom.roborazzi.captureRoboImage
+import java.io.File
+import javax.imageio.ImageIO
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -40,8 +44,14 @@ class AttentionHeaderTest {
         }
         for (wide in listOf(false, true)) {
             compose.runOnIdle { landscape.value = wide; reviewing.value = false }
+            compose.onNodeWithText("Your turn · 1").assertIsDisplayed()
+            compose.onNodeWithContentDescription(TableFixture.game.gameName).assertExists()
             val pill = compose.onNodeWithContentDescription("Your move")
             pill.assertIsDisplayed().assertIsEnabled()
+            val liveImage = File("build/outputs/roborazzi/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }
+            compose.onRoot().captureRoboImage(liveImage.path)
+            val livePixels = ImageIO.read(liveImage)
+            assertEquals(OwnTableColor.toArgb(), livePixels.getRGB(3, livePixels.height / 2), "Live move frame")
             val bounds = pill.fetchSemanticsNode().boundsInRoot
             val phase = compose.onNodeWithContentDescription("Turn 1, Alice's turn, Beginning · Untap. Choose phase/step").fetchSemanticsNode().boundsInRoot
             val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot
@@ -54,11 +64,15 @@ class AttentionHeaderTest {
             pill.performTouchInput { click() }
             compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent); sent.clear() }
             compose.runOnIdle { reviewing.value = true }
+            val reviewImage = File("build/outputs/roborazzi/move-frame-review-$wide.png")
+            compose.onRoot().captureRoboImage(reviewImage.path)
+            val reviewPixels = ImageIO.read(reviewImage)
+            assertNotEquals(OwnTableColor.toArgb(), reviewPixels.getRGB(3, reviewPixels.height / 2), "No move frame in review")
             pill.assertIsNotEnabled().performTouchInput { click() }
             compose.runOnIdle { assertTrue(sent.isEmpty()) }
         }
         compose.runOnIdle { play.value = initial.copy(board = initial.board.copy(attentionHolder = "b")); reviewing.value = false }
-        compose.onNodeWithContentDescription("Bob's move").assertIsDisplayed().performTouchInput { click() }
+        compose.onNodeWithContentDescription("Waiting · Bob").assertIsDisplayed().performTouchInput { click() }
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent) }
     }
 }

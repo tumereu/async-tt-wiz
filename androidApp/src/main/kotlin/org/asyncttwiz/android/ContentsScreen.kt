@@ -137,7 +137,7 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             } finally { coordinator.cancel() }
         }) {
             Column(Modifier.fillMaxSize()) {
-                OutlinedTextField(search, { search = it; bubbleId = null; pendingAdvance = null }, Modifier.fillMaxWidth(), label = { Text("Search by name") }, singleLine = true)
+                OutlinedTextField(search, { search = it; bubbleId = null; pendingAdvance = null }, Modifier.fillMaxWidth().ringInputTarget(draggable = true), label = { Text("Search by name") }, singleLine = true)
                 ContentsRows(state, viewer, entries, !pile.ordered,
                     onActions = { if (stack) { if (it == pile.cardIds.firstOrNull()) bubbleId = it } else onActions(it) }, onInspect = onInspect,
                     modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,
@@ -161,7 +161,7 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
     var peek by remember { mutableStateOf<ManualInspection?>(null) }
     val peekScroll = rememberScrollState()
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
-    Row(modifier.horizontalScroll(rememberScrollState())) {
+    Row(modifier.ringInputTarget(draggable = true).horizontalScroll(rememberScrollState())) {
         groups.forEach { (category, cards) ->
             Column(Modifier.width(220.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
                 if (category.isNotEmpty()) Text(category, style = MaterialTheme.typography.labelMedium)

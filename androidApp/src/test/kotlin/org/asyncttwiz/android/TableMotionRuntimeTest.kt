@@ -7,6 +7,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
+import com.github.takahirom.roborazzi.captureRoboImage
+import java.io.File
+import javax.imageio.ImageIO
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -80,8 +84,10 @@ class TableMotionRuntimeTest {
         val initial = TableFixture.play(board = 1)
         val state = mutableStateOf(initial)
         val id = "a/BATTLEFIELD/0"
+        val toolkit = TableToolkitController("a", { state.value }, { true }, { _, _ -> true })
+        toolkit.selectionState.value = TableSelection(ids = setOf(id))
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())
+            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize(), toolkit = toolkit)
         } }
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
@@ -98,6 +104,16 @@ class TableMotionRuntimeTest {
             val node = compose.onNodeWithContentDescription(item.label)
             val during = node.fetchSemanticsNode().boundsInRoot
             assertTrue(during.width > 40f, "Mid-rotation AABB must include the whole diagonal face: $during")
+            val image = File("build/outputs/roborazzi/selection-rotation-$tapped.png").also { it.parentFile!!.mkdirs() }
+            compose.onRoot().captureRoboImage(image.path)
+            val pixels = ImageIO.read(image)
+            val blue = 0xff397ccc.toInt()
+            assertNotEquals(blue, pixels.getRGB((during.left + 2).toInt(), (during.top + 2).toInt()),
+                "The selection must not draw an axis-aligned corner around a rotating card")
+            val bluePixels = ((during.left - 4).toInt()..(during.right + 4).toInt()).sumOf { x ->
+                ((during.top - 4).toInt()..(during.bottom + 4).toInt()).count { y -> pixels.getRGB(x, y) == blue }
+            }
+            assertTrue(bluePixels > 20, "The rotating card must retain its selection border")
             compose.mainClock.advanceTimeBy(64); compose.waitForIdle()
             val end = node.fetchSemanticsNode().boundsInRoot
             assertEquals(item.bounds.x.roundToInt().toFloat(), end.left)

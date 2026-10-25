@@ -77,7 +77,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             text = selectedLibraryQuantity(stepLibraryQuantity(text.text, delta).toString())
         }, label = "")
         val color = LocalInlinePopupColor.current
-        Surface(Modifier.size(96.dp, 48.dp).ringInputTarget(), shape = RoundedCornerShape(3.dp),
+        Surface(Modifier.size(96.dp, 48.dp).ringInputTarget(draggable = true), shape = RoundedCornerShape(3.dp),
             color = androidx.compose.ui.graphics.Color.White, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
             Box(contentAlignment = Alignment.Center) {
                 BasicTextField(text, { text = it }, Modifier.fillMaxWidth().padding(8.dp)

@@ -233,7 +233,10 @@ class CardRingInteractionTest {
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {
         val toolkit = render()
         compose.ringPage(2)
-        compose.onNodeWithContentDescription("Card action grid").performTouchInput { swipeLeft() }
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("Increase blue counter").performTouchInput {
+            swipe(center, center - Offset(100f, 0f), 160)
+        }
         compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
         compose.ringPage(4)
         compose.runOnIdle { toolkit.dismiss() }
@@ -249,8 +252,9 @@ class CardRingInteractionTest {
     @Test fun verticalDragDoesNotSwitchPagesAndMovePageNeedsNoScrolling() {
         render()
         compose.ringPage(4)
-        val grid = compose.onNodeWithContentDescription("Card action grid")
-        grid.performTouchInput { swipeUp() }
+        compose.mainClock.advanceTimeBy(600)
+        val grid = compose.onNodeWithContentDescription("Move to Stack")
+        grid.performTouchInput { swipe(center, center - Offset(0f, 100f), 160) }
         compose.onNode(hasContentDescription("Action page 4 of ", substring = true)).assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Stack").assertIsDisplayed()
         assertTrue(sent.isEmpty())

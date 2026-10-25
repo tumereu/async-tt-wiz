@@ -196,7 +196,7 @@ class TableStatesScreenshotTest {
         if (kind == "combat") {
             compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
             assertRenderedLandsBands(image, TablePresentation.scene(f.game, current(), f.a,
-                image.width.toFloat(), image.height.toFloat(), landscape), f.a)
+                image.width.toFloat(), image.height.toFloat(), landscape), f.a, turnPlayer = current().board.turn.accountId)
         }
         if (kind == "stack-preview") {
             compose.onRoot().performTouchInput { cancel() }

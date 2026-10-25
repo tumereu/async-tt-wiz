@@ -155,15 +155,23 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
 /** Worker-only text projection. Replay each retained edge once with the shared reducer; keep
  * boards only along open fork paths, never a second per-event board cache. Annotations do not
  * change card visibility, so their board projection needs no reference resolution. */
-internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<String, String>): Map<String, HistoryText> {
+internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<String, String>,
+    previous: GameplayTree? = null, previousTexts: Map<String, HistoryText> = emptyMap(),
+    current: () -> Boolean = { true }): Map<String, HistoryText> {
     val children = tree.nodes.values.groupBy { it.parentId }
     val texts = mutableMapOf(tree.initial.root.id to historyText(null))
     val pending = ArrayDeque<Pair<GameplayMutation, PlayState?>>()
+    val unchanged = mutableSetOf<String>()
+    if (previous?.initial == tree.initial) unchanged.add(tree.initial.root.id)
     children[tree.initial.root.id].orEmpty().forEach { pending.addLast(it to tree.initial) }
     while (pending.isNotEmpty()) {
+        if (!current()) return emptyMap()
         val (event, parent) = pending.removeLast()
-        texts[event.id] = historyText(event, parent, viewer, usernames)
-        val state = parent?.let { before ->
+        val same = event.parentId in unchanged && previous?.nodes?.get(event.id) == event && event.id in previousTexts
+        if (same) unchanged.add(event.id)
+        val before = if (same) null else parent ?: tree.stateAt(event.parentId)
+        texts[event.id] = if (same) previousTexts.getValue(event.id) else historyText(event, before, viewer, usernames)
+        val state = before?.takeIf { children[event.id].orEmpty().isNotEmpty() }?.let { before ->
             if (event.transition.annotation != null) before.copy(currentNodeId = event.id,
                 currentBranchId = event.branchId, currentGroup = GameplayHistory.append(before.currentGroup, event))
             else GameplayHistory.replay(before, event).state

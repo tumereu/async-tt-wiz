@@ -12,6 +12,68 @@ import kotlin.test.*
 /** Actual production GameSession/replica/I26 coordinator. The socket/store scheduling boundaries
  * are controlled doubles here; real PostgreSQL and file-backed SQLDelight execute in the combined pass. */
 class HistoryRuntimeIntegrationTest {
+    @Test fun revisionsArrivingDuringStagingCatchUpWithoutDownloadingAnotherManifest() {
+        Fixture().use { x ->
+            x.connect()
+            val transfer = x.transfer()
+            val started = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val blocked = GameplayTreeTransfer(transfer.manifest, transfer.plan) { index ->
+                if (index == 0) { started.countDown(); assertTrue(release.await(10, TimeUnit.SECONDS)) }
+                transfer.openChunk(index)
+            }
+            x.wire.reads.single().second(blocked)
+            while (true) (x.posts.poll() ?: break).invoke()
+            assertTrue(started.await(10, TimeUnit.SECONDS))
+            try {
+                repeat(2) { n ->
+                    val command = GameCommand(f.id(4000 + n), GameScope(x.game.id, playId = x.tree.initial.id),
+                        GameAction.Play(PlayAction.AdjustLife(f.a, "1")), f.id(90), "1")
+                    x.wire.listener.message(x.execute(command))
+                    while (true) (x.posts.poll() ?: break).invoke()
+                }
+            } finally { release.countDown() }
+            x.drain()
+            assertEquals(1, x.wire.reads.size, "Late arrivals are an incremental tail, not a baseline restart")
+            assertTrue(x.session.ready(x.game.id))
+            assertEquals(x.tree, x.session.retainedTree(x.game.id))
+        }
+    }
+    @Test fun liveReviewIsImmediateAndAcceptedPublicationDoesNotWaitForBlockedHistoricalReviews() {
+        var tree = f.root()
+        repeat(360) { n -> tree = f.tap(tree, 2000 + n, tapped = n % 2 == 0) }
+        Fixture(initial = tree).use { x ->
+            x.connect(); x.publish()
+            val started = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            x.reviewWorker.execute { started.countDown(); release.await(10, TimeUnit.SECONDS) }
+            assertTrue(started.await(10, TimeUnit.SECONDS))
+            try {
+                repeat(100) { x.session.review(x.game.id, tree.initial.root.id) { fail("Superseded review delivered") } }
+                var live: DownloadedHistoryState? = null
+                val start = System.nanoTime()
+                assertTrue(x.session.review(x.game.id, null) { live = it })
+                assertTrue((System.nanoTime() - start) / 1_000_000 < 50, "LIVE must not wait for a worker")
+                assertSame(x.session.acceptedPlay(x.game), assertNotNull(live).state)
+                val reads = x.wire.reads.size
+                repeat(8) { n ->
+                    val command = GameCommand(f.id(3000 + n), GameScope(x.game.id, playId = tree.initial.id),
+                        GameAction.Play(PlayAction.AdjustLife(f.a, "1")), f.id(90), "1")
+                    val update = x.execute(command)
+                    x.wire.listener.message(update)
+                }
+                // Do NOT drain the blocked review executor: publication must be independent.
+                repeat(3) {
+                    x.worker.submit {}.get(10, TimeUnit.SECONDS)
+                    while (true) (x.posts.poll() ?: break).invoke()
+                }
+                assertEquals(x.tree.currentNodeId, x.session.acceptedPlay(x.game)?.currentNodeId)
+                assertEquals(reads, x.wire.reads.size, "Normal accepted deltas must not trigger catch-up")
+                assertTrue(x.session.ready(x.game.id))
+            } finally { release.countDown() }
+            x.drain()
+        }
+    }
     @Test fun stalePreviousPlayRevisionCannotInvalidateNewerAcceptedCacheOrStartObsoleteRecovery() {
         Fixture().use { x ->
             x.connect(); x.publish()
@@ -53,6 +115,7 @@ class HistoryRuntimeIntegrationTest {
         val wire = Wire()
         val posts = LinkedBlockingQueue<() -> Unit>()
         val worker = Executors.newSingleThreadExecutor()
+        val reviewWorker = Executors.newSingleThreadExecutor()
         val cache = TreeStoreFixture()
         var actor: String? = f.a
         var token: String? = "A".repeat(43)
@@ -65,12 +128,13 @@ class HistoryRuntimeIntegrationTest {
         val session = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, result -> results.add(result) }, {},
             accountId = { actor }, treeCache = if (!persistent) null else { account, game, play ->
                 assertEquals(cache.accountId, account); assertEquals(cache.gameId, game); assertEquals(cache.playId, play); cache
-            }, treeWorker = worker)
+            }, treeWorker = worker, reviewWorker = reviewWorker)
         fun head() = GameHead(game.id, revision.toString(), game.copy(revision = revision.toString()),
             play = tree.stateAt(tree.currentNodeId))
         fun drain() {
             repeat(3) {
                 worker.submit {}.get(10, TimeUnit.SECONDS)
+                reviewWorker.submit {}.get(10, TimeUnit.SECONDS)
                 while (true) (posts.poll() ?: break).invoke()
             }
         }
@@ -102,7 +166,7 @@ class HistoryRuntimeIntegrationTest {
                 game.copy(revision = revision.toString()), treeDelta = TreeSync.delta(before, tree))
         }
         fun commands() = wire.frames.filterIsInstance<GameCommand>()
-        override fun close() { session.close(); assertTrue(worker.awaitTermination(10, TimeUnit.SECONDS)) }
+        override fun close() { session.close(); assertTrue(worker.awaitTermination(10, TimeUnit.SECONDS)); assertTrue(reviewWorker.awaitTermination(10, TimeUnit.SECONDS)) }
     }
 
     private fun untapRoot(): GameplayTree {

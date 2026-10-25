@@ -26,9 +26,9 @@ import kotlin.concurrent.Volatile
     init { require(initial.currentNodeId == initial.root.id) }
 
     // Disposable current-only checkpoint, populated solely by replay or the shared reducer below.
-    // It belongs to this exact immutable tree instance: copy/decoding (including same-ID topology,
-    // root or scope changes) starts cold. It is neither wire state nor caller-supplied authority.
-    @Transient private var currentMaterialization: PlayState? =
+    // Plain copies start cold. Validated deltas and explicit execution-domain copies may transfer
+    // derived endpoints after checking ancestry. This is never wire/caller-supplied authority.
+    @Transient @Volatile private var currentMaterialization: PlayState? =
         if (currentNodeId == initial.root.id) initial.copy(currentBranchId = currentBranchId) else null
     // One disposable worker-prepared review endpoint, not a per-node snapshot map or accepted data.
     // Tree edits/copy/decoding discard it.
@@ -37,6 +37,37 @@ import kotlin.concurrent.Volatile
     /** Prepare the exact personal cursor on a worker before enabling historical mutation callbacks.
      * The UI cannot inject a board; only this tree's shared replay can populate the disposable slot. */
     fun prepareReview(nodeId: String): PlayState? = stateAt(nodeId)?.also { reviewMaterialization = nodeId to it }
+
+    /** Read-only cache lookup: never replay on a presentation thread. */
+    fun preparedState(nodeId: String): PlayState? =
+        currentMaterialization?.takeIf { it.currentNodeId == nodeId }
+            ?: reviewMaterialization?.takeIf { it.first == nodeId }?.second
+
+    /** Independent mutable cache slots for another execution domain; boards/topology are immutable. */
+    fun materializedCopy(): GameplayTree = copy().also {
+        it.currentMaterialization = currentMaterialization
+        it.reviewMaterialization = reviewMaterialization
+    }
+
+    /** Transfer a worker-derived endpoint back to the identical immutable presentation generation. */
+    fun receivePreparedReview(prepared: GameplayTree) {
+        require(initial === prepared.initial && nodes === prepared.nodes && currentNodeId == prepared.currentNodeId)
+        reviewMaterialization = prepared.reviewMaterialization
+    }
+
+    /** Reuse only endpoints whose complete ancestry is unchanged, then traverse the edited suffix.
+     * Removed/reparented heads must be reversed in the OLD topology, not the new one. */
+    internal fun inheritMaterialization(previous: GameplayTree, unchanged: Set<String>) {
+        val review = previous.reviewMaterialization?.takeIf { it.first in unchanged }
+        var cursor = previous.currentNodeId
+        while (cursor !in unchanged) cursor = previous.nodes[cursor]?.parentId ?: return
+        previous.stateAt(cursor)?.let { reviewMaterialization = cursor to it }
+        stateAt(currentNodeId)?.let(::checkpoint)
+        if (review != null) reviewMaterialization = review
+    }
+
+    @Transient internal var replayedNodes: Int = 0
+        private set
 
     fun parentOf(nodeId: String): String? = nodes[nodeId]?.parentId ?: removedParents[nodeId]
 
@@ -211,6 +242,7 @@ import kotlin.concurrent.Volatile
     }
 
     internal fun replay(state: PlayState, node: GameplayMutation): PlayState? {
+        replayedNodes++
         return GameplayHistory.replay(state, node, referenceResolver()).state
     }
 

@@ -27,6 +27,46 @@ class TreeSyncTest {
             redoByAccount = detached.redoByAccount, removedParents = detached.removedParents))
     }
 
+    @Test fun acceptedDeltaKeepsWarmHeadAcross360LegacyEventsWithoutRootReplay() {
+        var tree = root()
+        repeat(360) { n ->
+            val next = f.play(tree, f.a, PlayAction.SetLife(f.a, (n + 21).toString()), 2000 + n)
+            tree = next
+        }
+        // Persisted pre-GameplayDelta mutations are still a realistic cold-load path.
+        tree = tree.copy(nodes = tree.nodes.mapValues { (_, node) -> node.copy(schemaVersion = 1,
+            transition = node.transition.copy(delta = null), bookkeeping = null) })
+        var accepted = decode(TreeSync.records(generation(tree)))
+        val baselineReplays = accepted.tree.replayedNodes
+        assertEquals(360, baselineReplays)
+        assertSame(accepted.tree.preparedState(accepted.tree.currentNodeId), accepted.tree.stateAt(accepted.tree.currentNodeId))
+        repeat(8) { n ->
+            val next = f.play(accepted.tree, f.a, PlayAction.SetLife(f.a, (500 + n).toString()), 3000 + n)
+            val delta = TreeSync.delta(accepted.tree, next)
+            val started = kotlin.time.TimeSource.Monotonic.markNow()
+            val published = TreeSync.apply(accepted, delta)
+            assertEquals(next.stateAt(next.currentNodeId), published.tree.stateAt(published.tree.currentNodeId))
+            assertTrue(started.elapsedNow().inWholeMilliseconds < 50, "Incremental accepted revision must stay below 50 ms")
+            assertEquals(1, published.tree.replayedNodes, "Only the new event may replay")
+            assertEquals(if (n == 0) baselineReplays else 1, accepted.tree.replayedNodes, "Old generation must not replay its root")
+            accepted = published
+        }
+        val undone = assertNotNull(f.undo(accepted.tree).tree)
+        val published = TreeSync.apply(accepted, TreeSync.delta(accepted.tree, undone))
+        assertEquals(undone.stateAt(undone.currentNodeId), published.tree.stateAt(published.tree.currentNodeId))
+        assertEquals(0, published.tree.replayedNodes, "Undo must reverse the old head, not replay legacy ancestry")
+    }
+
+    @Test fun incrementalValidationRejectsCorruptOffshootAndReparentedDescendants() {
+        val before = decode(TreeSync.records(branched()))
+        val node = before.tree.nodes.values.first()
+        val corrupt = node.copy(transition = GameplayTransition())
+        assertFails { TreeSync.apply(before, GameplayTreeDelta(listOf(TreeSyncRecord("node", node.id,
+            GameWire.json.encodeToJsonElement(corrupt))))) }
+        val changed = before.tree.copy(nodes = before.tree.nodes + (node.id to node.copy(parentId = f.id(999))))
+        assertFails { TreeSync.apply(before, TreeSync.delta(before.tree, changed)) }
+    }
+
     @Test fun flatRoundTripIncludesOffshootsHiddenArchiveMetadataFutureReferencesRedoAndRemovalParents() {
         val input = branched()
         val records = TreeSync.records(input).toList()

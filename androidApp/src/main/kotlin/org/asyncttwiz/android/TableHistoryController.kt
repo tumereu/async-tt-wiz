@@ -27,15 +27,27 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var viewVersion: String? = null
     private var closed = false
     private var textViewer: String? = null
+    private val indexes = LatestReview(worker)
+    // Worker-only presentation cache; no per-node boards and no cross-thread tree cache mutation.
+    private var textTree: GameplayTree? = null
+    private var texts = emptyMap<String, HistoryText>()
+    private var textNames = emptyMap<String, String>()
+    private var cachedViewer: String? = null
 
     fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null) {
         val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
         if (closed || (tree === value && playback?.tree?.liveVersion == version && usernames == names && textViewer == viewer)) return
         tree = value; usernames = names; textViewer = viewer
         val generation = ++epoch
-        worker.execute {
+        val isolated = value.materializedCopy()
+        indexes.submit("index") {
+            if (generation != epoch) return@submit
+            val projected = historyTexts(isolated, viewer, names,
+                textTree.takeIf { textNames == names && cachedViewer == viewer }, texts) { generation == epoch }
+            if (generation != epoch) return@submit
+            textTree = isolated; texts = projected; textNames = names; cachedViewer = viewer
             val index = HistoryTree(value.initial.root.id, value.nodes.values.toList(), value.currentNodeId, version,
-                texts = historyTexts(value, viewer, names), containers = value.initial.board.containers)
+                texts = projected, containers = value.initial.board.containers)
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
@@ -189,5 +201,5 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         precedingPresented = state.currentNodeId
     }
 
-    override fun close() { closed = true; epoch++; displayEpoch++; cancel(); view = null; tree = null; playback = null }
+    override fun close() { closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null }
 }

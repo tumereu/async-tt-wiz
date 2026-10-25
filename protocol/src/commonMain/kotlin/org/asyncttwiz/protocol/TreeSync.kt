@@ -51,12 +51,61 @@ object TreeSync {
     }
 
     fun apply(tree: DownloadedTree, delta: GameplayTreeDelta): DownloadedTree {
-        val records = records(tree).associateByTo(linkedMapOf()) { GameplayTreeKey(it.kind, it.id) }
         require(delta.upserts.map { GameplayTreeKey(it.kind, it.id) }.distinct().size == delta.upserts.size)
         require(delta.removals.distinct().size == delta.removals.size)
-        delta.removals.forEach { if (!obsoleteControl(it.kind)) require(records.remove(it) != null) }
-        delta.upserts.forEach { require(GameplayTreeKey(it.kind, it.id) !in delta.removals); records[GameplayTreeKey(it.kind, it.id)] = it }
-        return decode(records.values.asSequence(), tree.tree.initial.gameId, tree.tree.initial.id)
+        var next = tree.tree.copy()
+        val branches = tree.branches.toMutableMap()
+        val definitions = next.initial.definitions.associateByTo(linkedMapOf()) { it.digest }
+        for (key in delta.removals) when (key.kind) {
+            "node" -> { require(key.id in next.nodes); next = next.copy(nodes = next.nodes - key.id) }
+            "definition" -> require(definitions.remove(key.id) != null)
+            "redo" -> { require(key.id in next.redoByAccount); next = next.copy(redoByAccount = next.redoByAccount - key.id) }
+            "removed-parent" -> { require(key.id in next.removedParents); next = next.copy(removedParents = next.removedParents - key.id) }
+            "branch-head" -> { require(key.id in next.branchHeads); next = next.copy(branchHeads = next.branchHeads - key.id) }
+            "branch-lineage" -> { require(key.id in next.branches); next = next.copy(branches = next.branches - key.id) }
+            "branch" -> require(branches.remove(key.id) != null)
+            "selection-control" -> { require(key.id == "current" && next.selectionControlId != null); next = next.copy(selectionControlId = null) }
+            else -> require(obsoleteControl(key.kind))
+        }
+        for (record in delta.upserts) {
+            require(record.version == 1 && GameplayTreeKey(record.kind, record.id) !in delta.removals)
+            when (record.kind) {
+                "root" -> {
+                    val root = GameWire.json.decodeFromJsonElement<PlayState>(record.payload)
+                    require(root.root.id == record.id && root.definitions.isEmpty())
+                    next = next.copy(initial = root)
+                }
+                "definition" -> {
+                    val definition = GameWire.json.decodeFromJsonElement<SubmittedDefinition>(record.payload)
+                    require(definition.digest == record.id); definitions[record.id] = definition
+                }
+                "node" -> {
+                    val node = GameWire.json.decodeFromJsonElement<GameplayMutation>(record.payload)
+                    require(node.id == record.id); next = next.copy(nodes = next.nodes + (record.id to node))
+                }
+                "current", "selected-branch", "selection-control" -> {
+                    require(record.id == "current")
+                    val value = record.payload.jsonPrimitive.content
+                    next = when (record.kind) {
+                        "current" -> next.copy(currentNodeId = value)
+                        "selected-branch" -> next.copy(currentBranchId = value)
+                        else -> next.copy(selectionControlId = value)
+                    }
+                }
+                "redo" -> next = next.copy(redoByAccount = next.redoByAccount + (record.id to GameWire.json.decodeFromJsonElement<TreeRedoQueue>(record.payload).entries))
+                "removed-parent" -> next = next.copy(removedParents = next.removedParents + (record.id to record.payload.jsonPrimitive.content))
+                "branch-head" -> next = next.copy(branchHeads = next.branchHeads + (record.id to record.payload.jsonPrimitive.content))
+                "branch-lineage" -> {
+                    val branch = GameWire.json.decodeFromJsonElement<GameplayBranch>(record.payload)
+                    require(branch.id == record.id); next = next.copy(branches = next.branches + (record.id to branch))
+                }
+                "branch" -> branches[record.id] = record.payload.jsonObject
+                else -> require(obsoleteControl(record.kind))
+            }
+        }
+        next = next.copy(initial = next.initial.copy(definitions = definitions.values.sortedBy { it.digest }))
+        require(next.initial.gameId == tree.tree.initial.gameId && next.initial.id == tree.tree.initial.id)
+        return DownloadedTree(next, branches).also { validate(it, tree.tree) }
     }
 
     /** No recursive graph or per-node board snapshots. Definitions and common ancestors occur once. */
@@ -139,7 +188,9 @@ object TreeSync {
      * cached board per node. A linear path retains one working board; forks share their parent state.
      * Call off the UI thread, just like cold GameplayTree.stateAt().
      */
-    fun validate(generation: DownloadedTree) {
+    fun validate(generation: DownloadedTree) = validate(generation, null)
+
+    private fun validate(generation: DownloadedTree, previous: GameplayTree?) {
         val tree = generation.tree
         val root = tree.initial
         require(root.engineVersion == 1 && root.readFormat == 1 && root.board.schemaVersion == 1 && root.root.parentId == null &&
@@ -169,16 +220,29 @@ object TreeSync {
             listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
             node.schemaVersion in 1..2 && tree.referencesMatch(node) })
         val children = tree.nodes.values.groupBy { it.parentId }
-        val pending = ArrayDeque<Pair<GameplayMutation, PlayState>>()
+        val pending = ArrayDeque<Pair<GameplayMutation, PlayState?>>()
         children[root.root.id].orEmpty().forEach { pending.add(it to root) }
         val visited = mutableSetOf<String>()
+        val unchanged = mutableSetOf<String>()
+        if (previous?.initial == root) unchanged.add(root.root.id)
+        val changed = mutableListOf<GameplayMutation>()
         while (pending.isNotEmpty()) {
             val (node, parent) = pending.removeLast()
             require(visited.add(node.id)) { "Cyclic retained topology" }
-            val state = requireNotNull(tree.replay(parent, node)) { "Unreplayable retained node" }
+            val same = node.parentId in unchanged && previous?.nodes?.get(node.id) == node
+            if (same) unchanged.add(node.id) else changed.add(node)
+            val state = if (previous != null) null else requireNotNull(tree.replay(requireNotNull(parent), node)) { "Unreplayable retained node" }
+            if (node.id == tree.currentNodeId && state != null) tree.checkpoint(state)
             children[node.id].orEmpty().forEach { pending.add(it to state) }
         }
         require(visited.size == tree.nodes.size) { "Missing/disconnected retained ancestry" }
+        if (previous != null) {
+            tree.inheritMaterialization(previous, unchanged)
+            // Only changed nodes and descendants need replay. Unchanged accepted ancestry has
+            // already passed this same validation; never serialize or replay it per revision.
+            for (node in changed) requireNotNull(tree.stateAt(node.id)) { "Unreplayable retained node" }
+            requireNotNull(tree.stateAt(tree.currentNodeId))
+        }
         require(tree.removedParents.keys.none { it in tree.nodes })
         require(tree.removedParents.all { (id, parent) -> DeckValidation.uuid(id) && DeckValidation.uuid(parent) })
         // Resolve all removal routes in linear work, including chains across multiple pruned edits.

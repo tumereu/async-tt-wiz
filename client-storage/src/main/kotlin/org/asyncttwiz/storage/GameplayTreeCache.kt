@@ -79,7 +79,13 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
 
     /** Includes an obsolete incarnation's publication for replacement CAS, never its readable data. */
     override fun version(): TreeCacheVersion? = fenced {
-        storage.accepted(scope)?.let { TreeCacheVersion(it.revision, publication(it).id) }
+        headerVersion()?.second
+    }
+
+    private fun headerVersion(): Pair<Publication, TreeCacheVersion>? = storage.acceptedEntry(scope, HEADER)?.let { (revision, payload) ->
+        check(payload.version == 1L)
+        val publication = gson.fromJson(payload.json, Publication::class.java)
+        publication to TreeCacheVersion(revision, publication.id)
     }
 
     override fun transfer(): TreeCacheTransfer? = fenced { stage()?.takeIf { it.playId == playId }?.transfer }
@@ -133,8 +139,6 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
         storage.removePersonal(staging, "transfer")
     }
 
-    private fun AcceptedSnapshot.cacheVersion() = TreeCacheVersion(revision, publication(this).id)
-
     /** Caller has decoded/replayed the whole coherent generation, including a contiguous delta tail.
      * Failures (also during stage cleanup) roll back records, header, cursor and staging together.
      */
@@ -142,8 +146,8 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
         val transfer = matchingStage(id) ?: return@fenced null
         require(revision >= transfer.revision)
         if ((0 until transfer.chunkCount).any { storage.personal(staging, "chunk:$it") == null }) return@fenced null
-        val actual = storage.accepted(scope)
-        if (actual?.cacheVersion() != expected || (actual != null && revision < actual.revision)) return@fenced null
+        val actual = headerVersion()?.second
+        if (actual != expected || (actual != null && revision < actual.revision)) return@fenced null
         require(records.none { it.key == HEADER })
         val next = TreeCacheVersion(revision, UUID.randomUUID().toString())
         storage.replaceAccepted(scope, actual?.revision, revision, records + header(next))
@@ -153,8 +157,8 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
 
     /** Genuine changed-record persistence, not a full generation rewrite for an ordinary delta. */
     override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion? = fenced {
-        val actual = storage.accepted(scope) ?: return@fenced null
-        if (actual.cacheVersion() != expected || publication(actual).playId != playId) return@fenced null
+        val (publication, actual) = headerVersion() ?: return@fenced null
+        if (actual != expected || publication.playId != playId) return@fenced null
         require(upserts.none { it.key == HEADER } && HEADER !in removals)
         val next = TreeCacheVersion(revision, UUID.randomUUID().toString())
         storage.commitAccepted(scope, expected.revision, revision, upserts + header(next), removals)

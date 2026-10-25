@@ -21,6 +21,15 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
     private data class Export(val account: UUID, val manifest: GameplayManifest,
         val chunks: List<ByteArray>, val expires: java.time.Instant)
     private val exports = ConcurrentHashMap<String, Export>()
+    private data class Head(val revision: Long, val tree: GameplayTree)
+    private val heads = object : LinkedHashMap<String, Head>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Head>?) = size > 16
+    }
+
+    /** Only committed generations enter the bounded cache. Every caller owns its cache slots. */
+    fun committed(revision: Long, tree: GameplayTree) = synchronized(heads) {
+        heads[tree.initial.id] = Head(revision, tree.materializedCopy())
+    }
 
     /** Caller holds the game's admission/execution lock: state, record coverage and results share one R. */
     fun create(sql: DSLContext, account: UUID, head: GameHead, statuses: List<GameRequestStatus>): GameplayManifest {
@@ -65,7 +74,11 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
 
     /** Rebuild from the original root, retained relational mutations and current control records.
      * No dependency on revision retention or an outbox delivery window. */
-    fun read(sql: DSLContext, state: PlayState): GameplayTree {
+    fun read(sql: DSLContext, state: PlayState, revision: Long? = null): GameplayTree {
+        if (revision != null) synchronized(heads) {
+            heads[state.id]?.takeIf { it.revision == revision && it.tree.preparedState(it.tree.currentNodeId) == state }
+                ?.let { return it.tree.materializedCopy() }
+        }
         val root = json.decodeFromString<PlayState>(sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY)
             .where(GAME_PLAY.ID.eq(id(state.id))).fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!)
         val records = mutableListOf(TreeSyncRecord("root", root.root.id, json.encodeToJsonElement(root.copy(definitions = emptyList()))))
@@ -75,7 +88,9 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
                 records.add(TreeSyncRecord("node", it.id.toString(), json.parseToJsonElement(it.payload!!.data()))) }
         sql.selectFrom(GAMEPLAY_TREE_CONTROL).where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(state.id))).fetch().forEach {
             records.add(TreeSyncRecord(it.kind!!, it.id!!, json.parseToJsonElement(it.payload!!.data()))) }
-        return TreeSync.decode(records.asSequence(), state.gameId, state.id).tree
+        return TreeSync.decode(records.asSequence(), state.gameId, state.id).tree.also {
+            if (revision != null) committed(revision, it)
+        }
     }
 
     /** Startup/ownership recovery validates the complete retained tree and rebuilds only the

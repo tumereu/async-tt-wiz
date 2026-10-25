@@ -173,7 +173,7 @@ class HistoryUiSpineTest {
             lifecycle = GameLifecycle.ACTIVE, revision = "1", playId = root.initial.id)
         lateinit var old: GameplayTreeStore
         val session = GameSession(wire, { null }, { posts.add(it) }, {}, {}, { _, _ -> }, {},
-            accountId = { actor }, treeCache = handle::treeCache, treeWorker = worker)
+            accountId = { actor }, treeCache = handle::treeCache, treeWorker = worker, reviewWorker = worker)
         fun drain() { repeat(3) { worker.submit {}.get(5, TimeUnit.SECONDS); while (true) (posts.poll() ?: break).invoke() } }
         try {
             worker.submit {

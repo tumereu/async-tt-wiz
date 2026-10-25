@@ -43,12 +43,15 @@ sealed interface TreePublication {
  * No outgoing/request-recovery state is touched, and the previous complete tree stays readable.
  */
 class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: Thread) {
+    private var materialized: PublishedDownloadedTree? = null
     private fun worker() { check(Thread.currentThread() !== uiThread) { "Tree work must run off the UI thread" } }
 
     fun accepted(): PublishedDownloadedTree? {
         worker()
+        val version = cache.version() ?: return null.also { materialized = null }
+        materialized?.takeIf { it.version == version }?.let { return it }
         return cache.accepted()?.let { snapshot -> PublishedDownloadedTree(snapshot.version,
-            TreeSync.decode(snapshot.records.asSequence().map(::decode), cache.gameId, cache.playId)) }
+            TreeSync.decode(snapshot.records.asSequence().map(::decode), cache.gameId, cache.playId)) }?.also { materialized = it }
     }
 
     fun stage(plan: TreeDownloadPlan, openChunk: (Int) -> InputStream?): StagedDownloadedTree? {
@@ -128,10 +131,9 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         }
         if (revision < verifiedHead || (expected != null && revision < expected.revision)) return restart(staged.plan.id)
         // Recheck mutable adapter input before crossing the accepted boundary.
-        TreeSync.validate(generation)
         val records = TreeSync.records(generation).map(::encode).toList()
         val next = cache.publish(staged.plan.id, expected, revision, records) ?: return TreePublication.RestartRequired
-        return TreePublication.Published(PublishedDownloadedTree(next, generation))
+        return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
     }
 
     private fun restart(id: String): TreePublication { cache.restart(id); return TreePublication.RestartRequired }
@@ -144,7 +146,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         val generation = merge(current.generation, delta)
         val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode), delta.removals.map { RecordKey(it.first, it.second) })
             ?: return TreePublication.RestartRequired
-        return TreePublication.Published(PublishedDownloadedTree(next, generation))
+        return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
     }
 
     private fun validate(plan: TreeDownloadPlan) {
@@ -161,10 +163,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
     }
 
     private fun merge(generation: DownloadedTree, delta: TreeRecordDelta): DownloadedTree {
-        val records = TreeSync.records(generation).associateByTo(linkedMapOf()) { it.kind to it.id }
-        delta.removals.forEach { require(records.remove(it) != null) { "Missing removed record" } }
-        delta.upserts.forEach { records[it.kind to it.id] = it }
-        return TreeSync.decode(records.values.asSequence(), cache.gameId, cache.playId)
+        return TreeSync.apply(generation, GameplayTreeDelta(delta.upserts, delta.removals.map { GameplayTreeKey(it.first, it.second) }))
     }
 
     private fun verify(chunk: TreeDownloadChunk, bytes: ByteArray) {

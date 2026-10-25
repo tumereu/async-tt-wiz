@@ -31,6 +31,18 @@ class CardPanelTest {
         assertEquals(result, GameplayHistory.replay(state, wire))
         return next
     }
+    @Test fun undoThatWouldRestoreAPanelUnderTheOpponentsLaterPanelIsRefused() {
+        fun play(n: Int, action: PlayAction) = GameCommand(id(n), GameScope(id(1), playId = id(2)), GameAction.Play(action), id(90), "1")
+        var tree = assertNotNull(GameplayTree(root()).play(a, play(200, PlayAction.ShowContents(id(10), ContentsSelection.TOP, 1))).tree)
+        val top = tree.stateAt(tree.currentNodeId)!!.board.contentsDisplays.single().cardIds.single()
+        tree = assertNotNull(tree.play(a, play(201, PlayAction.MoveCard(top, MoveSource(id(10)),
+            MoveDestination(id(11), MoveInsertion.UNORDERED)))).tree)
+        assertTrue(tree.stateAt(tree.currentNodeId)!!.board.contentsDisplays.isEmpty())
+        tree = assertNotNull(tree.play(b, play(202, PlayAction.ShowContents(id(10), ContentsSelection.TOP, 1))).tree)
+        val undo = SelectiveUndo.change(tree, a, GameCommand(id(203), GameScope(id(1), playId = id(2)), GameAction.Undo, id(90), "1"))
+        assertNull(undo.tree)
+        assertEquals("replayBlocked", undo.reason)
+    }
     @Test fun privatePanelRevealsOneCardThenMovesInASeparateGroupAndKnowledgeExpires() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()

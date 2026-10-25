@@ -51,7 +51,8 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
     fun endpoint(token: String, accountId: String): Endpoint = GameSocket(token, accountId)
     override fun close() {
         workers.shutdownNow()
-        sockets.toList().forEach { it.stop() }
+        // toArray is weakly consistent; toList() can throw when a socket leaves between size() and next().
+        sockets.toTypedArray().forEach { it.stop() }
         dispatcher.close()
         try { workers.awaitTermination(5, TimeUnit.SECONDS) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
     }

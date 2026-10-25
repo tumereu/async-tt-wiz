@@ -33,7 +33,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     if (card != null) {
         val manual = remember(play.id, captured) { ManualActions().apply { cards(play, card.id, requireNotNull(captured.scope).cardIds) } }
         if (manual.scope == null) { SideEffect(dismiss); return }
-        val rotate = if (selection.mode == TableMode.SELECT && item.zone != PlayZone.STACK) listOf(true, false).map { tapped ->
+        val rotate = if (selection.mode == TableMode.SELECT && item.zone == PlayZone.BATTLEFIELD && !item.projection) listOf(true, false).map { tapped ->
             MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
                 if (request(TableIntent.Rotate(requireNotNull(captured.scope), tapped))) dismiss()
             }

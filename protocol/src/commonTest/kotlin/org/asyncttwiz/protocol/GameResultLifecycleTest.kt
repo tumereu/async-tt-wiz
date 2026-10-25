@@ -34,8 +34,9 @@ class GameResultLifecycleTest {
 
     @Test fun strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit() {
         val initial = play().let { it.copy(board = it.board.copy(
-            cards = listOf(PlayCard(id(20), "retained", a.accountId, id(21), id(22))),
-            containers = listOf(PlayContainer(id(21), PlayZone.LIBRARY, a.accountId, listOf(id(20)))))) }
+            cards = listOf(PlayCard(id(20), "retained", a.accountId, id(21), id(22),
+                placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            containers = listOf(PlayContainer(id(21), PlayZone.BATTLEFIELD, a.accountId, listOf(id(20)))))) }
         val tap = GameplayRules.change(initial, a.accountId, command(GameAction.Play(PlayAction.SetTapped(id(20), true)), 13))
         val previous = tap.state!!
         assertEquals("tap", previous.currentGroup!!.category)

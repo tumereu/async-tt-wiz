@@ -77,7 +77,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                     onInspect = toolkit::inspect,
                     onStackIntent = if (pile.ordered && selection.mode == TableMode.NORMAL) toolkit::handle else null,
                     stackWritable = enabled,
-                    onRotate = if (selection.mode != TableMode.NORMAL || pile.containerId == CombatStackRules.stack(play.board).id) null else { id ->
+                    onRotate = if (selection.mode != TableMode.NORMAL || play.board.containers.none {
+                        it.id == pile.containerId && it.zone == PlayZone.BATTLEFIELD }) null else { id ->
                         val card = CombatStackRules.liveSource(play.board, id)
                         if (card != null) {
                             toolkit.selectionState.value = selection.orientation(id)
@@ -152,7 +153,8 @@ private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlaySt
 private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     selection: TableSelection, select: (String) -> Unit, names: Map<String, String>, enabled: Boolean): List<MenuControl> = buildList {
     add(MenuControl("Select / deselect", selected = bound.contextViewId in selection.ids) { select(bound.contextViewId) })
-    if (selection.mode == TableMode.SELECT && bound.contextViewId !in CombatStackRules.stack(play.board).cards) for (tapped in listOf(true, false))
+    if (selection.mode == TableMode.SELECT && play.board.cards.any { card -> card.id == bound.contextViewId &&
+            play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) for (tapped in listOf(true, false))
         add(MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
             if (toolkit.handle(TableIntent.Rotate(TableScope(bound.contextViewId, bound.viewIds), tapped, bound.sources))) toolkit.dismiss()
         })

@@ -6,8 +6,9 @@ class GameplayTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun state(): PlayState = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
-            listOf(PlayCard(id(9), "definition", id(7), id(10), id(11), note = "preserved")),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), listOf(id(9)))), TurnState(id(7))),
+            listOf(PlayCard(id(9), "definition", id(7), id(10), id(11), note = "preserved",
+                placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, id(7), listOf(id(9)))), TurnState(id(7))),
         emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
     private fun command(action: PlayAction, n: Int = 12) = GameCommand(id(n), GameScope(id(1), playId = id(2)),
         GameAction.Play(action), id(13), "1")
@@ -63,10 +64,11 @@ class GameplayTest {
         val staleTop = draw.copy(cardId = second)
         assertEquals("movementConflict", gameplayChange(state, staleTop, 92).reason)
         assertEquals(second, gameplayChange(change.state, staleTop, 93).mutation!!.transition.movement!!.cardId)
-        val tapped = gameplayChange(state, PlayAction.SetTapped(first, true), 94).state!!
+        val tapped = state.copy(board = state.board.copy(cards = state.board.cards.map {
+            if (it.id == first) it.copy(tapped = true) else it })) // Retained legacy Library orientation.
         val accepted = gameplayChange(tapped, draw, 95)
-        assertTrue(accepted.state!!.board.cards.single { it.id == first }.tapped)
-        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id, tapped = true),
+        assertFalse(accepted.state!!.board.cards.single { it.id == first }.tapped)
+        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id),
             accepted.state.board.cards.single { it.id == first })
         val member = draw.copy(cardId = second, source = MoveSource(library.id))
         assertEquals("accepted", gameplayChange(state, member, 96).outcome)
@@ -115,7 +117,7 @@ class GameplayTest {
     @Test fun stackChecksumIsSemanticAndQueuedAdditionsUsePredictedStack() {
         val state = gameplayFixture(); val library = state.board.containers[0]; val stack = state.board.containers.last()
         val action = PlayAction.MoveCard(library.cards[0], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(state))
-        val edited = gameplayChange(state, PlayAction.SetTapped(library.cards[1], true), 91).state!!
+        val edited = gameplayChange(state, PlayAction.SetNote(library.cards[1], "unrelated"), 91).state!!
         assertEquals(GameplayRules.stackDigest(state), GameplayRules.stackDigest(edited))
         val first = gameplayChange(edited, action, 92)
         assertEquals("accepted", first.outcome)
@@ -128,11 +130,11 @@ class GameplayTest {
     }
 
     @Test fun stackCardsRejectOrientationAndEnterAndLeaveUprightWithReplay() {
-        val original = gameplayFixture()
+        val original = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val card = original.board.cards.first()
         val stack = original.board.containers.single { it.zone == PlayZone.STACK }
         val tapped = gameplayChange(original, PlayAction.SetTapped(card.id, true)).state!!
-        val enter = PlayAction.MoveCard(card.id, MoveSource(card.containerId), MoveDestination(stack.id, MoveInsertion.TOP),
+        val enter = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), MoveDestination(stack.id, MoveInsertion.TOP),
             GameplayRules.stackDigest(tapped))
         val entered = gameplayChange(tapped, enter, 91)
         val onStack = entered.state!!
@@ -190,3 +192,13 @@ internal fun gameplayFixture(): PlayState {
 }
 internal fun gameplayChange(state: PlayState, action: PlayAction, request: Int = 90, actor: Int = 7) = GameplayRules.change(state, gameplayId(actor),
     GameCommand(gameplayId(request), GameScope(state.gameId, playId = state.id), GameAction.Play(action), gameplayId(80), "1"))
+
+/** Orientation tests must start from actual Battlefield cards, not legacy tapped Library/Hand fixtures. */
+internal fun PlayState.withBattlefieldCards(vararg ids: String): PlayState {
+    val target = board.containers.first { it.zone == PlayZone.BATTLEFIELD }
+    return copy(board = board.copy(cards = board.cards.map { card -> if (card.id !in ids) card else
+        card.copy(containerId = target.id, covered = false,
+            placement = PlayPlacement(BoardPosition(ids.indexOf(card.id), 0), card.id)) },
+        containers = board.containers.map { it.copy(cards = it.cards.filterNot { id -> id in ids } +
+            if (it.id == target.id) ids.toList() else emptyList()) }))
+}

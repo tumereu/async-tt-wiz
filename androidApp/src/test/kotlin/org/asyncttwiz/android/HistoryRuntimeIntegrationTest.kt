@@ -419,7 +419,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun selectiveControlsAndOwnRevealUndoBothPredictAndMatchAcceptedState() {
-        for (revealed in listOf(false, true)) Fixture().use { x ->
+        for (revealed in listOf(false, true)) Fixture(initial = f.root(PlayZone.LIBRARY)).use { x ->
             x.connect(); x.publish()
             assertTrue(x.session.gameplay(x.game, f.a, if (revealed)
                 PlayAction.ShowContents(f.id(10), ContentsSelection.ALL, reveal = true) else PlayAction.AdjustLife(f.a, "1")))
@@ -674,7 +674,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun acceptedInspectionCrossedByBaselineNeverRetargetsMovedRegionAndOfflineInvocationCreatesNothing() {
-        Fixture().use { x ->
+        Fixture(initial = f.root(PlayZone.LIBRARY)).use { x ->
             x.connect(); x.publish()
             val events = mutableListOf<InspectionEvent>()
             val subscription = assertNotNull(x.session.inspectFace(x.game, f.a,

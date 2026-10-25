@@ -322,7 +322,7 @@ class TablePresentationTest {
                     assertEquals(446f, stack.bounds.center.y, .001f)
                     assertEquals(446f, region.center.y, .001f)
                     assertEquals(width, region.right, .001f)
-                    assertEquals(56f, stack.bounds.width, .001f)
+                    assertEquals(28f * 1.24f, stack.bounds.width, .001f)
                     assertEquals(stack.bounds.width + 8f, region.width, .001f)
                     assertEquals(stack.bounds.height + 8f, region.height, .001f)
                     assertEquals(12f * zoom, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom, .001f)

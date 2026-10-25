@@ -11,8 +11,9 @@ internal class GameplayFixture {
     val definition = CardDefinition("Retained", listOf(DefinitionFace(id(11), "Retained face")))
     val initial = PlayState(id(5), id(6), id(7), id(8), root, root.id,
         BoardState(listOf(PlayPlayer(actor), PlayPlayer(other)),
-            listOf(PlayCard(id(9), DeckJson.digest(definition), actor, id(10), id(11))),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, actor, listOf(id(9)))), TurnState(actor)),
+            listOf(PlayCard(id(9), DeckJson.digest(definition), actor, id(10), id(11),
+                placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, actor, listOf(id(9)))), TurnState(actor)),
         listOf(SubmittedDefinition(DeckJson.digest(definition), definition)), emptyList(), InitialStarter(StarterChoice(actor), actor))
     val game = GameSummary(initial.gameId, "Replica", "2026-10-23T00:00:00Z", AccountIdentity(actor, "A"),
         AccountIdentity(other, "B"), initial.preparationRound, id(12), InvitationState.ACCEPTED,
@@ -42,7 +43,7 @@ class GameplayReplicaTest {
         val initial = f.initial.let { state -> state.copy(board = state.board.copy(
             cards = listOf(state.board.cards.single().copy(covered = false,
                 placement = PlayPlacement(BoardPosition(0, 0), f.id(40))),
-                state.board.cards.single().copy(id = f.id(41), containerId = f.id(42))),
+                state.board.cards.single().copy(id = f.id(41), containerId = f.id(42), placement = null)),
             containers = listOf(state.board.containers.single().copy(zone = PlayZone.BATTLEFIELD),
                 PlayContainer(f.id(42), PlayZone.HAND, f.other, listOf(f.id(41)))))) }
         val replica = GameplayReplica()

@@ -114,7 +114,7 @@ class CardPanelTest {
                 state = assertNotNull(result.state)
                 val event = assertNotNull(result.mutation)
                 assertEquals(2, event.transition.contentsRulesVersion)
-                assertEquals(5, event.transition.movement!!.coverRulesVersion)
+                assertEquals(6, event.transition.movement!!.coverRulesVersion)
                 assertEquals(before, GameplayHistory.unapply(state, event))
                 assertEquals(state, GameplayHistory.apply(before, event))
                 assertFalse(CardVisibility.isVisibleFaceUp(state.board, state.board.cards.single { it.id == card }, b))

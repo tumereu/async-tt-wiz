@@ -125,8 +125,11 @@ class TableMotionRuntimeTest {
     }
 
     @Test fun combatOpeningAndClosingAnimateWorldGeometryButNotHud() {
-        val initial = TableFixture.play(board = 1, hand = 1).let { play -> play.copy(board = play.board.copy(
-            cards = play.board.cards.map { if (it.containerId.endsWith("HAND")) it.copy(tapped = true) else it })) }
+        val initial = TableFixture.play(board = 1, hand = 1).let { play ->
+            val hand = CardDefinition("Hand card", listOf(DefinitionFace("face", "Hand face")))
+            play.copy(definitions = play.definitions + SubmittedDefinition(DeckJson.digest(hand), hand), board = play.board.copy(
+                cards = play.board.cards.map { if (it.containerId.endsWith("HAND"))
+                    it.copy(tapped = true, definition = DeckJson.digest(hand)) else it })) }
         val state = mutableStateOf(initial)
         compose.setContent { MaterialTheme {
             TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())

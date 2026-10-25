@@ -8,9 +8,10 @@ internal object UndoFixture {
     val b = id(8)
     fun root() = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(a), PlayPlayer(b)),
-            listOf(PlayCard(id(9), "definition", a, id(10), id(11), note = "preserved"),
-                PlayCard(id(12), "definition", b, id(10), id(11))),
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, a, listOf(id(9), id(12)))), TurnState(a)),
+            listOf(PlayCard(id(9), "definition", a, id(10), id(11), note = "preserved",
+                    placement = PlayPlacement(BoardPosition(0, 0), id(40))),
+                PlayCard(id(12), "definition", b, id(10), id(11), placement = PlayPlacement(BoardPosition(1, 0), id(41)))),
+            listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, a, listOf(id(9), id(12)))), TurnState(a)),
         emptyList(), emptyList(), InitialStarter(StarterChoice(a), a))
     fun command(action: GameAction, n: Int) = GameCommand(id(n), GameScope(id(1), playId = id(2)), action, id(13), "1")
     fun play(tree: GameplayTree, actor: String, action: PlayAction, n: Int): GameplayTree =

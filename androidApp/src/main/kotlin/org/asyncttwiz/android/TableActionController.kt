@@ -111,13 +111,14 @@ class TableActionController(private val state: () -> PlayState?, private val can
             is TableActionIntent.End -> return submit(PlayAction.EndTurn)
             is TableActionIntent.Choose -> return submit(PlayAction.ChooseStep(intent.position))
             is TableActionIntent.Orient -> return send(intent.cardIds.distinct().filter { id ->
-                play.board.cards.any { card -> card.id == id && play.board.containers.none {
-                    it.id == card.containerId && it.zone == PlayZone.STACK } }
+                play.board.cards.any { card -> card.id == id && play.board.containers.any {
+                    it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }
             }.map { PlayAction.SetTapped(it, intent.tapped) })
             is TableActionIntent.Untap -> {
                 if (play.board.containers.none { it.id == intent.targets.battlefieldId && it.zone == PlayZone.BATTLEFIELD &&
                         it.accountId == intent.targets.accountId }) return false
-                return send(intent.cardIds.distinct().map { PlayAction.SetTapped(it, false) } +
+                return send(intent.cardIds.distinct().filter { id -> play.board.cards.any {
+                    it.id == id && it.containerId == intent.targets.battlefieldId } }.map { PlayAction.SetTapped(it, false) } +
                     if (intent.advance) listOf(PlayAction.NextStep) else emptyList())
             }
             is TableActionIntent.Draw -> {

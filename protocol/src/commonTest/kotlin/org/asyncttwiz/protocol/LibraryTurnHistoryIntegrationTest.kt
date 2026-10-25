@@ -8,9 +8,12 @@ class LibraryTurnHistoryIntegrationTest {
     private val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
     private fun initial() = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
-            (20..23).map { PlayCard(id(it), "definition", id(7), id(10), id(40), note = "keep") },
+            (20..23).map { PlayCard(id(it), "definition", id(7), id(10), id(40), note = "keep") } +
+                PlayCard(id(24), "definition", id(7), id(13), id(40), note = "keep",
+                    placement = PlayPlacement(BoardPosition(0, 0), id(50))),
             listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), (20..23).map(::id)),
-                PlayContainer(id(11), PlayZone.HAND, id(7)), PlayContainer(id(12), PlayZone.LIBRARY, id(8))),
+                PlayContainer(id(11), PlayZone.HAND, id(7)), PlayContainer(id(12), PlayZone.LIBRARY, id(8)),
+                PlayContainer(id(13), PlayZone.BATTLEFIELD, id(7), listOf(id(24)))),
             TurnState(id(7))), emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
     private fun command(action: PlayAction, n: Int) = GameCommand(id(100 + n),
         GameScope(id(1), playId = id(2)), GameAction.Play(action), id(9), n.toString())
@@ -46,7 +49,7 @@ class LibraryTurnHistoryIntegrationTest {
             assertEquals(mutation.grouping, replay.mutation.grouping)
             return mutation
         }
-        accept(PlayAction.SetTapped(id(20), true), true, "tap", 1, "rotate_90_degrees_cw")
+        accept(PlayAction.SetTapped(id(24), true), true, "tap", 1, "rotate_90_degrees_cw")
         val shuffle = accept(PlayAction.ShuffleLibrary(id(10), seed), false, "shuffle", 2, "shuffle")
         assertEquals(id(10), shuffle.grouping!!.key)
         accept(PlayAction.NextStep, false, "shuffle", 2, "shuffle")

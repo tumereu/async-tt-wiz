@@ -118,7 +118,8 @@ data class TableItem(
     val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
-    val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1
+    val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
+    val countBadge: TableBounds? = null
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -143,10 +144,12 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap(),
     internal val cardPanels: List<CardPanelGeometry> = emptyList()) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
-        stackRegion?.contains(point) != true && cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
+        stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
+        cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
         combatBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
+        items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) }?.let { return it }
         val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
             it.visible.any { bounds -> bounds.contains(point) } }
         if (stack != null) {
@@ -163,7 +166,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     /** Resolve once on first down, before a centroid can cross into another region. */
     fun panRegion(point: TablePoint): String? {
         cardPanels.firstOrNull { it.bounds.contains(point) }?.let { return it.viewport.id }
-        if (stackRegion?.contains(point) == true)
+        if (stackRegion?.contains(point) == true || items.any { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) })
             return items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.viewport
         items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(point) }?.let { return it.viewport }
         if (worldInput(point)) return WORLD_PAN_REGION
@@ -176,7 +179,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         item.cardId != null && item.cardId == stackTopId)
 }
 
-internal val TableItem.stackBadge get() = TableBounds(bounds.x, bounds.y, 20f, 20f)
+internal val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
 internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
     else visible.maxByOrNull { it.width * it.height }?.center
 
@@ -292,7 +295,7 @@ object TablePresentation {
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
-            val tapped = zone != PlayZone.STACK && viewport != "combat" && card.tapped
+            val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
@@ -318,8 +321,7 @@ object TablePresentation {
             items += TableItem(hand.id, handBounds, "${name(player.accountId)} Hand, ${hand.cards.size} cards", hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
-                val w = if (c.tapped) hudHeight else hudWidth; val h = if (c.tapped) hudWidth else hudHeight
-                val b = TableBounds(start + n * (hudWidth + 4f), handBounds.y + (handBounds.height - h) / 2, w, h)
+                val b = TableBounds(start + n * (hudWidth + 4f), handBounds.y + (handBounds.height - hudHeight) / 2, hudWidth, hudHeight)
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
             } }
             val field = fields[index]
@@ -357,7 +359,8 @@ object TablePresentation {
                     footprint = TableBounds(b.x, b.y, hudEnvelope, hudEnvelope), peekOwners = c.cards.take(3).mapNotNull { byId[it]?.owner },
                     token = top?.token == true,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
-                    note = if (hidden) "" else face(top)?.name.orEmpty(), corner = if (hidden) "" else top?.corner.orEmpty(),
+                    note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
+                    corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }
             if (counterHeights[index] > 0f) {
@@ -374,15 +377,18 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, hudWidth, hudHeight)
+        val stackWidth = if (landscape) hudEnvelope else hudWidth * 1.24f // Stable portrait top-card/peek envelope, including when empty.
         val stackPadding = 4f
         val stackRegion = if (landscape) TableBounds(6f, boardTop + sidebarRow - sidebarScroll,
             sidebar - 6f, sidebarContent - 2 * sidebarRow)
-            else TableBounds(width - hudEnvelope - 2 * stackPadding,
-                height / 2 - hudEnvelope / 2 - stackPadding, hudEnvelope + 2 * stackPadding, hudEnvelope + 2 * stackPadding)
-        val sb = TableBounds(stackRegion.center.x - hudEnvelope / 2, stackRegion.center.y - hudEnvelope / 2, hudEnvelope, hudEnvelope)
-        val sp = port(stack.id, sb, hudEnvelope)
+            else TableBounds(width - stackWidth - 2 * stackPadding,
+                height / 2 - hudEnvelope / 2 - stackPadding, stackWidth + 2 * stackPadding, hudEnvelope + 2 * stackPadding)
+        val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - hudEnvelope / 2, stackWidth, hudEnvelope)
+        val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
-            cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) })
+            cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
+            // Outside the lower-left corner: clear of card titles and the shortcuts above/below the pile.
+            countBadge = if (landscape) null else TableBounds(sb.x - 28f, sb.bottom - 6f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)

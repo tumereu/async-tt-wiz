@@ -3,7 +3,8 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
-/** Rules v1: the sealed delta supplies written tuples; these selectors also record reads,
+/** Rules v2 restricts TapEligible to the Battlefield; v1 retains off-Stack eligibility.
+ * The sealed delta supplies written tuples; these selectors also record reads,
  * unchanged assignments and negative witnesses. No selector reads retained history. */
 @Serializable data class ConcernSet(val fields: List<ConcernTuple>, val rulesVersion: Int = 1)
 @Serializable data class ConcernTuple(val field: ConcernField, val before: JsonElement, val after: JsonElement)
@@ -113,7 +114,10 @@ internal object GameplayConcerns {
             }
             is ConcernField.Controller -> encoded(CombatStackRules.controller(b, field.id))
             is ConcernField.Live -> encoded(CombatStackRules.liveSource(b, field.id)?.id)
-            is ConcernField.TapEligible -> encoded(b.cards.singleOrNull { it.id == field.id }?.let { container(it.containerId).zone != PlayZone.STACK } == true)
+            is ConcernField.TapEligible -> encoded(b.cards.singleOrNull { it.id == field.id }?.let {
+                val zone = container(it.containerId).zone
+                if (mutation.transition.concerns!!.rulesVersion >= 2) zone == PlayZone.BATTLEFIELD else zone != PlayZone.STACK
+            } == true)
             is ConcernField.Slice -> encoded(LibraryRules.slice(container(field.container).cards, field.selection, field.count).let {
                 if (field.selection == ContentsSelection.ALL) it.sorted() else it })
             is ConcernField.ShuffleSet -> encoded(container(field.container).unknownMiddle.sorted())
@@ -130,7 +134,7 @@ internal object GameplayConcerns {
 
     fun matches(state: PlayState, mutation: GameplayMutation, after: Boolean): Boolean {
         val concerns = mutation.transition.concerns ?: return true
-        if (concerns.rulesVersion != 1) return false
+        if (concerns.rulesVersion !in 1..2) return false
         val endpoint = if (after) state else LibraryKnowledge.applyReseeds(state, mutation.transition.delta!!.libraryReseeds, false) ?: return false
         return runCatching { concerns.fields.all { read(endpoint, mutation, it.field, after) == if (after) it.after else it.before } }.getOrDefault(false)
     }
@@ -267,8 +271,9 @@ internal object GameplayConcerns {
         }
         delta.entities.forEachIndexed { i, e -> e.values.indices.forEach { fields += ConcernField.Written(i, it) } }
         // Install selectors first: known-order source edits deliberately do not bind the exposed next card.
-        val selectors = ConcernSet(fields.map { ConcernTuple(it, JsonNull, JsonNull) })
+        val version = if (mutation.action is PlayAction.SetTapped) 2 else 1
+        val selectors = ConcernSet(fields.map { ConcernTuple(it, JsonNull, JsonNull) }, rulesVersion = version)
         val recorded = mutation.copy(transition = mutation.transition.copy(delta = delta, concerns = selectors))
-        return ConcernSet(fields.map { ConcernTuple(it, read(from, recorded, it, false), read(to, recorded, it, true)) })
+        return ConcernSet(fields.map { ConcernTuple(it, read(from, recorded, it, false), read(to, recorded, it, true)) }, rulesVersion = version)
     }
 }

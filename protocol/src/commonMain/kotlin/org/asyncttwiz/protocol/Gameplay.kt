@@ -203,7 +203,7 @@ object GameplayRules {
             }
             is PlayAction.SetTapped -> {
                 val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
-                if (board.containers.any { it.id == card.containerId && it.zone == PlayZone.STACK })
+                if (board.containers.none { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD })
                     return reject("inapplicable")
                 if (card.tapped == action.tapped) return GameplayChange(state)
                 next = board.copy(cards = board.cards.map { if (it.id == card.id) it.copy(tapped = action.tapped) else it })
@@ -333,9 +333,10 @@ object GameplayRules {
 
     private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
         // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility;
-        // version 5 expires reveal knowledge when a card leaves its display.
+        // version 5 expires reveal knowledge when a card leaves its display;
+        // version 6 keeps cards upright outside the Battlefield.
         // Old recorded disclosures must still replay using the visibility rules they were made under.
-        coverRulesVersion: Int = 5): GameplayChange {
+        coverRulesVersion: Int = 6): GameplayChange {
         if (action.removeStackEntryId != null) return moveProjection(state, actor, command, action, coverRulesVersion)
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
@@ -450,7 +451,8 @@ object GameplayRules {
             knownToAll = coverRulesVersion < 5 && card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
                 card.id in it.cardIds && (it.reveal || card.id in it.revealedIds) && hiddenZone &&
                     (target.zone == PlayZone.HAND || destination.insertion == MoveInsertion.TOP) }),
-            tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK) false else card.tapped,
+            tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK ||
+                coverRulesVersion >= 6 && target.zone != PlayZone.BATTLEFIELD) false else card.tapped,
             covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
             explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
         val next = canonicalBoard(board.copy(cards = board.cards.map { if (it.id == card.id) moved else it },

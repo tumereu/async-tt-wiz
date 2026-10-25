@@ -11,7 +11,7 @@ class LibraryActionsTest {
         return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
             BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))),
                 (library + hand).map { n -> PlayCard(id(n), "definition", id(7), if (n in library) id(10) else id(11),
-                    id(41), tapped = true, corner = "modified", counters = mapOf(CounterColor.RED to "3"), note = "keep") },
+                    id(41), corner = "modified", counters = mapOf(CounterColor.RED to "3"), note = "keep") },
                 listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), library.map(::id)),
                     PlayContainer(id(11), PlayZone.HAND, id(7), hand.map(::id)),
                     PlayContainer(id(12), PlayZone.LIBRARY, id(8)), PlayContainer(id(13), PlayZone.GRAVEYARD, id(8)),

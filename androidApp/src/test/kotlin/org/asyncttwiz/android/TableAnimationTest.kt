@@ -38,7 +38,7 @@ class TableAnimationTest {
         fun tapped(play: PlayState, id: String) = play.copy(board = play.board.copy(cards = play.board.cards.map {
             if (it.id == id) it.copy(tapped = !it.tapped) else it
         }))
-        for (id in listOf("a/BATTLEFIELD/0", "a/HAND/0")) {
+        for (id in listOf("a/BATTLEFIELD/0")) {
             val base = TableFixture.scene(initial)
             val tap = TableFixture.scene(tapped(initial, id))
             val animation = HistorySceneAnimation(base)
@@ -49,6 +49,8 @@ class TableAnimationTest {
             animation.retarget(tap, .5f)
             assertEquals(90, animation.durationMillis, "Interrupted untap still rotates")
         }
+        val handScene = TableFixture.scene(tapped(initial, "a/HAND/0"))
+        assertEquals(TableFixture.scene(initial), handScene, "Legacy tapped Hand cards render upright without a rotation")
         val base = TableFixture.scene(initial)
         val move = moved(initial, listOf("a/HAND/0"), "a/BATTLEFIELD")
         for (target in listOf(move, tapped(move, "a/BATTLEFIELD/0"), tapped(move, "a/HAND/0"),

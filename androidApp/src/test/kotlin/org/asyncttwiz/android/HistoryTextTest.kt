@@ -9,7 +9,7 @@ class HistoryTextTest {
     private val names = mapOf(f.a to "alice", f.b to "bob")
     private fun id(n: Int) = f.id(n)
     private val state: PlayState get() {
-        val initial = f.root().initial
+        val initial = f.root(PlayZone.LIBRARY).initial
         val definition = CardDefinition("Velvet Prism Engine", listOf(DefinitionFace(id(11), "Velvet Prism Engine")))
         val digest = DeckJson.digest(definition)
         return initial.copy(definitions = listOf(SubmittedDefinition(digest, definition)), board = initial.board.copy(
@@ -138,6 +138,8 @@ class HistoryTextTest {
         append(205, PlayAction.EventComment(EventReference(state.id, tap), "ready"))
         val comment = tree.currentNodeId
         tree = assertNotNull(tree.activate(draw).tree)
+        append(206, PlayAction.MoveCard(id(12), MoveSource(id(21)),
+            MoveDestination(id(23), MoveInsertion.EMPTY, position = BoardPosition(1, 0)), faceDown = true))
         append(204, PlayAction.SetTapped(id(12), true))
         val hiddenTap = tree.currentNodeId
         val texts = historyTexts(tree, f.a, names)

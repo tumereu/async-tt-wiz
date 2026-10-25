@@ -122,8 +122,8 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
     val faces = ManualDisclosure.permittedFaces(state, card, viewer, inspecting = false)
     val face = faces.singleOrNull()
     val owner = if (card.owner == viewer) Color(0xff287f85) else Color(0xffa84f58)
-    val tapped = card.tapped && viewId !in CombatStackRules.stack(state.board).cards &&
-        state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.STACK }
+    val tapped = card.tapped && viewId !in CombatStackRules.projectionIds(state.board) &&
+        state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
     Column(Modifier.width(48.dp).height(100.dp).cardFrame(card.token, owner, viewId in CombatStackRules.projectionIds(state.board))
         .padding(horizontal = if (card.token) 8.dp else 3.dp, vertical = 4.dp)
         .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (tapped) "tapped" else "untapped"}, $count captured targets" }) {

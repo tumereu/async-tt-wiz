@@ -108,7 +108,8 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
             frozen = panel.localZone == null && panel.display.author != viewer, artwork = art,
             panelRevealed = panel.localZone == null && panel.display.author == viewer && !panel.display.reveal &&
                 card.id in panel.display.revealedIds,
-            corner = if (row.entry.faceVisible) card.corner else "", copies = row.copies, token = card.token,
+            corner = if (row.entry.faceVisible) card.corner else "", note = if (row.entry.faceVisible) card.note else "",
+            copies = row.copies, token = card.token,
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
     } }
     val ids = panels.flatMap { it.display.cardIds }.toSet()

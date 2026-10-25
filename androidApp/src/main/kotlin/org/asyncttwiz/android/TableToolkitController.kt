@@ -379,6 +379,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 val scope = intent.scope.copy(cardIds = intent.scope.cardIds.filterNot { it in stackIds })
                 val bound = bind(scope, intent.sources) ?: return@batch false
                 val context = CombatStackRules.liveSource(current()!!.board, scope.contextId)?.id ?: return@batch false
+                val board = current()!!.board
+                if (board.cards.none { card -> card.id == context && board.containers.any {
+                        it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) return@batch false
                 basic.handle(intent.copy(scope = TableScope(context, bound.sourceIds))).also {
                     if (!it && error == null) error = "Rotation could not be queued. Reconnect and try again."
                 }

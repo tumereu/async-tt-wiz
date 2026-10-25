@@ -89,7 +89,7 @@ class CompleteCoreIntegrationTest {
         val missing = command(state, PlayAction.SetNote(gameplayId(999), "missing"), 5000)
             .copy(continuation = Continuation(initial.root.id, true))
         assertEquals("inapplicable", tree.play(actor, missing).reason)
-        val noOp = command(state, PlayAction.SetTapped(initial.board.cards.first().id, false), 5001)
+        val noOp = command(state, PlayAction.SetNote(initial.board.cards.first().id, initial.board.cards.first().note), 5001)
             .copy(continuation = Continuation(initial.root.id, true))
         assertEquals("noOp", tree.play(actor, noOp).outcome)
         assertTrue(tree.branches.isEmpty())

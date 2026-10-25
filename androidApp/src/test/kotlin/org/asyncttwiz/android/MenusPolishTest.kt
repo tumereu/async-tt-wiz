@@ -30,7 +30,7 @@ class MenusPolishTest {
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, decks = fixtures.library) } }
         compose.onNodeWithTag("menu-SETTINGS").performScrollTo().performClick()
         compose.onNodeWithText("Card records").assertIsDisplayed()
-        compose.onNodeWithText("Log out").assertIsDisplayed()
+        compose.onNodeWithText("Log out").performScrollTo().assertIsDisplayed()
         compose.runOnIdle { fixtures.auth.navigate(ShellDestination.DECKS) }
         compose.onNodeWithText("Card records").assertDoesNotExist()
         compose.onNodeWithText("Refresh saved decks").assertDoesNotExist()
@@ -57,7 +57,7 @@ class MenusPolishTest {
     @Test fun settingsLogoutUsesProvidedAccountAction() {
         var logouts = 0
         compose.setContent { ScreenTheme { SettingsContent(null) { logouts++ } } }
-        compose.onNodeWithText("Log out").performClick()
+        compose.onNodeWithText("Log out").performScrollTo().performClick()
         assertEquals(1, logouts)
     }
 }

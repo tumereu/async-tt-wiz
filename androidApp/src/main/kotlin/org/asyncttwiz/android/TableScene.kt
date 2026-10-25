@@ -267,7 +267,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight || previousTimeline != timelineVisible
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
-        val movePreferences = rememberCardMovePreferences()
+        val movePreferences = rememberCardMovePreferences(accountId)
         SideEffect { animation.cardMoveSpeedDpPerMs = movePreferences.speed }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
         var animationRevision by remember(animation) { mutableIntStateOf(0) }

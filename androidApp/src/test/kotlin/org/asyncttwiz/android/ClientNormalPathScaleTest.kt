@@ -158,6 +158,22 @@ class ClientNormalPathScaleTest {
         override val entries get() = source.entries.also { scans++ }
         override fun equals(other: Any?): Boolean { scans++; return source == other }
     }
+    @Test fun playbackAutoPauseOnlyReadsTheAdvancingGroupAtTenThousandActions() {
+        val guarded = GuardMap(large.nodes)
+        val source = large.copy(nodes = guarded)
+        val history = index(source)
+        val player = HistoryPlayback(history)
+        player.previous()
+        val from = player.position.cursorId
+        val board = source.prepareReview(from)!!.board
+        guarded.scans = 0
+        source.work.reset()
+        player.play()
+        player.next(true, F.a, board = board)
+        player.pauseAfterAnimation()
+        assertEquals(0, guarded.scans)
+        assertEquals(0, source.work.replayedNodes + source.work.unappliedNodes + source.work.fullHistoryScans)
+    }
     @Test fun item2PresentedWithoutSuggestionNeverEnumeratesNodes() = scale("2 presented") { tree ->
         val guarded = GuardMap(tree.nodes)
         val controller = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> false }, { _, _, _ -> false })

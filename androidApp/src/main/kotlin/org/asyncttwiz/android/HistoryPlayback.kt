@@ -92,6 +92,7 @@ class HistoryPlayback(initial: HistoryTree) {
     private var panelViewer: String? = null
     private var removedParents: Map<String, String> = emptyMap()
     private var rollbackPlan: Pair<String, String>? = null
+    private var autoPauseCursor: String? = null
     var branched by mutableStateOf(false); private set
 
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root. */
@@ -190,10 +191,11 @@ class HistoryPlayback(initial: HistoryTree) {
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
         val cursor = resolveCursor(id)
         livePanelReveal = false
+        autoPauseCursor = null
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         rollbackPlan = null; branched = false
     }
-    fun pause() { position = position.copy(playing = false) }
+    fun pause() { autoPauseCursor = null; position = position.copy(playing = false) }
     fun play() {
         if (position.mode != HistoryMode.PLAYBACK) return
         livePanelReveal = false; position = position.copy(playing = true); planRollback()
@@ -204,7 +206,8 @@ class HistoryPlayback(initial: HistoryTree) {
     }
 
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
-    fun next(automatic: Boolean = false) {
+    fun next(automatic: Boolean = false, viewer: String? = null,
+        autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults, board: BoardState? = null) {
         if (automatic && (!foreground || !position.playing)) return
         livePanelReveal = false
         val common = planRollback()
@@ -215,10 +218,21 @@ class HistoryPlayback(initial: HistoryTree) {
         } else {
             target = tree.forwardGroup(position.cursorId)
         }
-        val live = target == tree.sharedHeadId
+        autoPauseCursor = target.takeIf { automatic && viewer != null && position.cursorId == common &&
+            tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board) }
+        // A matching head must remain in playback too: do not hide its animation/chrome or follow
+        // newly received events before the viewer explicitly resumes Auto.
+        val live = target == tree.sharedHeadId && autoPauseCursor == null
         position = HistoryPosition(target, if (live) HistoryMode.LIVE else HistoryMode.PLAYBACK,
             automatic && !live, tree.version(target))
         if (target == common || live) branched = false
+    }
+
+    /** Invoked only once the selected group's scene is on screen. Resuming cannot re-trigger it. */
+    fun pauseAfterAnimation(): Boolean {
+        if (!foreground || !position.playing || autoPauseCursor != position.cursorId) return false
+        pause()
+        return true
     }
 
     /** Capture on pointer down. Deletion/fallback must never silently arm a different boundary. */

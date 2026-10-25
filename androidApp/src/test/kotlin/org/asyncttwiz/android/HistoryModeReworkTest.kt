@@ -147,10 +147,10 @@ class HistoryModeReworkTest {
         prefs.edit().clear().commit()
         val alice = HistoryPlaybackPreferences(context, "alice")
         val bob = HistoryPlaybackPreferences(context, "bob")
-        assertEquals(1_500L, alice.pauseMillis)
+        assertEquals(500L, alice.pauseMillis)
         alice.pauseMillis = 2_300
         assertEquals(2_300L, HistoryPlaybackPreferences(context, "alice").pauseMillis)
-        assertEquals(1_500L, bob.pauseMillis)
+        assertEquals(500L, bob.pauseMillis)
         alice.pauseMillis = Long.MIN_VALUE
         assertEquals(100L, alice.pauseMillis)
         alice.pauseMillis = Long.MAX_VALUE
@@ -183,7 +183,7 @@ class HistoryModeReworkTest {
         settings.pauseMillis = 1_500
         compose.setContent { MaterialTheme { SettingsContent(null, "slider-account") {} } }
         compose.onNodeWithText("History playback pause").assertExists()
-        compose.onNodeWithTag("history-playback-pause").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(2_500f) }
+        compose.onNodeWithTag("history-playback-pause").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(2_500f) }
         compose.runOnIdle { assertEquals(2_500L, settings.pauseMillis) }
     }
 }

@@ -23,16 +23,17 @@ internal fun cardMoveProgress(from: TableBounds, to: TableBounds, sceneProgress:
     return 1f - (1f - t) * (1f - t)
 }
 
-internal class CardMovePreferences(context: Context) {
+internal class CardMovePreferences(context: Context, accountId: String = "") {
     private val preferences = context.applicationContext.getSharedPreferences("card-move-animation", Context.MODE_PRIVATE)
+    private val key = "dp-per-ms/$accountId"
     var speed: Float
-        get() = if (BuildConfig.DEBUG) preferences.getFloat("dp-per-ms", DEFAULT_CARD_MOVE_SPEED)
+        get() = if (BuildConfig.DEBUG) preferences.getFloat(key, preferences.getFloat("dp-per-ms", DEFAULT_CARD_MOVE_SPEED))
             .takeIf { it.isFinite() }?.coerceIn(.5f, 10f) ?: DEFAULT_CARD_MOVE_SPEED else DEFAULT_CARD_MOVE_SPEED
-        set(value) { if (BuildConfig.DEBUG && value.isFinite()) preferences.edit().putFloat("dp-per-ms", value.coerceIn(.5f, 10f)).apply() }
+        set(value) { if (BuildConfig.DEBUG && value.isFinite()) preferences.edit().putFloat(key, value.coerceIn(.5f, 10f)).apply() }
 }
 
 @Composable
-internal fun rememberCardMovePreferences(): CardMovePreferences {
+internal fun rememberCardMovePreferences(accountId: String = ""): CardMovePreferences {
     val context = LocalContext.current
-    return remember(context) { CardMovePreferences(context) }
+    return remember(context, accountId) { CardMovePreferences(context, accountId) }
 }

@@ -194,7 +194,7 @@ class TableStatesScreenshotTest {
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
         if (kind == "combat") {
-            compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
+            compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
             assertRenderedLandsBands(image, TablePresentation.scene(f.game, current(), f.a,
                 image.width.toFloat(), image.height.toFloat(), landscape), f.a, turnPlayer = current().board.turn.accountId)
         }
@@ -442,7 +442,7 @@ class TableStatesScreenshotTest {
          fork.performTouchInput { click() }
         compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
-        compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Table actions").assertIsDisplayed()
         compose.onNodeWithContentDescription("Auto advance", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
         // The latest live position has a hand card moved onto the battlefield, unlike the armed boundary.
@@ -490,7 +490,7 @@ class TableStatesScreenshotTest {
          compose.onNodeWithText("Back to latest").performClick()
          compose.onNode(isDialog()).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
-         compose.onNodeWithText("Playing groups", substring = true).assertIsDisplayed()
+          compose.onNodeWithText("Auto: on").assertIsDisplayed()
      }
 
      @Test fun dismissToggleOffDialogOutsideStaysInHistory() {
@@ -515,7 +515,7 @@ class TableStatesScreenshotTest {
          compose.onNodeWithContentDescription("Return to current").performClick()
          compose.onNode(isDialog()).assertDoesNotExist()
           compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
-         compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed()
+          compose.onNodeWithContentDescription("Table actions").assertIsDisplayed()
      }
 
     @Test fun treeCentersReviewGroupAndTapSelectsLastEventThenCloses() {

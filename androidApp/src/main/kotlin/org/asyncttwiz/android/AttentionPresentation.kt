@@ -25,6 +25,17 @@ internal fun battlefieldColor(owner: String, viewer: String, turnPlayer: String,
     else if (owner == viewer) Color(if (lands) 0xffc4dcd0 else 0xffe2efe6)
     else Color(if (lands) 0xffe9d1d3 else 0xfff4e8ea)
 
+internal fun tableBarColor(board: BoardState, viewer: String) =
+    battlefieldColor(board.turn.accountId, viewer, board.turn.accountId, lands = false)
+
+internal data class AdvanceButtonStyle(val fill: Color, val ink: Color, val outline: Color)
+
+internal fun advanceButtonStyle(board: BoardState, viewer: String): AdvanceButtonStyle = when {
+    board.effectiveAttentionHolder != viewer -> AdvanceButtonStyle(Color.White, Color.Gray, Color.Gray)
+    board.turn.accountId == viewer -> AdvanceButtonStyle(OwnTableColor, Color.White, OwnTableColor)
+    else -> AdvanceButtonStyle(Color.White, OpponentTableColor, OpponentTableColor)
+}
+
 /** Constant-size observation of displayed endpoints; never walks or replays history. */
 internal class MoveArrivalTracker(private val viewer: String) {
     private var previous: PlayState? = null

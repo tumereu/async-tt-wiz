@@ -4,8 +4,6 @@ import android.graphics.Paint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,7 +20,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -41,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -254,21 +252,18 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
     }) {
         val compactHeader = maxWidth < 400.dp
-        val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
+        val toolbarWidth = if (compactHeader) 192f else TablePresentation.TOOLBAR
         val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f, 40f).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
-        val timelineVisible = runtime.reviewing && runtime.reviewPanel != null
         val cardAppearance = rememberCardAppearance()
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible, cardAppearance) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance)
-                .let { if (timelineVisible) timelineLayout(it, accountId, maxWidth.value, maxHeight.value, landscape) else it }
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        var previousTimeline by remember { mutableStateOf(timelineVisible) }
-        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight || previousTimeline != timelineVisible
+        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
@@ -338,7 +333,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val activePings = pingProjection.records(play)
         val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
-        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight; previousTimeline = timelineVisible }
+        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
         SideEffect {
             presentation = { rendered.value.scene }
             var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
@@ -408,6 +403,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
+            Box(Modifier.fillMaxWidth().height(48.dp).background(tableBarColor(play.board, accountId)))
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
+                .background(tableBarColor(play.board, accountId)))
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
@@ -537,12 +535,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
         CardPanelHeaders(scene, accountId, writable, toolkit)
-        if (runtime.reviewing) Box(Modifier.fillMaxWidth().height(48.dp).background(Color.Black.copy(alpha = .14f)))
         if (runtime.reviewing) runtime.reviewPanel?.invoke()
+        if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomStart else Alignment.BottomCenter)
+            .padding(bottom = if (landscape) 4.dp else TableControlsHeight.dp)
+            .fillMaxWidth(if (landscape) .5f else 1f).height(TableTimelineHeight.dp)) { runtime.liveTimeline?.invoke() }
         if (toolkit != null) {
             val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
             if (!runtime.reviewing) QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack, accountId), toolkit.table, endingColor,
-                Modifier.align(Alignment.BottomEnd), perform = toolkit::perform)
+                Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
+                    .fillMaxWidth(if (landscape) .5f else 1f).padding(start = if (landscape) 8.dp else 60.dp, end = if (landscape) 8.dp else 60.dp)
+                    .height(TableControlsHeight.dp), perform = toolkit::perform)
             if (!runtime.reviewing) runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                 Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
                 onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
@@ -562,7 +564,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         AnimatedCardRingAnchors(rendered, actions != null || toolkit?.capture != null) {
         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
-            tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene)
+             tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history)
         actions?.let { captured ->
             val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
                 play.board.cards.singleOrNull { it.id == id }?.let { card ->
@@ -590,39 +592,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 })
         }
         }
-        MoveFrame(play, accountId, runtime.liveView && !runtime.reviewing, runtime.attentionEvent)
     }
     CardInspection(inspector, token = inspectedCard?.token == true,
         owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
     peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true, peekScroll = peekScroll) }
-    }
-}
-
-/** Draw-only overlay: it cannot take input from the table or its floating controls. */
-@Composable
-private fun MoveFrame(play: PlayState, viewer: String, live: Boolean, event: GameplayMutation?) {
-    val visible = live && play.board.effectiveAttentionHolder == viewer
-    val tracker = remember(play.id, viewer) { MoveArrivalTracker(viewer) }
-    var arrivals by remember(tracker) { mutableIntStateOf(0) }
-    val pulse = remember(tracker) { Animatable(0f) }
-    LaunchedEffect(tracker, play.currentNodeId, play.board.effectiveAttentionHolder, live) {
-        if (tracker.observe(play, live, event)) arrivals++
-    }
-    LaunchedEffect(arrivals) {
-        pulse.snapTo(0f)
-        if (visible && arrivals > 0) pulse.animateTo(0f, keyframes {
-            durationMillis = 600
-            0f at 0
-            1f at 120
-            0f at 600
-        })
-    }
-    LaunchedEffect(visible) { if (!visible) pulse.snapTo(0f) }
-    if (visible) Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
-        val width = (4 + 3 * pulse.value).dp.toPx()
-        val inset = 2.dp.toPx() + width / 2
-        drawRect(lerp(OwnTableColor, Color(0xff65bb80), pulse.value), Offset(inset, inset),
-            Size((size.width - 2 * inset).coerceAtLeast(0f), (size.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(width))
     }
 }
 
@@ -670,46 +643,48 @@ private fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Bool
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
 @Composable
-private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
+private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
-    Row(Modifier.align(Alignment.TopStart).height(48.dp)
-        .fillMaxWidth(if (landscape) .366f else 1f), verticalAlignment = Alignment.CenterVertically) {
+    val spacing = if (compact) 0.dp else 4.dp
+    // Landscape shares this rail with the fixed opponent Hand (sidebar + 10dp).
+    val titleWidth = if (landscape)
+        (TablePresentation.sidebarWidth(maxWidth.value) + 10f - 48f - spacing.value).coerceAtLeast(0f).dp
+        else Dp.Infinity
+    Row(Modifier.align(Alignment.TopStart).height(48.dp).fillMaxWidth()
+        .padding(end = if (compact) 0.dp else 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
-        Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-            // Only the name ellipsizes, so the turn number and "Waiting" survive narrow headers.
-            val header = turnHeader(game, play.board.turn, viewer)
-            val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
-            Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
-                Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
-                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Clip)
-                Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Box(Modifier.weight(1f)) {
+            // Keep the weighted space for right-aligned controls, but not for title/chip hit targets.
+            Column(Modifier.widthIn(max = titleWidth).fillMaxWidth().padding(horizontal = 4.dp)) {
+                // Only the name ellipsizes, so the turn number and "Waiting" survive narrow headers.
+                val header = turnHeader(game, play.board.turn, viewer)
+                val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
+                Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
+                    Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
+                        lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                Spacer(Modifier.height(2.dp))
+                ActionSquare(attention.label, "", attention.enabled,
+                    Modifier.width(IntrinsicSize.Max).height(26.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
+                        .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(13.dp))),
+                    fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
+                    compactContent = true,
+                    icon = {
+                        Text(attention.label, Modifier.padding(horizontal = 6.dp), fontSize = 11.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, fontWeight = if (attention.own) FontWeight.Bold else FontWeight.Normal)
+                    }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
             }
-            Spacer(Modifier.height(2.dp))
-            ActionSquare(attention.label, "", attention.enabled,
-                Modifier.fillMaxWidth().height(26.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
-                    .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(13.dp))),
-                fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
-                icon = {
-                    Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val weight = if (attention.own) FontWeight.Bold else FontWeight.Normal
-                        val waiting = attention.label.substringBefore(" · ", "")
-                        if (waiting.isNotEmpty()) Text("$waiting · ", fontSize = 11.sp, maxLines = 1, fontWeight = weight)
-                        Text(attention.label.removePrefix(if (waiting.isNotEmpty()) "$waiting · " else ""), Modifier.weight(1f, fill = false),
-                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Clip, fontWeight = weight)
-                    }
-                }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }
-        if (!landscape) Spacer(Modifier.width(if (compact) 240.dp else TablePresentation.TOOLBAR.dp))
-    }
-    val buttonWidth = 48f
-    Row(Modifier.align(Alignment.TopEnd).height(48.dp).padding(end = if (compact) 0.dp else 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        val buttonWidth = 48f
         val turnPlayer = if (play.board.turn.accountId == game.inviter.accountId) game.inviter else game.recipient
         ActionSquare("Turn ${play.board.turn.number}, ${turnPlayer.username}'s turn, ${turnStepName(play.board.turn)}. Choose phase/step",
             "", toolkit != null && !runtime.reviewing,
-            Modifier.width(buttonWidth.dp).border(2.dp, turnColor), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
+             Modifier.width(buttonWidth.dp), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
             icon = { TurnStepIcon(play.board.turn) },
             onClick = { toolkit?.phasePicker() })
         if (runtime.continuationArmed) {
@@ -720,9 +695,6 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White),
                 icon = { TableChromeIcon("fork") }, onClick = { runtime.continueHere?.invoke() })
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
-        } else {
-            ActionSquare("History", "", runtime.history != null, Modifier.width(buttonWidth.dp).background(Color.White),
-                icon = { TableChromeIcon("history") }, onClick = { runtime.history?.invoke() })
         }
         Box {
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })

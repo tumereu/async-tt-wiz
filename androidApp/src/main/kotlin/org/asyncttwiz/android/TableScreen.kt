@@ -20,6 +20,7 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /** Personal panel identity, not catalog/replica authority or an outgoing journal. */
@@ -36,7 +37,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
     val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
-    val reviewPanel: (@Composable () -> Unit)? = null,
+    val reviewPanel: (@Composable () -> Unit)? = null, val liveTimeline: (@Composable () -> Unit)? = null,
     val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
@@ -91,6 +92,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         else endpoint.live(live, history.view?.state, awaitingIndex,
             position?.cursorId?.takeIf { playback.livePanelReveal })
     SideEffect { endpoint.presented(play) }
+    var loadTimedOut by remember(game.id) { mutableStateOf(false) }
+    var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
+    LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {
+        loadTimedOut = false
+        if (play == null) { delay(30_000); loadTimedOut = true }
+    }
     LivePanelRevealPacing(playback, playbackPause,
         settledCursor == position?.cursorId && play?.currentNodeId == position?.cursorId)
     LaunchedEffect(target, IdentityKey(tree)) {
@@ -196,9 +203,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
         if (play == null) {
             TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,
-                message = history.error ?: state.connectionMessage,
-                loading = game.id in state.connectedGames && history.error == null,
-                retry = controller::reconnect,
+                message = history.error ?: state.connectionMessage ?: if (loadTimedOut) "Connection timed out." else null,
+                loading = tableIsLoading(state, game.id, history.error, loadTimedOut),
+                retry = { loadAttempt++; controller.reconnect() },
                 returnCurrent = if (waitingActivity) controller::leaveActivityReview else null)
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -224,7 +231,14 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          pauseForInspection = { playback?.pause() },
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         navigation = hamburger, chatUnread = state.chat.unread,
-                        history = playback?.let { player -> { history.select(player.position.cursorId) } },
+                         history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
+                         liveTimeline = playback?.let { player -> ({
+                             val events = remember(player.tree, player.tree.sharedHeadId) {
+                                 HistoryTimelineLayout.events(player.tree, player.tree.sharedHeadId)
+                             }
+                             HistoryTimeline(events, player.tree.sharedHeadId, accountId, {}, {},
+                                 readOnly = true, onEnter = { history.select(player.tree.sharedHeadId) })
+                         }) },
                          onSceneSettled = { settledCursor = it }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
@@ -233,7 +247,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                    interactive, playbackPause, { history.requestContinuation(it) },
-                                  autoPause = playbackAutoPause, board = play.board,
+                                   autoPause = playbackAutoPause, board = play.board,
                                   onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
                                   onTree = {
@@ -244,7 +258,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                       }
                                   },
                                  continuationReady = position?.cursorId?.let(history::canRequestContinuation) == true,
-                                overlay = true, landscape = landscape, menuContent = {
+                                 overlay = true, landscape = landscape,
+                                 background = tableBarColor(play.board, accountId), menuContent = {
                                      HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                                     DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
                                          enabled = interactive)
@@ -282,6 +297,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         }
     }
 }
+
+/** Absence of an accepted head is normal during socket admission and initial catch-up, not failure. */
+internal fun tableIsLoading(state: LobbyState, gameId: String, historyError: String?, timedOut: Boolean = false) =
+    historyError == null && state.connectionMessage == null && gameId !in state.reconnectingGames && !timedOut
 
 private fun activityPost(action: () -> Unit) { android.os.Handler(android.os.Looper.getMainLooper()).post { action() } }
 

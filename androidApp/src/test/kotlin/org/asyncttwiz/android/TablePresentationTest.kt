@@ -457,7 +457,8 @@ class TablePresentationTest {
             scroll = mapOf("counters/a" to rail.maxScroll), scrollY = mapOf("sidebar" to sidebar.maxScrollY)))
         assertTrue(farEnd.items.single { it.id == counters.last().id }.visible.isNotEmpty())
         val ownHand = end.viewports.single { it.id == "a/HAND" }.bounds
-        assertTrue(counters.flatMap { it.visible }.all { it.bottom <= ownHand.y })
+        // The fixed landscape history rail puts Hand to the RIGHT of the sidebar, not below it.
+        assertTrue(counters.flatMap { it.visible }.all { it.intersection(ownHand) == null })
         val stack = end.items.single { it.zone == PlayZone.STACK }.bounds
         assertTrue(end.items.filter { it.kind == TableItemKind.COUNTER }.none { it.bounds.intersection(stack) != null })
     }

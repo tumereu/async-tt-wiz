@@ -60,7 +60,7 @@ object TableActionMenus {
 fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, onDismiss: () -> Unit, pendingSuggestionId: String? = null, mayAccept: Boolean = false,
      perform: (TableActionIntent) -> Boolean = controller::perform,
-    names: Map<String, String> = emptyMap()) {
+    names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null) {
     val scope = TableActionScope(play.gameId, play.id)
     var sides by remember(scope) { mutableStateOf(selectedLibraryQuantity("6")) }
     var ending by remember(scope) { mutableStateOf(false) }
@@ -86,7 +86,8 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
     val entries = table.filterNot { it.intent is TableActionIntent.Ending }.map(::control) +
         listOf(MenuControl("Roll die…", enabled) { die = true }, MenuControl("Flip coin", enabled) {
             if (controller.flipCoin(scope)) onDismiss()
-        }) + table.filter { it.intent is TableActionIntent.Ending }.map(::control)
+         }) + listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
+        table.filter { it.intent is TableActionIntent.Ending }.map(::control)
     if (!ending && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, entry.click)

@@ -190,7 +190,8 @@ object TablePresentation {
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
-    const val TOOLBAR = 264f
+    // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
+    const val TOOLBAR = 212f
     fun sidebarWidth(width: Float) = minOf(326f, width * .366f)
 
     fun stackBubbles(scene: TableScene, play: PlayState, entryId: String?, width: Float, height: Float): StackBubbleGeometry? {
@@ -241,14 +242,14 @@ object TablePresentation {
         } ?: 4f
         val combat = CombatStackPresentation.combat(play.board, hudWidth, hudHeight)
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
-        // History chrome overlays the normal board. Review must never reframe the camera or rails.
-        val controlsHeight = if (landscape) 0f else 56f
+        // Both modes reserve the very same timeline and controls; review never reframes the camera.
+        val controlsHeight = tableBottomHeight(landscape)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
         val counterHeight = 48f
         val counterHeights = players.map { if (landscape || it.counters.values.any(::nonzero)) counterHeight else 0f }
         val middleHeight = max(combat.height, stackHeight + 24f)
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
-        val boardBottom = height - railHeight - if (landscape) 8f else 4f
+        val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
         val ownDockY = height - controlsHeight - dockRow - counterHeights[1]
         val worldTop = if (landscape) boardTop else HEADER + dockRow + counterHeights[0] + railHeight
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
@@ -286,7 +287,7 @@ object TablePresentation {
             TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
                 gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.effectiveAttentionHolder)
         }
-        val sidebarBounds = TableBounds(0f, boardTop, sidebar, (boardBottom - boardTop).coerceAtLeast(0f))
+        val sidebarBounds = TableBounds(0f, boardTop, sidebar, (height - controlsHeight - boardTop).coerceAtLeast(0f))
         val sidebarRow = dockRow + counterHeight
         val sidebarContent = max(2 * sidebarRow + middleHeight, sidebarBounds.height)
         val sidebarScroll = if (landscape) (ui.scrollY["sidebar"] ?: 0f).coerceIn(0f, (sidebarContent - sidebarBounds.height).coerceAtLeast(0f)) else 0f
@@ -319,8 +320,8 @@ object TablePresentation {
             val normalHandBounds = if (!ownSide) {
                 if (landscape) TableBounds(sidebar + 10f, 0f, (width - sidebar - toolbarWidth - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
                 else TableBounds(0f, worldTop - railHeight, width, railHeight)
-            } else TableBounds(if (landscape) 64f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                 (width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
+            } else TableBounds(if (landscape) sidebar + 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
+                 (width - if (landscape) sidebar + 20f else 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)

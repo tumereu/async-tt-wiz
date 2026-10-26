@@ -14,12 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import org.asyncttwiz.protocol.*
 
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
@@ -30,6 +34,8 @@ data class QuickAction(val name: String, val glyph: String, val intent: TableAct
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
     const val contextualPositions = 3
+    fun visible(play: PlayState, viewer: String?) = viewer != null &&
+        (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer)
     fun contextual(play: PlayState, context: QuickContext, controller: TableActionController): List<QuickAction> {
         if (!context.playable) return emptyList()
         val scope = TableActionScope(play.gameId, play.id)
@@ -110,30 +116,49 @@ class ActionPress(private val assignedHold: Boolean) {
     fun cancel() { consumed = true }
 }
 
-/** Three pannable contextual positions plus the permanently reserved tap/hold progression square. */
+/** Compact, centered popup-style cells; overflow scrolls without stretching the buttons. */
 @Composable
 fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform) {
     if (!context.playable) return
+    if (!QuickActions.visible(play, context.viewer)) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Text("Opponent's turn", color = Color.Black.copy(alpha = .38f), style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
     val actions = QuickActions.contextual(play, context, controller)
     val scope = TableActionScope(play.gameId, play.id)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        // Only the contextual rail scrolls; overflow never displaces the fourth square.
-        Row(Modifier.width(144.dp).horizontalScroll(rememberScrollState())) {
-            repeat((QuickActions.contextualPositions - actions.size).coerceAtLeast(0)) { Spacer(Modifier.size(48.dp)) }
+    val style = advanceButtonStyle(play.board, requireNotNull(context.viewer))
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        Row(Modifier.width((minOf(actions.size, QuickActions.contextualPositions) * 50).dp)
+            .horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             for (action in actions) key(action.intent) {
-                ActionSquare(action.name, action.glyph, controller.enabled(scope),
-                    Modifier.background(Color.White).border(1.dp, MenuBorder), badge = action.badge,
-                    onClick = { perform(action.intent) })
+                InlinePopupCell(MenuControl(action.name, controller.enabled(scope)) { perform(action.intent) },
+                    quickActionLabel(action.name), owner = Color.Black)
             }
         }
-        ActionSquare("Next step", "↦", controller.enabled(scope), Modifier.background(Color.White).border(1.dp, endingPlayerColor),
-            ink = endingPlayerColor,
+        val shape = RoundedCornerShape(3.dp)
+        ActionSquare("Next step", "↦", controller.enabled(scope), Modifier.shadow(3.dp, shape)
+            .background(style.fill, shape).border(1.dp, style.outline, shape), fill = style.fill, ink = style.ink,
             holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
             gestureKey = scope,
-            icon = { TableChromeIcon("next") },
+            icon = { Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                TableChromeIcon("next")
+                Text("Next step", fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center)
+            } },
             onClick = { perform(TableActionIntent.Next(scope)) })
     }
+}
+
+internal fun quickActionLabel(name: String) = when (name) {
+    "Untap all + next" -> "Untap + next"
+    "Return Hand → Shuffle → Draw N" -> "Mulligan N"
+    "Return Hand → Shuffle → Draw previous Hand size −1" -> "Mulligan −1"
+    "Declare without tapping" -> "Declare"
+    "Draw + go to main" -> "Draw + main"
+    "Advance + close combat" -> "Close + next"
+    else -> ringShortLabel(name)
 }
 
 /** Name-only hold tooltip, unless a real hold command is assigned. Never invokes click on release. */
@@ -141,7 +166,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
 internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifier = Modifier,
     fill: Color = Color.Transparent, badge: String? = null, selected: Boolean = false,
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
-    gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+    gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, compactContent: Boolean = false, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
     val haptic = LocalHapticFeedback.current
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
@@ -149,7 +174,7 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
     var tooltip by remember(name) { mutableStateOf(false) }
     var pressed by remember(name) { mutableStateOf(false) }
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
-    Box(modifier.size(48.dp).graphicsLayer {
+    Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
     }.background(fill).drawWithContent {
         drawContent()

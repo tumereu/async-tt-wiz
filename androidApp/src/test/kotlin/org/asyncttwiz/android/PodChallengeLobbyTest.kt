@@ -129,11 +129,11 @@ class PodChallengeLobbyTest {
     @Test fun fixedM21EnglishLowestCollectorNumberIgnoresOtherSetsPromosAndCatalogBuildDate() {
         val repository = CatalogRepository(temporary.newFolder("catalog")) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
         val chosen = mutableListOf<String>()
-        val records = BasicLand.entries.flatMap { land ->
+        val records = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).flatMap { (land, mana) ->
             fun printing(set: String, number: String, language: String = "English", promo: Boolean = false): CatalogPrinting {
                 val uuid = id()
                 return CatalogPrinting(uuid, land.cardName, set, number, language, "", id(), false, emptyList(),
-                    """{"name":"${land.cardName}","type":"Basic Land — ${land.cardName}","isPromo":$promo,"availability":["paper"]}""")
+                    """{"name":"${land.cardName}","type":"Basic Land — ${land.cardName}","text":"({T}: Add {$mana}.)","isPromo":$promo,"availability":["paper"]}""")
             }
             val regular = printing("M21", "309").also { chosen.add(it.id) }
             listOf(printing("NEW", "1"), printing("M21", "1", promo = true), printing("M21", "2", language = "German"),
@@ -142,6 +142,7 @@ class PodChallengeLobbyTest {
         repository.stage { index -> index.addBatch(records); CatalogMetadata("2026-10-26", "5.3.0") }
         val first = podBasicDefinitions(repository)
         assertEquals(chosen, first.map { it.definition.printingId }); assertNotNull(PodGamePreparation.basicDefinitions(first))
+        assertEquals(listOf("W", "U", "B", "R", "G").map { "({T}: Add {$it}.)" }, first.map { it.definition.faces.single().rulesText })
         repository.stage { index -> index.addBatch(records.reversed()); CatalogMetadata("2026-10-27", "5.3.0") }
         assertEquals(first, podBasicDefinitions(repository))
     }

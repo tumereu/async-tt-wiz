@@ -25,10 +25,36 @@ class PodChallengesTest {
         assertNull(PodGamePreparation.basicDefinitions(definitions.drop(1)))
         assertNull(PodGamePreparation.basicDefinitions(definitions.dropLast(1) + definitions.first()))
         assertNull(PodGamePreparation.basicDefinitions(definitions.map { it.copy(digest = "sha256:" + "0".repeat(64)) }))
-        for (type in listOf("Land — Plains", "Basic Creature — Plains", "Snow Basic Land — Plains")) {
+        for (type in listOf("Land — Plains", "Basic Creature — Plains", "Snow Basic Land — Plains",
+            "Basic Land Creature — Swamp Horror", "Basic Land — Swamp", "Basic Land - Plains", "Basic Land — Plains ")) {
             val invalid = definitions.first().definition.let { it.copy(faces = listOf(it.faces.single().copy(typeLine = type))) }
             assertNull(PodGamePreparation.basicDefinitions(listOf(SubmittedDefinition(DeckJson.digest(invalid), invalid)) + definitions.drop(1)))
         }
+    }
+
+    @Test fun suppliedBasicsRejectForgedFacesAndAbilitiesEvenWithCorrectDigests() {
+        val card = definitions.first().definition
+        val face = card.faces.single()
+        val invalid = listOf(
+            card.copy(name = "plains"), card.copy(faces = listOf(face.copy(name = "Island"))),
+            card.copy(faces = listOf(face, face.copy(faceId = id(99)))), card.copy(token = true),
+        ) + listOf(face.copy(power = "20"), face.copy(toughness = "20"), face.copy(loyalty = "1"),
+            face.copy(defense = "1"), face.copy(rulesText = "Draw twenty cards."),
+            face.copy(rulesText = "({T}: Add {B}.)"), face.copy(rulesText = "({T}: Add {W}.)\nDraw a card."),
+            face.copy(rulesText = " ")).map { card.copy(faces = listOf(it)) }
+        for (definition in invalid) {
+            assertNull(PodGamePreparation.basicDefinitions(
+                listOf(SubmittedDefinition(DeckJson.digest(definition), definition)) + definitions.drop(1)))
+        }
+    }
+
+    @Test fun catalogManaReminderTextIsAcceptedForEachBasic() {
+        val catalog = definitions.zip(listOf("W", "U", "B", "R", "G")).map { (submitted, mana) ->
+            val card = submitted.definition.copy(provider = "mtgjson", printingId = submitted.definition.faces.single().faceId,
+                faces = submitted.definition.faces.map { it.copy(rulesText = "({T}: Add {$mana}.)", sourceData = "{}") })
+            SubmittedDefinition(DeckJson.digest(card), card)
+        }
+        assertEquals(5, PodGamePreparation.basicDefinitions(catalog)!!.size)
     }
 
     @Test fun basicsAreConcreteMainCopiesAndOnlyOwnReadyClearsWithoutTouchingDraftedLands() {

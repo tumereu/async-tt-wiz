@@ -15,6 +15,7 @@ import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.generated.tables.records.GameRecord
 import org.asyncttwiz.server.lobby.LobbyService
+import org.asyncttwiz.server.pods.PodService
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -439,6 +440,8 @@ class GameService(private val runtime: ServiceRuntime) {
             GameAction.AcceptInvitation, GameAction.DeclineInvitation -> {
                 if (account != game.recipientId) return "accessDenied"
                 if (invitation.state != "PENDING") return "inapplicable"
+                if (command.action == GameAction.AcceptInvitation)
+                    PodService(runtime).acceptChallenge(sql, lobby.summary(sql, game.id!!), command.requestId)
                 sql.update(INVITATION).set(INVITATION.STATE,
                     if (command.action == GameAction.AcceptInvitation) "ACCEPTED" else "DECLINED")
                     .where(INVITATION.ID.eq(invitation.id)).execute()

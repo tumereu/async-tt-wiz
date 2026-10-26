@@ -26,9 +26,14 @@ object PodGamePreparation {
             val card = submitted.definition
             val land = BasicLand.entries.find { it.cardName == card.name } ?: return null
             val face = card.faces.singleOrNull() ?: return null
-            val types = face.typeLine.substringBefore('—').trim().split(Regex("\\s+"))
+            val mana = when (land) {
+                BasicLand.PLAINS -> "W"; BasicLand.ISLAND -> "U"; BasicLand.SWAMP -> "B"
+                BasicLand.MOUNTAIN -> "R"; BasicLand.FOREST -> "G"
+            }
             if (!DeckValidation.definition(card) || DeckJson.digest(card) != submitted.digest || card.token ||
-                face.name != land.cardName || "Basic" !in types || "Land" !in types || "Snow" in types ||
+                face.name != land.cardName || face.typeLine != "Basic Land — ${land.cardName}" ||
+                face.power.isNotEmpty() || face.toughness.isNotEmpty() || face.loyalty.isNotEmpty() || face.defense.isNotEmpty() ||
+                (face.rulesText.isNotEmpty() && face.rulesText != "({T}: Add {$mana}.)") ||
                 result.put(land, submitted.digest) != null) return null
         }
         return result

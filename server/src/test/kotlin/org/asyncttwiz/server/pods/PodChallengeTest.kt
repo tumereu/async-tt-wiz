@@ -17,11 +17,12 @@ import org.junit.jupiter.api.Test
 class PodChallengeTest {
     private val json = DeckJson.format
     private fun id() = UUID.randomUUID().toString()
-    private val basics = BasicLand.entries.map { land ->
-        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
+    private val basics = BasicLand.entries.zip(listOf("W", "U", "B", "R", "G")).map { (land, mana) ->
+        val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName,
+            typeLine = "Basic Land — ${land.cardName}", rulesText = "({T}: Add {$mana}.)")), provider = "mtgjson")
         SubmittedDefinition(DeckJson.digest(card), card)
     }
-    private inner class Fixture(val runtime: ServiceRuntime) {
+    private inner class Fixture(val runtime: ServiceRuntime, uniqueCards: Boolean) {
         private val accounts = AccountService(runtime)
         fun account(name: String): AccountService.Principal {
             accounts.register(name, "$name@example.invalid", "fixture password")
@@ -34,8 +35,12 @@ class PodChallengeTest {
         val digest = DeckJson.digest(card)
         val cube: SavedCube
         init {
-            assertEquals(200, decks.submit(a, SubmitDefinitions(id(), listOf(SubmittedDefinition(digest, card)))).status)
-            cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube", listOf(SavedCubeEntry(digest, 90)))).body)
+            val cards = if (uniqueCards) (1..9).map { CardDefinition("Unique pool card $it", listOf(DefinitionFace(id(), "Unique pool card $it"))) }
+                else listOf(card)
+            val definitions = cards.map { SubmittedDefinition(DeckJson.digest(it), it) }
+            assertEquals(200, decks.submit(a, SubmitDefinitions(id(), definitions)).status)
+            cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube",
+                definitions.map { SavedCubeEntry(it.digest, if (uniqueCards) 1 else 90) })).body)
         }
         fun pod(three: Boolean = false): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), "Surviving pod name", cube.cube.id)).body).id
@@ -49,12 +54,12 @@ class PodChallengeTest {
             return pod
         }
         fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
-        fun submit(who: AccountService.Principal, pod: String) {
+        fun submit(who: AccountService.Principal, pod: String, counts: PodDeckBasics = PodDeckBasics(8, 8, 8, 8, 8)) {
             val detail = detail(who, pod); val attempt = detail.draftAttemptId!!
             val copies = detail.build!!.copies
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[1].copyId, PodDeckCategory.SIDE)).status)
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.TRASH)).status)
-            assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, PodDeckBasics(8, 8, 8, 8, 8))).status)
+            assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, counts)).status)
             assertEquals(200, pods.submit(who, pod, PodDraftRequest(id(), attempt)).status)
         }
         fun challenge(pod: String, who: AccountService.Principal = a, opponent: AccountService.Principal = b): GameSummary {
@@ -72,20 +77,21 @@ class PodChallengeTest {
         fun execute(action: GameAction): GameResult {
             val summary = games.head(who, game.id).summary
             val scope = if (action is GameAction.Play || action is GameAction.AcceptResult) GameScope(game.id, playId = summary.playId)
-                else GameScope(game.id, summary.preparationRound, if (action == GameAction.AcceptInvitation) summary.invitationId else null)
+                else GameScope(game.id, summary.preparationRound,
+                    if (action in listOf(GameAction.AcceptInvitation, GameAction.DeclineInvitation, GameAction.Reinvite)) summary.invitationId else null)
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(who, hello, connection, command) is GameReceipt)
             assertTrue(games.executeOne())
             return games.results(who, game.id, listOf(command.requestId)).statuses.single().result!!
         }
     }
-    private fun fixture(test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
+    private fun fixture(uniqueCards: Boolean = false, test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
             runtime.start()
             val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
             while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
-            test(Fixture(runtime))
+            test(Fixture(runtime, uniqueCards))
         }
     }
 
@@ -102,6 +108,13 @@ class PodChallengeTest {
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(gameName = " ")).status)
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(basicDefinitions = basics.drop(1))).status)
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(basicDefinitions = basics.map { it.copy(digest = "sha256:" + "0".repeat(64)) })).status)
+        val plains = basics.first().definition
+        val forged = plains.copy(faces = listOf(plains.faces.single().copy(typeLine = "Basic Land Creature — Swamp Horror",
+            power = "20", toughness = "20", rulesText = "Draw twenty cards.")))
+        val rejected = f.pods.challenge(f.a, pod, input().copy(basicDefinitions =
+            listOf(SubmittedDefinition(DeckJson.digest(forged), forged)) + basics.drop(1)))
+        assertEquals(400, rejected.status)
+        assertEquals("invalid_basic_definitions", json.decodeFromString<PodError>(rejected.body).code)
         val request = input(); val first = f.pods.challenge(f.a, pod, request)
         assertEquals(201, first.status, first.body); assertEquals(first, f.pods.challenge(f.a, pod, request))
         assertEquals(409, f.pods.challenge(f.a, pod, request.copy(gameName = "Changed")).status)
@@ -113,21 +126,77 @@ class PodChallengeTest {
         assertEquals(1, json.decodeFromString<GameList>(f.lobby.list(f.a, null, true).body).games.size)
         val preparation = f.preparation(game)
         assertEquals(PodGameRules(1), preparation.podRules)
-        for (player in preparation.players) {
+        assertNull(preparation.players.single { it.accountId == f.b.account.accountId }.deck)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.AcceptInvitation).outcome)
+        val accepted = f.preparation(game)
+        for (player in accepted.players) {
             val deck = player.deck!!
             assertEquals(41L, deck.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, deck.count(SavedDeckSection.SIDEBOARD))
             assertEquals(2, deck.entries.count { it.suppliedBasic == null }) // Trash is absent.
             assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(deck))
             assertEquals(5, deck.basicDefinitions.size)
-            assertTrue(deck.entries.all { entry -> preparation.definitions.any { it.digest == entry.definition } })
+            assertTrue(deck.entries.all { entry -> accepted.definitions.any { it.digest == entry.definition } })
         }
-        assertNotEquals(preparation.players[0].deck!!.id, preparation.players[1].deck!!.id)
+        assertNotEquals(accepted.players[0].deck!!.id, accepted.players[1].deck!!.id)
         val stream = f.stream(f.a, game)
         assertEquals("podDeckFixed", stream.execute(GameAction.SelectDeck(id(), "1")).reason)
         val own = preparation.players.first { it.accountId == f.a.account.accountId }.deck!!
-        val other = preparation.players.first { it.accountId == f.b.account.accountId }.deck!!
+        val other = accepted.players.first { it.accountId == f.b.account.accountId }.deck!!
         assertEquals("preparedDeckChanged", stream.execute(GameAction.SetPodGameBasics(other.id, PodDeckBasics(plains = 40), basics)).reason)
         assertEquals(own, f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck)
+    }
+
+    @Test fun `recipient deck lists basics and definitions stay private until acceptance including revisions and declined or withdrawn invitations`() = fixture(uniqueCards = true) { f ->
+        val pod = f.pod()
+        val counts = PodDeckBasics(plains = 37, island = 4)
+        f.submit(f.a, pod); f.submit(f.b, pod, counts)
+        val detail = f.detail(f.b, pod)
+        val pool = detail.draft!!.pool.associateBy { it.id }
+        val submitted = detail.deck!!.copies.filter { it.category != PodDeckCategory.TRASH }
+        val privateDigests = submitted.map { pool.getValue(it.copyId).definition }.toSet()
+        val trash = pool.getValue(detail.build!!.copies.single { it.category == PodDeckCategory.TRASH }.copyId).definition
+        fun privatePreparation(preparation: LobbyPreparation) {
+            assertNull(preparation.players.single { it.accountId == f.b.account.accountId }.deck)
+            assertTrue(preparation.definitions.none { it.digest in privateDigests || it.digest == trash })
+        }
+        fun privatePayloads(game: GameSummary) {
+            val head = f.games.head(f.a, game.id)
+            privatePreparation(head.preparation!!)
+            privatePreparation(f.games.subscriptionHead(f.a, game.id).preparation!!)
+            val revisions = f.games.revisions(f.a, game.id, "0").revisions
+            revisions.mapNotNull { it.preparation }.forEach(::privatePreparation)
+            val payloads = listOf(GameWire.encode(head), f.lobby.head(f.a, game.id).body) + revisions.map(GameWire::encode)
+            for (definition in detail.definitions.filter { it.digest in privateDigests || it.digest == trash }) {
+                assertTrue(payloads.none { definition.digest in it || definition.definition.name in it })
+            }
+        }
+        val game = f.challenge(pod)
+        val owner = f.stream(f.a, game)
+        privatePayloads(game)
+        assertEquals("accepted", owner.execute(GameAction.Ready).outcome)
+        assertTrue(f.games.revisions(f.a, game.id, "0").revisions.isNotEmpty())
+        privatePayloads(game)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.AcceptInvitation).outcome)
+        val preparation = f.preparation(game)
+        val deck = preparation.players.single { it.accountId == f.b.account.accountId }.deck!!
+        assertEquals(counts, PodGamePreparation.basics(deck))
+        for (copy in submitted) {
+            val entry = deck.entries.single { it.definition == pool.getValue(copy.copyId).definition }
+            assertEquals(if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD, entry.section)
+        }
+        assertTrue(privateDigests.all { digest -> preparation.definitions.any { it.digest == digest } })
+        assertTrue(preparation.definitions.none { it.digest == trash })
+        assertEquals(preparation, f.games.subscriptionHead(f.a, game.id).preparation)
+        assertEquals(preparation, f.games.revisions(f.a, game.id, "0").revisions.last().preparation)
+
+        val declined = f.challenge(pod)
+        assertEquals("accepted", f.stream(f.b, declined).execute(GameAction.DeclineInvitation).outcome)
+        privatePayloads(declined)
+        val withdrawn = f.challenge(pod)
+        privatePayloads(withdrawn)
+        assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
+        assertNull(f.games.subscriptionHead(f.a, declined.id).preparation)
+        assertNull(f.games.subscriptionHead(f.a, withdrawn.id).preparation)
     }
 
     @Test fun `pod readiness sideboarding basics and accepted games stay independent after destroy`() = fixture { f ->

@@ -291,7 +291,6 @@ class PodService(private val runtime: ServiceRuntime) {
                 return@mutate error(409, "deck_not_submitted")
             val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
                 ?: return@mutate error(400, "invalid_basic_definitions")
-            val copies = copies(row).associateBy { it.id }
             val builds = listOf(owner.toString(), input.opponentId).associateWith {
                 json.decodeFromString<PodDeckBuild>(players.getValue(it).submittedDeck!!.data())
             }
@@ -306,27 +305,46 @@ class PodService(private val runtime: ServiceRuntime) {
             sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
             val lobby = LobbyService(runtime)
             val summary = lobby.summary(sql, game)
-            val needed = builds.values.flatMap { build -> build.copies.filter { it.category != PodDeckCategory.TRASH }
-                .map { copies.getValue(it.copyId).definition } }.toSet()
-            val definitions = PreparationStore.definitions(sql, needed) + input.basicDefinitions
-            for ((player, build) in builds) {
-                val selection = CommandIds.uuidV5(input.requestId, "pod-deck/$player")
-                var index = 0L
-                val entries = build.copies.filter { it.category != PodDeckCategory.TRASH }.map { copy ->
-                    PreparedEntry(copies.getValue(copy.copyId).definition,
-                        if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD,
-                        (index++).toString(), 1)
-                } + BasicLand.entries.mapNotNull { land -> land.count(build.basics).takeIf { it > 0 }?.let { count ->
-                    PreparedEntry(basics.getValue(land), SavedDeckSection.MAINBOARD, index.toString(), count, land).also { index += count }
-                } }
-                val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
-                    row.name!!, entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
-                PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(game.toString(), summary.preparationRound,
-                    listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
-            }
+            // The recipient's locked deck remains pod-private until they accept the invitation.
+            saveChallengeDeck(sql, row, summary, owner.toString(), builds.getValue(owner.toString()), basics,
+                input.basicDefinitions, input.requestId)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
+
+    /** Called under the game lock, in the same transaction as invitation acceptance. */
+    internal fun acceptChallenge(sql: DSLContext, summary: GameSummary, requestId: String) {
+        val pod = summary.podId?.let(UUID::fromString) ?: return
+        // Withdrawal also locks this game before removing the pod/member. Do not take the pod
+        // lock here (pod mutations lock pod then game); submitted decks are immutable.
+        val row = sql.selectFrom(POD).where(POD.ID.eq(pod)).fetchSingle()
+        val player = summary.recipient.accountId
+        val submitted = sql.select(MEMBER.SUBMITTED_DECK).from(MEMBER).where(MEMBER.POD_ID.eq(pod))
+            .and(MEMBER.ACCOUNT_ID.eq(UUID.fromString(player))).fetchSingle(MEMBER.SUBMITTED_DECK)!!
+        val preparation = PreparationStore.read(sql, summary)
+        val basics = preparation.players.single { it.accountId == summary.inviter.accountId }.deck!!.basicDefinitions
+        saveChallengeDeck(sql, row, summary, player, json.decodeFromString(submitted.data()), basics,
+            preparation.definitions.filter { it.digest in basics.values }, requestId)
+    }
+
+    private fun saveChallengeDeck(sql: DSLContext, row: PodRecord, summary: GameSummary, player: String,
+        build: PodDeckBuild, basics: Map<BasicLand, String>, basicDefinitions: List<SubmittedDefinition>, requestId: String) {
+        val copies = copies(row).associateBy { it.id }
+        val selection = CommandIds.uuidV5(requestId, "pod-deck/$player")
+        var index = 0L
+        val entries = build.copies.filter { it.category != PodDeckCategory.TRASH }.map { copy ->
+            PreparedEntry(copies.getValue(copy.copyId).definition,
+                if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD,
+                (index++).toString(), 1)
+        } + BasicLand.entries.mapNotNull { land -> land.count(build.basics).takeIf { it > 0 }?.let { count ->
+            PreparedEntry(basics.getValue(land), SavedDeckSection.MAINBOARD, index.toString(), count, land).also { index += count }
+        } }
+        val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
+            row.name!!, entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
+        val definitions = PreparationStore.definitions(sql, entries.map { it.definition }.toSet()) + basicDefinitions
+        PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(summary.id, summary.preparationRound,
+            listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
+    }
 
     fun leave(principal: AccountService.Principal, id: String, input: PodRequest): Result =
         mutate(principal, id, input.requestId, "leavePod", json.encodeToJsonElement(input)) { sql, owner, row ->

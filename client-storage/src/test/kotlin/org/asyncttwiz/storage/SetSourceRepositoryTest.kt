@@ -145,10 +145,12 @@ class SetSourceRepositoryTest {
         val catalog = catalog(set)
         val source = FixtureSource().apply { put(set) }
         val repository = repository(catalog, source)
+        assertFalse(repository.isCached("OLD"))
         val first = repository.load("OLD")
         assertConsistent(first)
         assertEquals(listOf("OLD"), source.downloads)
         assertTrue(cache.resolve("OLD.json.gz").isFile)
+        assertTrue(repository.isCached("OLD"))
         clock.now = clock.now.plusSeconds(365 * 24 * 60 * 60)
         assertEquals(first, repository(catalog, source).load("OLD"))
         assertEquals(listOf("OLD"), source.requests)

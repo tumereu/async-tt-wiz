@@ -8,8 +8,10 @@ import java.util.concurrent.ExecutorService
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
 enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT }
-data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER)
-data class PodSetupEdit(val name: String, val settings: DraftSettings, val cubeId: String? = null, val revision: Long = 0)
+data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
+    val setSource: PodSetSource? = null)
+data class PodSetupEdit(val name: String, val settings: DraftSettings, val cubeId: String? = null, val revision: Long = 0,
+    val setSource: PodSetSource? = null)
 data class PodState(
     val pods: List<PodSummary> = emptyList(), val invitations: List<PodInvitation> = emptyList(),
     val loaded: Boolean = false, val selected: String? = null, val detail: PodDetail? = null,
@@ -26,7 +28,8 @@ data class PodState(
 class PodController(private val api: Pods, private val cubes: Cubes, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val suggest: () -> String = ::gameNameSuggestion,
-    private val wait: (suspend (Long) -> Unit)? = null) : AutoCloseable {
+    private val wait: (suspend (Long) -> Unit)? = null,
+    setRepository: PodSetRepository? = null) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -43,9 +46,16 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val select: Boolean = false, val setupRevision: Long? = null,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
+    internal val setPicker = PodSetPickerController(setRepository, worker, post) { upload ->
+        val source = PodSetSource(upload.snapshot, upload.definitions.definitions)
+        if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, setSource = source))
+        else editSetup(setSource = source)
+        state = state.copy(notice = upload.warnings.takeIf { it.isNotEmpty() }?.joinToString("\n"))
+    }
 
     fun clear() {
         epoch++; active = false; refreshPending = false; cubesPending = false
+        setPicker.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
     }
@@ -53,18 +63,21 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun open(id: String) {
         if (state.uncertain) return
         flushSetup()
+        setPicker.dismiss()
         accepted = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
             confirmation = null, choosingMember = false, error = null, notice = notices.remove(id))
         refresh()
     }
     fun back() {
+        if (setPicker.state.open) { setPicker.dismiss(); return }
         if (state.confirmation != null) { dismissConfirmation(); return }
         if (state.choosingMember) { chooseMember(false); return }
         showList()
     }
     fun showList() {
         flushSetup()
+        setPicker.dismiss()
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
@@ -86,13 +99,17 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun newPod(cubeId: String? = null) {
         if (writes.isNotEmpty()) return
         accepted = null
+        setPicker.dismiss()
         state = state.copy(selected = null, detail = null, creating = NewPodDraft(suggest(), cubeId), setup = null,
             confirmation = null, choosingMember = false, error = null, notice = null)
         loadCubes()
     }
     fun newName(name: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(name = name)) }
     fun reroll() = newName(suggest())
-    fun newCube(id: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(cubeId = id)) }
+    fun newCube(id: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(cubeId = id, setSource = null)) }
+    fun chooseSet() {
+        if (!state.uncertain && state.pending == 0 && (state.creating != null || state.detail?.phase == PodPhase.SETUP)) setPicker.open()
+    }
     fun newMode(mode: DraftMode) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(mode = mode)) }
     fun loadCubes() { cubesPending = true; pump() }
     /** Called whenever this destination returns to composition, including after managing cubes. */
@@ -104,10 +121,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val draft = state.creating ?: return
         if (state.pending > 0 || state.uncertain) return
         if (draft.name.isBlank() || !DeckValidation.text(draft.name) || draft.name.length > 120 ||
-            draft.name.any { it.isISOControl() } || draft.cubeId == null) {
-            state = state.copy(error = "Enter a name and select a cube."); return
+            draft.name.any { it.isISOControl() } || (draft.cubeId == null && draft.setSource == null)) {
+            state = state.copy(error = "Enter a name and select a cube or MTG set."); return
         }
-        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode)
+        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.setSource)
         enqueue(Write(null, select = true, send = { api.create(it, input) }))
     }
     fun respond(id: String, accept: Boolean) {
@@ -117,18 +134,19 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             if (accept) api.accept(it, id, input) else { api.decline(it, id, input); null }
         }))
     }
-    fun editSetup(name: String? = null, settings: DraftSettings? = null, cubeId: String? = null) {
+    fun editSetup(name: String? = null, settings: DraftSettings? = null, cubeId: String? = null, setSource: PodSetSource? = null) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
         if (state.uncertain) return
         val old = state.setup ?: PodSetupEdit(detail.name, detail.settings)
         state = state.copy(setup = old.copy(name = name ?: old.name, settings = settings ?: old.settings,
-            cubeId = cubeId ?: old.cubeId, revision = ++editRevision), error = null)
+            cubeId = if (setSource != null) null else cubeId ?: old.cubeId,
+            setSource = if (cubeId != null) null else setSource ?: old.setSource, revision = ++editRevision), error = null)
     }
     fun flushSetup() {
         val detail = state.detail ?: return
         val edit = state.setup ?: return
         if (state.uncertain || writes.any { it.setupRevision == edit.revision }) return
-        val input = UpdatePod(requestId(), edit.name, edit.cubeId, edit.settings)
+        val input = UpdatePod(requestId(), edit.name, edit.cubeId, edit.settings, edit.setSource)
         enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, input) }))
     }
     fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }

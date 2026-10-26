@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.*
 import org.junit.Test
 import java.util.UUID
 import java.util.concurrent.AbstractExecutorService
@@ -46,6 +47,7 @@ class PodControllerTest {
         var secondPod: PodDetail? = null
         var missing = false
         var failMoves = false
+        var failSourceWrites = false
         var gridFailure: String? = null
         var afterRead: () -> Unit = {}
         override suspend fun list(token: String) = listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
@@ -53,9 +55,18 @@ class PodControllerTest {
             reads++; readIds += id; if (missing) throw PodFailure("not_found"); afterRead()
             return secondPod?.takeIf { it.id == id } ?: saved
         }
-        override suspend fun create(token: String, input: CreatePod): PodDetail { calls += "create" to input; saved = detail(PodPhase.SETUP).copy(name = input.name); return saved }
+        override suspend fun create(token: String, input: CreatePod): PodDetail {
+            calls += "create" to input
+            if (failSourceWrites) throw PodFailure("network")
+            saved = detail(PodPhase.SETUP).copy(name = input.name, source = input.setSource?.podSource() ?: PodSource("Cube", 540))
+            return saved
+        }
         override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail {
-            calls += "update" to input; saved = saved.copy(name = input.name ?: saved.name, settings = input.settings ?: saved.settings); return saved
+            calls += "update" to input
+            if (failSourceWrites) throw PodFailure("network")
+            saved = saved.copy(name = input.name ?: saved.name, settings = input.settings ?: saved.settings,
+                source = input.setSource?.podSource() ?: saved.source)
+            return saved
         }
         override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail { calls += "invite" to input; return saved }
         override suspend fun accept(token: String, id: String, input: PodRequest): PodDetail { calls += "accept" to input; return saved }
@@ -104,7 +115,8 @@ class PodControllerTest {
         val posts = ArrayDeque<() -> Unit>()
         var token: String? = "token"
         var sources = listOf(cube)
-        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, {})
+        val sets = Sets()
+        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, {}, sets)
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
                 worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()
@@ -112,6 +124,97 @@ class PodControllerTest {
         }
         fun open() { controller.open(id); deliver() }
         override fun close() { controller.close(); deliver() }
+    }
+
+    private inner class Sets : PodSetRepository {
+        val calls = mutableListOf<String>()
+        var fail = false
+        var upload = SetSourceUpload(SetSourceSnapshot("TST", "Test set",
+            listOf(SetSourceCard(definition.digest, UUID.randomUUID().toString()))), SubmittedDefinitions(listOf(definition)), emptyList(), emptyList())
+        override fun sets(): List<DraftableSet> { calls += "sets"; return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1)) }
+        override fun isCached(code: String) = true
+        override fun load(code: String): SetSourceUpload { calls += "load:$code"; if (fail) error("offline"); return upload }
+        override fun redownload(code: String): SetSourceUpload { calls += "redownload:$code"; if (fail) error("offline"); return upload }
+    }
+
+    @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.chooseSet()
+        assertTrue(f.sets.calls.isEmpty()) // No repository IO on the caller/main thread.
+        assertTrue(f.controller.setPicker.state.busy)
+        f.deliver()
+        f.controller.setPicker.choose("TST")
+        assertEquals(listOf("sets"), f.sets.calls)
+        f.deliver()
+        assertNull(f.controller.state.creating!!.cubeId)
+        assertEquals(f.sets.upload.snapshot, f.controller.state.creating!!.setSource!!.snapshot)
+        assertFalse(f.controller.setPicker.state.open)
+        f.api.failSourceWrites = true
+        f.controller.create()
+        assertTrue(f.controller.state.loading)
+        assertEquals(1, f.controller.state.pending)
+        assertTrue(f.api.calls.isEmpty())
+        f.deliver()
+        assertTrue(f.controller.state.uncertain)
+        val original = f.api.calls.first().second as CreatePod
+        assertNull(original.cubeId)
+        assertEquals(PodSetSource(f.sets.upload.snapshot, listOf(definition)), original.setSource)
+        assertTrue(f.api.calls.all { it.second == original })
+        f.sets.upload = f.sets.upload.copy(snapshot = f.sets.upload.snapshot.copy(setName = "Changed download"))
+        f.api.failSourceWrites = false; f.controller.retry(); f.deliver()
+        assertEquals(original, f.api.calls.last().second)
+        assertEquals(listOf("sets", "load:TST"), f.sets.calls)
+        assertEquals(PodSourceKind.SET, f.controller.state.detail!!.source.kind)
+        assertFalse(f.controller.state.uncertain)
+    }
+
+    @Test fun setUpdateUsesDefinitionsAndStableRetryAndSettingsOnlyUpdateDoesNotReupload() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.chooseSet(); f.deliver()
+        f.controller.setPicker.choose("TST"); f.deliver()
+        assertNotNull(f.controller.state.setup!!.setSource)
+        f.api.failSourceWrites = true; f.controller.flushSetup(); f.deliver()
+        val original = f.api.calls.first().second as UpdatePod
+        assertNull(original.cubeId)
+        assertEquals(PodSetSource(f.sets.upload.snapshot, listOf(definition)), original.setSource)
+        assertTrue(f.controller.state.uncertain)
+        f.api.failSourceWrites = false; f.controller.retry(); f.deliver()
+        assertEquals(original, f.api.calls.last().second)
+        assertNull(f.controller.state.setup)
+        f.controller.editSetup(name = "Set draft"); f.controller.flushSetup(); f.deliver()
+        assertNull((f.api.calls.last().second as UpdatePod).setSource)
+        assertEquals(PodSourceKind.SET, f.controller.state.detail!!.source.kind)
+    }
+
+    @Test fun setDownloadAndRedownloadErrorsCanRetryWithoutSelectingOrUploadingOnManualRefresh() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
+        f.sets.fail = true; f.controller.setPicker.redownload("TST"); f.deliver()
+        assertNotNull(f.controller.setPicker.state.error)
+        assertFalse(f.controller.setPicker.state.busy)
+        f.sets.fail = false; f.controller.setPicker.retry(); f.deliver()
+        assertEquals(listOf("sets", "redownload:TST", "redownload:TST"), f.sets.calls)
+        assertTrue(f.controller.setPicker.state.rows.single().cached)
+        assertTrue(f.controller.setPicker.state.open)
+        assertNull(f.controller.state.creating!!.setSource)
+        f.sets.fail = true; f.controller.setPicker.choose("TST"); f.deliver()
+        assertNotNull(f.controller.setPicker.state.error)
+        f.sets.fail = false; f.controller.setPicker.retry(); f.deliver()
+        assertNotNull(f.controller.state.creating!!.setSource)
+        assertTrue(f.api.calls.isEmpty())
+        f.controller.newCube(cube.id)
+        assertNull(f.controller.state.creating!!.setSource)
+        assertEquals(cube.id, f.controller.state.creating!!.cubeId)
+    }
+
+    @Test fun leavingPickerOrLoggingOutFencesLateSetPreparation() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
+        f.controller.setPicker.choose("TST"); f.worker.drain()
+        f.controller.back(); f.deliver()
+        assertNull(f.controller.state.creating!!.setSource)
+        f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.worker.drain()
+        f.controller.clear(); f.deliver()
+        assertNull(f.controller.state.creating)
+        assertFalse(f.controller.setPicker.state.open)
+        assertTrue(f.api.calls.isEmpty())
     }
 
     @Test fun listKeepsServerOrderingAndPrivateDetailMapsDefinitionsAndStatus() = Fixture().use { f ->

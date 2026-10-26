@@ -511,7 +511,8 @@ class PodService(private val runtime: ServiceRuntime) {
         val set = setSource(row)
         val sourceView = if (set == null) PodSource(row.sourceName!!, source(row).sumOf { it.quantity.toLong() }) else
             PodSource(kind = PodSourceKind.SET, setCode = set.setCode, setName = set.setName,
-                boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED)
+                boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
+                boosterName = set.recipe?.name)
         val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),
             settings(row), sourceView, supply(row, members.size),
             members.map { member ->

@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
     val cubeName: String = "", val totalCopies: Long = 0,
     val kind: PodSourceKind = PodSourceKind.CUBE,
     val setCode: String? = null, val setName: String? = null, val boosterKind: SetBoosterKind? = null,
+    val boosterName: String? = null,
 )
 /** Public boards/log plus only the caller's pool and oldest actionable grid. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)

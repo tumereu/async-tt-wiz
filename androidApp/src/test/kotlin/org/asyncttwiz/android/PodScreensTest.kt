@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.DraftableSet
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,6 +20,69 @@ class PodScreensTest {
     @get:Rule val compose = createComposeRule()
     private val alice = AccountIdentity("alice", "Alice")
     private val bob = AccountIdentity("bob", "Bob")
+
+    @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRedownloadsCachedRows() {
+        var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, rows = listOf(
+            PodSetRow(DraftableSet("OLD", "Older set", "2000-01-01", 100), false),
+            PodSetRow(DraftableSet("NEW", "Newer set", "2026-10-01", 200), true))))
+        var chosen: String? = null
+        var redownload: String? = null
+        compose.setContent { ScreenTheme { Column {
+            PodSetPickerContent(state, { state = state.copy(query = it) }, { chosen = it }, { redownload = it }, {})
+        } } }
+        val newer = compose.onNodeWithText("Newer set").fetchSemanticsNode().boundsInRoot
+        val older = compose.onNodeWithText("Older set").fetchSemanticsNode().boundsInRoot
+        assertTrue(newer.top < older.top)
+        compose.onNodeWithContentDescription("Redownload NEW").performClick()
+        assertEquals("NEW", redownload)
+        compose.onNodeWithContentDescription("Redownload OLD").assertDoesNotExist()
+        val search = compose.onNodeWithText("Search name, code or release date")
+        search.performTextInput("oLd")
+        compose.onNodeWithText("Newer set").assertDoesNotExist()
+        compose.onNodeWithText("Older set").assertExists()
+        search.performTextReplacement("2026-10")
+        compose.onNodeWithText("Older set").assertDoesNotExist()
+        compose.onNodeWithText("NEW · 2026-10-01").assertExists()
+        search.performTextReplacement("newer")
+        compose.onNodeWithText("Newer set").performClick()
+        assertEquals("NEW", chosen)
+        compose.runOnIdle { state = state.copy(busy = true, status = "Downloading NEW…") }
+        compose.onNodeWithText("Downloading NEW…").assertExists()
+        compose.onNodeWithContentDescription("Redownload NEW").assertIsNotEnabled()
+        compose.runOnIdle { state = state.copy(busy = false, error = "Download failed.") }
+        compose.onNodeWithText("Retry").assertExists()
+    }
+
+    @Test fun sourceLabelsAndUnlimitedSupplySurviveRecipeAndApproximateChanges() {
+        var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test set",
+            boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play"))
+        compose.setContent { ScreenTheme { Column {
+            PodSourceSummary(source); PodSourceSupply(source, 90)
+        } } }
+        compose.onNodeWithText("Test set (TST) · Play booster").assertIsDisplayed()
+        compose.onNodeWithText("Unlimited (set boosters)").assertIsDisplayed()
+        compose.runOnIdle { source = source.copy(boosterName = "draft") }
+        compose.onNodeWithText("Test set (TST) · Draft booster").assertIsDisplayed()
+        compose.runOnIdle { source = source.copy(boosterKind = SetBoosterKind.APPROXIMATE, boosterName = null) }
+        compose.onNodeWithText("Test set (TST) · Approximate packs").assertIsDisplayed()
+        compose.runOnIdle { source = PodSource("My cube", 540) }
+        compose.onNodeWithText("My cube · 540 copies").assertIsDisplayed()
+        compose.onNodeWithText("90 / 540 cards used").assertIsDisplayed()
+        compose.onNodeWithText("Unlimited (set boosters)").assertDoesNotExist()
+    }
+
+    @Test fun recipeSetsHidePackSizeAndAllSetsHideColorBalancing() {
+        var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(DraftSettings(), 2, true, source) {} } } }
+        compose.onNodeWithText("Cards per pack").assertDoesNotExist()
+        compose.onNodeWithText("Advanced ▾").performClick()
+        compose.onNodeWithText("Color balancing").assertDoesNotExist()
+        compose.runOnIdle { source = source.copy(boosterKind = SetBoosterKind.APPROXIMATE) }
+        compose.onNodeWithText("Cards per pack").assertExists()
+        compose.onNodeWithText("Color balancing").assertDoesNotExist()
+        compose.runOnIdle { source = PodSource("Cube", 540) }
+        compose.onNodeWithText("Color balancing").assertExists()
+    }
 
     @Test fun pickRowShowsMemberNamesThroughAvatarsAndOpensPod() {
         var opened = false

@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                     DebugLatency.drawn()
                 } else Modifier)) {
                     if (storage.state == StorageState.Ready) {
-                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby)
+                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes)
                     }
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),

@@ -31,7 +31,8 @@ private val Teal = Color(0xff107e7a)
 
 @Composable
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
-    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
+    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
+    cubes: CubeController? = null) {
     val state = controller.state
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
@@ -50,7 +51,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
             .windowInsetsPadding(if (tabletop) WindowInsets.displayCutout else WindowInsets.safeDrawing).imePadding()) {
             when {
                 reset.state != null -> ResetEntry(reset)
-                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)
+                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby, cubes)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(onClick = controller::logout) { Text("Retry sign-out") }

@@ -29,7 +29,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
-    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
+    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
+    cubes: CubeController? = null) {
     val state = controller.state
     val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby.state.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
@@ -52,6 +53,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     }
                     WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
                         importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
+                } else if (state.destination == ShellDestination.DECKS && cubes != null) {
+                    ManageCollectionScreen(cubes, decks, deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {

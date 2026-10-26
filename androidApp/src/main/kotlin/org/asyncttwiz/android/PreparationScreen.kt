@@ -24,8 +24,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 
@@ -106,14 +108,18 @@ private fun SavedDeckSection.label() = if (this == SavedDeckSection.MAINBOARD) "
 @Composable
 internal fun PodBasicSteppers(basics: PodDeckBasics, enabled: Boolean, canAdd: Boolean,
     change: (BasicLand, Int) -> Boolean) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        for (land in BasicLand.entries) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(land.cardName, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { change(land, -1) }, enabled = enabled && land.count(basics) > 0,
-                modifier = Modifier.semantics { contentDescription = "Remove ${land.cardName}" }) { Text("−") }
-            Text(land.count(basics).toString(), Modifier.widthIn(min = 24.dp).semantics { contentDescription = "${land.cardName} count: ${land.count(basics)}" })
-            TextButton(onClick = { change(land, 1) }, enabled = enabled && canAdd,
-                modifier = Modifier.semantics { contentDescription = "Add ${land.cardName}" }) { Text("+") }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        for (land in BasicLand.entries) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center) {
+            val count = land.count(basics)
+            Text(when (land) {
+                BasicLand.PLAINS -> "W"; BasicLand.ISLAND -> "U"; BasicLand.SWAMP -> "B"
+                BasicLand.MOUNTAIN -> "R"; BasicLand.FOREST -> "G"
+            }, fontSize = 11.sp, modifier = Modifier.semantics { contentDescription = land.cardName })
+            PodSmallButton("Remove ${land.cardName}", "−", enabled && count > 0, width = 22.dp) { change(land, -1) }
+            Text(count.toString(), Modifier.weight(1f).semantics { contentDescription = "${land.cardName} count: $count" },
+                fontSize = 11.sp, maxLines = 1, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
+            PodSmallButton("Add ${land.cardName}", "+", enabled && canAdd, width = 22.dp) { change(land, 1) }
         }
     }
 }

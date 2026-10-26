@@ -437,7 +437,7 @@ private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
             val definition = preparation.definitions.find { it.digest == deck.cover }?.definition
             definition?.faces?.firstOrNull()?.let { face ->
                 CardArtwork(ArtworkReference(face.scryfallId, 0, deck.cover!!, "small", face.imageUri), definition.name,
-                    48, 68, Modifier.size(48.dp, 68.dp))
+                    48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
             }
             Column {
                 Text(deck.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

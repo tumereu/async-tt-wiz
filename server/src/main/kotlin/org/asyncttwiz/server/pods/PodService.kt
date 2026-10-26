@@ -36,8 +36,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun members(sql: DSLContext, pod: UUID) = sql.selectFrom(MEMBER).where(MEMBER.POD_ID.eq(pod)).orderBy(MEMBER.ACCOUNT_ID).fetch()
     private fun pending(sql: DSLContext, pod: UUID) = sql.selectFrom(INVITE).where(INVITE.POD_ID.eq(pod)).and(INVITE.STATE.eq("PENDING")).orderBy(INVITE.ACCOUNT_ID).fetch()
     private fun identity(sql: DSLContext, id: UUID): AccountIdentity {
-        val row = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchSingle()
-        return AccountIdentity(id.toString(), row.username!!)
+        return AccountService.identity(sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchSingle())
     }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 

@@ -91,12 +91,13 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
                 val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN).from(PUSH)
                     .join(INSTALL).on(INSTALL.GENERATION.eq(PUSH.GENERATION)).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
-                    .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).join(GAME).on(GAME.ID.eq(PUSH.GAME_ID))
-                    .join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+                    .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).leftJoin(GAME).on(GAME.ID.eq(PUSH.GAME_ID))
+                    .leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                     .where(PUSH.DUE_AT.le(time)).and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull)
                     .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
-                    .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
-                    .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
+                    .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME"))
+                        .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
+                        .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID)))
                     .orderBy(PUSH.DUE_AT).limit(1).forUpdate().of(PUSH).skipLocked().fetchOne() ?: return@transaction null
                 val attempt = row[PUSH.ATTEMPTS]!!
                 val seconds = retrySeconds(attempt)

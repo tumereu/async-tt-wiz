@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** Delivery hints only. No names, content, board state, read receipt or player progress. */
-@Serializable enum class ActivityKind { INVITATION, GAME }
+@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DRAFT_CANCELLED, POD_DESTROYED }
+/** gameId is the pod ID for POD_* kinds; the existing game hint shape is unchanged. */
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,

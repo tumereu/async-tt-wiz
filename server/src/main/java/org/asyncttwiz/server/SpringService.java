@@ -124,6 +124,7 @@ public final class SpringService implements AutoCloseable {
         private final boolean health;
         private final AccountHttp accounts;
         private final DeckHttp decks;
+        private final org.asyncttwiz.server.pods.PodHttp pods;
         private final LobbyHttp lobby;
         private final GameHttp games;
         private final ActivityHttp activity;
@@ -133,6 +134,7 @@ public final class SpringService implements AutoCloseable {
             this.health = health;
             accounts = health ? null : new AccountHttp(runtime, resets, settings.resetMail());
             decks = health ? null : new DeckHttp(runtime);
+            pods = health ? null : new org.asyncttwiz.server.pods.PodHttp(runtime);
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
             activity = health ? null : new ActivityHttp(runtime);
@@ -142,6 +144,7 @@ public final class SpringService implements AutoCloseable {
         @Override protected void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
             if (!health && accounts.handle(request, response)) return;
             if (!health && decks.handle(request, response)) return;
+            if (!health && pods.handle(request, response)) return;
             if (!health && games.handle(request, response)) return;
             if (!health && lobby.handle(request, response)) return;
             if (!health && activity.handle(request, response)) return;

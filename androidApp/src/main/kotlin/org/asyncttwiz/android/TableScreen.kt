@@ -105,7 +105,15 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex,
             position?.cursorId?.takeIf { playback.livePanelReveal })
-    SideEffect { endpoint.presented(play); play?.let { history.showChanges(it.currentNodeId) } }
+    SideEffect {
+        endpoint.presented(play)
+        play?.let {
+            history.showChanges(it.currentNodeId)
+            history.changes.feedback.present(it,
+                stopped = reviewing && position?.playing == false && position.cursorId == it.currentNodeId,
+                nodes = playback?.tree?.nodes.orEmpty())
+        }
+    }
     var loadTimedOut by remember(game.id) { mutableStateOf(false) }
     var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
     LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {

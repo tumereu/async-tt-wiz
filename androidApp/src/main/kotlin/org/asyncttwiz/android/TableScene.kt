@@ -542,6 +542,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         TableChangeOverlay(runtime.changes, accountId, scene.appearance,
             item = { id -> rendered.value.items[id] })
+        TableEventFeedbackOverlay(runtime.changes?.feedback, accountId, game.inviter.accountId, scene,
+            renderedScene = { rendered.value.scene },
+            usernames = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
         CardPanelHeaders(scene, accountId, writable, toolkit)
         val playControls: @Composable () -> Unit = {

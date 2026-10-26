@@ -79,6 +79,24 @@ class GridEngineTest {
         assertEquals(2, settings(grids = 5, open = 3).rounds)
     }
 
+    @Test fun preGeneratedSetCardsKeepTheirDrawOrderThroughBoardsAndRefills() {
+        val settings = settings(grids = 3, open = 2, twoPicks = true)
+        val cards = List(36) { DraftCopy("set-copy-$it", "definition-$it") }
+        val initial = GridEngine.startWithCards(listOf("a", "b"), cards, settings, seed)
+        assertEquals(cards.take(9).map { it.id }, initial.grids[0].positions)
+        assertEquals(cards.slice(9..17).map { it.id }, initial.grids[1].positions)
+        val after = pick(initial)
+        assertEquals(cards.slice(18..20).map { it.id }, after.grids[0].positions.take(3))
+        assertConserved(finish(after))
+        assertEquals(initial, GridEngine.startWithCards(listOf("b", "a"), cards, settings, seed))
+        assertFailsWith<IllegalArgumentException> {
+            GridEngine.startWithCards(listOf("a", "b"), cards.dropLast(1), settings, seed)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            GridEngine.startWithCards(listOf("a", "b"), cards + cards.first(), settings, seed)
+        }
+    }
+
     @Test fun exactMaximumSupplyAndInsufficientCubes() {
         for (players in 2..4) {
             for (twoPicks in if (players == 2) listOf(false, true) else listOf(false)) {

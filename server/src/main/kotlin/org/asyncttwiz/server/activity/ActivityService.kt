@@ -177,7 +177,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val member = DSL.exists(DSL.selectOne().from(POD_MEMBER).join(POD).on(POD.ID.eq(POD_MEMBER.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD.DRAFT_ATTEMPT_ID.eq(identity)).and(
                     kind.eq("POD_YOUR_PICK").and(POD.PHASE.eq("DRAFTING")).and(DSL.condition(
-                        "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner))
+                        "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner).or(DSL.condition(
+                        "exists (select 1 from jsonb_array_elements({0}->'grids') as board(value) " +
+                            "where board.value->'turns'->>cast(board.value->>'selection' as integer) = cast({1} as text))",
+                        POD.DRAFT_STATE, owner)))
                         .or(kind.eq("POD_DRAFT_COMPLETE").and(POD.PHASE.eq("DRAFTED")))))
             val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))

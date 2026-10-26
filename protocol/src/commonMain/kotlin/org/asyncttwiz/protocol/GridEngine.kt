@@ -98,6 +98,24 @@ object GridEngine {
             seating.associateWith { emptyList() })).settle()
     }
 
+    /** Pre-generated set cards in draw order, including enough cards for every possible refill. */
+    fun startWithCards(players: List<String>, cards: List<DraftCopy>, settings: DraftSettings, seed: String): GridState {
+        require(settings.mode == DraftMode.GRID && settings.validate(players.size).isEmpty()) { "Invalid grid settings" }
+        require(players.all { it.isNotBlank() } && players.distinct().size == players.size) { "Invalid members" }
+        require(cards.size.toLong() >= settings.supply(players.size, emptyList()).needed) { "Insufficient grid cards" }
+        require(cards.all { it.id.isNotBlank() && it.definition.isNotBlank() } && cards.map { it.id }.distinct().size == cards.size) {
+            "Invalid copies"
+        }
+        val words = RandomV1.Words(seed)
+        val seating = players.sorted().toMutableList()
+        for (i in seating.lastIndex downTo 1) {
+            val j = RandomV1.sample(i + 1, words::next)
+            val player = seating[i]; seating[i] = seating[j]; seating[j] = player
+        }
+        return Working(GridState(settings, seating.toList(), cards, cards.asReversed().map { it.id }, emptyList(), -1,
+            seating.associateWith { emptyList() })).settle()
+    }
+
     fun pick(state: GridState, pick: GridPick): GridPickResult {
         fun reject(reason: GridPickRejection) = GridPickResult(reason = reason)
         if (state.finished) return reject(GridPickRejection.DRAFT_FINISHED)

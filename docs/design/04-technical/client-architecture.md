@@ -157,7 +157,8 @@ adapters while reusing the engine and useful scene primitives.
   action injection; see [test architecture](test-architecture.md).
 
 Use one gesture coordinator to arbitrate normal single-tap Actions versus
-double-tap orientation, hold, drag, selection and camera gestures. Recognizing a
+double-tap orientation outside Hand (Hand uses the board contract's land/Stack
+shortcut), hold, drag, selection and camera gestures. Recognizing a
 double tap must not first open/retract an Actions menu or emit a speculative
 single-tap game edit. Immediate pressed/drag feedback is independent of completed
 gesture dispatch. Captured identities, existing cancellation/selection rules and

@@ -284,14 +284,9 @@ that capability.
     selected-object locks; independence of a die roll does not waive those checks.
     No protocol for selecting a random source/provider is approved here.
 
-21. **Comments/chat/shared annotations — proposed.** New records use fresh IDs and
-    an explicit valid context, without locking unrelated board state. Event
-    comments remain ordinary current-path nodes; chat remains separate and is not
-    undone by gameplay Undo. Where editing/deletion is supported, check that
-    record's previous content/revision, not the game head; target its exact ID.
-    Group association edits check the membership/boundaries they change, not
-    unrelated cards. This does not approve unfinished message/group-edit features
-    or their historical placement policies.
+21. **Chat — proposed.** New messages use fresh IDs without locking unrelated
+    board state. Game chat is the only comment channel, separate from gameplay
+    Undo, with no sent-message Edit/Delete or event-comments UI.
 
 22. **Bulk/combined actions — confirmed foundation, target freezing proposed.**
     Freeze chosen identities/parameters at invocation; each emitted individual

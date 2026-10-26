@@ -26,7 +26,9 @@ historical, not an instruction to republish obsolete mockups.
 - `sources/` retains raw Stitch output and inert review derivatives; `images/`
   contains captures of the latter. The gameplay derivatives were substantially
   recomposed locally to fix responsive cropping and invented actions; they are
-  not claimed pixel-identical to the designs in Stitch. Those repaired references
+  not claimed pixel-identical to the designs in Stitch. These historical sources,
+  manifest prompts/fixtures and generated HTML/PDF are not implementation specs;
+  current corrected Markdown contracts and review notes govern. Those repaired references
   were also sent back to Stitch to create six corrected editable cloud revisions.
   The manifest records both cloud versions and retained raw outputs.
 - [Artifact validation](validation.md) records checks, corrections and hosting
@@ -108,7 +110,7 @@ The full-screen copy audit remains a set of suggestions, not a capture assertion
 that every suggested deletion has already been approved or applied.
 
 D-294 checks reject app Back/home arrows globally, misaligned title/hamburger or
-missing import/editor title/exit, missing state/date/game-name details, misplaced
+missing import/editor title, missing state/date/game-name details, misplaced
 lobby Cancel/Reinvite, leaving-Ready copy, per-row Select, wide preparation handles,
 cover checkbox, long deck-delete explanations, missing name/reroll and empty U01.
 G00 is excluded from the active manifest; provenance remains in `retiredScreens`.
@@ -126,7 +128,7 @@ zone controls to readouts. It is not an app renderer or executable gesture demo.
 
 D-296 checks add same-card contact search/results, shared card dimensions at one
 review zoom across areas/orientations, sidebar Stack ordering, top-left circular
-total badges, portrait counter-row visibility, author/group metadata and labeled/
+total badges, historical counter-row visibility (retired), author/group metadata and labeled/
 attached history transport with retained hold/top continuation routes and no banner.
 The source's inert templates are repeated by capture tooling for piles/counter
 rows; landscape Stack placement and camera framing are static composition steps.
@@ -142,7 +144,7 @@ is capture tooling, not native pan/drag/dismissal or message-read implementation
 
 D-298 adds Hand centering without negative overflow, a fixed four-position quick
 strip (three contextual plus one tap-Next/hold-End), divider-only combat/tapped
-source relationships, small-circle full-strip portrait counters, a single icon/
+source relationships, historical full-strip portrait counters (retired), a single icon/
 color phase indicator, five-row/twelve-position phase picker, titleless/X-less
 packed card controls with seven P/T squares and three paired counter rows, and
 explicit tree/current/selected examples. The Markdown/HTML/PDF legend glyphs use
@@ -151,7 +153,9 @@ tree activation and archive/restore remain specified/future verification, not
 implemented handlers. G02 alone demonstrates quick-control positioning; the
 catalog documents every currently specified situation and full alternative.
 
-D-299 checks add blank absent player counters (zero remains 0), ending-player fills,
+D-299's blank-versus-zero checks are retired: zero is the same as empty everywhere;
+portrait now keeps all six counters in a player-row 3×2 grid beside packed piles.
+The historical checks also covered ending-player fills,
 short action-name annotations without stealing assigned holds, bounded tooltip
 snapshot and smaller pannable group graph with separate selection/current path,
 one activation action and exact group-end targets distinct from representative

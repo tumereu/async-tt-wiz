@@ -10,7 +10,7 @@ acceptance outcomes together, rather than accumulating per-button exceptions.
 ## Category mapping
 
 "Tap"/T denotes semantic orientation mutations, not pointer taps. Under D-267,
-normal double-tap tap/untap emits the existing individual orientation mutations;
+normal double-tap tap/untap outside Hand emits the existing individual orientation mutations;
 single-tap Actions emits no grouping input. Category counts/rules do not change.
 
 | Key | Literal operations | Matching key / context |
@@ -26,7 +26,7 @@ single-tap Actions emits no grouping input. Category counts/rules do not change.
 | F | View/Reveal dismissal, combat closure | Pending forward segment, not backward into its displayed state. |
 | R | Roll die, Flip coin | Pending forward random-tool run, separate from completed prior play. |
 | P | Ping/Unping via mode/context, each selected destination | Backward companion, scoped to its recording group. |
-| B | Event comment, Next step/direct tracking/End turn | Backward companion; not a substantive anchor or a ping. |
+| B | Next step/direct tracking/End turn | Backward companion; not a substantive anchor or a ping. Game chat is the only comment channel and is outside board grouping. |
 | S | Pending win/loss/draw suggestion | Strict singleton: no preceding or following event joins it, including companions (D-257). |
 | O | Leading/root annotation-only group | Group context, not an additional operation. |
 
@@ -78,7 +78,7 @@ beside the generic family matrix, not as new inferred card mechanics.
 
 This gives 156 context/operation cells, not claimed executed tests. Stack reorder
 is removed, not an input category. Expand `k`
-into same/different keys and `t` into pure taps/pings versus a backward-comment/
+into same/different keys and `t` into pure taps/pings versus a backward-
 tracking-contaminated run. For every cell cover representative real controls;
 family-mapping coverage must include all operations in the table, not just a
 single convenient button. Explicit invariant-excluded combinations are model
@@ -101,7 +101,7 @@ separators. `move a`/`move a` means matching tuples, not necessarily the same ca
 | GM-03 | `move; ping X \| tap; ping X; tap; Stack entry` | At the first tap, old X overlay is not inherited. New context offers Ping X, not Unping old X. The Stack anchor fills the tap segment without another reset. |
 | GM-04 | `tap; ping X; tap; Unping X; move \| tap; move` | Pure tap/ping run remains together; later tap after its anchor starts fresh. |
 | GM-05 | `move; ping X \| tap; ping Y; Unping Y; move` | First group's X remains; the second toggle removes only Y. No retroactive overlay at any earlier prefix. |
-| GM-06 | `tap; comment \| tap; move` and `tap; tracking \| tap; move` | Backward companions join but are not taps/pings; subsequent tap starts a new run. |
+| GM-06 | `tap; tracking \| tap; move` | Backward companions join but are not taps/pings; subsequent tap starts a new run. |
 | GM-07 | `move a; ping; move a \| move b` | Pings preserve the current move key; a different tuple still splits. |
 | GM-08 | `tap; effect X; ping \| effect X \| Hand-source projection → Stack` | Every entry is a projection; independent entries remain separate. |
 | GM-09 | `create token; note; Clone; counter \| move` | C survives interleaved E; ordinary `edit \| create token` has the opposite boundary. |
@@ -112,11 +112,11 @@ separators. `move a`/`move a` means matching tuples, not necessarily the same ca
 | GM-14 | `Shuffle A; ping; Shuffle A \| Shuffle B` | H compares target identity, not simply operation name. |
 | GM-15 | `View \| dismiss \| tap; move` | The new tap boundary wins; no backward migration of dismissal to View. |
 | GM-16 | `ping X; tap; ping Y; tap; move` from root | Leading P qualifies for T extension; no owner-action picker. |
-| GM-17 | `comment \| tap; move` from root | Leading B does not qualify for pure T extension. |
+| GM-17 | `tracking \| tap; move` from root | Leading B does not qualify for pure T extension. |
 | GM-18 | `A:tap; ping \| B:ping \| A:move` | Author boundary overrides every companion/matching-family cell; mode remains off on revisit. |
 | GM-19 | `tap; [own hold]; ping; tap; move` | Own hold has no event/separator/Undo barrier; opponent hold adds no hidden disclosure. Explicit Inspect other side is V instead. |
 | GM-20 | `ping X; ping Y; Unping X; ping X` in one group | After Unping X, Y becomes 1; re-added X becomes 2. Retry changes nothing. Active rings loop in actor color about every 1.2 s. |
-| GM-21 | Historical ping/comment recorded after current G, referring to inactive E | Recording sequence controls grouping; route to E does not move records into E or activate it. |
+| GM-21 | Historical ping recorded after current G, referring to inactive E | Recording sequence controls grouping; route to E does not move records into E or activate it. |
 | GM-22 | Eligible Undo/Redo before/between groups containing pings | Concern only the ping target, not ancestry/display grouping; recompute groups and active ordinals. Projection pings depend on their projection, not just the source. Preserve semantic reseed input. |
 | GM-23 | `edit \| suggest draw \| ping; tracking` | The suggestion admits no backward companions. Following P/B are in a new context, with no inherited ping overlay; a rejected duplicate suggestion creates no event/group. |
 | GM-24 | `tap \| suggest win \| edit`; `roll \| suggest loss`; `View \| dismiss \| suggest draw` | Singleton S overrides pending T/R/F forward absorption. Retain every real boundary; do not merge the prior board into the suggestion. |

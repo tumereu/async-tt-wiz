@@ -19,7 +19,7 @@ recomposed local states are recorded in the manifest; no new cloud edit is claim
 
 **D-294 revisions retained:** required named creation with fantasy adjective + thing
 suggestions and persistent server creation dates; no app Back/home arrows anywhere;
-hamburger/title on one row, import/editor unsaved-exit and lobby Cancel upper-right;
+hamburger/title on one row, native Back for screens (no X/close), lobby Cancel upper-right;
 equal button pairs; dialog X right; border-only cover and cannot-undo deck deletion;
 opponent-slot Reinvite and no leaving-Ready helper; draft deck highlight + bottom
 confirmation; narrow **1 / ∞** markers. Remove G00 from current review and put a
@@ -46,8 +46,9 @@ prompts below are historical, not permission to restore superseded layouts.
 **D-296 revisions retained:** F48–F57 put every search/results set in one card,
 landscape Stack between side player info, all table cards at one common zoom,
 author-colored type icons with faint effective-group dividers, top-left circular
-special-pile totals and player counters below zones. Portrait per-player rows hide
-only when all values are empty/zero; life opens life/color-counter actions. Numeric
+special-pile totals. All six player counters stay visible; portrait uses a 3×2 grid
+on the player row beside packed Library/Graveyard/Exile, faint outlines for empty/
+zero values. Zero is the same as empty everywhere. Life opens life/color-counter actions. Numeric
 up/down drags preview +N/−N locally and commit one relative edit on release, never
 per-frame writes or stale absolute totals. History Play/Pause has text and fills
 portrait transport space, with attached landscape Previous/Next. Holding Play
@@ -70,7 +71,7 @@ Card actions are direct grouped square icons, including corner/all counter
 +/−/Set and inline owner choices, no category submenus. The latest owner follow-up
 accepts a dialog instead of the initial floating-only preference; retain a visible
 title-corner current-state card preview while actions scroll and support outside/
-native Back/X dismissal with existing action-specific retention. G06 is now the
+native Back dismissal with existing action-specific retention. G06 is now the
 retained updated dialog, not a separate owner chooser. G09/G10/H04/H05 add chat,
 overflow hands and centered endpoints. Full same-URL edition, local inert sources
 only; no new cloud generation, application implementation or gate transition.
@@ -85,19 +86,19 @@ explicit picker/Table actions/accessibility End turn remains. Full review catalo
 all situational quick actions/icons/scopes/full paths; G02 suffices for positioning.
 Combat uses faded vertical dividers only, no drawn empty cards/+; show tapped
 projections and stable-source relationship emphasis distinct from selection.
-Player circles are small and span the entire portrait middle strip, Stack-side
-width included. Phase uses phase color/exact-step icon, active-player border and
+Player circles use the always-visible portrait player-row 3×2 grid beside packed
+special piles. Phase uses phase color/exact-step icon, active-player border and
 separate turn number; picker has five rows/twelve existing positions, direct
 selection preserves player/number, End turn changes them normally. Trial active/
 inactive background strength, never reduce card contrast or change permissions.
 Card actions: **no title/X**, two-position top-left details, packed square icons,
 seven P/T buttons and three paired color-Set,+,− rows; landscape tools left/values
-right. Player menu retains title/X. Include the decipherable icon legends and
+right. Player popups float without title/close buttons. Include the decipherable icon legends and
 new H06/H07/G11/G12 tree/archive/phase/Table-action states. All are local inert
 design artifacts; no new cloud generation, application handlers or gate transition.
 
 **D-299 current revisions:** apply F83–F88 cumulatively. Absent **player** counter
-values are blank, zero remains 0; card-counter dash examples are unchanged. End
+values and numeric zero are equivalent everywhere, showing faint outlines. End
 turn/End opponent's turn and the combined progression square use the tracked
 ending player's color fill. Icon-only/value-only buttons without assigned holds
 show only short action names on hold; consume tap and execute nothing on release.
@@ -129,7 +130,7 @@ Content is a proposed UI review draft. No product behavior beyond the precise br
 
 ### A01 — Sign in
 
-Signed-out entry. App title Async Table. Email and Password explicitly labeled text fields; password has an eye icon button. Primary text button Sign in. Secondary text links Create account and Forgot password?. No guest entry, Google/social login, remember-me checkbox or user data behind this screen. One small inline example error below password: Email or password not recognised. Two-pane landscape: modest intro/app-name left; compact form right. Portrait form centered with generous margins. Do not show a software keyboard in this state.
+Signed-out entry. App title Async Table. Email and Password explicitly labeled text fields; password has an eye icon button. Primary text button Sign in. Secondary text links Create account and Forgot password?. No guest entry, Google/social login, remember-me checkbox or user data behind this screen. Example floating transient error: Email or password not recognised; never insert inline red text that shifts content. Use the same centered login card in both orientations. Loading reserves space or uses a full-area placeholder. Do not show a software keyboard in this state.
 
 ### A02 — Create account
 
@@ -153,7 +154,7 @@ Play list. Back arrow and title Play; top-right New game text button. Show three
 
 ### P02 — Contacts and new game
 
-Contacts screen used by New game as well as main menu. Back arrow icon and title Contacts. Labeled Search usernames input with search icon and text Search button. Saved contacts list riley and morgan, each row with Invite text button. Separate Search results example sam with Add contact button, never Friend request or Accept friend. Only usernames, no emails, online/presence dots, removal controls or social permissions. Helper: Adding a contact needs no approval. Invite creates a waiting game lobby. Landscape search/results panel left, saved contacts right; portrait one vertical scrollable list. No extra selection-confirmation step before Invite.
+Main-menu Contacts screen has Search usernames and saved contacts riley/morgan with Invite and Remove contact actions. Search example sam has Add contact, never Friend request or Accept friend; matches must be added before inviting. New game opens a separate Choose opponent screen listing contacts only. No screen X/close or app Back arrow; system Back leaves. Invite opens naming, then Create & invite creates the waiting lobby. Username only, no email/presence or mutual approval. Search/results share a panel, loading reserves space, real errors float; saved contacts may be separate. Both orientations keep actions reachable.
 
 ### D01 — Saved decks
 
@@ -165,11 +166,11 @@ Read-only saved deck detail for Training deck. Back arrow and title Deck details
 
 ### D03 — Import with unresolved names
 
-Import deck screen in ERROR state. Back arrow and title Import deck. Multiline text area labeled Deck list showing exactly: Deck / 4 Meadow Sentinel / 4 Unknownn Card / 22 Training Land / Sideboard / 2 Ember Adept. These are synthetic illustrative catalog entries. Error box: Line 3: Unknownn Card could not be resolved. Correct the pasted text; nothing has been saved. Primary Review import visibly disabled; text Retry lookup optionally available as secondary, not mandatory catalog refresh. Keep full input visible/editable. No partial save, silent substitution, format rules, manual card-add editor or Upload step. Portrait textarea above error; landscape textarea left, issues/actions right. The text area must not push the error/action completely off viewport.
+Import deck screen in ERROR state. Title Import deck, no screen X/close or app Back arrow; system Back leaves. Multiline paste area labeled Deck list showing exactly: Deck / 4 Meadow Sentinel / 4 Unknownn Card / 22 Training Land / Sideboard / 2 Ember Adept. These are synthetic illustrative catalog entries. Fixed reserved inline error area: Line 3: Unknownn Card could not be resolved. Primary Save disabled until resolved; optional Retry lookup, not mandatory catalog refresh. Keep input editable. No partial save, silent substitution, format rules, manual card-add editor, review step or Upload step. Portrait textarea above reserved error space; landscape textarea left, issues/actions right. Loading and validation never move content.
 
 ### D04 — Resolved import and save choice
 
-Import review after all names resolve. Back arrow and title Review import. Summary Resolved: 60 mainboard / 15 sideboard. Labeled Deck name field Training deck. Compact read-only list of synthetic card names. Two explicit save modes: Save as new selected; Replace saved deck unselected with existing deck picker Training deck. One primary Save deck text button, secondary Edit pasted list. Helper: Existing game copies stay unchanged. Both save routes require a completely resolved list. No format-legality approval, art download requirement, manual quantity edits, extra Send/Upload or forced cover-picking step. Portrait summary then modes; landscape list left and name/save mode panel right.
+Import after all names resolve stays on the paste-and-Save screen, titled Import deck, with Deck name Training deck and fixed inline validation space. No screen X/close, separate review, Edit pasted list step or arbitrary replacement picker. New import creates a new deck; existing-deck Edit → Import decklist has contextual Overwrite/Merge, default Overwrite. Save opens the saved deck view for review. Both routes require a completely resolved list and preserve existing game copies. No format-legality approval, art-download requirement, manual quantity edits, extra Send/Upload or forced cover selection.
 
 ### D05 — Choose a deck cover
 
@@ -227,7 +228,7 @@ SPECIAL CONTROLS: landscape LEFT sidebar with BOTH players' labeled life and Lib
 
 HAND AND CHROME: own face-up hand is a hovering compact fan/row fixed to screen just ABOVE bottom controls, below own dark land band in initial framing; it does not move when board pans. In landscape reserve compact hand height so controls remain reachable. Opponent covered hand is a compact row at TOP, outside the battlefield, with a count and no leaked names. This top-hand location is a draft assumption. Cards, Stack and combat remain inside the board viewport; hands, top bar, special-zone dock and bottom controls are separate fixed UI. Avoid large headers/branding. No online presence, priority, legal actions, game engine rules, mana system, Sideboard, score or mandatory Send. Fixed chrome and board are distinct.
 
-LIVE TOP: Back icon, small phase square labeled Main 1 (or specified step), History text button, overflow icon. Phase tap opens tracking controls, never silently advances; no phase enforcement. LIVE BOTTOM: Undo icon/text at far LEFT with concise hold hint (hold=Redo, not Undo+Redo); contextual quick action center if specified; mode square at RIGHT labeled Normal or Select. Mode tap opens Normal/Select/Ping chooser, NOT an unlabeled mystery cycle. Explicit Redo exists in overflow and accessibility, no separate Redo button unless showing overflow. Chat is reachable via overflow.
+LIVE TOP: phase square, History, direct Table actions and Chat buttons, no overflow/three-dot menu. Phase tap opens tracking controls, never silently advances; no phase enforcement. LIVE BOTTOM: Undo at far LEFT (hold=Redo, not Undo+Redo); contextual quick actions and mode square at RIGHT. Mode tap cycles Normal/Select/Ping. Redo also has a native accessibility action, never a touch-menu entry. Top and bottom bars show whose MOVE it is; battlefield tint shows whose turn it is. Timeline bars gray, no green move frame. Table toggles are normal state-colored/icon buttons, not label-plus-switch rows. No Event details dialog, event-comments UI or manual Download history; game chat is the only comment channel and sync/recovery is automatic. Table popups float without close buttons; non-dialog screens use system Back, no X/close.
 
 HISTORY: same board geometry at the selected historical boundary and ongoing sync, but NO gameplay controls, Undo, quick actions, mode editing, live phase editor or hand edit controls. Top phase is read-only. Bottom has Previous LEFT, Play/Pause CENTER, Next RIGHT; those step automatic groups, NOT Undo/Redo. A left-to-right horizontal timeline immediately ABOVE transport has individual event dots, exact selected event marker, small diagonal off-path stubs, not expanded tree. Scrubbing selects exact events; touching timeline during playback pauses then scrubs. Include explicit Continue playing from here action separate from Play/Pause and Back to live review navigation. No fork until subsequent accepted gameplay mutation. Personal review is NOT branch activation.
 
@@ -236,7 +237,7 @@ Return ONE screen for the state below, no explanatory document or comparisons. D
 
 ### G01 — Live table and fixed hand
 
-Live normal mode, combat CLOSED, Stack empty but labeled. Sparse cards show dark one-row and light two-row arrangement. alex hand three face-up synthetic cards (Meadow, River, Guide), riley covered hand 3. Main 1 phase. Bottom center can show a neutral Actions menu button (not an invented phase-specific shortcut). History and overflow visible. No timeline in live mode.
+Live normal mode, combat CLOSED, Stack empty but labeled. Sparse cards show dark one-row and light two-row arrangement. alex hand three face-up synthetic cards (Meadow, River, Guide), riley covered hand 3. Main 1 phase. History, Chat and direct Table actions visible, no overflow. No timeline in live mode. Hand double tap: lands → land row; permanent-only → Stack then auto-resolve to Battlefield as a separate history group; other cards → Stack.
 
 ### G02 — Live combat and populated Stack
 
@@ -256,7 +257,7 @@ Gameplay mode armed after Continue playing from here at historical event A, but 
 
 ### G03 — Explicit Redo and mode chooser routes
 
-Live table with top-right overflow OPEN as bounded popover with explicit labeled Redo, Chat, Game actions, Close menu, each >=48px tall; no giant full-page settings. Include explanatory small footer hint Hold Undo for Redo. Bottom-right mode square labeled Normal. Do NOT show mode chooser simultaneously; the document will explain its three mutually exclusive choices Normal/Select/Ping. Actual background remains the live table, not placeholder. Redo and Undo are server requests; do not assert unconditional eligibility. Keep all popover entries reachable in landscape, scrolling popover if needed.
+Live table with Table actions opened directly, no overflow or intermediate More menu. Chat has its own direct button; Redo uses hold Undo or native accessibility. Bottom-right mode square cycles Normal/Select/Ping. Actual background remains the live table, not placeholder. Undo/Redo are server requests with normal eligibility. Table popups float without close buttons; outside/system Back dismisses. Keep all actions reachable in landscape, scrolling if needed.
 
 The original G00/U01 exports above are retained as pilot provenance, not the current gameplay composition. Gameplay review derivatives are substantially recomposed locally using G01's generated gray/teal card-and-chrome vocabulary, not pixel-identical cloud exports. Repairs expose both battlefield halves and fixed history controls, remove invented actions, harmonize the six states and keep historical controls read-only. H01/H02 depict sparse closed-combat boundaries; G02 depicts populated combat. Raw Stitch output remains separately retained; the manifest records original screen IDs and full repair/derivation notes. Both orientations are recaptured from the inert derivatives with HTTP(S) blocked.
 

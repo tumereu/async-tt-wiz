@@ -95,10 +95,10 @@ Explicit interruptions can still create branches; the explorer/filtering rules
 apply to branches that actually exist. Undo itself does not acquire historical
 continuation intent or require the next ordinary current-head edit to fork.
 Retained side branches participate in the same concerned-field comparison.
-Dependent comment/ping references are protected by the replay rule below, not
+Dependent ping references are protected by the replay rule below, not
 a fresh choice to delete or retarget them. Review cursors, IDs/versioning and
 cached states still need explicit handling. This decision does not approve
-silently deleting an unrelated branch/comment or a specific retargeting policy.
+silently deleting an unrelated branch/reference or a specific retargeting policy.
 Nor does it require physical storage erasure or
 select an immutable-log versus mutable-record implementation.
 
@@ -120,13 +120,10 @@ Owner examples:
   identical. Keep the tap; do not compare unrelated position as part of tapping.
 - Tap one card, then opponent untaps another: **Undo of your tap is allowed**
   when the later mutation's relevant tuple is unchanged.
-- Move a card, then the opponent adds an event comment referring to that move:
-  **Undo of the move is blocked** because the comment's referenced context is
-  part of its relevant state. Removing the move would change that context.
-  This is a consequence of D-224, explicitly reiterated by the owner, not an
-  unresolved choice to leave, delete or reattach a dependent comment. Apply the
-  same dependency test to other historical references; an unrelated annotation
-  is not automatically a dependency merely because it is later.
+- Later historical references block Undo only when their concerned-field tuples
+  would change. An unrelated annotation is not automatically a dependency merely
+  because it is later. Game chat is the only comment channel; there is no
+  event-comments UI or Event details dialog.
 
 **Container-order clarification — D-225/D-226:** Library is ordered; Graveyard
 and Exile are unordered, with no order-related actions. Relevant state includes
@@ -378,7 +375,7 @@ Apply the same rule again if that parent is subsequently deleted; when several
 deletions arrive together, follow the parent chain to the nearest surviving
 ancestor, including root. A cursor at a surviving node stays at that node.
 
-Unlike a dependent comment, a personal cursor is not a later shared mutation
+Unlike a dependent historical reference, a personal cursor is not a later shared mutation
 protected by the replay test and does not block an otherwise eligible Undo.
 Cursor fallback itself changes no shared play and adds no mutation. Node-ID,
 versioning and cache reconciliation remain technical specification work.
@@ -405,18 +402,12 @@ groups and closes on tap; Make current/shared activation UI is removed. Merely
 viewing/scrubbing remains personal and clears no queue.
 
 **D-222/D-223 visibility:** hide inactive continuations that consist of **only one
-player's actions, no hidden-information exposure and no event comments**, with a
-separate **Show hidden branches** toggle in the explorer. Mixed-player,
-exposure-bearing and event-comment continuations stay visible in full, including ordinary tails.
+player's actions and no hidden-information exposure**, with a
+separate **Show hidden branches** button in the explorer, color/icon showing state.
+Mixed-player and exposure-bearing continuations stay visible in full, including ordinary tails.
 Hiding is presentation filtering, not deletion or access control; the active path
 and retained states remain available. Classify the alternative continuation,
 not the shared prefix; exact nested-branch presentation remains open.
-
-**Confirmed comment exception (D-223):** an event comment keeps the **whole
-continuation visible even if all its actions are by one player and no hidden
-information was exposed**. This explicitly preserves D-95/D-160's exception
-alongside D-222's single-player filtering condition. It affects explorer visibility,
-not shared activation, grouping, information-exposure classification or retention.
 
 Branch archiving is removed, not an unresolved integration requirement.
 Remembered-head Redo and captured-parent Undo are retired designs (D-224–D-236).
@@ -938,8 +929,7 @@ markers. Same non-Stack move tuples group, including interleaved taps; real-card
 Stack moves and Stack projection creations remain separately visible. Ordinary
 card edits, manual face/cover edits, token removal, player values/counters and
 persistent-link creation/removal group together. Token creation and Clone group
-together with interleaved customization edits. Event comments join the preceding
-group without starting a new one. Combat-area creation and projection
+together with interleaved customization edits. Combat-area creation and projection
 creation/repositioning/removal group together. Each explicit View/Reveal opening
 starts a separate review group. Stack rearrangements group separately from
 entries/removals; each explicit Stack-effect removal stays separately visible.
@@ -1196,7 +1186,7 @@ pending suggestions remain ordinary undoable board state. D-213 restores the
 last prepared decks/mainboard/sideboard, clears both Ready and requires both
 players to ready again for a fresh game. D-214 defers finished-session action-history
 archives/review to optional future development outside R1. Current-game history,
-retained branches, Undo, exposure/comment preservation and downloaded read-only
+retained branches, Undo, exposure preservation and downloaded read-only
 access are unchanged. See the [lifecycle contract](accounts-decks-and-lobby.md).
 Non-undoable acceptance and deferring finished-session review do
 not authorize deleting prior history.
@@ -1204,9 +1194,9 @@ not authorize deleting prior history.
 To repair a value while keeping later play active, perform its normal edit now;
 this does not require a separate historical-Undo mode or correction wizard.
 
-After replacement play, only single-player/no-exposure/no-comment inactive
-continuations qualify for default hiding (D-222/D-223). Mixed-player, exposure
-and event-comment continuations remain visible in full. Hidden nodes retain
+After replacement play, only single-player/no-exposure inactive
+continuations qualify for default hiding. Mixed-player and exposure-bearing
+continuations remain visible in full. Hidden nodes retain
 identity, payloads, ancestry and stored random results;
 the filter never changes game state. See section 3.9 for exposure classification.
 
@@ -1231,7 +1221,6 @@ not redefine normal Undo as a stack of heterogeneous commands.
 | Delete/archive branch | Superseded by r6b: no such action/state/SQL or restoration path. |
 | Group metadata edit | No manual group editing in R1 (D-241); automatic regrouping preserves nodes and personal cursors. |
 | Submitted game-wide chat | No game Undo (D-94), Edit or Delete (D-240). Corrections use another message; no expansions are planned. Unsent-delivery handling remains distinct; do not promise generic message Undo. |
-| Event-linked comment undone | Remove the eligible latest-own comment from the existing tree, keeping it for Redo; do not manufacture an original alternative. Dependent later references can block removal. |
 | Pending win/loss/draw suggestion | Ordinary eligible latest-own Undo removes the suggestion without ending play; acceptance remains a separate lifecycle transition (D-211/D-212). |
 | Accepted ending / return to lobby | Both players return after acceptance. Acceptance is not undoable; Undo cannot reverse this transition or reopen ended play (D-212). Pending suggestions remain undoable under D-211. |
 
@@ -1287,8 +1276,8 @@ Shared prefix actions are never deleted by branch archival.
 - An external account deletion or legally required data erasure is not a
   recoverable in-game operation. Its policy must explicitly disclose that.
 - Navigation has Back/history behavior rather than shared game undo.
-- Submitted game-wide chat is explicitly not undoable (D-94); event comments
-  instead use eligible tree-editing Undo, without original-path copies (D-232).
+- Submitted game-wide chat is explicitly not undoable (D-94), and is the only
+  comment channel; there is no event-comments UI.
 
 The UI must explain these boundaries instead of promising physical reversibility.
 No history compaction or retention policy may silently remove the promised
@@ -1297,7 +1286,7 @@ in-game undo capability.
 ### Information-gaining actions and undo branches
 
 Actual retained alternatives follow D-222/D-223 filtering: only single-player
-paths without exposure or comments qualify for default hiding. Undo creates no
+paths without exposure qualify for default hiding. Undo creates no
 alternative copy (D-232). Exposure classification affects filtering/records, not
 Undo/Redo eligibility.
 
@@ -1383,7 +1372,7 @@ not every path merely inspected by that record. Inspecting an inactive alternati
 from current play records the action on current play and links to the viewed
 alternative without activating it. The referenced alternative does not become
 exposure-bearing merely from that incoming reference; its original exposure/
-comment/author records still decide filtering. Keep the original-context route
+author records still decide filtering. Keep the original-context route
 discoverable even if the alternative qualifies for Show hidden branches. A shared
 prefix exposure alone still does not qualify an otherwise ordinary suffix.
 
@@ -1406,20 +1395,13 @@ exemption from eventual game/account erasure. Exact triggers/coalescing,
 historical/offline views, ordinary inspection-request recovery, durable publication, schemas and retention
 remain Q-31. No competitive anti-cheat guarantee is implied.
 
-D-95 makes an event comment an ordinary current-path node; D-232 removal does not
-retain an original copy. D-223 keeps a genuinely retained alternative containing
-a comment visible in full, even with one author/no exposure, including its tail.
-This differs from D-94 game-wide chat, which is outside game Undo. Historical
-comment placement follows recording-versus-referenced contexts in the annotation
-contract; D-241 excludes dedicated Edit/Delete. Encoding remains technical work.
-
 Confirmed branch-level filtering (D-222/D-223 refine D-160, replacing D-91's cutoff):
 
 1. Retain every node of a genuine alternative displaced by explicit continuation;
    Undo alone creates no alternative copy.
-2. If that continuation contains exposure, an event comment or actions by both
+2. If that continuation contains exposure or actions by both
    players, keep all of it visible, including ordinary ancestors/intervening/trailing nodes.
-3. A single-player continuation with neither exposure nor event comments qualifies
+3. A single-player continuation without exposure qualifies
    for hiding behind Show hidden branches.
 4. Visibility does not move the active pointer or hide unrelated alternatives.
    An exposure in the shared prefix alone does not make an ordinary abandoned
@@ -1537,10 +1519,13 @@ cursor, author-colored icons and endpoint animation remain current.
   play into timeline mode. The panel overlays the board without shrinking its
   viewport; clip the battlefield bottom only, never scale/move it. The intact
   bottom HUD (hand, piles, life, counters) sits immediately above the timeline.
-  Darken the top bar, dim the field, show a faint centered “Timeline mode” + icon.
+   Use gray top/bottom bars, dim the field, show a faint centered “Timeline mode” + icon.
   Transport is white-bordered: green play/orange pause left, large “Auto: off/on”,
   small “Tap: toggle · Hold: branch”. Branch markers use correctly directed graph
-  lines. Download history stays in the timeline menu.
+   lines. There are no timeline overflow/More/History options menus or manual
+   Download history action; sync/recovery is automatic. Actions have direct
+   buttons or live in Table actions. Toggles are normal buttons whose color/icon
+   shows state, never label-plus-switch rows.
 - Holding transport branches immediately from the captured cursor, running or
   paused, without a dialog. Arming shows only a small top-bar fork icon; tap it to
   cancel. No banner or separate top continuation button. The first successful

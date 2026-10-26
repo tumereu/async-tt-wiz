@@ -11,9 +11,12 @@ D-273 selects Android
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
-contract. In normal mode, single tap opens Actions, double tap taps/untaps, hold
+contract. In normal mode, single tap opens Actions, double tap taps/untaps outside
+Hand, hold
 inspects, and drag moves with snapping (D-267). Select/Ping retain single-tap mode actions; removing their
 double-tap recognizers is confirmed by D-281. This corrects the old opposite card mapping.
+In Hand, double tap sends lands to the land row, permanent-only cards to Stack
+then auto-resolves to Battlefield as a separate history group, and other cards to Stack.
 The [visual action language](visual-action-language.md) defines the proposed
 Stack area, action-linked ping controls, literal grouped log presentation,
 and optional notes/chat. Ordinary flow should not require typing what just
@@ -111,7 +114,11 @@ responsibilities below remain proposed unless separately confirmed.
 **Confirmed fullscreen/presentation — D-292:** no dedicated app-title bar,
 Android status bar or permanent system-navigation strip; keep necessary hamburger,
 gameplay phase/history controls compact in the screen. D-294 removes all app
-Back/home arrows, keeping native Android Back. Do not reserve
+Back/home arrows, keeping native Android Back. Non-dialog screens have no X/close
+button; only dialogs/popups may have dismiss controls, and table popups float
+without close buttons. Real errors use the floating transient error, never inline
+text that shifts layout. Loading reserves space or uses a full-area placeholder;
+deck-import validation has its own fixed inline error area. Do not reserve
 mock OS-bar space. Safe cutout placement and transient OS/accessibility/keyboard
 behavior still apply. App name is **Async Tabletop Wizards**, subtitle
 **Specialized tabletop simulator for asynchronous wizardry**. Sign-in uses the
@@ -139,7 +146,8 @@ not a claim the inert captures implement gestures or accessibility.
 
 **D-294 title/selection refinements:** hamburger shares a row with the visible title,
 also in landscape (persistent navigation still replaces it on non-gameplay screens).
-Import/editor Exit without saving and lobby Cancel sit at the row's far right;
+System Back leaves unfinished import/editor input unsaved; lobby Cancel is a game action,
+not a screen close control;
 lobby title is the game name and Reinvite belongs in the opponent slot. No Ready
 leaving helper. Dialog close X is top-right; related button pairs fill 50/50.
 Cover selection has a border, no checkbox; deck deletion says only it cannot be
@@ -167,6 +175,9 @@ D-195 confirms invitations to added users, recipient Accept/Decline in Play,
 and opening the lobby on acceptance, without automatically readying or starting.
 D-196 confirms username search and saving users as contacts without mutual
 friend-request approval; this does not bypass game-invitation acceptance.
+New game opens Choose opponent, permits inviting contacts only, and contacts can
+be removed. Deck import is paste plus Save with fixed-area inline errors; the
+saved deck view is the review, not a separate pre-save step.
 D-197 confirms username/email/password registration, email/password login,
 password reset by email, and usernames—not emails—visible to other users.
 
@@ -190,14 +201,14 @@ timing and transfer of personal device state remain open; see the
 | Action/group review | Before/after changes, action stepping, interrupt at this boundary. |
 | History tree | Forks, active path, archived lines, review/explicit activation, return and restore. No branch comparison/renaming (D-241). |
 | Synchronization status | Pending/rejected status and automatic already-sent recovery within ordinary flows. No dedicated recovery-center/export screen (D-241). |
-| Game communication | Simple chat, event comments and contextual pings/game activity. No response requests/read receipts/presence (D-241). |
+| Game communication | Game chat is the only comment channel; contextual pings/card notes remain separate. No event-comments UI, Event details dialog or response requests/read receipts/presence. |
 | Settings/storage | Notifications, accessibility, cached data, account and data management. |
 
 **Ending play (D-211)** uses a proposed win/loss/draw as shared, undoable board
 state. D-257 makes each suggestion a strict singleton group: group catch-up shows
 the final board before the suggestion's acceptance dialog, rather than putting
 the dialog over earlier unreviewed play. No other event joins that group, even a
-tap/ping/comment/tracking companion. Sync does not wait for playback. The other
+tap/ping/tracking companion. Sync does not wait for playback. The other
 player must accept; acceptance returns both players to the lobby.
 No win-history/scorekeeping feature is required. This supersedes D-210's unilateral
 confirmation-dialog/non-undoable End game. D-212 separately makes acceptance/return
@@ -319,28 +330,25 @@ complete current definition of Undo/Redo; live action acceptance is unchanged.
 **D-232:** Undo/Redo edit the existing tree by removal/reinsertion, without creating
 branches or keeping the pre-Undo path as an alternative. Removed mutations are
 available in the Redo stack, not a required explorer branch. Effects on review
-cursors follow D-238 parent fallback; comments/pings retain their relevant
+cursors follow D-238 parent fallback; pings retain their relevant
 contexts and can block dependent removals. Cache/ID mechanics remain technical;
 do not assume an immutable old path remains.
 
 A **graphical tree explorer** allows review of any retained
 branch/node, including internal nodes/root; reviewing alone does not activate.
-Hide only single-player inactive continuations without exposure or event comments
-behind a separate Show hidden branches toggle. Mixed-player/exposure/event-comment
-continuations stay visible in full (D-223), even for a one-author/no-reveal comment
-path. Covered summaries do not automatically disclose identities.
+Hide only single-player inactive continuations without exposure
+behind a separate Show hidden branches button whose color/icon shows state.
+Mixed-player/exposure continuations stay visible in full.
+Covered summaries do not automatically disclose identities.
 Exact pre-fork/nested presentation, concurrent activation and exposure coalescing
 remain technical/UI work; these are not pings or
 permanent board markers.
 
-D-94/D-95 distinguish game-wide Chat (not undoable once submitted) from event-
-context comments (ordinary current-path nodes, eligible for removal/reinsertion).
-Do not add a special comment-only fork or a pre-Undo explorer copy. Genuine
-comment-bearing alternative continuations stay visible under D-223. D-240 keeps
+D-94 keeps game-wide Chat outside gameplay Undo. Game chat is the only comment
+channel; there is no event-comments UI or Event details dialog. D-240 keeps
 chat simple: submitted messages have no
 Edit/Delete, corrections use another message, and no expansions are planned.
-D-241 excludes dedicated event-comment Edit/Delete; correct with eligible
-ordinary Undo or another comment. Exact event/group association, pending chat
+Pending chat
 delivery and editor submission remain separate work. Other proposed screens/tools
 are subject to D-241's R1 exclusions, not approved by this inventory.
 
@@ -384,7 +392,7 @@ teleport a paused review cursor, create read receipts or block synchronization.
 This supersedes the old proposal that normal Next must advance one mutation
 instead of one group. Pause AFTER animation: default 1.5 s, Settings 100 ms–10 s,
 local per account. Timeline overlays without resizing/moving the board: clip its
-bottom only and keep the full HUD above it, with dimmed field/dark bar and faint
+bottom only and keep the full HUD above it, with dimmed field/gray top and bottom bars and faint
 Timeline mode label. Pausing playback never pauses
 publication or loses pending work. See [the primary resume contract](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
 
@@ -443,7 +451,9 @@ No separate empty-interruption/response-request feature is an R1 deliverable
   dismisses it. Other actions require explicit menu-lifetime decisions; remaining
   open is not a draft/Send gate.
 - D-58 selects red/blue/green/yellow/purple/gray counters, one per color on each
-  card/player. Show numeric `0`; completed empty text removes the counter.
+  card/player. Numeric zero is the same as empty everywhere; empty/zero controls
+  show faint outlines. All six player counters stay visible in portrait's 3×2 grid
+  on the player row beside packed Library/Graveyard/Exile. Completed empty text removes the counter.
   Temporary unfinished editor input does not itself publish deletion. Exact
   styling remains open. D-59/D-249 trim completed card-text/counter
   input, not credentials or arbitrary other text; whitespace-only counter input removes it. Preserve
@@ -767,6 +777,6 @@ Proposed rules:
 
 The main card gestures are confirmed in the board contract. Exact gesture timing,
 special-pile hit targets, additional shortcuts, and journey budgets remain design
-work. A normal double tap must emit one tap/untap operation without also opening
+work. Outside Hand, a normal double tap must emit one tap/untap operation without also opening
 the single-tap Actions menu; hold must not tap or drag the card accidentally.
 D-281 confirms no Select/Ping double-tap recognizer: two independent immediate taps.

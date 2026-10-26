@@ -52,7 +52,7 @@ not a separate opt-in feature for each control or device.
 | --- | --- |
 | Real cards/tokens, logical board/grid/pile order, printed face/cover/orientation, corners/counters/notes/life, links, combat/Stack occurrences and retained source information | Shared server state. Completed edits issue requests; local application is prediction. Logical placement is shared even though camera position and rendered pixels are not. |
 | Mutation tree, retained alternatives/archive status, active shared node/branch, per-player Undo/Redo stacks and eligibility/control results | Shared server history/control state. Undo, Redo, activate, interrupt, return and archive/restore are requests, not local navigation. D-258 clears both Redo queues on qualifying switches. Stacks are per-player, not per-device or one combined opponent stack. |
-| Pings and their effective presence/ordinals, event comments, submitted game-wide chat, View/Reveal displays/dismissal, logged exposure and recorded random results | Shared server records with their existing individual history/Undo rules. A no-board-change action is not automatically local. A dialog/menu opening alone is not submission. |
+| Pings and their effective presence/ordinals, submitted game-wide chat, View/Reveal displays/dismissal, logged exposure and recorded random results | Shared server records with their existing individual history/Undo rules. Game chat is the only comment channel; there is no event-comments UI. A no-board-change action is not automatically local. A dialog/menu opening alone is not submission. |
 | Playback groups | Deterministic derivation from authoritative server events (D-254/D-257), reproducible on clients. Not a user/menu-selected authority or manually editable local game structure. |
 | Game name/creation metadata, invitation/lobby preparation, selected deck copies, starter choice, Ready, play incarnation and pending/accepted ending | Shared server lifecycle state, changed by the corresponding requests. D-294 binds the chosen name to creation and assigns server creation time once; draft suggestions/selection highlights are personal UI. Server-authorized start/cleanup effects belong to those transitions; leaving a screen alone does not alter Ready or end play. |
 | Saved decks and contacts | Server-owned account data in their own scope, not private per-device collections. Preserve saved-deck versus selected-copy isolation; this does not put account edits on the gameplay mutation tree. |
@@ -282,8 +282,8 @@ or truncate the retained-future concerned-field replay checks (D-245).
 The graphical tree explorer permits activation of any retained branch/node, not
 just tips; personal review alone never activates. The active pointer is independent
 from retained tips and personal review. A filter hides only single-player/
-no-exposure inactive continuations without event comments behind Show hidden
-branches; mixed-player/exposure/event-comment paths stay visible in full (D-223).
+no-exposure inactive continuations behind Show hidden
+branches; mixed-player/exposure paths stay visible in full.
 D-236 processes distinct Undo requests as successive server-side presses, with
 idempotent recovery for delivery retries; D-161 captured-parent Undo is retired.
 Offline event creation is excluded by D-246. Exact concurrent activation,
@@ -298,18 +298,11 @@ no separate disclosure event under D-286. The
 defines placement, latest-own targeting, ordinary Redo clearing, replay and branch filtering.
 Physical encoding/coalescing remains technical; no permanent-marker entity is required.
 
-D-94/D-95 distinguish non-undoable game-wide chat from event-linked comment
-nodes on the ordinary tree path. The current path is already a branch; no
-comment-only fork entity/activation mechanism is required. D-223 keeps actual
-retained alternative continuations with comments visible, even with one author
-and no exposure. D-232 Undo does not create an abandoned continuation to hold
-the original comment context; affected comment references remain unresolved.
-D-172 groups comments with preceding same-author play; D-170 still separates
-authors. D-240 excludes submitted-chat editing/deletion and planned expansions;
-corrections are new messages. D-241 excludes dedicated event-comment Edit/Delete;
-use eligible Undo or another comment. Message/comment schemas, association and
-unsent-delivery handling remain contract work; do not give all Message records
-one shared Undo policy.
+D-94 keeps game-wide chat outside gameplay Undo. Game chat is the only comment
+channel; there is no event-comments UI or Event details dialog. D-240 excludes
+submitted-chat editing/deletion and planned expansions; corrections are new
+messages. Unsent-delivery handling remains contract work. Card notes/pings retain
+their separate history behavior.
 
 The [visual action language](visual-action-language.md) presents literal
 operations and associated pings together. No cast/target legality objects,
@@ -454,8 +447,9 @@ Confirmed card text/counter distinction (D-52):
 - Changing a counter never automatically changes corner text, printed card data,
   or other values. P/T-like text and counter colors have no mechanical meaning.
 
-D-58 fixes counter presence semantics: numeric text `0` remains visible; a
-completed edit to empty text removes the counter. Temporary incomplete editor
+D-58's old visible-zero rule is superseded: numeric zero is the same as empty
+everywhere; empty/zero counter affordances show faint outlines. A completed edit
+to empty or numeric-zero text removes the counter. Temporary incomplete editor
 input is not itself a completed shared edit. D-59 trims text first, so a
 whitespace-only completed counter value removes it. A separate Remove shortcut
 remains open. Color uniqueness is per target, not global: different targets may
@@ -465,8 +459,8 @@ D-67 supersedes D-60's separate color-choice/initialization interaction: each
 color has +1, -1, and Set actions, without Add/Initialize. Arithmetic on existing
 whole-number text changes it relatively; nonnumeric arithmetic is inapplicable.
 D-68 makes absent-counter arithmetic applicable: +1 creates text `1`, -1 creates
-text `-1`. Set creates/updates for nonempty trimmed text, removes existing
-counters for empty text, and leaves absence unchanged for empty text. Absence is
+text `-1`. Set creates/updates for nonempty, nonzero trimmed text, removes existing
+counters for empty/zero text, and leaves absence unchanged for empty/zero text. Absence is
 zero only as an arithmetic starting point, not a visible intermediate counter.
 No recolor action is needed, and target/color uniqueness remains.
 
@@ -949,7 +943,7 @@ and formatting remain open.
 | D-011 | Either participant can issue the same tabletop editing operations. |
 | D-012 | Hidden presentation never implies access-control protection between participants. |
 | D-013 | Only explicitly requested generic fields change; labels, card text, pings, and area membership cannot trigger inferred game mechanics. |
-| D-014 | Each card/participant has at most one counter of each supported color. Numeric `0` is present counter text; completed empty text removes the counter (D-58). |
+| D-014 | Each card/participant has at most one counter of each supported color. Numeric zero is equivalent to empty everywhere; completed empty/zero text removes the counter, while empty/zero affordances remain faint outlines. |
 | D-015 | At most one live undirected binary link exists per endpoint pair; A-B and B-A identify the same relationship (D-72). |
 
 Structural validation protects data integrity only. Negative named values,
@@ -983,7 +977,7 @@ D-248 rules. It does not apply Stack's last-live snapshot policy universally.
 | Combat occurrence | Source leaving Battlefield removes occurrence and incident links; clean fully empty pairs atomically. | Same cleanup on token Remove/disappearance. | Exact inverse restores original source/occurrence/slot/link identities. No source-follow snapshot. |
 | Stack source reference | Stay live-linked across ordinary source locations and resets. | Token disappearance alone freezes last-live inspectable state, read-only, with provenance. The effect remains independently removable. | Reverse source disappearance re-links the same surviving occurrences to the restored token; replay reuses the recorded snapshot/inverse, not a replacement source. |
 | Selection / bound menu or editor | Keep selected/captured IDs; recheck current applicability. Movement never substitutes a new target. | Remove absent items from live selection; close/disable unusable bound controls. Remaining targets follow D-67, not silent omission of malformed IDs. | Personal selection is not restored by shared Undo and does not jump to another path's replacements. A restored card can be selected anew; an existing captured editor still cannot redirect its IDs. |
-| Accepted ping / comment / inspection historical reference | Retain original object/location and viewed boundary/revision, separate from recording context. | Legitimate absence in accepted history: offer original recorded context, not a replacement object. A new inspection arriving after its required context was removed rejects normally (D-286); no special snapshot of its speculative view. | An already-accepted dependent reference blocks changing/removing its relevant context under D-224. Unrelated eligible edits preserve the reference and logical source node; branch switching never migrates endorsement/overlays. |
+| Accepted ping / inspection historical reference | Retain original object/location and viewed boundary/revision, separate from recording context. | Legitimate absence in accepted history: offer original recorded context, not a replacement object. A new inspection arriving after its required context was removed rejects normally (D-286); no special snapshot of its speculative view. | An already-accepted dependent reference blocks changing/removing its relevant context under D-224. Unrelated eligible edits preserve the reference and logical source node; branch switching never migrates endorsement/overlays. |
 | Personal review cursor | Remain on the selected surviving node, displaying its revised state. | If that node is removed, fall to its parent repeatedly to the nearest surviving ancestor/root (D-238). | No detached snapshot, live-head jump, shared activation or new cursor mutation. |
 
 Classify references before applying D-67: unknown/foreign IDs are errors; known

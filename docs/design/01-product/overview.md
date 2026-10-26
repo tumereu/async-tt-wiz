@@ -12,7 +12,9 @@ The app remembers and presents what happened; the players interpret the rules.
 ## The rules a player should be able to learn once
 
 1. **Manipulate the table directly.** Drag to place, single tap for actions,
-   double tap to tap/untap, hold to inspect (D-267). Selection applies the same
+   double tap to tap/untap outside Hand, hold to inspect (D-267). In Hand, double
+   tap sends lands to the land row, permanent-only cards to Stack then auto-resolves
+   to Battlefield in a separate history group, and other cards to Stack. Selection applies the same
    tools to several cards. Select/Ping modes keep their own single-tap meaning.
 2. **Placement follows your action.** Drags go where dropped. Quick actions use
    predictable defaults: new quick-declared attackers go to the right.
@@ -68,8 +70,8 @@ The app remembers and presents what happened; the players interpret the rules.
    continuation branches to a new active head. A graphical tree explorer can activate any
    retained branch/node for personal review; there is no Make current or branch
    archiving UI. Continue explicitly to branch. Only single-player/no-exposure alternatives qualify for
-   hiding behind a separate toggle; mixed-player/exposure paths stay visible.
-   Event comments also keep the whole alternative visible, even without a reveal.
+   hiding behind a separate state-colored/icon button; mixed-player/exposure paths stay visible.
+   Game chat is the only comment channel; there is no event-comments UI.
     UI actions send requests; the server creates events, grouped by deterministic
     logic (D-254). Groups are playback steps whose changes animate concurrently,
     not tree nodes or a menu-bound part of a request.

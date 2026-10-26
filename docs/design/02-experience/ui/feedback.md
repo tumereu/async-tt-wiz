@@ -101,7 +101,7 @@ Confirmed owner direction, including the clarification answers in this session:
 | F23 | Games require a name at creation; offer procedural fantasy/wizarding **adjective + thing** suggestions, e.g. **Azure Spark**, **Crackling Mist**. | New-game creation; proposed composition prefills an editable suggestion and offers reroll. Final Create/Invite, not opening the naming form, creates the game. No rename feature inferred. |
 | F24 | Store a game's creation date and display it in its details beside state text. Use the game name as its title. | Browser/invitation details and lobby; game names replace opponent-only primary labels. Opponent identity remains metadata, without With/Game with filler. |
 | F25 | **No app Back/home arrows anywhere**, including lobby and gameplay. | Supersedes F03's original Back allowance and F11's authentication-only scope. Android native Back and contextual exit/close actions remain, not replacement pseudo-home arrows. |
-| F26 | On titled screens put hamburger and title on the **same row**. Import/editor **Exit without saving** belongs at that row's far right. Titles must remain visible in landscape too. | Compact content-control row, not restoration of a dedicated app-brand/title bar. Scroll content below the row; explicit exit is not Save. |
+| F26 | On titled screens put hamburger and title on the **same row**. Titles remain visible in landscape. | Non-dialog screens have no X/close button; system Back leaves unfinished input unsaved. Compact content controls, not a dedicated app-brand/title bar. |
 | F27 | Related button pairs should fill the row with equal **50/50** widths rather than occupying an arbitrary ~70%. | Save/Edit, Accept/Decline, dialog pairs and other paired actions where appropriate. Do not distort icon-only gameplay controls or force unrelated controls into pairs. |
 | F28 | Dialog close X goes in the **top-right** corner, never left. | All pictured dialogs, including full-card inspection. |
 | F29 | Cover selection uses the selection border, **no checkbox/checkmark** as a second selection signal. Deck-deletion explanation need only say deletion cannot be undone. | D05/D06; selected semantics remain accessible. Supersedes D06's longer copy-isolation/no-trash explanation, not copy-isolation behavior. Active-game deletion still needs its distinct both-player warning (F17). |
@@ -157,7 +157,7 @@ initialization is part of instance creation, not an additional automatic action.
 | F50 | Card size is constant everywhere at the same zoom, including combat, battlefield, hands, reveals and special piles. | Supersedes per-area/per-row responsive shrinking. Use one scale; accommodate space with layout/pan/scroll, not miniaturized combat or other cards. Inspection is a deliberately magnified view, not another table scale. |
 | F51 | Timeline icons use the originating player's color; faint vertical dividers mark **group changes**. | Preserve unique type icons, dense nodes and exact selection. Author color is not card owner; divider placement follows effective playback groups, not every event or manual grouping. |
 | F52 | Library, Graveyard, Exile and Stack use a consistent **top-left circular total-count badge** when some cards are not shown. | Total, not hidden-only count. Replaces dock counts below icons and separate Stack count button. Badge does not reveal hidden faces; empty/singleton counts remain clear and accessible. |
-| F53 | Player counters occupy a row beneath Library/Graveyard/Exile. In portrait show that row only when at least one counter is nonempty/nonzero. | Per-player row condition, including nonnumeric nonempty text. All-zero/empty hides the portrait row without deleting values; the life menu retains access. Landscape keeps its counter row. Narrow exception to D-58's always-visible-zero presentation, not counter semantics. |
+| F53 | All six player counters are always visible. Portrait uses a **3×2 grid on the player row next to packed Library/Graveyard/Exile**. | Empty/zero counters are faint outlines; zero is the same as empty everywhere. Never hide a portrait row based on its values. |
 | F54 | Tap life for a context menu containing life/player-counter controls. Drag up/down on life or a numeric player counter, show **+N / −N** preview, apply on release. | One relative edit per completed nonzero drag, not per-frame/per-step requests or an absolute stale-base Set. Menu/accessibility paths remain. Preview/cancel is local, normal server ordering/prediction starts on release. Nonnumeric arithmetic remains inapplicable. |
 | F55 | History Play/Pause has text and fills portrait transport space. Landscape uses a similarly prominent central button with Previous/Next attached directly beside it, not at screen edges. | Explicit exception to icon-only history transport; other compact controls retain earlier rules. |
 | F56 | Holding the transport while **paused** enters play/continuation from the current boundary; keep the top-corner continuation button too. No tooltip/tutorial text. | Hold on paused Play is the same explicit continuation action, consumes tap and never also starts playback. First successful gameplay mutation still creates the fork, not the hold itself. Explicit top/accessibility route preserves discoverability without timed hold. |
@@ -204,7 +204,7 @@ not implemented interaction handlers, cloud edits or a stage/gate transition.
 | F76 | Card actions: no title or close X; card details at top-left taking about two square positions, remaining square actions packed around them. Add a decipherable icon/grouping legend. | Supersedes card-dialog title/X geometry in F68/F28 only for this panel. Outside/native Back still dismiss. Trial a two-position vertical card preview and compact surrounding grid, not an oversized title band. Landscape keeps general actions left and field controls right. |
 | F77 | Try one seven-button P/T row: current-value square **Set**, +/+, −/−, •/+, •/−, +/•, −/•. Center the unchanged-part dots attractively. | Values shrink/wrap within the same square if long, never widen it. Same one corner string and numeric-pattern applicability; no additional P/T fields. |
 | F78 | Card counters use **three rows of six buttons**: two groups per row, each current-value circle/Set then + and −; divider between groups. | Replaces the separate value labels/Set icons and tall six-row layout. All six colors/absent controls remain direct; no submenus. |
-| F79 | Use the same compact principle in player-value controls; title and X may remain there. | Life value/Set, +, − and paired counter triplets. Existing retention, trimming and arithmetic behavior remains. |
+| F79 | Use the same compact principle in player-value controls; table popups float without title/close buttons. | Life value/Set, +, − and paired counter triplets. Existing retention, trimming and arithmetic behavior remains. |
 | F80 | Explain what the generic “Game actions” menu entry contains. | Rename the pictured entry **Table actions** and add G12/full inventory: tracking, standalone turn-player card operations, combat area, token, die/coin and ending controls. Not a general authoring/settings suite. Library/object actions keep their existing direct routes. |
 | F81 | Trial a phase picker with one row per phase and horizontally arranged steps, selectable directly, plus bottom End turn (End opponent's turn when appropriate). Use active-player border on picker/indicator; trial brighter active and faded inactive board colors. | Direct phase choice preserves player/turn number; End turn changes to other player/next number. F82 replaces the former separate direct progression buttons. Border/board emphasis is turn tracking, not ownership, presence or permission; only background shades fade, not readable cards. Exact palette/brightness remains a proposal. |
 | F82 | **Next step and End turn share one quick-action slot: tap Next step, hold to pass/end the turn.** | Follow-up during this round explicitly supersedes D-107's separate one-tap End turn placement and F70's initial two-slot progression plan. Recognized hold consumes tap: never advance a step before also ending the turn. Reserve three contextual positions plus this one progression position; turn-one's four contextual choices pan within three visible positions. Explicit End turn remains in phase picker/Table actions and native accessibility. “Pass” means End turn here, not a new priority/pass state. |
@@ -217,7 +217,7 @@ not functional tree/phase/gesture handlers or permission to implement the app.
 
 | ID | Persistent owner direction | Scope / supersession |
 | --- | --- | --- |
-| F83 | A player counter without a value displays **empty**, not a dash. | Both table row and player-value menu; zero still displays 0 and absent controls remain accessible. Card-counter dash presentation is not changed by this player-specific request. |
+| F83 | Empty and numeric-zero counters display as faint outlines, not dashes or `0` badges. | Zero is the same as empty everywhere, on cards, players and value controls. All six player controls remain visible and accessible. |
 | F84 | End turn / End opponent's turn uses player-color **fill**. | Fill identifies the tracked player whose turn is being ended, not the next player/actor. Applies to explicit buttons and the combined progression square; preserve contrast and existing transition. |
 | F85 | Holding an icon-only button with **no assigned hold action** shows a short action-name tooltip—the text the button would have—not an explanation. | Tooltip recognition consumes click; no action on release, request or preview edit. Existing hold commands (Undo→Redo, progression→End turn, paused Play→continue, game-row context) take precedence and do not also show a tooltip. Normal movement/cancel dismisses. This supersedes the earlier blanket no-tooltip reading, not the ban on shortcut tutorials. |
 | F86 | Compact pannable group tree. **Activation UI superseded by playtest r6b / D-311.** | Full-screen, centered on review cursor, same dense chips/icons as timeline. Tap last event and close; no Make current, legend or bottom buttons. [Current history](../../03-contracts/history-and-undo.md#36-review-progress). |
@@ -251,7 +251,7 @@ The following explicit supersessions retain earlier unrelated feedback:
   Hold transport branches immediately even running; fork icon cancels. Only
   history-toggle-off after cursor movement asks Continue/Latest, outside stays in
   history; at head none, Back exits review directly. Timeline overlays with intact
-  HUD above it, dim field/dark bar; Auto off/on and “Tap: toggle · Hold: branch”.
+  HUD above it, dim field/gray top and bottom bars; Auto off/on and “Tap: toggle · Hold: branch”.
 - F63/F71: packed centered combat groups, no wide insertion gaps, faint dividers,
   symmetric reorder/insertion preview; all projections UPRIGHT. Combat taps show
   Undeclare/Graveyard/Ping, double tap nothing, hold inspect, no normal menu.
@@ -278,15 +278,16 @@ The following explicit supersessions retain earlier unrelated feedback:
   hidden again on leaving for Hand/Library. Eye only for author on public Look/
   Search cards, never Reveal/Hand/piles; centered white disc over art. Library
   always back, no known marker. Semantic known edges/unknown middle are separate.
-- F74/F81: turn header “Your turn · N” / “X's turn · N”; MOVE is solid green
-  “Your move” plus green once-pulsed frame, else outlined “Waiting · X”, no frame.
+- F74/F81 corrected: top and bottom bars show whose MOVE it is; battlefield tint
+  shows whose turn it is. Timeline bars are gray; no green your-move screen frame.
 - Stack all projections, top-only drag, uniform destination/remove/mark bubbles,
   shared multi-marks; Manage Remove/Battlefield/Graveyard/Copy/Controller, inspection
   above dialog, copy destinations disabled, NO reorder. Bubble actions only open
   next-top bubbles. Tokens cut-corner/owner-color, real rectangular, projections
   dashed; art_crop with app labels, custom whole-card image, full-image inspect.
 - Deck pull-refresh only; background game loads/lifecycle interruptions silent,
-  real errors floating snackbar, no resume layout bounce. Back closes overlays then
+  real errors floating snackbar, never layout-pushing inline red text. Loading
+  reserves space or uses a full-area placeholder; no resume layout bounce. Back closes overlays then
   review, bare table double Back within 2s. Tap/untap 90ms centered rotation,
   selection border rotates throughout. Quick inventory follows r3, no tap/untap/
   Graveyard selected quick controls; a multi-action invocation is one Undo move.

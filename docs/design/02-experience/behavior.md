@@ -15,7 +15,7 @@ work. The players know the game rules; the app does not adjudicate them.
 
 The general rules are:
 
-1. **Act directly.** Drag to place, double tap to tap/untap, single tap for actions.
+1. **Act directly.** Drag to place, double tap to tap/untap outside Hand (Hand shortcuts below), single tap for actions.
 2. **Selection expands the scope, not the toolset.** The same card actions work
    on one card or several.
 3. **Change only what the action says.** Moving normally preserves card state;
@@ -39,8 +39,9 @@ rubber-band/per-axis clamping; double empty tap fits, double-tap-drag pans. Card
 are 28×40dp with 42dp battlefield pitch and top-left peeks, no overlap during 90ms
 centered tap rotation. Selection border rotates with the card. Only the turn
 player's field is tinted, other neutral grey; opponent Hand matches your Hand.
-Header: “Your turn · N” / “X's turn · N”. Move: solid green “Your move” + pulsing-once
-green frame, otherwise outlined “Waiting · X” without frame.
+Top and bottom table bars show whose MOVE it is (“Your move” / “Waiting · X”);
+battlefield tint identifies whose turn it is. Timeline bars are gray,
+and there is no green your-move screen frame.
 
 Token-only Change owner; Hand/Library/Graveyard/Exile route to owner, opponent-zone
 drops/preview redirect, either battlefield allowed. Tokens use owner-colored cut
@@ -56,14 +57,18 @@ tap draws one. The card menu is a stationary 4×4 48dp grid with tabs/swipes,
 Everyday/Counters/More/Move pages, direct Everyday Library top/bottom/Graveyard/Exile,
 2×1 minus/value/plus P/T and counter widgets. Phase picker stays a dialog. Mode
 cycles Normal→Select→Ping on tap, Table actions opens directly, no touch-menu Redo
-(hold Undo remains). All custom buttons have press feedback; mutating holds tick
+(hold Undo remains). No table/timeline overflow or History options menus: actions
+have direct buttons or live in Table actions. No Event details dialog, event-comments
+UI or manual Download history; sync/recovery is automatic. Table toggles are normal
+buttons showing state through color/icon, not label-plus-switch rows.
+All custom buttons have press feedback; mutating holds tick
 haptically; titleless hover inspect scrolls with finger/native mana/tap symbols;
 tooltips sit above buttons or below at the top edge, never under the finger.
 
 One history mode/tree button: dense full-screen group graph centered on cursor,
 last-event icon/color; tap reviews that end and closes. No Make current, legend,
 bottom actions or branch archive/restore. Timeline overlays, clips only field
-bottom and preserves full HUD above it; dark top bar/dim field/Timeline mode label.
+bottom and preserves full HUD above it; gray top/bottom bars, dim field/Timeline mode label.
 Auto off/on is white-bordered with green play/orange pause, “Tap: toggle · Hold:
 branch”. Hold branches immediately without dialog, fork icon cancels; only
 toggle-off after cursor movement asks Continue/Latest, outside stays in history,
@@ -94,8 +99,9 @@ Landscape Stack is between the left-side player-info blocks. Special piles use
 one top-left circular total badge. Timeline icons use the originating player's
 color, with faint vertical dividers at effective group changes.
 
-Player counter rows are below special piles; portrait hides a player's row when
-all values are empty/zero, without deleting them. Tap life for life/color-counter
+All six player counters are always visible: portrait uses a 3×2 grid on the player
+row beside packed Library/Graveyard/Exile. Empty/zero values show faint outlines;
+counter zero is the same as empty everywhere. Tap life for life/color-counter
 controls. Drag up/down on a numeric value for a local +N/−N preview; a valid
 nonzero release sends one relative delta request, cancel sends none. Menus and
 accessibility remain; text counters cannot be changed arithmetically.
@@ -111,8 +117,8 @@ D-297 compacts Hand gaps and makes overflowing hands horizontally pannable.
 Landscape own Hand shares the bottom quick-action row; covered opponent Hand is
 trialed in the existing top row, clear of the battlefield. Combat pairs fit their
 wider card side plus tiny margins, with one-card new-pair drop targets beside them;
-those affordances do not preserve empty shared pairs. Player counters are evenly
-spread circles. The timeline selection square stays centered while its path slides,
+those affordances do not preserve empty shared pairs. Player counters use the
+always-visible portrait grid above. The timeline selection square stays centered while its path slides,
 including endpoints with the unused half empty. Chat has its own button, unread
 bubble and panel (personal viewing state, not read receipts). Card actions are
 direct grouped square icons, including inline owner and +/−/Set, no category
@@ -124,15 +130,15 @@ positions plus **tap Next step / hold End turn** in one square. Extra contextual
 choices pan; the review documents every situation/icon/full route. Combat uses
 only faint vertical dividers, no drawn empty boxes, with tapped projections and
 source-identity relationship emphasis distinct from selection. Small counter
-circles span the entire portrait middle strip. Card actions lose title/X, pack
+circles use the portrait 3×2 player-row grid. Card actions lose title/X, pack
 around two-position card details, and use one seven-square corner row plus three
-paired counter-triplet rows. Player menus retain title/X. Icon legends, graphical
+paired counter-triplet rows. Player popups also have no title/close button. Icon legends, graphical
 tree/return flows and explicit Table actions make the formerly unpictured routes
 reviewable without changing shared activation/Undo/archive rules. Turn-player
 border and stronger/quieter field backgrounds are a visual trial, not permissions.
 
-D-299 shows absent **player** counter values as blank, not dashes; zero remains
-0. End controls, including the combined progression square, use the tracked
+Empty and zero counters are equivalent everywhere and show faint outlines.
+End controls, including the combined progression square, use the tracked
 ending player's color fill. Holding an icon-only button without an assigned hold
 shows only its short action name and consumes tap, never executing on release.
 Assigned/inherited hold commands and card gestures keep priority.
@@ -167,10 +173,11 @@ newest first, no empty slots. Both lists share white grouped/divided rows, bold
 name + move chip (filled if mine), “vs X · In play · <last activity>”, time today,
 not Created. Decks refresh only by pull with standard indicator. Background game
 loads and lifecycle-interruption errors are silent; real errors float in snackbars,
-never inline red text. Resume never inserts a loader or bounces the gameplay area.
+never layout-pushing inline red text. Loading reserves space or uses a full-area
+placeholder. Resume never inserts a loader or bounces the gameplay area.
 
-Across already-in-scope searches, results/loading/empty/error feedback stay in
-the search field's own card/panel, not a separate results card (D-296).
+Across already-in-scope searches, results/loading/empty feedback stay in
+the search field's own card/panel, not a separate results card (D-296); real errors float.
 D-297 makes the results heading a small label rather than a competing title.
 Login also has the ATW logo, and each lobby player has a colored readiness icon
 (green check for Ready), with meaningful status text/accessibility, not presence.
@@ -184,8 +191,9 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   fixed outside navigation's scrolling list, not directly in main-menu content.
   No main-menu notification-settings shortcut or redundant explanatory subtitles.
   D-294 removes app Back/home arrows everywhere; Android native Back remains.
-  Titled screens share one title/hamburger row; import/editor Exit without saving
-  and lobby Cancel sit at its top-right. Related button pairs fill rows equally;
+  Titled screens share one title/hamburger row; non-dialog screens have no X/close
+  button and use system Back to leave unfinished input unsaved. Lobby Cancel
+  is a game action, not navigation. Related button pairs fill rows equally;
   dialog close is top-right. Search by username and
   save contacts without mutual friend-request approval.
 - Register with username, email and password; log in with email/password and
@@ -214,7 +222,8 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   Active Delete has an extra confirmation and removes the shared game for **both**
   players, without a result, reusable lobby or restore. Native accessibility offers
   the same actions. Server ordering and captured-incarnation safeguards apply.
-- Choose an added contact, name the new game, then Create & invite. Name is required;
+- New game opens **Choose opponent**, listing contacts only; contacts can be removed.
+  Choose an added contact, name the new game, then Create & invite. Name is required;
   offer fantasy/wizarding adjective + thing suggestions such as Azure Spark or
   Crackling Mist, editable before creation. D-295 uses a naming dialog whose name
   field selects all current text when touched/focused. Blank names cannot create; cancelling
@@ -233,7 +242,9 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   deck-building editor. Paste common MTG text exports, with quantities,
   names, optional set/collector details and standard mainboard/sideboard notation.
   Unknown/ambiguous cards are flagged without substitution. Keep the original
-  text for correction; all import errors must be resolved before saving.
+  text for correction; all import errors must be resolved before saving. Import is
+  a paste area plus Save, with errors inline in a fixed reserved area. There is no
+  separate review step: after saving, the deck view is the review.
 - Name/rename saved decks and choose one of a deck's cards as its cover art.
   New Import deck is at the bottom of the collection/picker and creates a new deck.
   Existing-deck updates use **Edit → Import decklist**, **Overwrite / Merge** toggle
@@ -319,7 +330,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
 | --- | --- |
 | Drag a card | Move that card; if selected, move the selected set. |
 | Single tap a card normally | Open Actions; selected card binds the selected set, unselected card binds only itself while preserving selection (D-248/D-267). |
-| Double tap a card normally | Tap/untap it; if selected, apply to the selected set. Do not also open Actions (D-267). |
+| Double tap a card normally | Outside Hand, tap/untap it; if selected, apply to the selected set. In Hand: lands → land row; permanent-only cards → Stack then auto-resolve to Battlefield as a separate history group; other cards → Stack. Do not also open Actions. |
 | Hold | Inspect large art/text, without moving or tapping the card. |
 | Drag from empty space | Draw a replacement selection rectangle. |
 | Tap empty space | Clear selection, without changing selection-edit mode. |
@@ -332,7 +343,7 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
   accessible Actions remain available. D-267 proposes no double-tap recognizer in
   Select/Ping modes (each tap acts independently); D-281 confirms that mode change.
   Ping mode and Select mode are mutually exclusive, preserving selection.
-- Normally, double tapping an unselected card to tap/untap, or dragging it, clears
+- Outside Hand, double tapping an unselected card to tap/untap, or dragging it, clears
   the previous selection and affects only that card. A single tap opening Actions
   preserves selection under D-248. Double tapping a selected card sets the whole selection
   tapped if the touched card was untapped, or untapped if it was tapped. It does
@@ -428,7 +439,8 @@ at most two columns each. Full details: [board panels](../03-contracts/board-and
 - Cards and players can have one counter per color: red, blue, green, yellow,
   purple, gray. Each holds arbitrary text and offers +1/-1/Set, without a separate
   Add step or recolor tool. Missing-counter +1/-1 creates `1`/`-1`; nonnumeric
-  counters cannot be incremented. Zero stays visible; empty text removes it.
+  counters cannot be incremented. Zero is the same as empty everywhere; empty/zero
+  affordances are faint outlines, and completed empty text removes the counter.
 - Corner text may be explicitly blank. Reset restores the retained default for
   the face selected when processed, without changing counters. Defaults use available
   printed P/T, loyalty, or defense; missing metadata means blank, not guessed data.
@@ -575,15 +587,10 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
 - Context Ping/Unping works without changing mode or another target tap. The
   menu-opening card's ping state determines the uniform action for its selection.
   One standard marker, no labels/styles; automatic numbers span the whole event.
-- Ordinary actions/pings should explain play without typing. Optional notes,
-  event comments, and game-wide chat remain separate. Submitted chat is not
+- Ordinary actions/pings should explain play without typing. Card notes and pings
+  remain distinct; game chat is the only comment channel. Submitted chat is not
   undoable and cannot be edited or deleted after submission. Send another
   message to correct it. Chat stays simple, with no planned expansions (D-240).
-  Event comments have no dedicated Edit/Delete either: use ordinary eligible Undo
-  or another comment to correct them (D-241).
-  Event comments are ordinary tree nodes, not a special comment-only
-  branch workflow. References affected by D-232 tree edits remain to be specified;
-  do not assume an original alternative is created to retain their old context.
 - Actions sync immediately and form meaningful review groups automatically.
     UI actions send requests, the server creates events, and deterministic logic
     groups those events (D-254). Opening Actions captures its targets, not a group;
@@ -619,8 +626,7 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
   remain separately visible, with taps/pings as companions. Ordinary card edits,
   including manual face/cover changes, token removal, player values/counters and
   persistent-link creation/removal group together. Token creation and Clone group
-  together with interleaved customization edits. Event comments join the previous
-   group without starting a new one; combat-area creation and projection
+  together with interleaved customization edits. Combat-area creation and projection
    creation/repositioning/removal group together. Each explicit View/Reveal opening
    starts a separate review group. Stack rearrangements group together separately
    from entries/removals; individual Stack-effect removals stay separately visible.
@@ -676,7 +682,7 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
 - **Tree editing (D-232):** Undo removes and Redo reinserts a mutation in the
   existing tree. Neither creates a new branch or preserves the old path as an
   alternative. Later actions replay in the edited tree, under D-224. Removed
-  mutations are held for Redo, not placed in an explorer branch. A dependent comment/ping blocks removal of
+   mutations are held for Redo, not placed in an explorer branch. A dependent ping blocks removal of
   its referenced mutation under the replay rule; deleting or retargeting it is
   not an alternative. If the history node you are viewing is deleted, fall back
   to its parent, staying in personal review (D-238). Repeat if that parent is
@@ -744,9 +750,8 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
   reviews the last event and closes. Make current/shared activation UI is removed.
 - Hide inactive continuations only when they contain **one player's actions and
   no hidden-information exposure**, available through a separate Show hidden
-  branches toggle (D-222). **An event comment also keeps the whole continuation
-  visible, even for one player's no-reveal path** (D-223). Mixed-player/exposure/
-  event-comment paths remain visible in full; this filter deletes nothing. It does
+  branches button (D-222), with color/icon showing state. Mixed-player/exposure
+  paths remain visible in full; this filter deletes nothing. It does
   not require preserving a path removed by D-232 Undo. Explicit logged inspection, View/Reveal,
   revealing draws/moves/face changes, and die/coin results count as exposure.
   Already-visible inspection does not. This classification does not restrict Undo/Redo.
@@ -761,7 +766,7 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
   Undo barrier or reconstructed old context. A specific missing inspection target
   rejects normally. Accepted revealing actions retain their normal records/controls;
   D-278 permits unadmitted request loss on death/Logout. No automatic branch.
-- Historical pings/comments record at current shared context while referring to
+- Historical pings record at current shared context while referring to
   the selected historical context separately. Do not insert them into old history,
   activate it, merge non-contiguous groups or render future overlays at old boundaries.
   Later-added references are separately identified with their recording event.

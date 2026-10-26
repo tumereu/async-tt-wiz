@@ -6,7 +6,8 @@ verification.
 ## Current round results — D-299
 
 - Appended F83–F88 without losing earlier feedback. Absent player values are
-  blank, zero stays 0; End controls have ending-player fill. G13 adds a short
+  blank in these old captures; the blank-versus-zero oracle is retired (zero now
+  equals empty everywhere). End controls have ending-player fill. G13 adds a short
   Inspect tooltip snapshot; assigned holds retain priority. H06 replaces the
   oversized event-letter toolbar with a compact pannable group graph, active path/
   current ring, local selection and one Make current action. H07 UI is withdrawn,
@@ -18,7 +19,7 @@ verification.
   New checks cover blank player values versus zero, ending-player fills, short
   tooltip annotations/assigned-hold exclusions, bounded Inspect snapshot, smaller
   graph dimensions, two-axis pan reach, group glyphs and representative/target
-  separation (Reveal C1 icon versus selected Comment C2; current Move ends Y2).
+  separation in historical fixtures; event-comment fixtures are not current UI requirements.
 - The delegated R1 anchor-first rank uses actual event icons and first-effective
   ties. `group-icon-order.json` contains 19 anchor keys, eight companion keys,
   seven graph markers, three graph-prefix checks and five extra prefix/tie cases.
@@ -62,7 +63,7 @@ verification.
   and ordinary 48 px/reachable controls. These sources/capture compositions are
   documentation, not native gesture, tree, archive or phase-picker handlers.
 - Static regressions now check fitting-hand centering and overflow reach, fixed
-  four-position geometry/hold annotation, full-strip portrait counters with 28 px
+  four-position geometry/hold annotation, historical full-strip counters (retired) with 28 px
   circles in separate 48 px allocations, divider-only combat/rotated envelopes,
   River source+combat+Stack and Sentinel source+combat relationship examples,
   one icon-only phase indicator, five phase colors/twelve distinct exact-step
@@ -116,7 +117,7 @@ verification.
   with one-card before/between/after insertion targets, full-row counter circles,
   exact center reticle/event including endpoints, separate Chat/panel and direct
   square named icon-only card actions with inline owner/all-color value controls.
-  Existing uniform scale, pile totals, owner, portrait counter predicates, history
+  Existing uniform scale, pile totals, owner, historical counter predicates (retired), history
   transport and earlier presentation checks remain enabled.
 - Visually inspected login, search, readiness, live/combat, overflow hands, chat,
   both timeline endpoints and before/retained card actions in both orientations.
@@ -154,7 +155,7 @@ verification.
 - Static regression checks now cover same-card search/results, equal 40 px card
   height across every table area and both orientations, complete uniform pile
   envelopes, top-left circular totals, landscape Stack between side player info,
-  retained reveal gutter, conditional portrait counter rows, timeline author/
+  retained reveal gutter, historical conditional counter rows (retired), timeline author/
   effective-group metadata, labeled attached transport and hold/top continuation
   routes without a Continuing from banner. The 40 px example is one review zoom,
   not approval of a native minimum or per-area shrinking.
@@ -432,7 +433,8 @@ a service worker is a possible explanation.
   L01/L02/L03/L05/L06/U01 are new local inert derivatives; old sources remain
   historical provenance. No cloud edit or application implementation is claimed.
 - Every active source applies no app Back/home arrows. Titles/hamburger share a
-  row; import/editor Exit without saving and lobby Cancel are upper-right. Game
+  row; the historical import/editor X/exit is retired in favor of system Back;
+  lobby Cancel remains a game action. Game
   names replace opponent-only titles, with opponent metadata and state/date details.
   Pairs fill equally; close X is upper-right, including inspector/navigation close.
   Cover has no visible checkboxes; concise Use cover avoids wrapped filler labels.

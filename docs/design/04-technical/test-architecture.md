@@ -222,7 +222,9 @@ not permission for a history cap. T-640/T-641 supplement corrected T-616–T-618
 ## Canvas-specific verification
 
 D-267 accepts the shared scene geometry/gesture-coordinator architecture and
-corrects normal gestures: single tap opens Actions, double tap taps/untaps once.
+corrects normal gestures: single tap opens Actions, double tap taps/untaps once
+outside Hand. Hand shortcuts use T-726: lands to land row, permanent-only cards
+to Stack then Battlefield in a separate history group, other cards to Stack.
 T-619 verifies normal dispatch, selection binding, animated visible hit bounds,
 camera/accessibility agreement and no per-frame requests. D-281 confirms the
 Select/Ping two-independent-taps T-620 variant, no longer conditional. Count physical

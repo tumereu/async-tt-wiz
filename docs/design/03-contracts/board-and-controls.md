@@ -17,7 +17,9 @@ top-insertion drops on Library, unordered Graveyard/Exile moves, visual stacking
 drops, and top/bottom context moves for Library are confirmed (D-226). Layout,
 detailed hit testing and communication mechanisms below are proposals for review.
 D-267 corrects the normal card mapping: **single tap opens Actions; double tap
-taps/untaps**. This supersedes the opposite D-15 mapping, not the existing
+taps/untaps outside Hand**. In Hand, double tap sends lands to the land row,
+permanent-only cards to Stack then auto-resolves to Battlefield as a separate
+history group, and other cards to Stack. This supersedes the opposite D-15 mapping, not the existing
 selection scope, inspection, dragging, pile-control or Ping semantics. Removing
 dedicated double-tap recognition in Select/Ping modes is confirmed by D-281.
 The owner additionally
@@ -42,7 +44,7 @@ the [Android experience](android-experience.md) and
 | B-001 | Drag a card | Move it on the table or into another area/zone. |
 | B-002 | Drop | Snap to a grid location or designated slot. |
 | B-003 | Pile cards | Allow overlapping cards, with underlying cards peeking out diagonally. |
-| B-004 | Double tap a card normally | Outside selection-edit/Ping modes, tap/untap the selected set if the touched card is selected; otherwise clear selection and tap/untap only that card. Tapped presentation is 90 degrees clockwise, or back to untapped. No Actions menu or inferred game effect (D-267). |
+| B-004 | Double tap a card normally | Outside selection-edit/Ping modes and Hand, tap/untap the selected set if the touched card is selected; otherwise clear selection and tap/untap only that card. Tapped presentation is 90 degrees clockwise, or back to untapped. In Hand: lands → land row; permanent-only cards → Stack then auto-resolve to Battlefield in a separate history group; other cards → Stack. No Actions menu. |
 | B-005 | Single tap a card normally | Open Actions. A selected card binds the selected set; an unselected card binds only itself while preserving selection. Opening the menu creates no orientation/game edit (D-248/D-267). |
 | B-006 | Hold a card | Show large artwork and readable card text. |
 | B-007 | Special piles | Library, graveyard, and exile have dedicated pile representations. |
@@ -99,10 +101,9 @@ same footprint, and projections have dashed borders. Standard cards use Scryfall
 `art_crop` inside app-rendered name/P/T; custom-image cards show the whole image
 without an app name and with corner P/T on a background. Inspect uses full images.
 Opponent hand background matches your own, not the opponent's battlefield tint.
-Only the turn player's field is tinted; the other is neutral grey. The header's
-first line is “Your turn · N” or “X's turn · N”. Whose-move is separate: solid green
-“Your move” and a green screen frame that pulses once on arrival, otherwise outlined
-“Waiting · X” and no frame.
+Only the turn player's field is tinted; the other is neutral grey. Both top and
+bottom table bars show whose MOVE it is (“Your move” / “Waiting · X”), not whose
+turn it is. Timeline mode bars are gray. There is no green your-move screen frame.
 
 The older layout paragraphs below, up to “Uniform card scale”, are superseded by
 this layout. They are historical mockup direction, not requirements.
@@ -169,8 +170,9 @@ no face disclosure, guessed identity, item loss or new membership limit follows.
 The badge and pile are one contents affordance, not precision badge-only targets.
 
 Across already-in-scope contents/token searches, the field, results and loading/
-empty/error feedback belong inside the same card/panel (D-296), not a separate
-results card. Search remains local browsing where already permitted and does not
+empty feedback belong inside the same card/panel (D-296), not a separate
+results card. Reserve loading space or use a full-area placeholder; real errors
+use the floating transient error, never layout-pushing inline text. Search remains local browsing where already permitted and does not
 silently issue a new logged disclosure or add a new search capability.
 D-297 makes the results heading a small subordinate label, not a new title.
 
@@ -208,7 +210,7 @@ section.** Compact, pannable hands and captured target IDs remain current.
   authoritative card or automatic hidden-side inspection. Conceal names/art/text
   whenever the applicable viewed region/disclosure rules require it.
 - Preserve D-248's captured target IDs: previewing the context card does not
-  retarget a selection after sync/selection changes. Outside tap, top-right X or
+  retarget a selection after sync/selection changes. Outside tap or
   native Back dismiss without a game edit or cancelling an already-sent edit.
   Completed corner/counter +/- and Set retain the dialog for repeated edits;
   successful context Move to Graveyard still dismisses. Other existing per-action
@@ -235,7 +237,11 @@ Normal → Select → Ping without a chooser. Next step occupies the bottom-righ
 corner, with bordered, non-filled contextual squares right-aligned beside it.
 Hold Next step ends the turn. Table actions opens its dialog directly with its
 own icon: no intermediate controls menu, Redo, Return to current, View·N or
-retained-display reopening. Download history stays in the timeline menu.
+retained-display reopening. There are no table/timeline overflow, three-dot or
+“History options” menus, Event details dialog, event-comments UI or manual
+Download history action. Actions have direct buttons or live in Table actions;
+sync/recovery is automatic. Table toggles are normal buttons whose color/icon
+shows state, never label-plus-switch rows.
 
 The older quick-allocation and menu-geometry bullets below (through the counter
 triplets) are superseded by this contract. Relationship emphasis remains current.
@@ -276,7 +282,7 @@ triplets) are superseded by this contract. Relationship emphasis remains current
 - Card counters occupy three rows, two triplets per row, with a vertical divider
   between triplets. Each triplet is current-value circle/Set, +, −; all six colors
   remain reachable even when absent. Player-value menus use the same paired
-  triplets and life value/Set,+,−, retaining their title and top-right X. Landscape
+  triplets and life value/Set,+,−, without a popup title or close button. Landscape
   card Actions puts general actions left and corner/counter controls right.
 - **Relationship emphasis:** focusing/highlighting a visible card or projection,
   including a selected view,
@@ -293,28 +299,16 @@ triplets) are superseded by this contract. Relationship emphasis remains current
 
 ### Player values: row, life menu and drag preview — D-296
 
-- Put each player's six-color counter affordances on a row beneath that player's
-  Library/Graveyard/Exile. D-297 renders these as circles, evenly distributed over
-  the full row, not left-aligned squares. Landscape keeps the row. In portrait show that player's
-  row only if at least one value is nonempty and not numeric zero. A negative or
-  nonnumeric nonempty value qualifies. Under existing trimming/integer grammar,
-  `0`, `+0`, `-0` and zero with leading zeros do not qualify; absent/empty also do
-  not. This is a presentation predicate, not removal or conversion of stored text.
-  **D-299:** an absent/empty player counter is visually **blank**, not a dash,
-  in both table circles and player-value Set circles. Numeric zero remains `0`;
-  do not initialize an absent field merely to draw it. Accessibility names the
-  color/participant and “no value.” All absent color controls remain usable.
-  This player-specific change does not alter the card-counter dash example.
-  D-298 spans the **whole portrait middle strip**, not just its library column
-  excluding Stack width. Visible circles are smaller (28 px trial), while separate
-  48 px interaction allocations stay evenly distributed with no overlapping hit
-  targets; landscape uses the same small circles. A smaller drawing does not
-  shrink the card scale, drop a counter or remove accessible/drag/menu access.
-  When a row is visible, existing zero values remain visible. Life itself does not
-  participate in the predicate. Each player's row is evaluated independently.
+- Keep each player's six counters always visible. In portrait use a **3×2 grid
+  on the player row next to packed Library/Graveyard/Exile**, never a conditional
+  row beneath the piles or a full-strip row. Empty and numeric-zero counters show
+  as faint outlines, with accessible color/participant names and usable controls.
+  Numeric zero (`0`, `+0`, `-0`, including leading zeros) is the same as empty
+  everywhere, including card counters and Set controls; do not draw a `0` badge.
+  Smaller counter drawings must not create overlapping interaction targets.
 - Tap the colored life square for the existing participant context menu, now
   explicitly containing life and all color -1/+1/Set controls. Either participant
-  may edit either player. Hidden portrait rows/absent colors remain accessible
+  may edit either player. Empty/zero colors remain accessible
   here without a new Add/Initialize step. Completed +/- and Set retain the menu
   as before; field trimming/empty removal and nonnumeric applicability persist.
 - Life/counter drags use the dominant axis, one step per 10dp, without acceleration:
@@ -337,7 +331,7 @@ triplets) are superseded by this contract. Relationship emphasis remains current
   action creation. Counter arithmetic remains unavailable for nonnumeric text;
   absent-counter arithmetic uses D-68's zero starting point without an intermediate
   stored zero. Existing explicit menu/accessibility equivalents remain usable.
-  A row hiding/reflowing during sync is not loss of its semantic target: retain
+  A value updating during sync is not loss of its semantic target: retain
   the captured participant/color, never the control now beneath the finger. Normal
   release validation still decides an absent/nonnumeric/invalid target outcome.
 - Historical review shows read-only values, not actionable drag/menu edits. Enter
@@ -442,13 +436,13 @@ drag/drop, or cancellation.
 | Gesture | Proposed detailed behavior |
 | --- | --- |
 | Single tap | Normal mode: open Actions with D-248 binding, no orientation edit. Select mode: edit membership. Ping mode: perform its explicit ping action instead of normal Actions (D-267). |
-| Double tap | Normal mode: one selection-aware tap/untap operation without Actions. Select/Ping have no double-tap recognizer: two independent mode taps (D-281). |
+| Double tap | Normal mode outside Hand: one selection-aware tap/untap operation without Actions. Hand uses the land/Stack shortcut in B-004. Select/Ping have no double-tap recognizer: two independent mode taps (D-281). |
 | Hold | Open a large-art/text inspector without tapping the card, moving it, or changing shared reveal state. |
 | Drag | Begin after movement exceeds touch slop; show a lifted preview and destination highlight. Commit only on a valid drop. |
 | Cancel/interrupted touch | Restore the pre-gesture state; no shared move or tap. |
 
 Confirmed orientation scope (D-35/D-36, gesture corrected by D-267): in normal mode,
-double tapping a selected card retains the selection and taps/untaps every selected
+double tapping a selected card outside Hand retains the selection and taps/untaps every selected
 card. Double tapping an unselected card clears the selection and taps/untaps only that
 card, without adding it to the former set. With no selection, affect only the
 addressed card. Pile membership alone does not expand the affected set.
@@ -473,7 +467,7 @@ other game meaning.
 
 Single-tap context menus open immediately, including Library. Double tap uses a
 400 ms window and 32dp distance; both taps visibly register a press border. A
-recognized double tap rotates the card once even if the first tap opened a menu.
+recognized double tap performs the card's zone-specific action even if the first tap opened a menu.
 Double-tapping your Library draws one. Inspect hold is 350 ms. Menus must never
 block table double taps or drags.
 
@@ -1136,23 +1130,12 @@ Confirmed optional communication direction (D-94/D-95):
    presence or gameplay mutations for opening/closing/viewing chat, and do not
    change the selected historical boundary or fork intent. Existing immutable
    sent-chat/no-Undo rules persist; this adds no Edit/Delete, mute or alert category.
-2. A group/event context Note/Reply action opens a multiline editor linked to
-   that event. Keep these optional text records distinct from card notes and
-   pings; text is not required to explain an action. Do not publish unfinished
-   input; D-249's card-text trimming is not a message-normalization policy.
-   D-241 excludes dedicated comment
-   Edit/Delete; use eligible ordinary Undo or another comment. Submission controls
-   and historical/branch association still need contract/UI completion.
+2. Game chat is the only comment channel. There is no event Note/Reply action,
+   event-comments UI or Event details dialog. Card notes and pings remain distinct.
 
 D-94 excludes submitted game-wide chat from Undo. D-240 also excludes Edit/Delete
 for sent chat: corrections use another message, with no planned expansions.
-Unsent-delivery handling remains separate. D-95 makes event comments ordinary nodes on the current
-tree path. Eligible Undo removes a comment into Redo without preserving an
-original-path alternative (D-232); no comment-only fork or activation control is
-needed. Apply normal eligibility/dependency rules. D-160 keeps a genuine alternative visible
-if it contains a comment, without a cutoff; D-223 confirms this even for a
-single-player/no-exposure continuation. Exact comment/group association remains
-contract work; D-241 excludes dedicated comment-revision controls. Card
+Unsent-delivery handling remains separate. Card
 notes, event pings, and ordinary editor drafts keep their distinct behavior.
 
 Confirmed event-scoped toggle details (D-76):
@@ -1306,10 +1289,9 @@ Confirmed counter appearance/lifecycle (D-58):
 2. At most one counter of each color on a single card/player. The proposed
    multiple same-color counters on one target were rejected. Different targets
    may each have their own counter of that color.
-3. Keep numeric counter text `0` visible. **D-296's narrow presentation exception:**
-   a player's entire portrait row hides when all their counters are empty/zero;
-   zero remains stored and available in the life context menu. Card counters and
-   visible player rows still show zero. A completed edit to empty text removes
+3. Numeric zero is the same as empty everywhere; empty/zero counter affordances
+   are faint outlines, not `0` badges. All six player counters stay visible in
+   portrait's 3×2 grid beside packed special piles. A completed edit to empty/zero text removes
    the counter; temporary incomplete input does not publish removal by itself.
    D-59 trims text first: whitespace-only completed text removes the counter.
    Whether to offer a separate Remove shortcut remains open.
@@ -1318,7 +1300,7 @@ Confirmed counter appearance/lifecycle (D-58):
 Confirmed text trimming (D-59/D-249): completed card text and counter input is edge-trimmed on
 completion, not only counter text. Preserve internal spaces/newlines. Pattern
 matching and empty-value handling use the trimmed text: ` 2/3 ` becomes `2/3`,
-` 0 ` remains visible as `0`, and whitespace-only counter input removes it.
+` 0 ` is treated as empty, and whitespace-only counter input removes it.
 Trimming does not settle blank-value behavior for unrelated fields or publish
 unfinished input. See [the domain contract](domain-model.md#21-separation-of-state).
 
@@ -1591,8 +1573,7 @@ Undo/Redo remove/reinsert eligible own mutations in the tree, without original
 alternatives or automatic post-Undo branching (D-232). The graphical explorer
 can activate any genuinely retained branch/node. Only single-player/no-exposure inactive continuations qualify for
 hiding behind Show hidden branches; mixed-player/exposure continuations stay
-visible. D-223 also keeps event-comment continuations visible in full, even with
-one author and no exposure; those paths do not qualify for hiding.
+visible.
 Exposure coverage includes
 library View/Reveal, explicit logged hidden-side inspection (not D-252 own-area holds),
 and die/coin results, but not every visible-card hold or search keystroke. Ordinary
@@ -1600,7 +1581,7 @@ summaries do not automatically disclose viewed card identities. See the
 [primary undo-branch contract](history-and-undo.md#information-gaining-actions-and-undo-branches).
 
 D-160 supersedes D-91's visible-path cutoff: keep trailing ordinary nodes visible
-too when the abandoned continuation contains exposure/comment. D-91's actual-
+too when the abandoned continuation contains exposure. D-91's actual-
 exposure classification remains, including draws/moves/face changes, not only
 View/hold. Exact event placement/coalescing, forward/pre-fork presentation, non-Undo
 branch controls remain specification work. D-246 permits no offline event-producing
@@ -1902,7 +1883,7 @@ mixed drags is approved or required as a separate owner decision.
 
 - **Move a card:** drag from the Hand-labeled row to a free grid cell. One
   gesture, one move, automatic sync; the engine does not label it playing a land.
-- **Tap a card:** double tap the visible card in normal mode. One orientation/tapped-presentation
+- **Tap a card:** double tap the visible card outside Hand in normal mode. One orientation/tapped-presentation
   change; no activation, attack, or mana is inferred.
 - **Read card:** hold it. Your area shows real faces without logging, including
   downloaded content offline; opponent-area holds do not expose hidden sides.
@@ -1920,8 +1901,8 @@ mixed drags is approved or required as a separate owner decision.
   sentence, typed rules target, completion step, or Send.
 - **Represent an unusual action:** create a catalog/Blank token, edit its ordinary
   note/corner text, position it and add contextual pings. No generic piece editor.
-- **Async question:** submit an event comment referring to the reviewed action.
-  Record its current effective context separately; no dedicated response-request
+- **Async question:** send a game-chat message about the reviewed action.
+  No event-comment UI, dedicated response-request
   feature, inferred consent or automatic resolution (D-241).
 
 ## 10.10 Outstanding detailed design

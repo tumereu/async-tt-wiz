@@ -23,7 +23,7 @@
   controls remain available without dedicated app-brand bars.
 - Users can **search by username and save users as contacts**, without a separate
   friend request or mutual approval (D-196). D-292 selects **Contacts** as the
-  destination name. Contact removal and exact search behavior remain separate.
+  destination name. Contacts can also be removed; exact search behavior remains separate.
 - The **Games** browser combines in-play games and setup/lobby states into one
   Games list, followed by Invitations, in that order in both orientations.
   A lobby is a game's setup state, not a separate structural category or identity.
@@ -34,8 +34,9 @@
 ### Compact presentation and contextual actions — D-293
 
 - **D-294 supersedes the authentication-only scope:** no app Back/home arrow on
-  any screen. In-form/contextual exit/close links and Android native Back provide
-  navigation. Keep necessary labels, errors and outcomes.
+  any screen. Non-dialog screens have no X/close button; Android native Back
+  navigates back. Only dialogs/popups may have dismiss controls; table popups
+  float without close buttons. Keep necessary labels and outcomes.
 - Main-menu options have an **ATW** logo above them (wizard-hat motif is provisional).
   D-297 also places that logo inside A01's centered login card in both orientations;
   short viewports scroll the same card rather than splitting/shrinking it.
@@ -64,8 +65,8 @@
 
 - Titled screens place hamburger and title on one compact content-control row;
   landscape keeps the title. Landscape persistent navigation replaces the hamburger
-  as before. Import/deck editor Exit without saving is at the row's top-right;
-  leaving an unsaved import never saves it or publishes unresolved changes.
+  as before. System Back leaves import/deck editing without saving unfinished input;
+  there is no screen X/close button or publication of unresolved changes.
   Previously accepted metadata edits and auto-synced preparation are not rolled
   back by leaving: the exit discards only unfinished UI input, not server requests.
 - Related button pairs fill their available row equally (50/50); compact gameplay
@@ -84,7 +85,7 @@
 - Deck picker rows select a personal draft using a border, without per-row Select
   buttons. **One bottom confirmation** submits the chosen prepared-copy selection
   and returns to lobby. Selecting/highlighting rows alone does not clear Ready or
-  issue a request. Native Back/close leaves current preparation/Ready unchanged;
+  issue a request. Native Back leaves current preparation/Ready unchanged;
   confirmation uses existing preparation-round/source guards and copy isolation.
 - One/all preparation markers are about **24 px wide each**, prioritizing **1 / ∞**
   over a separate grip. Drag semantics remain D-293. This explicit compact-handle
@@ -243,22 +244,24 @@ cursors, settings or all cached downloads from this account-data decision.
 
 - Search by username and add the selected user to **your contacts**. Adding is a
   saved contact choice, not a friend request requiring the other user's approval.
-- **D-296 search presentation:** results/loading/empty/error feedback belong in
+- **D-296 search presentation:** results/loading/empty feedback belong in
   the same card/panel as their search field, not a separate results card. This
   applies across already-in-scope searches, not just contacts; saved contacts may
   remain a separate collection. It changes no matching/privacy/request semantics
-  and does not authorize additional search tools.
+  and does not authorize additional search tools. Reserve loading space or use a
+  full-area placeholder; real errors use the floating transient error, not inline text.
   D-297 makes the results header a small subordinate label, not another title.
 - It does not automatically add you to their contacts or accept a game invitation
   on their behalf. Game invitations still use recipient Accept/Decline (D-195).
-- Exact username/search grammar, contact removal and discoverability/privacy
+- Contacts can be removed from your saved list. Exact username/search grammar and discoverability/privacy
   remain open; D-218 confirms account contacts synchronize across devices.
   D-197 separately selects registration fields,
   email/password login, email password reset and email privacy.
 
 ## Inviting a player and the waiting lobby — D-195/D-208
 
-1. Choose an **added user** to invite, then name the new game under D-294 below.
+1. **New game** opens **Choose opponent**, listing contacts only. Choose an
+   **added user** to invite, then name the new game under D-294 below.
    Confirm Create & invite to create the game and first invitation together.
 2. **For the inviter, the invitation is already an open game lobby (D-208).**
    They can select/prepare their deck and press Ready while waiting for acceptance.
@@ -282,8 +285,7 @@ cursors, settings or all cached downloads from this account-data decision.
 
 Exact recipient-side declined-invitation listing/history, inviter feedback,
 duplicate handling, cancellation races and retention remain open. This
-confirms a path via added users, not a decision that every other invitation method
-is forbidden. Neither adding a user nor sending an invite bypasses acceptance.
+permits invitations only to contacts. Neither adding a user nor sending an invite bypasses acceptance.
 No replacement-opponent or open matchmaking feature is implied by reinviting.
 
 **Create versus reinvite — D-287:** creating a game with its first invitation and
@@ -315,7 +317,8 @@ recipient and original request ID; retries never regenerate/rename the game.
 
 The server records the creation instant once when the persistent game and first
 invitation are accepted. Game rows display last activity, not Created; the gameplay
-header shows “Your turn · N” / “X's turn · N”, not the game name. Elsewhere the name
+top and bottom bars show whose MOVE it is, while battlefield tint identifies whose
+turn it is; timeline bars are gray, with no green move frame. Elsewhere the name
 identifies the game and opponent remains metadata. Creation date belongs to the
 persistent game, not each play incarnation:
 acceptance, reinvite, Ready/start and result-return/fresh start preserve name/date.
@@ -334,7 +337,9 @@ lists/date formatting are presentation/technical detail, not unresolved game pol
 Deck browser refresh is manual pull-to-refresh with the standard indicator, never
 a background refresh. Background game loads are silent. Lifecycle-interruption
 errors show nothing; real errors use a floating snackbar, not inline red text.
-Resuming gameplay never inserts a loader or shifts/bounces the table layout.
+Loading reserves space or uses a full-area placeholder; resuming gameplay never
+inserts a loader or shifts/bounces the table layout. Deck-import validation uses
+the fixed inline error area specified below.
 
 - Saved deck **card-list editing is import-only**. Naming/renaming and selecting
   cover art are separately supported (D-199). A full manual
@@ -405,6 +410,8 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
 **text lists**, not a claim to support every tool's proprietary export.
 
 - Paste one `quantity Card Name` entry per line, such as `4 Lightning Bolt`.
+- Use a paste area plus **Save**, with import errors inline in a fixed reserved
+  area. There is no separate review step; after save, the deck view is the review.
 - Accept the common optional printing suffix `(SET) collector-number`, such as
   `3 Verdant Catacombs (MH2) 260`; users need not strip exported printing details.
 - Preserve mainboard/sideboard separation: support `Deck`/`Sideboard` sections,
@@ -587,7 +594,7 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   Undoing an unaccepted suggestion does not return the players to the lobby.
 - **The suggestion never groups with another event (D-257).** It is a strict
   singleton playback group, with boundaries before and after. Preparatory taps,
-  closures and random runs do not join it; neither do subsequent pings, comments,
+  closures and random runs do not join it; neither do subsequent pings,
   tracking or ordinary edits. This is stronger isolation than a Stack anchor,
   which can still have companions. The server creates the suggestion event and
   deterministic grouping applies this rule; the UI does not define the group.
@@ -659,7 +666,7 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   review, separate from each fresh game's own history. Reviewing an ended session
   would not reopen it or affect the current game. This is not win/loss statistics.
 - **Current-game history remains in R1.** Mutation-level history, retained branches,
-  Undo, exposure/comment preservation and downloaded read-only access within that
+  Undo, exposure preservation and downloaded read-only access within that
   game are not deferred by this scope decision.
 - This defers the feature, not an instruction to delete finished-session data.
   No permanent archive/retention/deletion guarantee or future delivery commitment

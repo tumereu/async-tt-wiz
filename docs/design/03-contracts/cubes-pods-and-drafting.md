@@ -376,6 +376,23 @@ opening a pod shows its current state.
 - Cubes upload resolved definitions like decks; the server never needs a catalog.
 - Supplied basics use one fixed default printing per land type for now.
 
+## As built (2026-10-26)
+
+Concrete choices made during implementation, recorded for the owner's review:
+
+- Setting ranges: packs per player 1–30, cards per pack 1–30, keep ≥ 1, burn ≥ 0,
+  keep + burn ≤ pack size, packs open at once 1–packs. Grid: 1–60 grids, 2–4
+  players, "two picks each" only with 2 players. Cubes up to 3000 copies.
+- Submit also enforces the game's 1000-card limit (Main + Side + basics).
+- Supplied basics use fixed English M21 printings.
+- Approximate set packs scale the 10C/3U/1R(M)/1-any layout to the configured
+  pack size; recipe packs keep their recipe sizes. Set packs dealt into grids take
+  generated pack cards in order.
+- Set files: cached permanently; sets released in the last ~60 days are refreshed
+  at most daily; every set has Redownload.
+- Pick screen defaults 3 cards per row (portrait) / 5 (landscape); Build defaults
+  to 7 columns. Both are per-device settings.
+
 ## Wishlist (not planned)
 
 - Custom Grid: width/height, full diagonals, refill policies, more players.

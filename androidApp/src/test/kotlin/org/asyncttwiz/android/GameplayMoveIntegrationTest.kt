@@ -96,7 +96,7 @@ class GameplayMoveIntegrationTest {
         val f = Fixture(); f.connect()
         fun draw(id: Int) = PlayAction.MoveCard(f.data.id(id), MoveSource(f.library, edge = MoveSourceEdge.TOP),
             MoveDestination(f.hand, MoveInsertion.UNORDERED))
-        f.submit(draw(9)); f.submit(draw(10)); f.submit(PlayAction.SetNote(f.data.id(10), "independent"))
+        f.submit(draw(9)); f.submit(draw(10)); f.submit(PlayAction.SetPlayerCounter(f.data.actor, CounterColor.PURPLE, "independent"))
         val commands = f.commands()
         // The remote reorder wins FIFO; first captured TOP fails but the second captured TOP is now valid.
         val remote = f.update(f.root, f.data.command(PlayAction.MoveCard(f.data.id(9), MoveSource(f.library),
@@ -105,14 +105,14 @@ class GameplayMoveIntegrationTest {
         assertEquals(f.library, f.card(f.session.play(f.data.game), 10).containerId)
         f.message(remote)
         assertEquals(f.library, f.card(f.session.play(f.data.game), 10).containerId)
-        assertEquals("independent", f.card(f.session.play(f.data.game), 10).note)
+        assertEquals("independent", f.session.play(f.data.game)!!.board.players.single { it.accountId == f.data.actor }.counters[CounterColor.PURPLE])
         val later = f.update(remote.play!!, commands[1], "2", "3")
         f.message(f.result(later))
         assertEquals(remote.play, f.session.acceptedPlay(f.data.game))
         assertEquals(f.library, f.card(f.session.play(f.data.game), 10).containerId)
         f.message(later)
         assertEquals(f.hand, f.card(f.session.play(f.data.game), 10).containerId)
-        assertEquals("independent", f.card(f.session.play(f.data.game), 10).note)
+        assertEquals("independent", f.session.play(f.data.game)!!.board.players.single { it.accountId == f.data.actor }.counters[CounterColor.PURPLE])
         val manual = f.update(later.play!!, commands[2], "3", "4")
         f.message(manual); f.message(f.result(manual)); f.message(remote)
         assertEquals(manual.play, f.session.acceptedPlay(f.data.game))

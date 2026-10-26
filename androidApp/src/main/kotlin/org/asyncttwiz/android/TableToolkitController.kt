@@ -235,7 +235,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         } else null
         val source = CombatStackRules.liveSource(play.board, scope.contextId)?.id
         if (source != null) {
-            manual.cards(play, source, bound.sourceIds)
+            manual.cards(play, source, bound.sourceIds, bound.viewIds.filter {
+                CombatStackRules.projectionNote(play.board, it) != null }.takeIf { scope.contextId in it })
         } else panel = "occurrence"
         val occurrence = ProjectionEndpoint(bound.contextViewId)
         if (CombatStackRules.exists(play.board, occurrence)) {

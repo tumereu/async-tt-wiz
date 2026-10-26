@@ -103,15 +103,8 @@ class LibraryController(
             ?: return LibrarySubmission(0, 1)
         if (displayedHand.distinct().size != displayedHand.size || displayedHand.toSet() != hand.cards.toSet())
             return LibrarySubmission(0, 1) // Stale presentation is not permission to return another Hand.
-        val captured = SharedLibraryActions.mulligan(initial.board, libraryId, handId, displayedHand, seed(), count, minusOne)
-        val invocation = UUID.randomUUID().toString()
-        val prefix = send(ownerMoves(initial.board, displayedHand, MoveDestination(libraryId, MoveInsertion.TOP)) +
-            PlayAction.ShuffleLibrary(libraryId, captured.seed), invocation)
-        // submit synchronously updates the existing session's provisional board, not an accepted result/ack.
-        // No await, extra engine, retry loop, local authoritative state or substitution of in-flight draws.
-        val predicted = current()?.takeIf { available() } ?: return prefix
-        val draws = send(SharedLibraryActions.draw(predicted.board, libraryId, handId, captured.drawCount), invocation)
-        return LibrarySubmission(prefix.submitted + draws.submitted, prefix.refused + draws.refused)
+        return send(listOf(PlayAction.Mulligan(libraryId, handId, displayedHand.toList(),
+            if (minusOne) (displayedHand.size - 1).coerceAtLeast(0) else count, seed())))
     }
 
 }

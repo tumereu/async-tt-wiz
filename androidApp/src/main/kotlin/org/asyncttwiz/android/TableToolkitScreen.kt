@@ -44,8 +44,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             LibraryActions(library.controller, play.board, library.handIds,
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
-        "occurrence" -> if (bound != null) {
+        "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
+                MenuControl("Note", enabled) { toolkit.manual.projectionNote(play, bound.contextViewId, bound.viewIds, toolkit.viewer) },
+                projectionPingTool(toolkit, play, bound, enabled, LocalTableMenuAnnotations.current),
                 MenuControl("Select / deselect") { select(bound.contextViewId) }) +
                 (if (toolkit.tokens.projectionScope != null) listOf(
                     MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
@@ -120,19 +122,22 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
             toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
         },
         MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
-        MenuControl("Ping / Unping", enabled && annotations != null) {
-            if (annotations != null) {
-                val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
-                    PingTarget(if (play.board.cards.any { it.id == id }) PingTargetKind.CARD else PingTargetKind.OCCURRENCE, id)) }
-                var sent = false
-                intents.forEach { sent = annotations.ping(it) || sent }
-                if (sent) toolkit.dismiss()
-            }
-        },
+        projectionPingTool(toolkit, play, bound, enabled, annotations),
         MenuControl("Declare without tapping", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, false)) toolkit.dismiss() },
         MenuControl("Declare + tap", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, true)) toolkit.dismiss() },
         MenuControl("Unlink", enabled) { toolkit.tokens.links(); toolkit.manual.close() }
     )
+}
+
+private fun projectionPingTool(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
+    enabled: Boolean, annotations: TableMenuAnnotations?) = MenuControl("Ping / Unping", enabled && annotations != null) {
+    if (annotations != null) {
+        val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
+            PingTarget(if (play.board.cards.any { it.id == id }) PingTargetKind.CARD else PingTargetKind.OCCURRENCE, id)) }
+        var sent = false
+        intents.forEach { sent = annotations.ping(it) || sent }
+        if (sent) toolkit.dismiss()
+    }
 }
 
 private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, enabled: Boolean): List<MenuControl> = buildList {

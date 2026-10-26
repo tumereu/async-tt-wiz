@@ -13,7 +13,7 @@ class LibraryControllerTest {
                 PlayContainer(id(11), PlayZone.HAND, id(7), (23..25).map(::id))), TurnState(id(7))),
         emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
 
-    @Test fun mulliganPipelinesOriginalActionsThroughSharedPredictionWithoutResults() {
+    @Test fun mulliganSendsOneActionAndPredictsOnceWithoutResults() {
         var predicted = initial()
         val actions = mutableListOf<PlayAction>()
         val mutations = mutableListOf<GameplayMutation>()
@@ -29,12 +29,12 @@ class LibraryControllerTest {
             true // Local admission only: no accepted server response has arrived.
         }, { seedCalls++; seed })
         val displayed = listOf(25, 23, 24).map(::id)
-        assertEquals(LibrarySubmission(6, 0), controller.mulligan(displayed, minusOne = true))
-        assertEquals(displayed, actions.take(3).map { (it as PlayAction.MoveCard).cardId })
-        assertEquals(PlayAction.ShuffleLibrary(id(10), seed), actions[3])
-        assertEquals(RandomV1.shuffle((20..25).map(::id), seed).take(2), actions.drop(4).map { (it as PlayAction.MoveCard).cardId })
+        assertEquals(LibrarySubmission(1, 0), controller.mulligan(displayed, minusOne = true))
+        assertEquals(PlayAction.Mulligan(id(10), id(11), displayed, 2, seed), actions.single())
+        assertEquals(RandomV1.shuffle(displayed + (20..22).map(::id), seed).take(2),
+            predicted.board.containers.single { it.id == id(11) }.cards)
         assertEquals(1, seedCalls)
-        assertEquals(6, mutations.size)
+        assertEquals(1, mutations.size)
         var authoritative = initial()
         mutations.forEach { mutation ->
             val replay = GameplayHistory.replay(authoritative, mutation)
@@ -63,6 +63,42 @@ class LibraryControllerTest {
         current = current.copy(id = id(99)); online = true
         controller.shuffle(); controller.draw()
         assertEquals(2, samples); assertEquals(2, sent.size)
+    }
+
+    @Test fun sevenCardMulliganPredictionBeforeAfterBenchmark() {
+        val base = initial()
+        val cards = (1000..1059).map { n -> PlayCard(id(n), "definition", id(7),
+            if (n < 1053) id(10) else id(11), id(40)) }
+        val root = base.copy(board = base.board.copy(cards = cards, containers = base.board.containers.map { container ->
+            container.copy(cards = cards.filter { it.containerId == container.id }.map { it.id }) }))
+        val hand = root.board.containers.single { it.id == id(11) }.cards
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        var last = root
+        fun predict(combined: Boolean): Int {
+            var state = root
+            var requests = 0
+            fun send(action: PlayAction) {
+                val command = GameCommand(id(2000 + requests++), GameScope(root.gameId, playId = root.id),
+                    GameAction.Play(action), id(9), "1")
+                state = assertNotNull(GameplayRules.change(state, id(7), command).state)
+            }
+            if (combined) send(PlayAction.Mulligan(id(10), id(11), hand, 7, seed)) else {
+                val plan = org.asyncttwiz.protocol.LibraryActions.mulligan(root.board, id(10), id(11), hand, seed)
+                plan.prefix().forEach(::send)
+                org.asyncttwiz.protocol.LibraryActions.draw(state.board, id(10), id(11), 7).forEach(::send)
+            }
+            last = state
+            return requests
+        }
+        assertEquals(15, predict(false))
+        val before = last.board
+        assertEquals(1, predict(true))
+        assertEquals(before, last.board)
+        fun median(combined: Boolean): Double {
+            repeat(3) { predict(combined) }
+            return List(7) { val start = System.nanoTime(); predict(combined); (System.nanoTime() - start) / 1_000_000.0 }.sorted()[3]
+        }
+        println("Mulligan 7 prediction (60 cards): before=${median(false)} ms / 15 requests; after=${median(true)} ms / 1 request")
     }
 
     @Test fun closePanelBindsRestAndOneSeedAndDoesNotSampleOrSendOffline() {

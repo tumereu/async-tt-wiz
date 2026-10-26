@@ -68,7 +68,7 @@ class GameplayTest {
             if (it.id == first) it.copy(tapped = true) else it })) // Retained legacy Library orientation.
         val accepted = gameplayChange(tapped, draw, 95)
         assertFalse(accepted.state!!.board.cards.single { it.id == first }.tapped)
-        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id),
+        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id, note = ""),
             accepted.state.board.cards.single { it.id == first })
         val member = draw.copy(cardId = second, source = MoveSource(library.id))
         assertEquals("accepted", gameplayChange(state, member, 96).outcome)
@@ -117,7 +117,7 @@ class GameplayTest {
     @Test fun stackChecksumIsSemanticAndQueuedAdditionsUsePredictedStack() {
         val state = gameplayFixture(); val library = state.board.containers[0]; val stack = state.board.containers.last()
         val action = PlayAction.MoveCard(library.cards[0], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(state))
-        val edited = gameplayChange(state, PlayAction.SetNote(library.cards[1], "unrelated"), 91).state!!
+        val edited = gameplayChange(state, PlayAction.SetLife(gameplayId(7), "21"), 91).state!!
         assertEquals(GameplayRules.stackDigest(state), GameplayRules.stackDigest(edited))
         val first = gameplayChange(edited, action, 92)
         assertEquals("accepted", first.outcome)
@@ -158,21 +158,21 @@ class GameplayTest {
         assertEquals(legacy.board.cards.filterNot { it.id == card.id }, leave.state.board.cards.filterNot { it.id == card.id })
     }
 
-    @Test fun destinationCleanupIsOrderedIndividualRequestsAndReadsLiveFace() {
-        val state = gameplayFixture(); val card = state.board.cards.first(); val bin = state.board.containers[3]
-        val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId), MoveDestination(bin.id, MoveInsertion.UNORDERED))
+    @Test fun battlefieldDestinationCleanupIsRecordedInOneMove() {
+        val state = gameplayFixture().withBattlefieldCards(gameplayId(10)); val card = state.board.cards.first(); val bin = state.board.containers[3]
+        val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), MoveDestination(bin.id, MoveInsertion.UNORDERED))
         val sequence = GameplayRules.moveActions(state, action)
-        assertEquals(listOf(action, PlayAction.ClearCardCounter(card.id, CounterColor.RED), PlayAction.ResetCorner(card.id)), sequence)
+        assertEquals(listOf(action), sequence)
         var current = state
         val changes = sequence.mapIndexed { index, constituent -> gameplayChange(current, constituent, 100 + index).also { current = it.state!! } }
-        assertEquals(3, changes.map { it.mutation!!.id }.distinct().size)
+        assertEquals(1, changes.map { it.mutation!!.id }.distinct().size)
         val moved = changes[0].state!!.board.cards.first()
-        assertEquals(card.counters, moved.counters); assertEquals(card.corner, moved.corner)
+        assertTrue(moved.counters.isEmpty()); assertEquals("3/5", moved.corner)
         val cleaned = current.board.cards.first()
         assertTrue(cleaned.counters.isEmpty()); assertEquals("3/5", cleaned.corner)
-        assertEquals(card.note, cleaned.note); assertEquals(card.owner, cleaned.owner); assertEquals(card.tapped, cleaned.tapped)
-        assertEquals(GameplayField.FACE, changes.last().mutation!!.transition.reads.first().field)
-        assertEquals("noOp", gameplayChange(current, PlayAction.ClearCardCounter(card.id, CounterColor.RED), 110).outcome)
+        assertEquals("", cleaned.note); assertEquals(card.owner, cleaned.owner); assertFalse(cleaned.tapped)
+        assertEquals(state.board, GameplayHistory.reverse(current, changes.single().mutation!!))
+        assertEquals("inapplicable", gameplayChange(current, PlayAction.ClearCardCounter(card.id, CounterColor.RED), 110).reason)
     }
 }
 
@@ -188,7 +188,8 @@ internal fun gameplayFixture(): PlayState {
         PlayContainer(gameplayId(25), PlayZone.STACK))
     return PlayState(gameplayId(1), gameplayId(2), gameplayId(3), gameplayId(4), PlayRoot(gameplayId(5), gameplayId(6)), gameplayId(5),
         BoardState(listOf(PlayPlayer(gameplayId(7)), PlayPlayer(gameplayId(8))), cards, containers, TurnState(gameplayId(7))),
-        listOf(submitted), emptyList(), InitialStarter(StarterChoice(gameplayId(7)), gameplayId(7)))
+        listOf(submitted), listOf(InitialShuffle(gameplayId(7), RandomV1.encodeSeed(ByteArray(32)), cards.map { it.id })),
+        InitialStarter(StarterChoice(gameplayId(7)), gameplayId(7)))
 }
 internal fun gameplayChange(state: PlayState, action: PlayAction, request: Int = 90, actor: Int = 7) = GameplayRules.change(state, gameplayId(actor),
     GameCommand(gameplayId(request), GameScope(state.gameId, playId = state.id), GameAction.Play(action), gameplayId(80), "1"))

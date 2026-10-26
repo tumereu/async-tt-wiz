@@ -45,8 +45,9 @@ class CompleteCoreIntegrationTest {
             MoveDestination(gameplayId(23), MoveInsertion.UNORDERED))
         val sequence = GameplayRules.moveActions(state, move)
         val moved = step(move)
-        assertTrue(moved.transition.fields.isEmpty(), "ordinary move does not hide Reset/counter requests")
-        assertEquals(real.copy(containerId = gameplayId(23), placement = null), state.board.cards.single { it.id == cardId })
+        assertEquals(listOf(move), sequence)
+        assertEquals(real.copy(containerId = gameplayId(23), placement = null, covered = false, note = "", owner = actor,
+            corner = "3/5", counters = emptyMap()), state.board.cards.single { it.id == cardId })
         assertEquals(1, moved.transition.combatStack!!.occurrences.size)
         assertEquals(beforeMove.board.links, state.board.links)
         assertEquals(beforeMove.board.stackEffects, state.board.stackEffects)
@@ -54,8 +55,8 @@ class CompleteCoreIntegrationTest {
         val cleaned = state.board.cards.single { it.id == cardId }
         assertEquals("3/5", cleaned.corner)
         assertTrue(cleaned.counters.isEmpty())
-        assertEquals(real.note, cleaned.note)
-        assertEquals(real.owner, cleaned.owner)
+        assertEquals("", cleaned.note)
+        assertEquals(actor, cleaned.owner)
         step(PlayAction.SetNote(token.id, "final token snapshot"))
         val lastLive = state.board.cards.single { it.id == token.id }
         val removed = step(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
@@ -89,7 +90,7 @@ class CompleteCoreIntegrationTest {
         val missing = command(state, PlayAction.SetNote(gameplayId(999), "missing"), 5000)
             .copy(continuation = Continuation(initial.root.id, true))
         assertEquals("inapplicable", tree.play(actor, missing).reason)
-        val noOp = command(state, PlayAction.SetNote(initial.board.cards.first().id, initial.board.cards.first().note), 5001)
+        val noOp = command(state, PlayAction.SetLife(actor, initial.board.players.first().life), 5001)
             .copy(continuation = Continuation(initial.root.id, true))
         assertEquals("noOp", tree.play(actor, noOp).outcome)
         assertTrue(tree.branches.isEmpty())

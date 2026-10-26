@@ -54,6 +54,8 @@ import kotlinx.serialization.json.*
         @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
     @Serializable @SerialName("shuffleLibrary") data class ShuffleLibrary(val containerId: String,
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
+    @Serializable @SerialName("mulligan") data class Mulligan(val libraryId: String, val handId: String,
+        val displayedHand: List<String>, val drawCount: Int, val seed: String) : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
         val selection: ContentsSelection, val count: Int = 1, val reveal: Boolean = false) : PlayAction
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -76,6 +78,7 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("adjustCounter") data class AdjustCounter(val target: CounterTarget, val targetId: String,
         val color: CounterColor, val delta: String) : Manual
     @Serializable @SerialName("setNote") data class SetNote(val cardId: String, val value: String) : Manual
+    @Serializable @SerialName("setProjectionNote") data class SetProjectionNote(val occurrenceId: String, val value: String) : Manual
     @Serializable @SerialName("setOwner") data class SetOwner(val cardId: String, val accountId: String) : Manual
     @Serializable @SerialName("setFace") data class SetFace(val cardId: String, val faceId: String) : Manual
     @Serializable @SerialName("setCovered") data class SetCovered(val cardId: String, val covered: Boolean) : Manual
@@ -134,6 +137,9 @@ object GameplayRules {
             (action.removeStackEntryId == null || DeckValidation.uuid(action.removeStackEntryId))
         is PlayAction.ShuffleLibrary -> DeckValidation.uuid(action.containerId) && action.algorithm == "shuffle-v1" &&
             runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
+        is PlayAction.Mulligan -> listOf(action.libraryId, action.handId).all(DeckValidation::uuid) &&
+            action.displayedHand.all(DeckValidation::uuid) && action.displayedHand.distinct().size == action.displayedHand.size &&
+            action.drawCount >= 0 && runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.ShowContents -> DeckValidation.uuid(action.containerId) && action.count >= 0
         is PlayAction.DismissContents -> DeckValidation.uuid(action.displayId) &&
             (action.seed == null || runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess)
@@ -212,6 +218,8 @@ object GameplayRules {
             }
             is PlayAction.ClearCardCounter -> {
                 val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
+                if (board.containers.none { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD })
+                    return reject("inapplicable")
                 val value = card.counters[action.color] ?: return GameplayChange(state)
                 val fields = listOf(GameplayFieldChange(card.id, GameplayField.COUNTER, value, null, action.color))
                 val changed = card.copy(counters = card.counters - action.color)
@@ -234,7 +242,7 @@ object GameplayRules {
                 transition = GameplayTransition(listOf(GameplayFieldChange(account, GameplayField.LIFE, player.life, value)))
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
-            is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
+            is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
             is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
                 return LibraryRules.change(state, actor, command, action)
             PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep,
@@ -268,7 +276,7 @@ object GameplayRules {
         }), action)
         val closed = CombatStackRules.closeInvariants(state.board, resolved)
             ?: return GameplayChange(reason = "invalidStructure")
-        val relevant = transition.copy(combatStack = CombatStackRules.transition(state, closed, action),
+        val relevant = transition.copy(rulesVersion = 13, combatStack = CombatStackRules.transition(state, closed, action),
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)
                 contentsRulesVersion else transition.contentsRulesVersion,
             contents = if (panel == null) transition.contents else ContentsDisplayChange(panel, closed.contentsDisplays.singleOrNull { it.id == panel.id }))
@@ -284,19 +292,13 @@ object GameplayRules {
 
     /** Callers send these constituents in order, each with its own request ID and ordinary outcome. */
     fun moveActions(state: PlayState, action: PlayAction.MoveCard): List<PlayAction> {
-        if (action.removeStackEntryId != null) return listOf(action) // Defaults are part of the atomic Stack pull.
-        val target = state.board.containers.singleOrNull { it.id == action.destination.containerId }
-        val card = state.board.cards.singleOrNull { it.id == action.cardId }
-        if (target == null || card == null) return listOf(action)
-        if (card.containerId == target.id || target.zone !in resetZones || card.token) return listOf(action)
-        return listOf(action) + CounterColor.entries.filter { it in card.counters }.map {
-            PlayAction.ClearCardCounter(card.id, it) } + PlayAction.ResetCorner(card.id)
+        // r13 defaults belong to the move itself, including its exact inverse.
+        return listOf(action)
     }
 
     /** D-247: semantic ordered entries only; no face, text, orientation, coordinates or owner. */
     fun stackDigest(state: PlayState): String = CombatStackRules.stackDigest(state)
 
-    private val resetZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
     private fun moveProjection(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
         coverRulesVersion: Int): GameplayChange {
         val board = state.board
@@ -336,7 +338,7 @@ object GameplayRules {
         // version 5 expires reveal knowledge when a card leaves its display;
         // version 6 keeps cards upright outside the Battlefield.
         // Old recorded disclosures must still replay using the visibility rules they were made under.
-        coverRulesVersion: Int = 6): GameplayChange {
+        coverRulesVersion: Int = 7): GameplayChange {
         if (action.removeStackEntryId != null) return moveProjection(state, actor, command, action, coverRulesVersion)
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
@@ -445,9 +447,17 @@ object GameplayRules {
             else -> inserted
         }
         val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
-        val faceDown = !hiddenZone && (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD &&
-            target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
+        val leaving = coverRulesVersion >= 7 && source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD
+        val faceDown = !hiddenZone && if (leaving) target.zone == PlayZone.EXILE && card.isFaceDown
+            else (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD && target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
+        val front = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.firstOrNull()
         val moved = card.copy(containerId = target.id, placement = placement,
+            note = if (coverRulesVersion >= 7 && source.id != target.id &&
+                (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD)) "" else card.note,
+            corner = if (leaving) front?.corner.orEmpty() else card.corner,
+            counters = if (leaving) emptyMap() else card.counters,
+            faceId = if (leaving) front?.faceId ?: card.faceId else card.faceId,
+            owner = if (leaving) originalOwner(state, card) else card.owner,
             knownToAll = coverRulesVersion < 5 && card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
                 card.id in it.cardIds && (it.reveal || card.id in it.revealedIds) && hiddenZone &&
                     (target.zone == PlayZone.HAND || destination.insertion == MoveInsertion.TOP) }),
@@ -455,7 +465,9 @@ object GameplayRules {
                 coverRulesVersion >= 6 && target.zone != PlayZone.BATTLEFIELD) false else card.tapped,
             covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
             explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
+        val removedLinks = if (leaving) board.links.filter { it.first.id == card.id || it.second.id == card.id } else emptyList()
         val next = canonicalBoard(board.copy(cards = board.cards.map { if (it.id == card.id) moved else it },
+            links = board.links - removedLinks.toSet(),
             containers = board.containers.map { when (it.id) {
                 target.id -> it.copy(cards = targetCards)
                 source.id -> it.copy(cards = it.cards.filter { id -> id != card.id })
@@ -469,8 +481,13 @@ object GameplayRules {
         val fields = listOf(
             GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),
             GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), moved.covered.toString()),
-            GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), moved.explicitlyCovered.toString())
-        ).filter { it.from != it.to }
+            GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), moved.explicitlyCovered.toString()),
+            GameplayFieldChange(card.id, GameplayField.NOTE, card.note, moved.note),
+            GameplayFieldChange(card.id, GameplayField.CORNER, card.corner, moved.corner),
+            GameplayFieldChange(card.id, GameplayField.FACE, card.faceId, moved.faceId),
+            GameplayFieldChange(card.id, GameplayField.OWNER, card.owner, moved.owner)
+        ).filter { it.from != it.to } + card.counters.mapNotNull { (color, value) ->
+            if (color in moved.counters) null else GameplayFieldChange(card.id, GameplayField.COUNTER, value, null, color) }
         fun viewers(board: BoardState, card: PlayCard): List<String> {
             if (coverRulesVersion >= 4) return CardVisibility.viewers(board, card)
             val container = board.containers.single { it.id == card.containerId }
@@ -478,15 +495,20 @@ object GameplayRules {
                 CardVisibility.isVisibleFaceUp(card, container.zone, container.accountId, it) }.sorted()
         }
         val newViewers = if (coverRulesVersion == 1) emptyList() else viewers(next, moved) - viewers(board, card).toSet()
-        val transition = GameplayTransition(fields = fields,
+        val transition = GameplayTransition(fields = fields, links = removedLinks.map { LinkChange(it, null) },
             disclosures = if (newViewers.isEmpty()) emptyList() else listOf(
-                GameplayDisclosure(card.id, card.faceId, target.id, newViewers)),
+                GameplayDisclosure(card.id, moved.faceId, target.id, newViewers)),
             movement = GameplayMoveChange(card.id, from, to,
             if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null,
             if (stackChanged) stackDigest(state) else null,
             if (stackChanged) stackDigest(state.copy(board = next)) else null, coverRulesVersion))
         return record(state, actor, command, next, transition, contentsRulesVersion = if (coverRulesVersion >= 5) 2 else 1)
     }
+
+    /** Initial shuffle membership is immutable deck provenance, independent of edited owner/region.
+     * This is bounded by deck size and never consults game history. Tokens have no deck provenance. */
+    internal fun originalOwner(state: PlayState, card: PlayCard): String =
+        state.shuffles.firstOrNull { card.id in it.order }?.accountId ?: card.owner
 
     internal fun members(board: BoardState, container: PlayContainer, placement: PlayPlacement?): List<String> =
         if (container.zone == PlayZone.BATTLEFIELD) container.cards.filter { id -> board.cards.single { it.id == id }.placement == placement }

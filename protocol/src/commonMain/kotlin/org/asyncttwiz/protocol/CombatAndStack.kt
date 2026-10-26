@@ -6,7 +6,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable enum class CombatRole { ATTACKER, BLOCKER }
-@Serializable data class CombatOccurrence(val id: String, val sourceId: String)
+@Serializable data class CombatOccurrence(val id: String, val sourceId: String,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "")
 @Serializable data class CombatPair(val id: String, val attackers: List<CombatOccurrence> = emptyList(),
     val blockers: List<CombatOccurrence> = emptyList()) {
     fun side(role: CombatRole) = if (role == CombatRole.ATTACKER) attackers else blockers
@@ -17,7 +18,8 @@ import kotlinx.serialization.Serializable
 /** Only disappearance retains card data. Live effects never cache fields or a creation-time snapshot. */
 @Serializable data class StackEffect(val id: String, val sourceId: String, val frozen: PlayCard? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val controller: String? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isCopy: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isCopy: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "")
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
 @Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)
@@ -73,6 +75,8 @@ import kotlinx.serialization.Serializable
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
 
 object CombatStackRules {
+    fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
+        ?: occurrences(board.combat).singleOrNull { it.id == id }?.note
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
     fun projectionIds(board: BoardState): Set<String> =
         (occurrences(board.combat).map { it.id } + board.stackEffects.map { it.id }).toSet()
@@ -340,7 +344,7 @@ object CombatStackRules {
         val movedSource = ((action as? PlayAction.Combat)?.action as? CombatAction.Place)?.sourceId
             ?: ((action as? PlayAction.Combat)?.action as? CombatAction.Declare)?.sourceId
         val changed = (oldOccurrences.keys + newOccurrences.keys).filter { id ->
-            oldOccurrences[id] == null || newOccurrences[id] == null || oldOccurrences[id]?.sourceId == movedSource
+            oldOccurrences[id] != newOccurrences[id] || oldOccurrences[id]?.sourceId == movedSource
         }
         fun occurrence(board: BoardState, id: String) = occurrences(board.combat).find { it.id == id }?.let {
             CombatOccurrenceState(it, location(board.combat!!, id)!!)

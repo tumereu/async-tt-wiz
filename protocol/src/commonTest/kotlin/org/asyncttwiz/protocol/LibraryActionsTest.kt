@@ -76,7 +76,7 @@ class LibraryActionsTest {
         }
         assertTrue(members(current).isEmpty())
         assertEquals(initial.board.cards.map { it.id }, current.board.cards.map { it.id })
-        assertEquals(initial.board.cards.map { it.copy(containerId = id(11)) }, current.board.cards)
+        assertEquals(initial.board.cards.map { it.copy(containerId = id(11), note = "") }, current.board.cards)
         assertTrue(LibraryActions.draw(current.board, id(10), id(11), 1).isEmpty())
     }
 
@@ -126,11 +126,11 @@ class LibraryActionsTest {
         assertEquals(id(22), members(apply(moved, listOf(draw.last()))).first())
     }
 
-    @Test fun entryResetsUseRetainedCurrentFaceBlankFallbackAndPreserveUnrelatedFields() {
+    @Test fun nonBattlefieldEntryClearsNoteButDoesNotReapplyBattlefieldDefaults() {
         val initial = state(hand = listOf(24))
         val action = LibraryActions.moveCaptured(initial.board, listOf(id(24)), MoveDestination(id(13), MoveInsertion.UNORDERED)).single()
         val sequence = GameplayRules.moveActions(initial, action)
-        assertEquals(listOf(action, PlayAction.ClearCardCounter(id(24), CounterColor.RED), PlayAction.ResetCorner(id(24))), sequence)
+        assertEquals(listOf(action), sequence)
         var current = initial
         val changes = sequence.map { constituent ->
             val before = current
@@ -140,17 +140,18 @@ class LibraryActionsTest {
                 current = it.state!!
             }
         }
-        assertEquals(3, changes.map { it.mutation!!.id }.distinct().size)
-        assertEquals(listOf(GameplayFieldChange(id(24), GameplayField.COVERED, "true", "false")),
+        assertEquals(1, changes.map { it.mutation!!.id }.distinct().size)
+        assertEquals(listOf(GameplayFieldChange(id(24), GameplayField.COVERED, "true", "false"),
+            GameplayFieldChange(id(24), GameplayField.NOTE, "keep", "")),
             changes.first().mutation!!.transition.fields)
-        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false), changes.first().state!!.board.cards.last())
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = ""), changes.first().state!!.board.cards.last())
         val card = current.board.cards.single { it.id == id(24) }
-        assertEquals("4/5", card.corner); assertTrue(card.counters.isEmpty())
-        assertEquals(initial.board.cards.last().copy(containerId = id(13), corner = "4/5", counters = emptyMap(), covered = false), card)
-        assertEquals(3, changes.sumOf { it.mutation!!.transition.fields.size })
-        assertEquals(GameplayRead(id(24), GameplayField.FACE, id(41)), changes.last().mutation!!.transition.reads.single())
+        assertEquals("modified", card.corner); assertEquals(mapOf(CounterColor.RED to "3"), card.counters)
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = ""), card)
+        assertEquals(2, changes.sumOf { it.mutation!!.transition.fields.size })
+        assertTrue(changes.last().mutation!!.transition.reads.isEmpty())
         val missing = apply(initial.copy(definitions = emptyList()), listOf(action))
-        assertEquals("", missing.board.cards.last().corner)
+        assertEquals("modified", missing.board.cards.last().corner)
         val reordered = apply(initial, LibraryActions.moveSlice(initial.board, id(10), ContentsSelection.BOTTOM, 1,
             MoveDestination(id(10), MoveInsertion.TOP)))
         assertEquals(initial.board.cards, reordered.board.cards)

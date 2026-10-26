@@ -151,11 +151,10 @@ class TableActionsTest {
         val tap = change(state(), PlayAction.SetTapped(id(9), false))
         val tracking = change(tap.state!!, PlayAction.NextStep, 14)
         assertEquals(tap.state.currentGroup!!.id, tracking.state!!.currentGroup!!.id)
-        assertEquals("tap", tracking.state.currentGroup.category)
-        // I22's category/prefix contract keeps T pending even after a backward companion.
-        // Fill it with a substantive edit before asserting that a new random run starts separately.
+        assertEquals("untap", tracking.state.currentGroup.category)
+        // r13 untaps retain backward companions but never absorb the next substantive action.
         val anchor = change(tracking.state, PlayAction.AdjustLife(id(7), "1"), 15)
-        assertEquals(tracking.state.currentGroup.id, anchor.state!!.currentGroup!!.id)
+        assertNotEquals(tracking.state.currentGroup.id, anchor.state!!.currentGroup!!.id)
         assertEquals("edit", anchor.state.currentGroup.category)
         val die = change(anchor.state, PlayAction.RollDie(6, 3), 16)
         assertNotEquals(anchor.state.currentGroup.id, die.state!!.currentGroup!!.id)

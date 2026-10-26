@@ -100,9 +100,9 @@ class LibraryActionsUiTest {
         render()
         for ((label, count) in listOf("Mulligan 7" to 7, "Mulligan −1" to hand.cards.size - 1)) {
             sent.clear(); click(label)
-            assertEquals(hand.cards, sent.filterIsInstance<PlayAction.MoveCard>().take(hand.cards.size).map { it.cardId })
-            assertEquals(1, sent.filterIsInstance<PlayAction.ShuffleLibrary>().size)
-            assertEquals(hand.cards.size + count, sent.filterIsInstance<PlayAction.MoveCard>().size)
+            val action = sent.single() as PlayAction.Mulligan
+            assertEquals(hand.cards, action.displayedHand)
+            assertEquals(count, action.drawCount)
         }
     }
 

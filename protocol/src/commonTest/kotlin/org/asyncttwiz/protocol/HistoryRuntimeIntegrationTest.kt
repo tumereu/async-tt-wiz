@@ -5,7 +5,7 @@ import kotlin.test.*
 
 class HistoryRuntimeIntegrationTest {
     @Test fun preparedSingleReviewEndpointIsDisposableAcrossSelectiveEdits() {
-        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10)))
+        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11)))
         tree = play(tree, PlayAction.SetTapped(gameplayId(10), true))
         tree = play(tree, PlayAction.SetNote(gameplayId(11), "reviewed"), b)
         val selected = tree.currentNodeId
@@ -76,7 +76,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun retainedReferencesProtectExactInactiveMaterializationsWithoutWholeBoardLocks() {
-        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10)))
+        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11)))
         tree = play(tree, PlayAction.SetTapped(gameplayId(10), true))
         val tap = tree.currentNodeId
         tree = play(tree, PlayAction.SetNote(gameplayId(11), "independent"), b)
@@ -86,7 +86,7 @@ class HistoryRuntimeIntegrationTest {
         val blocked = HistoryContinuation.change(tree, a, command(tree, GameAction.Undo))
         assertEquals("replayBlocked", blocked.reason); assertNull(blocked.tree)
         // An unrelated root reference preserves its original materialization under selective edits.
-        var unrelated = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10)))
+        var unrelated = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11)))
         unrelated = play(unrelated, PlayAction.SetTapped(gameplayId(10), true))
         unrelated = play(unrelated, PlayAction.EventComment(EventReference(unrelated.initial.id, unrelated.initial.root.id), "root"), b)
         val removed = step(unrelated, GameAction.Undo)
@@ -99,7 +99,7 @@ class HistoryRuntimeIntegrationTest {
         assertEquals("missingReference", HistoryContinuation.change(annotated, a, command(annotated,
             GameAction.Play(PlayAction.EventComment(EventReference(annotated.initial.id, independent, "0"), "stale")))).reason)
         // A reference recorded on another offshoot is not on the target's linear suffix.
-        var crossBranch = play(GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10))), PlayAction.SetTapped(gameplayId(10), true))
+        var crossBranch = play(GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11))), PlayAction.SetTapped(gameplayId(10), true))
         val referenced = crossBranch.currentNodeId
         crossBranch = play(crossBranch, PlayAction.EventComment(EventReference(crossBranch.initial.id, referenced),
             "inactive offshoot dependency"), b, crossBranch.initial.root.id)
@@ -110,7 +110,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun retainedHeadsAndDisplacedVersionsSurviveUndoRedoAndContinuation() {
-        var tree = GameplayTree(gameplayFixture())
+        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(11)))
         tree = play(tree, PlayAction.SetLife(a, "21"))
         val oldHead = tree.currentNodeId
         val rootBranch = tree.currentBranchId
@@ -134,7 +134,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun failedAndNoopHistoricalInputsPreserveStacksFirstSuccessForksAndFullDeltaKeepsOffshoots() {
-        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10)))
+        var tree = GameplayTree(gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11)))
         tree = play(tree, PlayAction.SetLife(a, "21"))
         tree = play(tree, PlayAction.SetNote(gameplayId(11), "B"), b)
         tree = step(tree, GameAction.Undo)

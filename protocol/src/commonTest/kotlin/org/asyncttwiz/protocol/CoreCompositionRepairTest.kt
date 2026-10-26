@@ -74,7 +74,7 @@ class CoreCompositionRepairTest {
             assertEquals("invalidInput", gameplayChange(withLife("20"), PlayAction.AdjustLife(actor, invalid)).reason)
     }
 
-    @Test fun capturedLibraryEntriesSendIndividualCleanupAndReadFaceWhenResetActuallyRuns() {
+    @Test fun capturedLibraryEntriesAreSingleMovesAndCannotEditOffBattlefieldModifications() {
         val initial = gameplayFixture()
         val card = initial.board.cards.first()
         val hand = gameplayId(21)
@@ -84,18 +84,10 @@ class CoreCompositionRepairTest {
             MoveDestination(gameplayId(20), MoveInsertion.TOP)).single()
         // Capture all requests now, without waiting for any authoritative acknowledgement.
         val requests = GameplayRules.moveActions(inHand, move)
-        assertEquals(listOf(move, PlayAction.ClearCardCounter(card.id, CounterColor.RED), PlayAction.ResetCorner(card.id)), requests)
+        assertEquals(listOf(move), requests)
         var state = inHand
         val accepted = mutableListOf<GameplayMutation>()
         for ((index, request) in requests.withIndex()) {
-            if (index == 2) {
-                // Concurrent face selection changes the live Reset read, not the captured target.
-                val definition = state.definitions.single()
-                val other = DefinitionFace(gameplayId(31), "Other", corner = "7/9")
-                state = state.copy(definitions = listOf(definition.copy(definition = definition.definition.copy(
-                    faces = definition.definition.faces + other))))
-                state = gameplayChange(state, PlayAction.SetFace(card.id, other.faceId), 99).state!!
-            }
             val before = state
             val changed = gameplayChange(before, request, 100 + index)
             assertEquals("accepted", changed.outcome)
@@ -104,12 +96,12 @@ class CoreCompositionRepairTest {
             state = changed.state!!
             if (index == 0) {
                 assertTrue(changed.mutation.transition.fields.isEmpty())
-                assertEquals(card.copy(containerId = gameplayId(20)), state.board.cards.first())
+                assertEquals(card.copy(containerId = gameplayId(20), note = ""), state.board.cards.first())
             }
         }
-        assertEquals(3, accepted.map { it.requestId }.distinct().size)
-        assertEquals(GameplayRead(card.id, GameplayField.FACE, gameplayId(31)), accepted.last().transition.reads.single())
-        assertEquals(card.copy(faceId = gameplayId(31), corner = "7/9", counters = emptyMap()), state.board.cards.first())
+        assertEquals(1, accepted.map { it.requestId }.distinct().size)
+        assertEquals("inapplicable", gameplayChange(state, PlayAction.ResetCorner(card.id)).reason)
+        assertEquals(card.copy(note = ""), state.board.cards.first())
         val sameContainer = move.copy(source = MoveSource(gameplayId(20)), destination = MoveDestination(gameplayId(20), MoveInsertion.BOTTOM))
         assertEquals(listOf(sameContainer), GameplayRules.moveActions(state, sameContainer))
         val tokenState = inHand.copy(board = inHand.board.copy(cards = inHand.board.cards.map {

@@ -54,6 +54,7 @@ object ManualEditRules {
         is PlayAction.AdjustCounter -> DeckValidation.uuid(action.targetId) && ManualText.number(action.delta) != null &&
             action.delta == action.delta.trim()
         is PlayAction.SetNote -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim())
+        is PlayAction.SetProjectionNote -> DeckValidation.uuid(action.occurrenceId) && DeckValidation.text(action.value.trim())
         is PlayAction.SetOwner -> DeckValidation.uuid(action.cardId) && DeckValidation.uuid(action.accountId)
         is PlayAction.SetFace -> DeckValidation.uuid(action.cardId) && DeckValidation.uuid(action.faceId)
         is PlayAction.SetCovered -> DeckValidation.uuid(action.cardId)
@@ -61,6 +62,18 @@ object ManualEditRules {
     }
 
     internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction.Manual): GameplayChange {
+        if (action is PlayAction.SetProjectionNote) {
+            val board = state.board
+            val id = action.occurrenceId
+            val value = action.value.trim()
+            val old = CombatStackRules.projectionNote(board, id) ?: return GameplayChange(reason = "missingReference")
+            if (old == value) return GameplayChange(state)
+            val next = board.copy(stackEffects = board.stackEffects.map { if (it.id == id) it.copy(note = value) else it },
+                combat = board.combat?.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
+                    attackers = pair.attackers.map { if (it.id == id) it.copy(note = value) else it },
+                    blockers = pair.blockers.map { if (it.id == id) it.copy(note = value) else it }) }) })
+            return GameplayRules.record(state, actor, command, next, GameplayTransition())
+        }
         val transition = transition(state, actor, action) ?: return GameplayChange(reason = "inapplicable")
         if (transition.fields.isEmpty() && transition.disclosures.isEmpty()) return GameplayChange(state)
         return GameplayRules.record(state, actor, command, apply(state.board, transition.fields), transition)
@@ -76,6 +89,8 @@ object ManualEditRules {
             val target = if (action is PlayAction.SetCounter) action.target else (action as PlayAction.AdjustCounter).target
             val id = if (action is PlayAction.SetCounter) action.targetId else (action as PlayAction.AdjustCounter).targetId
             val color = if (action is PlayAction.SetCounter) action.color else (action as PlayAction.AdjustCounter).color
+            if (target == CounterTarget.CARD && board.cards.singleOrNull { it.id == id }?.let { card ->
+                    board.containers.singleOrNull { it.id == card.containerId }?.zone } != PlayZone.BATTLEFIELD) return null
             val counters = when (target) {
                 CounterTarget.CARD -> board.cards.singleOrNull { it.id == id }?.counters
                 CounterTarget.PLAYER -> board.players.singleOrNull { it.accountId == id }?.counters
@@ -98,6 +113,10 @@ object ManualEditRules {
             else -> return null
         }
         val card = board.cards.singleOrNull { it.id == id } ?: return null
+        val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return null
+        if (action is PlayAction.SetNote && zone !in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return null
+        if ((action is PlayAction.SetCorner || action is PlayAction.AdjustCorner || action is PlayAction.ResetCorner ||
+                action is PlayAction.SetOwner) && zone != PlayZone.BATTLEFIELD) return null
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
         fun exposure(face: String, viewers: List<String>) = GameplayDisclosure(id, face, card.containerId, viewers.sorted())
         return when (action) {

@@ -34,7 +34,7 @@ class BattlefieldOrientationTest {
             val next = assertNotNull(change.state, change.reason)
             assertEquals(target.zone == PlayZone.BATTLEFIELD, next.board.cards.first().tapped)
             val event = assertNotNull(change.mutation)
-            assertEquals(6, event.transition.movement!!.coverRulesVersion)
+            assertEquals(7, event.transition.movement!!.coverRulesVersion)
             assertEquals(next, GameplayHistory.apply(root, event))
             assertEquals(root, GameplayHistory.unapply(next, event))
         }
@@ -81,7 +81,7 @@ class BattlefieldOrientationTest {
         val root = inZone(PlayZone.BATTLEFIELD)
         val card = root.board.cards.first()
         val tap = gameplayChange(root, PlayAction.SetTapped(card.id, true)).mutation!!
-        assertEquals(2, tap.transition.concerns!!.rulesVersion)
+        assertEquals(3, tap.transition.concerns!!.rulesVersion)
         val relocated = root.copy(board = root.board.copy(cards = root.board.cards.map {
             if (it.id == card.id) it.copy(placement = it.placement!!.copy(position = BoardPosition(20, 0))) else it }))
         assertNotNull(GameplayHistory.replay(relocated, tap).state)

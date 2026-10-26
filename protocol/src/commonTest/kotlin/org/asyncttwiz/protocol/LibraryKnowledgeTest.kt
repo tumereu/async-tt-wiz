@@ -278,7 +278,7 @@ class LibraryKnowledgeTest {
         tree = play(tree, PlayAction.EventComment(EventReference(tree.initial.id, target, tree.contextVersion(target)),
             "inactive branch"), b, tree.initial.root.id)
         assertNotNull(tree.prepareReview(target), "Traverse inverse annotated fork")
-        play(tree, PlayAction.SetNote(id(1000), "continued"), b, target)
+        play(tree, PlayAction.SetPlayerCounter(b, CounterColor.RED, "continued"), b, target)
     }
 
     @Test fun legacySelectiveUndoRedoAcrossRetainedForkReseedsPreservesRecordedOrderAndTraversal() {
@@ -286,11 +286,11 @@ class LibraryKnowledgeTest {
         base = place(base, library(base).cards[3], MoveInsertion.TOP)
         base = place(base, library(base).cards[8], MoveInsertion.BOTTOM)
         val anchor = base.currentNodeId
-        val displaced = play(base, PlayAction.SetNote(id(1000), "displaced"), b)
+        val displaced = play(base, PlayAction.SetPlayerCounter(b, CounterColor.RED, "displaced"), b)
         val ownFork = play(displaced, PlayAction.AdjustLife(a, "1"), target = anchor)
         val own = ownFork.currentNodeId
-        val otherFork = play(ownFork, PlayAction.SetNote(id(1000), "other branch"), b, anchor)
-        val current = play(otherFork, PlayAction.SetNote(id(1001), "retained"), b, own)
+        val otherFork = play(ownFork, PlayAction.SetPlayerCounter(b, CounterColor.RED, "other branch"), b, anchor)
+        val current = play(otherFork, PlayAction.SetPlayerCounter(b, CounterColor.BLUE, "retained"), b, own)
         // Explicit compatibility fixture: pre-concern retained events still rebase their reseeds.
         val continued = current.copy(nodes = current.nodes.mapValues { (_, node) ->
             val old = node.copy(transition = node.transition.copy(concerns = null))
@@ -302,7 +302,8 @@ class LibraryKnowledgeTest {
         val undone = control(continued, GameAction.Undo)
         assertFalse(own in undone.nodes)
         assertEquals(anchor, undone.nodes.getValue(suffix).parentId)
-        assertEquals(state(base).board.players, state(undone).board.players)
+        assertEquals(state(base).board.players.map { if (it.accountId == b)
+            it.copy(counters = mapOf(CounterColor.BLUE to "retained")) else it }, state(undone).board.players)
         assertEquals(before.board.containers, state(undone).board.containers)
         val rebased = undone.nodes.getValue(suffix).transition.delta!!.libraryReseeds
         assertEquals(originalReseeds.map { it.to }, rebased.map { it.to })
@@ -326,7 +327,7 @@ class LibraryKnowledgeTest {
         val own = tree.currentNodeId
         tree = play(tree, PlayAction.EventComment(EventReference(tree.initial.id, own, tree.contextVersion(own)),
             "inactive reference"), b, tree.initial.root.id)
-        tree = play(tree, PlayAction.SetNote(id(1000), "continued"), b, own)
+        tree = play(tree, PlayAction.SetPlayerCounter(b, CounterColor.RED, "continued"), b, own)
         val before = state(tree)
         val blocked = HistoryContinuation.change(tree, a, command(tree, GameAction.Undo))
         assertEquals("replayBlocked", blocked.reason) // The retained reseed tuple is checked before the offshoot reference.

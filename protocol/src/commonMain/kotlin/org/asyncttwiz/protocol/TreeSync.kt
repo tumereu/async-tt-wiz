@@ -204,10 +204,11 @@ object TreeSync {
      * Topology is checked, but no retained board mutations are replayed. Use decode/validate only
      * for explicit exhaustive validation, not ordinary cache restore or baseline recovery. */
     fun restore(records: Sequence<TreeSyncRecord>, gameId: String, playId: String, endpoint: PlayState,
-        boundedEndpoint: Boolean = false): DownloadedTree = decode(records, gameId, playId, endpoint, boundedEndpoint)
+        boundedEndpoint: Boolean = false, annotations: EventAnnotationState? = null): DownloadedTree =
+        decode(records, gameId, playId, endpoint, boundedEndpoint, annotations)
 
     private fun decode(records: Sequence<TreeSyncRecord>, gameId: String, playId: String, endpoint: PlayState?,
-        boundedEndpoint: Boolean): DownloadedTree {
+        boundedEndpoint: Boolean, annotations: EventAnnotationState? = null): DownloadedTree {
         var initial: PlayState? = null
         var current: String? = null
         var selectedBranch: String? = null
@@ -269,7 +270,8 @@ object TreeSync {
             (if (heads.isEmpty()) mapOf(root.root.branchId to root.root.id) else heads).toPersistentMap(), selectionControl), branches.toPersistentMap())
         validate(result, null, endpoint)
         if (endpoint != null) {
-            val state = if (boundedEndpoint) restoreAnnotations(result.tree, endpoint) else endpoint
+            val state = if (annotations != null) endpoint.copy(annotations = annotations)
+                else if (boundedEndpoint) restoreAnnotations(result.tree, endpoint) else endpoint
             result.tree.restoreEndpoint(state, result.tree.endpointIndex())
         }
         return result
@@ -281,14 +283,43 @@ object TreeSync {
         val path = mutableListOf<GameplayMutation>()
         var at = tree.currentNodeId
         while (at != tree.initial.root.id) {
+            tree.work.ancestrySteps++
             val node = requireNotNull(tree.nodes[at]); path += node; at = node.parentId
         }
         var state = endpoint.copy(annotations = tree.initial.annotations)
         for (node in path.asReversed()) {
             val entities = requireNotNull(node.transition.delta).entities.filter { it.kind in setOf("comment", "ping", "ping-ordinal") }
-            if (entities.isNotEmpty()) state = requireNotNull(GameplayDeltas.apply(state, GameplayDelta(entities), false))
+            if (entities.isNotEmpty()) state = requireNotNull(GameplayDeltas.apply(state, GameplayDelta(entities), false, work = tree.work))
         }
         return state
+    }
+
+    /** Annotation entities touched between accepted endpoints, including reversed/reparented suffixes.
+     * Unchanged ancestry is a boundary, not a list to enumerate on every cache write. */
+    fun annotationChanges(before: GameplayTree, after: GameplayTree): Set<GameplayTreeKey> {
+        val old = before.index().positions
+        val next = after.index().positions
+        var left = before.currentNodeId
+        var right = after.currentNodeId
+        val keys = mutableSetOf<GameplayTreeKey>()
+        fun entities(node: GameplayMutation?) {
+            node?.transition?.delta?.entities?.filter { it.kind in setOf("comment", "ping", "ping-ordinal") }
+                ?.forEach { keys += GameplayTreeKey(it.kind, it.id) }
+        }
+        // A same-ID payload edit need not change topology identity. Include both tuples even
+        // when the selected endpoint's ancestry did not move (inactive edits are harmless).
+        after.editKeys.filter { it.kind == "node" }.forEach { entities(before.nodes[it.id]); entities(after.nodes[it.id]) }
+        fun visit(tree: GameplayTree, id: String): String {
+            tree.work.ancestrySteps++
+            val node = requireNotNull(tree.nodes[id])
+            entities(node)
+            return node.parentId
+        }
+        while (old.getValue(left).identity != next.getValue(right).identity) {
+            if (old.getValue(left).depth >= next.getValue(right).depth) left = visit(before, left)
+            else right = visit(after, right)
+        }
+        return keys
     }
 
     /** Iterative full retained-tree validation/replay. No Undo-only ceiling, recursive ancestry or

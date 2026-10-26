@@ -49,6 +49,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         private set
     private fun fail(reason: String): TreePublication { failure = reason; return TreePublication.RestartRequired }
     private var materialized: PublishedDownloadedTree? = null
+    private var annotations: TreeAnnotationProjection? = null
     private fun worker() { check(Thread.currentThread() !== uiThread) { "Tree work must run off the UI thread" } }
 
     fun accepted(): PublishedDownloadedTree? {
@@ -65,8 +66,21 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
             require(payload.getValue("digest").jsonPrimitive.content == TreeSync.digest(DeckJson.canonicalElement(content).toByteArray()))
             require(content.getValue("revision").jsonPrimitive.content == snapshot.version.revision.toString())
             val state = GameWire.json.decodeFromJsonElement<PlayState>(content.getValue("state"))
-            PublishedDownloadedTree(snapshot.version, TreeSync.restore(snapshot.records.asSequence().filter { it.key != ENDPOINT }.map(::decode),
-                cache.gameId, cache.playId, state, boundedEndpoint = true))
+            val projectionRecords = snapshot.records.asSequence().filter(TreeAnnotationProjection::owns)
+            val projection = content["annotations"]?.let { identity ->
+                TreeAnnotationProjection.read(projectionRecords).also { require(it.identity == identity) { "Corrupt annotation projection" } }
+            }
+            require(projection != null || projectionRecords.none()) { "Unbound annotation projection" }
+            val generation = TreeSync.restore(snapshot.records.asSequence()
+                .filter { it.key != ENDPOINT && !TreeAnnotationProjection.owns(it) }.map(::decode),
+                cache.gameId, cache.playId, state, boundedEndpoint = true, annotations = projection?.state())
+            val restored = projection ?: TreeAnnotationProjection.from(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId)).annotations)
+            // Upgrade an endpoint-only cache exactly once, without advancing the server revision or
+            // rewriting retained history. Ownership/publication CAS also fences this derived write.
+            val version = if (projection != null) snapshot.version else cache.amend(snapshot.version,
+                restored.records().toList() + endpoint(generation, snapshot.version.revision, restored)) ?: return@let null
+            annotations = restored
+            PublishedDownloadedTree(version, generation)
         }?.also { materialized = it }
     }
 
@@ -157,8 +171,10 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         }
         if (revision < verifiedHead || (expected != null && revision < expected.revision)) return restart(staged.plan.id)
         // Recheck mutable adapter input before crossing the accepted boundary.
-        val records = TreeSync.records(generation).map(::encode).toList() + endpoint(generation, revision)
+        val projection = TreeAnnotationProjection.from(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId)).annotations)
+        val records = TreeSync.records(generation).map(::encode).toList() + projection.records().toList() + endpoint(generation, revision, projection)
         val next = cache.publish(staged.plan.id, expected, revision, records) ?: return fail("publishCAS")
+        annotations = projection
         return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
 
@@ -171,9 +187,13 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (delta.baseRevision != current.version.revision) return fail("revisionGap:cache=${current.version.revision}:base=${delta.baseRevision}:result=${delta.revision}")
         val generation = merge(current.generation, delta)
         val history = HistoryTree.ingest(generation.tree, delta.revision.toString(), current.history)
-        val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode) + endpoint(generation, delta.revision),
-            delta.removals.map { RecordKey(it.first, it.second) })
+        val edit = requireNotNull(annotations).update(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId)).annotations,
+            TreeSync.annotationChanges(current.generation.tree, generation.tree))
+        val next = cache.apply(current.version, delta.revision,
+            delta.upserts.map(::encode) + edit.upserts + endpoint(generation, delta.revision, edit.projection),
+            delta.removals.map { RecordKey(it.first, it.second) } + edit.removals)
             ?: return fail("applyCAS")
+        annotations = edit.projection
         return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
 
@@ -202,11 +222,12 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
     companion object {
         const val MAX_CHUNK_BYTES = 4 * 1024 * 1024
         private val ENDPOINT = RecordKey("tree-cache-endpoint", "current")
-        internal fun endpoint(generation: DownloadedTree, revision: Long): AcceptedRecord {
+        internal fun endpoint(generation: DownloadedTree, revision: Long,
+            projection: TreeAnnotationProjection = TreeAnnotationProjection.from(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId)).annotations)): AcceptedRecord {
             val content = buildJsonObject {
                 put("revision", revision.toString())
-                // Annotation records already live in retained nodes. Do not rewrite their entire
-                // growing collection on every tap; restore their projection when decoding records.
+                // Bind the sparse materialized annotation records to the SAME accepted revision.
+                put("annotations", projection.identity)
                 put("state", GameWire.json.encodeToJsonElement(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId))
                     .copy(annotations = EventAnnotationState())))
             }

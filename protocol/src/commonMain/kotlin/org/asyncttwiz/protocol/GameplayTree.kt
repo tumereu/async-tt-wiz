@@ -96,7 +96,7 @@ import kotlin.concurrent.Volatile
 
     internal fun unapply(state: PlayState, node: GameplayMutation): PlayState? {
         work.unappliedNodes++
-        return GameplayHistory.unapply(state, node)
+        return GameplayHistory.unapply(state, node, work)
     }
 
     /** A reducer's already-materialized boundary while it validates a sparse edited suffix. */
@@ -353,7 +353,7 @@ import kotlin.concurrent.Volatile
         replayedNodes++
         work.replayedNodes++
         nearby(state)
-        return GameplayHistory.replay(state, node, referenceResolver()).state
+        return GameplayHistory.replay(state, node, referenceResolver(), work).state
     }
 
     /** Opaque public topology identity, never a hash of hidden faces/order/board values. Mutations
@@ -411,7 +411,7 @@ import kotlin.concurrent.Volatile
         val (up, down) = route
         var state = source
         for (node in up) state = unapply(state, node) ?: return null
-        for (node in down) { work.replayedNodes++; state = GameplayHistory.apply(state, node) ?: return null }
+        for (node in down) { work.replayedNodes++; state = GameplayHistory.apply(state, node, work) ?: return null }
         return state
     }
 }

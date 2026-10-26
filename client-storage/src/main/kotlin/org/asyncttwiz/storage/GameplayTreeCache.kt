@@ -33,6 +33,8 @@ interface GameplayTreeStore {
     /** Null means ownership, staging or the expected publication moved on; nothing was written. */
     fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion?
     fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion?
+    /** CAS upgrade of derived local records only; never advances the accepted server revision. */
+    fun amend(expected: TreeCacheVersion, upserts: List<AcceptedRecord>): TreeCacheVersion?
 }
 
 /** One accepted game scope in the existing SQLDelight replica, including the codec's revision-bound
@@ -163,6 +165,15 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
         require(upserts.none { it.key == HEADER } && HEADER !in removals)
         val next = TreeCacheVersion(revision, UUID.randomUUID().toString())
         storage.commitAccepted(scope, expected.revision, revision, upserts + header(next), removals)
+        next
+    }
+
+    override fun amend(expected: TreeCacheVersion, upserts: List<AcceptedRecord>): TreeCacheVersion? = fenced {
+        val (publication, actual) = headerVersion() ?: return@fenced null
+        if (actual != expected || publication.playId != playId) return@fenced null
+        require(upserts.none { it.key == HEADER })
+        val next = TreeCacheVersion(expected.revision, UUID.randomUUID().toString())
+        storage.amendAccepted(scope, expected.revision, upserts + header(next))
         next
     }
 

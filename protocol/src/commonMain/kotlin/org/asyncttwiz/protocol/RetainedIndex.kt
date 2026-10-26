@@ -120,11 +120,12 @@ class RetainedIndex(
 
 /** Per-execution-domain diagnostic counters; never serialized or used as authority. */
 class GameplayWork {
+    var deltaApplications: Int = 0; internal set
     var replayedNodes: Int = 0; internal set
     var unappliedNodes: Int = 0; internal set
     var ancestrySteps: Int = 0; internal set
     var rootMaterializations: Int = 0; internal set
     var fullHistoryScans: Int = 0; internal set
     var indexedNodes: Int = 0; internal set
-    fun reset() { replayedNodes = 0; unappliedNodes = 0; ancestrySteps = 0; rootMaterializations = 0; fullHistoryScans = 0; indexedNodes = 0 }
+    fun reset() { deltaApplications = 0; replayedNodes = 0; unappliedNodes = 0; ancestrySteps = 0; rootMaterializations = 0; fullHistoryScans = 0; indexedNodes = 0 }
 }

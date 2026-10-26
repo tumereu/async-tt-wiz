@@ -53,20 +53,38 @@ internal object DownloadedTreeFixture {
     }
     data class Transfer(val plan: TreeDownloadPlan, val compressed: List<ByteArray>)
     fun transfer(generation: DownloadedTree, revision: Long = 10, n: Int = 200, chunkSize: Int = 137): Transfer {
-        val records = TreeSync.records(generation).toList()
-        val bytes = (records.joinToString("\n") { GameWire.json.encodeToString(TreeSyncRecord.serializer(), it) } + "\n").toByteArray()
-        val chunks = bytes.asList().chunked(chunkSize).map { it.toByteArray() }
+        val chunks = mutableListOf<GameplayChunk>()
+        val compressed = mutableListOf<ByteArray>()
+        val buffer = ByteArrayOutputStream()
+        fun flush() {
+            val bytes = buffer.toByteArray()
+            chunks += GameplayChunk(chunks.size, bytes.size, TreeSync.digest(bytes))
+            compressed += gzip(bytes)
+            buffer.reset()
+        }
+        var count = 0
+        for (record in TreeSync.records(generation)) {
+            count++
+            val line = (GameWire.json.encodeToString(TreeSyncRecord.serializer(), record) + "\n").toByteArray()
+            var offset = 0
+            while (offset < line.size) {
+                val length = minOf(chunkSize - buffer.size(), line.size - offset)
+                buffer.write(line, offset, length); offset += length
+                if (buffer.size() == chunkSize) flush()
+            }
+        }
+        if (buffer.size() > 0) flush()
         val summary = GameSummary(id(1), "Download", "date", AccountIdentity(a, "A"), AccountIdentity(b, "B"),
             generation.tree.initial.preparationRound, id(90), InvitationState.ACCEPTED, lifecycle = GameLifecycle.ACTIVE,
             revision = revision.toString(), playId = id(2))
         val manifest = GameplayManifest(id(n), id(1), id(2), revision.toString(),
-            chunks.mapIndexed { index, chunk -> GameplayChunk(index, chunk.size, TreeSync.digest(chunk)) }, emptyList(),
-            recordCount = records.size, head = GameHead(id(1), revision.toString(), summary,
+            chunks, emptyList(),
+            recordCount = count, head = GameHead(id(1), revision.toString(), summary,
                 play = generation.tree.stateAt(generation.tree.currentNodeId))).let { it.copy(digest = GameplaySync.manifestDigest(it)) }
-        val plan = TreeDownloadPlan(id(n), id(1), id(2), revision, records.size,
+        val plan = TreeDownloadPlan(id(n), id(1), id(2), revision, count,
             manifest.chunks.map { TreeDownloadChunk(it.index, it.bytes, it.digest) },
             StoredPayload(1, GameWire.json.encodeToString(GameplayManifest.serializer(), manifest)))
-        return Transfer(plan, chunks.map(::gzip))
+        return Transfer(plan, compressed)
     }
     fun gzip(bytes: ByteArray): ByteArray = ByteArrayOutputStream().also { output ->
         GZIPOutputStream(output).use { it.write(bytes) }
@@ -91,7 +109,9 @@ internal class TreeStoreFixture(override val accountId: String = DownloadedTreeF
     fun seed(generation: DownloadedTree, revision: Long = 10) {
         generation.tree.stateAt(generation.tree.currentNodeId)
         saved = CachedGameplayTree(TreeCacheVersion(revision, "fixture-${sequence++}"),
-            TreeSync.records(generation).map(TreeDownload::encode).toList() + TreeDownload.endpoint(generation, revision))
+            TreeSync.records(generation).map(TreeDownload::encode).toList() +
+                TreeAnnotationProjection.from(generation.tree.stateAt(generation.tree.currentNodeId)!!.annotations).records().toList() +
+                TreeDownload.endpoint(generation, revision))
     }
     override fun invalidate() { current = false }
     override fun isCurrent() = current
@@ -119,12 +139,186 @@ internal class TreeStoreFixture(override val accountId: String = DownloadedTreeF
         val next = TreeCacheVersion(revision, "fixture-${sequence++}")
         saved = CachedGameplayTree(next, records.values.toList()); return next
     }
+    override fun amend(expected: TreeCacheVersion, upserts: List<AcceptedRecord>): TreeCacheVersion? {
+        if (!checkCurrent() || saved?.version != expected) return null
+        val records = saved!!.records.associateByTo(linkedMapOf()) { it.key }
+        upserts.forEach { records[it.key] = it }; appliedUpserts = upserts
+        val next = TreeCacheVersion(expected.revision, "fixture-${sequence++}")
+        saved = CachedGameplayTree(next, records.values.toList()); return next
+    }
 }
 
 class TreeDownloadTest {
     private val f = DownloadedTreeFixture
     private val nonWorkerThread = Thread("fixture-ui")
     private fun assertFails(action: () -> Unit) { try { action(); fail("Expected failure") } catch (_: Exception) { } }
+
+    private fun annotate(tree: GameplayTree, n: Int, action: PlayAction = PlayAction.EventComment(EventReference(f.id(2), f.id(5)), "mark $n")): GameplayTree =
+        assertNotNull(tree.play(f.a, GameCommand(f.id(n), GameScope(f.id(1), playId = f.id(2)),
+            GameAction.Play(action), f.id(n + 500000), "1")).tree)
+
+    @Test fun tenThousandAnnotationsRestoreDirectlyAndOnlyChangedProjectionEntitiesAreWritten() {
+        fun bounded(value: PublishedDownloadedTree) {
+            assertEquals(0, value.generation.tree.work.deltaApplications, "Count actual delta applications, including annotation-only deltas")
+            assertEquals(0, value.generation.tree.work.ancestrySteps, "No selected-ancestry walk on restore")
+            assertEquals(0, value.generation.tree.work.rootMaterializations)
+        }
+        val file = java.nio.file.Files.createTempFile(java.nio.file.Path.of("/tmp/opencode"), "annotation-restore-", ".db")
+        fun open() = (ClientStorage.open { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:$file",
+            java.util.Properties().apply { setProperty("foreign_keys", "true") }) } as StorageOpenResult.Opened).storage
+        fun seed(): PlayState = open().use { storage ->
+            storage.activateAccount(f.a)
+            val store = GameplayTreeCache.bind(storage, f.a, f.id(1), f.id(2))
+            var tree = f.root()
+            // Release the original tree before cold decoding. No transfer blobs or snapshots per node.
+            repeat(9_996) { tree = annotate(tree, 1000 + it) }
+            val reference = EventReference(f.id(2), f.id(5))
+            val x = PingTarget(PingTargetKind.CARD, f.id(9))
+            val y = PingTarget(PingTargetKind.PLAYER, f.b)
+            tree = annotate(tree, 11000, PlayAction.Ping(reference, x))
+            tree = annotate(tree, 11001, PlayAction.Ping(reference, y))
+            tree = annotate(tree, 11002, PlayAction.Unping(reference, x))
+            tree = annotate(tree, 11003, PlayAction.Ping(reference, x))
+            val generation = f.generation(tree)
+            val state = tree.stateAt(tree.currentNodeId)!!
+            val projection = TreeAnnotationProjection.from(state.annotations)
+            store.begin(TreeCacheTransfer(f.id(200), 10, 1, StoredPayload(1, "fixture")))
+            store.putChunk(f.id(200), 0, StoredPayload(1, "fixture"))
+            assertNotNull(store.publish(f.id(200), null, 10, TreeSync.records(generation).map(TreeDownload::encode).toList() +
+                projection.records().toList() + TreeDownload.endpoint(generation, 10, projection)))
+            state
+        }
+        fun advance(expected: PlayState): PlayState = open().use { storage ->
+            val store = GameplayTreeCache.bind(storage, f.a, f.id(1), f.id(2))
+            var writes = 0
+            val recording = object : GameplayTreeStore by store {
+                override fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion? {
+                    writes = upserts.count(TreeAnnotationProjection::owns)
+                    return store.apply(expected, revision, upserts, removals)
+                }
+            }
+            val download = TreeDownload(recording, nonWorkerThread)
+            val restored = assertNotNull(download.accepted())
+            bounded(restored)
+            val before = restored.generation
+            val state = before.tree.stateAt(before.tree.currentNodeId)!!
+            assertEquals(expected, state)
+            assertEquals(listOf("2", "3"), EventAnnotations.activePings(state.annotations, state.currentGroup!!.id).map { it.to!!.ordinal })
+            val next = annotate(before.tree, 12000)
+            val changed = TreeSync.delta(before.tree, next)
+            val updated = download.apply(TreeRecordDelta(f.id(1), f.id(2), 10, 11, changed.upserts,
+                changed.removals.map { it.kind to it.id })) as TreePublication.Published
+            assertEquals(1, writes, "Never rewrite the 10k-entry projection")
+            updated.value.generation.tree.stateAt(next.currentNodeId)!!
+        }
+        try {
+            val expected = advance(seed())
+            open().use { storage ->
+                val store = GameplayTreeCache.bind(storage, f.a, f.id(1), f.id(2))
+                val restored = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
+                bounded(restored)
+                assertEquals(expected, restored.generation.tree.stateAt(restored.generation.tree.currentNodeId))
+            }
+        } finally { java.nio.file.Files.deleteIfExists(file) }
+    }
+
+    private fun legacy(snapshot: CachedGameplayTree): CachedGameplayTree = snapshot.copy(records = snapshot.records
+        .filterNot(TreeAnnotationProjection::owns).map { record ->
+            if (record.key.kind != "tree-cache-endpoint") record else {
+                val payload = GameWire.json.parseToJsonElement(record.payload.json).jsonObject
+                val content = JsonObject(payload.getValue("content").jsonObject - "annotations")
+                record.copy(payload = record.payload.copy(json = buildJsonObject {
+                    put("content", content); put("digest", TreeSync.digest(DeckJson.canonicalElement(content).toByteArray()))
+                }.toString()))
+            }
+        })
+
+    @Test fun endpointOnlyCacheProjectsOnceThenPersistsAndFencesTheUpgrade() {
+        var tree = f.root()
+        repeat(12) { tree = annotate(tree, 1000 + it) }
+        val store = TreeStoreFixture().apply { seed(f.generation(tree)); saved = legacy(saved!!) }
+        val old = store.saved!!
+        val first = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
+        assertEquals(12, first.generation.tree.work.deltaApplications)
+        assertEquals(12, first.generation.tree.work.ancestrySteps)
+        assertEquals(old.version.revision, first.version.revision)
+        assertNotEquals(old.version.publicationId, first.version.publicationId)
+        assertTrue(store.appliedUpserts.all { it.key.kind == "tree-cache-endpoint" || TreeAnnotationProjection.owns(it) })
+        val second = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
+        assertEquals(0, second.generation.tree.work.deltaApplications)
+        assertEquals(0, second.generation.tree.work.ancestrySteps)
+        assertEquals(tree.stateAt(tree.currentNodeId), second.generation.tree.stateAt(tree.currentNodeId))
+        store.saved = old
+        val racing = object : GameplayTreeStore by store {
+            override fun amend(expected: TreeCacheVersion, upserts: List<AcceptedRecord>): TreeCacheVersion? = null
+        }
+        assertNull(TreeDownload(racing, nonWorkerThread).accepted())
+        assertEquals(old, store.saved)
+    }
+
+    @Test fun annotationProjectionRejectsMissingCorruptAndStaleEntitiesAndUpdatesUndoAndBranchSelection() {
+        val first = annotate(f.root(), 1000)
+        val second = annotate(first, 1001)
+        val store = TreeStoreFixture().apply { seed(f.generation(second)) }
+        val valid = store.saved!!
+        val entry = valid.records.first(TreeAnnotationProjection::owns)
+        for (records in listOf(valid.records - entry, valid.records.map { if (it == entry) it.copy(payload = StoredPayload(1, "{}")) else it })) {
+            store.saved = valid.copy(records = records)
+            assertFails { TreeDownload(store, nonWorkerThread).accepted() }
+        }
+        store.saved = valid
+        var download = TreeDownload(store, nonWorkerThread)
+        var before = download.accepted()!!.generation
+        val undone = assertNotNull(SelectiveUndo.change(before.tree, f.a, GameCommand(f.id(13000), GameScope(f.id(1), playId = f.id(2)),
+            GameAction.Undo, f.id(14), "1")).tree)
+        val delta = TreeSync.delta(before.tree, undone)
+        assertTrue(download.apply(TreeRecordDelta(f.id(1), f.id(2), 10, 11, delta.upserts, delta.removals.map { it.kind to it.id })) is TreePublication.Published)
+        download = TreeDownload(store, nonWorkerThread)
+        before = download.accepted()!!.generation
+        assertEquals(undone.stateAt(undone.currentNodeId), before.tree.stateAt(before.tree.currentNodeId))
+        // A valid old entity substituted into the new projection must fail its revision-bound root.
+        val current = store.saved!!
+        val removed = valid.records.first { TreeAnnotationProjection.owns(it) && it.key !in current.records.map { record -> record.key } }
+        store.saved = current.copy(records = current.records + removed)
+        assertFails { TreeDownload(store, nonWorkerThread).accepted() }
+        store.saved = current
+        val selected = before.tree.activate(before.tree.initial.root.id).tree!!
+        val selection = TreeSync.delta(before.tree, selected)
+        assertTrue(download.apply(TreeRecordDelta(f.id(1), f.id(2), 11, 12, selection.upserts, selection.removals.map { it.kind to it.id })) is TreePublication.Published)
+        val restored = TreeDownload(store, nonWorkerThread).accepted()!!.generation.tree
+        assertTrue(restored.stateAt(restored.currentNodeId)!!.annotations.commentsById.isEmpty())
+        assertEquals(0, restored.work.deltaApplications)
+        assertEquals(0, restored.work.ancestrySteps)
+    }
+
+    @Test fun projectionTracksRedoAndNewOffshootWithoutPersistingInactiveAnnotations() {
+        val store = TreeStoreFixture().apply { seed(f.generation(annotate(annotate(f.root(), 1000), 1001))) }
+        var revision = 10L
+        fun accept(change: (GameplayTree) -> GameplayTree): GameplayTree {
+            val download = TreeDownload(store, nonWorkerThread)
+            val before = download.accepted()!!.generation.tree
+            val after = change(before)
+            val delta = TreeSync.delta(before, after)
+            assertTrue(download.apply(TreeRecordDelta(f.id(1), f.id(2), revision, ++revision, delta.upserts,
+                delta.removals.map { it.kind to it.id })) is TreePublication.Published)
+            val restored = TreeDownload(store, nonWorkerThread).accepted()!!.generation.tree
+            assertEquals(after.stateAt(after.currentNodeId), restored.stateAt(restored.currentNodeId))
+            assertEquals(0, restored.work.deltaApplications)
+            assertEquals(0, restored.work.ancestrySteps)
+            return restored
+        }
+        fun control(tree: GameplayTree, action: GameAction, n: Int) = assertNotNull(SelectiveUndo.change(tree, f.a,
+            GameCommand(f.id(n), GameScope(f.id(1), playId = f.id(2)), action, f.id(n), "1")).tree)
+        accept { control(it, GameAction.Undo, 13000) }
+        accept { control(it, GameAction.Redo, 13001) }
+        val branched = accept { tree ->
+            assertNotNull(tree.play(f.a, GameCommand(f.id(13002), GameScope(f.id(1), playId = f.id(2)),
+                GameAction.Play(PlayAction.EventComment(EventReference(f.id(2), f.id(5)), "offshoot")), f.id(13002), "1",
+                continuation = Continuation(tree.initial.root.id, true))).tree)
+        }
+        assertEquals(1, branched.stateAt(branched.currentNodeId)!!.annotations.commentsById.size)
+        assertEquals(3, branched.nodes.size, "Inactive annotations remain in history, not the materialized projection")
+    }
 
     @Test fun tenThousandActionRecoveryAndColdCacheRestoreNeverReplayMutations() {
         var tree = f.root()
@@ -152,22 +346,29 @@ class TreeDownloadTest {
     }
 
     @Test fun boundedAuthoritativeEndpointRestoresAnnotationsAndBranchesWithoutBoardReplay() {
-        val tree = org.asyncttwiz.fixtures.ScaleGames.build(10_000)
-        val transfer = f.transfer(TreeSync.generation(tree), chunkSize = 1024 * 1024)
+        val (transfer, expected, branches) = run {
+            val tree = org.asyncttwiz.fixtures.ScaleGames.build(10_000)
+            Triple(f.transfer(TreeSync.generation(tree), chunkSize = 1024 * 1024), tree.stateAt(tree.currentNodeId)!!, tree.branches)
+        }
         val manifest = GameWire.json.decodeFromString(GameplayManifest.serializer(), transfer.plan.transportManifest.json)
         val bounded = manifest.copy(head = manifest.head!!.let { head -> head.copy(boundedEndpoint = true,
             play = head.play!!.copy(annotations = EventAnnotationState())) }).let { it.copy(digest = GameplaySync.manifestDigest(it)) }
         val plan = transfer.plan.copy(transportManifest = StoredPayload(1, GameWire.json.encodeToString(GameplayManifest.serializer(), bounded)))
         val store = TreeStoreFixture()
-        val download = TreeDownload(store, nonWorkerThread)
-        val staged = assertNotNull(download.stage(plan) { transfer.compressed[it].inputStream() })
-        assertEquals(tree.stateAt(tree.currentNodeId), staged.generation.tree.stateAt(tree.currentNodeId))
-        assertEquals(0, staged.generation.tree.work.replayedNodes)
-        download.publish(staged, emptyList(), 10)
+        fun recover() {
+            val download = TreeDownload(store, nonWorkerThread)
+            val staged = assertNotNull(download.stage(plan) { transfer.compressed[it].inputStream() })
+            assertEquals(expected, staged.generation.tree.stateAt(staged.generation.tree.currentNodeId))
+            assertEquals(0, staged.generation.tree.work.replayedNodes)
+            assertTrue(download.publish(staged, emptyList(), 10) is TreePublication.Published)
+        }
+        recover()
         val restored = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
-        assertEquals(tree.stateAt(tree.currentNodeId), restored.generation.tree.stateAt(tree.currentNodeId))
+        assertEquals(expected, restored.generation.tree.stateAt(restored.generation.tree.currentNodeId))
         assertEquals(0, restored.generation.tree.work.replayedNodes)
-        assertEquals(tree.branches, restored.generation.tree.branches)
+        assertEquals(0, restored.generation.tree.work.deltaApplications)
+        assertEquals(0, restored.generation.tree.work.ancestrySteps)
+        assertEquals(branches, restored.generation.tree.branches)
     }
 
     @Test fun cacheEndpointIntegrityAndRevisionBindingFailClosedAndLegacyCacheNeedsBaseline() {

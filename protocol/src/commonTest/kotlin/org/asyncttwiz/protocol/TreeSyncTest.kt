@@ -41,6 +41,28 @@ class TreeSyncTest {
         assertFails { TreeSync.restore(records.filterNot { it.kind == "node" && it.id == ancestor.id }.asSequence(), f.id(1), f.id(2), endpoint) }
         TreeSync.validate(restored)
         assertEquals(input.tree.nodes.size, restored.tree.work.replayedNodes, "Explicit maintenance still validates every retained mutation")
+        assertEquals(input.tree.nodes.size, restored.tree.work.deltaApplications)
+    }
+
+    @Test fun materializedAnnotationsBypassAncestryAndActualDeltaApplicationsIncludingLegacyProjection() {
+        var tree = root()
+        repeat(16) { n -> tree = f.play(tree, f.a, PlayAction.EventComment(EventReference(f.id(2), f.id(5)), "mark $n"), 4000 + n) }
+        val endpoint = tree.stateAt(tree.currentNodeId)!!
+        val records = TreeSync.records(generation(tree)).toList()
+        val bounded = endpoint.copy(annotations = EventAnnotationState())
+        val restored = TreeSync.restore(records.asSequence(), f.id(1), f.id(2), bounded,
+            boundedEndpoint = true, annotations = endpoint.annotations)
+        assertEquals(endpoint, restored.tree.stateAt(tree.currentNodeId))
+        assertEquals(0, restored.tree.work.deltaApplications)
+        assertEquals(0, restored.tree.work.ancestrySteps)
+        val legacy = TreeSync.restore(records.asSequence(), f.id(1), f.id(2), bounded, boundedEndpoint = true)
+        assertEquals(endpoint, legacy.tree.stateAt(tree.currentNodeId))
+        assertEquals(16, legacy.tree.work.deltaApplications, "Annotation-only reducer calls must be measured")
+        assertEquals(16, legacy.tree.work.ancestrySteps)
+        val next = f.play(restored.tree, f.a, PlayAction.EventComment(EventReference(f.id(2), f.id(5)), "new"), 5000)
+        restored.tree.work.reset()
+        assertEquals(setOf(GameplayTreeKey("comment", next.currentNodeId)), TreeSync.annotationChanges(restored.tree, next))
+        assertEquals(1, next.work.ancestrySteps)
     }
 
     @Test fun acceptedDeltaKeepsWarmHeadAcross360EventsWithoutRootReplay() {

@@ -254,10 +254,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     }) {
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 192f else TablePresentation.TOOLBAR
-        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f, 40f).height + 4f)
+        val cardAppearance = rememberCardAppearance()
+        val fieldScale = cardScale(cardAppearance.cardSize)
+        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
-        val cardAppearance = rememberCardAppearance()
         val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance)
@@ -268,7 +269,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
-        SideEffect { animation.cardMoveSpeedDpPerMs = movePreferences.speed }
+        val moveMultiplier by movePreferences.multiplierState()
+        SideEffect { animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * moveMultiplier }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
         var animationRevision by remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
@@ -940,9 +942,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
         paint.isFakeBoldText = false
-        if (mode == TableArtworkMode.ART_CROP) drawTableArtwork(requireNotNull(art),
+        if (mode == TableArtworkMode.ART_CROP && artBottom > titleBand) drawTableArtwork(requireNotNull(art),
             TableBounds(x + 2 * z, y + titleBand * z, cardWidth - 4 * z, (artBottom - titleBand) * z))
-        else {
+        else if (artBottom > titleBand) {
             paint.textSize = 17 * z * density
             clipRect(x * density, (y + titleBand * z) * density, (x + cardWidth) * density, (y + artBottom * z) * density) {
                 text(i.typeIcon, x + (cardWidth - cache.measure(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
@@ -1012,7 +1014,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             xy(b.x - spread / 2f, b.y + 2f - spread / 2f), size(b.width + spread, b.height + spread),
             CornerRadius(5 * density))
         drawRoundRect(Color(0xffeee3f5), xy(b.x, b.y), size(b.width, b.height), CornerRadius(4 * density))
-        drawRoundRect(purple, xy(b.x + 1.5f, b.y + 1.5f), size(b.width - 3f, b.height - 3f),
+        drawRoundRect(purple, xy(b.x + 1.5f, b.y + 1.5f), size((b.width - 3f).coerceAtLeast(0f), (b.height - 3f).coerceAtLeast(0f)),
             CornerRadius(3 * density), style = Stroke(3 * density))
     }
     for (panel in scene.cardPanels) {
@@ -1026,6 +1028,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 drawRect(color.copy(alpha = .22f), xy(header.bounds.x, header.bounds.y),
                     size(header.bounds.width, header.bounds.height))
                 paint.textSize = 8 * density; paint.isFakeBoldText = true
+                val measured = cache.measure(header.title)
+                val available = (header.bounds.width - 6f) * density
+                if (measured > available) paint.textSize *= available / measured
                 fittedText(header.title, header.bounds.x + 3, header.bounds.y + 13, header.bounds.width - 6)
                 paint.textSize = 11 * density; paint.isFakeBoldText = false
             }

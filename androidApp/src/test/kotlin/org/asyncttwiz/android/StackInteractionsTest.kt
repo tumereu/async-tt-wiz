@@ -53,7 +53,11 @@ class StackInteractionsTest {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(640f, 360f, true))) for (combat in listOf(false, true)) {
             val play = if (combat) f.play.copy(board = f.play.board.copy(combat = CombatArea("combat"))) else f.play
-            val scene = TablePresentation.scene(f.game, play, f.actor, width, height, landscape)
+            val home = TablePresentation.scene(f.game, play, f.actor, width, height, landscape)
+            val world = home.world!!
+            val point = home.items.single { it.cardId == id }.bounds.center
+            val camera = world.clamp(TableCamera(y = point.y - world.viewport.center.y))
+            val scene = TablePresentation.scene(f.game, play, f.actor, width, height, landscape, TableLayoutState(camera))
             val field = scene.fields.single { it.owner == f.actor }
             val lands = field.landsBounds(atBottom = true)
             val placed = scene.items.single { it.cardId == id }

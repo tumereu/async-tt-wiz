@@ -18,7 +18,7 @@ internal fun CardSettings(preferences: CardAppearancePreferences = rememberCardA
     val appearance by preferences.state()
     Column(Modifier.fillMaxWidth().testTag("cards-settings"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Cards", style = MaterialTheme.typography.titleMedium)
-        Text("Saved on this device. Card sizes do not change battlefield zoom. Text sizes apply to all table cards.",
+        Text("Saved on this device. Global card size also applies to the battlefield, independently of zoom. Text sizes apply to all table cards.",
             style = MaterialTheme.typography.bodySmall)
         CardScaleSlider("Card size", "card-size", appearance.cardSize, { preferences.setSize(it) }, appearance,
             appearance.cardSize)
@@ -71,14 +71,21 @@ private fun CardScaleSlider(label: String, tag: String, value: Float, change: (F
 
 @Composable
 internal fun CardScaleInput(label: String, value: Float, dismiss: () -> Unit, save: (Float) -> Unit) {
+    ScaleValueInput(label, value, MIN_CARD_SCALE..MAX_CARD_SCALE, dismiss, save)
+}
+
+/** Tap-to-type multiplier editor shared by card appearance and movement speed. */
+@Composable
+internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingPointRange<Float>,
+    dismiss: () -> Unit, save: (Float) -> Unit) {
     var input by remember { mutableStateOf(value.toString()) }
-    val parsed = parseCardScale(input)
+    val parsed = input.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)
     ScreenDialog(dismiss) {
         Text(label, style = MaterialTheme.typography.titleMedium)
-        Text("Scale (0.75–2.00×)")
+        Text("Scale (${range.start}–${range.endInclusive}×)")
         ScreenTextField(input, { input = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input"),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-        if (parsed == null) Text("Enter a number from 0.75 to 2.00", color = MaterialTheme.colorScheme.error)
+        if (parsed == null) Text("Enter a finite number", color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(dismiss) { Text("Cancel") }
             TextButton({ parsed?.let(save) }, enabled = parsed != null, modifier = Modifier.testTag("card-scale-save")) { Text("Save") }

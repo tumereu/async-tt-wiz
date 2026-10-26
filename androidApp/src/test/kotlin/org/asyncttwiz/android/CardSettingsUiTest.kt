@@ -39,22 +39,24 @@ class CardSettingsUiTest {
         val preferences = CardAppearancePreferences(context)
         compose.setContent { MaterialTheme { Column(Modifier.verticalScroll(rememberScrollState())) { CardSettings(preferences) } } }
         compose.onNodeWithTag("card-size-value").performClick()
-        compose.onNodeWithTag("card-scale-input").performTextReplacement("2.01")
-        compose.onNodeWithTag("card-scale-save").assertIsNotEnabled()
+        compose.onNodeWithTag("card-scale-input").performTextReplacement("9")
+        compose.onNodeWithTag("card-scale-save").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(3f, preferences.read().cardSize) }
+        compose.onNodeWithTag("card-size-value").performClick()
         compose.onNodeWithTag("card-scale-input").performTextReplacement("NaN")
         compose.onNodeWithTag("card-scale-save").assertIsNotEnabled()
-        compose.onNodeWithTag("card-scale-input").performTextReplacement("0.75")
+        compose.onNodeWithTag("card-scale-input").performTextReplacement("0.1")
         compose.onNodeWithTag("card-scale-save").assertIsEnabled().performClick()
-        compose.onNodeWithTag("card-size-sample").assertWidthIsEqualTo(21.dp).assertHeightIsEqualTo(30.dp)
+        compose.onNodeWithTag("card-size-sample").assertWidthIsEqualTo(14.dp).assertHeightIsEqualTo(20.dp)
         compose.onNodeWithTag("card-size").performTouchInput { swipeRight() }
-        compose.runOnIdle { assertTrue(preferences.read().cardSize > .75f) }
+        compose.runOnIdle { assertTrue(preferences.read().cardSize > .5f) }
         compose.onNodeWithText("Customize per area").performClick()
         compose.onNodeWithTag("card-size-HAND").assertExists()
         compose.onNodeWithTag("card-size-HAND-value").performScrollTo().performClick()
-        compose.onNodeWithTag("card-scale-input").performTextReplacement("2")
+        compose.onNodeWithTag("card-scale-input").performTextReplacement("3")
         compose.onNodeWithTag("card-scale-save").performClick()
-        compose.onNodeWithTag("card-size-HAND-sample").assertWidthIsEqualTo(56.dp).assertHeightIsEqualTo(80.dp)
-        compose.runOnIdle { assertEquals(2f, preferences.read().size(CardArea.HAND)) }
+        compose.onNodeWithTag("card-size-HAND-sample").assertWidthIsEqualTo(84.dp).assertHeightIsEqualTo(120.dp)
+        compose.runOnIdle { assertEquals(3f, preferences.read().size(CardArea.HAND)) }
     }
 
     @OptIn(ExperimentalRoborazziApi::class)
@@ -68,7 +70,7 @@ class CardSettingsUiTest {
         val preferences = CardAppearancePreferences(context)
         val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit) } }
-        for (scale in listOf(.75f, 2f)) for (zoom in if (annotations) listOf(.65f, 1f, 2f) else listOf(1f)) {
+        for (scale in listOf(.5f, 3f)) for (zoom in listOf(.65f, 1f, 2f)) {
             compose.runOnIdle {
                 preferences.setSize(if (annotations) 1f else scale); preferences.setText(scale)
                 toolkit.layoutState.value = TableLayoutState(camera = TableCamera(zoom = zoom))
@@ -80,6 +82,20 @@ class CardSettingsUiTest {
             val file = File("build/outputs/roborazzi/$name-${if (landscape) "landscape" else "portrait"}-$scale-$zoom.png")
             file.parentFile!!.mkdirs()
             captureScreenRoboImage(file.path)
+            if (!annotations && scale == 3f && zoom == 1f) {
+                val home = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+                    if (landscape) 412f else 892f, landscape, appearance = preferences.read())
+                val world = home.world!!
+                for (field in home.fields) {
+                    val card = home.items.first { it.viewport == field.containerId }
+                    val camera = world.clamp(TableCamera(
+                        x = card.bounds.center.x - world.viewport.center.x,
+                        y = card.bounds.center.y - world.viewport.center.y))
+                    compose.runOnIdle { toolkit.layoutState.value = TableLayoutState(camera = camera) }
+                    compose.waitForIdle()
+                    captureScreenRoboImage("${file.path.removeSuffix(".png")}-${if (field.owner == f.a) "own" else "opponent"}-panned.png")
+                }
+            }
             if (annotations) {
                 val image = ImageIO.read(file)
                 val scene = TablePresentation.scene(f.game, play, f.a, image.width.toFloat(), image.height.toFloat(), landscape,

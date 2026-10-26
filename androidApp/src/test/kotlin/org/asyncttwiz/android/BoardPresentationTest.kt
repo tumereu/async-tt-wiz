@@ -49,7 +49,7 @@ class BoardPresentationTest {
         val pile = scene.items.single { it.id == "stack" }
         val drawings = scene.items.filter { it.viewport == "stack" && it.kind == TableItemKind.CARD }
         assertEquals(1, drawings.size)
-        assertEquals(4f, scene.stackRegion!!.right - drawings.maxOf { it.bounds.right }, .001f)
+        assertEquals(12f, scene.stackRegion!!.right - drawings.maxOf { it.bounds.right }, .001f)
         assertTrue(drawings.all { it.bounds.intersection(pile.stackBadge) == null }, "Count must not cover names")
         assertEquals(pile, scene.hit(pile.stackBadge.center))
         val panel = scene.items.single { it.cardId == shown }

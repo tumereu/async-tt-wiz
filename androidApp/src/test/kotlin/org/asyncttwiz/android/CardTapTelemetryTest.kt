@@ -48,7 +48,7 @@ class CardTapTelemetryTest {
         } })
         val animation = HistorySceneAnimation(base)
         assertTrue(animation.retarget(target, 1f))
-        assertEquals(180, animation.durationMillis)
+        assertEquals(350, animation.durationMillis)
         assertEquals(setOf(rotated.cardId), animation.rotatingCardIds)
         recorder.animation("game", animation.rotatingCardIds)
         time = 20_000_000; recorder.frame("game", .1f, 60f, false, false)

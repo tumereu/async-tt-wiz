@@ -1,18 +1,25 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import kotlin.math.hypot
+import kotlin.math.roundToInt
 
-internal const val DEFAULT_CARD_MOVE_SPEED = 2.5f
+internal const val DEFAULT_CARD_MOVE_SPEED = 1.2f
+internal const val MAX_CARD_MOVE_DURATION_MILLIS = 350
+internal const val MIN_CARD_MOVE_MULTIPLIER = .25f
+internal const val MAX_CARD_MOVE_MULTIPLIER = 3f
+internal fun cardMoveMultiplier(value: Float) = if (value.isFinite())
+    value.coerceIn(MIN_CARD_MOVE_MULTIPLIER, MAX_CARD_MOVE_MULTIPLIER) else 1f
 
-/** Average travel speed has a floor; the scene clock is unchanged, so short moves wait at the end. */
+/** Short moves finish early; long moves are bounded by the shared live/playback scene clock. */
 internal fun cardMoveDurationMillis(distanceDp: Float, speedDpPerMs: Float = DEFAULT_CARD_MOVE_SPEED,
-    sceneDurationMillis: Int = 180): Int {
+    sceneDurationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS): Int {
     require(speedDpPerMs.isFinite() && speedDpPerMs > 0f)
     require(distanceDp.isFinite() && distanceDp >= 0f && sceneDurationMillis > 0)
-    return (distanceDp / speedDpPerMs).toInt().coerceIn(1, sceneDurationMillis)
+    return (distanceDp / speedDpPerMs).roundToInt().coerceIn(1, sceneDurationMillis)
 }
 
 internal fun cardMoveProgress(from: TableBounds, to: TableBounds, sceneProgress: Float, sceneDuration: Int, speed: Float): Float {
@@ -25,11 +32,26 @@ internal fun cardMoveProgress(from: TableBounds, to: TableBounds, sceneProgress:
 
 internal class CardMovePreferences(context: Context, accountId: String = "") {
     private val preferences = context.applicationContext.getSharedPreferences("card-move-animation", Context.MODE_PRIVATE)
-    private val key = "dp-per-ms/$accountId"
-    var speed: Float
-        get() = if (BuildConfig.DEBUG) preferences.getFloat(key, preferences.getFloat("dp-per-ms", DEFAULT_CARD_MOVE_SPEED))
-            .takeIf { it.isFinite() }?.coerceIn(.5f, 10f) ?: DEFAULT_CARD_MOVE_SPEED else DEFAULT_CARD_MOVE_SPEED
-        set(value) { if (BuildConfig.DEBUG && value.isFinite()) preferences.edit().putFloat(key, value.coerceIn(.5f, 10f)).apply() }
+    private val key = "multiplier/$accountId"
+    var multiplier: Float
+        get() = cardMoveMultiplier(preferences.getFloat(key, 1f))
+        set(value) { preferences.edit().putFloat(key, cardMoveMultiplier(value)).apply() }
+    val speed: Float
+        get() = DEFAULT_CARD_MOVE_SPEED * multiplier
+
+    @Composable
+    fun multiplierState(): State<Float> {
+        val state = remember(this) { mutableFloatStateOf(multiplier) }
+        DisposableEffect(this) {
+            val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+                if (changed == key) state.floatValue = multiplier
+            }
+            preferences.registerOnSharedPreferenceChangeListener(listener)
+            state.floatValue = multiplier
+            onDispose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
+        return state
+    }
 }
 
 @Composable

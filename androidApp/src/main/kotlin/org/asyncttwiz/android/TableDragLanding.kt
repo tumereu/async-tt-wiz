@@ -21,6 +21,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
         return TableDragLanding(landings.flatMap { it.outlines }, hands.firstOrNull()?.first, hands.firstOrNull()?.second, hands.drop(1))
     }
     val zoom = scene.camera.zoom
+    val fieldScale = scene.cardWidth / 28f
     val ids = scope.cardIds
     fun outline(id: String, x: Float, y: Float): TableBounds {
         val item = scene.items.firstOrNull { it.cardId == id }
@@ -42,12 +43,12 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
                     old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
             val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->
-                val x = field.gridBounds.x + p.x * TablePresentation.COLUMN_PITCH * zoom + 16 * zoom
+                val x = field.gridBounds.x + p.x * scene.columnPitch + 16 * fieldScale
                 val dy = p.y * field.rowHeight
                 val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight - dy else field.gridBounds.y + dy
                 val baseY = rowY + (field.rowHeight - scene.footprint) / 2
                 val b = outline(id, 0f, 0f)
-                battlefieldCardBounds(TableBounds(x, baseY, TablePresentation.COLUMN_PITCH * zoom, scene.footprint), b.width, b.height, n, zoom)
+                battlefieldCardBounds(TableBounds(x, baseY, scene.columnPitch, scene.footprint), b.width, b.height, n, fieldScale)
                     .intersection(field.bounds)
             } }.filterNotNull()
             TableDragLanding(slots)
@@ -72,7 +73,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
             val target = scene.items.firstOrNull { it.cardId == destination.cardId } ?: return TableDragLanding()
             TableDragLanding(ids.mapIndexed { n, id ->
                 val b = outline(id, 0f, 0f)
-                battlefieldCardBounds(target.footprint, b.width, b.height, n, zoom)
+                battlefieldCardBounds(target.footprint, b.width, b.height, n, fieldScale)
             })
         }
         is TableDestination.Combat -> {

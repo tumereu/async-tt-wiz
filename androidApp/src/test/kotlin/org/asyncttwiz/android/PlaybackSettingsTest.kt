@@ -49,9 +49,17 @@ class PlaybackSettingsTest {
         assertEquals(2, aChanges)
         assertEquals(0, bChanges)
         stopA(); stopB()
-        CardMovePreferences(context, "options-a").speed = 7f
-        assertEquals(7f, CardMovePreferences(context, "options-a").speed)
+        CardMovePreferences(context, "options-a").multiplier = 2f
+        assertEquals(2f, CardMovePreferences(context, "options-a").multiplier)
+        assertEquals(DEFAULT_CARD_MOVE_SPEED * 2f, CardMovePreferences(context, "options-a").speed)
         assertEquals(DEFAULT_CARD_MOVE_SPEED, CardMovePreferences(context, "options-b").speed)
+        val moves = CardMovePreferences(context, "options-a")
+        moves.multiplier = 10f
+        assertEquals(3f, CardMovePreferences(context, "options-a").multiplier)
+        moves.multiplier = -1f
+        assertEquals(.25f, moves.multiplier)
+        moves.multiplier = Float.NaN
+        assertEquals(1f, moves.multiplier)
     }
 
     @Test fun timelineGearOpensTheSharedPlaybackSectionAndStopsAuto() {
@@ -75,6 +83,11 @@ class PlaybackSettingsTest {
             compose.runOnIdle { assertTrue(trigger in settings.autoPause) }
         }
         compose.onNodeWithTag("card-move-speed").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("card-move-speed-value").performScrollTo().performClick()
+        compose.onNodeWithTag("card-scale-input").performTextReplacement("0.1")
+        compose.onNodeWithTag("card-scale-save").performClick()
+        compose.runOnIdle { assertEquals(.25f, CardMovePreferences(context, "dialog").multiplier) }
+        compose.onNodeWithTag("card-move-speed-value").assertTextEquals("0.25×")
         compose.onNodeWithText("Done").performScrollTo().performClick()
         compose.onNode(isDialog()).assertDoesNotExist()
     }

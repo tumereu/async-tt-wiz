@@ -163,7 +163,7 @@ class TableStatesScreenshotTest {
                 assertEquals(PlayZone.GRAVEYARD, panel.localZone)
                 assertEquals(0f, panel.bounds.x)
                 // Headers and names are canvas-rendered; verify the geometry used to draw them.
-                assertEquals(listOf("Creature", "Land"), panel.typeHeaders.map { it.title })
+                assertEquals(listOf("Creature (2)", "Land (1)"), panel.typeHeaders.map { it.title })
                 assertEquals(listOf("Meadow Sentinel", "River Adept", "Forest"), panel.rows.map { it.entry.name })
                 for (name in listOf("Meadow Sentinel", "River Adept", "Forest"))
                     compose.onNodeWithContentDescription("Graveyard panel: $name").assertIsDisplayed()

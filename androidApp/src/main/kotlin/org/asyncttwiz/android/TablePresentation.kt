@@ -103,6 +103,9 @@ internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height:
     return TableBounds(footprint.center.x - width / 2 - peek * zoom,
         footprint.center.y - height / 2 + (4f - peek) * zoom, width, height)
 }
+
+/** Ten percent above/below every face, plus the +/-4dp offsets of a three-card pile. */
+internal fun battlefieldRowHeight(cardHeight: Float, scale: Float) = cardHeight * 1.2f + 8f * scale
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null)
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
@@ -182,6 +185,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
 }
 
 internal val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
+internal val TableScene.columnPitch get() = TablePresentation.COLUMN_PITCH * cardWidth / 28f
 internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
     else visible.maxByOrNull { it.width * it.height }?.center
 
@@ -228,6 +232,8 @@ object TablePresentation {
         }
         val sidebar = if (landscape) sidebarWidth(width) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
+        val battlefieldScale = cardScale(appearance.cardSize)
+        val columnPitch = COLUMN_PITCH * battlefieldScale
         val handWidth = hudWidth * appearance.size(CardArea.HAND)
         val handHeight = hudHeight * appearance.size(CardArea.HAND)
         val pileWidth = hudWidth * appearance.size(CardArea.PILES)
@@ -241,7 +247,7 @@ object TablePresentation {
         val logicalRight = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.maxOfOrNull { c ->
             c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
         } ?: 4f
-        val combat = CombatStackPresentation.combat(play.board, hudWidth, hudHeight)
+        val combat = CombatStackPresentation.combat(play.board, hudWidth * battlefieldScale, hudHeight * battlefieldScale)
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // Both modes reserve the very same timeline and controls; review never reframes the camera.
         val controlsHeight = tableBottomHeight(landscape)
@@ -258,9 +264,8 @@ object TablePresentation {
             (worldBottom - worldTop).coerceAtLeast(1f))
         val panelArea = worldViewport.copy(x = sidebar, width = width - sidebar)
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
-        // Reserve room for a normal open combat lane at home without changing row spacing when it opens.
-        val normalCombatBand = (hudHeight + 2 * hudWidth * .04f) * 2 + 4f
-        val rowHeight = ((worldViewport.height - normalCombatBand) / 6).coerceAtLeast(12f)
+        // Rows are world content, not fractions of the remaining screen. Small viewports pan.
+        val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale)
         val fieldHeights = players.map { player ->
             val rows = container(player.accountId, PlayZone.BATTLEFIELD).cards.maxOfOrNull { positions[it]?.row ?: 0f } ?: 0f
             max(3f, rows + 1f) * rowHeight
@@ -270,18 +275,19 @@ object TablePresentation {
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         val combatX = (worldViewport.width - combat.width) / 2
-        val worldLeft = minOf(0f, logicalLeft * COLUMN_PITCH, combatX)
-        val worldRight = maxOf(worldViewport.width, logicalRight * COLUMN_PITCH + 32f, combatX + combat.width)
+        val worldLeft = minOf(0f, logicalLeft * columnPitch, combatX)
+        val worldRight = maxOf(worldViewport.width, logicalRight * columnPitch + 32f * battlefieldScale, combatX + combat.width)
         val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
             worldRight - worldLeft,
             logicalFields.last().bottom - logicalFields.first().y)
         // Empty columns are navigable without making Fit table zoom out to include unused space.
         val world = TableWorld(worldViewport, contentBounds,
-            contentBounds.copy(x = worldLeft - 3 * COLUMN_PITCH, width = contentBounds.width + 6 * COLUMN_PITCH))
+            contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch))
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         val camera = world.normalize(ui.camera)
         val zoom = camera.zoom
-        val cw = hudWidth * zoom; val ch = hudHeight * zoom; val envelope = GRID * zoom
+        val fieldScale = battlefieldScale * zoom
+        val cw = hudWidth * fieldScale; val ch = hudHeight * fieldScale; val envelope = GRID * fieldScale
         val fields = players.mapIndexed { index, player ->
             val grid = world.screen(logicalFields[index].copy(width = world.bounds.right), camera)
             val bounds = grid.intersection(worldViewport) ?: grid.copy(width = 0f, height = 0f)
@@ -340,17 +346,17 @@ object TablePresentation {
             battlefield.cards.sortedWith(compareByDescending<String> { positions[it]?.pileIndex ?: 0 }.thenBy { battlefield.cards.indexOf(it) })
                 .forEach { id -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
-                    val x = field.gridBounds.x + p.column * COLUMN_PITCH * zoom + 16f * zoom
+                    val x = field.gridBounds.x + p.column * columnPitch * zoom + 16f * fieldScale
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
                     val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
                     val y = rowY + (rowHeight - envelope) / 2
                     val cardHeight = if (c.tapped) cw else ch
-                    val footprint = TableBounds(x, y, COLUMN_PITCH * zoom, envelope)
-                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, zoom)
+                    val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
+                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, fieldScale)
                     card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 } }
-            val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * COLUMN_PITCH
+            val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * columnPitch
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
                 else if (index == 0) HEADER else ownDockY
@@ -390,11 +396,16 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, stackWidth, stackHeight)
-        val stackPadding = 4f
-        val stackRegion = if (landscape) TableBounds(16f, boardTop + sidebarRow - sidebarScroll,
-            sidebar - 16f, sidebarContent - 2 * sidebarRow)
-            else TableBounds(width - stackWidth - 2 * stackPadding,
-                height / 2 - (stackHeight + 16f) / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 16f + 2 * stackPadding)
+        // The same inset on every side; landscape centres the padded Stack in the sidebar lane.
+        val stackPadding = 12f
+        val stackHalfHeight = stackHeight / 2 + stackPadding
+        val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
+            (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
+            else worldViewport.center.y
+        val stackCenter = if (landscape) TablePoint((16f + sidebar) / 2,
+            boardTop + sidebarContent / 2 - sidebarScroll) else TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
+        val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
+            stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,

@@ -889,19 +889,41 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             else -> Unit
         }
     }
-    fun noteChip(i: TableItem, x: Float, y: Float, z: Float) {
-        if (i.covered || i.note.isEmpty()) return
-        // Fixed readable type, not shrink-to-fit: clip long notes to the art width.
+    fun cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
+        if (i.covered || i.note.isEmpty() && i.counters.isEmpty()) return
+        // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
-        val top = titleBand - 1f
-        val chipHeight = minOf(7 * noteScale, artBottom - top)
-        val sharedRow = i.counters.isNotEmpty() && 7 * noteScale + 10 * valueScale > artBottom - top
-        val chipWidth = minOf((if (sharedRow) 12 else 24) * z, cache.measure(i.note.take(32)) / density + 2 * z)
-        drawRoundRect(Color.White, xy(x + 2 * z, y + top * z), size(chipWidth, chipHeight * z), CornerRadius(2 * z * density))
-        clipRect((x + 3 * z) * density, (y + top * z) * density,
-            (x + z + chipWidth) * density, (y + (top + chipHeight) * z) * density) {
+        val noteMetrics = paint.fontMetrics
+        val noteHeight = (noteMetrics.bottom - noteMetrics.top) / (z * density) + 2f
+        paint.textSize = 7 * valueScale * z * density
+        val valueMetrics = paint.fontMetrics
+        val counterHeight = maxOf(10 * valueScale, (valueMetrics.bottom - valueMetrics.top) / (z * density) + 2f)
+        val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.let { color to it } }
+        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size)
+        fun label(value: String, b: TableBounds, metrics: Paint.FontMetrics) {
+            val baseline = y + (b.y + b.height / 2) * z - (metrics.top + metrics.bottom) / (2 * density)
+            // Only horizontal clipping: every line retains its complete vertical extent.
+            clipRect((x + b.x * z) * density, y * density,
+                (x + b.right * z) * density, (y + 40 * z) * density) {
+                text(value, x + (b.x + 1f) * z, baseline, value.length)
+            }
+        }
+        layout.note?.let { slot ->
+            paint.textSize = 7 * noteScale * z * density
+            val b = slot.copy(width = minOf(slot.width, cache.measure(i.note.take(32)) / (z * density) + 2f))
+            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
             paint.color = android.graphics.Color.DKGRAY
-            text(i.note, x + 3 * z, y + (top + 5.5f * noteScale) * z, 32)
+            label(i.note.take(32), b, noteMetrics)
+        }
+        paint.textSize = 7 * valueScale * z * density
+        entries.forEachIndexed { index, (color, value) ->
+            val slot = layout.counters[index]
+            val width = minOf(slot.width, maxOf(counterHeight, cache.measure(value.take(3)) / (z * density) + 2f))
+            val b = slot.copy(width = width)
+            drawRoundRect(counterColor(color), xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z),
+                CornerRadius(minOf(b.width, b.height) * z * density / 2))
+            paint.color = android.graphics.Color.DKGRAY
+            label(value.take(3), b, valueMetrics)
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
@@ -926,7 +948,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return@translate
-        if (mode == TableArtworkMode.CUSTOM_CARD) { noteChip(i, x, y, z); paint.textSize = 11 * density; return@translate }
+        if (mode == TableArtworkMode.CUSTOM_CARD) { cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
@@ -941,7 +963,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
         paint.textSize = 7 * valueScale * z * density
         fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
-        noteChip(i, x, y, z)
+        cardAnnotations(i, x, y, z)
         paint.textSize = 11 * density
         }
     }
@@ -1108,21 +1130,6 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                            drawOval(color, xy(cx - 3f * z, cy - 1.8f * z), size(6f * z, 3.6f * z), style = Stroke(.6f * z * density))
                            drawCircle(color, 1f * z * density, xy(cx, cy))
                       }
-                      paint.textSize = 7 * valueScale * z * density
-                        if (!i.covered && i.counters.isNotEmpty()) {
-                            val sharedRow = i.note.isNotEmpty() && 7 * noteScale + 10 * valueScale > artBottom - titleBand + 1
-                            val left = if (sharedRow) 15f else 1f
-                            val radius = minOf(5 * valueScale, (artBottom - titleBand + 1) / 2)
-                            val cy = artBottom - radius - 3f.coerceAtMost((artBottom - titleBand + 1 - 2 * radius).coerceAtLeast(0f))
-                            clipRect((x + left * z) * density, (y + (titleBand - 1) * z) * density,
-                                (x + cardWidth - z) * density, (y + artBottom * z) * density) {
-                                i.counters.entries.take(6).forEachIndexed { n, entry ->
-                                    val cx = left + radius + n * 7 * valueScale
-                                    drawCircle(counterColor(entry.key), radius * z * density, xy(x + cx * z, y + cy * z))
-                                    text(entry.value, x + (cx - 3 * valueScale) * z, y + (cy + 2 * valueScale) * z, 3)
-                                }
-                            }
-                        }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
                           paint.textSize = 11 * density

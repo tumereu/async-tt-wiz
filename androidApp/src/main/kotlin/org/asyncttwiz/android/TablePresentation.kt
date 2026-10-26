@@ -367,6 +367,7 @@ object TablePresentation {
                     token = top?.token == true,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
+                    counters = if (hidden) emptyMap() else top?.counters.orEmpty(),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
             }

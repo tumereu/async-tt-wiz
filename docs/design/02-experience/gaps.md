@@ -232,6 +232,14 @@ Older "open" wording elsewhere is not an automatic owner-question queue.
 
 ## Broader draft scope — D-241 release exclusion
 
+**Scoped addition approved 2026-10-26:**
+[Cubes, pods, and drafting](../03-contracts/cubes-pods-and-drafting.md) authorizes
+the design of cube text/Cube Cobra imports, multi-member drafting, private limited
+deckbuilding and submission checks, and independent 1v1 challenges. The exclusions
+below do not negate that specific approval. It does not approve general collection
+card authoring/export, a multiplayer tabletop, or automatic in-game rules execution,
+and is not a claim of implemented R1 functionality.
+
 The remaining proposed authoring/coordination extras are excluded from R1 by
 D-241, not a queue of individual feature questions. In particular:
 

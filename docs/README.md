@@ -23,6 +23,11 @@ The tiered design documents are the spec, not a test execution report.
 Decision history is retained in [docs/decisions.md](decisions.md).
 See the [self-hosting guide](../deploy/README.md) to play with another person.
 
+The [cubes, pods, and drafting design](design/03-contracts/cubes-pods-and-drafting.md)
+is an approved feature addition (2026-10-26), not a claim of implemented R1 behavior.
+It covers collection cubes, MTG set boosters, asynchronous drafting, deckbuilding,
+and multiple independent 1v1 games within a pod.
+
 ## How the tiers fit together
 
 - Tier 1 expresses the general rules. Tier 2 describes their combined user-facing

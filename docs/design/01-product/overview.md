@@ -89,6 +89,15 @@ The app remembers and presents what happened; the players interpret the rules.
 
 ## Boundaries
 
+- **Approved feature addition, 2026-10-26:**
+  [Cubes, pods, and drafting](../03-contracts/cubes-pods-and-drafting.md) adds saved
+  cubes/set sources, 2–16-player drafting, private deckbuilding with limited-deck
+  submission checks, and independent 1v1 challenges. One-person pods may recruit
+  members but cannot draft alone. These are explicit additions to import-only
+  collection/lobby scope, not multiplayer tabletop play or an in-game rules engine.
+  Draft/pool privacy is a scoped exception to presentation-only hiding; the
+  tabletop's separate inspection contract still applies. This is approved design,
+  not a claim that the feature has shipped.
 - Entry requires login, with registration available. Manage decks currently
   imports card lists only. Play includes current games and pending invites;
   games begin in a lobby with deck selection and mainboard/sideboard preparation,

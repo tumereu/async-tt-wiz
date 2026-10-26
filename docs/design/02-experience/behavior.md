@@ -29,6 +29,22 @@ The general rules are:
 
 ## Confirmed behavior
 
+### Approved cubes, pods, and drafting addition — 2026-10-26
+
+The [feature contract](../03-contracts/cubes-pods-and-drafting.md) adds saved cubes
+and MTG set sources, pods of up to 16 members, and one completed draft followed by
+independent 1v1 challenges. Initial modes are Booster, Glimpse/Burn, and configurable
+Grid; drafting requires at least two people and has no deadlines or bots.
+
+Members can use a Build tab while waiting, organizing acquired copies into
+Main/Side/Trash with swipes and mana-value columns. Basic lands use number steppers.
+After drafting, submit a private locked deck with at least 40 main-deck cards and
+the pod's sideboard limit (unlimited by default). Any two submitted members can
+start games; per-game sideboarding never changes their pod decks or parallel games.
+Creators destroy pods; other members can leave. Leaving during a draft cancels
+that attempt and returns remaining members to setup. Started games survive pod
+destruction. This describes approved feature design, not implemented R1 behavior.
+
 ### Current table presentation and ownership — D-295–D-299
 
 **Superseded presentation summary:** the D-295–D-299 paragraphs below are historical

@@ -9,6 +9,7 @@ neither unfinished behavior nor implementation.
 | --- | --- |
 | [Product](product.md) | Requirements, scope proposals, trust model, success criteria. |
 | [Accounts, decks, and lobby](accounts-decks-and-lobby.md) | Accounts, invitations, import-only decks, lobby preparation/Ready, cancellation and undoable ending suggestions accepted by the other player before both return to lobby. |
+| [Cubes, pods, and drafting](cubes-pods-and-drafting.md) | Approved 2026-10-26 feature design: reusable cubes/set sources, asynchronous multi-member drafting, private limited deckbuilding, and independent 1v1 challenges; includes the Draftmancer reference inventory. |
 | [Domain model](domain-model.md) | Explicit server/UI ownership matrix, accepted replicas versus latency-hiding predictions/recovery, card/object identity, containers, references and invariants. |
 | [Board and controls](board-and-controls.md) | Touch, selection, movement, piles, menus, table controls. |
 | [Game actions](game-actions.md) | Capability coverage, bulk actions, preservation and explicit exceptions. |

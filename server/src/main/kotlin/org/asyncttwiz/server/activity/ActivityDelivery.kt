@@ -97,7 +97,7 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                     .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
                     .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME"))
                         .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
-                        .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID)))
+                        .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID, PUSH.IDENTITY)))
                     .orderBy(PUSH.DUE_AT).limit(1).forUpdate().of(PUSH).skipLocked().fetchOne() ?: return@transaction null
                 val attempt = row[PUSH.ATTEMPTS]!!
                 val seconds = retrySeconds(attempt)

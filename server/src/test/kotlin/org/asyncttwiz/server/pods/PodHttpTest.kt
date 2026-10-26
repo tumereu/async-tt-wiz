@@ -68,8 +68,13 @@ class PodHttpTest {
             return json.decodeFromString(response.body())
         }
         fun list(who: SessionCreated): PodList = json.decodeFromString(request(who, "GET", "/v1/pods").body())
-        fun activity(who: SessionCreated): ActivityPage {
-            val response = request(who, "GET", "/activity")
+        fun activity(who: SessionCreated, after: String? = null): ActivityPage {
+            val response = request(who, "GET", "/activity" + (after?.let { "?after=$it" } ?: ""))
+            assertEquals(200, response.statusCode(), response.body())
+            return ActivityWire.json.decodeFromString(response.body())
+        }
+        fun target(who: SessionCreated, pod: String, kind: ActivityKind): ActivityTarget {
+            val response = request(who, "GET", "/activity/target?kind=${kind.name}&game=$pod&identity=${id()}")
             assertEquals(200, response.statusCode(), response.body())
             return ActivityWire.json.decodeFromString(response.body())
         }
@@ -151,7 +156,7 @@ class PodHttpTest {
         assertEquals(8, f.get(f.a, pod).draft!!.pool.size + f.get(f.b, pod).draft!!.pool.size) // Burns never become pool cards.
         assertEquals(2, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
         assertEquals(PodAttention.BUILD, f.list(f.a).pods.single().attention)
-        assertTrue(f.activity(f.a).entries.any { it.kind == ActivityKind.POD_DRAFT_COMPLETE })
+        assertEquals(attempt, f.activity(f.a).entries.single { it.kind == ActivityKind.POD_DRAFT_COMPLETE }.identity)
         f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400) // main too small
         f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 40)))
         assertEquals("sideboard_limit", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400)).code)
@@ -286,10 +291,11 @@ class PodHttpTest {
         val pick = f.selection(f.a, pod)
         f.send(f.a, "POST", "/v1/pods/$pod/pick", pick)
         f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), pick.draftAttemptId, PodDeckBasics(forest = 40)))
-        f.send(f.b, "POST", "/v1/pods/$pod/cancel", PodRequest(id()), 403)
-        val cancel = PodRequest(id())
+        f.send(f.b, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), pick.draftAttemptId), 403)
+        val cancel = PodDraftRequest(id(), pick.draftAttemptId)
         val cancelled = f.send(f.a, "POST", "/v1/pods/$pod/cancel", cancel)
-        assertEquals(cancelled, f.send(f.a, "POST", "/v1/pods/$pod/cancel", cancel))
+        assertEquals(PodPhase.SETUP, json.decodeFromString<PodDetail>(cancelled).phase)
+        assertEquals("draft_attempt_expired", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/$pod/cancel", cancel, 409)).code)
         val reset = f.get(f.a, pod)
         assertEquals(PodPhase.SETUP, reset.phase); assertNull(reset.draft); assertNull(reset.build); assertNull(reset.draftAttemptId)
         assertEquals(1, f.count(ActivityKind.POD_DRAFT_CANCELLED, pod, f.b))
@@ -324,8 +330,9 @@ class PodHttpTest {
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
         f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1)) // Automatic awards can complete at Start.
-        assertEquals(PodPhase.DRAFTED, f.start(pod).phase)
-        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodRequest(id()), 409)
+        val started = f.start(pod)
+        assertEquals(PodPhase.DRAFTED, started.phase)
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), started.draftAttemptId!!), 409)
         f.send(f.c, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
         assertEquals(2, f.get(f.a, pod).members.size)
         f.send(f.b, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
@@ -335,6 +342,116 @@ class PodHttpTest {
         f.join(drafted); f.configure(drafted, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1)); f.start(drafted)
         f.send(f.a, "DELETE", "/v1/pods/$drafted", PodRequest(id()))
         assertEquals(1, f.count(ActivityKind.POD_DESTROYED, drafted, f.b))
+    }
+
+    @Test fun `delayed cancel and retained draft responses cannot expose or cancel a replacement attempt`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 5))
+        val start = PodRequest(id())
+        val started = f.send(f.a, "POST", "/v1/pods/$pod/start", start)
+        val old = json.decodeFromString<PodDetail>(started)
+        val attempt = old.draftAttemptId!!
+        assertFalse(old.definitions.isEmpty())
+        val pick = f.selection(f.a, pod)
+        f.send(f.a, "POST", "/v1/pods/$pod/pick", pick)
+        val basics = SetPodBasics(id(), attempt, PodDeckBasics(plains = 40))
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", basics)
+        // Cancel requires an explicit attempt; old attempt-free clients cannot cancel anything.
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodRequest(id()), 400)
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), attempt))
+        fun expired(method: String, path: String, body: String) {
+            val response = f.request(f.a, method, "/v1/pods/$pod/$path", body)
+            assertEquals(409, response.statusCode(), response.body())
+            assertEquals("draft_attempt_expired", json.decodeFromString<PodError>(response.body()).code)
+            assertFalse(response.body().contains("definitions"))
+            assertFalse(response.body().contains(old.draft!!.head!!.id))
+        }
+        expired("POST", "start", json.encodeToString(start))
+        val replacement = f.start(pod)
+        assertNotEquals(old.draftAttemptId, replacement.draftAttemptId)
+        expired("POST", "start", json.encodeToString(start))
+        expired("POST", "pick", json.encodeToString(pick))
+        expired("PUT", "build/basics", json.encodeToString(basics))
+        // This cancel was never previously delivered, so idempotency cannot protect the new draft.
+        expired("POST", "cancel", json.encodeToString(PodDraftRequest(id(), attempt)))
+        assertEquals(replacement, f.get(f.a, pod))
+        f.send(f.a, "DELETE", "/v1/pods/$pod", PodRequest(id()))
+        expired("POST", "start", json.encodeToString(start))
+    }
+
+    @Test fun `incremental activity never revives cancelled attempt pick hints after restart`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
+        val first = f.start(pod)
+        assertEquals(first.draftAttemptId, f.activity(f.b, "0").entries.single { it.kind == ActivityKind.POD_YOUR_PICK }.identity)
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), first.draftAttemptId!!))
+        val second = f.start(pod)
+        // Reading the event log rather than the reset summaries used to reveal both attempts.
+        for (page in listOf(f.activity(f.b, "0"), f.activity(f.b))) {
+            val picks = page.entries.filter { it.kind == ActivityKind.POD_YOUR_PICK }
+            assertEquals(1, picks.size)
+            assertEquals(second.draftAttemptId, picks.single().identity)
+            assertTrue(page.entries.any { it.kind == ActivityKind.POD_DRAFT_CANCELLED })
+        }
+        f.finish(pod, listOf(f.a, f.b))
+        val completed = f.activity(f.b, "0").entries.filter { it.kind == ActivityKind.POD_DRAFT_COMPLETE }
+        assertEquals(1, completed.size)
+        assertEquals(second.draftAttemptId, completed.single().identity)
+    }
+
+    @Test fun `pod activity navigation authorizes members and only invitation targets for invitees`() = fixture { f ->
+        val pod = f.create().id
+        val kinds = ActivityKind.entries.filter { it.name.startsWith("POD_") }
+        for (kind in kinds) {
+            assertEquals(ActivityTarget(pod, ActivityDestination.POD), f.target(f.a, pod, kind))
+            assertEquals(ActivityDestination.UNAVAILABLE, f.target(f.b, pod, kind).destination)
+        }
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.b.account.accountId))
+        assertEquals(ActivityDestination.POD, f.target(f.b, pod, ActivityKind.POD_INVITATION).destination)
+        for (kind in kinds.filter { it != ActivityKind.POD_INVITATION })
+            assertEquals(ActivityDestination.UNAVAILABLE, f.target(f.b, pod, kind).destination)
+        f.send(f.b, "POST", "/v1/pods/$pod/accept", PodRequest(id()))
+        for (kind in kinds) assertEquals(ActivityDestination.POD, f.target(f.b, pod, kind).destination)
+        f.send(f.b, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
+        for (kind in kinds) assertEquals(ActivityDestination.UNAVAILABLE, f.target(f.b, pod, kind).destination)
+        f.send(f.a, "DELETE", "/v1/pods/$pod", PodRequest(id()))
+        for (kind in kinds) assertEquals(ActivityDestination.UNAVAILABLE, f.target(f.a, pod, kind).destination)
+    }
+
+    @Test fun `pod hint cleanup supports resource indexes and clears every members queued hints`() = fixture { f ->
+        for (who in listOf(f.a, f.b)) f.send(who, "PUT", "/activity/installations", RegisterInstallation(id(), id(), "fixture-token-${id()}"))
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
+        val draft = f.start(pod)
+        f.db.connection().use { connection ->
+            // Small fixtures naturally prefer a sequential scan; prove the resource predicates
+            // can both be served by the new indexes without needing an account/generation key.
+            connection.createStatement().use { it.execute("set enable_seqscan = off") }
+            for (table in listOf("activity_summary", "activity_push")) {
+                connection.prepareStatement("explain delete from $table where game_id = ? and kind in ('POD_YOUR_PICK', 'POD_DRAFT_COMPLETE', 'POD_INVITATION')").use { statement ->
+                    statement.setObject(1, UUID.fromString(pod))
+                    val plan = statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.getString(1)) }.joinToString("\n") }
+                    assertTrue(plan.contains("${table}_game_kind"), plan)
+                    assertTrue(plan.contains("Index Cond:") && plan.contains("game_id =") && plan.contains("kind = ANY"), plan)
+                }
+                connection.prepareStatement("select count(*) from $table where game_id = ? and kind = 'POD_YOUR_PICK'").use { statement ->
+                    statement.setObject(1, UUID.fromString(pod))
+                    statement.executeQuery().use { rows -> assertTrue(rows.next()); assertEquals(2, rows.getInt(1)) }
+                }
+            }
+        }
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), draft.draftAttemptId!!))
+        f.db.connection().use { connection ->
+            for (table in listOf("activity_summary", "activity_push")) {
+                connection.prepareStatement("select count(*) from $table where game_id = ? and kind in ('POD_YOUR_PICK', 'POD_DRAFT_COMPLETE', 'POD_INVITATION')").use { statement ->
+                    statement.setObject(1, UUID.fromString(pod))
+                    statement.executeQuery().use { rows -> assertTrue(rows.next()); assertEquals(0, rows.getInt(1)) }
+                }
+            }
+        }
     }
 
     @Test fun `accepted members plus pending invitations cap at eight and setup can replace its source`() = fixture { f ->

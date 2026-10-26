@@ -183,8 +183,8 @@ class PodService(private val runtime: ServiceRuntime) {
             save(sql, row); detail(sql, row, owner)
         }
 
-    fun cancel(principal: AccountService.Principal, id: String, input: PodRequest): Result =
-        mutate(principal, id, input.requestId, "cancelPodDraft", json.encodeToJsonElement(input)) { sql, owner, row ->
+    fun cancel(principal: AccountService.Principal, id: String, input: PodDraftRequest): Result =
+        mutate(principal, id, input.requestId, "cancelPodDraft", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
             reset(sql, row, owner)
@@ -195,6 +195,7 @@ class PodService(private val runtime: ServiceRuntime) {
         mutate(principal, id, input.requestId, "leavePod", json.encodeToJsonElement(input)) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.creatorId == owner) return@mutate error(403, "creator_cannot_leave")
+            // Leave concerns membership, not an attempt: cancel whichever draft is current.
             // Record cancellation for the original membership, including the departing member.
             if (row.phase == "DRAFTING") reset(sql, row, owner)
             sql.deleteFrom(MEMBER).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
@@ -233,7 +234,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             val hadPacks = previous?.queues?.get(player).orEmpty().isNotEmpty()
             if ((!hadPacks || previous?.round != next.round) && next.queues.getValue(player).isNotEmpty())
-                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, UUID.randomUUID())
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
         if (next.finished && previous?.finished != true) {
             clearDraftHints(sql, row.id!!)
@@ -349,10 +350,14 @@ class PodService(private val runtime: ServiceRuntime) {
                     return@transaction error(409, "request_conflict")
             }
             val row = pod?.let { sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(it))).forUpdate().fetchOne() }
-            // Even a retained successful pick retry cannot expose a cancelled attempt's cards.
+            // Validate both explicit attempts and retained response attempts under the pod lock.
             val stale = attempt != null && row?.draftAttemptId?.toString() != attempt
             if (!inserted && !stale) {
                 val outcome = sql.selectFrom(ACCOUNT_REQUEST).where(ACCOUNT_REQUEST.REQUEST_ID.eq(id)).fetchSingle()
+                val responseAttempt = json.parseToJsonElement(outcome.response!!).jsonObject["draftAttemptId"]
+                    ?.jsonPrimitive?.contentOrNull
+                if (responseAttempt != null && row?.draftAttemptId?.toString() != responseAttempt)
+                    return@transaction error(409, "draft_attempt_expired")
                 return@transaction Result(outcome.status!!, outcome.response!!)
             }
             val result = if (stale) error(409, "draft_attempt_expired") else action(sql, owner, row)

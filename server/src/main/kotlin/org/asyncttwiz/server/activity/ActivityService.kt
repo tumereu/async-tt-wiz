@@ -73,7 +73,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 val member = sql.fetchExists(POD_MEMBER, POD_MEMBER.POD_ID.eq(game).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
                 val invited = sql.fetchExists(POD_INVITATION, POD_INVITATION.POD_ID.eq(game).and(POD_INVITATION.ACCOUNT_ID.eq(owner))
                     .and(POD_INVITATION.STATE.eq("PENDING")))
-                return@transaction ActivityTarget(gameId, if (exists != null && (member || invited)) ActivityDestination.CURRENT else ActivityDestination.UNAVAILABLE)
+                return@transaction ActivityTarget(gameId, if (exists != null &&
+                    (member || kind == ActivityKind.POD_INVITATION && invited)) ActivityDestination.POD else ActivityDestination.UNAVAILABLE)
             }
             val row = sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne()
             val unavailable = ActivityTarget(gameId, ActivityDestination.UNAVAILABLE)
@@ -150,7 +151,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val rows = sql.select(activity, kind, game, identity, author).from(source)
             .leftJoin(GAME).on(GAME.ID.eq(game)).leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
-            .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game)))
+            .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
             .orderBy(activity).limit(101).fetch()
         val entries = rows.take(100).map { ActivityHint(it[activity].toString(), ActivityKind.valueOf(it[kind]!!),
             it[game].toString(), it[identity].toString(), it[author]?.toString()) }
@@ -171,9 +172,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                         kind.eq("GAME").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)
                              .and(INVITATION.STATE.eq("ACCEPTED"))))))
 
-        internal fun podVisible(owner: org.jooq.Field<UUID>, kind: org.jooq.Field<String>, resource: org.jooq.Field<UUID>): org.jooq.Condition {
+        internal fun podVisible(owner: org.jooq.Field<UUID>, kind: org.jooq.Field<String>, resource: org.jooq.Field<UUID>,
+            identity: org.jooq.Field<UUID>): org.jooq.Condition {
             val member = DSL.exists(DSL.selectOne().from(POD_MEMBER).join(POD).on(POD.ID.eq(POD_MEMBER.POD_ID))
-                .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(
+                .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD.DRAFT_ATTEMPT_ID.eq(identity)).and(
                     kind.eq("POD_YOUR_PICK").and(POD.PHASE.eq("DRAFTING")).and(DSL.condition(
                         "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner))
                         .or(kind.eq("POD_DRAFT_COMPLETE").and(POD.PHASE.eq("DRAFTED")))))

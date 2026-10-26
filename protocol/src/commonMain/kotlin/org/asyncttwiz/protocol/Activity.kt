@@ -5,7 +5,8 @@ import kotlinx.serialization.json.Json
 
 /** Delivery hints only. No names, content, board state, read receipt or player progress. */
 @Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DRAFT_CANCELLED, POD_DESTROYED }
-/** gameId is the pod ID for POD_* kinds; the existing game hint shape is unchanged. */
+/** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
+ * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. */
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.Json
 @Serializable data class ActivityTarget(val gameId: String, val destination: ActivityDestination,
     val invitationId: String? = null, val playId: String? = null, val groupId: String? = null,
     val boundaryNodeId: String? = null)
-@Serializable enum class ActivityDestination { INVITATION, GROUP, CURRENT, UNAVAILABLE }
+@Serializable enum class ActivityDestination { INVITATION, GROUP, CURRENT, UNAVAILABLE, POD }
 
 /** Local durable delivery window codec; not a game history/read-progress record. */
 @Serializable data class PendingActivity(val hint: ActivityHint, val firstAt: Long, val dueAt: Long)

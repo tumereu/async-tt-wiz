@@ -60,6 +60,9 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.installedSets() } }.orEmpty()
     }
 
+    /** Worker-only, from installed records; never downloads a set list to populate the picker. */
+    fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
+
     /** Exact normalized name, optionally exact set/collector number. Ambiguity is returned, not guessed. */
     fun find(name: String, set: String? = null, number: String? = null, limit: Int = 100): List<CatalogPrinting> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.find(name, set, number, limit) } }.orEmpty()
@@ -190,6 +193,26 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     internal fun addSet(code: String, releaseDate: String, checksum: String = "") =
         sql("INSERT INTO catalog_set VALUES (?, ?, ?, ?)", listOf(code, releaseDate, System.currentTimeMillis().toString(), checksum))
+
+    // Optional enrichment, not an index-version change. Older installations remain readable.
+    internal fun setName(code: String, name: String) {
+        sql("CREATE TABLE IF NOT EXISTS catalog_set_name (code TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
+        sql("INSERT OR REPLACE INTO catalog_set_name VALUES (?, ?)", listOf(code, name))
+    }
+
+    internal fun draftableSets(): List<DraftableSet> {
+        val names = if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='catalog_set_name')") == 0L)
+            "p.set_code" else "coalesce((SELECT name FROM catalog_set_name n WHERE n.code=p.set_code), p.set_code)"
+        val dates = if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='catalog_set')") == 0L)
+            "''" else "coalesce((SELECT release_date FROM catalog_set s WHERE s.code=p.set_code), '')"
+        return driver.executeQuery(null, """SELECT p.set_code, $names AS name, $dates AS release_date, count(*)
+            FROM printing p WHERE p.token=0 GROUP BY p.set_code ORDER BY release_date DESC, p.set_code""", { cursor ->
+            val sets = mutableListOf<DraftableSet>()
+            while (cursor.next().value) sets += DraftableSet(cursor.getString(0)!!, cursor.getString(1)!!,
+                cursor.getString(2)!!, cursor.getLong(3)!!)
+            QueryResult.Value(sets)
+        }, 0).value
+    }
 
     internal fun installedSets(): List<CatalogSet> {
         if (long("PRAGMA user_version") < CATALOG_INDEX_VERSION) return emptyList()

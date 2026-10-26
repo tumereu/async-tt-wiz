@@ -64,8 +64,10 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 var sawCards = false
                 var sawCode = false
                 var releaseDate = ""
+                var setName = set
                 objectFields(reader) { field -> when (field) {
                     "code" -> { check(reader.nextString() == set); sawCode = true }
+                    "name" -> setName = reader.nextString().also { check(it.length in 1..256) }
                     "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
                     "cards", "tokens" -> {
                         if (field == "cards") sawCards = true
@@ -105,6 +107,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 check(sawCards && (setCode == null || sawCode))
                 index.addBatch(batch); batch.clear()
                 index.addSet(set, releaseDate, expected.checksum)
+                index.setName(set, setName)
             }
             objectFields(reader) { key -> when (key) {
                 "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)
@@ -258,7 +261,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
  * entire record, never stores truncated data, and can continue at the next record. Validate the
  * discarded tail too: malformed escapes, control characters and unterminated strings remain fatal.
  */
-private class BoundedJsonText(reader: java.io.Reader, fieldBytes: Int) : java.io.FilterReader(reader) {
+internal class BoundedJsonText(reader: java.io.Reader, fieldBytes: Int) : java.io.FilterReader(reader) {
     private val maximum = 6L * fieldBytes + 6
     private var quoted = false
     private var escaped = false

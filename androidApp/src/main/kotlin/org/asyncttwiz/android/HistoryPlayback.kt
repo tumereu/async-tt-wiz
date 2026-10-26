@@ -23,7 +23,7 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
     private val priorIndex: HistoryIndex? = previous?.takeIf { changed != null && (!lazyPresentation || it.hasPresentationIndex) }?.index
     private val priorNodes: Map<String, GameplayMutation> = if (priorIndex != null) previous?.nodes.orEmpty() else emptyMap()
     private val presentationIndex: Lazy<HistoryIndex> = lazy { HistoryIndex.build(rootId, nodes, containers, priorIndex,
-        priorNodes, if (priorIndex != null) changed!! else nodes.keys) }
+        priorNodes, if (priorIndex != null) changed!! else nodes.keys, source?.initial) }
     internal val index: HistoryIndex by presentationIndex
     internal val hasPresentationIndex: Boolean get() = presentationIndex.isInitialized()
     val indexedNodes get() = index.visited
@@ -37,7 +37,8 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
     }
     init {
         require((source != null || nodes.size == mutations.size) && rootId !in nodes && (sharedHeadId == rootId || sharedHeadId in nodes))
-        if (!lazyPresentation) index
+        // Geometry is ingested with the ordinary history index, never on dialog open.
+        index
     }
     fun contains(id: String) = id == rootId || id in nodes
     fun path(id: String): List<String> {

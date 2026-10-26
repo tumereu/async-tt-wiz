@@ -35,7 +35,7 @@ class ClientNormalPathScaleTest {
         emptyList(), tree.currentNodeId, tree.currentNodeId, containers = tree.initial.board.containers,
         source = tree, previous = previous)
 
-    @Test fun openAndCatchUpFiveGroupsAtTenThousandActionsNeverIndexesOrReplaysThePrefix() {
+    @Test fun ingestionPreparesGeometryAndCatchUpNeverReplaysThePrefix() {
         val tree = large.materializedCopy()
         val navigation = HistoryPlayback(index(tree))
         repeat(5) { navigation.previous() }
@@ -71,10 +71,11 @@ class ClientNormalPathScaleTest {
         assertTrue(tree.work.replayedNodes + tree.work.unappliedNodes <= distance * 2)
         assertTrue(tree.work.ancestrySteps <= distance * 4)
         assertTrue(player.tree.navigationReads < 500)
-        assertFalse(player.tree.hasPresentationIndex)
+        assertTrue(player.tree.hasPresentationIndex, "Fixed tree geometry is prepared during ingestion, not dialog open")
+        assertTrue(player.tree.index.layout.chips.values.all { it.presentation == null }, "Text/glyph projection stays lazy")
         history.close()
 
-        // First open is lazy too: showing the already-materialized initial endpoint is O(1).
+        // After ingestion, showing the already-materialized initial endpoint is O(1).
         tree.work.reset()
         val firstOpen = HistoryPlayback(HistoryTree(tree.initial.root.id, emptyList(), tree.currentNodeId,
             "first", containers = tree.initial.board.containers, source = tree, lazyPresentation = true))
@@ -82,7 +83,7 @@ class ClientNormalPathScaleTest {
         assertEquals(tree.initial, tree.prepareReview(firstOpen.position.cursorId))
         assertEquals(0, tree.work.replayedNodes + tree.work.unappliedNodes + tree.work.ancestrySteps)
         assertEquals(0, tree.work.fullHistoryScans + tree.work.rootMaterializations)
-        assertFalse(firstOpen.tree.hasPresentationIndex)
+        assertTrue(firstOpen.tree.hasPresentationIndex)
         assertTrue(firstOpen.tree.navigationReads < 20)
         firstOpen.next(true)
         assertNotNull(tree.prepareReview(firstOpen.position.cursorId))

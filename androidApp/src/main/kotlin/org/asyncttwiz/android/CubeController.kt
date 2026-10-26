@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 import java.util.UUID
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
@@ -32,7 +33,9 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private var pendingSave: SavePlan? = null
     private var pendingUpdate: UpdateCube? = null
     private var pendingDelete: DeleteCube? = null
-    fun clear() { epoch++; source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
+    // Replace on logout so an in-flight old request cannot populate the new session's cache.
+    @Volatile private var definitionCache = ConcurrentHashMap<String, CardDefinition>()
+    fun clear() { epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
         if (state.busy) return
@@ -47,6 +50,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private fun load(id: String?) {
         if (closed || state.busy) return
         val token = credential() ?: return
+        val cache = definitionCache
         state = state.copy(selected = id, detail = state.detail?.takeIf { it.saved.cube.id == id }, error = null)
         work { current ->
             if (id == null) {
@@ -59,9 +63,13 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 return@work { state = state.copy(cubes = cubes.values.toList(), loaded = true) }
             } else {
                 val saved = serviceRetry(current = current) { api.readCube(token, id) }
-                val definitions = saved.entries.map { it.definition }.distinct().associateWith { digest ->
-                    serviceRetry(current = current) { api.cubeDefinition(token, id, digest) }.definition
+                val digests = saved.entries.map { it.definition }.distinct()
+                for (batch in digests.filterNot(cache::containsKey).chunked(CubeValidation.MAX_DEFINITIONS_PER_READ)) {
+                    val received = serviceRetry(current = current) { api.cubeDefinitions(token, id, ReadCubeDefinitions(batch)) }.definitions
+                    if (received.size != batch.size || received.map { it.digest }.toSet() != batch.toSet()) throw DeckFailure("invalid_response")
+                    received.forEach { cache[it.digest] = it.definition }
                 }
+                val definitions = digests.associateWith(cache::getValue)
                 return@work { state = state.copy(detail = CubeDetail(saved, definitions)) }
             }
         }
@@ -123,6 +131,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (!CubeValidation.name(state.name)) { state = state.copy(error = "Enter a cube name."); return }
         val token = credential() ?: return
         val input = state; val retained = source?.definitions.orEmpty()
+        val cache = definitionCache
         var attempted = pendingSave
         work(onFailure = { pendingSave = attempted }) { current ->
             val plan = attempted ?: run {
@@ -141,6 +150,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             attempted = plan
             val accepted = serviceRetry(current = current) { api.submit(token, plan.definitions) }
             if (accepted.digests.toSet() != plan.definitions.definitions.map { it.digest }.toSet()) throw DeckFailure("invalid_response")
+            plan.definitions.definitions.forEach { cache[it.digest] = it.definition }
             val saved = serviceRetry(current = current) {
                 if (plan.target == null) api.create(token, plan.cube) else api.update(token, plan.target,
                     UpdateCube(plan.cube.requestId, plan.cube.name, plan.cube.entries, plan.cube.cubeCobraId))

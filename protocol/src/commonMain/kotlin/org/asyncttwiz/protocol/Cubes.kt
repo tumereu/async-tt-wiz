@@ -12,9 +12,14 @@ import kotlinx.serialization.Serializable
     val createdAt: String, val updatedAt: String, val totalCopies: Long, val cubeCobraId: String? = null)
 @Serializable data class SavedCube(val cube: CubeSummary, val entries: List<SavedCubeEntry>)
 @Serializable data class CubeList(val cubes: List<CubeSummary>, val next: String? = null)
+@Serializable data class ReadCubeDefinitions(val digests: List<String>)
+@Serializable data class SubmittedDefinitions(val definitions: List<SubmittedDefinition>)
 
 object CubeValidation {
     const val MAX_CARDS = 3000
+    const val MAX_DEFINITIONS_PER_READ = 250
+    fun definitionRead(digests: List<String>) = digests.size in 1..MAX_DEFINITIONS_PER_READ &&
+        digests.all(DeckValidation::digest)
     fun name(value: String) = value.isNotBlank() && DeckValidation.text(value)
     fun provenance(value: String?) = value == null || Regex("[A-Za-z0-9_-]{1,256}").matches(value)
     fun entries(value: List<SavedCubeEntry>) = value.isNotEmpty() &&

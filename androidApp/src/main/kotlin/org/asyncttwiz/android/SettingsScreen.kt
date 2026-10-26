@@ -16,11 +16,12 @@ internal fun appVersionText(versionName: String = BuildConfig.VERSION_NAME, vers
     "Version $versionName ($versionCode) $buildType · commit $commit"
 
 @Composable
-internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "", logout: () -> Unit) {
+internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () -> Unit, auth: AuthController?) {
     val preferences = rememberHistoryPlaybackPreferences(accountId)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        if (auth != null) ProfileSettings(auth)
         PlaybackSettings(preferences, accountId)
         CardSettings()
         TextButton(onClick = logout, modifier = Modifier.heightIn(min = 48.dp).testTag("logout"),
@@ -36,3 +37,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "",
         catalog::dismissError, Modifier.align(Alignment.BottomCenter))
     }
 }
+
+@Composable
+internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "", logout: () -> Unit) =
+    SettingsContent(catalog, accountId, logout, null)

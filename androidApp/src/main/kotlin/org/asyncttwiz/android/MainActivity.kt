@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
                 if (android.os.Build.VERSION.SDK_INT >= 33 && state.account != null &&
                     state.destination == ShellDestination.GAMES && auth.lobby.state.selected == null && !asked &&
-                    !catalog.state.busy && !catalog.promptPolicy.shouldPrompt(catalog.state) &&
+                    !catalog.state.busy && !catalog.needsInitialDownloadConsent && !catalog.promptPolicy.shouldPrompt(catalog.state) &&
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
                     AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation and game activity alerts") },
@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                     DebugLatency.drawn()
                 } else Modifier)) {
                     if (storage.state == StorageState.Ready) {
-                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes)
+                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish)
                     }
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),

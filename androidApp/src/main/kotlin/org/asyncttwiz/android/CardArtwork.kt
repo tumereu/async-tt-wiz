@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import coil3.ImageLoader
 import coil3.asImage
@@ -119,7 +120,7 @@ object PublicArtwork {
  * cannot display a late previous face. No HTML, name guessing, retries per frame or saved secrets. */
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
-    modifier: Modifier = Modifier, service: CardArtworkService? = null) {
+    modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false) {
     val context = LocalContext.current
     val request = reference?.let { CardArtworkRequest(it, width, height) }
     val result by produceState<Pair<CardArtworkRequest, coil3.Image?>?>(null, request, service) {
@@ -131,9 +132,9 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
             value = request to (result as? SuccessResult)?.image
         }
     }
-    Box(modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
         val loaded = result?.takeIf { it.first == request }?.second
         if (loaded == null) Text(fallback)
-        else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
     }
 }

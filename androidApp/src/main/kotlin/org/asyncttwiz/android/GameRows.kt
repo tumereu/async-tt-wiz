@@ -35,6 +35,7 @@ private fun GameRow(game: GameSummary, accountId: String, modifier: Modifier) {
     val move = gameRowMove(game, accountId)
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Avatar(game.opponent(accountId))
             Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,

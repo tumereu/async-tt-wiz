@@ -60,6 +60,14 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
                 throw DeckFailure("invalid_response")
         }
     }
+    override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
+        if (!DeckValidation.uuid(id) || !CubeValidation.definitionRead(value.digests)) throw DeckFailure("invalid_response")
+        return call<SubmittedDefinitions>(token, HttpMethod.Post, "/v1/cubes/$id/definitions", DeckJson.format.encodeToString(value)).also {
+            if (it.definitions.size != value.digests.toSet().size || it.definitions.map { item -> item.digest }.toSet() != value.digests.toSet() ||
+                it.definitions.any { item -> !DeckValidation.definition(item.definition) || DeckJson.digest(item.definition) != item.digest })
+                throw DeckFailure("invalid_response")
+        }
+    }
     override suspend fun create(token: String, value: CreateDeck): SavedDeck =
         call(token, HttpMethod.Post, "/v1/decks", DeckJson.format.encodeToString(value))
     override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {

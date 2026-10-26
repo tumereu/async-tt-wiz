@@ -19,6 +19,58 @@ import org.junit.jupiter.api.Test
 
 /** Actual HTTP through normal Spring/Tomcat/Security handlers, real PostgreSQL and shared JSON. */
 class AccountHttpTest {
+    @Test fun `profile updates validate names and avatars and project current identities everywhere`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                fun account(name: String): SessionCreated {
+                    assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password"))).statusCode())
+                    return json.decodeFromString(post(settings, "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password"))).body())
+                }
+                val alice = account("Alice")
+                val bob = account("Bob")
+                fun put(path: String, body: String, token: String? = alice.token) = request(settings, "PUT", path, body.toByteArray(), token)
+                assertEquals(401, put("/account/username", """{"username":"New"}""", null).statusCode())
+                assertEquals(401, put("/account/avatar", "{}", null).statusCode())
+                val taken = put("/account/username", json.encodeToString(ChangeUsername("BOB")))
+                assertEquals(409, taken.statusCode())
+                assertEquals("username_taken", json.decodeFromString<AccountError>(taken.body()).code)
+                for (name in listOf(" ", "x".repeat(65), "bad\nname"))
+                    assertEquals(400, put("/account/username", json.encodeToString(ChangeUsername(name))).statusCode())
+                val changed = put("/account/username", json.encodeToString(ChangeUsername("  Alicia  ")))
+                assertEquals(200, changed.statusCode())
+                assertEquals("Alicia", json.decodeFromString<AccountIdentity>(changed.body()).username)
+                val art = Avatar(java.util.UUID.randomUUID().toString(), 1)
+                for (avatar in listOf(art.copy(scryfallId = "bad"), art.copy(face = -1), art.copy(face = 16)))
+                    assertEquals(400, put("/account/avatar", json.encodeToString(ChangeAvatar(avatar))).statusCode())
+                val set = put("/account/avatar", json.encodeToString(ChangeAvatar(art)))
+                assertEquals(200, set.statusCode())
+                val identity = json.decodeFromString<AccountIdentity>(set.body())
+                assertEquals(art, identity.avatar)
+                assertEquals(identity, json.decodeFromString<AccountIdentity>(request(settings, "GET", "/account", token = alice.token).body()))
+                // Email credentials do not change when the public name changes.
+                val login = post(settings, "/sessions", json.encodeToString(CreateSession("Alice@example.invalid", "password")))
+                assertEquals(identity, json.decodeFromString<SessionCreated>(login.body()).account)
+                assertEquals(listOf(identity), json.decodeFromString<UserSearch>(request(settings, "GET", "/v1/users?username=Alicia", token = bob.token).body()).users)
+                val add = AddContact(java.util.UUID.randomUUID().toString(), identity.accountId)
+                assertEquals(200, request(settings, "POST", "/v1/contacts", json.encodeToString(add).toByteArray(), bob.token).statusCode())
+                assertEquals(listOf(identity), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = bob.token).body()).contacts)
+                val invitation = CreateInvitation(java.util.UUID.randomUUID().toString(), identity.accountId, "Avatar game")
+                val created = request(settings, "POST", "/v1/invitations", json.encodeToString(invitation).toByteArray(), bob.token)
+                assertEquals(201, created.statusCode())
+                val game = json.decodeFromString<GameSummary>(created.body())
+                assertEquals(identity, game.recipient)
+                assertEquals(identity, json.decodeFromString<GameList>(request(settings, "GET", "/v1/games", token = bob.token).body()).games.single().recipient)
+                assertEquals(identity, json.decodeFromString<GameList>(request(settings, "GET", "/v1/invitations", token = alice.token).body()).games.single().recipient)
+                val clear = put("/account/avatar", json.encodeToString(ChangeAvatar()))
+                assertEquals(200, clear.statusCode())
+                assertNull(json.decodeFromString<AccountIdentity>(clear.body()).avatar)
+                assertNull(json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", token = bob.token).body()).recipient.avatar)
+            }
+        }
+    }
     @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -18,7 +18,10 @@ class CubeControllerTest {
         val definitions = mutableMapOf(digest to card)
         var fail = false
         var afterRead: () -> Unit = {}
+        var cubeReads = 0
         var definitionReads = 0
+        val definitionBatches = mutableListOf<List<String>>()
+        var failBatch: Int? = null
         override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted {
             value.definitions.forEach { definitions[it.digest] = it.definition }
             return DefinitionsAccepted(value.definitions.map { it.digest })
@@ -29,9 +32,14 @@ class CubeControllerTest {
             return SavedCube(summary.copy(name = value.name, totalCopies = value.entries.sumOf { it.quantity.toLong() }, cubeCobraId = value.cubeCobraId), value.entries).also { saved = it }
         }
         override suspend fun listCubes(token: String, after: String?) = CubeList(listOfNotNull(saved?.cube))
-        override suspend fun readCube(token: String, id: String): SavedCube { afterRead(); return saved ?: throw DeckFailure("not_found") }
+        override suspend fun readCube(token: String, id: String): SavedCube { cubeReads++; afterRead(); return saved ?: throw DeckFailure("not_found") }
         override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition {
             definitionReads++; return SubmittedDefinition(digest, definitions.getValue(digest))
+        }
+        override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions): SubmittedDefinitions {
+            definitionBatches += value.digests
+            if (definitionBatches.size == failBatch) throw DeckFailure("try_later")
+            return SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, definitions.getValue(it)) })
         }
         override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube {
             updates += value
@@ -76,6 +84,7 @@ class CubeControllerTest {
         assertEquals(card, api.definitions.getValue(api.updates.single().entries!!.single().definition))
         assertFalse(controller.state.editing)
         assertEquals(2000L, controller.state.detail!!.saved.cube.totalCopies)
+        assertEquals(1, api.definitionBatches.size)
         controller.close(); worker.drain()
     }
     @Test fun createUnknownBlocksAndCobraProvenanceAndImmutableRetryAreRetained() {
@@ -118,7 +127,63 @@ class CubeControllerTest {
         api.afterRead = controller::clear
         controller.open(summary.id); worker.drain()
         assertEquals(0, api.definitionReads)
+        assertTrue(api.definitionBatches.isEmpty())
         assertNull(controller.state.detail)
+        controller.close(); worker.drain()
+    }
+    private fun populate(api: Api, count: Int) {
+        api.definitions.clear()
+        repeat(count) { index ->
+            val card = CardDefinition("Card $index", listOf(DefinitionFace(UUID.randomUUID().toString(), "Card $index")))
+            api.definitions[DeckJson.digest(card)] = card
+        }
+        api.saved = SavedCube(summary.copy(totalCopies = count.toLong()), api.definitions.keys.map { SavedCubeEntry(it, 1) })
+    }
+    @Test fun largeCubeLoadsInBatchesAndReusesDefinitionsAcrossReopenRenameAndOtherCubes() {
+        val api = Api(); populate(api, 720)
+        val worker = Worker(); val controller = controller(api, worker)
+        controller.open(summary.id); worker.drain()
+        assertNull(controller.state.error)
+        assertEquals(api.definitions, controller.state.detail!!.definitions)
+        assertEquals(4, api.cubeReads + api.definitionBatches.size + api.definitionReads)
+        assertEquals(listOf(250, 250, 220), api.definitionBatches.map { it.size })
+        assertEquals(0, api.definitionReads)
+        controller.back(); worker.drain(); controller.open(summary.id); worker.drain()
+        controller.dialog(CubeDialog.RENAME); controller.name("Renamed"); controller.confirm(); worker.drain()
+        assertEquals("Renamed", controller.state.detail!!.saved.cube.name)
+        val otherId = UUID.randomUUID().toString()
+        api.saved = api.saved!!.copy(cube = api.saved!!.cube.copy(id = otherId))
+        controller.open(otherId); worker.drain()
+        assertEquals(720, controller.state.detail!!.definitions.size)
+        assertEquals(3, api.definitionBatches.size)
+        controller.clear(); controller.open(otherId); worker.drain()
+        assertEquals(6, api.definitionBatches.size)
+        controller.close(); worker.drain()
+    }
+    @Test fun maximumCubeUsesTwelveBatches() {
+        val api = Api(); populate(api, 3000)
+        val worker = Worker(); val controller = controller(api, worker)
+        controller.open(summary.id); worker.drain()
+        assertNull(controller.state.error)
+        assertEquals(3000, controller.state.detail!!.definitions.size)
+        assertEquals(12, api.definitionBatches.size)
+        assertTrue(api.definitionBatches.all { it.size == 250 })
+        assertEquals(0, api.definitionReads)
+        controller.close(); worker.drain()
+    }
+    @Test fun retryAfterPartialFailureOnlyFetchesMissingDefinitions() {
+        val api = Api(); populate(api, 720); api.failBatch = 2
+        val worker = Worker(); val controller = controller(api, worker)
+        controller.open(summary.id); worker.drain()
+        assertNotNull(controller.state.error)
+        assertNull(controller.state.detail)
+        api.failBatch = null
+        controller.retry(); worker.drain()
+        assertNull(controller.state.error)
+        assertEquals(720, controller.state.detail!!.definitions.size)
+        assertEquals(listOf(250, 250, 250, 220), api.definitionBatches.map { it.size })
+        assertEquals(api.definitionBatches[1], api.definitionBatches[2])
+        assertTrue(api.definitionBatches[0].toSet().intersect(api.definitionBatches.drop(1).flatten().toSet()).isEmpty())
         controller.close(); worker.drain()
     }
     @Test fun cobraRequestedIdentitySurvivesCheckboxAndTextQuantityEdits() {

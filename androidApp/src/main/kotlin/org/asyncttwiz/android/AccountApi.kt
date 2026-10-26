@@ -32,6 +32,8 @@ interface Accounts : Closeable {
     suspend fun login(email: String, password: String): SessionCreated
     suspend fun identity(token: String): AccountIdentity
     suspend fun revoke(token: String)
+    suspend fun changeUsername(token: String, username: String): AccountIdentity = throw AccountFailure("unavailable")
+    suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity = throw AccountFailure("unavailable")
 }
 
 interface PasswordResets : Closeable {
@@ -67,6 +69,12 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
 
     override suspend fun identity(token: String): AccountIdentity = decode(call(HttpMethod.Get, "/account", token = token))
     override suspend fun revoke(token: String) { call(HttpMethod.Delete, "/session", token = token) }
+
+    override suspend fun changeUsername(token: String, username: String): AccountIdentity =
+        decode(call(HttpMethod.Put, "/account/username", AccountJson.format.encodeToString(org.asyncttwiz.protocol.ChangeUsername(username)), token))
+
+    override suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity =
+        decode(call(HttpMethod.Put, "/account/avatar", AccountJson.format.encodeToString(org.asyncttwiz.protocol.ChangeAvatar(avatar)), token))
 
     internal suspend fun tokenFavorites(token: String): org.asyncttwiz.protocol.TokenFavorites =
         decode(call(HttpMethod.Get, "/account/token-favorites", token = token))

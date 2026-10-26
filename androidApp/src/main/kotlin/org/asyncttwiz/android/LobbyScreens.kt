@@ -78,6 +78,7 @@ internal fun ContactsContent(controller: LobbyController) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
                                 .then(if (state.choosingOpponent) Modifier.clickable(enabled = !state.mutating) { controller.begin(contact) } else Modifier),
                                 verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(contact); Spacer(Modifier.width(8.dp))
                                 Text(contact.username, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                                 if (!state.choosingOpponent) ContactActionIcon("Remove contact", "delete", !state.mutating) { controller.requestRemoveContact(contact) }
                                 else EntryIcon(null, "chevron")
@@ -95,6 +96,7 @@ internal fun ContactsContent(controller: LobbyController) {
                             items(state.results, key = { it.accountId }) { contact ->
                                 val added = state.contacts.any { it.accountId == contact.accountId }
                                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Avatar(contact); Spacer(Modifier.width(8.dp))
                                     Text(contact.username, Modifier.weight(1f))
                                     ContactActionIcon(if (added) "Added contact" else "Add contact", if (added) "ready" else "person", !state.mutating && !added) { controller.add(contact) }
                                     if (state.choosingOpponent) ContactActionIcon("Invite", "send", !state.mutating, primary = true) { controller.invite(contact) }
@@ -168,7 +170,10 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                     for (game in state.invitations) Surface(color = ScreenBackground, border = BorderStroke(1.dp, ScreenBorder), shape = MaterialTheme.shapes.medium) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(game.gameName, fontWeight = FontWeight.SemiBold)
-                            Text(game.inviter.username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Avatar(game.inviter)
+                                Text(game.inviter.username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             Text("${gameStatus(game)} · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ScreenButton(onClick = { controller.respond(game, true) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
@@ -254,7 +259,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 Text("$status · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val own: @Composable (Modifier) -> Unit = { modifier ->
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, ownPlayer?.ready == true)
+                        PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
                         PreparedSummary(state.preparation, accountId)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
@@ -271,7 +276,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 }
                 val opponent: @Composable (Modifier) -> Unit = { modifier ->
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PlayerReadiness(game.opponent(accountId).username,
+                        PlayerReadiness(game.opponent(accountId),
                             state.preparation?.players?.find { it.accountId == game.opponent(accountId).accountId }?.ready == true)
                         if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId)
                          else Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
@@ -406,9 +411,11 @@ private fun SetupCancellationDialog(dismiss: () -> Unit, content: @Composable Co
 }
 
 @Composable
-private fun PlayerReadiness(name: String, ready: Boolean) {
+private fun PlayerReadiness(account: AccountIdentity, ready: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(name, style = MaterialTheme.typography.titleMedium)
+        Avatar(account)
+        Text(account.username, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         Icon(screenIcon(if (ready) "ready" else "pending"), null, Modifier.size(18.dp),
             tint = if (ready) androidx.compose.ui.graphics.Color(0xff287a45) else androidx.compose.ui.graphics.Color(0xffa16f26))
         Text(if (ready) "Ready" else "Not ready", style = MaterialTheme.typography.bodySmall)

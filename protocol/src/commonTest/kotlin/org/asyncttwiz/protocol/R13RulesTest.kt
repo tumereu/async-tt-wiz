@@ -137,6 +137,55 @@ class R13RulesTest {
         assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
     }
 
+    @Test fun opponentProjectionNoteDoesNotBlockUndoingTheEffectsControllerChange() {
+        val initial = root()
+        var tree = assertNotNull(GameplayTree(initial).play(a, command(initial, GameAction.Play(
+            PlayAction.Stack(StackAction.AddEffect(id(20), GameplayRules.stackDigest(initial)))))).tree)
+        val s = assertNotNull(tree.stateAt(tree.currentNodeId))
+        val effect = s.board.stackEffects.single().id
+        tree = assertNotNull(tree.play(a, command(s, GameAction.Play(
+            PlayAction.Stack(StackAction.SetController(effect, b))))).tree)
+        tree = assertNotNull(tree.play(b, command(s, GameAction.Play(PlayAction.SetProjectionNote(effect, "B's target")))).tree)
+        val note = tree.nodes.getValue(tree.currentNodeId)
+        val undo = SelectiveUndo.change(tree, a, command(s, GameAction.Undo))
+        val undone = assertNotNull(undo.tree, undo.reason)
+        val state = assertNotNull(undone.stateAt(undone.currentNodeId))
+        assertEquals(a, CombatStackRules.controller(state.board, effect))
+        assertEquals("B's target", CombatStackRules.projectionNote(state.board, effect))
+        assertEquals(note.action, undone.nodes.getValue(note.id).action)
+        assertEquals(note.transition, undone.nodes.getValue(note.id).transition)
+        val redo = SelectiveUndo.change(undone, a, command(s, GameAction.Redo))
+        val redone = assertNotNull(redo.tree, redo.reason)
+        assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
+    }
+
+    @Test fun projectionNoteConcernsNeitherCombatPairNorRoleWhenReplayingAfterPlacementUndo() {
+        val initial = root()
+        var tree = assertNotNull(GameplayTree(initial).play(a, command(initial,
+            GameAction.Play(PlayAction.Combat(CombatAction.Open)))).tree)
+        var s = assertNotNull(tree.stateAt(tree.currentNodeId))
+        tree = assertNotNull(tree.play(a, command(s,
+            GameAction.Play(PlayAction.Combat(CombatAction.Declare(s.board.combat!!.id, id(20)))))).tree)
+        s = assertNotNull(tree.stateAt(tree.currentNodeId))
+        val area = s.board.combat!!
+        val occurrence = area.pairs.single().attackers.single().id
+        tree = assertNotNull(tree.play(a, command(s, GameAction.Play(PlayAction.Combat(
+            CombatAction.Place(id(20), CombatDestination(area.id, CombatRole.BLOCKER, area.pairs.single().id),
+                CombatStackRules.location(area, occurrence)))))).tree)
+        tree = assertNotNull(tree.play(b, command(s, GameAction.Play(PlayAction.SetProjectionNote(occurrence, "combat target")))).tree)
+        val note = tree.nodes.getValue(tree.currentNodeId)
+        val undo = SelectiveUndo.change(tree, a, command(s, GameAction.Undo))
+        val undone = assertNotNull(undo.tree, undo.reason)
+        val state = assertNotNull(undone.stateAt(undone.currentNodeId))
+        assertEquals(area.pairs.single().id, CombatStackRules.location(state.board.combat!!, occurrence)?.pairId)
+        assertEquals(CombatRole.ATTACKER, CombatStackRules.location(state.board.combat, occurrence)?.role)
+        assertEquals("combat target", CombatStackRules.projectionNote(state.board, occurrence))
+        assertEquals(note.transition, undone.nodes.getValue(note.id).transition)
+        val redo = SelectiveUndo.change(undone, a, command(s, GameAction.Redo))
+        val redone = assertNotNull(redo.tree, redo.reason)
+        assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
+    }
+
     @Test fun mulliganIsOneDeterministicRecordedEventWithAtomicUndoRedoAndStaleHandRejection() {
         val s = root()
         val library = container(s, PlayZone.LIBRARY)

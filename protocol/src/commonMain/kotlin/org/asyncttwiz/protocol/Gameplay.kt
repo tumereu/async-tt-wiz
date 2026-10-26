@@ -175,7 +175,7 @@ object GameplayRules {
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
-        val delta = GameplayDeltas.capture(state, next, mutation.id)
+        val delta = GameplayDeltas.capture(state, next, mutation.id, (mutation.action as? PlayAction.SetProjectionNote)?.occurrenceId)
         val recorded = GameplayHistory.recontextualize(state, mutation.copy(schemaVersion = 2,
             transition = mutation.transition.copy(delta = delta,
                 concerns = GameplayConcerns.capture(state, next, mutation, delta)),

@@ -47,6 +47,15 @@ class StackQuickActionsRuntimeTest {
                 assertEquals("rejected", apply(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
                     MoveDestination(state().board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == token.owner }.id,
                         MoveInsertion.UNORDERED), removeStackEntryId = copy.id)).outcome)
+                val note = f.recipient.command(PlayAction.SetProjectionNote(copy.id, "opponent's target"))
+                assertEquals("accepted", f.recipient.execute(note).outcome)
+                val noted = state().board
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)).outcome)
+                assertEquals(f.a.account.accountId, CombatStackRules.controller(state().board, copy.id))
+                assertEquals("opponent's target", CombatStackRules.projectionNote(state().board, copy.id))
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Redo)).outcome)
+                assertEquals(noted, state().board)
+                assertEquals(f.recipient.result(note), f.recipient.admit(note))
             }
         }
     }

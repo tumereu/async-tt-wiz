@@ -23,7 +23,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {
-        toolkit.manual.projectionNote(play, id, bound?.viewIds ?: listOf(id), toolkit.viewer)
+        toolkit.manual.projectionNote(play, id, toolkit.viewer)
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {

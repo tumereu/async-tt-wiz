@@ -12,13 +12,13 @@ class ManualActions {
     var inspection by mutableStateOf<ManualInspection?>(null)
         private set
 
-    fun cards(state: PlayState, contextId: String, selectedSourceIds: List<String>, noteViewIds: List<String>? = null) {
+    fun cards(state: PlayState, contextId: String, selectedSourceIds: List<String>, noteViewId: String? = null) {
         val ids = if (contextId in selectedSourceIds) selectedSourceIds.distinct() else listOf(contextId)
-        scope = ManualScope(state.gameId, state.id, contextId, ids, noteViewIds = noteViewIds)
+        scope = ManualScope(state.gameId, state.id, contextId, ids, noteViewId = noteViewId)
         editor = null
     }
-    fun projectionNote(state: PlayState, id: String, ids: List<String>, viewer: String) {
-        scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewIds = ids)
+    fun projectionNote(state: PlayState, id: String, viewer: String) {
+        scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewId = id)
         edit(ManualValue(ManualValueKind.NOTE), state, viewer)
     }
     fun player(state: PlayState, accountId: String) {
@@ -69,16 +69,16 @@ data class ManualInspection(val gameId: String, val playId: String, val cardId: 
     val provisional: Boolean = false, val stackEntryId: String? = null)
 
 data class ManualScope(val gameId: String, val playId: String, val contextId: String,
-    val targetIds: List<String>, val player: Boolean = false, val noteViewIds: List<String>? = null) {
+    val targetIds: List<String>, val player: Boolean = false, val noteViewId: String? = null) {
     fun usable(state: PlayState): Boolean = gameId == state.gameId && playId == state.id &&
         if (player) state.board.players.any { it.accountId == contextId }
-        else state.board.cards.any { it.id == contextId } || noteViewIds?.any {
-            CombatStackRules.projectionNote(state.board, it) != null } == true
+        else if (noteViewId != null) CombatStackRules.projectionNote(state.board, noteViewId) != null
+        else state.board.cards.any { it.id == contextId }
 
     fun value(state: PlayState, field: ManualValue, viewer: String): String? {
         if (!usable(state)) return null
-        if (field.kind == ManualValueKind.NOTE && noteViewIds != null)
-            return noteViewIds.firstOrNull()?.let { CombatStackRules.projectionNote(state.board, it) }
+        if (field.kind == ManualValueKind.NOTE && noteViewId != null)
+            return CombatStackRules.projectionNote(state.board, noteViewId)
         if (player) {
             val target = state.board.players.single { it.accountId == contextId }
             return if (field.kind == ManualValueKind.LIFE) target.life else target.counters[field.color]
@@ -94,8 +94,8 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
 
     fun actions(state: PlayState, field: ManualValue, text: String, viewer: String): List<PlayAction> {
         if (!usable(state)) return emptyList()
-        if (field.kind == ManualValueKind.NOTE && noteViewIds != null) return noteViewIds.mapNotNull { id ->
-            if (CombatStackRules.projectionNote(state.board, id) != null) PlayAction.SetProjectionNote(id, text) else null }
+        if (field.kind == ManualValueKind.NOTE && noteViewId != null)
+            return listOf(PlayAction.SetProjectionNote(noteViewId, text))
         return targetIds.mapNotNull { id ->
             if (player) {
                 if (state.board.players.none { it.accountId == id }) null

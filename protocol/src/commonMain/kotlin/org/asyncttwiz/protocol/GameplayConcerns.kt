@@ -16,6 +16,7 @@ import kotlinx.serialization.json.*
     @Serializable data class LinkPair(val first: LinkEndpoint, val second: LinkEndpoint) : ConcernField
     @Serializable data class ProjectionPair(val first: String, val second: String) : ConcernField
     @Serializable data class Projection(val id: String) : ConcernField
+    @Serializable data class ProjectionIdentity(val id: String) : ConcernField
     @Serializable data class ProjectionIncident(val id: String) : ConcernField
     @Serializable data class Controller(val id: String) : ConcernField
     @Serializable data class Live(val id: String) : ConcernField
@@ -109,6 +110,10 @@ internal object GameplayConcerns {
                 put("occurrence", encoded(CombatStackRules.occurrences(b.combat).singleOrNull { it.id == field.id }))
                 put("location", encoded(b.combat?.let { CombatStackRules.location(it, field.id) }))
             }
+            is ConcernField.ProjectionIdentity -> encoded(
+                b.stackEffects.singleOrNull { it.id == field.id }?.let { listOf("effect", it.id, it.sourceId) }
+                    ?: CombatStackRules.occurrences(b.combat).singleOrNull { it.id == field.id }
+                        ?.let { listOf("occurrence", it.id, it.sourceId) })
             is ConcernField.ProjectionIncident -> buildJsonObject {
                 put("links", encoded(b.projectionLinks.filter { it.first == field.id || it.second == field.id }.sortedBy { it.id }))
                 put("marks", encoded(b.stackTextMarks[field.id]))
@@ -224,7 +229,8 @@ internal object GameplayConcerns {
                         entity("card", id, "note")
                 }
             }
-            is PlayAction.SetProjectionNote -> projection(a.occurrenceId)
+            // The delta witnesses the note itself; controller, snapshot and combat location are unrelated.
+            is PlayAction.SetProjectionNote -> fields += ConcernField.ProjectionIdentity(a.occurrenceId)
             is PlayAction.ShowContents -> {
                 fields += ConcernField.PanelSlot
                 fields += ConcernField.Slice(a.containerId, a.selection, a.count)

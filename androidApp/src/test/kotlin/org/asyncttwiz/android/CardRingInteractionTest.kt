@@ -83,7 +83,7 @@ class CardRingInteractionTest {
         compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
         compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
         compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.SetNote(id, "projection note")), sent)
+            assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(id, "projection note")), sent)
             toolkit.openCard(TableScope(id, listOf(id)))
         }
         compose.ringPage(1)

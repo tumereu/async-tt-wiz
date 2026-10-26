@@ -49,10 +49,10 @@ class GameplayMergeVerificationTest {
                 runtime.start(); gameplayAwait(runtime::ready)
                 val f = GameplayFixture(runtime)
                 val library = f.root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a.account.accountId }
-                val hand = f.root.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a.account.accountId }
+                val field = f.root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == f.a.account.accountId }
                 val first = library.cards[0]; val second = library.cards[1]
                 fun draw(card: String) = PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
-                    MoveDestination(hand.id, MoveInsertion.UNORDERED))
+                    MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0)))
                 val commands = listOf(
                     PlayAction.MoveCard(first, MoveSource(library.id), MoveDestination(library.id, MoveInsertion.BOTTOM)),
                     draw(first), draw(second), PlayAction.SetNote(second, " boundary note "),
@@ -75,7 +75,7 @@ class GameplayMergeVerificationTest {
                 assertNull(results[1].mutation); assertNull(results[1].commitRevision)
                 head = f.games.head(f.a, f.game.id)
                 assertEquals(boundary.revision.toLong() + 3, head.revision.toLong())
-                assertEquals(hand.id, head.play!!.board.cards.single { it.id == second }.containerId)
+                assertEquals(field.id, head.play!!.board.cards.single { it.id == second }.containerId)
                 assertEquals("boundary note", head.play!!.board.cards.single { it.id == second }.note)
                 assertEquals(export, f.games.baselineManifest(f.a, export.id))
                 oldChunks.forEachIndexed { index, bytes -> assertArrayEquals(bytes, f.games.baselineChunk(f.a, export.id, index)) }

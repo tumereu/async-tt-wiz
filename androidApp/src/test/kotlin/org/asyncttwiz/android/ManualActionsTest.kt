@@ -19,19 +19,43 @@ internal fun manualState(): PlayState {
 }
 
 class ManualActionsTest {
+    @Test fun selectedProjectionNoteUsesTheOpenedProjectionForBothInitialTextAndSave() {
+        for (frozen in listOf(false, true)) {
+            val original = manualState()
+            val first = StackEffect(manualId(80), manualId(9), note = "first note")
+            val second = StackEffect(manualId(81), manualId(13), note = "second note",
+                frozen = original.board.cards[1].takeIf { frozen })
+            val state = original.copy(board = original.board.copy(stackEffects = listOf(first, second),
+                cards = original.board.cards.filterNot { frozen && it.id == second.sourceId },
+                containers = original.board.containers + PlayContainer(manualId(82), PlayZone.STACK,
+                    cards = listOf(second.id, first.id))))
+            val sent = mutableListOf<PlayAction>()
+            val toolkit = TableToolkitController(manualId(7), { state }, { true }, { action, _ -> sent += action; true })
+            toolkit.openCard(TableScope(second.id, listOf(first.id, second.id)))
+            if (frozen) toolkit.manual.projectionNote(state, toolkit.capture!!.contextViewId, manualId(7))
+            else toolkit.manual.edit(ManualValue(ManualValueKind.NOTE), state, manualId(7))
+            assertEquals("second note", toolkit.manual.editor!!.text)
+            toolkit.manual.editor!!.text = "updated second"
+            assertTrue(toolkit.completeValue())
+            assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(second.id, "updated second")), sent)
+            assertEquals("first note", CombatStackRules.projectionNote(state.board, first.id))
+            assertFalse(toolkit.manual.scope!!.usable(state.copy(board = state.board.copy(stackEffects = listOf(first)))))
+        }
+    }
+
     @Test fun projectionNoteDraftTargetsOccurrencesInsteadOfTheirSourceAndExpiresWithThem() {
         val original = manualState()
         val effect = StackEffect(manualId(80), manualId(9), note = "X=3")
         val state = original.copy(board = original.board.copy(stackEffects = listOf(effect)))
         val ui = ManualActions()
-        ui.cards(state, manualId(9), listOf(manualId(9)), listOf(effect.id))
+        ui.cards(state, manualId(9), listOf(manualId(9)), effect.id)
         ui.edit(ManualValue(ManualValueKind.NOTE), state, manualId(7))
         assertEquals("X=3", ui.editor!!.text)
         ui.editor!!.text = "target opponent"
         val sent = mutableListOf<PlayAction>()
         assertTrue(ui.submitValue(state, manualId(7)) { sent += it; true })
         assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(effect.id, "target opponent")), sent)
-        ui.projectionNote(state, effect.id, listOf(effect.id), manualId(7))
+        ui.projectionNote(state, effect.id, manualId(7))
         assertTrue(ui.scope!!.usable(state))
         assertFalse(ui.scope!!.usable(original))
         assertEquals("", original.board.cards.first().note)

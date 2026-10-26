@@ -36,16 +36,18 @@ class GameplayReplicaIntegrationTest {
                 val f = GameplayFixture(runtime); root = f.root
                 val library = root.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a.account.accountId }
                 val hand = root.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a.account.accountId }
+                val field = root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == f.a.account.accountId }
                 val first = library.cards[0]; val second = library.cards[1]
                 val face = root.board.cards.single { it.id == second }.faceId
                 val actions = listOf(
                     PlayAction.MoveCard(first, MoveSource(library.id), MoveDestination(library.id, MoveInsertion.BOTTOM)),
                     PlayAction.MoveCard(first, MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)),
-                    PlayAction.MoveCard(second, MoveSource(library.id, edge = MoveSourceEdge.TOP), MoveDestination(hand.id, MoveInsertion.UNORDERED)),
+                    PlayAction.MoveCard(second, MoveSource(library.id, edge = MoveSourceEdge.TOP),
+                        MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))),
                     PlayAction.SetNote(second, " retained manual note "),
                     PlayAction.SetCounter(CounterTarget.PLAYER, f.a.account.accountId, CounterColor.BLUE, "2"),
-                    PlayAction.SetCovered(second, false),
-                    PlayAction.InspectFace(second, face, hand.id),
+                    PlayAction.SetCovered(second, true),
+                    PlayAction.InspectFace(second, face, field.id),
                     PlayAction.SetCorner(second, "8"), PlayAction.ResetCorner(second))
                 val commands = actions.map(f.owner::command)
                 val receipts = commands.map { f.owner.admit(it) as GameReceipt }
@@ -63,7 +65,7 @@ class GameplayReplicaIntegrationTest {
                 }
                 accepted = f.games.head(f.a, f.game.id)
                 assertEquals(prediction, accepted.play)
-                assertEquals(hand.id, accepted.play!!.board.cards.single { it.id == second }.containerId)
+                assertEquals(field.id, accepted.play!!.board.cards.single { it.id == second }.containerId)
                 assertEquals("retained manual note", accepted.play!!.board.cards.single { it.id == second }.note)
                 assertEquals(listOf(GameplayRead(second, GameplayField.FACE, face)), mutations.last().transition.reads)
                 assertEquals("8", mutations.last().transition.fields.single().from)

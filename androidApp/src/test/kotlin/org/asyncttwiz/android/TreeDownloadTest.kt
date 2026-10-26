@@ -56,9 +56,16 @@ internal object DownloadedTreeFixture {
         val records = TreeSync.records(generation).toList()
         val bytes = (records.joinToString("\n") { GameWire.json.encodeToString(TreeSyncRecord.serializer(), it) } + "\n").toByteArray()
         val chunks = bytes.asList().chunked(chunkSize).map { it.toByteArray() }
+        val summary = GameSummary(id(1), "Download", "date", AccountIdentity(a, "A"), AccountIdentity(b, "B"),
+            generation.tree.initial.preparationRound, id(90), InvitationState.ACCEPTED, lifecycle = GameLifecycle.ACTIVE,
+            revision = revision.toString(), playId = id(2))
+        val manifest = GameplayManifest(id(n), id(1), id(2), revision.toString(),
+            chunks.mapIndexed { index, chunk -> GameplayChunk(index, chunk.size, TreeSync.digest(chunk)) }, emptyList(),
+            recordCount = records.size, head = GameHead(id(1), revision.toString(), summary,
+                play = generation.tree.stateAt(generation.tree.currentNodeId))).let { it.copy(digest = GameplaySync.manifestDigest(it)) }
         val plan = TreeDownloadPlan(id(n), id(1), id(2), revision, records.size,
-            chunks.mapIndexed { index, chunk -> TreeDownloadChunk(index, chunk.size, TreeSync.digest(chunk)) },
-            StoredPayload(1, "verified-I14-manifest-input-fixture"))
+            manifest.chunks.map { TreeDownloadChunk(it.index, it.bytes, it.digest) },
+            StoredPayload(1, GameWire.json.encodeToString(GameplayManifest.serializer(), manifest)))
         return Transfer(plan, chunks.map(::gzip))
     }
     fun gzip(bytes: ByteArray): ByteArray = ByteArrayOutputStream().also { output ->
@@ -82,7 +89,9 @@ internal class TreeStoreFixture(override val accountId: String = DownloadedTreeF
     val threads = mutableListOf<Thread>()
     private fun checkCurrent(): Boolean { threads.add(Thread.currentThread()); return current }
     fun seed(generation: DownloadedTree, revision: Long = 10) {
-        saved = CachedGameplayTree(TreeCacheVersion(revision, "fixture-${sequence++}"), TreeSync.records(generation).map(TreeDownload::encode).toList())
+        generation.tree.stateAt(generation.tree.currentNodeId)
+        saved = CachedGameplayTree(TreeCacheVersion(revision, "fixture-${sequence++}"),
+            TreeSync.records(generation).map(TreeDownload::encode).toList() + TreeDownload.endpoint(generation, revision))
     }
     override fun invalidate() { current = false }
     override fun isCurrent() = current
@@ -116,6 +125,94 @@ class TreeDownloadTest {
     private val f = DownloadedTreeFixture
     private val nonWorkerThread = Thread("fixture-ui")
     private fun assertFails(action: () -> Unit) { try { action(); fail("Expected failure") } catch (_: Exception) { } }
+
+    @Test fun tenThousandActionRecoveryAndColdCacheRestoreNeverReplayMutations() {
+        var tree = f.root()
+        repeat(10_000) { n -> tree = f.tap(tree, 1000 + n, tapped = n % 2 == 0) }
+        val transfer = f.transfer(f.generation(tree), chunkSize = 1024 * 1024)
+        val file = java.nio.file.Files.createTempFile(java.nio.file.Path.of("/tmp/opencode"), "tree-restore-", ".db")
+        fun open() = (ClientStorage.open { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:$file",
+            java.util.Properties().apply { setProperty("foreign_keys", "true") }) } as StorageOpenResult.Opened).storage
+        try {
+            open().use { storage ->
+                storage.activateAccount(f.a)
+                val store = GameplayTreeCache.bind(storage, f.a, f.id(1), f.id(2))
+                val download = TreeDownload(store, nonWorkerThread)
+                val staged = assertNotNull(download.stage(transfer.plan) { transfer.compressed[it].inputStream() })
+                val published = download.publish(staged, emptyList(), 10) as TreePublication.Published
+                assertEquals(0, published.value.generation.tree.work.replayedNodes, "Recovery must use the revision-bound server endpoint")
+            }
+            open().use { storage ->
+                val store = GameplayTreeCache.bind(storage, f.a, f.id(1), f.id(2))
+                val restored = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
+                assertEquals(tree.stateAt(tree.currentNodeId), restored.generation.tree.stateAt(tree.currentNodeId))
+                assertEquals(0, restored.generation.tree.work.replayedNodes, "Cold cache restore must use its accepted endpoint")
+            }
+        } finally { java.nio.file.Files.deleteIfExists(file) }
+    }
+
+    @Test fun boundedAuthoritativeEndpointRestoresAnnotationsAndBranchesWithoutBoardReplay() {
+        val tree = org.asyncttwiz.fixtures.ScaleGames.build(10_000)
+        val transfer = f.transfer(TreeSync.generation(tree), chunkSize = 1024 * 1024)
+        val manifest = GameWire.json.decodeFromString(GameplayManifest.serializer(), transfer.plan.transportManifest.json)
+        val bounded = manifest.copy(head = manifest.head!!.let { head -> head.copy(boundedEndpoint = true,
+            play = head.play!!.copy(annotations = EventAnnotationState())) }).let { it.copy(digest = GameplaySync.manifestDigest(it)) }
+        val plan = transfer.plan.copy(transportManifest = StoredPayload(1, GameWire.json.encodeToString(GameplayManifest.serializer(), bounded)))
+        val store = TreeStoreFixture()
+        val download = TreeDownload(store, nonWorkerThread)
+        val staged = assertNotNull(download.stage(plan) { transfer.compressed[it].inputStream() })
+        assertEquals(tree.stateAt(tree.currentNodeId), staged.generation.tree.stateAt(tree.currentNodeId))
+        assertEquals(0, staged.generation.tree.work.replayedNodes)
+        download.publish(staged, emptyList(), 10)
+        val restored = assertNotNull(TreeDownload(store, nonWorkerThread).accepted())
+        assertEquals(tree.stateAt(tree.currentNodeId), restored.generation.tree.stateAt(tree.currentNodeId))
+        assertEquals(0, restored.generation.tree.work.replayedNodes)
+        assertEquals(tree.branches, restored.generation.tree.branches)
+    }
+
+    @Test fun cacheEndpointIntegrityAndRevisionBindingFailClosedAndLegacyCacheNeedsBaseline() {
+        val before = f.generation(f.tap(f.root()))
+        val after = f.generation(f.tap(before.tree, 101, f.b, 12))
+        val store = TreeStoreFixture().apply { seed(before) }
+        val download = TreeDownload(store, nonWorkerThread)
+        assertTrue(download.apply(f.delta(before, after)) is TreePublication.Published)
+        val valid = store.saved!!
+        val fresh = TreeDownload(store, nonWorkerThread).accepted()!!
+        assertEquals(after.tree.stateAt(after.tree.currentNodeId), fresh.generation.tree.stateAt(after.tree.currentNodeId))
+        assertEquals(0, fresh.generation.tree.work.replayedNodes)
+        store.saved = valid.copy(version = valid.version.copy(revision = 12))
+        assertFails { TreeDownload(store, nonWorkerThread).accepted() }
+        val endpoint = valid.records.single { it.key.kind == "tree-cache-endpoint" }
+        store.saved = valid.copy(records = valid.records.map { record -> if (record != endpoint) record else {
+            val json = GameWire.json.parseToJsonElement(record.payload.json).jsonObject
+            record.copy(payload = record.payload.copy(json = JsonObject(json + ("digest" to JsonPrimitive("corrupt"))).toString()))
+        } })
+        assertFails { TreeDownload(store, nonWorkerThread).accepted() }
+        store.saved = valid.copy(records = valid.records - endpoint)
+        assertNull(TreeDownload(store, nonWorkerThread).accepted(), "An old cache cannot trigger implicit root replay")
+    }
+
+    @Test fun recoveryRejectsManifestEndpointWithCorruptIntegrityOrWrongRevision() {
+        val input = f.transfer(f.generation(f.tap(f.root())))
+        val manifest = GameWire.json.decodeFromString(GameplayManifest.serializer(), input.plan.transportManifest.json)
+        for (bad in listOf(manifest.copy(digest = "corrupt"), manifest.copy(revision = "11").let {
+            it.copy(digest = GameplaySync.manifestDigest(it)) })) {
+            val plan = input.plan.copy(transportManifest = StoredPayload(1, GameWire.json.encodeToString(GameplayManifest.serializer(), bad)))
+            assertFails { TreeDownload(TreeStoreFixture(), nonWorkerThread).stage(plan) { error("Invalid manifest must not fetch chunks") } }
+        }
+    }
+
+    @Test fun baselineRecoveryAlsoRestoresItsAuthoritativeEndpointWithoutRootReplay() {
+        var tree = f.root()
+        repeat(360) { n -> tree = f.tap(tree, 1000 + n, tapped = n % 2 == 0) }
+        val transfer = f.transfer(f.generation(tree), chunkSize = 1024 * 1024)
+        val manifest = GameWire.json.decodeFromString(GameplayManifest.serializer(), transfer.plan.transportManifest.json)
+        val replica = GameplayReplica()
+        assertTrue(replica.baseline(GameplayBaseline(GameplaySnapshot(manifest.head!!, emptyList(), TreeSync.records(f.generation(tree)).toList()), emptyList())))
+        assertEquals(tree.stateAt(tree.currentNodeId), replica.accepted)
+        assertEquals(0, replica.tree!!.tree.work.replayedNodes)
+        assertEquals(0, replica.tree!!.tree.work.rootMaterializations)
+    }
 
     @Test fun automaticallyStagesEveryBoundedChunkAndPublishesWholeRetainedTreeOnlyAfterValidation() {
         val input = f.branched()
@@ -248,8 +345,8 @@ class TreeDownloadTest {
         assertFails { download.publish(staged, emptyList(), 10) }
         assertEquals(old, store.saved); assertNotNull(store.transfer())
         store.failPublication = false
-        val next = transfer.plan.copy(id = f.id(201), revision = 11)
-        download.stage(next) { transfer.compressed[it].inputStream() }
+        val next = f.transfer(f.branched(), revision = 11, n = 201)
+        download.stage(next.plan) { next.compressed[it].inputStream() }
         assertEquals(TreePublication.RestartRequired, download.publish(staged, emptyList(), 10))
         assertEquals(old, store.saved)
         store.invalidate()

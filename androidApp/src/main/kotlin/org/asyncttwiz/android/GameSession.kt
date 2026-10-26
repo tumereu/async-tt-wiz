@@ -55,6 +55,10 @@ class GameSession(private val connection: GameConnection, private val credential
         downloads[cache.gameId]?.takeIf { it.first === cache }?.let { return it.second }
         return TreeDownload(cache, uiThread).also { downloads[cache.gameId] = cache to it }
     }
+    private fun evictDownload(gameId: String) {
+        caches.remove(gameId)?.invalidate()
+        if (!treeWorker.isShutdown) treeWorker.execute { downloads.remove(gameId) }
+    }
     private fun presentation(value: PublishedDownloadedTree) = value.generation.copy(tree = value.generation.tree.materializedCopy())
     private val reconnectTrace = ReconnectRecorder(BuildConfig.DEBUG, now, record = reconnectTelemetry)
     private var backgrounded = false
@@ -93,7 +97,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)
     private val preparations = mutableMapOf<String, PreparationReplica>()
     private val plays = mutableMapOf<String, GameplayReplica>()
-    private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String,
+    private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String, val playId: String?,
         val tail: MutableList<GameRevision> = mutableListOf())
     private val recoveries = mutableMapOf<String, Recovery>()
     // Main-thread receipt cursor, distinct from the worker's published cursor. Heartbeats may
@@ -181,7 +185,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun clearContext(gameId: String) {
         observedPlays.remove(gameId)
-        caches.remove(gameId)?.invalidate()
+        evictDownload(gameId)
         inspections.entries.removeAll { (_, observer) ->
             (observer.subscription.request.scope.gameId == gameId).also { if (it) observer.subscription.close() }
         }
@@ -583,7 +587,8 @@ class GameSession(private val connection: GameConnection, private val credential
                     }
                     else -> error("Invalid recovery status")
                 }
-                if (available(message.gameId)) send(SubscribeGame(message.gameId, summaries[message.gameId]?.revision ?: "0"))
+                if (available(message.gameId)) send(SubscribeGame(message.gameId,
+                    plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0"))
                 flush()
             }
             is GameHead -> {
@@ -942,7 +947,7 @@ class GameSession(private val connection: GameConnection, private val credential
         treeThrough.remove(gameId)
         stream.head = false
         val ids = pending.values.filter { it.scope.gameId == gameId }.map { it.requestId }
-        val recovery = Recovery(ids, ids.filter { it !in sent }.toSet(), through)
+        val recovery = Recovery(ids, ids.filter { it !in sent }.toSet(), through, observedPlays[gameId])
         recoveries[gameId] = recovery
         val generation = epoch; val current = token
         if (treeCache != null && connection.treeTransfer(gameId, recovery.ids) { transfer -> post {
@@ -983,7 +988,12 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun observePlay(game: GameSummary) {
         val play = game.playId.takeIf { game.lifecycle == GameLifecycle.ACTIVE }
         if (play == null) observedPlays.remove(game.id) else observedPlays.put(game.id, play)
-        caches[game.id]?.takeIf { it.playId != play }?.let { it.invalidate(); caches.remove(game.id, it) }
+        recoveries[game.id]?.takeIf { it.playId != play }?.let {
+            recoveries.remove(game.id)
+            treeThrough.remove(game.id); treeHead.remove(game.id); headGaps.remove(game.id)
+            DebugJank.catchUp(game.id, false)
+        }
+        caches[game.id]?.takeIf { it.playId != play }?.let { evictDownload(game.id) }
     }
 
     private fun loadCached(game: GameSummary) {
@@ -1120,7 +1130,11 @@ class GameSession(private val connection: GameConnection, private val credential
             if (!valid()) return@execute
             var reason = "cacheMissing"
             val published = runCatching {
-                val result = caches[update.gameId]?.let { cache -> download(cache).let {
+                val result = caches[update.gameId]?.let { cache ->
+                    // The retained owner survives reconnect. Renew its operation fence only on
+                    // this serial worker, after this socket operation passed its own epoch check.
+                    cache.guard(::valid)
+                    download(cache).let {
                     it.apply(delta(update)).also { _ -> reason = it.failure ?: "endpointMissing" }
                 } }
                 val value = result as? TreePublication.Published

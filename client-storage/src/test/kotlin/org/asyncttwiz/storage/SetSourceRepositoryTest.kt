@@ -40,6 +40,9 @@ class SetSourceRepositoryTest {
         val requests = mutableListOf<String>()
         var unknownSize = false
         var badChecksum = false
+        var listed: CatalogSetList? = null
+        var listRequests = 0
+        override fun setList(): CatalogSetList { listRequests++; return checkNotNull(listed) }
         fun put(set: JsonObject) {
             val json = JsonObject().apply { add("data", set) }.toString()
             files[set["code"].asString] = ByteArrayOutputStream().apply {
@@ -130,14 +133,37 @@ class SetSourceRepositoryTest {
             add("tokens", JsonArray().apply { add(card(4).apply { addProperty("layout", "token") }) })
         }
         val catalog = catalog(old, recent, tokens)
-        val sets = repository(catalog, FixtureSource()).sets()
+        val source = FixtureSource()
+        val sets = repository(catalog, source).sets()
         assertEquals(listOf(DraftableSet("NEW", "Set NEW", today.toString(), 1),
             DraftableSet("OLD", "Set OLD", "2000-01-01", 2)), sets)
+        assertEquals(0, source.listRequests)
         val pointer = temporary.resolve("catalog/current").toFile().readText()
         DriverManager.getConnection("jdbc:sqlite:${temporary.resolve("catalog/$pointer")}").use {
             it.createStatement().use { statement -> statement.execute("DROP TABLE catalog_set_name") }
         }
         assertEquals(listOf("NEW", "OLD"), catalog.draftableSets().map { it.name })
+        val offline = repository(catalog, source)
+        repeat(2) { assertEquals(listOf("NEW", "OLD"), offline.sets().map { it.name }) }
+        assertEquals(1, source.listRequests)
+        assertTrue(source.downloads.isEmpty())
+    }
+
+    @Test fun legacyNamesUseSetListOnceWithoutDownloadingCardsOrReplacingKnownNames() {
+        val catalog = catalog(set("OLD").apply { remove("name") }, set("NEW", today.toString(), listOf(card(2))),
+            set("NONAME", cards = listOf(card(3))).apply { remove("name") })
+        val source = FixtureSource().apply {
+            listed = CatalogSetList(metadata, listOf(CatalogSet("OLD", "2000-01-01", name = "Old set name"),
+                CatalogSet("NEW", today.toString(), name = "Different remote name")))
+        }
+        val repository = repository(catalog, source)
+        repeat(2) {
+            val names = repository.sets().associate { it.code to it.name }
+            assertEquals(mapOf("OLD" to "Old set name", "NEW" to "Set NEW", "NONAME" to "NONAME"), names)
+        }
+        assertEquals(1, source.listRequests)
+        assertTrue(source.requests.isEmpty())
+        assertTrue(source.downloads.isEmpty())
     }
 
     @Test fun oldSetCacheMissThenPermanentHitAcrossRepositoryInstancesAndManualRedownload() {

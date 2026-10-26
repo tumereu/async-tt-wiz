@@ -14,8 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -253,7 +256,7 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             Text("Grid requires 2–4 accepted members to start.", color = MaterialTheme.colorScheme.error)
         if (issues.isNotEmpty()) Text("Check settings: ${issues.joinToString { it.name.lowercase().replace('_', ' ') }}", color = MaterialTheme.colorScheme.error)
         if (edit != null) Text("Settings changes pending…", style = MaterialTheme.typography.bodySmall)
-        Text("Members (${detail.members.size}/8)", style = MaterialTheme.typography.titleMedium)
+        Text("Members (${detail.members.size}/${if (settings.mode == DraftMode.GRID) 4 else 8})", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { MemberLine(it.account, "accepted") }
         detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
         if (creator) {
@@ -303,11 +306,29 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
 }
 
 @Composable
-private fun PodNumber(label: String, value: Int, enabled: Boolean, change: (Int) -> Unit) {
-    var text by remember(value) { mutableStateOf(value.toString()) }
+internal fun PodNumber(label: String, value: Int, enabled: Boolean, change: (Int) -> Unit) {
+    var text by remember(label) { mutableStateOf(TextFieldValue(value.toString())) }
+    var focused by remember(label) { mutableStateOf(false) }
+    var lastValid by remember(label) { mutableIntStateOf(value) }
+    fun restore(number: Int) {
+        val restored = number.toString()
+        text = TextFieldValue(restored, TextRange(restored.length))
+    }
+    LaunchedEffect(value) {
+        lastValid = value
+        // Settings acknowledgements must not replace in-progress text or its selection.
+        if (!focused && text.text.toIntOrNull() != value) restore(value)
+    }
     OutlinedTextField(text, { input ->
-        if (input.isEmpty() || input.all(Char::isDigit)) { text = input; input.toIntOrNull()?.let(change) }
-    }, Modifier.fillMaxWidth(), label = { Text(label) }, enabled = enabled, singleLine = true,
+        if (input.text.isEmpty() || input.text.all(Char::isDigit)) {
+            val changed = input.text != text.text
+            text = input
+            if (changed) input.text.toIntOrNull()?.let { lastValid = it; change(it) }
+        }
+    }, Modifier.fillMaxWidth().onFocusChanged {
+        if (focused && !it.isFocused && text.text.toIntOrNull() == null) restore(lastValid)
+        focused = it.isFocused
+    }, label = { Text(label) }, enabled = enabled, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 }
 

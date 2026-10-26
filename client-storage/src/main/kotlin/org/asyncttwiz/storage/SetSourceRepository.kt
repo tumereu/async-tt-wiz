@@ -35,8 +35,16 @@ class SetSourceRepository(
         require(decodedLimit in 1..HttpCatalogSource.MAX_DECODED_SET_BYTES)
     }
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
+    // Legacy catalogs lack names. Reuse the incremental updater's small metadata endpoint,
+    // at most once per repository; unavailable metadata must not prevent offline drafting.
+    private val setNames by lazy {
+        runCatching { source.setList().sets.mapNotNull { set -> set.name?.let { set.code to it } }.toMap() }
+            .getOrDefault(emptyMap())
+    }
 
-    fun sets(): List<DraftableSet> = catalog.draftableSets()
+    fun sets(): List<DraftableSet> = catalog.draftableSets().map { set ->
+        if (set.name == set.code) set.copy(name = setNames[set.code] ?: set.name) else set
+    }
     fun isCached(code: String): Boolean = File(directory, "${catalogSetFilename(code)}.json.gz").isFile
     fun load(code: String): SetSourceUpload = load(code, false)
 

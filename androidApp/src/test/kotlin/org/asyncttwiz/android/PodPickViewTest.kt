@@ -37,12 +37,13 @@ class PodPickViewTest {
         busy: () -> Boolean = { false },
         waitingOn: List<AccountIdentity> = emptyList(),
         cardDefinitions: Map<String, CardDefinition> = definitions,
+        packsBehind: Int = 2,
         onBuild: () -> Unit = {},
         onConfirm: (List<String>, List<String>) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
             ScreenTheme { Surface {
-                PodPickView(currentPack(), 2, settings, cardDefinitions, waitingOn, busy(), onConfirm, onBuild)
+                PodPickView(currentPack(), packsBehind, settings, cardDefinitions, waitingOn, busy(), onConfirm, onBuild)
             } }
         }
     }
@@ -148,6 +149,12 @@ class PodPickViewTest {
         assertEquals(header, compose.onNodeWithText("Pack 2/9 · 15 cards · +2 packs waiting").fetchSemanticsNode().boundsInRoot)
         assertEquals(tray, compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot)
         assertEquals(confirm, compose.onNodeWithText("Confirm").fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun headerOmitsWaitingCountWhenNoOtherPacksAreWaiting() {
+        show(packsBehind = 0)
+        compose.onNodeWithText("Pack 2/9 · 15 cards").assertIsDisplayed()
+        compose.onNodeWithText("waiting", substring = true).assertDoesNotExist()
     }
 
     @Test fun missingArtworkKeepsCardShapeAndCompactTraysScrollWithoutGrowing() {

@@ -15,7 +15,8 @@ internal const val CATALOG_INDEX_VERSION = 2
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
     val indexVersion: Int = CATALOG_INDEX_VERSION)
 
-data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "")
+data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "",
+    val name: String? = null)
 
 /** Minimal provider snapshot retains exact display strings, defaults and explicit face identities. */
 data class CatalogPrinting(val id: String, val name: String, val set: String, val number: String,

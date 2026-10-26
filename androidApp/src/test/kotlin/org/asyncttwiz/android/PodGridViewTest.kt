@@ -55,7 +55,8 @@ class PodGridViewTest {
     @Test fun arrowsHighlightLinesAndConfirmSendsGridLineWithoutChangingBoard() {
         var confirmed: Triple<String, GridLineType, Int>? = null
         show(onConfirm = { grid, line, index -> confirmed = Triple(grid, line, index) })
-        compose.onNodeWithText("Grid 1/18 · +0 waiting").assertIsDisplayed()
+        compose.onNodeWithText("Grid 1/18").assertIsDisplayed()
+        compose.onNodeWithText("+0 waiting", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Select row 2").performClick().assertIsSelected()
         repeat(9) { assertHighlighted(it, it in 3..5) }
@@ -97,7 +98,8 @@ class PodGridViewTest {
         var builds = 0
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waitingBoard, waitingBoard.copy(id = "later", number = 2))),
             mine = mine.copy(headGridId = null)) }, onBuild = { builds++ })
-        compose.onAllNodesWithText("Waiting for Bob").onFirst().assertIsDisplayed()
+        compose.onAllNodesWithText("Waiting for Bob").assertCountEquals(1).onFirst().assertIsDisplayed()
+        compose.onNodeWithText("+0 waiting", substring = true).assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Select row 1").onFirst().assertIsNotEnabled()
         compose.onAllNodesWithContentDescription("Select column 2").onFirst().assertIsNotEnabled()
         compose.onNodeWithTag("pod-grid-later-slot-0").assertExists()

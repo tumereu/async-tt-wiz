@@ -67,12 +67,8 @@ fun PodGridView(
             val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
             boards.forEach { board -> key(board.id) {
                 val boardRules = view?.let { PodGridRules(board, it.mine) }
-                Text("Grid ${board.number}/$totalGrids · +${waiting.coerceAtLeast(0)} waiting",
+                Text("Grid ${board.number}/$totalGrids" + if (waiting > 0) " · +$waiting waiting" else "",
                     Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
-                if (head == null) board.currentPlayer?.let { player ->
-                    Text("Waiting for ${members.find { it.accountId == player }?.username ?: player}",
-                        style = MaterialTheme.typography.labelMedium)
-                }
                 PodGridLog(log.filter { it.gridId == board.id }, definitions, members)
                 PodGridBoard(board, boardRules, selected.takeIf { head?.id == board.id }, !busy,
                     onSelect = { selected = it }, definitions = definitions, inspect = inspect)

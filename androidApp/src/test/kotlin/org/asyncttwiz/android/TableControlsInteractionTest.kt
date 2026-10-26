@@ -94,8 +94,8 @@ class TableControlsInteractionTest {
         val modeBounds = mode.fetchSemanticsNode().boundsInRoot
         val nextBounds = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        assertEquals(root.right, nextBounds.right)
-        assertEquals(root.bottom, nextBounds.bottom)
+        assertTrue(nextBounds.right < root.right)
+        assertEquals(root.bottom - 4f, nextBounds.bottom)
         assertTrue(modeBounds.bottom < nextBounds.top)
         for (expected in listOf(TableMode.SELECT, TableMode.PING, TableMode.NORMAL)) {
             mode.performTouchInput { click() }
@@ -107,7 +107,7 @@ class TableControlsInteractionTest {
         compose.onNodeWithText("Redo").assertDoesNotExist()
     }
 
-    @Test fun shortContextualRailHugsNextWithEmptySlotsOnTheLeft() {
+    @Test fun shortContextualRailCentersContentWithoutEmptySlots() {
         val play = TableToolFixture.play(TurnPosition.END_STEP)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
@@ -115,8 +115,8 @@ class TableControlsInteractionTest {
         } }
         val end = compose.onNodeWithContentDescription("End turn").fetchSemanticsNode().boundsInRoot
         val next = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
-        assertEquals(96f, end.left)
-        assertEquals(end.right, next.left)
+        assertEquals(0f, end.left)
+        assertEquals(end.right + 2f, next.left)
     }
 
     @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {
@@ -138,7 +138,7 @@ class TableControlsInteractionTest {
         compose.setContent { MaterialTheme {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 Column {
-                    QuickActionStrip(play, QuickContext(), controller, OwnTableColor)
+                    QuickActionStrip(play, QuickContext(viewer = play.board.turn.accountId), controller, OwnTableColor)
                     ActionSquare("Tooltip only", "", true, onClick = { error("Tooltip must not click") })
                     ActionSquare("Disabled hold", "", false, holdName = "Mutate", onHold = { error("Disabled hold") }, onClick = {})
                 }

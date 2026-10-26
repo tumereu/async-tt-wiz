@@ -15,7 +15,8 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
     landscape: Boolean, selection: TableSelection, select: (String) -> Unit,
-    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null, scene: TableScene? = null) {
+    accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
+    onTimeline: (() -> Unit)? = null) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -51,7 +52,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
-                perform = toolkit::perform, names = names)
+                perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {

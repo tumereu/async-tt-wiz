@@ -70,7 +70,7 @@ class TableScreenshotTest {
             compose.onNodeWithContentDescription("Interaction mode").assertDoesNotExist()
             compose.onNodeWithContentDescription("Continue playing from here").assertExists()
         } else {
-            compose.onNodeWithContentDescription("History", substring = false).assertIsDisplayed().assertIsEnabled()
+            compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
             for (label in listOf("Auto advance", "Previous", "Next", "Continue playing from here", "Return to current"))
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
@@ -96,9 +96,9 @@ class TableScreenshotTest {
             if (!controls) {
                 val normal = TablePresentation.scene(LiveTableFixture.game, play, "a",
                     image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused)
-                val scene = if (paused) timelineLayout(normal, "a", image.width.toFloat(), image.height.toFloat(), landscape) else normal
+                val scene = normal
                 assertRenderedLandsBands(image, scene, "a",
-                    overlayTop = if (paused) image.height - timelinePanelHeight(landscape).toInt() else image.height, reviewing = paused,
+                    overlayTop = image.height - tableBottomHeight(landscape).toInt(), reviewing = paused,
                     turnPlayer = play.board.turn.accountId)
             }
         }

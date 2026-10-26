@@ -39,6 +39,7 @@ internal val MenuBorder = Color(0xffbaccc7)
 internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
+        n == "timeline" -> Icons.Outlined.History
         n == "start turn" -> Icons.Outlined.PlayArrow
         n == "draw + go to main" -> Icons.Outlined.Download
         n == "go to attacks" -> Icons.Outlined.Gavel

@@ -52,7 +52,7 @@ class AttentionHeaderTest {
             val liveImage = File("build/outputs/roborazzi/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }
             compose.onRoot().captureRoboImage(liveImage.path)
             val livePixels = ImageIO.read(liveImage)
-            assertEquals(OwnTableColor.toArgb(), livePixels.getRGB(3, livePixels.height / 2), "Live move frame")
+            assertNotEquals(OwnTableColor.toArgb(), livePixels.getRGB(3, livePixels.height / 2), "No move frame in play")
             val bounds = pill.fetchSemanticsNode().boundsInRoot
             val phase = compose.onNodeWithContentDescription("Turn 1, Alice's turn, Beginning · Untap. Choose phase/step").fetchSemanticsNode().boundsInRoot
             val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot

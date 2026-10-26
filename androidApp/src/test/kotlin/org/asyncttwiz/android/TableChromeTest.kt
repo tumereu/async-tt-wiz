@@ -34,13 +34,13 @@ class TableChromeTest {
         }
     }
 
-    @Test fun liveTimelinePinsLatestAtRightAndProjectsOnlyTheVisibleWindow() {
+    @Test fun liveTimelineCentersLatestAndProjectsOnlyTheVisibleWindow() {
         val count = 50_000
         for (width in listOf(280f, 412f, 892f)) {
-            assertEquals(width - 12f, HistoryTimelineLayout.x(count - 1, count - 1, width, 24f, rightAligned = true))
-            val visible = HistoryTimelineLayout.visible(count, count - 1, width, 24f, rightAligned = true)
+            assertEquals(width / 2f, HistoryTimelineLayout.x(count - 1, count - 1, width, 24f))
+            val visible = HistoryTimelineLayout.visible(count, count - 1, width, 24f)
             assertEquals(count - 1, visible.last)
-            assertTrue(visible.count() <= width.toInt() / 24 + 2)
+            assertTrue(visible.count() <= width.toInt() / 48 + 2)
         }
     }
 }

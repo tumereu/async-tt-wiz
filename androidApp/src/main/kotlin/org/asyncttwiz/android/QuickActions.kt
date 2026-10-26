@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -116,7 +114,7 @@ class ActionPress(private val assignedHold: Boolean) {
     fun cancel() { consumed = true }
 }
 
-/** Compact, centered popup-style cells; overflow scrolls without stretching the buttons. */
+/** Equal-width popup cells fill the space before the fixed right-corner step button. */
 @Composable
 fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform) {
@@ -130,22 +128,22 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
     val actions = QuickActions.contextual(play, context, controller)
     val scope = TableActionScope(play.gameId, play.id)
     val style = advanceButtonStyle(play.board, requireNotNull(context.viewer))
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        Row(Modifier.width((minOf(actions.size, QuickActions.contextualPositions) * 50).dp)
-            .horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    val nextLabel = nextStepLabel(play.board.turn)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             for (action in actions) key(action.intent) {
                 InlinePopupCell(MenuControl(action.name, controller.enabled(scope)) { perform(action.intent) },
-                    quickActionLabel(action.name), owner = Color.Black)
+                    quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
             }
         }
         val shape = RoundedCornerShape(3.dp)
-        ActionSquare("Next step", "↦", controller.enabled(scope), Modifier.shadow(3.dp, shape)
+        ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.shadow(3.dp, shape)
             .background(style.fill, shape).border(1.dp, style.outline, shape), fill = style.fill, ink = style.ink,
             holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
             gestureKey = scope,
             icon = { Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 TableChromeIcon("next")
-                Text("Next step", fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center)
+                Text(nextLabel, fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center)
             } },
             onClick = { perform(TableActionIntent.Next(scope)) })
     }

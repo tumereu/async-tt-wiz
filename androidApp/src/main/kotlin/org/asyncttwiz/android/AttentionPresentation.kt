@@ -25,8 +25,9 @@ internal fun battlefieldColor(owner: String, viewer: String, turnPlayer: String,
     else if (owner == viewer) Color(if (lands) 0xffc4dcd0 else 0xffe2efe6)
     else Color(if (lands) 0xffe9d1d3 else 0xfff4e8ea)
 
-internal fun tableBarColor(board: BoardState, viewer: String) =
-    battlefieldColor(board.turn.accountId, viewer, board.turn.accountId, lands = false)
+internal val TimelineBarColor = Color(0xffe5e7e9)
+internal fun tableBarColor(board: BoardState, viewer: String, reviewing: Boolean = false) =
+    if (reviewing) TimelineBarColor else battlefieldColor(board.turn.accountId, viewer, board.turn.accountId, lands = false)
 
 internal data class AdvanceButtonStyle(val fill: Color, val ink: Color, val outline: Color)
 

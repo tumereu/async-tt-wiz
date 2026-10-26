@@ -4,6 +4,7 @@ import android.graphics.Paint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -405,9 +406,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
-            Box(Modifier.fillMaxWidth().height(48.dp).background(tableBarColor(play.board, accountId)))
+            val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
+            Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
-                .background(tableBarColor(play.board, accountId)))
+                .background(barColor))
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
@@ -539,19 +541,26 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             item = { id -> rendered.value.items[id] })
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
         CardPanelHeaders(scene, accountId, writable, toolkit)
-        if (runtime.reviewing) runtime.reviewPanel?.invoke()
-        if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomStart else Alignment.BottomCenter)
-            .padding(bottom = if (landscape) 4.dp else TableControlsHeight.dp)
-            .fillMaxWidth(if (landscape) .5f else 1f).height(TableTimelineHeight.dp)) { runtime.liveTimeline?.invoke() }
-        if (toolkit != null) {
-            val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
-            if (!runtime.reviewing) QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack, accountId), toolkit.table, endingColor,
-                Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
-                    .fillMaxWidth(if (landscape) .5f else 1f).padding(start = if (landscape) 8.dp else 60.dp, end = if (landscape) 8.dp else 60.dp)
-                    .height(TableControlsHeight.dp), perform = toolkit::perform)
-            if (!runtime.reviewing) runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
-                Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = 4.dp), holdName = if (runtime.redo != null) "Redo" else null,
-                onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
+        val playControls: @Composable () -> Unit = {
+            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) {
+                if (toolkit != null) {
+                    val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
+                    QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack, accountId), toolkit.table, endingColor,
+                        Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform)
+                    runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
+                        Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,
+                        onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
+                }
+            }
+        }
+        if (runtime.bottomPanel != null) runtime.bottomPanel.invoke(playControls)
+        else {
+            if (runtime.reviewing) runtime.reviewPanel?.invoke()
+            if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomStart else Alignment.BottomCenter)
+                .padding(bottom = if (landscape) 4.dp else TableControlsHeight.dp)
+                .fillMaxWidth(if (landscape) .5f else 1f).height(TableTimelineHeight.dp)) { runtime.liveTimeline?.invoke() }
+            if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
+                .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
         }
         FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else gestureError = null },
@@ -698,16 +707,16 @@ private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: P
                 Modifier.size(48.dp).border(2.dp, OwnTableColor), fill = Color(0xffedf3ef), ink = OwnTableColor,
                 icon = { TableChromeIcon("fork") }, onClick = { runtime.cancelContinuation?.invoke() })
         } else if (runtime.reviewing) {
-            ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp).background(Color.White),
+            ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp),
                 icon = { TableChromeIcon("fork") }, onClick = { runtime.continueHere?.invoke() })
-            ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
+            ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         }
         Box {
-            ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
+            ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
         if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null,
-            Modifier.width(buttonWidth.dp).background(Color.White), icon = { TableChromeIcon("grid") },
+            Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })
     }
 }

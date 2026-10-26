@@ -253,7 +253,7 @@ class HistoryPlayback(initial: HistoryTree,
         autoPauseCursor = target.takeIf { automatic && viewer != null && position.cursorId == common &&
             target != tree.sharedHeadId && tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board, definitions) }
         // Keep the historical scene mounted until its final movement has actually settled.
-        finalAnimationCursor = target.takeIf { it == tree.sharedHeadId }
+        finalAnimationCursor = target.takeIf { automatic && it == tree.sharedHeadId }
         val from = position.cursorId
         position = HistoryPosition(target, HistoryMode.PLAYBACK, automatic, tree.version(target))
         onStep(from, target, tree)

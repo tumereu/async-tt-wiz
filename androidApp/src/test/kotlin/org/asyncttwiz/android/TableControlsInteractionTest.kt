@@ -44,10 +44,10 @@ class TableControlsInteractionTest {
         } }
         val value = compose.onNodeWithContentDescription("Life, 20")
         value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(30f, 0f)) }
-        compose.onNodeWithText("+3 → 23").assertExists()
+        compose.onNodeWithText("+2 → 22").assertExists()
         compose.runOnIdle { assertTrue(sent.isEmpty()) }
         value.performTouchInput { up() }
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "3")), sent) }
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "2")), sent) }
         value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 30f)); cancel() }
         compose.runOnIdle { assertEquals(1, sent.size) }
     }
@@ -107,7 +107,7 @@ class TableControlsInteractionTest {
         compose.onNodeWithText("Redo").assertDoesNotExist()
     }
 
-    @Test fun shortContextualRailCentersContentWithoutEmptySlots() {
+    @Test fun singleContextualActionFillsSpaceBeforeRightCornerStepButton() {
         val play = TableToolFixture.play(TurnPosition.END_STEP)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
@@ -116,7 +116,9 @@ class TableControlsInteractionTest {
         val end = compose.onNodeWithContentDescription("End turn").fetchSemanticsNode().boundsInRoot
         val next = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
         assertEquals(0f, end.left)
-        assertEquals(end.right + 2f, next.left)
+        assertEquals(end.right + 4f, next.left)
+        assertEquals(412f, next.right)
+        assertEquals(48f, next.width)
     }
 
     @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {

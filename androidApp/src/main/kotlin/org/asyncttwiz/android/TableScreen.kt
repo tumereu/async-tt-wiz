@@ -47,6 +47,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val reviewPanel: (@Composable () -> Unit)? = null, val liveTimeline: (@Composable () -> Unit)? = null,
+    val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
     val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
@@ -239,19 +240,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
                         navigation = hamburger, chatUnread = state.chat.unread,
                          history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
-                         liveTimeline = playback?.let { player -> ({
-                             val events = remember(player.tree, player.tree.sharedHeadId) {
-                                 HistoryTimelineLayout.events(player.tree, player.tree.sharedHeadId)
-                             }
-                             HistoryTimeline(events, player.tree.sharedHeadId, accountId, {}, {},
-                                 readOnly = true, onEnter = { history.select(player.tree.sharedHeadId) })
-                         }) },
                           onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                          returnCurrent = if (reviewing || history.armed != null) ({ history.requestExitReview(interactive) }) else null,
                          cancelContinuation = history::cancelContinuation,
-                         reviewPanel = if (playback != null && reviewing && history.armed == null) ({
+                          bottomPanel = if (playback != null && history.armed == null) ({ playControls ->
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                    interactive, playbackPause, { history.requestContinuation(it) },
                                     autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
@@ -267,7 +261,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                   },
                                  continuationReady = position?.cursorId?.let(history::canRequestContinuation) == true,
                                  overlay = true, landscape = landscape,
-                                 background = tableBarColor(play.board, accountId), menuContent = {
+                                  background = tableBarColor(play.board, accountId, reviewing = !editable),
+                                  readOnly = !reviewing, onEnter = { history.select(playback.tree.sharedHeadId) },
+                                  playControls = playControls, menuContent = {
                                      HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
                                     DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
                                          enabled = interactive)

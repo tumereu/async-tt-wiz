@@ -4,6 +4,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextRange
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
 import org.junit.Rule
@@ -20,6 +22,54 @@ class PodScreensTest {
     @get:Rule val compose = createComposeRule()
     private val alice = AccountIdentity("alice", "Alice")
     private val bob = AccountIdentity("bob", "Bob")
+
+    @Test fun clearingNumberThenTypingReplacesValueAndPreservesCursorAcrossUpdates() {
+        var value by mutableIntStateOf(18)
+        val changes = mutableListOf<Int>()
+        compose.setContent { ScreenTheme { Column {
+            PodNumber("Grids", value, true) { value = it; changes += it }
+            PodNumber("Grids open at once", 1, true) {}
+        } } }
+        val field = compose.onNodeWithText("Grids")
+        field.performTextClearance()
+        field.assertTextEquals("Grids", "")
+        compose.runOnIdle { assertEquals(18, value); assertTrue(changes.isEmpty()) }
+        field.performTextInput("3")
+        field.assertTextEquals("Grids", "3")
+        field.performTextInput("4")
+        field.assertTextEquals("Grids", "34")
+        field.performTextInputSelection(TextRange(1))
+        field.performTextInput("5")
+        field.assertTextEquals("Grids", "354")
+        field.assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(2)))
+        compose.runOnIdle { assertEquals(listOf(3, 34, 354), changes) }
+        compose.onNodeWithText("Grids open at once").assertTextEquals("Grids open at once", "1")
+    }
+
+    @Test fun emptyAndOverflowNumbersRestoreLastValidOnBlurAndIdleFieldsFollowSettings() {
+        var value by mutableIntStateOf(18)
+        val changes = mutableListOf<Int>()
+        compose.setContent { ScreenTheme { Column {
+            PodNumber("Maximum sideboard cards", value, true) { value = it; changes += it }
+            PodNumber("Other", 1, true) {}
+        } } }
+        val field = compose.onNodeWithText("Maximum sideboard cards")
+        val other = compose.onNodeWithText("Other")
+        field.performTextClearance()
+        other.performClick()
+        field.assertTextEquals("Maximum sideboard cards", "18")
+        field.performTextReplacement("0")
+        field.performTextReplacement("999999999999999999999999999")
+        other.performClick()
+        field.assertTextEquals("Maximum sideboard cards", "0")
+        compose.runOnIdle { assertEquals(listOf(0), changes); value = 27 }
+        field.assertTextEquals("Maximum sideboard cards", "27")
+        field.performTextClearance()
+        compose.runOnIdle { value = 42 }
+        field.assertTextEquals("Maximum sideboard cards", "")
+        other.performClick()
+        field.assertTextEquals("Maximum sideboard cards", "42")
+    }
 
     @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRedownloadsCachedRows() {
         var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, rows = listOf(

@@ -87,7 +87,8 @@ fun PodPickView(
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Pack ${pack.number}/${settings.packsPerPlayer} · ${pack.cards.size} cards · +${podPackCount(packsBehind)} waiting",
+            Text("Pack ${pack.number}/${settings.packsPerPlayer} · ${pack.cards.size} cards" +
+                if (packsBehind > 0) " · +${podPackCount(packsBehind)} waiting" else "",
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             PodColumnControl("$columns/row", "Cards per row", columns, 1..maxColumns) {
                 preferredColumns = it

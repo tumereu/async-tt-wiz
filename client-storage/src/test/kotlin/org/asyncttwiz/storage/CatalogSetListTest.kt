@@ -11,6 +11,12 @@ class CatalogSetListTest {
             {"code":"BIG","name":"Big","releaseDate":"2026-10-01","decks":[$decks],"sealedProduct":[]},
             {"code":"SML","name":"Small","releaseDate":"2025-01-02"}]}"""
         val list = MtgJsonCatalog().setList(json.byteInputStream())
-        assertEquals(listOf(CatalogSet("BIG", "2026-10-01"), CatalogSet("SML", "2025-01-02")), list.sets)
+        assertEquals(listOf(CatalogSet("BIG", "2026-10-01", name = "Big"), CatalogSet("SML", "2025-01-02", name = "Small")), list.sets)
+    }
+
+    @Test fun missingNamesRemainOptional() {
+        val json = """{"meta":{"date":"2026-10-26","version":"5.3.0"},"data":[
+            {"code":"OLD","releaseDate":"2000-01-01"}]}"""
+        assertEquals(listOf(CatalogSet("OLD", "2000-01-01")), MtgJsonCatalog().setList(json.byteInputStream()).sets)
     }
 }

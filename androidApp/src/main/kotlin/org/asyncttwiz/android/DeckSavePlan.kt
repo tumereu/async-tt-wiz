@@ -19,10 +19,13 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
             retained: Map<String, CardDefinition> = emptyMap(), editMetadata: Boolean = false): DeckSavePlan {
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val definitions = linkedMapOf<String, SubmittedDefinition>()
+            val normalizedDigests = mutableMapOf<String, String>()
             val entries = result.entries.map { entry ->
-                val definition = PhysicalCardFaces.normalize(retained[entry.printing.id] ?: entry.definition(result.catalog))
+                val original = retained[entry.printing.id] ?: entry.definition(result.catalog)
+                val definition = PhysicalCardFaces.normalize(original)
                 if (!DeckValidation.definition(definition)) throw DeckFailure("invalid_definition")
                 val digest = DeckJson.digest(definition)
+                normalizedDigests[DeckJson.digest(original)] = digest
                 definitions[digest] = SubmittedDefinition(digest, definition)
                 SavedDeckEntry(SavedDeckSection.valueOf(entry.section.name), digest, entry.quantity)
             }.groupBy { it.section to it.definition }.map { (_, rows) ->
@@ -30,9 +33,10 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
                 if (quantity > Int.MAX_VALUE) throw DeckFailure("invalid_deck")
                 rows.first().copy(quantity = quantity.toInt())
             }
-            if (cover != null && entries.none { it.definition == cover }) throw DeckFailure("invalid_cover")
+            val normalizedCover = normalizedDigests[cover] ?: cover
+            if (normalizedCover != null && entries.none { it.definition == normalizedCover }) throw DeckFailure("invalid_cover")
             return DeckSavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
-                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode, cover, editMetadata)
+                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode, normalizedCover, editMetadata)
         }
     }
 }

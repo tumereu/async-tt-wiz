@@ -44,7 +44,7 @@ internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, proj
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
     enabled: Boolean, names: Map<String, String>,
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
-    inspect: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
+    inspect: (() -> Unit)? = null, editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     val zone = state.board.containers.single { it.id == card.containerId }.zone
     val battlefield = enabled && cardModificationEnabled(zone)
@@ -61,7 +61,11 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("flip", if (card.covered) "Face up" else "Face down",
         MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
     add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield) { send { PlayAction.ResetCorner(it.id) } })
-    add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true)) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
+    val projection = previewViewId in CombatStackRules.projectionIds(state.board)
+    add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true, projection = projection)) {
+        if (projection && editProjectionNote != null) editProjectionNote()
+        else actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer)
+    })
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
     if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", battlefield, color = ownerColor) {
         val next = state.board.players.firstOrNull { it.accountId != card.owner }

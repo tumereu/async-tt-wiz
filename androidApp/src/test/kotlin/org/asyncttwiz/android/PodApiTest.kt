@@ -55,7 +55,7 @@ class PodApiTest {
             expect("/$id/build/basics", HttpMethod.Put, DeckJson.format.encodeToString(basics)); api.basics(token, id, basics)
             val submit = PodDraftRequest(request, id)
             expect("/$id/submit", HttpMethod.Post, DeckJson.format.encodeToString(submit)); api.submit(token, id, submit)
-            expect("/$id/cancel", HttpMethod.Post, DeckJson.format.encodeToString(input)); api.cancel(token, id, input)
+            expect("/$id/cancel", HttpMethod.Post, DeckJson.format.encodeToString(submit)); api.cancel(token, id, submit)
             expect("/$id/leave", HttpMethod.Post, DeckJson.format.encodeToString(input), true); api.leave(token, id, input)
             expect("/$id", HttpMethod.Delete, DeckJson.format.encodeToString(input), true); api.destroy(token, id, input)
         }

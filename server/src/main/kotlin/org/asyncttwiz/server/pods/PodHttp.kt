@@ -70,7 +70,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                      action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))
                      action == "challenge" -> pods.challenge(principal, id, json.decodeFromString<ChallengeFromPod>(text))
                     action == "leave" -> pods.leave(principal, id, json.decodeFromString<PodRequest>(text))
-                    else -> pods.cancel(principal, id, json.decodeFromString<PodRequest>(text))
+                    else -> pods.cancel(principal, id, json.decodeFromString<PodDraftRequest>(text))
                 }
             }
             reply(response, result)

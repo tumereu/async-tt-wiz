@@ -75,7 +75,7 @@ class PodControllerTest {
             calls += "basics" to input; saved = saved.copy(build = saved.build!!.copy(basics = input.basics)); return saved
         }
         override suspend fun submit(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "submit" to input; saved = saved.copy(submitted = true); return saved }
-        override suspend fun cancel(token: String, id: String, input: PodRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
+        override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
         override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "leave" to input; missing = true; return PodAcknowledged(id) }
         override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "destroy" to input; missing = true; return PodAcknowledged(id) }
         override fun close() = Unit

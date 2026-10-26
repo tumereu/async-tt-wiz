@@ -32,9 +32,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class UpdatePod(val requestId: String, val name: String? = null, val cubeId: String? = null, val settings: DraftSettings? = null)
 /** POST /v1/pods/{id}/invitations. */
 @Serializable data class InviteToPod(val requestId: String, val accountId: String)
-/** POST /v1/pods/{id}/{start,accept,decline,leave,cancel}; DELETE /v1/pods/{id} destroys. */
+/** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.
+ * Leave is membership-scoped, even while drafting: it cancels whichever draft is current. */
 @Serializable data class PodRequest(val requestId: String)
-/** POST /v1/pods/{id}/submit. */
+/** POST /v1/pods/{id}/{submit,cancel}. The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */
 @Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList())

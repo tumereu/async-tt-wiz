@@ -173,12 +173,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.pending > 0 || state.uncertain) return
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }
-        if (action == PodConfirmation.SUBMIT && submit == null) return
+        if (action in listOf(PodConfirmation.SUBMIT, PodConfirmation.CANCEL) && submit == null) return
         enqueue(Write(detail.id, exit = action in listOf(PodConfirmation.LEAVE, PodConfirmation.DESTROY), send = { token ->
             when (action) {
                 PodConfirmation.DESTROY -> { api.destroy(token, detail.id, input); null }
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
-                PodConfirmation.CANCEL -> api.cancel(token, detail.id, input)
+                PodConfirmation.CANCEL -> api.cancel(token, detail.id, submit!!)
                 PodConfirmation.SUBMIT -> api.submit(token, detail.id, submit!!)
             }
         }))

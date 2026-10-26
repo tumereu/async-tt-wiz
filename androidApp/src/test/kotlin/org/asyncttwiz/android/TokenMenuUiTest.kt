@@ -3,6 +3,8 @@ package org.asyncttwiz.android
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
+import org.asyncttwiz.storage.CatalogTokenChoice
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogTokenCursor
 import org.junit.Rule
@@ -51,7 +53,9 @@ class TokenMenuUiTest {
         val controller = TokenLinkController({ play }) { sent += it; true }
         controller.catalog()
         val search = object : TokenSearchSource {
-            override suspend fun search(query: String, cursor: CatalogTokenCursor?) = TokenSearchPage("fixture", listOf(food, treasure), null)
+            val page = TokenSearchPage("fixture", listOf(food, treasure), null, listOf(food, treasure).map(CatalogTokenChoice::from))
+            override fun cached() = page
+            override suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage = error("Cached dialog must not search")
             override suspend fun isCurrent(generation: String) = true
         }
         var saved: TokenFavorites? = null
@@ -61,6 +65,8 @@ class TokenMenuUiTest {
             override suspend fun set(favorites: TokenFavorites) { saved = favorites }
         }
         compose.setContent { ScreenTheme { TokenCatalogDialog(controller, emptyList(), searchSource = search, favoritesSource = favorites) } }
+        compose.onNodeWithContentDescription("Create Food token").assertIsDisplayed()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertCountEquals(0)
         compose.onNodeWithContentDescription("Create Food token").performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed().performClick()
         assertTrue(sent.isEmpty())

@@ -92,6 +92,7 @@ class TabletopApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) DebugCrashes.install(this)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { AndroidTokenCatalog.source(this@TabletopApplication).warm(prepare = true) }
     }
 }
 

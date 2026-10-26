@@ -19,8 +19,9 @@ object TableActionMenus {
         val scope = TableActionScope(play.gameId, play.id)
         val actions = mutableListOf<TableMenuAction>()
         controller.untap(play, false)?.let { actions += TableMenuAction("Untap all", it) }
-        actions += TableMenuAction("Create combat area", TableActionIntent.Combat(scope, CombatTool.CREATE, context.combatAreaId))
-        actions += TableMenuAction("Close combat area", TableActionIntent.Combat(scope, CombatTool.CLOSE, context.combatAreaId))
+        val combat = play.board.combat
+        actions += if (combat == null) TableMenuAction("Create combat area", TableActionIntent.Combat(scope, CombatTool.CREATE, null))
+            else TableMenuAction("Close combat area", TableActionIntent.Combat(scope, CombatTool.CLOSE, combat.id))
         actions += TableMenuAction("Create token", TableActionIntent.Token(scope))
         if (pendingSuggestionId == null) {
             actions += TableMenuAction("Suggest game end", TableActionIntent.Ending(scope, EndingTool.SUGGEST_WIN))

@@ -8,6 +8,64 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class KeepTopRevealedIntegrationTest {
+    @Test fun `forks after draws preserve the revealed top and explicit branch shuffles replace it for both players`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime, deckSize = 12)
+                val owner = f.a.account.accountId
+                val opponent = f.b.account.accountId
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                val libraryId = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == owner }.id
+                val handId = state().board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }.id
+                fun library(play: PlayState) = play.board.containers.single { it.id == libraryId }
+                fun send(action: PlayAction, stream: GameplayFixture.Stream = f.owner, target: String? = null): GameplayMutation {
+                    val result = stream.execute(stream.command(action).copy(continuation = target?.let { Continuation(it, true) }))
+                    assertEquals("accepted", result.outcome, result.reason)
+                    return result.mutation!!
+                }
+                fun assertTop(play: PlayState) {
+                    val library = library(play)
+                    assertTrue(library.keepTopRevealed)
+                    assertEquals(library.cards.first(), library.knownTop.single())
+                    val top = play.board.cards.single { it.id == library.cards.first() }
+                    for (viewer in listOf(owner, opponent)) {
+                        assertTrue(CardVisibility.isVisibleFaceUp(play.board, top, viewer))
+                        assertEquals(listOf(top.faceId), ManualDisclosure.permittedFaces(play, top, viewer, true).map { it.faceId })
+                    }
+                    assertEquals(play, f.games.head(f.b, f.game.id).play)
+                }
+                send(PlayAction.SetKeepTopRevealed(libraryId, true))
+                val points = (1..3).map {
+                    send(LibraryActions.draw(state().board, libraryId, handId, 1).single())
+                    state().also(::assertTop)
+                }
+                // Fork from an earlier draw, then continue the displaced former current node as another real branch.
+                for ((point, stream) in listOf(points.first() to f.owner, points.last() to f.recipient)) {
+                    val fork = send(PlayAction.AdjustLife(stream.actor.account.accountId, "1"), stream, point.currentNodeId)
+                    assertEquals(point.currentNodeId, fork.parentId)
+                    assertNotEquals(point.currentBranchId, fork.branchId)
+                    val reseed = fork.transition.delta!!.libraryReseeds.single { it.containerId == libraryId }
+                    assertEquals(library(point).unknownMiddle, reseed.from)
+                    assertFalse(library(point).cards.first() in reseed.to)
+                    val branched = state()
+                    assertEquals(library(point).cards.first(), library(branched).cards.first())
+                    assertTop(branched)
+                    assertEquals(branched, GameplayHistory.replay(point, fork).state)
+                    assertEquals(point, GameplayHistory.unapply(branched, fork))
+                    val cards = library(branched).cards
+                    val seed = (0..255).map { n -> RandomV1.encodeSeed(ByteArray(32) { n.toByte() }) }
+                        .first { RandomV1.shuffle(cards, it).first() != cards.first() }
+                    send(PlayAction.ShuffleLibrary(libraryId, seed), stream)
+                    assertEquals(RandomV1.shuffle(cards, seed), library(state()).cards)
+                    assertNotEquals(cards.first(), library(state()).cards.first())
+                    assertTop(state())
+                }
+            }
+        }
+    }
+
     @Test fun `either player controls a durable undoable continuous reveal shared with the opponent`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -22,6 +22,15 @@ class PlaybackSettingsTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun randomPauseDefaultsOffForExistingUntouchedAccountsAndKeepsExplicitChoices() {
+        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+        stored.edit().putLong("pause/existing", 900).putBoolean("auto-pause/on/RANDOM", true)
+            .putBoolean("auto-pause/off/RANDOM", false).commit()
+        for (account in listOf("fresh", "existing", "off"))
+            assertFalse(PlaybackAutoPause.RANDOM in HistoryPlaybackPreferences(context, account).autoPause)
+        assertTrue(PlaybackAutoPause.RANDOM in HistoryPlaybackPreferences(context, "on").autoPause)
+    }
+
     @Test fun defaultMigrationPreservesNonDefaultsAndFutureExplicitOldDefault() {
         val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
         stored.edit().clear().putLong("pause/old-default", 1_500).putLong("pause/custom", 2_300).commit()

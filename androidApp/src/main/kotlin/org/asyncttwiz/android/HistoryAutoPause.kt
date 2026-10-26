@@ -7,7 +7,7 @@ enum class PlaybackAutoPause(val label: String, val defaultEnabled: Boolean = tr
     STACK_REMOVED("Removed from Stack", false),
     REVEAL("Reveal"),
     PINGS_COMMENTS("Pings / comments"),
-    RANDOM("Die / coin results"),
+    RANDOM("Die / coin results", false),
     YOURS("Your life / cards hit"),
     ATTENTION("Move passes to you"),
     ATTACKERS("Attackers declared", false),

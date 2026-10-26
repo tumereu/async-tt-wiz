@@ -50,13 +50,13 @@ class StackQuickActionsTest {
         assertEquals(initial.board, tree.stateAt(tree.currentNodeId)!!.board)
         return final
     }
-    @Test fun battlefieldUsesOwnersNearestMainRowAndAppendsOrUsesFirstSlot() {
+    @Test fun battlefieldUsesOwnersNearestMainRowAndFirstFreeSlot() {
         for (occupied in listOf(false, true)) {
             val initial = initial(occupied = occupied)
             val tree = resolve(initial, PlayZone.BATTLEFIELD)
             val card = tree.stateAt(tree.currentNodeId)!!.board.cards.single { it.id == id(20) }
             assertEquals(id(10), card.containerId) // opponent's battlefield, not the acting player's
-            assertEquals(BoardPosition(if (occupied) 4 else 0, 1), card.placement!!.position)
+            assertEquals(BoardPosition(0, 1), card.placement!!.position)
             val swapped = initial.copy(board = initial.board.copy(players = initial.board.players.reversed()))
             assertEquals(StackQuickActions.actions(initial, id(20), PlayZone.BATTLEFIELD),
                 StackQuickActions.actions(swapped, id(20), PlayZone.BATTLEFIELD))

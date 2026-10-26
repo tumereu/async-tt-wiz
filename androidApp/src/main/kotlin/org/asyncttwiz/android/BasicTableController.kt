@@ -107,7 +107,20 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             var sent = false
             for (id in ids) {
                 val predecessor = play()?.takeIf { connected() && it.id == state.id } ?: break
-                sent = submit(PlayAction.Stack(StackAction.AddEffect(id, GameplayRules.stackDigest(predecessor))), invocation) || sent
+                val before = CombatStackRules.stack(predecessor.board).cards.toSet()
+                val added = submit(PlayAction.Stack(StackAction.AddEffect(id, GameplayRules.stackDigest(predecessor))), invocation)
+                sent = added || sent
+                val card = predecessor.board.cards.single { it.id == id }
+                if (added && intent.handDoubleTap && state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND } &&
+                    StackContexts.permanentOnly(predecessor.definitions.find { it.digest == card.definition }?.definition)) {
+                    val next = play()?.takeIf { connected() && it.id == state.id } ?: break
+                    val entry = CombatStackRules.stack(next.board).cards.firstOrNull { entry -> entry !in before &&
+                        CombatStackRules.liveSource(next.board, entry)?.id == id } ?: continue
+                    // Exactly the manual resolver, with a separate invocation/Stack-removal group.
+                    val resolveInvocation = UUID.randomUUID().toString()
+                    for (action in StackMenuActions.destination(next, entry, PlayZone.BATTLEFIELD))
+                        if (!submit(action, resolveInvocation)) break
+                }
             }
             return sent
         }

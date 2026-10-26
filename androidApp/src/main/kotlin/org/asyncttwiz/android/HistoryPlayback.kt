@@ -316,23 +316,51 @@ internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card
 internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
     listOf(it.bounds, it.tapped, it.covered, it.faceId) }
 
+internal const val CARD_ROTATION_DURATION_MILLIS = 90
+internal const val CARD_FLIP_DURATION_MILLIS = 350
+internal const val CARD_FADE_DURATION_MILLIS = 350
+internal const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
+
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
     internal var cardMoveSpeedDpPerMs: Float = DEFAULT_CARD_MOVE_SPEED
+    private var sceneMoveSpeed = DEFAULT_CARD_MOVE_SPEED
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
     var durationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS; private set
+    internal fun remainingDurationMillis(progress: Float) =
+        (durationMillis * (1f - progress.coerceIn(0f, 1f))).toInt().coerceAtLeast(1)
     internal var rotatingCardIds: Set<String> = emptySet(); private set
     private var flippingCardIds: Set<String> = emptySet()
     private var stackFlightIds: Set<String> = emptySet()
+    private var shufflingPileIds: Set<String> = emptySet()
+    private var lastShuffleCursor: String? = null
     private var latestScene = initial
     private var latestItems = initial.items.associateBy { it.animationId }
+    private fun rotationOnly(a: HistoryAnimatedItem, b: HistoryAnimatedItem): Boolean =
+        a.item.kind == TableItemKind.CARD && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation &&
+            a.item.viewport == b.item.viewport && (a.item.footprint == b.item.footprint ||
+            a.bounds.center == b.bounds.center || a.item.zone == PlayZone.HAND && b.item.zone == PlayZone.HAND &&
+            a.item.footprint.x == b.item.footprint.x && a.item.footprint.center.y == b.item.footprint.center.y) &&
+            a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to -> from.width == to.width && from.height == to.height } }
+    private fun flipping(a: HistoryAnimatedItem, b: HistoryAnimatedItem) = b.item.cardId in flippingCardIds ||
+        a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
+    private fun moveDuration(a: HistoryAnimatedItem, b: HistoryAnimatedItem): Int = when {
+        a.bounds == b.bounds -> 0
+        rotationOnly(a, b) -> CARD_ROTATION_DURATION_MILLIS
+        b.item.kind != TableItemKind.CARD -> MAX_CARD_MOVE_DURATION_MILLIS
+        a.bounds.center == b.bounds.center -> MAX_CARD_MOVE_DURATION_MILLIS
+        else -> cardMoveDurationMillis(kotlin.math.hypot(b.bounds.center.x - a.bounds.center.x,
+            b.bounds.center.y - a.bounds.center.y), sceneMoveSpeed)
+    }
     fun updateMetadata(target: TableScene) {
         if (target.animationTargets == destination.animationTargets) destination = target
     }
     fun frame(progress: Float, presentation: TableScene = destination): List<HistoryAnimatedItem> {
         val sceneProgress = progress.coerceIn(0f, 1f)
+        val elapsed = sceneProgress * durationMillis
+        fun channel(duration: Int) = (elapsed / duration).coerceIn(0f, 1f)
         if (presentation !== latestScene) {
             latestScene = presentation
             latestItems = presentation.items.associateBy { it.animationId }
@@ -343,16 +371,18 @@ class HistorySceneAnimation(initial: TableScene) {
             // Most of a large board is stationary during a tap. Reuse its immutable drawings
             // instead of allocating transforms and copied items for every card on every frame.
             if (a.bounds == b.bounds && a.alpha == b.alpha && a.item.tapped == b.item.tapped &&
-                a.item.cardId !in flippingCardIds && a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
+                id !in shufflingPileIds && a.item.cardId !in flippingCardIds && a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
                 val shown = latestItems[id] ?: b.item
                 return@map if (shown === b.item) b else HistoryAnimatedItem(shown, b.bounds, b.alpha)
             }
-            val t = if (b.item.kind == TableItemKind.CARD && durationMillis != 90)
-                cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
+            val rotationProgress = channel(CARD_ROTATION_DURATION_MILLIS)
+            val flipProgress = channel(CARD_FLIP_DURATION_MILLIS)
+            val t = if (rotationOnly(a, b)) rotationProgress else if (b.item.kind == TableItemKind.CARD)
+                cardMoveProgress(a.bounds, b.bounds, channel(MAX_CARD_MOVE_DURATION_MILLIS), MAX_CARD_MOVE_DURATION_MILLIS, sceneMoveSpeed)
+                else channel(MAX_CARD_MOVE_DURATION_MILLIS)
             fun mix(x: Float, y: Float) = x + (y - x) * t
-            val flipping = b.item.cardId in flippingCardIds ||
-                a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
-            val metadata = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
+            val flipping = flipping(a, b)
+            val metadata = if (flipping && flipProgress < .5f) a.item else latestItems[id] ?: b.item
             // Real spells share the destination card's identity. While flying they still leave
             // the screen-fixed Stack, not the clipped Battlefield viewport they are entering.
             val shown = if (id in stackFlightIds && t < 1f) metadata.copy(zone = PlayZone.STACK, viewport = a.item.viewport)
@@ -364,11 +394,12 @@ class HistorySceneAnimation(initial: TableScene) {
                     typeIcon = "", counters = emptyMap(), label = "Covered card") else shown
             val face = if (item.kind == TableItemKind.CARD) {
                 val from = a.item.faceTransform(a.bounds); val to = b.item.faceTransform(b.bounds)
-                TableCardTransform(mix(from.width, to.width), mix(from.height, to.height), mix(from.rotation, to.rotation))
+                TableCardTransform(mix(from.width, to.width), mix(from.height, to.height),
+                    from.rotation + (to.rotation - from.rotation) * rotationProgress)
             } else null
             val bounds = when {
                 t == 0f -> a.bounds
-                t == 1f -> b.bounds
+                t == 1f && (face == null || face.rotation == b.item.faceTransform(b.bounds).rotation) -> b.bounds
                 face != null -> {
                     val center = TablePoint(mix(a.bounds.center.x, b.bounds.center.x), mix(a.bounds.center.y, b.bounds.center.y))
                     if (a.item.zone == PlayZone.BATTLEFIELD && b.item.zone == PlayZone.BATTLEFIELD &&
@@ -382,20 +413,31 @@ class HistorySceneAnimation(initial: TableScene) {
                 else -> TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
                     mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height))
             }
-            val alphaProgress = if (id in stackFlightIds) ((t - .75f) / .25f).coerceIn(0f, 1f) else t
-            HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * t).coerceAtLeast(.02f) else 1f,
-                inTransit = item.kind == TableItemKind.CARD && t < 1f &&
-                (a.bounds != b.bounds || a.item.faceTransform(a.bounds) != b.item.faceTransform(b.bounds))), bounds,
+            val alphaProgress = channel(CARD_FADE_DURATION_MILLIS)
+            val shuffle = channel(LIBRARY_SHUFFLE_DURATION_MILLIS)
+            val shuffledBounds = if (id in shufflingPileIds) bounds.copy(x = bounds.x +
+                (kotlin.math.sin(shuffle * 6f * kotlin.math.PI) * 6f * (1f - shuffle)).toFloat()) else bounds
+            HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * flipProgress).coerceAtLeast(.02f) else 1f,
+                inTransit = item.kind == TableItemKind.CARD && (t < 1f && a.bounds != b.bounds ||
+                    rotationProgress < 1f && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation)), shuffledBounds,
                 a.alpha + (b.alpha - a.alpha) * alphaProgress)
         }.sortedBy { it.item.inTransit }
     }
     /** False means confirmation/metadata only: the caller must leave the running clock alone. */
-    fun retarget(target: TableScene, currentProgress: Float, faceChanges: Set<String> = emptySet()): Boolean {
-        if (target.animationTargets == destination.animationTargets) {
+    fun retarget(target: TableScene, currentProgress: Float, faceChanges: Set<String> = emptySet(),
+        shuffles: Set<String> = emptySet(), shuffleCursor: String? = null): Boolean {
+        val freshShuffle = shuffles.isNotEmpty() && shuffleCursor != null && shuffleCursor != lastShuffleCursor
+        if (target.animationTargets == destination.animationTargets && !freshShuffle) {
+            if (shuffleCursor != null) lastShuffleCursor = shuffleCursor
             destination = target
             return false
         }
         start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.animationId }
+        // A preference update applies to the next scene, not to an already-sized running clock.
+        sceneMoveSpeed = cardMoveSpeedDpPerMs
+        shufflingPileIds = if (freshShuffle) target.items.filter { it.id in shuffles && it.zone == PlayZone.LIBRARY && it.kind == TableItemKind.PILE }
+            .map { it.animationId }.toSet() else emptySet()
+        if (shuffleCursor != null) lastShuffleCursor = shuffleCursor
         end = target.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
         flippingCardIds = faceChanges.filter { id ->
             val a = start["card/$id"]?.item; val b = end["card/$id"]?.item
@@ -465,18 +507,14 @@ class HistorySceneAnimation(initial: TableScene) {
             b.item.cardId?.takeIf { b.item.kind == TableItemKind.CARD &&
                 a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation }
         }.toSet()
-        durationMillis = if (flippingCardIds.isEmpty() && (start.keys + end.keys).all { id ->
-            val a = start[id]; val b = end[id]
-            a != null && b != null && a.alpha == b.alpha && (a.bounds == b.bounds && a.item.tapped == b.item.tapped ||
-                a.item.kind == TableItemKind.CARD && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation &&
-                a.item.viewport == b.item.viewport && (a.item.footprint == b.item.footprint ||
-                    a.bounds.center == b.bounds.center ||
-                    a.item.zone == PlayZone.HAND && b.item.zone == PlayZone.HAND &&
-                    a.item.footprint.x == b.item.footprint.x && a.item.footprint.center.y == b.item.footprint.center.y) &&
-                a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to ->
-                    from.width == to.width && from.height == to.height
-                } })
-        }) 90 else MAX_CARD_MOVE_DURATION_MILLIS
+        durationMillis = (start.keys + end.keys).maxOfOrNull { id ->
+            val a = start[id] ?: end.getValue(id).copy(alpha = 0f)
+            val b = end[id] ?: start.getValue(id).copy(alpha = 0f)
+            maxOf(moveDuration(a, b),
+                if (a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation) CARD_ROTATION_DURATION_MILLIS else 0,
+                if (flipping(a, b)) CARD_FLIP_DURATION_MILLIS else 0,
+                if (a.alpha != b.alpha) CARD_FADE_DURATION_MILLIS else 0)
+        }?.coerceAtLeast(if (shufflingPileIds.isEmpty()) 1 else LIBRARY_SHUFFLE_DURATION_MILLIS) ?: 1
         destination = target
         return true
     }

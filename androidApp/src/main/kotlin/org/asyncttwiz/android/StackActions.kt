@@ -10,6 +10,24 @@ data class StackContext(val target: CombatStackTarget, val kind: StackContextKin
 data class StackMoveChoice(val label: String, val zone: PlayZone, val destination: MoveDestination)
 
 object StackContexts {
+    private val permanentTypes = setOf("Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker")
+    private val spellTypes = setOf("Instant", "Sorcery")
+    private val supertypes = setOf("Basic", "Legendary", "Snow", "World", "Ongoing")
+    fun types(typeLine: String): Set<String> = typeLine.substringBefore('—').split(Regex("\\s+"))
+        .filter(String::isNotEmpty).toSet()
+    fun kind(typeLine: String): StackContextKind {
+        val types = types(typeLine)
+        val spell = types.any { it in spellTypes }
+        val permanent = types.any { it in permanentTypes }
+        return when {
+            spell && !permanent -> StackContextKind.SPELL
+            permanent && !spell && types.all { it in permanentTypes || it in supertypes } -> StackContextKind.PERMANENT
+            else -> StackContextKind.UNCLASSIFIED
+        }
+    }
+    /** Conservative shortcut classification: every face must be a non-land permanent. */
+    fun permanentOnly(definition: CardDefinition?): Boolean = definition != null && definition.faces.isNotEmpty() &&
+        definition.faces.all { kind(it.typeLine) == StackContextKind.PERMANENT && "Land" !in types(it.typeLine) }
     fun destinations(context: StackContext, configured: List<StackMoveChoice>, quick: Boolean): List<StackMoveChoice> =
         if (context.target.sourceId == null) emptyList() else configured.filter {
             !quick || (context.kind != StackContextKind.EFFECT && it.zone == context.destination)
@@ -21,16 +39,13 @@ object StackContexts {
         val target = CombatStackController.bind(board, viewId)
         if (board.stackEffects.any { it.id == viewId }) return StackContext(target, StackContextKind.EFFECT)
         val card = board.cards.single { it.id == viewId }
-        val typeLine = state.definitions.find { it.digest == card.definition }?.definition?.faces
-            ?.find { it.faceId == card.faceId }?.typeLine.orEmpty().substringBefore('—')
-        val types = typeLine.split(Regex("\\s+")).filter(String::isNotEmpty).toSet()
-        val spell = types.any { it in setOf("Instant", "Sorcery") }
-        val permanent = types.any { it in setOf("Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker") }
-        return when {
-            spell && !permanent -> StackContext(target, StackContextKind.SPELL, PlayZone.GRAVEYARD)
-            permanent && !spell -> StackContext(target, StackContextKind.PERMANENT, PlayZone.BATTLEFIELD)
-            else -> StackContext(target, StackContextKind.UNCLASSIFIED)
-        }
+        val kind = kind(state.definitions.find { it.digest == card.definition }?.definition?.faces
+            ?.find { it.faceId == card.faceId }?.typeLine.orEmpty())
+        return StackContext(target, kind, when (kind) {
+            StackContextKind.SPELL -> PlayZone.GRAVEYARD
+            StackContextKind.PERMANENT -> PlayZone.BATTLEFIELD
+            else -> null
+        })
     }
 }
 

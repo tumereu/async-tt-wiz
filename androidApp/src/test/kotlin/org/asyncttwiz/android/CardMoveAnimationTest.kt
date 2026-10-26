@@ -44,8 +44,13 @@ class CardMoveAnimationTest {
             animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * multiplier
             animation.retarget(TableScene(listOf(target), emptyList()), 1f)
             val duration = cardMoveDurationMillis(240f, animation.cardMoveSpeedDpPerMs)
-            assertEquals(target.bounds, animation.frame(duration / 350f).single().bounds)
-            assertTrue(animation.frame(duration / 700f).single().item.inTransit)
+            assertEquals(duration, animation.durationMillis)
+            assertEquals(target.bounds, animation.frame(1f).single().bounds)
+            assertTrue(animation.frame(.5f).single().item.inTransit)
+            val halfway = animation.frame(.5f)
+            animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * .25f
+            assertEquals(halfway, animation.frame(.5f), "Preference changes cannot desynchronize a running scene's channels")
+            assertEquals(target.bounds, animation.frame(1f).single().bounds)
         }
     }
 }

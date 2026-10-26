@@ -94,11 +94,21 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
     internal val feedback = TableEventFeedback(now)
     val active = mutableStateMapOf<TableChangeKey, ActiveTableChange>()
     private var motionCursor: String? = null
+    private var shuffledLibraries: Set<String> = emptySet()
+    internal fun shuffles(cursor: String): Set<String> = if (animates(cursor)) shuffledLibraries else emptySet()
     internal fun animates(cursor: String): Boolean = motionCursor == cursor
     private var serial = 0L
     fun apply(batch: TableChangeBatch) {
         feedback.apply(batch)
         if (batch.jump) { clear(); return }
+        if (batch.events.isNotEmpty()) shuffledLibraries = batch.events.mapNotNull { event ->
+            if (event.reverse) null else when (val action = event.mutation.action) {
+                is PlayAction.ShuffleLibrary -> action.containerId
+                is PlayAction.DismissContents -> event.mutation.transition.contents?.from?.takeIf {
+                    it.search || action.rest == ContentsRest.SHUFFLE }?.containerId
+                else -> null
+            }
+        }.toSet()
         batch.events.lastOrNull()?.let { motionCursor = if (it.reverse) it.mutation.parentId else it.mutation.id }
         val time = now()
         active.entries.removeAll { time - it.value.started >= WINDOW_MS }
@@ -110,7 +120,7 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
         }
     }
     fun expire(key: TableChangeKey, serial: Long) { if (active[key]?.serial == serial) active.remove(key) }
-    fun clear() { active.clear(); motionCursor = null; feedback.clear() }
+    fun clear() { active.clear(); motionCursor = null; shuffledLibraries = emptySet(); feedback.clear() }
     companion object {
         const val HOLD_MS = 1_000L
         const val WINDOW_MS = 1_500L

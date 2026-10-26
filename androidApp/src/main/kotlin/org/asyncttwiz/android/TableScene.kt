@@ -277,14 +277,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
             val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges)) {
+            val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.currentNodeId).orEmpty()
+            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.currentNodeId)) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
                 if (navigation || runtime.changes?.animates(play.currentNodeId) == false) progress.snapTo(1f)
                 else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
-                progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
+                // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
+                progress.animateTo(1f, tween(animation.remainingDurationMillis(progress.value), easing = androidx.compose.animation.core.LinearEasing))
             }
             animationRevision++
             withFrameNanos { }

@@ -19,7 +19,7 @@ class TableGesturesTest {
         events.clear()
         gestures.down(hand.bounds.center, 100); gestures.up(hand.bounds.center, 110)
         assertEquals(TableIntent.Move(TableScope("hand", listOf("hand")), TableDestination.Container("stack", PlayZone.STACK),
-            mapOf("hand" to TableMoveSource("hand-zone"))), events.filterIsInstance<TableIntent.Move>().single())
+            mapOf("hand" to TableMoveSource("hand-zone")), handDoubleTap = true), events.filterIsInstance<TableIntent.Move>().single())
         assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Submit })
         gestures.rotate(hand, true)
         assertTrue(events.none { it is TableIntent.Rotate })

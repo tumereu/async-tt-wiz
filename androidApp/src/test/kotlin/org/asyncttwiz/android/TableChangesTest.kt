@@ -162,6 +162,24 @@ class TableChangesTest {
         }
     }
 
+    @Test fun coalescedLivePublicationsKeepShuffleFeedbackAndCatchupDoesNotWiggle() {
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })
+        history.use {
+            history.update(GameplayTree(f.initial), "v")
+            val shuffle = event().copy(mutation = event().mutation.copy(id = "shuffle",
+                action = PlayAction.ShuffleLibrary("library", "seed")))
+            val following = event().copy(mutation = event().mutation.copy(id = "following", parentId = "shuffle"))
+            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "shuffle"))
+            history.liveChanges(TableChangeBatch(listOf(following), cursor = "following"))
+            history.showChanges("following")
+            assertEquals(setOf("library"), history.changes.shuffles("following"))
+            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "shuffle"))
+            history.liveChanges(TableChangeBatch(jump = true))
+            history.showChanges("shuffle")
+            assertTrue(history.changes.shuffles("shuffle").isEmpty())
+        }
+    }
+
     @Test fun liveEffectsWaitForTheirDisplayedEndpointAndJumpsDiscardPendingEffects() {
         val tree = GameplayTree(f.initial)
         val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })

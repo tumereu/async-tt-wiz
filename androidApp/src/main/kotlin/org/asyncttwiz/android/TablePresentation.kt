@@ -123,7 +123,7 @@ data class TableItem(
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
-    val faceId: String? = null
+    val faceId: String? = null, val frontTypeLine: String = typeLine
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -321,7 +321,8 @@ object TablePresentation {
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
                 counters = if (hidden) emptyMap() else card.counters,
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
-                    typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId).also { if (draw) items += it }
+                    typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
+                    frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty()).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer

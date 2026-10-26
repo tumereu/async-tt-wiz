@@ -60,6 +60,27 @@ class LibraryKnowledgeTest {
         return play(tree, LibraryActions.draw(board, library(tree, owner).id, hand.id, 1).single(), owner)
     }
 
+    @Test fun drawUndoSearchCloseRepeatedlyActuallyShuffles() {
+        for (keepTop in listOf(false, true)) {
+            var tree = GameplayTree(root())
+            if (keepTop) tree = play(tree, PlayAction.SetKeepTopRevealed(id(20), true))
+            val drawn = mutableSetOf<String>()
+            repeat(20) {
+                tree = draw(tree)
+                drawn += state(tree).board.containers.single { it.id == id(21) }.cards.single()
+                tree = control(tree, GameAction.Undo)
+                tree = play(tree, PlayAction.ShowContents(id(20), ContentsSelection.ALL))
+                val panel = state(tree).board.contentsDisplays.single()
+                // Same fallback seed path as older clients; every close has a fresh request ID.
+                tree = play(tree, PlayAction.DismissContents(panel.id))
+                val cold = GameWire.json.decodeFromString(GameplayTree.serializer(),
+                    GameWire.json.encodeToString(GameplayTree.serializer(), tree))
+                assertEquals(state(tree), state(cold))
+            }
+            assertTrue(drawn.size > 1, "Search close pinned the drawn card (keepTop=$keepTop): $drawn")
+        }
+    }
+
     @Test fun topAndBottomOperationsConsumeFixedEdgesThenUnknownMiddle() {
         for (known in listOf(false, true)) for (end in listOf(ContentsSelection.TOP, ContentsSelection.BOTTOM)) {
             var tree = GameplayTree(root())

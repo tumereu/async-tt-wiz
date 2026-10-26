@@ -43,7 +43,7 @@ class CardTapTelemetryTest {
 
         val target = base.copy(items = base.items.map { when (it.id) {
             rotated.id -> it.copy(tapped = true)
-            moved.id -> it.copy(bounds = it.bounds.copy(x = it.bounds.x + 42f))
+            moved.id -> it.copy(bounds = it.bounds.copy(x = it.bounds.x + 1000f))
             else -> it
         } })
         val animation = HistorySceneAnimation(base)

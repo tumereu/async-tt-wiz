@@ -18,6 +18,9 @@ import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
 import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
+import org.asyncttwiz.server.generated.tables.Pod.POD
+import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
+import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -65,6 +68,13 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         if (!DeckValidation.uuid(gameId) || !DeckValidation.uuid(identity)) throw ActivityFailure(400, "invalid_request")
         return transaction { sql ->
             val owner = account(principal); val game = UUID.fromString(gameId); val id = UUID.fromString(identity)
+            if (kind.name.startsWith("POD_")) {
+                val exists = sql.selectFrom(POD).where(POD.ID.eq(game)).forShare().fetchOne()
+                val member = sql.fetchExists(POD_MEMBER, POD_MEMBER.POD_ID.eq(game).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
+                val invited = sql.fetchExists(POD_INVITATION, POD_INVITATION.POD_ID.eq(game).and(POD_INVITATION.ACCOUNT_ID.eq(owner))
+                    .and(POD_INVITATION.STATE.eq("PENDING")))
+                return@transaction ActivityTarget(gameId, if (exists != null && (member || invited)) ActivityDestination.CURRENT else ActivityDestination.UNAVAILABLE)
+            }
             val row = sql.selectFrom(GAME).where(GAME.ID.eq(game)).forUpdate().fetchOne()
             val unavailable = ActivityTarget(gameId, ActivityDestination.UNAVAILABLE)
             if (row == null || owner !in listOf(row.inviterId, row.recipientId) || row.lifecycle !in listOf("LOBBY", "ACTIVE"))
@@ -138,9 +148,9 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val game = if (reset) SUMMARY.GAME_ID else EVENT.GAME_ID
         val ownerField = if (reset) SUMMARY.ACCOUNT_ID else EVENT.ACCOUNT_ID
         val rows = sql.select(activity, kind, game, identity, author).from(source)
-            .join(GAME).on(GAME.ID.eq(game)).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            .leftJoin(GAME).on(GAME.ID.eq(game)).leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
-            .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity))
+            .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game)))
             .orderBy(activity).limit(101).fetch()
         val entries = rows.take(100).map { ActivityHint(it[activity].toString(), ActivityKind.valueOf(it[kind]!!),
             it[game].toString(), it[identity].toString(), it[author]?.toString()) }
@@ -159,7 +169,19 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 kind.eq("INVITATION").and(GAME.RECIPIENT_ID.eq(owner)).and(INVITATION.STATE.eq("PENDING"))
                     .and(GAME.CURRENT_INVITATION.eq(identity)).or(
                         kind.eq("GAME").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)
-                            .and(INVITATION.STATE.eq("ACCEPTED"))))))
+                             .and(INVITATION.STATE.eq("ACCEPTED"))))))
+
+        internal fun podVisible(owner: org.jooq.Field<UUID>, kind: org.jooq.Field<String>, resource: org.jooq.Field<UUID>): org.jooq.Condition {
+            val member = DSL.exists(DSL.selectOne().from(POD_MEMBER).join(POD).on(POD.ID.eq(POD_MEMBER.POD_ID))
+                .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(
+                    kind.eq("POD_YOUR_PICK").and(POD.PHASE.eq("DRAFTING")).and(DSL.condition(
+                        "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner))
+                        .or(kind.eq("POD_DRAFT_COMPLETE").and(POD.PHASE.eq("DRAFTED")))))
+            val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
+                .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))
+                .and(POD.PHASE.eq("SETUP")))
+            return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
+        }
 
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.
          * Only an opponent's activity is recorded; publication never waits for a delivery window. */

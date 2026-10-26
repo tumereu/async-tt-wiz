@@ -2,7 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-@Serializable enum class DraftMode { BOOSTER, GLIMPSE }
+@Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID }
 @Serializable enum class DraftColor { W, U, B, R, G }
 
 @Serializable
@@ -16,8 +16,19 @@ data class DraftSettings(
     val packsOpenAtOnce: Int = 1,
     val colorBalance: Boolean = true,
     val sideboardLimit: Int? = null,
+    val grids: Int = 18,
+    val twoPicks: Boolean = false,
+    val gridsOpenAtOnce: Int = 1,
 ) {
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
+        if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
+        if (mode == DraftMode.GRID) {
+            if (players !in 2..4) add(DraftSettingsIssue.PLAYERS)
+            if (grids !in 1..60) add(DraftSettingsIssue.GRIDS)
+            if (twoPicks && players != 2) add(DraftSettingsIssue.TWO_PICKS)
+            if (gridsOpenAtOnce !in 1..grids) add(DraftSettingsIssue.GRIDS_OPEN_AT_ONCE)
+            return@buildList
+        }
         if (players !in 2..8) add(DraftSettingsIssue.PLAYERS)
         if (packsPerPlayer !in 1..30) add(DraftSettingsIssue.PACKS_PER_PLAYER)
         if (cardsPerPack !in 1..30) add(DraftSettingsIssue.CARDS_PER_PACK)
@@ -26,20 +37,24 @@ data class DraftSettings(
         if (keep.toLong() + burn > cardsPerPack) add(DraftSettingsIssue.KEEP_AND_BURN)
         if (discardRemainingAt !in 0..cardsPerPack) add(DraftSettingsIssue.DISCARD_REMAINING_AT)
         if (packsOpenAtOnce !in 1..packsPerPlayer) add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
-        if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
     }
 
-    val rounds: Int get() = (packsPerPlayer + packsOpenAtOnce - 1) / packsOpenAtOnce
+    val rounds: Int get() = if (mode == DraftMode.GRID) (grids + gridsOpenAtOnce - 1) / gridsOpenAtOnce
+        else (packsPerPlayer + packsOpenAtOnce - 1) / packsOpenAtOnce
+
+    fun gridRefills(players: Int): Boolean = players >= 3 || twoPicks
 
     companion object {
         fun booster() = DraftSettings()
         fun glimpse() = DraftSettings(mode = DraftMode.GLIMPSE, packsPerPlayer = 9, burn = 2)
+        fun grid() = DraftSettings(mode = DraftMode.GRID)
     }
 }
 
 @Serializable enum class DraftSettingsIssue {
     PLAYERS, PACKS_PER_PLAYER, CARDS_PER_PACK, KEEP, BURN, KEEP_AND_BURN,
     DISCARD_REMAINING_AT, PACKS_OPEN_AT_ONCE, SIDEBOARD_LIMIT,
+    GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet())
@@ -50,6 +65,7 @@ data class DraftSettings(
 
 /** Supply is counted, not expanded, so the setup UI can display invalid/insufficient settings too. */
 fun DraftSettings.supply(players: Int, cube: List<DraftCubeEntry>) = DraftSupply(
-    players.toLong() * packsPerPlayer * cardsPerPack,
+    if (mode == DraftMode.GRID) grids.toLong() * (9 + if (gridRefills(players)) 3 else 0)
+    else players.toLong() * packsPerPlayer * cardsPerPack,
     cube.sumOf { it.quantity.toLong() },
 )

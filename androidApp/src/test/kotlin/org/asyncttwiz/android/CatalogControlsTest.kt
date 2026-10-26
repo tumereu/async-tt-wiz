@@ -56,11 +56,35 @@ class CatalogControlsTest {
         waitForWorker(controller)
         assertEquals(1, downloads.get())
         assertFalse(controller.needsInitialDownloadConsent)
+        assertTrue(controller.state.error)
+        compose.onNodeWithText("Retry download").assertIsDisplayed()
         compose.onNodeWithText("Exit").assertDoesNotExist()
         compose.onNodeWithTag("email").performTextInput("player@example.test")
         compose.onNodeWithText("Create account").performScrollTo().performClick()
         compose.onNodeWithTag("username").performTextInput("Wizard")
         assertEquals("Wizard", fixtures.auth.state.username)
+    }
+
+    @Test fun firstLaunchFailedMetadataCheckShowsConsentWithoutPrematureErrorOrRetry() {
+        val downloads = AtomicInteger()
+        val controller = initialCatalog(downloads) { throw IOException("Metadata unavailable") }
+        controller.foreground()
+        waitForWorker(controller)
+        assertTrue(controller.needsInitialDownloadConsent)
+        assertFalse(controller.state.error)
+        assertNull(controller.state.status)
+        assertEquals(0, downloads.get())
+        val fixtures = ScreenFixtures()
+        fixtures.auth.seed(AuthState(restoring = false))
+        compose.setContent { AccountEntry(fixtures.auth, fixtures.reset, controller) }
+        compose.onNodeWithText("Download").assertIsDisplayed()
+        compose.onNodeWithText("Exit").assertIsDisplayed()
+        compose.onNodeWithText("Retry download", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Card records could not be updated", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Download").performClick()
+        waitForWorker(controller)
+        assertTrue(controller.state.error)
+        compose.onNodeWithText("Retry download").assertIsDisplayed()
     }
 
     @Test fun exitFinishesActivityAndMissingCatalogPromptsAgainOnNextLaunch() {

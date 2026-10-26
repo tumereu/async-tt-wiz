@@ -19,6 +19,19 @@ class CatalogPromptTest {
         }
     }
 
+    @Test fun firstLaunchMetadataFailureIsNotPresentedAsAFailedDownloadBeforeConsent() {
+        val failure = CatalogUiState(loaded = true, available = newer, error = true,
+            status = "Card records could not be updated. Check your connection and free storage, then retry.")
+        val initial = catalogConsentPresentation(failure, initialDownloadAccepted = false)
+        assertFalse(initial.error)
+        assertNull(initial.status)
+        assertEquals(newer, initial.available)
+        assertTrue(initial.loaded)
+        assertEquals(failure, catalogConsentPresentation(failure, initialDownloadAccepted = true))
+        val installed = failure.copy(installed = old)
+        assertEquals(installed, catalogConsentPresentation(installed, initialDownloadAccepted = false))
+    }
+
     @Test fun installedAndAutoInstalledRecordsDoNotPromptButAnUninstalledUpdateDoes() {
         val policy = CatalogPromptPolicy()
         assertFalse(policy.shouldPrompt(CatalogUiState(installed = old)))

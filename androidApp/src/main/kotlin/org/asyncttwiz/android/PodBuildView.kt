@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,12 +62,12 @@ fun PodBuildView(
     Box(modifier) {
         LazyColumn(Modifier.fillMaxSize().testTag("pod-build"), contentPadding = PaddingValues(bottom = 16.dp)) {
             item("columns") {
-                Column(Modifier.padding(horizontal = 12.dp)) {
-                    Text("Columns $columns", style = MaterialTheme.typography.labelLarge)
-                    Slider(value = columns.toFloat(), onValueChange = { value ->
-                        columns = value.roundToInt().coerceIn(2, 10)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    PodColumnControl("Columns $columns", "Columns", columns, 2..10) { value ->
+                        columns = value
                         preferences.edit().putInt(preferenceKey, columns).apply()
-                    }, valueRange = 2f..10f, steps = 7, modifier = Modifier.semantics { contentDescription = "Columns" })
+                    }
                     if (!editable) Text("Deck submitted", style = MaterialTheme.typography.titleMedium)
                 }
             }
@@ -146,22 +148,21 @@ fun PodBuildView(
 
 @Composable
 private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onBasics: (PodDeckBasics) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
-        Text("Basics", style = MaterialTheme.typography.labelLarge)
-        Row(Modifier.fillMaxWidth()) {
-            listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
-                val count = basics.podBuildValues()[index]
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(name, fontSize = 11.sp, maxLines = 1)
-                    Text(count.toString(), style = MaterialTheme.typography.labelLarge)
-                    if (editable) Row {
-                        TextButton(onClick = { onBasics(basics.podBuildAdjust(index, -1)) }, enabled = count > 0,
-                            modifier = Modifier.weight(1f).semantics { contentDescription = "Remove $name" },
-                            contentPadding = PaddingValues(0.dp)) { Text("−") }
-                        TextButton(onClick = { onBasics(basics.podBuildAdjust(index, 1)) }, enabled = count < Int.MAX_VALUE,
-                            modifier = Modifier.weight(1f).semantics { contentDescription = "Add $name" },
-                            contentPadding = PaddingValues(0.dp)) { Text("+") }
-                    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp).testTag("pod-build-basics"),
+        verticalAlignment = Alignment.CenterVertically) {
+        listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
+            val count = basics.podBuildValues()[index]
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center) {
+                Text(listOf("W", "U", "B", "R", "G")[index], fontSize = 11.sp,
+                    modifier = Modifier.semantics { contentDescription = name })
+                if (editable) PodSmallButton("Remove $name", "−", count > 0, width = 22.dp) {
+                    onBasics(basics.podBuildAdjust(index, -1))
+                }
+                Text(count.toString(), fontSize = 11.sp, maxLines = 1,
+                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
+                if (editable) PodSmallButton("Add $name", "+", count < Int.MAX_VALUE, width = 22.dp) {
+                    onBasics(basics.podBuildAdjust(index, 1))
                 }
             }
         }
@@ -192,7 +193,7 @@ internal fun PodBuildCard(
         val reference = remember(tile.digest, tile.definition, width) {
             tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it).artwork.firstOrNull() }
                 ?.takeIf { it.printing != null || it.customUrl != null }
-                ?.copy(size = if (width <= 146) "small" else if (width <= 488) "normal" else "large")
+                ?.copy(size = "normal")
         }
         val gesture = if (!editable) Modifier else Modifier.pointerInput(tile.copyIds.first(), category, threshold) {
             detectHorizontalDragGestures(
@@ -210,7 +211,7 @@ internal fun PodBuildCard(
             .combinedClickable(onClick = { if (editable) menu = true }, onLongClick = onInspect,
                 onLongClickLabel = "Inspect $name", onClickLabel = if (editable) "Move $name" else "${name} (read-only)")
             .semantics { contentDescription = "$name, ${tile.copyIds.size} copies, ${category.podBuildLabel()}" }) {
-            CardArtwork(reference, name, width, height, Modifier.fillMaxSize())
+            CardArtwork(reference, name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) })
             if (tile.copyIds.size > 1) Surface(Modifier.align(Alignment.TopEnd), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("×${tile.copyIds.size}", Modifier.padding(2.dp), fontSize = 11.sp)
             }
@@ -218,7 +219,7 @@ internal fun PodBuildCard(
                 Text("→ ${(if (drag > 0) right else left).podBuildLabel()}", Modifier.padding(2.dp), fontSize = 11.sp)
             }
         }
-        DropdownMenu(expanded = menu && editable, onDismissRequest = { menu = false }) {
+        PodCardMenu(expanded = menu && editable, dismiss = { menu = false }) {
             listOf(right, left).forEach { destination ->
                 DropdownMenuItem(text = { Text("→ ${destination.podBuildLabel()}") }, onClick = {
                     menu = false

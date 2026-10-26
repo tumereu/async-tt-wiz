@@ -32,6 +32,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     @Volatile private var epoch = 0L
     @Volatile private var closed = false
     private var active = false
+    private var lastCredential = credential()
     private var refreshPending = false
     private var cubesPending = false
     private var accepted: PodDetail? = null
@@ -45,6 +46,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
 
     fun clear() {
         epoch++; active = false; refreshPending = false; cubesPending = false
+        lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
     }
     fun dismissError() { state = state.copy(error = null, notice = null) }
@@ -79,7 +81,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Always refresh the list (Quick continue too); refresh the open detail in the same pass.
         refresh()
     }
-    fun retry() { state = state.copy(uncertain = false, error = null); refreshPending = true; pump() }
+    fun retry() { syncCredential(); state = state.copy(uncertain = false, error = null); refreshPending = true; pump() }
     fun tab(tab: PodTab) { state = state.copy(tab = tab) }
     fun newPod(cubeId: String? = null) {
         if (writes.isNotEmpty()) return
@@ -93,6 +95,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun newCube(id: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(cubeId = id)) }
     fun newMode(mode: DraftMode) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(mode = mode)) }
     fun loadCubes() { cubesPending = true; pump() }
+    /** Called whenever this destination returns to composition, including after managing cubes. */
+    fun shown() {
+        if (state.creating != null) cubesPending = true
+        refresh()
+    }
     fun create() {
         val draft = state.creating ?: return
         if (state.pending > 0 || state.uncertain) return
@@ -185,6 +192,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     private fun requestId() = UUID.randomUUID().toString()
     private fun enqueue(write: Write) {
+        syncCredential()
         if (closed || state.uncertain || credential() == null) return
         writes += write; state = state.copy(error = null); render(); pump()
     }
@@ -205,9 +213,25 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (changed) state = state.copy(tab = if (detail.phase == PodPhase.DRAFTING) PodTab.DRAFT else PodTab.BUILD)
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
     }
+    private fun syncCredential(): String? {
+        val token = credential()
+        if (token != lastCredential) {
+            lastCredential = token
+            epoch++
+            // A rejected credential can disappear before the request's posted completion.
+            // Fence its result, but retain ambiguous writes and their original request IDs.
+            if (active) {
+                refreshPending = true
+                cubesPending = cubesPending || state.creating != null
+                state = state.copy(loading = false, uncertain = writes.isNotEmpty())
+            }
+            active = false
+        }
+        return token
+    }
     private fun pump() {
-        if (closed || active || state.uncertain) return
-        val token = credential() ?: return
+        val token = syncCredential()
+        if (closed || active || state.uncertain || token == null) return
         val write = writes.firstOrNull()
         val read = write == null && refreshPending
         val readCubes = cubesPending
@@ -219,6 +243,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         state = state.copy(loading = true)
         worker.execute {
             fun current() = !closed && generation == epoch && credential() == token
+            fun complete(): Boolean {
+                // Never reset a newer request when an older completion arrives late.
+                if (closed || generation != epoch) return false
+                syncCredential()
+                if (generation != epoch) return false
+                active = false
+                state = state.copy(loading = false)
+                return true
+            }
             try {
                 val result = runBlocking {
                     var detail: PodDetail? = null
@@ -244,8 +277,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     } else null
                     Triple(detail, list, sources)
                 }
-                post { if (current()) {
-                    active = false
+                post { if (complete()) {
                     state = state.copy(loading = false, error = null)
                     if (write != null) {
                         writes.removeAt(0)
@@ -263,8 +295,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     render(); pump()
                 } }
             } catch (failure: Exception) {
-                post { if (current()) {
-                    active = false
+                post { if (complete()) {
                     val uncertain = write != null && (transientServiceFailure(failure) || (failure as? PodFailure)?.code == "invalid_response")
                     if (write != null && !uncertain) writes.removeAt(0)
                     if ((failure as? PodFailure)?.code in listOf("draft_attempt_expired", "not_drafting", "not_found", "deck_submitted")) {
@@ -286,17 +317,18 @@ internal fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && 
     detail.settings.validate(detail.members.size).isEmpty() && detail.supply.sufficient
 
 internal fun podStatus(pod: PodSummary): String = when (pod.attention) {
-    PodAttention.YOUR_PICK -> "Your pick · ${pod.packsWaiting} packs"
+    PodAttention.YOUR_PICK -> "Your pick · ${podPackCount(pod.packsWaiting)}"
     PodAttention.BUILD -> "Build your deck"
     PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
 }
 internal fun podMemberStatus(member: PodMember, phase: PodPhase): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
-    member.packsWaiting > 0 -> "picking · ${member.packsWaiting} packs"
+    member.packsWaiting > 0 -> "picking · ${podPackCount(member.packsWaiting)}"
     phase == PodPhase.DRAFTED || member.building -> "building"
     else -> "waiting"
 }
+internal fun podPackCount(count: Int) = "$count ${if (count == 1) "pack" else "packs"}"
 internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): String = when (action) {
     PodConfirmation.DESTROY -> "Destroy this pod for everyone?"
     PodConfirmation.LEAVE -> if (detail.phase == PodPhase.DRAFTING)

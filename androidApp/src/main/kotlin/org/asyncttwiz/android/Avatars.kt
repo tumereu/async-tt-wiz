@@ -17,6 +17,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +94,8 @@ internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel
                 items(choices, key = { it.name }) { choice ->
                     Column(Modifier.clickable(enabled = !state.profileBusy) { controller.saveAvatar(choice.avatar) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Avatar(AccountIdentity(choice.avatar.scryfallId, choice.name, choice.avatar), size = 80.dp)
-                        Text(choice.name, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                        Text(choice.name, Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

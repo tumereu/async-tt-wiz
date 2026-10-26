@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -9,6 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -25,6 +27,26 @@ class PodScreensTest {
         compose.onNodeWithText("Your pick · 2 packs").assertIsDisplayed()
         compose.onNodeWithText("Synergy").performClick()
         assertTrue(opened)
+    }
+
+    @Test fun pendingInvitationsAppearAboveMyPodsAndHeaderDisappearsWhenEmpty() {
+        val pod = PodSummary("pod", "My draft", PodPhase.SETUP, alice, listOf(alice, bob),
+            PodAttention.NONE, 0, "2026-10-26T00:00:00Z")
+        var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod),
+            invitations = listOf(PodInvitation("invited", "Join this draft", bob, "now"))))
+        var response: Pair<String, Boolean>? = null
+        compose.setContent { ScreenTheme { PodsList(state, {}, { id, accept -> response = id to accept }, {}) } }
+        val invitation = compose.onNodeWithText("Invitations").fetchSemanticsNode().boundsInRoot
+        val myPods = compose.onNodeWithText("MY PODS (1)").fetchSemanticsNode().boundsInRoot
+        assertTrue(invitation.bottom < myPods.top)
+        compose.onNodeWithText("Join this draft").assertIsDisplayed()
+        compose.onNodeWithText("Accept").performClick()
+        assertEquals("invited" to true, response)
+        compose.onNodeWithText("Refresh").assertDoesNotExist()
+        compose.runOnIdle { state = state.copy(invitations = emptyList()) }
+        compose.onNodeWithText("Invitations").assertDoesNotExist()
+        compose.onNodeWithText("No pending pod invitations.").assertDoesNotExist()
+        compose.onNodeWithText("MY PODS (1)").assertIsDisplayed()
     }
 
     @Test fun gamesTabDisplaysBuildingAndSubmittedWithoutPrematureChallenges() {

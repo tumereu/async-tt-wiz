@@ -160,6 +160,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
     private fun startInstall(plan: CatalogUpdatePlan, size: Long?) {
         val current = state
+        // Confirming a manual full refresh is also explicit download consent.
+        if (current.installed == null) initialDownloadAccepted = true
         working = true
         val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 0, size)
         state = current.copy(busy = true, error = false, status = progress.label(), progress = progress, background = false)
@@ -187,7 +189,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }.also { AndroidTokenCatalog.refresh(getApplication()) }
     }
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
-        state = value.copy(loaded = true)
+        state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)
         working = false
         // Consent may arrive while the small metadata check is finishing.
         if (initialDownloadAccepted && value.installed == null && !value.error && value.plan != null) consent()
@@ -201,3 +203,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 
 internal fun catalogAutoDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean): Boolean =
     installed != null && plan != null && CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false)
+
+/** Metadata checks before consent are not failed downloads and must not show a retry banner. */
+internal fun catalogConsentPresentation(state: CatalogUiState, initialDownloadAccepted: Boolean): CatalogUiState =
+    if (state.installed == null && !initialDownloadAccepted && state.error) state.copy(error = false, status = null) else state

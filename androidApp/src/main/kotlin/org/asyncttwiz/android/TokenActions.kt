@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.asyncttwiz.protocol.*
@@ -42,11 +44,10 @@ interface TokenSearchSource {
 /** Warmed at startup and after import. Dialogs only read the process snapshot, never provider pages. */
 class RepositoryTokenSearchSource(private val repository: () -> CatalogRepository) : TokenSearchSource {
     private val mutex = Mutex()
-    private val ready = CompletableDeferred<Unit>()
-    @Volatile private var page: TokenSearchPage? = null
-    @Volatile private var failure: Exception? = null
-    override fun cached() = page
-    override fun cachedError() = failure?.message
+    private val snapshot = MutableStateFlow<TokenCatalogSnapshot?>(null)
+    internal val snapshots = snapshot.asStateFlow()
+    override fun cached() = snapshot.value?.page
+    override fun cachedError() = snapshot.value?.failure?.message
 
     suspend fun warm(prepare: Boolean = false) = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -54,27 +55,46 @@ class RepositoryTokenSearchSource(private val repository: () -> CatalogRepositor
                 val catalog = repository()
                 if (prepare) catalog.prepareTokens()
                 val list = catalog.loadTokens()
-                if (page?.generation != list.generation) page = TokenSearchPage(list.generation,
-                    list.choices.map { it.submitted }, null, list.choices)
-                failure = null
+                if (cached()?.generation != list.generation) snapshot.value = TokenCatalogSnapshot(TokenSearchPage(list.generation,
+                    list.choices.map { it.submitted }, null, list.choices))
             } catch (cancelled: CancellationException) { throw cancelled
-            } catch (error: Exception) { page = null; failure = error
-            } finally { ready.complete(Unit) }
+            } catch (error: Exception) { snapshot.value = TokenCatalogSnapshot(failure = error) }
         }
     }
     override suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage {
-        ready.await()
-        return page ?: throw (failure ?: CatalogTokensNotReadyException())
+        // Also resolves when startup was skipped/cancelled. Never await an unowned deferred.
+        return withTimeoutOrNull(30_000) {
+            if (snapshot.value == null) warm()
+            cached() ?: throw (snapshot.value?.failure ?: CatalogTokensNotReadyException())
+        } ?: throw CatalogTokensNotReadyException()
     }
     override suspend fun isCurrent(generation: String): Boolean = withContext(Dispatchers.IO) {
         repository().tokenGeneration() == generation
     }
 }
 
+internal data class TokenCatalogSnapshot(val page: TokenSearchPage? = null, val failure: Exception? = null)
+
 internal object AndroidTokenCatalog {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var application: android.content.Context? = null
     private var instance: RepositoryTokenSearchSource? = null
-    @Synchronized fun source(context: android.content.Context): RepositoryTokenSearchSource = instance
-        ?: RepositoryTokenSearchSource { AndroidCatalogStorage.repository(context.applicationContext) }.also { instance = it }
+    @Synchronized fun source(context: android.content.Context): RepositoryTokenSearchSource {
+        val app = context.applicationContext
+        // One source per application/process, also when a host test recreates the application.
+        return instance?.takeIf { application === app }
+            ?: RepositoryTokenSearchSource { AndroidCatalogStorage.repository(app) }.also {
+                application = app
+                instance = it
+                scope.launch { it.warm(prepare = true) }
+            }
+    }
+
+    /** Publication notification; disk reads, decoding and indexing stay on the process IO scope. */
+    fun refresh(context: android.content.Context): Job {
+        val source = source(context)
+        return scope.launch { source.warm() }
+    }
 }
 
 /** Prepared keys and alphabetical order are reused across opens and every keystroke. */

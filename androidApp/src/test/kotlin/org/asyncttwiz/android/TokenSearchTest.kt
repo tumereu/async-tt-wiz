@@ -248,6 +248,14 @@ class TokenSearchTest {
         controller.close(); scope.cancel()
     }
 
+    @Test fun neverWarmedSourceResolvesMissingCatalogInsteadOfWaitingForStartupForever() = runBlocking {
+        val source = RepositoryTokenSearchSource { throw CatalogNotInstalledException() }
+        withTimeout(5_000) {
+            assertFailsWith<CatalogNotInstalledException> { source.search("", null) }
+        }
+        assertTrue(source.cachedError()!!.contains("not installed"))
+    }
+
     @Test fun productionSourceReusesPreparedSnapshotUntilImportPublishesAnotherGeneration() = runBlocking {
         var opens = 0
         val repository = CatalogRepository(temporary.newFolder("catalog")) {

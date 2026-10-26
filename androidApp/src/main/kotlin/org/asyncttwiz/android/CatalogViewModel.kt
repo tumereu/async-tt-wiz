@@ -176,7 +176,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 phase = progress.phase
                 main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label(), background = false) }
             }
-        }.also { kotlinx.coroutines.runBlocking { AndroidTokenCatalog.source(getApplication()).warm() } }
+        }.also { AndroidTokenCatalog.refresh(getApplication()) }
     }
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) { state = value; working = false } } }
     override fun onCleared() {

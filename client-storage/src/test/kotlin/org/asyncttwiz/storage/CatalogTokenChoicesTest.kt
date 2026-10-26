@@ -98,6 +98,23 @@ class CatalogTokenChoicesTest {
         assertEquals("1/1 · Pay 2, sacrifice this token: You gain 3 life.", choices.single { it.name == "Food" }.detail)
     }
 
+    @Test fun realImporterRetainsColorsAndKeepsOtherwiseIdenticalSoldiersDistinct() {
+        val repository = repo()
+        val metadata = CatalogMetadata("2026-10-26", "5.2.2")
+        val tokens = listOf("W", "R", "W").mapIndexed { n, color ->
+            """{"uuid":"${id(n + 1)}","name":"Soldier","number":"${n + 1}","type":"Token Creature — Soldier","text":"","power":"1","toughness":"1","colors":["$color"]}"""
+        }.joinToString(",")
+        val json = """{"meta":{"date":"${metadata.date}","version":"${metadata.version}"},"data":{"SYN":{"cards":[],"tokens":[$tokens]}}}"""
+        repository.stage { index -> MtgJsonCatalog().import(json.byteInputStream(), index, metadata) }
+        val choices = repository.loadTokens().choices
+        assertEquals(2, choices.size, "Same-color reprints collapse, but white and red Soldiers must not")
+        assertEquals(setOf("[\"W\"]", "[\"R\"]"), choices.map {
+            com.google.gson.JsonParser.parseString(it.submitted.definition.faces.single().sourceData)
+                .asJsonObject.getAsJsonArray("colors").toString()
+        }.toSet())
+        assertEquals(2, choices.map { it.identity }.distinct().size)
+    }
+
     @Test fun legacyPreparationIsExplicitAndNeverTriggeredByLoading() {
         val repository = repo()
         repository.stage { index -> index.addBatch(listOf(token(1))); CatalogMetadata("old", "5") }

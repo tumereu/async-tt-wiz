@@ -161,7 +161,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,
         // CatalogIndex aliases/token search and ArtworkReference. Never retain unrelated provider data.
         internal val retainedFields = setOf("uuid", "name", "setCode", "number", "language", "side", "otherFaceIds",
-            "faceName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty", "defense",
+            "faceName", "layout", "type", "manaCost", "text", "power", "toughness", "loyalty", "defense", "colors",
             "availability", "isOnlineOnly", "isPromo")
         internal fun retainedRecord(json: JsonObject): JsonObject = JsonObject().apply {
             retainedFields.forEach { key -> json.get(key)?.let { add(key, it) } }

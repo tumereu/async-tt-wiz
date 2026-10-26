@@ -54,6 +54,8 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             TextButton(onClick = controller::retry, enabled = !state.loading) { Text("Retry") }
         }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.loading && state.pending > 0 && (state.creating?.setSource != null || state.setup?.setSource != null))
+            Text("Uploading set source and saving pod…", Modifier.padding(12.dp))
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 state.creating != null -> NewPodScreen(controller, manageCubes)
@@ -72,6 +74,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             }
         }
     }
+    if (controller.setPicker.state.open) PodSetPickerDialog(controller.setPicker)
     if (state.confirmation != null && state.detail != null) ScreenDialog(controller::dismissConfirmation) {
         val action = state.confirmation
         Text(when (action) {
@@ -127,7 +130,7 @@ internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String,
             }
             item {
                 Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
-                if (state.pods.isEmpty()) Text("No pods yet. Create a pod to draft a cube with friends.")
+                if (state.pods.isEmpty()) Text("No pods yet. Create a pod to draft a cube or MTG set with friends.")
             }
             items(state.pods, key = { it.id }) { pod -> PodRow(pod, { open(pod.id) }) }
         }
@@ -162,23 +165,31 @@ private fun NewPodScreen(controller: PodController, manageCubes: () -> Unit) {
             enabled = state.pending == 0 && !state.uncertain, trailingIcon = {
                 IconButton(controller::reroll, enabled = state.pending == 0 && !state.uncertain) { EntryIcon("Suggest another pod name", "shuffle") }
             })
-        Text("Source cube", style = MaterialTheme.typography.titleMedium)
-        if (state.cubesLoaded && state.cubes.isEmpty()) {
-            Text("Save a cube before creating a pod. Import a card list or a Cube Cobra snapshot in Manage decks → Cubes.")
+        Text("Source", style = MaterialTheme.typography.titleMedium)
+        val enabled = state.pending == 0 && !state.uncertain
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CubeChoice(state.cubes, draft.cubeId, "Cube", enabled, selected = draft.cubeId != null,
+                label = "Cube", choose = controller::newCube)
+            FilterChip(draft.setSource != null, controller::chooseSet, enabled = enabled, label = { Text("MTG set") })
+        }
+        val source = draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
+        source?.let { PodSourceSummary(it); if (it.kind == PodSourceKind.SET) PodSourceSupply(it, 0) }
+        if (state.cubesLoaded && state.cubes.isEmpty() && draft.setSource == null) {
+            Text("Choose an MTG set, or save a cube in Manage decks → Cubes.")
             ScreenOutlinedButton(manageCubes) { Text("Manage decks → Cubes") }
-        } else CubeChoice(state.cubes, draft.cubeId, "Choose a cube", state.pending == 0 && !state.uncertain, choose = controller::newCube)
+        }
         PodModeButtons(draft.mode, state.pending == 0 && !state.uncertain, controller::newMode)
-        ScreenButton(controller::create, enabled = draft.cubeId != null && draft.name.isNotBlank() && state.pending == 0 && !state.uncertain) { Text("Create pod") }
+        ScreenButton(controller::create, enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() && enabled) { Text("Create pod") }
     }
 }
 
 @Composable
 private fun CubeChoice(cubes: List<CubeSummary>, chosen: String?, fallback: String, enabled: Boolean,
-    selected: Boolean = chosen != null, choose: (String) -> Unit) {
+    selected: Boolean = chosen != null, label: String? = null, choose: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         FilterChip(selected = selected, onClick = { expanded = true }, enabled = enabled,
-            label = { Text(cubes.find { it.id == chosen }?.name ?: fallback) },
+            label = { Text(label ?: cubes.find { it.id == chosen }?.name ?: fallback) },
             leadingIcon = if (selected) ({ EntryIcon(null, "ready") }) else null)
         DropdownMenu(expanded, { expanded = false }, Modifier.heightIn(max = 360.dp)) {
             cubes.forEach { cube -> DropdownMenuItem(text = { Text("${cube.name} · ${cube.totalCopies} cards") },
@@ -214,27 +225,30 @@ private fun PodMemberStrip(detail: PodDetail) {
 private fun PodSetupScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val state = controller.state
     val creator = detail.creator.accountId == accountId
-    val enabled = creator && !state.uncertain
+    val enabled = creator && !state.uncertain && state.pending == 0
     val edit = state.setup
     val settings = edit?.settings ?: detail.settings
-    val source = state.cubes.find { it.id == edit?.cubeId }
-    val available = source?.totalCopies ?: detail.source.totalCopies
+    val source = edit?.setSource?.podSource() ?: state.cubes.find { it.id == edit?.cubeId }?.let { PodSource(it.name, it.totalCopies) } ?: detail.source
     val needed = settings.supply(detail.members.size, emptyList()).needed
     val issues = settings.validate(detail.members.size.coerceAtLeast(2))
     LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(edit?.name ?: detail.name, { controller.editSetup(name = it) }, Modifier.fillMaxWidth(), label = { Text("Pod name") }, readOnly = !enabled)
-        Text("Source cube", style = MaterialTheme.typography.titleMedium)
-        if (creator) CubeChoice(state.cubes, edit?.cubeId, detail.source.cubeName, enabled, selected = true) { controller.editSetup(cubeId = it) }
-        else Text(detail.source.cubeName)
-        PodSettingsFields(settings, detail.members.size, enabled) { controller.editSetup(settings = it) }
+        Text("Source", style = MaterialTheme.typography.titleMedium)
+        if (creator) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CubeChoice(state.cubes, edit?.cubeId, "Cube", enabled, selected = source.kind == PodSourceKind.CUBE,
+                label = "Cube") { controller.editSetup(cubeId = it) }
+            FilterChip(source.kind == PodSourceKind.SET, controller::chooseSet, enabled = enabled, label = { Text("MTG set") })
+        }
+        PodSourceSummary(source)
+        PodSettingsFields(settings, detail.members.size, enabled, source) { controller.editSetup(settings = it) }
         Text("Sideboard limit", style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(settings.sideboardLimit == null, { unlimited -> controller.editSetup(settings = settings.copy(sideboardLimit = if (unlimited) null else 0)) }, enabled = enabled)
             Spacer(Modifier.width(8.dp)); Text("Unlimited")
         }
         settings.sideboardLimit?.let { limit -> PodNumber("Maximum sideboard cards", limit, enabled) { controller.editSetup(settings = settings.copy(sideboardLimit = it)) } }
-        Text("$needed / $available cards used", color = if (needed > available) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        PodSourceSupply(source, needed)
         if (settings.mode == DraftMode.GRID && detail.members.size !in 2..4)
             Text("Grid requires 2–4 accepted members to start.", color = MaterialTheme.colorScheme.error)
         if (issues.isNotEmpty()) Text("Check settings: ${issues.joinToString { it.name.lowercase().replace('_', ' ') }}", color = MaterialTheme.colorScheme.error)
@@ -252,7 +266,7 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean, change: (DraftSettings) -> Unit) {
+internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean, source: PodSource = PodSource(), change: (DraftSettings) -> Unit) {
     var advanced by remember { mutableStateOf(false) }
     PodModeButtons(settings.mode, enabled) { mode -> change(when (mode) {
         DraftMode.BOOSTER -> DraftSettings.booster()
@@ -268,7 +282,8 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
         if (members != 2) Text("Two picks each requires exactly 2 members.", style = MaterialTheme.typography.bodySmall)
     } else {
         PodNumber("Packs per player", settings.packsPerPlayer, enabled) { change(settings.copy(packsPerPlayer = it)) }
-        PodNumber("Cards per pack", settings.cardsPerPack, enabled) { change(settings.copy(cardsPerPack = it)) }
+        if (source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE)
+            PodNumber("Cards per pack", settings.cardsPerPack, enabled) { change(settings.copy(cardsPerPack = it)) }
     }
     TextButton({ advanced = !advanced }) { Text(if (advanced) "Advanced ▴" else "Advanced ▾") }
     if (advanced) {
@@ -279,7 +294,7 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
             PodNumber("Burn per pick", settings.burn, enabled) { change(settings.copy(burn = it)) }
             PodNumber("Discard remaining at", settings.discardRemainingAt, enabled) { change(settings.copy(discardRemainingAt = it)) }
             PodNumber("Packs open at once", settings.packsOpenAtOnce, enabled) { change(settings.copy(packsOpenAtOnce = it)) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (source.kind == PodSourceKind.CUBE) Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(settings.colorBalance, { change(settings.copy(colorBalance = it)) }, enabled = enabled)
                 Text("Color balancing")
             }

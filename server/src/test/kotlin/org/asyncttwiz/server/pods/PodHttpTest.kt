@@ -712,7 +712,8 @@ class PodHttpTest {
             }
             val pod = json.decodeFromString<PodDetail>(created).id
             assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Uploaded test set",
-                boosterKind = if (recipe) SetBoosterKind.RECIPE_BASED else SetBoosterKind.APPROXIMATE), f.get(f.a, pod).source)
+                boosterKind = if (recipe) SetBoosterKind.RECIPE_BASED else SetBoosterKind.APPROXIMATE,
+                boosterName = upload.snapshot.recipe?.name), f.get(f.a, pod).source)
             f.join(pod)
             f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1))
             val started = f.start(pod)

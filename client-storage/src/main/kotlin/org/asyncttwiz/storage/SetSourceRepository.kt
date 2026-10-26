@@ -37,6 +37,7 @@ class SetSourceRepository(
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
 
     fun sets(): List<DraftableSet> = catalog.draftableSets()
+    fun isCached(code: String): Boolean = File(directory, "${catalogSetFilename(code)}.json.gz").isFile
     fun load(code: String): SetSourceUpload = load(code, false)
 
     /** Also refresh the recipe's dependencies, so manual refresh really replaces its source. */

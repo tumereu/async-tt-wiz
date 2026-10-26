@@ -60,7 +60,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } })
     val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
-        Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } })
+        Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } },
+        setRepository = StoredPodSets {
+            org.asyncttwiz.storage.SetSourceRepository(java.io.File(application.noBackupFilesDir, "mtg-set-sources"),
+                catalog.repository, if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
+                    org.asyncttwiz.storage.HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
+                else org.asyncttwiz.storage.HttpCatalogSource())
+        })
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },

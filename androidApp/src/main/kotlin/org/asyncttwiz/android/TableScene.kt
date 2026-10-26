@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -641,34 +642,42 @@ private fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Bool
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
 @Composable
-private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
+private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
+    val spacing = if (compact) 0.dp else 4.dp
+    // Landscape shares this rail with the fixed opponent Hand (sidebar + 10dp).
+    val titleWidth = if (landscape)
+        (TablePresentation.sidebarWidth(maxWidth.value) + 10f - 48f - spacing.value).coerceAtLeast(0f).dp
+        else Dp.Infinity
     Row(Modifier.align(Alignment.TopStart).height(48.dp).fillMaxWidth()
         .padding(end = if (compact) 0.dp else 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
         verticalAlignment = Alignment.CenterVertically) {
         ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
-        Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-            // Only the name ellipsizes, so the turn number and "Waiting" survive narrow headers.
-            val header = turnHeader(game, play.board.turn, viewer)
-            val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
-            Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
-                Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
-                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Box(Modifier.weight(1f)) {
+            // Keep the weighted space for right-aligned controls, but not for title/chip hit targets.
+            Column(Modifier.widthIn(max = titleWidth).fillMaxWidth().padding(horizontal = 4.dp)) {
+                // Only the name ellipsizes, so the turn number and "Waiting" survive narrow headers.
+                val header = turnHeader(game, play.board.turn, viewer)
+                val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
+                Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
+                    Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
+                        lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                Spacer(Modifier.height(2.dp))
+                ActionSquare(attention.label, "", attention.enabled,
+                    Modifier.width(IntrinsicSize.Max).height(26.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
+                        .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(13.dp))),
+                    fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
+                    compactContent = true,
+                    icon = {
+                        Text(attention.label, Modifier.padding(horizontal = 6.dp), fontSize = 11.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, fontWeight = if (attention.own) FontWeight.Bold else FontWeight.Normal)
+                    }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
             }
-            Spacer(Modifier.height(2.dp))
-            ActionSquare(attention.label, "", attention.enabled,
-                Modifier.width(IntrinsicSize.Max).height(26.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(13.dp))
-                    .then(if (attention.own) Modifier else Modifier.border(1.dp, Color(0xffa8afaf), androidx.compose.foundation.shape.RoundedCornerShape(13.dp))),
-                fill = if (attention.own) OwnTableColor else Color.White, ink = if (attention.own) Color.White else OpponentTableColor,
-                compactContent = true,
-                icon = {
-                    Text(attention.label, Modifier.padding(horizontal = 6.dp), fontSize = 11.sp, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, fontWeight = if (attention.own) FontWeight.Bold else FontWeight.Normal)
-                }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }
         val buttonWidth = 48f
         val turnPlayer = if (play.board.turn.accountId == game.inviter.accountId) game.inviter else game.recipient

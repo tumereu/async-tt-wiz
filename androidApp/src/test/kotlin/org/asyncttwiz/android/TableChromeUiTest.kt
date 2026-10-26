@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -91,6 +92,48 @@ class TableChromeUiTest {
 
     @Test fun portraitBothPlayersTurnAndMoveMatrix() = chrome(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeBothPlayersTurnAndMoveMatrix() = chrome(true)
+
+    private fun maxLengthOpponentNameDoesNotCoverControls(landscape: Boolean) {
+        // AccountFields permits 64 Unicode scalars; use wide characters to stress both labels.
+        val username = "W".repeat(64)
+        val game = TableFixture.game.copy(recipient = AccountIdentity("b", username))
+        val initial = TableFixture.play(hand = 4)
+        val play = initial.copy(board = initial.board.copy(attentionHolder = "b",
+            turn = initial.board.turn.copy(accountId = "b")))
+        val toolkit = TableToolkitController("a", { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme {
+            TableSurface(game, play, "a", landscape, Modifier.fillMaxSize(), connected = true,
+                onIntent = toolkit::handle, toolkit = toolkit)
+        } }
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val scene = TablePresentation.scene(game, play, "a", root.width, root.height, landscape)
+        val hand = scene.items.single { it.id == "b/HAND" }.bounds.let { Rect(it.x, it.y, it.right, it.bottom) }
+        // Nonempty hands expose their cards, not a separate Hand semantics node.
+        val cardLabel = scene.items.single { it.cardId == "b/HAND/0" }.label
+        val handCards = compose.onAllNodesWithContentDescription(cardLabel)
+        handCards.assertCountEquals(4)
+        for (index in 0 until 4) handCards[index].assertIsDisplayed()
+        val step = compose.onNodeWithContentDescription("Choose phase/step", substring = true)
+        val stepBounds = step.assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        for (node in listOf(compose.onNodeWithContentDescription(game.gameName),
+            compose.onNodeWithContentDescription("Waiting · $username"))) {
+            val bounds = node.assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertFalse(bounds.overlaps(hand), "Title/waiting label must not overlap opponent Hand: $bounds vs $hand")
+            assertFalse(bounds.overlaps(stepBounds), "Title/waiting label must not overlap step button")
+            assertTrue(bounds.right <= stepBounds.left)
+            if (landscape) assertTrue(bounds.right <= hand.left)
+        }
+        val textLayouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNodeWithText("Waiting · $username", useUnmergedTree = true)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(textLayouts) }
+        assertTrue(textLayouts.single().isLineEllipsized(0), "Maximum-length name must ellipsize")
+        step.performTouchInput { click() }
+        compose.onNodeWithText("Beginning").assertIsDisplayed()
+    }
+
+    @Test fun portraitMaxLengthOpponentNameDoesNotCoverHandOrStep() = maxLengthOpponentNameDoesNotCoverControls(false)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun landscapeMaxLengthOpponentNameDoesNotCoverHandOrStep() = maxLengthOpponentNameDoesNotCoverControls(true)
 
     @Test fun loadingHasSpinnerAndOnlyFailureOffersReconnect() {
         var state by mutableStateOf(LobbyState())

@@ -44,6 +44,7 @@ internal fun podBuildSubmitEnabled(
 
 internal fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): String = when (issue) {
     PodDeckIssue.MAIN_TOO_SMALL -> "Main needs 40 cards"
+    PodDeckIssue.DECK_TOO_LARGE -> "Main + Side including basics exceeds ${DeckValidation.MAX_CARDS} cards"
     PodDeckIssue.SIDEBOARD_LIMIT -> "Side exceeds its limit of $sideboardLimit cards"
     PodDeckIssue.NEGATIVE_BASICS -> "Basic counts must be at least 0"
     PodDeckIssue.UNKNOWN_COPY -> "Deck contains a card outside your pool"

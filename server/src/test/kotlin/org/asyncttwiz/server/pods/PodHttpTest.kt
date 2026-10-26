@@ -697,7 +697,7 @@ class PodHttpTest {
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
     }
 
-    @Test fun `recipe and approximate set boosters draft over HTTP ignore pack size and allow challenges`() = fixture { f ->
+    @Test fun `set boosters use configured approximate size or recipe size and allow challenges`() = fixture { f ->
         for (recipe in listOf(true, false)) {
             val upload = setUpload(recipe, large = true) // A real source upload larger than the ordinary 64 KiB route limit.
             val request = CreatePod(id(), "Set pod", setSource = upload)
@@ -715,10 +715,10 @@ class PodHttpTest {
                 boosterKind = if (recipe) SetBoosterKind.RECIPE_BASED else SetBoosterKind.APPROXIMATE,
                 boosterName = upload.snapshot.recipe?.name), f.get(f.a, pod).source)
             f.join(pod)
-            f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1))
+            f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 7))
             val started = f.start(pod)
             assertTrue(started.supply.sufficient)
-            val packSize = if (recipe) 3 else 15
+            val packSize = if (recipe) 3 else 7
             assertEquals(packSize, started.draft!!.head!!.cards.size)
             assertNull(started.grid)
             f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = setUpload(!recipe)), 409)
@@ -742,6 +742,23 @@ class PodHttpTest {
             assertEquals(pod, game.podId)
             assertEquals(InvitationState.PENDING, game.invitationState)
         }
+    }
+
+    @Test fun `oversized submitted deck is rejected without locking and can be corrected`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1))
+        val started = f.start(pod)
+        f.finish(pod, listOf(f.a, f.b))
+        val attempt = started.draftAttemptId!!
+        val mainCount = f.get(f.a, pod).build!!.copies.size
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1001 - mainCount)))
+        val response = f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400)
+        assertEquals("deck_too_large", json.decodeFromString<PodError>(response).code)
+        assertFalse(f.get(f.a, pod).submitted)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1000 - mainCount)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        assertTrue(f.get(f.a, pod).submitted)
     }
 
     @Test fun `set Grid generates ordered cards with unlimited supply and completes`() = fixture { f ->

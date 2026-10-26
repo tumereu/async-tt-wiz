@@ -48,6 +48,28 @@ class RandomV1Test {
         assertFails { RandomV1.sample(2) { 4294967296L } }
     }
 
+    @Test fun longSamplingRejectsIncompleteBucketsAndSupportsTheEntirePositiveLongRange() {
+        // At bound 2^62 + 1 only the first bucket fits; the next value must be rejected.
+        val words = listOf(0x40000000L, 1L, 0x40000000L, 0L).iterator()
+        assertEquals(4_611_686_018_427_387_904L, RandomV1.sample(4_611_686_018_427_387_905L) { words.next() })
+        assertFalse(words.hasNext())
+        // Long.MAX_VALUE itself is rejected; the next pair is accepted without signed overflow.
+        val maxWords = listOf(0xffffffffL, 0xffffffffL, 0x7fffffffL, 0xfffffffeL).iterator()
+        assertEquals(Long.MAX_VALUE - 1, RandomV1.sample(Long.MAX_VALUE) { maxWords.next() })
+        assertFalse(maxWords.hasNext())
+        val ltrWords = listOf(1L, 0L).iterator()
+        assertEquals(4_294_967_296L, RandomV1.sample(4_954_017_600L) { ltrWords.next() })
+        for (bound in listOf(1, 7, Int.MAX_VALUE)) {
+            val intWords = RandomV1.Words(RandomGolden.vectors.first().seed)
+            val longWords = RandomV1.Words(RandomGolden.vectors.first().seed)
+            repeat(20) { assertEquals(RandomV1.sample(bound, intWords::next).toLong(), RandomV1.sample(bound.toLong(), longWords::next)) }
+        }
+        assertFails { RandomV1.sample(0L) { 0L } }
+        assertFails { RandomV1.sample(-1L) { 0L } }
+        assertFails { RandomV1.sample(Long.MAX_VALUE) { -1L } }
+        assertFails { RandomV1.sample(Long.MAX_VALUE) { 4294967296L } }
+    }
+
     @Test fun invalidNoncanonicalSeedAlgorithmAndMembershipAreRefused() {
         val zero = "A".repeat(43)
         for (seed in listOf("", zero + "=", zero.dropLast(1), zero.dropLast(1) + "B", "+" + zero.drop(1), "/" + zero.drop(1)))

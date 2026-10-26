@@ -5,11 +5,12 @@ object SetBoosters {
     const val MAX_PACKS = 10000
     const val MAX_GENERATED_COPIES = 1000000
 
-    fun generate(source: SetSourceSnapshot, numberOfPacks: Int, seed: String): List<SetBoosterPack> {
+    fun generate(source: SetSourceSnapshot, numberOfPacks: Int, seed: String, cardsPerPack: Int = 15): List<SetBoosterPack> {
         require(source.validate().isEmpty()) { "Invalid set source snapshot" }
         require(numberOfPacks in 1..MAX_PACKS) { "Invalid pack count" }
         val recipe = source.recipe
-        val maxSize = recipe?.boosters?.maxOf { it.contents.values.sum() } ?: 15
+        if (recipe == null) require(cardsPerPack in 1..SetSourceValidation.MAX_PACK_SIZE) { "Invalid pack size" }
+        val maxSize = recipe?.boosters?.maxOf { it.contents.values.sum() } ?: cardsPerPack
         require(numberOfPacks.toLong() * maxSize <= MAX_GENERATED_COPIES) { "Too many generated copies" }
         val words = RandomV1.Words(seed)
         val cards = source.cards.sortedBy { it.uuid }
@@ -19,22 +20,31 @@ object SetBoosters {
         fun random(bucket: List<SetSourceCard>) = bucket[RandomV1.sample(bucket.size, words::next)]
         fun fallback(rarity: SetCardRarity) = random(buckets[rarity] ?: cards)
         fun approximate(): List<SetSourceCard> = buildList {
-            repeat(10) { add(fallback(SetCardRarity.COMMON)) }
-            repeat(3) { add(fallback(SetCardRarity.UNCOMMON)) }
+            // Reserve a rare, then a wildcard if size permits; floor(size / 5) uncommons,
+            // with all remaining slots common. Size 15 retains the 10C/3U/1R+M/1-any layout.
+            val wildcard = if (cardsPerPack >= 2) 1 else 0
+            val uncommons = minOf(cardsPerPack / 5, cardsPerPack - 1 - wildcard)
+            repeat(cardsPerPack - 1 - wildcard - uncommons) { add(fallback(SetCardRarity.COMMON)) }
+            repeat(uncommons) { add(fallback(SetCardRarity.UNCOMMON)) }
             val mythic = SetCardRarity.MYTHIC in buckets && RandomV1.sample(8, words::next) == 0
             add(fallback(if (mythic) SetCardRarity.MYTHIC else SetCardRarity.RARE))
-            add(random(cards))
+            if (wildcard == 1) add(random(cards))
         }
 
         fun draw(sheet: SetBoosterSheet, count: Int): List<SetSourceCard> {
             if (sheet.fixed) {
-                // Fixed order wins over color balancing and weights. Duplicating fixed sheets cycle in that order.
-                val ordered = sheet.cards.keys.toList()
-                return List(count) { byUuid.getValue(ordered[it % ordered.size]) }
+                // Multiplicities are guaranteed, even without allowDuplicates. Expand only the
+                // requested prefix so a large multiplicity cannot allocate an unbounded list.
+                return buildList {
+                    for ((uuid, multiplicity) in sheet.cards) {
+                        repeat(minOf(multiplicity, (count - size).toLong()).toInt()) { add(byUuid.getValue(uuid)) }
+                        if (size == count) break
+                    }
+                }
             }
             val available = sheet.cards.entries.sortedBy { it.key }.toMutableList()
             val drawn = mutableListOf<SetSourceCard>()
-            fun take(candidates: List<Map.Entry<String, Int>>) {
+            fun take(candidates: List<Map.Entry<String, Long>>) {
                 val entry = weighted(candidates, { it.value }, words)
                 drawn.add(byUuid.getValue(entry.key))
                 if (!sheet.allowDuplicates) available.remove(entry)
@@ -65,7 +75,7 @@ object SetBoosters {
         }
     }
 
-    private fun <T> weighted(values: List<T>, weight: (T) -> Int, words: RandomV1.Words): T {
+    private fun <T> weighted(values: List<T>, weight: (T) -> Long, words: RandomV1.Words): T {
         var ticket = RandomV1.sample(values.sumOf(weight), words::next)
         for (value in values) {
             ticket -= weight(value)

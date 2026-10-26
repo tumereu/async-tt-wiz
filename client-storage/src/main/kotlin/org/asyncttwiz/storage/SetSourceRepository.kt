@@ -163,7 +163,7 @@ class SetSourceRepository(
                         missing[uuid] = MissingSetCard(uuid, null, MissingSetCardReason.SOURCE_FILE)
                     uuid in available
                 }
-                sheet.copy(cards = kept, totalWeight = kept.values.sumOf { it.toLong() })
+                sheet.copy(cards = kept, totalWeight = kept.values.sum())
             })
         }
         if (recipe != null && normalized.isNotEmpty()) {

@@ -61,6 +61,18 @@ object RandomV1 {
             if (value < limit) return (value % bound).toInt()
         }
     }
+    /** Keep existing 32-bit draws stable; larger bounds use two words and rejection, not modulo alone. */
+    fun sample(bound: Long, word: () -> Long): Long {
+        require(bound > 0)
+        if (bound <= Int.MAX_VALUE) return sample(bound.toInt(), word).toLong()
+        // Uniform 63-bit values. Discard the incomplete final bucket (and possibly one full bucket).
+        val limit = Long.MAX_VALUE - Long.MAX_VALUE % bound
+        fun next(): Long = word().also { require(it in 0..4294967295L) }
+        while (true) {
+            val value = ((next() and 0x7fffffffL) shl 32) or next()
+            if (value < limit) return value % bound
+        }
+    }
     fun shuffle(ids: List<String>, seed: String, algorithm: String = "shuffle-v1"): List<String> {
         require(algorithm == "shuffle-v1" || algorithm == "branch-reseed-v1")
         val words = Words(seed, algorithm)

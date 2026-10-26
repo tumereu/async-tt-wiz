@@ -64,7 +64,10 @@ class PodBuildModelsTest {
         assertFalse(podBuildSubmitEnabled(valid.copy(copies = valid.copies + PodDeckCopy("main")), copies, null, true, true))
         assertFalse(podBuildSubmitEnabled(valid.copy(copies = valid.copies + PodDeckCopy("unknown")), copies, null, true, true))
         assertFalse(podBuildSubmitEnabled(valid.copy(copies = valid.copies.take(1)), copies, null, true, true))
+        assertTrue(podBuildSubmitEnabled(valid.copy(basics = PodDeckBasics(plains = 998)), copies, null, true, true))
+        assertFalse(podBuildSubmitEnabled(valid.copy(basics = PodDeckBasics(plains = 999)), copies, null, true, true))
         assertEquals("Main needs 40 cards", podBuildIssueText(PodDeckIssue.MAIN_TOO_SMALL, null))
+        assertEquals("Main + Side including basics exceeds 1000 cards", podBuildIssueText(PodDeckIssue.DECK_TOO_LARGE, null))
         assertEquals("Side exceeds its limit of 0 cards", podBuildIssueText(PodDeckIssue.SIDEBOARD_LIMIT, 0))
     }
 

@@ -119,7 +119,7 @@ class SetSourceRepositoryTest {
         }
         upload.snapshot.recipe?.sheets?.values?.forEach { sheet ->
             assertTrue(sheet.cards.keys.all { id -> upload.snapshot.cards.any { it.uuid == id } })
-            assertEquals(sheet.cards.values.sumOf { it.toLong() }, sheet.totalWeight)
+            assertEquals(sheet.cards.values.sum(), sheet.totalWeight)
         }
     }
 
@@ -195,6 +195,85 @@ class SetSourceRepositoryTest {
         assertConsistent(approximate)
     }
 
+    @Test fun mh3AndLtrSheetWeightDistributionsLoadWithoutIntOverflow() {
+        // Unchanged weight histograms and totals of MH3 play/wildcard and LTR draft/foilWithShowcase
+        // from magic-sealed-data's experimental_export_for_mtgjson.json; UUIDs are fixture cards.
+        val distributions = listOf(
+            Triple("MH3", 1_509_042_889_200L, mapOf(
+                133593600L to 35, 6491647008L to 69, 4636890720L to 12, 1297766400L to 23,
+                2003904000L to 19, 66447920L to 17, 930270880L to 11, 1870310400L to 17,
+                8059369395L to 73, 6261901800L to 20, 1854756288L to 16, 645494080L to 6,
+                5756692425L to 7, 284776800L to 9, 2302676970L to 7, 1508892000L to 1,
+                572544000L to 26, 711942000L to 2, 5281122000L to 8, 996718800L to 1,
+                1431360000L to 1, 2640561000L to 8)),
+            Triple("LTR", 4_954_017_600L, mapOf(
+                13819470L to 79, 2166480L to 20, 4332960L to 17, 8665920L to 60,
+                22017856L to 101, 4163040L to 20, 33026784L to 20, 1720145L to 9,
+                2081520L to 7, 1040760L to 8, 6909735L to 19, 11008928L to 8)))
+        val sets = distributions.mapIndexed { setIndex, (code, total, histogram) ->
+            val weights = histogram.flatMap { (weight, count) -> List(count) { weight } }
+            val ids = weights.indices.map { it + 1 + setIndex * 1000 }
+            val recipe = recipe(ids).apply {
+                getAsJsonObject("sheets").getAsJsonObject("main").apply {
+                    addProperty("fixed", false)
+                    addProperty("totalWeight", total)
+                    add("cards", JsonObject().apply { ids.zip(weights).forEach { (id, weight) -> addProperty(uuid(id), weight) } })
+                }
+            }
+            set(code, cards = ids.map { card(it) }).withRecipes("draft" to recipe)
+        }
+        val catalog = catalog(*sets.toTypedArray())
+        val source = FixtureSource().apply { sets.forEach(::put) }
+        val repository = repository(catalog, source)
+        for ((code, total, _) in distributions) {
+            val upload = repository.load(code)
+            assertConsistent(upload)
+            assertTrue(upload.warnings.isEmpty())
+            assertEquals(total, upload.snapshot.recipe!!.sheets.getValue("main").totalWeight)
+            val seed = RandomV1.encodeSeed(ByteArray(32))
+            assertTrue(SetBoosters.generate(upload.snapshot, 10, seed).all { it.kind == SetBoosterKind.RECIPE_BASED })
+            assertEquals(upload, repository.load(code))
+        }
+        val mh3 = repository.load("MH3").snapshot.recipe!!.sheets.getValue("main")
+        assertTrue(6_491_647_008L in mh3.cards.values)
+    }
+
+    @Test fun compositionWeightsAreLongAndFilteredSheetTotalsRemainLong() {
+        val large = 6_491_647_008L
+        val recipe = recipe(listOf(1, 2, 3)).apply {
+            getAsJsonArray("boosters")[0].asJsonObject.addProperty("weight", large)
+            addProperty("boostersTotalWeight", large)
+            getAsJsonObject("sheets").getAsJsonObject("main").apply {
+                addProperty("fixed", false)
+                addProperty("totalWeight", 3 * large)
+                add("cards", JsonObject().apply { (1..3).forEach { addProperty(uuid(it), large) } })
+            }
+        }
+        val remote = set(cards = listOf(card(1), card(2), card(3))).withRecipes("play" to recipe)
+        val upload = repository(catalog(set(cards = listOf(card(1), card(2)))), FixtureSource().apply { put(remote) }).load("OLD")
+        assertConsistent(upload)
+        assertEquals(large, upload.snapshot.recipe!!.boosters.single().weight)
+        assertEquals(large, upload.snapshot.recipe!!.boostersTotalWeight)
+        assertEquals(2 * large, upload.snapshot.recipe!!.sheets.getValue("main").totalWeight)
+    }
+
+    @Test fun cluStyleFixedSheetLoadsAndDrawsItsTwentyCardMultiset() {
+        val ids = (1..16).toList()
+        val recipe = recipe(ids, count = 20).apply {
+            getAsJsonObject("sheets").getAsJsonObject("main").apply {
+                add("cards", JsonObject().apply { ids.forEach { addProperty(uuid(it), if (it == 3) 5 else 1) } })
+                addProperty("totalWeight", 20)
+            }
+        }
+        val remote = set("CLU", cards = ids.map { card(it) }).withRecipes("default" to recipe)
+        val upload = repository(catalog(remote), FixtureSource().apply { put(remote) }).load("CLU")
+        assertConsistent(upload)
+        val expected = upload.snapshot.cards.flatMap { card -> List(if (card.uuid == uuid(3)) 5 else 1) { card.definition } }
+        assertEquals(20, expected.size)
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        assertTrue(SetBoosters.generate(upload.snapshot, 10, seed).all { pack -> pack.cards.map { it.definition } == expected })
+    }
+
     @Test fun selectedRecipeFetchesDependencyCardsOnlyAndReusesCaches() {
         val main = set().withRecipes("play" to recipe(listOf(1, 2), listOf("DEP", "OLD")),
             "draft" to recipe(listOf(3), listOf("UNUSED")))
@@ -244,7 +323,7 @@ class SetSourceRepositoryTest {
         assertConsistent(upload)
         assertEquals(listOf(MissingSetCard(uuid(2), "OLD", MissingSetCardReason.CATALOG),
             MissingSetCard(uuid(3), null, MissingSetCardReason.SOURCE_FILE)), upload.missingCards)
-        assertEquals(mapOf(uuid(1) to 1), upload.snapshot.recipe!!.sheets.getValue("main").cards)
+        assertEquals(mapOf(uuid(1) to 1L), upload.snapshot.recipe!!.sheets.getValue("main").cards)
         assertTrue(upload.warnings.any { it.contains("2 cards") })
     }
 

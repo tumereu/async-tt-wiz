@@ -38,23 +38,24 @@ data class SetSourceSnapshot(
 data class SetBoosterRecipe(
     val boosters: List<SetBoosterComposition>,
     val sheets: Map<String, SetBoosterSheet>,
-    val boostersTotalWeight: Long = boosters.sumOf { it.weight.toLong() },
+    val boostersTotalWeight: Long = boosters.sumOf { it.weight },
     val name: String? = null,
     val sourceSetCodes: List<String> = emptyList(),
 )
 
 @Serializable
-data class SetBoosterComposition(val contents: Map<String, Int>, val weight: Int)
+data class SetBoosterComposition(val contents: Map<String, Int>, val weight: Long)
 
 @Serializable
 data class SetBoosterSheet(
     /** Map order is significant for fixed sheets; other sheets are sampled in canonical UUID order. */
-    val cards: Map<String, Int>,
+    val cards: Map<String, Long>,
     val foil: Boolean = false,
     val balanceColors: Boolean = false,
     val allowDuplicates: Boolean = false,
+    /** Fixed sheets use each card's weight as its guaranteed multiplicity, in map order. */
     val fixed: Boolean = false,
-    val totalWeight: Long = cards.values.sumOf { it.toLong() },
+    val totalWeight: Long = cards.values.sum(),
 )
 
 /** The client parses the set's booster map and chooses before uploading its snapshot. */
@@ -94,9 +95,13 @@ object SetSourceValidation {
         }
         if ((recipe.name != null && !text(recipe.name, 256)) || recipe.sourceSetCodes.any { !text(it, 32) })
             add(SetSourceIssue.RECIPE_SIZE)
-        fun weights(values: Collection<Int>, declared: Long): Boolean {
-            val sum = values.sumOf { it.toLong() }
-            return values.all { it > 0 } && sum in 1..Int.MAX_VALUE.toLong() && declared == sum
+        fun weights(values: Collection<Long>, declared: Long): Boolean {
+            var sum = 0L
+            for (value in values) {
+                if (value <= 0 || value > Long.MAX_VALUE - sum) return false
+                sum += value
+            }
+            return sum > 0 && declared == sum
         }
         if (!weights(recipe.boosters.map { it.weight }, recipe.boostersTotalWeight)) add(SetSourceIssue.WEIGHT)
         for ((name, sheet) in recipe.sheets) {
@@ -114,7 +119,8 @@ object SetSourceValidation {
             for ((name, count) in booster.contents) {
                 val sheet = recipe.sheets[name]
                 if (sheet == null) add(SetSourceIssue.SHEET)
-                else if (!sheet.allowDuplicates && count > sheet.cards.size) add(SetSourceIssue.SHEET_CAPACITY)
+                else if (if (sheet.fixed) count > sheet.totalWeight else !sheet.allowDuplicates && count > sheet.cards.size)
+                    add(SetSourceIssue.SHEET_CAPACITY)
             }
         }
     }.toList()

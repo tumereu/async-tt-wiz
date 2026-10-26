@@ -19,7 +19,6 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
     importer: DeckImportController?, landscape: Boolean, navigation: (() -> Unit)?, catalog: CatalogViewModel?,
     draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
     var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
-    LaunchedEffect(cubeTab) { if (cubeTab && !cubes.state.loaded) cubes.refresh() }
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
         CubeScreen(cubes, navigation, draftCube); return
     }
@@ -41,7 +40,7 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
         ScreenButton(onClick = { if (cubeTab) cubes.newCube() else importer?.open() },
             modifier = Modifier.fillMaxWidth().padding(16.dp), enabled = !cubes.state.busy) {
             EntryIcon(null, if (cubeTab) "add" else "import"); Spacer(Modifier.width(8.dp))
-            Text(if (cubeTab) "+ New cube" else "Import deck")
+            Text(if (cubeTab) "New cube" else "Import deck")
         }
     }
 }
@@ -49,14 +48,12 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
 @Composable
 private fun CubeCollection(controller: CubeController) {
     val state = controller.state
+    LaunchedEffect(controller) { controller.refresh() }
     Box(Modifier.fillMaxSize()) {
         InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
             LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("CUBES (${state.cubes.size})", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-                        TextButton(onClick = controller::refresh, enabled = !state.busy) { Text("Refresh") }
-                    }
+                    Text("CUBES (${state.cubes.size})", style = MaterialTheme.typography.labelMedium)
                     if (state.cubes.isEmpty()) Text("No saved cubes yet.")
                 }
                 items(state.cubes, key = { it.id }) { cube ->
@@ -82,7 +79,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     BackHandler { controller.back() }
     ScreenBusyOverlay(if (state.busy) "Working on cube…" else null) {
         Column(Modifier.fillMaxSize()) {
-            ScreenHeader(if (state.editing) "Edit cube" else "Saved cube", navigation) {
+            ScreenHeader(if (state.editing) { if (state.target == null) "New cube" else "Edit cube" } else "Saved cube", navigation) {
                 TextButton(onClick = controller::back, enabled = !state.busy) { Text("Back") }
             }
             if (state.editing) {

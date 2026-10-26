@@ -24,7 +24,8 @@ class PodStatsViewTest {
                 mapOf("copy" to DraftCopy("copy", "digest")), mapOf("digest" to card))
         } }
         compose.onNodeWithText("Main including basics").assertIsDisplayed()
-        compose.onNodeWithText("2: 1").assertIsDisplayed()
+        compose.onNodeWithContentDescription("0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0").assertIsDisplayed()
+        compose.onNodeWithText("2: 1").assertDoesNotExist()
         compose.onNodeWithText("Creature: 1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Noncreature: 0").assertIsDisplayed()
         compose.onNodeWithText("Land: 39").assertIsDisplayed()
@@ -39,7 +40,8 @@ class PodStatsViewTest {
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun emptyStatsRenderZeroValuesInLandscape() {
         compose.setContent { MaterialTheme { PodStatsView(PodDeckBuild(), emptyMap(), emptyMap()) } }
-        compose.onNodeWithText("0: 0").assertIsDisplayed()
+        compose.onNodeWithContentDescription("0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0").assertIsDisplayed()
+        compose.onNodeWithText("0: 0").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats").performScrollToNode(hasText("No colored pips"))
         compose.onNodeWithText("No colored pips").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats").performScrollToNode(hasText("Mana sources · approximate"))

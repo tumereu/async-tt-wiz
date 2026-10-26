@@ -9,6 +9,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.Before
 import org.junit.Rule
@@ -34,12 +36,13 @@ class PodPickViewTest {
         settings: DraftSettings = DraftSettings.glimpse(),
         busy: () -> Boolean = { false },
         waitingOn: List<AccountIdentity> = emptyList(),
+        cardDefinitions: Map<String, CardDefinition> = definitions,
         onBuild: () -> Unit = {},
         onConfirm: (List<String>, List<String>) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
             ScreenTheme { Surface {
-                PodPickView(currentPack(), 2, settings, definitions, waitingOn, busy(), onConfirm, onBuild)
+                PodPickView(currentPack(), 2, settings, cardDefinitions, waitingOn, busy(), onConfirm, onBuild)
             } }
         }
     }
@@ -137,14 +140,32 @@ class PodPickViewTest {
 
     @Test fun verticalScrollingKeepsHeaderTraysAndConfirmFixed() {
         show()
-        val header = compose.onNodeWithText("Pack 2/9 · 15 cards · +2 waiting").fetchSemanticsNode().boundsInRoot
+        val header = compose.onNodeWithText("Pack 2/9 · 15 cards · +2 packs waiting").fetchSemanticsNode().boundsInRoot
         val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
         val confirm = compose.onNodeWithText("Confirm").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("pod-pick-list").performTouchInput { swipeUp() }
         card("15").assertIsDisplayed()
-        assertEquals(header, compose.onNodeWithText("Pack 2/9 · 15 cards · +2 waiting").fetchSemanticsNode().boundsInRoot)
+        assertEquals(header, compose.onNodeWithText("Pack 2/9 · 15 cards · +2 packs waiting").fetchSemanticsNode().boundsInRoot)
         assertEquals(tray, compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot)
         assertEquals(confirm, compose.onNodeWithText("Confirm").fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun missingArtworkKeepsCardShapeAndCompactTraysScrollWithoutGrowing() {
+        val longName = "A very long card name that must never expand a card tile or tray even when no artwork has loaded".repeat(2)
+        show(settings = DraftSettings(keep = 1, burn = 14), cardDefinitions = definitions.mapValues { (_, definition) -> definition.copy(name = longName) })
+        assertTrue(with(compose.onNodeWithContentDescription("Cards per row").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        val cardBounds = card("1").fetchSemanticsNode().boundsInRoot
+        assertTrue(abs(cardBounds.height / cardBounds.width - 1.4f) < .01f)
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onAllNodesWithText(longName, useUnmergedTree = true).onFirst()
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
+        assertTrue(results.single().lineCount <= 3)
+        swipe("1", true)
+        assertTrue(with(compose.onNodeWithTag("pod-pick-keep-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
+        assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
+        compose.onNodeWithTag("pod-pick-tray-1").assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("pod-pick-tray-15").performScrollTo().assertIsDisplayed()
+        assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
     }
 
     @Test fun portraitColumnChoiceIsSavedAndClampedToCurrentPackSize() {

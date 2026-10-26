@@ -39,7 +39,7 @@ fun PodStatsView(
             val curve = ((0..7).map { it.toDouble() } + stats.curve.keys).distinct().sorted().associate { mv ->
                 podStatsNumber(mv) to (stats.curve[mv] ?: 0).toDouble()
             }
-            PodStatsBars(curve, MaterialTheme.colorScheme.primary)
+            PodStatsBars(curve, MaterialTheme.colorScheme.primary, legend = false)
         }
         item {
             Text("Card types", style = MaterialTheme.typography.titleMedium)
@@ -77,7 +77,7 @@ fun PodStatsView(
 }
 
 @Composable
-private fun PodStatsBars(values: Map<String, Double>, color: Color) {
+private fun PodStatsBars(values: Map<String, Double>, color: Color, legend: Boolean = true) {
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSize = with(LocalDensity.current) { 11.sp.toPx() }
     val paint = remember(textColor, textSize) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -98,7 +98,7 @@ private fun PodStatsBars(values: Map<String, Double>, color: Color) {
         }
     }
     // A wrapping numeric legend stays legible even with many distinct mana values.
-    PodStatsLegend(values)
+    if (legend) PodStatsLegend(values)
 }
 
 @Composable

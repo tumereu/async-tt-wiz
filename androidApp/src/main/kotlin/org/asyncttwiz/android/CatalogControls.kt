@@ -37,7 +37,7 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
                 EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text(if (initial) "Exit" else "Not now")
             }
             ScreenButton(download, Modifier.weight(1f)) {
-                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Download")
+                EntryIcon(null, "download"); Spacer(Modifier.width(8.dp)); Text("Download")
             }
         }
     }
@@ -74,7 +74,7 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         if (state.available != null) {
             Text("${catalogDownloadEstimate(state)} ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."}")
             ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy) {
-                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
+                EntryIcon(null, "download"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
         }
         TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp)

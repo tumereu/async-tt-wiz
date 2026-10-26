@@ -28,7 +28,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
     val owner = LocalLifecycleOwner.current
     DisposableEffect(controller) { onDispose { controller.flushSetup() } }
     LaunchedEffect(controller, state.selected) {
-        controller.refresh()
+        controller.shown()
         while (true) {
             delay(10_000)
             if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) controller.refresh()
@@ -67,7 +67,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                         }
                     }
                 }
-                else -> PodsList(controller)
+                else -> PodsList(state, controller::open, controller::respond, controller::refresh)
             }
         }
     }
@@ -106,20 +106,10 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
 }
 
 @Composable
-private fun PodsList(controller: PodController) {
-    val state = controller.state
-    InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.loading) {
+internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String, Boolean) -> Unit, refresh: () -> Unit) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = refresh, loading = state.loading) {
         LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("MY PODS (${state.pods.size})", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                    TextButton(controller::refresh, enabled = !state.loading) { Text("Refresh") }
-                }
-                if (state.pods.isEmpty()) Text("No pods yet. Create a pod to draft a cube with friends.")
-            }
-            items(state.pods, key = { it.id }) { pod -> PodRow(pod, { controller.open(pod.id) }) }
-            item { Text("Invitations", style = MaterialTheme.typography.titleMedium) }
-            if (state.invitations.isEmpty()) item { Text("No pending pod invitations.") }
+            if (state.invitations.isNotEmpty()) item { Text("Invitations", style = MaterialTheme.typography.titleMedium) }
             items(state.invitations, key = { "invitation:${it.podId}" }) { invitation ->
                 OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -128,12 +118,17 @@ private fun PodsList(controller: PodController) {
                             Avatar(invitation.creator); Text(invitation.creator.username)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ScreenButton({ controller.respond(invitation.podId, true) }, enabled = state.pending == 0) { Text("Accept") }
-                            ScreenOutlinedButton({ controller.respond(invitation.podId, false) }, enabled = state.pending == 0) { Text("Decline") }
+                            ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { Text("Accept") }
+                            ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { Text("Decline") }
                         }
                     }
                 }
             }
+            item {
+                Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
+                if (state.pods.isEmpty()) Text("No pods yet. Create a pod to draft a cube with friends.")
+            }
+            items(state.pods, key = { it.id }) { pod -> PodRow(pod, { open(pod.id) }) }
         }
     }
 }
@@ -170,17 +165,20 @@ private fun NewPodScreen(controller: PodController, manageCubes: () -> Unit) {
         if (state.cubesLoaded && state.cubes.isEmpty()) {
             Text("Save a cube before creating a pod. Import a card list or a Cube Cobra snapshot in Manage decks → Cubes.")
             ScreenOutlinedButton(manageCubes) { Text("Manage decks → Cubes") }
-        } else CubeChoice(state.cubes, draft.cubeId, "Choose a cube", state.pending == 0 && !state.uncertain, controller::newCube)
+        } else CubeChoice(state.cubes, draft.cubeId, "Choose a cube", state.pending == 0 && !state.uncertain, choose = controller::newCube)
         PodModeButtons(draft.mode, state.pending == 0 && !state.uncertain, controller::newMode)
         ScreenButton(controller::create, enabled = draft.cubeId != null && draft.name.isNotBlank() && state.pending == 0 && !state.uncertain) { Text("Create pod") }
     }
 }
 
 @Composable
-private fun CubeChoice(cubes: List<CubeSummary>, chosen: String?, fallback: String, enabled: Boolean, choose: (String) -> Unit) {
+private fun CubeChoice(cubes: List<CubeSummary>, chosen: String?, fallback: String, enabled: Boolean,
+    selected: Boolean = chosen != null, choose: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        ScreenOutlinedButton({ expanded = true }, enabled = enabled) { Text(cubes.find { it.id == chosen }?.name ?: fallback) }
+        FilterChip(selected = selected, onClick = { expanded = true }, enabled = enabled,
+            label = { Text(cubes.find { it.id == chosen }?.name ?: fallback) },
+            leadingIcon = if (selected) ({ EntryIcon(null, "ready") }) else null)
         DropdownMenu(expanded, { expanded = false }, Modifier.heightIn(max = 360.dp)) {
             cubes.forEach { cube -> DropdownMenuItem(text = { Text("${cube.name} · ${cube.totalCopies} cards") },
                 onClick = { expanded = false; choose(cube.id) }) }
@@ -227,7 +225,7 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(edit?.name ?: detail.name, { controller.editSetup(name = it) }, Modifier.fillMaxWidth(), label = { Text("Pod name") }, readOnly = !enabled)
         Text("Source cube", style = MaterialTheme.typography.titleMedium)
-        if (creator) CubeChoice(state.cubes, edit?.cubeId, detail.source.cubeName, enabled) { controller.editSetup(cubeId = it) }
+        if (creator) CubeChoice(state.cubes, edit?.cubeId, detail.source.cubeName, enabled, selected = true) { controller.editSetup(cubeId = it) }
         else Text(detail.source.cubeName)
         PodModeButtons(settings.mode, enabled) { mode -> controller.editSetup(settings =
             (if (mode == DraftMode.BOOSTER) DraftSettings.booster() else DraftSettings.glimpse()).copy(sideboardLimit = settings.sideboardLimit)) }

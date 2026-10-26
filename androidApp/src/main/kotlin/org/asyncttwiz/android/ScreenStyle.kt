@@ -226,7 +226,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "cancel" -> Icons.Outlined.Cancel
     "decks" -> Icons.Outlined.Style
     "contacts" -> Icons.Outlined.PeopleOutline
-    "pods" -> Icons.Outlined.PeopleOutline
+    "pods" -> Icons.Outlined.TableRestaurant
     "more" -> Icons.Outlined.MoreVert
     "games" -> GameSwords
     "search" -> Icons.Outlined.Search
@@ -244,6 +244,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "chevron" -> Icons.Outlined.ChevronRight
     "send" -> Icons.AutoMirrored.Outlined.Send
     "import" -> Icons.Outlined.ContentPaste
+    "download" -> Icons.Outlined.FileDownload
     "save" -> Icons.Outlined.Save
     "delete" -> Icons.Outlined.DeleteOutline
     "cover" -> Icons.Outlined.Image

@@ -120,7 +120,8 @@ object PublicArtwork {
  * cannot display a late previous face. No HTML, name guessing, retries per frame or saved secrets. */
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
-    modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false) {
+    modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false,
+    placeholder: (@Composable () -> Unit)? = null) {
     val context = LocalContext.current
     val request = reference?.let { CardArtworkRequest(it, width, height) }
     val result by produceState<Pair<CardArtworkRequest, coil3.Image?>?>(null, request, service) {
@@ -134,7 +135,7 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
     }
     Box(modifier, contentAlignment = Alignment.Center) {
         val loaded = result?.takeIf { it.first == request }?.second
-        if (loaded == null) Text(fallback)
+        if (loaded == null) { if (placeholder != null) placeholder() else Text(fallback) }
         else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
     }
 }

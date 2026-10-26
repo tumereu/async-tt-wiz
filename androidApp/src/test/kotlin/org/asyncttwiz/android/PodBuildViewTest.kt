@@ -117,6 +117,22 @@ class PodBuildViewTest {
         compose.runOnIdle { assertEquals(1, submits) }
     }
 
+    @Test fun columnAndBasicControlsStayOnCompactSingleLinesAndTilesKeepTheirShape() {
+        val longName = "An unusually long card name that should be ellipsized inside a card-shaped placeholder".repeat(2)
+        compose.setContent { ScreenTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first")), PodDeckBasics(plains = 38)),
+                mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card.copy(name = longName)), null,
+                true, false, { _, _ -> }, {}, {})
+        } }
+        assertTrue(with(compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        assertTrue(with(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        compose.onNodeWithContentDescription("Add Forest").assertIsDisplayed()
+        val bounds = compose.onNodeWithTag("pod-build-card-first").fetchSemanticsNode().boundsInRoot
+        assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
+        compose.onNodeWithContentDescription("More Columns").performClick()
+        compose.onNodeWithText("Columns 8").assertIsDisplayed()
+    }
+
     @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.TRASH))),

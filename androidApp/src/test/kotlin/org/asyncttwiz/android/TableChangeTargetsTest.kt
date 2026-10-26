@@ -62,7 +62,7 @@ class TableChangeTargetsTest {
             projectionLink = ProjectionLink("link", id, "buried")), items::get))
     }
 
-    @Test fun zeroedPortraitCounterUsesPublicHudWithoutRetainingInteractiveCounterRow() {
+    @Test fun zeroedPortraitCounterKeepsItsOutlineSlotAndChangeTarget() {
         val initial = LiveTableFixture.menuPlay()
         val before = initial.copy(board = initial.board.copy(players = initial.board.players.map {
             it.copy(counters = if (it.accountId == "a") mapOf(CounterColor.BLUE to "1") else emptyMap())
@@ -73,10 +73,11 @@ class TableChangeTargetsTest {
         assertEquals("counter/a/BLUE", tableChangeTarget(key, oldItems::get)?.id)
         val scene = ChangeTargetFixture.scene(after)
         val items = scene.items.associateBy { it.id }
-        assertTrue(scene.items.none { it.kind == TableItemKind.COUNTER })
+        assertEquals(12, scene.items.count { it.kind == TableItemKind.COUNTER })
         val hud = assertNotNull(tableChangeTarget(key, items::get))
-        assertEquals("life/a", hud.id)
-        assertNotEquals(TableItemKind.COUNTER, scene.hit(hud.bounds.center)?.kind)
+        assertEquals("counter/a/BLUE", hud.id)
+        assertEquals("", hud.value)
+        assertEquals(TableItemKind.COUNTER, scene.hit(hud.bounds.center)?.kind)
     }
 
     @Test fun coveredCardsAllowOnlyPublicOwnerPulsesNotHiddenValueEffects() {

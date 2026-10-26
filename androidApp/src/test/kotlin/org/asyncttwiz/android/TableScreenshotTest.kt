@@ -184,7 +184,7 @@ class TableScreenshotTest {
         val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; submitOk })
         when (kind) {
             "card-actions", "owner-choice", "action-tooltip", "value-editor", "link-actions" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
-            "player-actions" -> toolkit.manual.player(play, "a")
+            "player-actions" -> toolkit.manual.player(play, "a", counters = true)
             "table-actions", "die" -> toolkit.tableMenu()
             "phase-picker" -> toolkit.phasePicker()
             "library-actions" -> toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N)
@@ -307,7 +307,7 @@ class TableScreenshotTest {
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Increase blue counter").performTouchInput { advanceEventTime(350); click() }
         assertTrue(sent.last() is PlayAction.AdjustCounter)
-        compose.onNodeWithContentDescription("Life / counters").assertExists()
+        compose.onNodeWithContentDescription("Counters").assertExists()
         compose.runOnIdle { toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N) }
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Draw 1").performTouchInput { advanceEventTime(350); click() }

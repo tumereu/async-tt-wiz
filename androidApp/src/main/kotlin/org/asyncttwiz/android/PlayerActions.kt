@@ -8,21 +8,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
 @Composable
 internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: ManualActions, enabled: Boolean,
-    names: Map<String, String>, viewer: String = scope.contextId, submit: (PlayAction) -> Boolean) {
+    names: Map<String, String>, viewer: String = scope.contextId, landscape: Boolean = false, submit: (PlayAction) -> Boolean) {
     val player = state.board.players.single { it.accountId == scope.contextId }
     CompositionLocalProvider(LocalValueDragSide provides if (player.accountId == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP) {
-    InlinePopupPanel(actions::close, title = "Life / counters") {
+    InlinePopupPanel(actions::close, title = if (scope.playerCounters) "Counters" else "Life") {
+        if (!scope.playerCounters) {
             val color = LocalInlinePopupColor.current
             val shape = RoundedCornerShape(3.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(Modifier.size(48.dp), color = androidx.compose.ui.graphics.Color.White,
                     shape = shape, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
-                    Box(contentAlignment = Alignment.Center) { MenuIcon("Life", tint = color) }
+                    Box(Modifier.clearAndSetSemantics {}, contentAlignment = Alignment.Center) { MenuIcon("Life", tint = color) }
                 }
                 fun adjust(delta: Int) = MenuControl("${if (delta > 0) "Increase" else "Decrease"} life",
                     enabled && ManualText.add(player.life, delta.toLong()) != null) {
@@ -33,6 +35,11 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
                 }, adjust(-1), adjust(1), dragValue = player.life,
                     drag = { submit(PlayAction.AdjustLife(player.accountId, it.toString())) })
             }
+            // Landscape omits empty/zero counters from the table; retain access for that player.
+            if (landscape && player.counters.values.none(TablePresentation::nonzero)) {
+                InlinePopupCell(MenuControl("Counters") { actions.player(state, player.accountId, counters = true) })
+            }
+        } else {
             for (pair in CounterColor.entries.chunked(2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (counter in pair) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     val name = counter.name.lowercase()
@@ -48,6 +55,7 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
                         drag = { submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, player.accountId, counter, it.toString())) })
                 }
             }
+        }
     }
     }
 }

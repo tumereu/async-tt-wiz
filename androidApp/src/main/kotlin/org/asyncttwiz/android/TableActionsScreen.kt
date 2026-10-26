@@ -18,7 +18,9 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     open: (String) -> Unit, request: (TableIntent) -> Boolean, submit: (PlayAction, String?) -> Boolean) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     if (item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
-        val manual = remember(play.id, captured) { ManualActions().apply { player(play, requireNotNull(item.owner)) } }
+        val manual = remember(play.id, captured) { ManualActions().apply {
+            player(play, requireNotNull(item.owner), counters = item.kind == TableItemKind.COUNTER)
+        } }
         if (manual.scope == null) { SideEffect(dismiss); return }
         CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(item.id, item.bounds, item.owner == viewer)) {
             ManualActionsHost(play, viewer, manual, enabled, landscape, names) { action -> submit(action, UUID.randomUUID().toString()) }

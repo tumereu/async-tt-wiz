@@ -23,4 +23,12 @@ class CardAnnotationLayoutTest {
                 }
             }
     }
+
+    @Test fun moreThanTwoCountersUseExactlyTwoRows() {
+        for (count in 1..6) {
+            val counters = cardAnnotationLayout(11f, 30f, 10f, 10f, false, count).counters
+            assertEquals(if (count > 2) 2 else 1, counters.map { it.y }.distinct().size)
+            if (count > 2) assertEquals((count + 1) / 2, counters.count { it.y == counters.first().y })
+        }
+    }
 }

@@ -62,7 +62,14 @@ class TableLayoutScreenshotTest {
         val region = scene.stackRegion!!
         assertEquals(0xff2a1740.toInt(), image.getRGB((region.x + 2).toInt(), region.center.y.toInt()))
         assertEquals(0xffeee3f5.toInt(), image.getRGB(region.center.x.toInt(), (region.y + 8).toInt()))
-        assertEquals(if (landscape) 12 else counterOwners.size * 6, scene.items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(if (landscape) counterOwners.size * 4 else 12, scene.items.count { it.kind == TableItemKind.COUNTER })
+        if (!landscape) for (counter in scene.items.filter { it.kind == TableItemKind.COUNTER && it.value.isEmpty() }) {
+            val b = counter.bounds
+            assertEquals(0xffffffff.toInt(), image.getRGB(b.center.x.toInt(), b.center.y.toInt()))
+            assertTrue((b.x.toInt() until b.right.toInt()).any { x ->
+                (b.y.toInt() until b.bottom.toInt()).any { y -> image.getRGB(x, y) != 0xffffffff.toInt() }
+            }, "Missing faint outline for ${counter.id}")
+        }
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         compose.onNodeWithContentDescription(stack.label).assertIsDisplayed().assertHasClickAction()
         if (!landscape) {

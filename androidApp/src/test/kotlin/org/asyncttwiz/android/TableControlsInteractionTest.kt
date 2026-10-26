@@ -43,12 +43,12 @@ class TableControlsInteractionTest {
             PlayerDeltaControl(target, "20", OwnTableColor, true, controller, Modifier.padding(top = 60.dp))
         } }
         val value = compose.onNodeWithContentDescription("Life, 20")
-        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(30f, 0f)) }
+        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(100f, 0f)) }
         compose.onNodeWithText("+2 → 22").assertExists()
         compose.runOnIdle { assertTrue(sent.isEmpty()) }
         value.performTouchInput { up() }
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(target.accountId, "2")), sent) }
-        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 30f)); cancel() }
+        value.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 100f)); cancel() }
         compose.runOnIdle { assertEquals(1, sent.size) }
     }
 

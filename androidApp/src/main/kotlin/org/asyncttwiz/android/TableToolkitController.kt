@@ -257,7 +257,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             item.zone == PlayZone.STACK -> stackContents()
             captured.scope != null -> openCard(captured.scope, captured.sources)
             item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> {
-                dismiss(); manual.player(play, requireNotNull(item.owner))
+                dismiss(); manual.player(play, requireNotNull(item.owner), counters = item.kind == TableItemKind.COUNTER)
             }
             item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
             else -> openPublicPile(item.id)

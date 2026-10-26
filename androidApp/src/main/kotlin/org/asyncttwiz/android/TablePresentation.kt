@@ -253,7 +253,7 @@ object TablePresentation {
         val controlsHeight = tableBottomHeight(landscape)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
         val counterHeight = 48f
-        val counterHeights = players.map { if (landscape || it.counters.values.any(::nonzero)) counterHeight else 0f }
+        val counterHeights = players.map { if (landscape) counterHeight else 0f }
         val middleHeight = max(combat.height, stackHeight + 24f)
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
@@ -319,7 +319,7 @@ object TablePresentation {
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else if (projection)
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
-                counters = if (hidden) emptyMap() else card.counters,
+                counters = if (hidden) emptyMap() else card.counters.filterValues(::nonzero),
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = !hidden && changedPowerToughness(card.corner, f)).also { if (draw) items += it }
@@ -361,9 +361,12 @@ object TablePresentation {
             port(battlefield.id, field.bounds, logicalWidth * zoom)
             val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
                 else if (index == 0) HEADER else ownDockY
-            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width, dockRow)
-            val spacing = max(pileEnvelope, (dock.width - 64f) / 3)
-            val dp = port("dock/${player.accountId}", dock, 76f + 2 * spacing + pileEnvelope)
+            val gridWidth = minOf(132f, width * .34f)
+            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - gridWidth, dockRow)
+            val spacing = if (landscape) max(pileEnvelope, (dock.width - 64f) / 3) else pileWidth + 12f
+            val pileStart = if (landscape) 84f else 76f
+            val dp = port("dock/${player.accountId}", dock, if (landscape) 76f + 2 * spacing + pileEnvelope
+                else pileStart + 2 * spacing + pileWidth + 8f)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
@@ -371,7 +374,7 @@ object TablePresentation {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(84f + n * spacing - dp.scroll, rowY + 12f, pileWidth, pileHeight)
+                val b = TableBounds(pileStart + n * spacing - dp.scroll, rowY + 12f, pileWidth, pileHeight)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
@@ -379,17 +382,20 @@ object TablePresentation {
                     keepTopRevealed = c.keepTopRevealed,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
-                    counters = if (hidden) emptyMap() else top?.counters.orEmpty(),
+                    counters = if (hidden) emptyMap() else top?.counters.orEmpty().filterValues(::nonzero),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
-            if (counterHeights[index] > 0f) {
-                val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),
-                    max(dock.width, 288f))
+            run {
+                val cp = if (landscape) port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),
+                    max(dock.width, 288f)) else port("counters/${player.accountId}",
+                    TableBounds(dock.right, rowY, gridWidth, dockRow), gridWidth)
                 for ((n, color) in CounterColor.entries.withIndex()) {
-                    val v = player.counters[color].orEmpty()
-                    val b = TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
+                    val v = player.counters[color].orEmpty().takeIf(::nonzero).orEmpty()
+                    if (landscape && v.isEmpty()) continue
+                    val b = if (landscape) TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
+                        else TableBounds(cp.bounds.x + n % 3 * gridWidth / 3, rowY + n / 3 * dockRow / 2, gridWidth / 3, dockRow / 2)
                     items += TableItem("counter/${player.accountId}/$color", b, "${name(player.accountId)}, ${color.name.lowercase()}, ${v.ifEmpty { "no value" }}",
                         v, player.accountId, kind = TableItemKind.COUNTER, viewport = cp.id, counter = color,
                         valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)

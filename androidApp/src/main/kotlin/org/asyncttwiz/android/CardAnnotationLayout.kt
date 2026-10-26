@@ -6,6 +6,17 @@ internal data class CardAnnotationLayout(val note: TableBounds?, val counters: L
 internal fun cardAnnotationLayout(titleBand: Float, artBottom: Float, noteHeight: Float,
     counterHeight: Float, hasNote: Boolean, counterCount: Int): CardAnnotationLayout {
     val top = titleBand - 1f
+    if (counterCount > 2) {
+        val columns = (counterCount + 1) / 2
+        val noteColumns = if (hasNote) 1 else 0
+        val slotWidth = 24f / (columns + noteColumns)
+        // Two full-height rows may cover the title; keep a separate column for the note.
+        val counterTop = (artBottom - 2 * counterHeight).coerceIn(0f, (40f - 2 * counterHeight).coerceAtLeast(0f))
+        return CardAnnotationLayout(
+            if (hasNote) TableBounds(2f, top.coerceAtMost(39f - noteHeight), slotWidth, noteHeight) else null,
+            List(counterCount) { index -> TableBounds(2f + (index % columns + noteColumns) * slotWidth,
+                counterTop + index / columns * counterHeight, slotWidth, counterHeight) })
+    }
     // Never cap a line to the remaining art height. At large text sizes annotations
     // share a row and extend over the art instead of losing their lower glyphs.
     val shared = hasNote && counterCount > 0 && noteHeight + counterHeight + 1f > artBottom - top

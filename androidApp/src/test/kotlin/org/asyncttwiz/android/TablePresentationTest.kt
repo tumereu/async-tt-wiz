@@ -115,19 +115,17 @@ class TablePresentationTest {
         }
     }
 
-    @Test fun portraitHidesEmptyCounterRailsAndReclaimsTheirHeight() {
+    @Test fun portraitAlwaysShowsCountersInsideDockWithoutUsingExtraHeight() {
         val play = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.BLUE to "1")), PlayPlayer("b")))) }
         val before = TableFixture.scene(play)
         val after = TableFixture.scene(TableFixture.play())
-        assertEquals(0, after.items.count { it.kind == TableItemKind.COUNTER })
-        assertEquals(6, before.items.count { it.kind == TableItemKind.COUNTER })
-        assertTrue(after.viewports.none { it.id.startsWith("counters/") })
-        assertTrue(after.world!!.viewport.height > before.world!!.viewport.height)
+        assertEquals(12, after.items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(12, before.items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(after.world!!.viewport, before.world!!.viewport)
         assertEquals(after.fields.first().rowHeight, before.fields.first().rowHeight)
         val landscape = TableFixture.scene(TableFixture.play(), true)
-        assertEquals(12, landscape.items.count { it.kind == TableItemKind.COUNTER })
-        assertTrue(landscape.items.filter { it.kind == TableItemKind.COUNTER }.all { it.value.isEmpty() })
+        assertEquals(0, landscape.items.count { it.kind == TableItemKind.COUNTER })
     }
 
     @Test fun commonScaleAndEqualFootprintsAcrossOrientationOwnerRotationAndPiles() {
@@ -302,11 +300,11 @@ class TablePresentationTest {
         val p = TableFixture.play().let { it.copy(board = it.board.copy(players = listOf(
             PlayPlayer("a", counters = mapOf(CounterColor.RED to "0")), PlayPlayer("b", counters = mapOf(CounterColor.BLUE to "-1"))))) }
         val portrait = TableFixture.scene(p)
-        assertTrue(portrait.items.none { it.kind == TableItemKind.COUNTER && it.owner == "a" })
+        assertTrue(portrait.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "a" }.all { it.value.isEmpty() })
         val shown = portrait.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "b" }
         assertEquals(6, shown.size); assertEquals("", shown.first { it.counter == CounterColor.RED }.value)
         assertTrue(shown.first { it.counter == CounterColor.RED }.label.contains("no value"))
-        assertEquals(12, TableFixture.scene(p, true).items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(1, TableFixture.scene(p, true).items.count { it.kind == TableItemKind.COUNTER })
         assertEquals("0", p.board.players.first().counters[CounterColor.RED])
     }
 
@@ -317,9 +315,12 @@ class TablePresentationTest {
                 if (it.accountId == "a") it.copy(counters = mapOf(CounterColor.GREEN to value, CounterColor.RED to "0")) else it
             }))
             val counters = TableFixture.scene(play).items.filter { it.kind == TableItemKind.COUNTER }
-            assertEquals(if (TablePresentation.nonzero(value)) 6 else 0, counters.size, value)
-            assertTrue(counters.all { it.owner == "a" })
-            if (counters.isNotEmpty()) assertEquals("0", counters.single { it.counter == CounterColor.RED }.value)
+            assertEquals(12, counters.size, value)
+            assertEquals("", counters.single { it.owner == "a" && it.counter == CounterColor.RED }.value)
+            assertEquals(value.takeIf(TablePresentation::nonzero).orEmpty(),
+                counters.single { it.owner == "a" && it.counter == CounterColor.GREEN }.value)
+            assertEquals(if (TablePresentation.nonzero(value)) 1 else 0,
+                TableFixture.scene(play, true).items.count { it.kind == TableItemKind.COUNTER })
         }
     }
 
@@ -488,7 +489,10 @@ class TablePresentationTest {
     }
 
     @Test fun compactLandscapeSidebarCanReachLastCounterWithoutOverlappingStackOrHands() {
-        val p = TableFixture.play()
+        val initial = TableFixture.play()
+        val p = initial.copy(board = initial.board.copy(players = initial.board.players.map {
+            it.copy(counters = CounterColor.entries.associateWith { "1" })
+        }))
         fun scene(ui: TableLayoutState) = TablePresentation.scene(TableFixture.game, p, "a", 640f, 300f, true, ui)
         val first = scene(TableLayoutState(TableCamera(zoom = 2f)))
         val sidebar = first.viewports.single { it.id == "sidebar" }

@@ -891,7 +891,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         paint.textSize = 7 * valueScale * z * density
         val valueMetrics = paint.fontMetrics
         val counterHeight = maxOf(10 * valueScale, (valueMetrics.bottom - valueMetrics.top) / (z * density) + 2f)
-        val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.let { color to it } }
+        val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.takeIf(TablePresentation::nonzero)?.let { color to it } }
         val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size)
         fun label(value: String, b: TableBounds, metrics: Paint.FontMetrics) {
             val baseline = y + (b.y + b.height / 2) * z - (metrics.top + metrics.bottom) / (2 * density)
@@ -916,7 +916,17 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             drawRoundRect(counterColor(color), xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z),
                 CornerRadius(minOf(b.width, b.height) * z * density / 2))
             paint.color = android.graphics.Color.DKGRAY
-            label(value.take(3), b, valueMetrics)
+            val shown = value.take(3)
+            val glyphs = android.graphics.Rect()
+            paint.getTextBounds(shown, 0, shown.length, glyphs)
+            val available = (b.width - 2f).coerceAtLeast(1f) * z * density
+            if (glyphs.width() > available) {
+                paint.textSize *= available / glyphs.width()
+                paint.getTextBounds(shown, 0, shown.length, glyphs)
+            }
+            text(shown, x + b.center.x * z - glyphs.exactCenterX() / density,
+                y + b.center.y * z - glyphs.exactCenterY() / density, shown.length)
+            paint.textSize = 7 * valueScale * z * density
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
@@ -1099,10 +1109,13 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                     CounterColor.GREEN -> Color(0xff3c744f); CounterColor.YELLOW -> Color(0xffc7ab3d)
                     CounterColor.PURPLE -> Color(0xff8c639d); else -> Color(0xff626b6e)
                 }
-                drawCircle(marker, 14 * density, xy(b.center.x, b.center.y))
+                val radius = minOf(14f, b.height / 2 - 6f)
+                val hasValue = TablePresentation.nonzero(i.value)
+                drawCircle(if (hasValue) marker else marker.copy(alpha = .3f), radius * density,
+                    xy(b.center.x, b.center.y), style = if (hasValue) androidx.compose.ui.graphics.drawscope.Fill else Stroke(density))
                 paint.isFakeBoldText = true
                 paint.color = if (i.counter == CounterColor.YELLOW) android.graphics.Color.rgb(32, 42, 46) else android.graphics.Color.WHITE
-                centeredText(i.value, TableBounds(b.center.x - 14f, b.center.y - 14f, 28f, 28f), 11f)
+                if (hasValue) centeredText(i.value, TableBounds(b.center.x - radius, b.center.y - radius, 2 * radius, 2 * radius), 11f)
                 paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             TableItemKind.PILE -> {

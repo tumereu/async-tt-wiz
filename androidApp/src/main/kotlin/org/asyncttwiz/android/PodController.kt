@@ -179,9 +179,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.detail != null && !state.uncertain) state = state.copy(confirmation = action)
     }
     fun dismissConfirmation() { if (!state.uncertain) state = state.copy(confirmation = null) }
-    fun confirm() {
+    fun confirm() { perform(state.confirmation ?: return) }
+    /** The Build view already asked for confirmation; submit without a second dialog. */
+    fun submit() { perform(PodConfirmation.SUBMIT) }
+    private fun perform(action: PodConfirmation) {
         val detail = state.detail ?: return
-        val action = state.confirmation ?: return
         if (state.pending > 0 || state.uncertain) return
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }

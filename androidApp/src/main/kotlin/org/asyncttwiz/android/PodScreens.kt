@@ -326,7 +326,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     state.picking || state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
-                    controller::move, controller::adjustBasic, { controller.requestConfirmation(PodConfirmation.SUBMIT) }, Modifier.fillMaxSize())
+                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize())
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

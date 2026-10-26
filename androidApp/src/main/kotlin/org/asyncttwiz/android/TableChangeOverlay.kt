@@ -46,6 +46,32 @@ internal fun Modifier.tableChangeFlash(changes: TableChanges?, key: TableChangeK
 
 private fun flashAlpha(progress: Float) = ((1f - progress * 3f).coerceAtLeast(0f) * .65f)
 
+/** Resolve the recorded card/occurrence identity, not its source or a container's top card.
+ * Both lookups use the rendered frame's index; buried/offscreen entries never get a stand-in. */
+private fun changeCard(id: String, item: (String) -> TableItem?) =
+    item("card/$id") ?: item("stackDrawing/$id")
+
+internal fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableItem? {
+    val shown = when (key.kind) {
+        TableChangeKind.LIFE -> item("life/${key.target}")
+        // Portrait removes an empty counter row immediately. Only the visual feedback moves to
+        // the public HUD; no removed counter item or input target is kept alive for the fade.
+        TableChangeKind.PLAYER_COUNTER -> item("counter/${key.target}/${key.color}") ?: item("life/${key.target}")
+        else -> changeCard(key.target, item)
+    } ?: return null
+    return shown.takeIf { it.visible.isNotEmpty() && (!it.covered || key.kind == TableChangeKind.OWNER) }
+}
+
+internal fun tableChangeLinkAnchors(change: TableChange, item: (String) -> TableItem?): Pair<TablePoint, TablePoint>? {
+    fun endpoint(e: LinkEndpoint) = (if (e.kind == LinkEndpointKind.CARD) changeCard(e.id, item)
+        else item("life/${e.id}"))?.visibleAnchor
+    val first = change.link?.first?.let(::endpoint)
+        ?: change.projectionLink?.first?.let { changeCard(it, item)?.visibleAnchor } ?: return null
+    val second = change.link?.second?.let(::endpoint)
+        ?: change.projectionLink?.second?.let { changeCard(it, item)?.visibleAnchor } ?: return null
+    return first to second
+}
+
 /** One independent draw node per changed value. No input modifiers and no board/frame diff. */
 @Composable
 internal fun TableChangeOverlay(changes: TableChanges?, viewer: String, appearance: CardAppearance,
@@ -72,23 +98,14 @@ private fun TableElementChange(changes: TableChanges, active: ActiveTableChange,
                 drawRoundRect(color, point(TablePoint(b.x, b.y)), Size(b.width * density, b.height * density),
                     CornerRadius(2f * density), style = if (border) Stroke(3f * density) else androidx.compose.ui.graphics.drawscope.Fill)
             }
-            fun endpoint(e: LinkEndpoint) = item(if (e.kind == LinkEndpointKind.CARD) "card/${e.id}" else "life/${e.id}")?.visibleAnchor
             if (key.kind == TableChangeKind.LINK) {
-                val first = change.link?.first?.let(::endpoint) ?: change.projectionLink?.first?.let { item("card/$it")?.visibleAnchor }
-                val second = change.link?.second?.let(::endpoint) ?: change.projectionLink?.second?.let { item("card/$it")?.visibleAnchor }
-                if (first != null && second != null) {
+                tableChangeLinkAnchors(change, item)?.let { (first, second) ->
                     drawLine(Color(0xffffce56).copy(alpha = .25f * fade), point(first), point(second), 10f * density)
                     drawLine(Color(0xffffbd36).copy(alpha = fade), point(first), point(second), 3f * density)
                 }
                 return@Canvas
             }
-            val id = when (key.kind) {
-                TableChangeKind.LIFE -> "life/${key.target}"
-                TableChangeKind.PLAYER_COUNTER -> "counter/${key.target}/${key.color}"
-                else -> "card/${key.target}"
-            }
-            val shown = item(id) ?: return@Canvas
-            if (shown.visible.isEmpty() || shown.covered) return@Canvas
+            val shown = tableChangeTarget(key, item) ?: return@Canvas
             val color = key.color?.let { counterColor(it).let { c -> Color(c.red * .55f, c.green * .55f, c.blue * .55f) } }
                 ?: if ((change.owner ?: shown.owner) == viewer) OwnTableColor else OpponentTableColor
             val b = shown.bounds

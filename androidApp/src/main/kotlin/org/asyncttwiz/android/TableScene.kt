@@ -259,9 +259,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
+        val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance)
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, logicalPositions)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }

@@ -212,10 +212,11 @@ object TablePresentation {
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),
         toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false, combatBandHeight: Float? = null,
-        appearance: CardAppearance = CardAppearance()): TableScene {
+        appearance: CardAppearance = CardAppearance(),
+        logicalPositions: Map<String, TablePlacement> = logicalPlacements(play)): TableScene {
         require(play.gameId == game.id && play.id == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
-        val positions = logicalPlacements(play) + placements
+        val positions = logicalPositions + placements
         val own = play.board.players.single { it.accountId == viewer }
         val opponent = play.board.players.single { it.accountId != viewer }
         val players = listOf(opponent, own)
@@ -345,9 +346,10 @@ object TablePresentation {
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
-            battlefield.cards.sortedWith(compareByDescending<String> { positions[it]?.pileIndex ?: 0 }.thenBy { battlefield.cards.indexOf(it) })
-                .forEach { id -> byId[id]?.let { c ->
-                    val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
+            // Stable sorting retains container order and the fallback column without indexOf scans.
+            battlefield.cards.withIndex().sortedByDescending { positions[it.value]?.pileIndex ?: 0 }
+                .forEach { (order, id) -> byId[id]?.let { c ->
+                    val p = positions[id] ?: TablePlacement(order, 0)
                     val x = field.gridBounds.x + p.column * columnPitch * zoom + 16f * fieldScale
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
@@ -483,9 +485,10 @@ object TablePresentation {
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
                 panelClipped.flatMap { it.subtract(scene.stackRegion) } else panelClipped)
         }
+        val occlusion = TableOcclusionIndex(clipped)
         val visible = clipped.mapIndexed { n, i ->
             var portions = i.visible
-            if (i.kind != TableItemKind.HAND) for (next in n + 1 until clipped.size) {
+            if (portions.isNotEmpty() && i.kind != TableItemKind.HAND) for (next in occlusion.candidates(n)) {
                 val cover = clipped[next]
                 if (cover.kind == TableItemKind.HAND ||
                     i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
@@ -504,13 +507,21 @@ object TablePresentation {
         "Land" in type -> "♧"; "Creature" in type -> "♙"; "Instant" in type -> "ϟ"
         "Sorcery" in type -> "◇"; "Artifact" in type -> "⚙"; "Enchantment" in type -> "☆"; else -> "◇"
     }
-    fun logicalPlacements(play: PlayState): Map<String, TablePlacement> = play.board.cards.mapNotNull { card ->
-        card.placement?.let { p ->
-            val members = play.board.containers.single { it.id == card.containerId }.cards.filter { id ->
-                play.board.cards.single { it.id == id }.placement == p }
-            card.id to TablePlacement(p.position.x, p.position.y, members.indexOf(card.id), p.pileId)
+    fun logicalPlacements(play: PlayState): Map<String, TablePlacement> {
+        val byId = play.board.cards.associateBy { it.id }
+        return buildMap {
+            for (container in play.board.containers) {
+                val depths = mutableMapOf<PlayPlacement, Int>()
+                for (id in container.cards) {
+                    // Stack membership can name effects rather than real cards.
+                    val p = byId[id]?.placement ?: continue
+                    val depth = depths[p] ?: 0
+                    put(id, TablePlacement(p.position.x, p.position.y, depth, p.pileId))
+                    depths[p] = depth + 1
+                }
+            }
         }
-    }.toMap()
+    }
     /** Menu toggles must not mistake a legacy default cover for an explicit public face-down edit. */
     fun cardForActions(play: PlayState, cardId: String): PlayCard {
         val card = play.board.cards.single { it.id == cardId }

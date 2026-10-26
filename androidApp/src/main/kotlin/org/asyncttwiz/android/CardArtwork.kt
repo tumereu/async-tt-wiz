@@ -98,11 +98,20 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     override fun close() { application.unregisterComponentCallbacks(this); loader.shutdown(); transport.close() }
 }
 
-object PublicArtwork {
+internal class ArtworkServiceProvider {
     @Volatile private var service: CardArtworkService? = null
-    fun get(context: Context): CardArtworkService = service ?: synchronized(this) {
-        service ?: CardArtworkService(context.applicationContext).also { service = it }
+    // Construction scans, repairs and trims the disk cache. Publish only the fully ready service;
+    // even a caller waiting for the first request must never acquire this lock on the UI thread.
+    suspend fun get(context: Context): CardArtworkService = service ?: withContext(Dispatchers.IO) {
+        synchronized(this@ArtworkServiceProvider) {
+            service ?: CardArtworkService(context.applicationContext).also { service = it }
+        }
     }
+}
+
+object PublicArtwork {
+    private val provider = ArtworkServiceProvider()
+    suspend fun get(context: Context): CardArtworkService = provider.get(context)
 }
 
 /** Reusable ordinary native presentation, not a catalog browser or a new inspector.
@@ -110,13 +119,14 @@ object PublicArtwork {
  * cannot display a late previous face. No HTML, name guessing, retries per frame or saved secrets. */
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
-    modifier: Modifier = Modifier, service: CardArtworkService = PublicArtwork.get(LocalContext.current)) {
+    modifier: Modifier = Modifier, service: CardArtworkService? = null) {
     val context = LocalContext.current
     val request = reference?.let { CardArtworkRequest(it, width, height) }
     val result by produceState<Pair<CardArtworkRequest, coil3.Image?>?>(null, request, service) {
         value = null
         if (request != null) {
-            val result = service.loader.execute(ImageRequest.Builder(context).data(request).size(width, height).build())
+            val artwork = service ?: PublicArtwork.get(context)
+            val result = artwork.loader.execute(ImageRequest.Builder(context).data(request).size(width, height).build())
             currentCoroutineContext().ensureActive()
             value = request to (result as? SuccessResult)?.image
         }

@@ -234,8 +234,9 @@ Older "open" wording elsewhere is not an automatic owner-question queue.
 
 **Scoped addition approved 2026-10-26:**
 [Cubes, pods, and drafting](../03-contracts/cubes-pods-and-drafting.md) authorizes
-the design of cube text/Cube Cobra imports, multi-member drafting, private limited
-deckbuilding and submission checks, and independent 1v1 challenges. The exclusions
+the design of cube text/Cube Cobra imports, 2–8-member drafting, private limited
+deckbuilding and submission checks, independent 1v1 challenges, and player avatars
+([profiles](../03-contracts/profiles-and-avatars.md)). The exclusions
 below do not negate that specific approval. It does not approve general collection
 card authoring/export, a multiplayer tabletop, or automatic in-game rules execution,
 and is not a claim of implemented R1 functionality.

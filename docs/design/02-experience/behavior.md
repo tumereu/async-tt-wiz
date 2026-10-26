@@ -32,18 +32,19 @@ The general rules are:
 ### Approved cubes, pods, and drafting addition — 2026-10-26
 
 The [feature contract](../03-contracts/cubes-pods-and-drafting.md) adds saved cubes
-and MTG set sources, pods of up to 16 members, and one completed draft followed by
-independent 1v1 challenges. Initial modes are Booster, Glimpse/Burn, and configurable
-Grid; drafting requires at least two people and has no deadlines or bots.
+and MTG set sources, pods of 2–8 members, and one completed draft followed by
+independent 1v1 challenges. Modes are Booster, Glimpse/Burn (both with "packs open
+at once"), and Draftmancer's Grid; there are no deadlines or bots. The creator
+starts once two members have accepted.
 
-Members can use a Build tab while waiting, organizing acquired copies into
-Main/Side/Trash with swipes and mana-value columns. Basic lands use number steppers.
-After drafting, submit a private locked deck with at least 40 main-deck cards and
-the pod's sideboard limit (unlimited by default). Any two submitted members can
-start games; per-game sideboarding never changes their pod decks or parallel games.
-Creators destroy pods; other members can leave. Leaving during a draft cancels
-that attempt and returns remaining members to setup. Started games survive pod
-destruction. This describes approved feature design, not implemented R1 behavior.
+Members pick by swiping cards (right keep, left burn) and can use a Build tab while
+waiting, organizing copies into Main/Side/Trash with swipes and mana-value columns.
+Basic lands use number steppers. After drafting, submit a locked deck with at least
+40 main-deck cards within the pod's sideboard limit (unlimited by default). Any two
+submitted members can play through the normal invite and lobby; per-game
+sideboarding never changes their pod decks. Creators destroy pods; other members
+can leave. Leaving during a draft cancels it for everyone. Started games survive.
+Approved design, not yet implemented.
 
 ### Current table presentation and ownership — D-295–D-299
 

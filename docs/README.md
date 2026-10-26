@@ -24,9 +24,10 @@ Decision history is retained in [docs/decisions.md](decisions.md).
 See the [self-hosting guide](../deploy/README.md) to play with another person.
 
 The [cubes, pods, and drafting design](design/03-contracts/cubes-pods-and-drafting.md)
-is an approved feature addition (2026-10-26), not a claim of implemented R1 behavior.
-It covers collection cubes, MTG set boosters, asynchronous drafting, deckbuilding,
-and multiple independent 1v1 games within a pod.
+and [profiles and avatars](design/03-contracts/profiles-and-avatars.md) are approved
+feature additions (2026-10-26), not yet implemented. They cover collection cubes,
+MTG set boosters, asynchronous 2–8-player drafting, deckbuilding, independent 1v1
+games within a pod, and player avatars.
 
 ## How the tiers fit together
 

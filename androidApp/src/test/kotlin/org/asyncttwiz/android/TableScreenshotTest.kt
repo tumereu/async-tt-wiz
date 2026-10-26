@@ -336,9 +336,9 @@ class TableScreenshotTest {
 
     @Test fun progressionHoldOnlyEndsTurn() {
         val (_, sent) = menu("token-ping-reveal", false)
-        compose.onNodeWithContentDescription("Next step").performTouchInput { down(center) }
+        compose.onNodeWithContentDescription(nextStepLabel(LiveTableFixture.menuPlay(true).board.turn)).performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(700)
-        compose.onNodeWithContentDescription("Next step").performTouchInput { up() }
+        compose.onNodeWithContentDescription(nextStepLabel(LiveTableFixture.menuPlay(true).board.turn)).performTouchInput { up() }
         compose.runOnIdle { assertEquals(listOf(PlayAction.EndTurn), sent) }
     }
 

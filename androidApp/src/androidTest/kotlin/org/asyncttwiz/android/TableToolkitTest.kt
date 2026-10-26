@@ -50,7 +50,7 @@ class TableToolkitTest {
         app.onNodeWithContentDescription("Increase blue counter").performScrollTo().performClick()
         app.onNodeWithContentDescription("Increase blue counter").performClick()
         app.waitUntil(30_000) { lobby.state.play!!.board.cards.single { it.id == token.id }.counters[CounterColor.BLUE] == "2" }
-        app.onNodeWithContentDescription("Add Stack effect").performScrollTo().performClick()
+        app.onNodeWithContentDescription("Stack").performScrollTo().performClick()
         app.waitUntil(30_000) { lobby.state.play!!.board.stackEffects.any { it.sourceId == token.id } }
         app.onNodeWithContentDescription("Declare without tapping").performScrollTo().performClick()
         app.waitUntil(30_000) { CombatStackRules.occurrences(lobby.state.play!!.board.combat).any { it.sourceId == token.id } }
@@ -60,7 +60,7 @@ class TableToolkitTest {
     @Test fun actualProgressionHoldConsumesTapAndPlayerDragCancellationDoesNotSubmit() {
         val model = open(); val lobby = model.lobby
         val before = lobby.state.play!!
-        app.onNodeWithContentDescription("Next step").performTouchInput { longClick(durationMillis = 650) }
+        app.onNodeWithContentDescription(nextStepLabel(before.board.turn)).performTouchInput { longClick(durationMillis = 650) }
         app.waitUntil(30_000) { lobby.state.play!!.board.turn.accountId != before.board.turn.accountId }
         assertEquals("UNTAP", lobby.state.play!!.board.turn.step)
         val game = lobby.state.detail!!

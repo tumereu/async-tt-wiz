@@ -7,10 +7,10 @@ import kotlin.test.*
 class AttentionPresentationTest {
     @Test fun timelineBarsAreNeutralRegardlessOfTurnViewerOrAttention() {
         val initial = TableFixture.play().board
-        for (turn in listOf("a", "b")) for (viewer in listOf("a", "b")) for (holder in listOf("a", "b")) {
+        for (turn in listOf("a", "b")) for (viewer in listOf("a", "b")) for (holder in listOf(null, "a", "b")) {
             val board = initial.copy(turn = initial.turn.copy(accountId = turn), attentionHolder = holder)
             assertEquals(TimelineBarColor, tableBarColor(board, viewer, reviewing = true))
-            assertEquals(battlefieldColor(turn, viewer, turn, false), tableBarColor(board, viewer))
+            assertEquals(battlefieldColor(board.effectiveAttentionHolder, viewer, board.effectiveAttentionHolder, false), tableBarColor(board, viewer))
             assertNotEquals(TimelineBarColor, tableBarColor(board, viewer))
         }
     }

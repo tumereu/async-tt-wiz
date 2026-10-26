@@ -935,7 +935,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 val badgeWidth = (cache.measure(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
                 drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
                     size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
+                val previousColor = paint.color
+                if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
                 fittedText(i.corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
+                paint.color = previousColor
             }
         }
         drawPath(outline, color,
@@ -955,7 +958,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             }
         }
         paint.textSize = 7 * valueScale * z * density
+        val previousColor = paint.color
+        if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
+        paint.color = previousColor
         cardAnnotations(i, x, y, z)
         paint.textSize = 11 * density
         }

@@ -30,7 +30,7 @@ class TableChromeTest {
                 viewer == turn -> assertEquals(AdvanceButtonStyle(OwnTableColor, Color.White, OwnTableColor), style)
                 else -> assertEquals(AdvanceButtonStyle(Color.White, OpponentTableColor, OpponentTableColor), style)
             }
-            assertEquals(battlefieldColor(turn, viewer, turn, false), tableBarColor(current.board, viewer))
+            assertEquals(battlefieldColor(move, viewer, move, false), tableBarColor(current.board, viewer))
         }
     }
 

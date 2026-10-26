@@ -43,15 +43,6 @@ class HistoryTimelineTest {
         assertFails { historyIconGlyph("invented-cast") }
     }
 
-    @Test fun commentDraftKeepsCapturedReferenceAndExactMessageWhitespaceSeparateFromChat() {
-        val reference = EventReference(id(1), id(2)); val draft = EventCommentDraft(reference)
-        assertNull(draft.action())
-        draft.text = "  one\n two  "
-        assertEquals(PlayAction.EventComment(reference, "  one\n two  "), draft.action())
-        assertEquals(reference, draft.reference)
-        draft.text = "  "; assertNull(draft.action())
-    }
-
     @Test fun mergedManualAndOccurrenceIconsRenderWithoutGenericFallback() {
         val actions = listOf(PlayAction.ResetCorner(id(1)), PlayAction.SetFace(id(1), id(2)),
             PlayAction.SetCovered(id(1), true), PlayAction.SetCovered(id(1), false),
@@ -62,6 +53,16 @@ class HistoryTimelineTest {
         for (action in actions) assertTrue(historyIconGlyph(HistoryGrouping.classify(action).icon).isNotBlank(), "$action")
         assertNotEquals(historyIconGlyph("link"), historyIconGlyph("link_off"))
         assertFails { historyIconGlyph("unknown-manual-action") }
+    }
+
+    @Test fun oldEventCommentsStillProjectAsReadableTimelineEvents() {
+        val comment = GameplayMutation(id(1), id(0), id(50), id(101), id(70), null,
+            PlayAction.EventComment(EventReference(id(50), id(0)), "An old event comment"), GameplayTransition(),
+            grouping = HistoryGrouping.classify(PlayAction.EventComment(EventReference(id(50), id(0)), "An old event comment")))
+        val events = HistoryTimelineLayout.events(HistoryTree(id(0), listOf(comment), id(1), "v1"), id(1))
+        assertEquals("Comment", events.last().label)
+        assertTrue(events.last().description.contains("An old event comment"))
+        assertTrue(historyIconGlyph(events.last().icon).isNotBlank())
     }
 
     @Test fun pingUniformSelectionOrderExplicitUnpingAndModeLifetime() {

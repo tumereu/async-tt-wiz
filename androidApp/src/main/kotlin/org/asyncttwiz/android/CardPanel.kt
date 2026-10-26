@@ -120,7 +120,8 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
                 card.id in panel.display.revealedIds,
             corner = if (row.entry.faceVisible) card.corner else "", note = if (row.entry.faceVisible) card.note else "",
             copies = row.copies, token = card.token, counters = if (row.entry.faceVisible) card.counters else emptyMap(),
-            typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
+            typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "",
+            changedPowerToughness = row.entry.faceVisible && changedPowerToughness(card.corner, face))
     } }
     val ids = panels.flatMap { it.display.cardIds }.toSet()
     return scene.copy(items = scene.items.filterNot { it.cardId in ids } + items,

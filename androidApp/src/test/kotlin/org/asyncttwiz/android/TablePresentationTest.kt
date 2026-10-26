@@ -32,6 +32,19 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    @Test fun handsUseMirroredMarginsWithinTheirAvailableArea() {
+        for (landscape in listOf(false, true)) {
+            val width = if (landscape) 900f else 412f
+            val scene = TableFixture.scene(landscape = landscape)
+            val own = scene.items.single { it.id == "a/HAND" }.bounds
+            val opponent = scene.items.single { it.id == "b/HAND" }.bounds
+            assertEquals(own.x, opponent.x)
+            val opponentRight = width - if (landscape) TablePresentation.TOOLBAR else 0f
+            assertEquals(width - own.right, opponentRight - opponent.right)
+            if (landscape) assertEquals(412f - tableBottomHeight(true) - own.bottom, opponent.y)
+        }
+    }
+
     @Test fun continuousLibraryRevealRendersOnlyTheTopFaceAndEyeForBothViewersAndAllowsInspect() {
         val initial = TableFixture.play()
         for (enabled in listOf(false, true)) for (viewer in listOf("a", "b")) for (landscape in listOf(false, true)) {

@@ -92,7 +92,7 @@ class TableControlsInteractionTest {
         val mode = compose.onNodeWithContentDescription("Interaction mode")
         mode.assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
         val modeBounds = mode.fetchSemanticsNode().boundsInRoot
-        val nextBounds = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
+        val nextBounds = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn)).fetchSemanticsNode().boundsInRoot
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertTrue(nextBounds.right < root.right)
         assertEquals(root.bottom - 4f, nextBounds.bottom)
@@ -114,11 +114,11 @@ class TableControlsInteractionTest {
             QuickActionStrip(play, QuickContext(viewer = play.board.turn.accountId), controller, OwnTableColor)
         } }
         val end = compose.onNodeWithContentDescription("End turn").fetchSemanticsNode().boundsInRoot
-        val next = compose.onNodeWithContentDescription("Next step").fetchSemanticsNode().boundsInRoot
+        val next = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn)).fetchSemanticsNode().boundsInRoot
         assertEquals(0f, end.left)
         assertEquals(end.right + 4f, next.left)
         assertEquals(412f, next.right)
-        assertEquals(48f, next.width)
+        assertEquals(120f, next.width)
     }
 
     @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {
@@ -146,7 +146,7 @@ class TableControlsInteractionTest {
                 }
             }
         } }
-        val next = compose.onNodeWithContentDescription("Next step")
+        val next = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn))
         next.performTouchInput { click() }
         assertEquals(listOf<PlayAction>(PlayAction.NextStep), sent)
         assertTrue(ticks.isEmpty())
@@ -205,5 +205,25 @@ class TableControlsInteractionTest {
             TurnPosition.entries.map { it.shortCode })
         assertEquals("Precombat main", turnStepName(TableToolFixture.play(TurnPosition.PRECOMBAT_MAIN).board.turn))
         assertEquals("Ending · Cleanup", turnStepName(TableToolFixture.play(TurnPosition.CLEANUP).board.turn))
+    }
+
+    @Test fun pickerAndIndicatorUseTheSameShortLabelsForEveryStep() {
+        val initial = TableToolFixture.play()
+        var turn by mutableStateOf(initial.board.turn)
+        var picker by mutableStateOf(false)
+        val controller = TableActionController({ initial }, { true }, { true }, RecordingRoutes())
+        compose.setContent { MaterialTheme {
+            TurnStepIcon(turn)
+            if (picker) PhaseStepPicker(initial, initial.board.turn.accountId, OwnTableColor, controller, {})
+        } }
+        for (step in TurnPosition.entries) {
+            compose.runOnIdle { turn = turn.copy(phase = step.phase, step = step.step) }
+            compose.onNodeWithText(stepLabel(step), useUnmergedTree = true).assertExists()
+        }
+        compose.runOnIdle { picker = true }
+        for (step in TurnPosition.entries) {
+            val label = hasText(stepLabel(step)) and hasAnyAncestor(hasContentDescription(step.label))
+            compose.onNode(label, useUnmergedTree = true).assertExists()
+        }
     }
 }

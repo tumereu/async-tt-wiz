@@ -1,7 +1,9 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,7 +13,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import android.content.Context
 import org.asyncttwiz.protocol.*
 
@@ -62,12 +65,16 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             InlinePopupCell(MenuControl("Mulligan −1", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
         }
         val revealed = board.containers.single { it.id == controller.libraryId }.keepTopRevealed
-        Row(Modifier.width(248.dp).heightIn(min = 48.dp).ringInputTarget()
-            .toggleable(revealed, enabled = controller.maySetKeepTopRevealed(), role = Role.Switch,
-                onValueChange = { finish(controller.setKeepTopRevealed(it)) }),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Keep top card revealed", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            Switch(revealed, onCheckedChange = null, enabled = controller.maySetKeepTopRevealed())
+        val color = LocalInlinePopupColor.current
+        RingPress(MenuControl("Keep top card revealed", controller.maySetKeepTopRevealed(), selected = revealed) {
+            finish(controller.setKeepTopRevealed(!revealed))
+        }, Modifier.width(248.dp).heightIn(min = 48.dp).semantics {
+            stateDescription = if (revealed) "On" else "Off"
+        }, color = color, fill = if (revealed) color.copy(alpha = .2f) else androidx.compose.ui.graphics.Color.White) {
+            Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (revealed) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff, null, tint = color)
+                Text("Keep top card revealed", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
     if (editing != null) {

@@ -42,7 +42,7 @@ class QuickActionsTest {
                 TurnState(fixture.actor, "3", step.phase, step.step)))
             val result = GameplayRules.change(play, fixture.actor, fixture.command(PlayAction.NextStep))
             val passedTurn = requireNotNull(result.state).board.turn.accountId != fixture.actor
-            assertEquals(if (passedTurn) "End turn" else "Next step", nextStepLabel(play.board.turn), step.name)
+            assertEquals(if (passedTurn) "End turn" else stepLabel(TurnPosition.of(result.state!!.board.turn)!!), nextStepLabel(play.board.turn), step.name)
         }
     }
 
@@ -50,6 +50,20 @@ class QuickActionsTest {
         val play = TableToolFixture.play(position, number)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         return QuickActions.contextual(play, context.copy(viewer = play.board.turn.accountId), controller)
+    }
+
+    @Test fun existingAttackersHideNoAttackAndOfferSelectingMoreButBlockersDoNot() {
+        val initial = TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS)
+        for (attackers in listOf(false, true)) {
+            val occurrence = CombatOccurrence(TableToolFixture.id(98), TableToolFixture.id(20))
+            val area = CombatArea(TableToolFixture.id(95), listOf(CombatPair(TableToolFixture.id(96),
+                attackers = if (attackers) listOf(occurrence) else emptyList(),
+                blockers = if (attackers) emptyList() else listOf(occurrence))))
+            val play = initial.copy(board = initial.board.copy(combat = area))
+            val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+            val actions = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller)
+            assertEquals(if (attackers) listOf("Select more attackers") else listOf("Select attackers", "No attack"), actions.map { it.name })
+        }
     }
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
@@ -134,7 +148,7 @@ class QuickActionsTest {
         val play = TableToolFixture.play(TurnPosition.CLEANUP, "9")
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         val table = TableActionMenus.table(play, QuickContext(), controller)
-        assertEquals(listOf("Untap all", "Create combat area",
+        assertEquals(listOf("Create combat area",
             "Create token", "Suggest game end"), table.map { it.name })
         val area = CombatArea(TableToolFixture.id(95))
         val open = TableActionMenus.table(play.copy(board = play.board.copy(combat = area)), QuickContext(), controller)

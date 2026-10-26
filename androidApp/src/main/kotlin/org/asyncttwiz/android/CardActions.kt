@@ -159,6 +159,7 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
         Row { for ((color, value) in card.counters) Text(value, Modifier.background(counterColor(color)),
             maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
         Text("${if (count > 1) "×$count " else ""}${card.corner}", Modifier.align(Alignment.End), maxLines = 1,
+            color = if (changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor) else LocalContentColor.current,
             fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)
     }
 }

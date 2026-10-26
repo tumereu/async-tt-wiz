@@ -149,7 +149,6 @@ class GameSession(private val connection: GameConnection, private val credential
     private var lastCredential: String? = null
     private var lastPing = 0L
     private val connectionDemand = mutableMapOf<String, Long>()
-    private val historyDownloads = mutableSetOf<String>()
     private val uncertainGames = mutableSetOf<String>()
     @Volatile private var closed = false
     var error: String? = null
@@ -288,14 +287,6 @@ class GameSession(private val connection: GameConnection, private val credential
         return true
     }
 
-    /** Explicit read-only refresh uses the existing baseline/recovery operation, never a lazy branch API. */
-    fun downloadHistory(game: GameSummary): Boolean {
-        checkAccount()
-        if (closed || !activeRequest(game)) return false
-        if (!ready(game.id)) { historyDownloads.add(game.id); statusChanged(); return true }
-        recover(game.id, summary(game).revision)
-        return true
-    }
     fun withdrawGameplayPrediction(gameId: String, requestId: String) { plays[gameId]?.withdraw(requestId); statusChanged() }
     fun preparation(game: GameSummary): LobbyPreparation? {
         val current = summary(game)
@@ -900,10 +891,6 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun flush() {
         if (!ready || credential() != token) return
-        for (id in historyDownloads.toList()) if (ready(id)) {
-            historyDownloads.remove(id)
-            summaries[id]?.let { recover(id, it.revision) }
-        }
         // Keep the original protocol's 256-ID recovery window. Retain the entire captured tail
         // compactly in memory, preview it immediately and drain it as capacity becomes available.
         // No card is silently dropped and an acknowledgement is not a per-card sending barrier.
@@ -1174,7 +1161,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); historyDownloads.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; error = null; statusChanged() }
+        messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

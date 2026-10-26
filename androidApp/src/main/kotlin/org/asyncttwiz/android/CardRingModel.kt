@@ -8,7 +8,7 @@ internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 internal object CardRingPages {
     const val capacity = 16
     val defaults = listOf(
-        CardRingPage("Everyday", listOf("inspect", "note", "corner", "Declare + tap", "Declare without tapping", "flip", "switchFace",
+        CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "resetCorner",

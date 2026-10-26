@@ -25,7 +25,7 @@ class LibraryController(
     private fun current(): PlayState? = state()?.takeIf { it.id == playId }
     fun available() = connected() && current() != null
     fun maySetKeepTopRevealed() = available() && current()?.board?.containers?.any {
-        it.id == libraryId && it.zone == PlayZone.LIBRARY && it.accountId == viewer } == true
+        it.id == libraryId && it.zone == PlayZone.LIBRARY } == true
     fun setKeepTopRevealed(enabled: Boolean): LibrarySubmission =
         if (!maySetKeepTopRevealed()) LibrarySubmission(0, 1)
         else send(listOf(PlayAction.SetKeepTopRevealed(libraryId, enabled)))

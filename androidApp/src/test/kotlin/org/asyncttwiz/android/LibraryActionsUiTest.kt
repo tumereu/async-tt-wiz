@@ -135,6 +135,7 @@ class LibraryActionsUiTest {
         render(false)
         for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
+        compose.onNodeWithText("Keep top card revealed").assertIsNotEnabled()
         assertTrue(sent.isEmpty())
     }
 
@@ -146,9 +147,11 @@ class LibraryActionsUiTest {
         assertEquals(1, completed)
     }
 
-    @Test fun opponentCannotToggleAnotherLibrary() {
+    @Test fun opponentCanEnableContinuousRevealFromAnotherLibraryMenu() {
         render(viewer = "b")
-        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsNotEnabled()
-        assertTrue(sent.isEmpty())
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsEnabled().assertIsOff().performClick()
+        assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(library.id, true)), sent)
+        assertEquals(1, completed)
     }
 }

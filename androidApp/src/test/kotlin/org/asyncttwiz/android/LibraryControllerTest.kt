@@ -5,19 +5,25 @@ import org.junit.Test
 import org.asyncttwiz.protocol.*
 
 class LibraryControllerTest {
-    @Test fun continuousRevealSendsBothValuesOnlyForTheConnectedLibraryOwner() {
+    @Test fun continuousRevealSendsBothValuesForEitherConnectedPlayer() {
         val sent = mutableListOf<PlayAction>()
         var online = true
         fun controller(viewer: String) = LibraryController(id(2), id(10), id(11), { initial() }, { online },
             { sent += it; true }, viewer = viewer)
-        val owner = controller(id(7))
-        assertEquals(LibrarySubmission(1, 0), owner.setKeepTopRevealed(true))
-        assertEquals(LibrarySubmission(1, 0), owner.setKeepTopRevealed(false))
-        assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(id(10), true), PlayAction.SetKeepTopRevealed(id(10), false)), sent)
-        assertEquals(LibrarySubmission(0, 1), controller(id(8)).setKeepTopRevealed(true))
+        for (viewer in listOf(id(7), id(8))) {
+            val controller = controller(viewer)
+            assertTrue(controller.maySetKeepTopRevealed())
+            assertEquals(LibrarySubmission(1, 0), controller.setKeepTopRevealed(true))
+            assertEquals(LibrarySubmission(1, 0), controller.setKeepTopRevealed(false))
+        }
+        assertEquals(List(2) { listOf<PlayAction>(PlayAction.SetKeepTopRevealed(id(10), true),
+            PlayAction.SetKeepTopRevealed(id(10), false)) }.flatten(), sent)
         online = false
-        assertEquals(LibrarySubmission(0, 1), owner.setKeepTopRevealed(true))
-        assertEquals(2, sent.size)
+        for (viewer in listOf(id(7), id(8))) {
+            assertFalse(controller(viewer).maySetKeepTopRevealed())
+            assertEquals(LibrarySubmission(0, 1), controller(viewer).setKeepTopRevealed(true))
+        }
+        assertEquals(4, sent.size)
     }
 
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"

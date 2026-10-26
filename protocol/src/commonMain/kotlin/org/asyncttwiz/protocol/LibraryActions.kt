@@ -38,7 +38,6 @@ object LibraryRules {
             is PlayAction.SetKeepTopRevealed -> {
                 val library = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
                     ?: return GameplayChange(reason = "missingReference")
-                if (library.accountId != actor) return GameplayChange(reason = "accessDenied")
                 if (library.keepTopRevealed == action.enabled) return GameplayChange(state)
                 record(board.copy(containers = board.containers.map {
                     if (it.id == library.id) it.copy(keepTopRevealed = action.enabled) else it

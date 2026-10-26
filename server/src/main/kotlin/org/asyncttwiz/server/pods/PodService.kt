@@ -13,12 +13,17 @@ import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.CubeEntry.CUBE_ENTRY
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
+import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GameRevision.GAME_REVISION
+import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION as INVITE
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER as MEMBER
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.generated.tables.SavedCube.SAVED_CUBE
 import org.asyncttwiz.server.generated.tables.records.PodRecord
+import org.asyncttwiz.server.game.PreparationStore
+import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.DSLContext
 import org.jooq.JSONB
 import org.jooq.SQLDialect
@@ -191,12 +196,62 @@ class PodService(private val runtime: ServiceRuntime) {
             detail(sql, row, owner)
         }
 
+    fun challenge(principal: AccountService.Principal, id: String, input: ChallengeFromPod): Result =
+        mutate(principal, id, input.requestId, "challengeFromPod", json.encodeToJsonElement(input)) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (!LobbyValidation.name(input.gameName)) return@mutate error(400, "invalid_name")
+            if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
+                return@mutate error(400, "invalid_opponent")
+            val players = members(sql, row.id!!).associateBy { it.accountId.toString() }
+            if (input.opponentId !in players) return@mutate error(404, "opponent_not_member")
+            if (row.phase != "DRAFTED" || listOf(owner.toString(), input.opponentId).any { players.getValue(it).submittedDeck == null })
+                return@mutate error(409, "deck_not_submitted")
+            val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
+                ?: return@mutate error(400, "invalid_basic_definitions")
+            val copies = state(row)!!.copies.associateBy { it.id }
+            val builds = listOf(owner.toString(), input.opponentId).associateWith {
+                json.decodeFromString<PodDeckBuild>(players.getValue(it).submittedDeck!!.data())
+            }
+            // Match the existing tabletop's bounded physical deck representation.
+            if (builds.values.any { it.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + it.basics.total > DeckValidation.MAX_CARDS })
+                return@mutate error(400, "invalid_deck")
+            val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
+            sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
+                .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
+                .set(GAME.CURRENT_INVITATION, invitation).set(GAME.POD_ID, row.id).set(GAME.POD_NAME, row.name)
+                .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).execute()
+            sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
+            val lobby = LobbyService(runtime)
+            val summary = lobby.summary(sql, game)
+            val needed = builds.values.flatMap { build -> build.copies.filter { it.category != PodDeckCategory.TRASH }
+                .map { copies.getValue(it.copyId).definition } }.toSet()
+            val definitions = PreparationStore.definitions(sql, needed) + input.basicDefinitions
+            for ((player, build) in builds) {
+                val selection = CommandIds.uuidV5(input.requestId, "pod-deck/$player")
+                var index = 0L
+                val entries = build.copies.filter { it.category != PodDeckCategory.TRASH }.map { copy ->
+                    PreparedEntry(copies.getValue(copy.copyId).definition,
+                        if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD,
+                        (index++).toString(), 1)
+                } + BasicLand.entries.mapNotNull { land -> land.count(build.basics).takeIf { it > 0 }?.let { count ->
+                    PreparedEntry(basics.getValue(land), SavedDeckSection.MAINBOARD, index.toString(), count, land).also { index += count }
+                } }
+                val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
+                    row.name!!, entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
+                PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(game.toString(), summary.preparationRound,
+                    listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
+            }
+            ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
+            Result(201, json.encodeToString(summary))
+        }
+
     fun leave(principal: AccountService.Principal, id: String, input: PodRequest): Result =
         mutate(principal, id, input.requestId, "leavePod", json.encodeToJsonElement(input)) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.creatorId == owner) return@mutate error(403, "creator_cannot_leave")
             // Record cancellation for the original membership, including the departing member.
             if (row.phase == "DRAFTING") reset(sql, row, owner)
+            withdrawChallenges(sql, row.id!!, owner)
             sql.deleteFrom(MEMBER).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             if (row.phase == "DRAFTED" && members(sql, row.id!!).size == 1) destroy(sql, row, owner)
             else save(sql, row)
@@ -210,9 +265,27 @@ class PodService(private val runtime: ServiceRuntime) {
         }
 
     private fun destroy(sql: DSLContext, row: PodRecord, author: UUID) {
+        withdrawChallenges(sql, row.id!!)
         clearDraftHints(sql, row.id!!)
         notify(sql, row, ActivityKind.POD_DESTROYED, author)
         sql.deleteFrom(POD).where(POD.ID.eq(row.id)).execute()
+    }
+
+    private fun withdrawChallenges(sql: DSLContext, pod: UUID, departed: UUID? = null) {
+        // Lock games in identity order; an acceptance holding the game lock wins and is never undone.
+        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY"))
+            .and(if (departed == null) DSL.trueCondition() else GAME.INVITER_ID.eq(departed).or(GAME.RECIPIENT_ID.eq(departed)))
+            .orderBy(GAME.ID).forUpdate().fetch()
+        for (row in games) {
+            if (sql.select(INVITATION.STATE).from(INVITATION).where(INVITATION.ID.eq(row.currentInvitation)).fetchSingle(INVITATION.STATE) == "ACCEPTED") continue
+            sql.update(GAME).set(GAME.LIFECYCLE, "CANCELLED").set(GAME.REVISION, row.revision!! + 1)
+                .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(row.id)).execute()
+            val summary = LobbyService(runtime).summary(sql, row.id!!)
+            val revision = GameRevision(summary.id, row.revision.toString(), summary.revision, UUID.randomUUID().toString(),
+                (departed ?: row.inviterId).toString(), GameScope(summary.id, summary.preparationRound), summary)
+            sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
+                .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+        }
     }
 
     private fun reset(sql: DSLContext, row: PodRecord, author: UUID) {

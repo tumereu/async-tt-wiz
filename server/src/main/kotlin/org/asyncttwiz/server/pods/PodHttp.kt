@@ -39,7 +39,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
-                action in listOf("invitations", "accept", "decline", "start", "pick", "submit", "leave", "cancel") -> "POST"
+                action in listOf("invitations", "accept", "decline", "start", "pick", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("build/move", "build/basics") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -67,7 +67,8 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))
                     action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
-                    action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))
+                     action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))
+                     action == "challenge" -> pods.challenge(principal, id, json.decodeFromString<ChallengeFromPod>(text))
                     action == "leave" -> pods.leave(principal, id, json.decodeFromString<PodRequest>(text))
                     else -> pods.cancel(principal, id, json.decodeFromString<PodRequest>(text))
                 }

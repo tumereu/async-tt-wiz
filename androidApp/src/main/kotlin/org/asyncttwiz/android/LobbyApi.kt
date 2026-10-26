@@ -19,6 +19,7 @@ interface Lobbies : Closeable {
     suspend fun add(token: String, input: AddContact): AccountIdentity
     suspend fun remove(token: String, accountId: String) { throw LobbyFailure("not_configured") }
     suspend fun create(token: String, input: CreateInvitation): GameSummary
+    suspend fun challengeFromPod(token: String, podId: String, input: ChallengeFromPod): GameSummary { throw LobbyFailure("not_configured") }
     suspend fun games(token: String, invitations: Boolean = false, after: String? = null): GameList
     suspend fun head(token: String, id: String): GameSummary
 }
@@ -37,6 +38,10 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
         call<Unit>(token, "/v1/contacts/$accountId", verb = HttpMethod.Delete)
     }
     override suspend fun create(token: String, input: CreateInvitation): GameSummary = call(token, "/v1/invitations", DeckJson.format.encodeToString(input))
+    override suspend fun challengeFromPod(token: String, podId: String, input: ChallengeFromPod): GameSummary {
+        if (!DeckValidation.uuid(podId)) throw LobbyFailure("invalid_request")
+        return call(token, "/v1/pods/$podId/challenge", DeckJson.format.encodeToString(input))
+    }
     override suspend fun games(token: String, invitations: Boolean, after: String?): GameList = call(token, page(if (invitations) "invitations" else "games", after))
     override suspend fun head(token: String, id: String): GameSummary {
         if (!DeckValidation.uuid(id)) throw LobbyFailure("invalid_request")

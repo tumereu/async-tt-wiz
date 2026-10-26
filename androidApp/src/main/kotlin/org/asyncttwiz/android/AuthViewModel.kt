@@ -78,7 +78,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (failure.status == 401) authenticationRequired(token)
                 throw failure
             }
-        }, treeCache = local::treeCache)
+        }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) })
     private val gameMaintenance = GameConnectionMaintenance({ true }, {
         controller.foreground()
         if (controller.state.account != null) {

@@ -115,7 +115,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             attentionHolder,
-            game.updatedAt!!.toInstant().toString())
+            game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName)
     }
 
     fun list(principal: AccountService.Principal, after: String?, invitations: Boolean): Result {

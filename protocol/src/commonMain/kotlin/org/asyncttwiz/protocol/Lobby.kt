@@ -13,7 +13,8 @@ import kotlinx.serialization.Serializable
     val inviter: AccountIdentity, val recipient: AccountIdentity, val preparationRound: String,
     val invitationId: String, val invitationState: InvitationState, val lifecycle: GameLifecycle = GameLifecycle.LOBBY,
     val revision: String = "0", val playId: String? = null,
-    val attentionHolder: String? = null, val updatedAt: String = createdAt)
+    val attentionHolder: String? = null, val updatedAt: String = createdAt,
+    val podId: String? = null, val podName: String? = null)
 @Serializable data class GameList(val games: List<GameSummary>, val next: String? = null)
 @Serializable data class LobbyError(val code: String)
 

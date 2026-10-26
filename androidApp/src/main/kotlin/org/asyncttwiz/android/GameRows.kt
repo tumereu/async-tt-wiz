@@ -47,6 +47,8 @@ private fun GameRow(game: GameSummary, accountId: String, modifier: Modifier) {
             }
             EntryIcon(null, "chevron")
         }
+        game.podName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis) }
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game)} · ${gameLastActivity(game)}",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)

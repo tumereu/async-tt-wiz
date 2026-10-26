@@ -153,6 +153,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList())
         enqueue(Write(detail.id, attempt, pick = true, send = { api.pick(it, detail.id, input) }))
     }
+    fun gridSelect(gridId: String, line: GridLineType, index: Int) {
+        val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.GRID } ?: return
+        val grid = detail.grid ?: return
+        val board = grid.publicView.grids.firstOrNull { it.id == gridId } ?: return
+        val attempt = detail.draftAttemptId ?: return
+        if (state.picking || state.uncertain || !PodGridRules(board, grid.mine).canSelect(GridLine(line, index))) return
+        val input = SelectPodGrid(requestId(), attempt, gridId, line, index)
+        enqueue(Write(detail.id, attempt, pick = true, send = { api.gridSelect(it, detail.id, input) }))
+    }
     fun move(copyId: String, category: PodDeckCategory) {
         val detail = editable() ?: return
         if (detail.build?.copies?.none { it.copyId == copyId } != false) return
@@ -328,9 +337,10 @@ internal fun podStatus(pod: PodSummary): String = when (pod.attention) {
     PodAttention.BUILD -> "Build your deck"
     PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
 }
-internal fun podMemberStatus(member: PodMember, phase: PodPhase): String = when {
+internal fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
+    mode == DraftMode.GRID && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
     member.packsWaiting > 0 -> "picking · ${podPackCount(member.packsWaiting)}"
     phase == PodPhase.DRAFTED || member.building -> "building"
     else -> "waiting"

@@ -49,6 +49,8 @@ class PodApiTest {
             expect("/$id/start", HttpMethod.Post, DeckJson.format.encodeToString(input)); api.start(token, id, input)
             val pick = PickPod(request, id, "pack", listOf("keep"), listOf("burn"))
             expect("/$id/pick", HttpMethod.Post, DeckJson.format.encodeToString(pick)); api.pick(token, id, pick)
+            val grid = SelectPodGrid(request, id, "grid-0", GridLineType.COLUMN, 2)
+            expect("/$id/grid/select", HttpMethod.Post, DeckJson.format.encodeToString(grid)); api.gridSelect(token, id, grid)
             val move = MovePodCopy(request, id, "copy", PodDeckCategory.SIDE)
             expect("/$id/build/move", HttpMethod.Put, DeckJson.format.encodeToString(move)); api.move(token, id, move)
             val basics = SetPodBasics(request, id, PodDeckBasics(plains = 17))

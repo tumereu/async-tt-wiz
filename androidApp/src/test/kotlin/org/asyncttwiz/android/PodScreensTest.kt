@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -61,5 +62,43 @@ class PodScreensTest {
         compose.onNodeWithText("deck submitted").assertIsDisplayed()
         compose.onNodeWithText("Challenge").assertDoesNotExist()
         compose.onNodeWithText("Submit your deck to challenge other members.").assertIsDisplayed()
+    }
+
+    @Test fun modeChipsSwitchToGridDefaultsAndHideBoosterSettingsIncludingAdvanced() {
+        var settings by mutableStateOf(DraftSettings())
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it } } } }
+        compose.onNodeWithText("Booster").assertIsSelected()
+        compose.onNodeWithText("Glimpse").assertExists()
+        compose.onNodeWithText("Grid").assertExists().performClick().assertIsSelected()
+        compose.runOnIdle { assertEquals(DraftSettings.grid(), settings) }
+        compose.onNodeWithText("18").assertExists()
+        compose.onNodeWithText("Grids").assertExists()
+        compose.onNodeWithText("Packs per player").assertDoesNotExist()
+        compose.onNodeWithText("Cards per pack").assertDoesNotExist()
+        compose.onNodeWithText("Advanced ▾").performClick()
+        compose.onNodeWithText("Grids open at once").assertExists()
+        listOf("Keep per pick", "Burn per pick", "Discard remaining at", "Packs open at once", "Color balancing").forEach {
+            compose.onNodeWithText(it).assertDoesNotExist()
+        }
+        compose.onNode(isToggleable()).assertIsEnabled().performClick()
+        compose.runOnIdle { assertTrue(settings.twoPicks) }
+        compose.onNodeWithText("Glimpse").performClick()
+        compose.runOnIdle { assertEquals(DraftSettings.glimpse(), settings) }
+        compose.onNodeWithText("Grids").assertDoesNotExist()
+        compose.onNodeWithText("Two picks each").assertDoesNotExist()
+        compose.onNodeWithText("Cards per pack").assertExists()
+    }
+
+    @Test fun twoPicksIsOnlyEnabledWithExactlyTwoMembersAndCreatorPermission() {
+        var members by mutableIntStateOf(3)
+        var enabled by mutableStateOf(true)
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(DraftSettings.grid(), members, enabled) {} } } }
+        compose.onNode(isToggleable()).assertIsNotEnabled()
+        compose.onNodeWithText("Two picks each requires exactly 2 members.").assertExists()
+        compose.runOnIdle { members = 2 }
+        compose.onNode(isToggleable()).assertIsEnabled()
+        compose.runOnIdle { enabled = false }
+        compose.onNode(isToggleable()).assertIsNotEnabled()
+        compose.onNodeWithText("Grid").assertIsNotEnabled()
     }
 }

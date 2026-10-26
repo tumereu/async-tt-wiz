@@ -191,7 +191,7 @@ private fun CubeChoice(cubes: List<CubeSummary>, chosen: String?, fallback: Stri
 private fun PodModeButtons(mode: DraftMode, enabled: Boolean, choose: (DraftMode) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         DraftMode.entries.forEach { value -> FilterChip(mode == value, { choose(value) }, enabled = enabled,
-            label = { Text(if (value == DraftMode.BOOSTER) "Booster" else "Glimpse") }) }
+            label = { Text(when (value) { DraftMode.BOOSTER -> "Booster"; DraftMode.GLIMPSE -> "Glimpse"; DraftMode.GRID -> "Grid" }) }) }
     }
 }
 
@@ -202,7 +202,7 @@ private fun PodMemberStrip(detail: PodDetail) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(member.account)
                 Text(member.account.username, style = MaterialTheme.typography.labelMedium)
-                Text(podMemberStatus(member, detail.phase), style = MaterialTheme.typography.labelSmall,
+                Text(podMemberStatus(member, detail.phase, detail.settings.mode), style = MaterialTheme.typography.labelSmall,
                     color = if (member.packsWaiting > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -219,30 +219,15 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     val settings = edit?.settings ?: detail.settings
     val source = state.cubes.find { it.id == edit?.cubeId }
     val available = source?.totalCopies ?: detail.source.totalCopies
-    val needed = detail.members.size.toLong() * settings.packsPerPlayer * settings.cardsPerPack
+    val needed = settings.supply(detail.members.size, emptyList()).needed
     val issues = settings.validate(detail.members.size.coerceAtLeast(2))
-    var advanced by remember(detail.id) { mutableStateOf(false) }
     LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(edit?.name ?: detail.name, { controller.editSetup(name = it) }, Modifier.fillMaxWidth(), label = { Text("Pod name") }, readOnly = !enabled)
         Text("Source cube", style = MaterialTheme.typography.titleMedium)
         if (creator) CubeChoice(state.cubes, edit?.cubeId, detail.source.cubeName, enabled, selected = true) { controller.editSetup(cubeId = it) }
         else Text(detail.source.cubeName)
-        PodModeButtons(settings.mode, enabled) { mode -> controller.editSetup(settings =
-            (if (mode == DraftMode.BOOSTER) DraftSettings.booster() else DraftSettings.glimpse()).copy(sideboardLimit = settings.sideboardLimit)) }
-        PodNumber("Packs per player", settings.packsPerPlayer, enabled) { controller.editSetup(settings = settings.copy(packsPerPlayer = it)) }
-        PodNumber("Cards per pack", settings.cardsPerPack, enabled) { controller.editSetup(settings = settings.copy(cardsPerPack = it)) }
-        TextButton({ advanced = !advanced }) { Text(if (advanced) "Advanced ▴" else "Advanced ▾") }
-        if (advanced) {
-            PodNumber("Keep per pick", settings.keep, enabled) { controller.editSetup(settings = settings.copy(keep = it)) }
-            PodNumber("Burn per pick", settings.burn, enabled) { controller.editSetup(settings = settings.copy(burn = it)) }
-            PodNumber("Discard remaining at", settings.discardRemainingAt, enabled) { controller.editSetup(settings = settings.copy(discardRemainingAt = it)) }
-            PodNumber("Packs open at once", settings.packsOpenAtOnce, enabled) { controller.editSetup(settings = settings.copy(packsOpenAtOnce = it)) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(settings.colorBalance, { controller.editSetup(settings = settings.copy(colorBalance = it)) }, enabled = enabled)
-                Text("Color balancing")
-            }
-        }
+        PodSettingsFields(settings, detail.members.size, enabled) { controller.editSetup(settings = it) }
         Text("Sideboard limit", style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(settings.sideboardLimit == null, { unlimited -> controller.editSetup(settings = settings.copy(sideboardLimit = if (unlimited) null else 0)) }, enabled = enabled)
@@ -250,6 +235,8 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
         }
         settings.sideboardLimit?.let { limit -> PodNumber("Maximum sideboard cards", limit, enabled) { controller.editSetup(settings = settings.copy(sideboardLimit = it)) } }
         Text("$needed / $available cards used", color = if (needed > available) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        if (settings.mode == DraftMode.GRID && detail.members.size !in 2..4)
+            Text("Grid requires 2–4 accepted members to start.", color = MaterialTheme.colorScheme.error)
         if (issues.isNotEmpty()) Text("Check settings: ${issues.joinToString { it.name.lowercase().replace('_', ' ') }}", color = MaterialTheme.colorScheme.error)
         if (edit != null) Text("Settings changes pending…", style = MaterialTheme.typography.bodySmall)
         Text("Members (${detail.members.size}/8)", style = MaterialTheme.typography.titleMedium)
@@ -260,6 +247,42 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
                 enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8 && state.pending == 0 && !state.uncertain) { Text("Invite player") }
             ScreenButton(controller::start, enabled = state.setup == null && state.pending == 0 && !state.uncertain && podCanStart(detail)) { Text("Start draft") }
             if (detail.members.size < 2) Text("At least two accepted members are needed to start.")
+        }
+    }
+}
+
+@Composable
+internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean, change: (DraftSettings) -> Unit) {
+    var advanced by remember { mutableStateOf(false) }
+    PodModeButtons(settings.mode, enabled) { mode -> change(when (mode) {
+        DraftMode.BOOSTER -> DraftSettings.booster()
+        DraftMode.GLIMPSE -> DraftSettings.glimpse()
+        DraftMode.GRID -> DraftSettings.grid()
+    }.copy(sideboardLimit = settings.sideboardLimit)) }
+    if (settings.mode == DraftMode.GRID) {
+        PodNumber("Grids", settings.grids, enabled) { change(settings.copy(grids = it)) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(settings.twoPicks, { change(settings.copy(twoPicks = it)) }, enabled = enabled && members == 2)
+            Text("Two picks each")
+        }
+        if (members != 2) Text("Two picks each requires exactly 2 members.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        PodNumber("Packs per player", settings.packsPerPlayer, enabled) { change(settings.copy(packsPerPlayer = it)) }
+        PodNumber("Cards per pack", settings.cardsPerPack, enabled) { change(settings.copy(cardsPerPack = it)) }
+    }
+    TextButton({ advanced = !advanced }) { Text(if (advanced) "Advanced ▴" else "Advanced ▾") }
+    if (advanced) {
+        if (settings.mode == DraftMode.GRID) {
+            PodNumber("Grids open at once", settings.gridsOpenAtOnce, enabled) { change(settings.copy(gridsOpenAtOnce = it)) }
+        } else {
+            PodNumber("Keep per pick", settings.keep, enabled) { change(settings.copy(keep = it)) }
+            PodNumber("Burn per pick", settings.burn, enabled) { change(settings.copy(burn = it)) }
+            PodNumber("Discard remaining at", settings.discardRemainingAt, enabled) { change(settings.copy(discardRemainingAt = it)) }
+            PodNumber("Packs open at once", settings.packsOpenAtOnce, enabled) { change(settings.copy(packsOpenAtOnce = it)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(settings.colorBalance, { change(settings.copy(colorBalance = it)) }, enabled = enabled)
+                Text("Color balancing")
+            }
         }
     }
 }
@@ -313,7 +336,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
     val selected = state.tab.takeIf { it in tabs } ?: tabs.first()
     val build = detail.build ?: PodDeckBuild()
-    val copies = detail.draft?.pool.orEmpty().associateBy { it.id }
+    val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
     Column(Modifier.fillMaxSize()) {
         TabRow(tabs.indexOf(selected)) {
@@ -321,7 +344,10 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
-                PodTab.DRAFT -> PodPickView(detail.draft?.head, detail.draft?.packsBehind ?: 0, detail.settings,
+                PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
+                    definitions, detail.members.map { it.account }, state.picking || state.uncertain,
+                    controller::gridSelect, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
+                else PodPickView(detail.draft?.head, detail.draft?.packsBehind ?: 0, detail.settings,
                     definitions, detail.members.filter { it.packsWaiting > 0 && it.account.accountId != detail.draft?.player }.map { it.account },
                     state.picking || state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,

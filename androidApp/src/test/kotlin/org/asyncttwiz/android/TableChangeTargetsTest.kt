@@ -5,6 +5,12 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableChangeTargetsTest {
+    @Test fun tagTextUsesTheHigherContrastInkForEveryCounterColour() {
+        for (color in CounterColor.entries)
+            assertEquals(androidx.compose.ui.graphics.Color.Black, tableChangeTagInk(counterColor(color)))
+        assertEquals(androidx.compose.ui.graphics.Color.White, tableChangeTagInk(TableChangeTagFill))
+    }
+
     private fun assertCardTarget(scene: TableScene, id: String) {
         val items = scene.items.associateBy { it.id }
         val drawing = scene.items.single { it.cardId == id }

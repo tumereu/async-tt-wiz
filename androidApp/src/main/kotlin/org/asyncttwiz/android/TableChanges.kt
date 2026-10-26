@@ -106,5 +106,8 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
     }
     fun expire(key: TableChangeKey, serial: Long) { if (active[key]?.serial == serial) active.remove(key) }
     fun clear() { active.clear() }
-    companion object { const val WINDOW_MS = 1_500L }
+    companion object {
+        const val HOLD_MS = 1_000L
+        const val WINDOW_MS = 1_500L
+    }
 }

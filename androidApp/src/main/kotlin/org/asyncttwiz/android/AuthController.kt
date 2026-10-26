@@ -29,6 +29,7 @@ data class AuthState(
     val drawerOpen: Boolean = false,
     val logoutFailed: Boolean = false,
     val rememberedAccounts: List<RememberedAccount> = emptyList(),
+    val validationMessage: Boolean = false,
 ) { override fun toString() = "AuthState[redacted]" }
 
 /** Main-thread state, one bounded background worker, callbacks fenced when the owner finishes. */
@@ -107,6 +108,7 @@ class AuthController(
     }
 
     init { restore() }
+    fun dismissMessage() { state = state.copy(message = null) }
 
     fun edit(username: String = state.username, email: String = state.email, password: String = state.password) {
         if (!closed && !state.busy && !state.restoring && state.account == null)
@@ -205,6 +207,7 @@ class AuthController(
                 }
             } catch (failure: AccountFailure) {
                 input.copy(busy = false, message = errorMessage(failure), error = true,
+                    validationMessage = failure.code in listOf("invalid_field", "account_unavailable", "invalid_credentials"),
                     password = if (failure.code == "credential_storage") "" else input.password)
             }
         }

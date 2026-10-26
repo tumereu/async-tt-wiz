@@ -42,18 +42,14 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         if (feedback != null) { alpha.snapTo(1f); alpha.animateTo(0f, tween(1500)) } else alpha.snapTo(0f)
     }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Prepare deck", hamburger) {
-            ScreenIconButton("Close preparation", "close", controller::back)
-        }
+        ScreenHeader("Prepare deck", hamburger)
         // Always allocated, including before the first move and after the text fades.
         Box(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
-            Text(feedback?.text.orEmpty(), Modifier.alpha(alpha.value).semantics {
+            Text(if (!connected) "Disconnected · preparation is read-only" else feedback?.text.orEmpty(), Modifier.alpha(if (!connected) 1f else alpha.value).semantics {
                 liveRegion = LiveRegionMode.Polite
                 contentDescription = feedback?.text?.let { "Latest transfer: $it" } ?: "Latest transfer"
             }, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
         }
-        if (!connected) Text("Disconnected · preparation is read-only", Modifier.padding(horizontal = 16.dp))
-        state.connectionMessage?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
         val section: @Composable (SavedDeckSection, Modifier) -> Unit = { source, modifier ->
             val title = if (source == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
             val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD

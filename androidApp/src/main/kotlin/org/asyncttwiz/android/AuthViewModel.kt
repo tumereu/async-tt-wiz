@@ -71,7 +71,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }, main, lobby::tick)
     init {
         activity.authenticationRequired = ::authenticationRequired
-        deckImport.connectSave(saveApi, controller::sessionToken, saved = { if (!lobby.importedForPicker()) decks.open(it.deck.id) })
+        deckImport.connectSave(saveApi, controller::sessionToken, saved = {
+            lobby.importedForPicker()
+            controller.navigate(ShellDestination.DECKS)
+            decks.open(it.deck.id)
+        })
     }
     private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); lobby.clear() }
 

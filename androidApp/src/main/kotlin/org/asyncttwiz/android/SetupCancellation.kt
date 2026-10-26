@@ -19,6 +19,7 @@ internal class SetupCancellation {
     fun context(game: GameSummary) { context = game; confirmation = null; error = null }
     fun request(game: GameSummary) { context = null; confirmation = game; error = null }
     fun dismissContext() { context = null }
+    fun clearError() { error = null }
     fun dismiss() { confirmation = null; error = null }
     fun clear() { dismissContext(); dismiss() }
     fun accepted(game: GameSummary) {

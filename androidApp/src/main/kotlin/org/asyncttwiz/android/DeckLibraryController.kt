@@ -39,6 +39,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     fun refresh() = load(null)
     fun open(id: String) { inspection.close(); pending = null; state = state.copy(dialog = null, section = SavedDeckSection.MAINBOARD); load(id) }
     fun retry() = load(state.selected)
+    fun dismissError() { state = state.copy(error = null) }
     fun section(value: SavedDeckSection) { state = state.copy(section = value) }
     fun edit(dialog: DeckDialog) {
         if (state.mutating) return
@@ -68,7 +69,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 if (id != null && result == null) return@execute
                 val decks = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@execute else null
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
-                    decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it }, busy = false, loaded = true) }
+                    decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it }, busy = false, loaded = state.loaded || id == null) }
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) {
                     if (id != null && (failure as? DeckFailure)?.code == "not_found") {

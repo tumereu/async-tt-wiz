@@ -130,8 +130,14 @@ class DeckReauthenticationTest {
                 // A delayed failure of the old request must not invalidate the replacement credential.
                 auth.authenticationRequired("A".repeat(43)); assertNotNull(auth.state.account)
                 revoked = false; importer.save(); worker.drain()
-                assertFalse(importer.state.active); assertEquals(1, effects)
-                assertEquals(4, mutationBodies.size); assertEquals(1, mutationBodies.distinct().size)
+                assertFalse(importer.state.active); assertEquals(if (merge) 1 else 2, effects)
+                assertEquals(if (merge) 4 else 5, mutationBodies.size)
+                assertEquals(1, mutationBodies.take(4).distinct().size)
+                if (!merge) {
+                    val coverUpdate = DeckJson.format.decodeFromString<UpdateDeck>(mutationBodies.last())
+                    assertEquals(plan.deck.entries.first().definition, coverUpdate.cover)
+                    assertNull(coverUpdate.contents)
+                }
                 assertEquals(if (merge) 6 else 4, library.state.detail!!.saved.entries.single().quantity)
                 assertTrue(tokens.contains("Bearer " + "B".repeat(43)))
             } finally { importer.close(); library.close(); worker.drain(); auth.close(); authWorker.drain() }

@@ -17,6 +17,7 @@ interface Lobbies : Closeable {
     suspend fun search(token: String, query: String): UserSearch
     suspend fun contacts(token: String, after: String? = null): ContactList
     suspend fun add(token: String, input: AddContact): AccountIdentity
+    suspend fun remove(token: String, accountId: String) { throw LobbyFailure("not_configured") }
     suspend fun create(token: String, input: CreateInvitation): GameSummary
     suspend fun games(token: String, invitations: Boolean = false, after: String? = null): GameList
     suspend fun head(token: String, id: String): GameSummary
@@ -31,6 +32,10 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
     override suspend fun search(token: String, query: String): UserSearch = call(token, "/v1/users?username=${query.encodeURLQueryComponent()}")
     override suspend fun contacts(token: String, after: String?): ContactList = call(token, page("contacts", after))
     override suspend fun add(token: String, input: AddContact): AccountIdentity = call(token, "/v1/contacts", DeckJson.format.encodeToString(input))
+    override suspend fun remove(token: String, accountId: String) {
+        if (!DeckValidation.uuid(accountId)) throw LobbyFailure("invalid_request")
+        call<Unit>(token, "/v1/contacts/$accountId", verb = HttpMethod.Delete)
+    }
     override suspend fun create(token: String, input: CreateInvitation): GameSummary = call(token, "/v1/invitations", DeckJson.format.encodeToString(input))
     override suspend fun games(token: String, invitations: Boolean, after: String?): GameList = call(token, page(if (invitations) "invitations" else "games", after))
     override suspend fun head(token: String, id: String): GameSummary {
@@ -41,12 +46,12 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
         if (after != null && !DeckValidation.uuid(after)) throw LobbyFailure("invalid_request")
         return "/v1/$route" + (after?.let { "?after=$it" } ?: "")
     }
-    private suspend inline fun <reified T> call(token: String, path: String, body: String? = null): T {
+    private suspend inline fun <reified T> call(token: String, path: String, body: String? = null, verb: HttpMethod? = null): T {
         if (origin.isEmpty()) throw LobbyFailure("not_configured")
         if (!AccountApi.validToken(token)) throw LobbyFailure("authentication_required")
         try {
             val response = client.request(origin + path) {
-                method = if (body == null) HttpMethod.Get else HttpMethod.Post
+                method = verb ?: if (body == null) HttpMethod.Get else HttpMethod.Post
                 header("Authorization", "Bearer $token"); header("Accept", "application/json")
                 if (body != null) { header("Content-Type", "application/json; charset=UTF-8"); setBody(body) }
             }

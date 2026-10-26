@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.CatalogProgress
 import org.asyncttwiz.storage.CatalogPhase
@@ -54,16 +56,17 @@ internal fun CatalogControls(controller: CatalogViewModel) {
             ScreenButton(controller::confirmFullRefresh, Modifier.weight(1f)) { Text("Refresh full catalog") }
         }
     }
-    Column(Modifier.widthIn(max = 540.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    InitialLoadArea(state.loaded, Modifier.widthIn(max = 540.dp).fillMaxWidth()
+        .heightIn(min = if (state.loaded) 0.dp else 160.dp).testTag("catalog-controls")) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Card records", style = MaterialTheme.typography.titleMedium)
-        state.installed?.let { Text("Installed: ${it.date} · ${it.records} records") }
-            ?: Text("Download card records before importing a new deck. Artwork loads only when needed.")
-        if ((!state.background || state.error) && state.status != null || !state.background && state.progress != null) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!state.background || state.error) state.status?.let {
-                    Text(it, color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                }
-                if (!state.background) state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
+        Text(state.installed?.let { "Installed: ${it.date} · ${it.records} records" }
+            ?: "Download card records before importing a new deck. Artwork loads only when needed.")
+        Box(Modifier.fillMaxWidth().testTag("catalog-status")) {
+            Text(state.status?.takeIf { !state.background && !state.error }.orEmpty(),
+                Modifier.fillMaxWidth().padding(bottom = 8.dp), minLines = 2, maxLines = 2)
+            if (!state.background) state.progress?.let {
+                CatalogProgressBar(it, Modifier.fillMaxWidth().align(Alignment.BottomCenter))
             }
         }
         if (state.available != null) {
@@ -72,11 +75,13 @@ internal fun CatalogControls(controller: CatalogViewModel) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
         }
-        TextButton(onClick = { controller.foreground(force = true) }, Modifier.heightIn(min = 48.dp), enabled = !state.busy) {
+        TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp)
+            .testTag("catalog-check"), enabled = !state.busy) {
             EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
         }
         if (state.installed != null) TextButton(onClick = controller::requestFullRefresh,
             Modifier.heightIn(min = 48.dp), enabled = !state.busy) { Text("Refresh full catalog") }
+    }
     }
 }
 

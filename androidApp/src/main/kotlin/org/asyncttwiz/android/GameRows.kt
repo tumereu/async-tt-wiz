@@ -37,14 +37,17 @@ private fun GameRow(game: GameSummary, accountId: String, modifier: Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (move.highlighted) Surface(color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(8.dp)) {
-                Text(move.label, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
-            } else Text(move.label, style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (move.highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(8.dp)) {
+                Box(Modifier.width(100.dp).height(28.dp), contentAlignment = Alignment.Center) {
+                    Text(move.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
             EntryIcon(null, "chevron")
         }
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game)} · ${gameLastActivity(game)}",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

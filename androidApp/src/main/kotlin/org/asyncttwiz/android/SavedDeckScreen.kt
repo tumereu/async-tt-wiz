@@ -35,18 +35,16 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         CoverScreen(controller, openNavigation); return
     }
     ScreenBusyOverlay(if (state.mutating) "Saving deck…" else if (state.busy && state.detail == null) "Loading saved deck…" else null) {
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Saved deck", openNavigation) {
             ScreenOutlinedButton(onClick = { state.detail?.let { importDeck?.invoke(it) } },
                 enabled = state.detail != null && !state.mutating && importDeck != null) {
                 EntryIcon(null, "edit"); Spacer(Modifier.width(6.dp)); Text("Edit")
             }
-            ScreenIconButton("Exit without saving", "close", controller::back)
         }
-        if (state.dialog == null) state.error?.let {
-            Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = controller::retry) { Text("Retry saved deck") }
-        }
+        InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::retry, loading = state.busy) {
+        Column(Modifier.fillMaxSize()) {
         state.detail?.let { detail ->
             DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -60,8 +58,11 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                             containerColor = if (section == state.section) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                             contentColor = MaterialTheme.colorScheme.onSurface)) {
                         EntryIcon(null, if (section == SavedDeckSection.MAINBOARD) "decks" else "import"); Spacer(Modifier.width(8.dp))
-                        Text("${if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"} · $total",
-                            fontWeight = if (section == state.section) FontWeight.Bold else FontWeight.Normal)
+                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                             Text(if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard", maxLines = 1,
+                                 fontWeight = if (section == state.section) FontWeight.Bold else FontWeight.Normal)
+                             Text("$total cards", maxLines = 1, style = MaterialTheme.typography.labelSmall)
+                         }
                     }
                 }
             }
@@ -85,12 +86,16 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         }
     }
     }
+    }
+    FloatingTransientError(state.error.takeIf { state.dialog == null }, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
+    }
     DeckCardInspection(controller.inspection)
     if (state.dialog == DeckDialog.RENAME || state.dialog == DeckDialog.DELETE) {
         val deleting = state.dialog == DeckDialog.DELETE
         ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) {
             if (deleting) "Deleting deck…" else "Saving deck name…"
-        } else null) {
+        } else null, error = state.error, dismissError = controller::dismissError) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(if (deleting) "Delete saved deck?" else "Rename deck", Modifier.weight(1f),
                             style = MaterialTheme.typography.titleSmall)
@@ -101,7 +106,6 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                         Text("Deletion cannot be undone.")
                     } else OutlinedTextField(state.draftName, controller::name, label = { Text("Deck name") },
                         modifier = Modifier.fillMaxWidth(), enabled = !state.mutating, singleLine = true)
-                    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text(if (deleting) "Keep deck" else "Cancel") }
                         ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating,
@@ -124,9 +128,9 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
         }
     }
     ScreenBusyOverlay(if (state.mutating) "Saving cover…" else null) {
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Choose cover", navigation)
-        state.error?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
         val grid: @Composable (Modifier) -> Unit = { modifier ->
         Column(modifier) {
         Text("DECK: ${detail.saved.deck.name.uppercase()}", Modifier.padding(16.dp), style = MaterialTheme.typography.labelMedium,
@@ -177,6 +181,8 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
             actions()
         }
     }
+    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    }
     }
 }
 
@@ -190,12 +196,13 @@ private fun DefinitionThumbnail(digest: String, definition: CardDefinition) {
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun SavedDeckCollection(controller: DeckLibraryController) {
     val state = controller.state
+    Box(Modifier.fillMaxSize()) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
     PullToRefreshBox(isRefreshing = state.busy, onRefresh = { if (!state.busy) controller.refresh() }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Text("SAVED LISTS (${state.decks.size})", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (state.loaded && state.decks.isEmpty()) Text("No saved decks yet.")
         }
         items(state.decks, key = { it.id }) { deck ->
@@ -213,5 +220,8 @@ internal fun SavedDeckCollection(controller: DeckLibraryController) {
             }
         }
     }
+    }
+    }
+    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
 }

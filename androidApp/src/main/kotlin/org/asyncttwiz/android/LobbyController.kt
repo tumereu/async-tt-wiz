@@ -7,9 +7,10 @@ import java.util.UUID
 import java.util.concurrent.ExecutorService
 
 data class GameNameDraft(val recipient: AccountIdentity, val name: String)
+enum class ContactsTab { CONTACTS, SEARCH }
 data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
     val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,
-    val importing: Boolean = false, val error: String? = null)
+    val importing: Boolean = false, val error: String? = null, val loaded: Boolean = false)
 data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val query: String = "",
     val results: List<AccountIdentity> = emptyList(), val searched: Boolean = false, val searching: Boolean = false,
     val searchError: String? = null, val games: List<GameSummary> = emptyList(), val invitations: List<GameSummary> = emptyList(),
@@ -23,7 +24,11 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val acceptedPlay: PlayState? = null, val activityTarget: ActivityTarget? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
-    val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false)
+    val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
+    val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
+    val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false) {
+    val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
+}
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -100,9 +105,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
             acceptedPlay = state.detail?.let(wire::acceptedPlay),
-            chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation())
+            chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
+            chatLoaded = state.selected?.let(wire::chatLoaded) == true)
     }
-    fun dismissSessionError() { session?.dismissError(); state = state.copy(error = null) }
+    fun dismissSessionError() { session?.dismissError(); state = state.copy(error = null, searchError = null) }
     private fun accepted(game: GameSummary) {
         val old = latest[game.id]
         if (old != null && !GameSession.newerOrEqual(game.revision, old.revision)) return
@@ -116,8 +122,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val listed = (game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE) && sessionAvailable(game.id)
         val inGames = listed && (game.inviter.accountId == mine || game.invitationState == InvitationState.ACCEPTED)
         val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING
-        state = state.copy(games = state.games.filterNot { it.id == game.id } + if (inGames) listOf(game) else emptyList(),
-            invitations = state.invitations.filterNot { it.id == game.id } + if (inInvites) listOf(game) else emptyList(),
+        state = state.copy(games = updatedGameRows(state.games, game, inGames),
+            invitations = updatedGameRows(state.invitations, game, inInvites),
             detail = if (state.selected == game.id) game else state.detail)
         if (state.selected == game.id && game.lifecycle != GameLifecycle.LOBBY) {
             closePicker(); inspection.close(); state = state.copy(preparing = false, transferFeedback = null)
@@ -276,6 +282,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         refreshPicker()
     }
     fun closePicker() { pickerVersion++; state = state.copy(picker = null) }
+    fun dismissPickerError() { state = state.copy(picker = state.picker?.copy(error = null)) }
     fun highlightDeck(deck: DeckSummary) {
         val picker = state.picker ?: return
         if (!picker.confirming && deck in picker.decks) state = state.copy(picker = picker.copy(draft = deck, error = null))
@@ -304,7 +311,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
             post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let {
                 // A background collection read never silently substitutes or updates the captured draft.
-                state = state.copy(picker = it.copy(decks = result.getOrDefault(it.decks), loading = false,
+                state = state.copy(picker = it.copy(decks = result.getOrDefault(it.decks), loading = false, loaded = it.loaded || result.isSuccess,
                     error = result.exceptionOrNull()?.let { deckError(it as? Exception ?: DeckFailure("network")) }))
             } }
         }
@@ -395,15 +402,44 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (generation != epoch) return@execute
             val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch && version == searchVersion }) { api.search(token, query) } } }
             post { if (!closed && generation == epoch && version == searchVersion) state = state.copy(searching = false,
-                searched = true, results = result.getOrNull()?.users.orEmpty(), searchError = result.exceptionOrNull()?.let(::lobbyError)) }
+                searched = true, results = result.getOrNull()?.users ?: state.results, searchError = result.exceptionOrNull()?.let(::lobbyError)) }
         }
     }
-    fun add(contact: AccountIdentity) {
+    fun contacts(chooseOpponent: Boolean) {
+        state = state.copy(choosingOpponent = chooseOpponent, contactsTab = ContactsTab.CONTACTS, contactFilter = "")
+    }
+    fun contactsTab(tab: ContactsTab) { state = state.copy(contactsTab = tab) }
+    fun filterContacts(value: String) { state = state.copy(contactFilter = value) }
+    fun requestRemoveContact(contact: AccountIdentity) { if (!state.mutating) state = state.copy(removingContact = contact) }
+    fun dismissRemoveContact() { state = state.copy(removingContact = null) }
+    fun removeContact() {
+        val contact = state.removingContact ?: return
+        val token = credential() ?: return
+        if (closed || state.mutating) return
+        val generation = epoch
+        // Fence a list read started before this removal so it cannot resurrect the contact.
+        refreshVersion++
+        state = state.copy(mutating = true, busy = false, removingContact = null, error = null)
+        worker.execute {
+            if (generation != epoch) return@execute
+            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.remove(token, contact.accountId) } } }
+            post { if (!closed && generation == epoch) {
+                state = state.copy(mutating = false, contacts = if (result.isSuccess) state.contacts.filterNot { it.accountId == contact.accountId } else state.contacts,
+                    error = result.exceptionOrNull()?.let(::lobbyError))
+            } }
+        }
+    }
+    fun invite(contact: AccountIdentity) {
+        if (state.contacts.any { it.accountId == contact.accountId }) begin(contact)
+        else add(contact, inviteAfter = true)
+    }
+    fun add(contact: AccountIdentity, inviteAfter: Boolean = false) {
         if (closed || state.mutating || state.contacts.any { it.accountId == contact.accountId }) return
         val token = credential() ?: return
         val input = pendingAdds.getOrPut(contact.accountId) { AddContact(UUID.randomUUID().toString(), contact.accountId) }
         val generation = epoch
-        state = state.copy(mutating = true, error = null)
+        refreshVersion++
+        state = state.copy(mutating = true, busy = false, error = null)
         worker.execute {
             if (generation != epoch) return@execute
             val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.add(token, input) } } }
@@ -412,6 +448,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 if (saved != null) pendingAdds.remove(contact.accountId)
                 state = state.copy(mutating = false, contacts = if (saved == null) state.contacts else
                     (state.contacts.filterNot { it.accountId == saved.accountId } + saved), error = result.exceptionOrNull()?.let(::lobbyError))
+                if (saved != null && inviteAfter) begin(saved)
             } }
         }
     }
@@ -553,13 +590,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                         .map { game -> latest[game.id]?.takeIf { GameSession.newerOrEqual(it.revision, game.revision) } ?: game }
                     val present = games.map { it.id }.toSet()
                     for (id in atStart.keys - present) session?.unavailable(id)
-                    state = state.copy(contacts = data.contacts, games = emptyList(), invitations = emptyList(), busy = false,
+                    state = state.copy(contacts = data.contacts, games = state.games.filter { old -> games.any { it.id == old.id } },
+                        invitations = state.invitations.filter { old -> games.any { it.id == old.id } }, busy = false,
                         backgroundLoading = false, loaded = true, error = state.error.takeUnless { it == refreshError })
                     refreshError = null
                     if (selected != null && state.selected == selected && data.detail == null && latest[selected] == atStart[selected]) {
                         session?.unavailable(selected); leaveUnavailable()
                     }
-                    if (session == null) state = state.copy(games = data.games, invitations = data.invitations,
+                    if (session == null) state = state.copy(games = stableGameRows(state.games, data.games), invitations = stableGameRows(state.invitations, data.invitations),
                         detail = if (state.selected == selected) data.detail else state.detail)
                     else {
                         session.watch(games); connectionState()
@@ -581,8 +619,25 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close(); deckApi?.close() }; worker.shutdown() }
 }
 
-internal fun gameNameSuggestion(): String = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering").random() +
-    " " + listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern").random()
+internal fun updatedGameRows(rows: List<GameSummary>, game: GameSummary, included: Boolean): List<GameSummary> =
+    if (!included) rows.filterNot { it.id == game.id }
+    else if (rows.any { it.id == game.id }) rows.map { if (it.id == game.id) game else it }
+    else rows + game
+internal fun stableGameRows(old: List<GameSummary>, incoming: List<GameSummary>): List<GameSummary> {
+    val byId = incoming.associateBy { it.id }
+    val retained = old.mapNotNull { byId[it.id] }
+    val ids = old.map { it.id }.toSet()
+    return retained + incoming.filterNot { it.id in ids }
+}
+internal val gameNameAdjectives = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering",
+    "Ancient", "Astral", "Amber", "Bewitched", "Celestial", "Crimson", "Crystal", "Duskborn", "Eldritch", "Enchanted",
+    "Fabled", "Frosted", "Gilded", "Glimmering", "Hallowed", "Hidden", "Iridescent", "Jade", "Luminous", "Misty",
+    "Mystic", "Obsidian", "Opal", "Radiant", "Runic", "Sapphire", "Shimmering", "Silent", "Starlit", "Twilight", "Verdant", "Whispering")
+internal val gameNameNouns = listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern",
+    "Amulet", "Beacon", "Chalice", "Citadel", "Comet", "Crown", "Dawn", "Echo", "Familiar", "Flame", "Gale", "Gate",
+    "Grimoire", "Haven", "Hydra", "Isle", "Labyrinth", "Lotus", "Moon", "Oracle", "Phoenix", "Portal", "Relic", "Sanctum",
+    "Scepter", "Sigil", "Spire", "Star", "Tempest", "Thicket", "Tower", "Wisp")
+internal fun gameNameSuggestion(): String = gameNameAdjectives.random() + " " + gameNameNouns.random()
 internal fun lobbyLifecycleInterruption(failure: Throwable, interrupted: Boolean): Boolean = interrupted &&
     (failure is kotlinx.coroutines.CancellationException || transientServiceFailure(failure))
 

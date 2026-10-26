@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
@@ -149,7 +150,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
         compose.waitForIdle()
         if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
-        if (screen == "import-save-scrolled") compose.onNodeWithText("Save deck").performScrollTo()
+        if (screen == "import-save-scrolled") compose.onNodeWithTag("deck-list").performScrollTo()
         // Assert the important geometry/semantics, not just that a PNG could be produced.
         fun paired(first: String, second: String) {
             val a = compose.onNode(hasText(first) and hasClickAction()).fetchSemanticsNode().boundsInRoot
@@ -192,7 +193,11 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "play" -> paired("Accept", "Decline")
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
             "choose-cover" -> paired("Use cover", "Cancel")
-             "import-save", "import-save-scrolled" -> paired("Save deck", "Edit pasted list")
+              "import-save", "import-save-scrolled" -> {
+                  compose.onNodeWithTag("save-deck").assertIsDisplayed().assertIsEnabled()
+                  compose.onNodeWithTag("deck-list").assertExists()
+                  compose.onNodeWithText("Edit pasted list").assertDoesNotExist()
+              }
              "deck-detail" -> {
                  compose.onNodeWithText("Edit").assertIsDisplayed()
                  compose.onNodeWithText("Save").assertDoesNotExist()
@@ -209,7 +214,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  compose.onNodeWithText("Choose cover").assertIsDisplayed()
                  compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
              }
-            "create-game" -> paired("Cancel", "Create & invite")
+            "create-game" -> paired("Cancel", "Create")
             "delete-game" -> paired("Keep game", "Delete game")
             "cancel-lobby" -> paired("Keep game", "Cancel game")
             "gameplay-chat" -> compose.onNodeWithContentDescription("Send").assertIsDisplayed()
@@ -318,7 +323,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
          }
         if (screen == "gameplay-chat") {
             val active = LiveTableFixture.game
-            lobby.seed(lobby.state.copy(selected = active.id, detail = active, chatOpen = true, connectedGames = setOf(active.id),
+            lobby.seed(lobby.state.copy(selected = active.id, detail = active, chatOpen = true, chatLoaded = true, connectedGames = setOf(active.id),
                 chat = ChatPresentation(messages = listOf(
                     ChatMessage("m1", active.id, active.playId!!, "b", "Ready when you are.", "1", "2026-10-20T12:00:00Z"),
                     ChatMessage("m2", active.id, active.playId!!, "a", "I'll play my next moves this evening.", "2", "2026-10-20T12:01:00Z"),

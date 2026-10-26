@@ -19,6 +19,7 @@ data class ResetState(
     val checkFailed: Boolean = false,
     val message: String? = null,
     val error: Boolean = false,
+    val validationMessage: Boolean = false,
 ) { override fun toString() = "ResetState[redacted]" }
 
 class ResetController(
@@ -50,7 +51,7 @@ class ResetController(
 
     private fun invalid() {
         token = null
-        state = ResetState(ResetPage.INVALID, message = "This reset link is invalid, expired or already used.", error = true)
+        state = ResetState(ResetPage.INVALID, message = "This reset link is invalid, expired or already used.", error = true, validationMessage = true)
     }
 
     fun checkLink() {
@@ -65,7 +66,7 @@ class ResetController(
     fun edit(email: String = state?.email.orEmpty(), password: String = state?.password.orEmpty()) {
         val current = state ?: return
         if (!closed && !current.busy && !current.checking && current.page != ResetPage.INVALID)
-            state = current.copy(email = email, password = password, message = null, error = false)
+            state = current.copy(email = email, password = password, message = null, error = false, validationMessage = false)
     }
 
     fun submit() {
@@ -78,7 +79,7 @@ class ResetController(
             else api.resetPassword(requireNotNull(secret), input.password)
         }) {
             if (input.page == ResetPage.REQUEST) state = input.copy(
-                message = "If that email is registered, a reset link will be sent.", password = "", error = false)
+                message = "If that email is registered, a reset link will be sent.", password = "", error = false, validationMessage = false)
             else { dismiss(); succeeded() }
         }
     }
@@ -95,12 +96,13 @@ class ResetController(
                     if (failure == null) success()
                     else if (failure.code == "invalid_reset_link") invalid()
                     else state = state?.copy(busy = false, checkFailed = state?.checking == true,
-                        message = AuthController.errorMessage(failure), error = true)
+                        message = AuthController.errorMessage(failure), error = true, validationMessage = failure.code == "invalid_field")
                 }
             }
         }
     }
 
+    fun dismissMessage() { state = state?.copy(message = null) }
     fun dismiss() {
         generation.incrementAndGet(); token = null; state = null
     }

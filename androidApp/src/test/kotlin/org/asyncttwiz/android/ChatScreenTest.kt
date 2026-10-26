@@ -25,7 +25,7 @@ class ChatScreenTest {
         game.playId!!, author, "Message $number", number.toString(), "date")
 
     private fun open(count: Int = 100) {
-        lobby.seed(lobby.state.copy(selected = game.id, detail = game, chatOpen = true,
+        lobby.seed(lobby.state.copy(selected = game.id, detail = game, chatOpen = true, chatLoaded = true,
             chat = ChatPresentation(messages = IndexedChatMessages().upsert((1..count).map { message(it) }))))
         compose.setContent { ChatPanel(lobby, "a", contentInsets = WindowInsets(bottom = keyboardHeight.intValue)) }
         compose.waitForIdle()
@@ -64,12 +64,14 @@ class ChatScreenTest {
             outgoing = listOf(ChatSubmission(command)), draft = null))) }
         compose.onNodeWithText("Reply").assertIsDisplayed()
         compose.onNodeWithText("Checking delivery…").assertIsDisplayed()
+        val pending = compose.onNodeWithText("Reply").fetchSemanticsNode().boundsInRoot
         compose.runOnIdle {
             val accepted = message(102, "a").copy(id = command.requestId, text = "Reply")
             val messages = (lobby.state.chat.messages as IndexedChatMessages).upsert(listOf(accepted))
             lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(outgoing = emptyList(), messages = messages)))
         }
         compose.onNodeWithText("Reply").assertIsDisplayed()
+        assertEquals(pending, compose.onNodeWithText("Reply").fetchSemanticsNode().boundsInRoot)
         compose.onNodeWithText("Checking delivery…").assertDoesNotExist()
     }
 

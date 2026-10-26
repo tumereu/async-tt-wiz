@@ -29,6 +29,10 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
     val state = controller.state
     val game = state.detail ?: return
     val chat = state.chat
+    val deliveryFailure = chat.outgoing.lastOrNull { it.failure != null }?.failure
+    var deliveryDismissed by remember(deliveryFailure) { mutableStateOf(false) }
+    val staleDraft = chat.draft != null && chat.draft.playId != game.playId
+    var staleDismissed by remember(chat.draft?.playId, game.playId) { mutableStateOf(false) }
     val list = rememberLazyListState()
     val anchor = remember(game.id) { ChatScrollAnchor() }
     val latestKey = chat.outgoing.lastOrNull()?.command?.requestId ?: chat.messages.lastOrNull()?.id
@@ -66,48 +70,58 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
         // Index zero is the newest row: opening and viewport/IME resizing stay at the
         // bottom, while stable keys preserve the reader's anchor when scrolled up.
         // Index from the end directly; never reverse/copy the accumulated transcript.
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)
+        InitialLoadArea(state.chatLoaded, Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)
             .semantics { contentDescription = "Chat messages" }, state = list, reverseLayout = true,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)) {
             // These are retained original requests, never accepted-message predictions.
             // Use the server's eventual message ID so acceptance preserves the same row anchor.
             items(chat.outgoing.size, key = { chat.outgoing[chat.outgoing.lastIndex - it].command.requestId }) { index ->
                 val submission = chat.outgoing[chat.outgoing.lastIndex - index]
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(8.dp)) {
-                        Text((submission.command.action as GameAction.SendChat).text)
-                        Text(submission.failure ?: "Checking delivery…", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
+                ChatMessageRow(if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username,
+                    (submission.command.action as GameAction.SendChat).text, true,
+                    if (submission.failure != null) "Not delivered" else "Checking delivery…")
             }
             items(chat.messages.size, key = { chat.messages[chat.messages.lastIndex - it].id }) { index ->
                 val message = chat.messages[chat.messages.lastIndex - index]
-                Surface(Modifier.fillMaxWidth(), color = if (message.author == accountId) MaterialTheme.colorScheme.primaryContainer else ScreenBackground,
-                    shape = MaterialTheme.shapes.small) {
-                Column(Modifier.padding(10.dp)) {
-                    Text(if (message.author == game.inviter.accountId) game.inviter.username else game.recipient.username,
-                        style = MaterialTheme.typography.labelMedium)
-                    Text(message.text)
-                }
-                }
+                ChatMessageRow(if (message.author == game.inviter.accountId) game.inviter.username else game.recipient.username,
+                    message.text, message.author == accountId, "")
             }
         }
-        if (chat.draft != null && chat.draft.playId != game.playId) {
-            Text("This draft belongs to an earlier play.", Modifier.padding(horizontal = 12.dp))
-            TextButton(onClick = { controller.composeChat("") }) { Text("Clear draft") }
         }
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f)
                 .semantics { contentDescription = "Chat message draft" }, singleLine = false, placeholder = "Message", maxLines = 4)
-            ScreenIconButton("Send", "send", {
+            if (staleDraft) ScreenIconButton("Clear draft", "delete", { controller.composeChat("") })
+            else ScreenIconButton("Send", "send", {
                 controller.sendChat()
                 list.requestScrollToItem(0)
             }, enabled = chat.canSend(game, game.id !in state.reconnectingGames))
         }
     }
     }
-    FloatingTransientError(state.connectionMessage, controller::dismissSessionError,
+    FloatingTransientError(state.connectionMessage ?: deliveryFailure?.takeUnless { deliveryDismissed }
+        ?: "This draft belongs to an earlier play. Clear it to write a new message.".takeIf { staleDraft && !staleDismissed },
+        {
+            if (state.connectionMessage != null) controller.dismissSessionError()
+            else if (deliveryFailure != null && !deliveryDismissed) deliveryDismissed = true
+            else staleDismissed = true
+        },
         Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
     }
+    }
+}
+
+@Composable
+private fun ChatMessageRow(author: String, text: String, own: Boolean, status: String) {
+    Surface(Modifier.fillMaxWidth(), color = if (own) MaterialTheme.colorScheme.primaryContainer else ScreenBackground,
+        shape = MaterialTheme.shapes.small) {
+        Column(Modifier.padding(10.dp)) {
+            Text(author, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(text)
+            Box(Modifier.fillMaxWidth().height(16.dp)) {
+                if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+        }
     }
 }

@@ -165,10 +165,10 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         }
                     }
                     if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp))
-                    state.error?.let { Text(it, Modifier.align(Alignment.Center)) }
+                    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
                 }
-                state.selectedNodeId?.let { id -> Text(texts[id]?.description ?: graph?.eventsById?.get(id)?.description.orEmpty(),
-                    style = MaterialTheme.typography.labelSmall, maxLines = 2) }
+                Text(state.selectedNodeId?.let { id -> texts[id]?.description ?: graph?.eventsById?.get(id)?.description }.orEmpty(),
+                    style = MaterialTheme.typography.labelSmall, minLines = 2, maxLines = 2)
             }
         }
     }

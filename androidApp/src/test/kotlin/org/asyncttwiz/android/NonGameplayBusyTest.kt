@@ -108,12 +108,12 @@ class NonGameplayBusyTest {
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.SETTINGS))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
         val progress = CatalogProgress(CatalogPhase.DOWNLOADING, 10, 100)
-        catalog.seed(CatalogUiState(busy = true, status = progress.label(), progress = progress, background = true))
+        catalog.seed(CatalogUiState(busy = true, status = progress.label(), progress = progress, background = true, loaded = true))
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog) } }
         compose.onNodeWithText(progress.label()).assertDoesNotExist()
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
-        compose.runOnIdle { catalog.seed(CatalogUiState(background = true, error = true, status = "Download failed")) }
+        compose.runOnIdle { catalog.seed(CatalogUiState(background = true, error = true, status = "Download failed", loaded = true)) }
         compose.onNodeWithText("Download failed").assertIsDisplayed()
     }
 

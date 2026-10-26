@@ -19,7 +19,7 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
     private val json = DeckJson.format
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path !in listOf("/v1/users", "/v1/contacts", "/v1/games", "/v1/invitations") && !path.startsWith("/v1/games/")) return false
+        if (path !in listOf("/v1/users", "/v1/contacts", "/v1/games", "/v1/invitations") && !path.startsWith("/v1/games/") && !path.startsWith("/v1/contacts/")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         fun reply(result: LobbyService.Result) {
@@ -38,11 +38,15 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
             if (path.startsWith("/v1/games/") && (parts.size != 5 || parts[4] != "head")) {
                 error(404, "not_found"); return true
             }
-            val allowed = if (path in listOf("/v1/contacts", "/v1/invitations")) listOf("GET", "POST") else listOf("GET")
+            val removing = path.startsWith("/v1/contacts/")
+            if (removing && (parts.size != 4 || !DeckValidation.uuid(parts[3]))) {
+                error(404, "not_found"); return true
+            }
+            val allowed = if (removing) listOf("DELETE") else if (path in listOf("/v1/contacts", "/v1/invitations")) listOf("GET", "POST") else listOf("GET")
             if (request.method !in allowed) {
                 response.setHeader("Allow", allowed.joinToString(", ")); error(405, "method_not_allowed"); return true
             }
-            val result = if (request.method == "POST") {
+            val result = if (removing) lobby.remove(principal, parts[3]) else if (request.method == "POST") {
                 val media = request.contentType.orEmpty().split(';').map(String::trim)
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
                         !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)

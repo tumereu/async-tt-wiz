@@ -5,6 +5,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.runtime.SideEffect
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,11 +18,14 @@ import kotlin.test.assertEquals
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class DeckEditorUiTest {
     @get:Rule val compose = createComposeRule()
-    @Test fun editReplacesActionAndPrefillsListAndCloseConfirmsDiscardAndCoverIsDraftOnly() {
+    @Test fun editReplacesActionAndPrefillsListAndBackConfirmsDiscardAndCoverIsDraftOnly() {
         val fixture = ScreenFixtures().apply { configure("deck-detail") }
         fixture.importer.exit()
         val detail = fixture.library.state.detail!!
+        lateinit var back: () -> Unit
         compose.setContent {
+            val dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            SideEffect { back = dispatcher::onBackPressed }
             ScreenTheme { Surface(Modifier.fillMaxSize()) {
                 if (fixture.importer.state.active) DeckImportScreen(fixture.importer, false, null, null)
                 else SavedDeckScreen(fixture.library, null) {
@@ -39,11 +44,12 @@ class DeckEditorUiTest {
         assertEquals(detail.definitions.entries.first { it.value.name == "Aegis Ward" }.key, fixture.importer.state.cover)
         assertEquals(detail, fixture.library.state.detail)
         compose.onNodeWithTag("deck-name").performTextReplacement("Edited title")
-        compose.onNodeWithContentDescription("Exit without saving").performClick()
+        compose.onNodeWithContentDescription("Exit without saving").assertDoesNotExist()
+        compose.runOnIdle { back() }
         compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
         compose.onNodeWithText("Keep editing").performClick()
         compose.onNodeWithTag("deck-name").assertTextEquals("Edited title")
-        compose.onNodeWithContentDescription("Exit without saving").performClick()
+        compose.runOnIdle { back() }
         compose.onNodeWithText("Discard").performClick()
         compose.onNodeWithText("Edit").assertIsDisplayed()
         assertEquals(detail, fixture.library.state.detail)

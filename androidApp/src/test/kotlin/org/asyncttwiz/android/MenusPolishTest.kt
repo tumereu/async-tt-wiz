@@ -25,11 +25,11 @@ class MenusPolishTest {
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
             viewModels.put("catalog", it)
-            it.seed(CatalogUiState())
+            it.seed(CatalogUiState(loaded = true))
         }
         compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, catalog, decks = fixtures.library) } }
         compose.onNodeWithTag("menu-SETTINGS").performScrollTo().performClick()
-        compose.onNodeWithText("Card records").assertIsDisplayed()
+        compose.onNodeWithText("Card records").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Log out").performScrollTo().assertIsDisplayed()
         compose.runOnIdle { fixtures.auth.navigate(ShellDestination.DECKS) }
         compose.onNodeWithText("Card records").assertDoesNotExist()
@@ -38,7 +38,7 @@ class MenusPolishTest {
         compose.onNodeWithText("Log out").assertDoesNotExist()
         compose.onNodeWithText("Settings").performClick()
         assertEquals(ShellDestination.SETTINGS, fixtures.auth.state.destination)
-        compose.onNodeWithText("Card records").assertIsDisplayed()
+        compose.onNodeWithText("Card records").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun quickContinueEntryShowsOpponentAndActivityAndOpensItsGame() {

@@ -49,7 +49,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         // One replacement per game/attempt, not an alert per primitive or per polled entry.
         for (hint in page.entries) {
             val id = ActivityWire.ordinal(hint.activityId) ?: return false
-            val key = if (hint.kind == ActivityKind.GAME) "game:${hint.gameId}" else "invite:${hint.identity}"
+            val key = hint.notificationKey()
             val previous = marks[key] ?: store.watermark(key)
             if (previous != null && previous.activity >= id) continue
             marks[key] = ActivityWatermark(id, hint.identity)
@@ -83,12 +83,12 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         if (page.summaryReset) pending.toMap().forEach { (key, item) -> consume(key, item.hint, false) }
         for (hint in page.entries) {
             val id = ActivityWire.ordinal(hint.activityId) ?: return false
-            val key = if (hint.kind == ActivityKind.GAME) "game:${hint.gameId}" else "invite:${hint.identity}"
+            val key = hint.notificationKey()
             val previous = marks[key] ?: store.watermark(key)
             val queued = pending[key]
             if (id <= maxOf(previous?.activity ?: -1, queued?.hint?.activityId?.toLong() ?: -1)) continue
             if (page.summaryReset || suppressed(hint)) consume(key, hint, false)
-            else if (hint.kind == ActivityKind.INVITATION) consume(key, hint, true)
+            else if (hint.kind != ActivityKind.GAME) consume(key, hint, true)
             else {
                 val first = queued?.takeIf { it.hint.identity == hint.identity && it.hint.authorId == hint.authorId }?.firstAt ?: time
                 pending[key] = PendingActivity(hint, first, minOf(time + 2_000, first + 10_000))

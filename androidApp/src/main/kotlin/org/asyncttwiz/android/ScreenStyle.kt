@@ -226,6 +226,8 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "cancel" -> Icons.Outlined.Cancel
     "decks" -> Icons.Outlined.Style
     "contacts" -> Icons.Outlined.PeopleOutline
+    "pods" -> Icons.Outlined.PeopleOutline
+    "more" -> Icons.Outlined.MoreVert
     "games" -> GameSwords
     "search" -> Icons.Outlined.Search
     "refresh" -> Icons.Outlined.Refresh

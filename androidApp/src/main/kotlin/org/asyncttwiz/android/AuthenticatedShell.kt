@@ -30,8 +30,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
-    cubes: CubeController? = null) {
+    cubes: CubeController? = null, pods: PodController? = null) {
     val state = controller.state
+    var collectionCubes by remember { mutableStateOf(false) }
     if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
     val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby.state.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
@@ -41,6 +42,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (state.destination == ShellDestination.DECKS && decks?.state?.selected == null) decks?.refresh()
         if (state.destination != ShellDestination.GAMES) lobby?.closePicker()
         lobby?.refresh()
+        if (state.destination == ShellDestination.MENU) pods?.refresh()
     }
     val catalogBusy = !tabletop && catalog?.state?.background == false && catalog.state.progress != null
     val content: @Composable () -> Unit = {
@@ -54,8 +56,15 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     }
                     WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
                         importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
+                } else if (state.destination == ShellDestination.PODS && pods != null) {
+                    PodsDestination(pods, state.account!!.accountId, if (!landscape) ({ controller.drawer(true) }) else null, lobby) {
+                        collectionCubes = true
+                        controller.navigate(ShellDestination.DECKS)
+                    }
                 } else if (state.destination == ShellDestination.DECKS && cubes != null) {
-                    ManageCollectionScreen(cubes, decks, deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
+                    ManageCollectionScreen(cubes, decks, deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog,
+                        draftCube = pods?.let { podController -> { id -> podController.newPod(id); controller.navigate(ShellDestination.PODS) } },
+                        initiallyCubes = collectionCubes)
                 } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.DECKS && decks?.state?.selected != null) {
@@ -63,8 +72,10 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                         importDeck = deckImport?.let { importer -> { detail -> decks.dismiss(); importer.openEditor(detail) } })
                 } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
                     if (destination == ShellDestination.GAMES) lobby?.back()
+                    if (destination == ShellDestination.PODS) pods?.showList()
+                    if (destination == ShellDestination.DECKS) collectionCubes = false
                     controller.navigate(destination)
-                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller)
+                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller, pods)
             }
         }
     }
@@ -74,7 +85,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             Row(Modifier.fillMaxSize()) {
                 Surface(Modifier.width(220.dp).fillMaxHeight(), color = Color.White,
                     border = BorderStroke(1.dp, Color(0xffd0d6dd))) {
-                    Navigation(controller, close = false, lobby)
+                    Navigation(controller, close = false, lobby, pods)
                 }
                 Box(Modifier.weight(1f)) { content() }
             }
@@ -91,7 +102,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     exit = slideOutHorizontally(tween(250, easing = FastOutSlowInEasing)) { -it }) {
                     Surface(Modifier.widthIn(max = 280.dp).fillMaxWidth(.8f).fillMaxHeight()
                         .semantics { paneTitle = "Navigation menu" }, color = Color.White) {
-                        Navigation(controller, close = true, lobby)
+                        Navigation(controller, close = true, lobby, pods)
                     }
                 }
                 // Register after route content so its own BackHandler cannot dismiss a draft/table first.
@@ -116,7 +127,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
 }
 
 @Composable
-internal fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?) {
+internal fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?, pods: PodController? = null) {
     Column(Modifier.fillMaxSize()) {
         if (close) IconButton(onClick = { controller.drawer(false) }, Modifier.align(Alignment.End)) {
             EntryIcon("Close navigation", "close")
@@ -125,9 +136,10 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
-            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+            for (destination in listOf(ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
                     if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
+                    if (destination == ShellDestination.PODS) pods?.showList()
                     controller.navigate(destination)
                 }
             }
@@ -204,7 +216,7 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 @Composable
 internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
-    logout: () -> Unit = {}, auth: AuthController? = null) {
+    logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
@@ -229,7 +241,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                 if (destination == ShellDestination.MENU) {
                     WizardLogo()
                     Spacer(Modifier.height(24.dp))
-                    for (item in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+                     for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                           OutlinedButton(onClick = { if (item == ShellDestination.CONTACTS) lobby?.contacts(false); navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),
@@ -244,8 +256,15 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              EntryIcon(null, "chevron")
                         }
                          if (item == ShellDestination.GAMES && lobby != null) {
-                             GameRows(quickContinueGames(lobby.state.games, accountId), lobby, accountId,
-                                 Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(start = 12.dp, top = 4.dp))
+                              Column(Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(start = 12.dp, top = 4.dp),
+                                  verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                  for (entry in quickContinue(lobby.state.games, pods?.state?.pods.orEmpty(), accountId)) {
+                                      entry.game?.let { GameRows(listOf(it), lobby, accountId, Modifier.fillMaxWidth()) }
+                                      entry.pod?.let { pod -> PodRow(pod, {
+                                          navigate(ShellDestination.PODS); pods?.open(pod.id)
+                                      }, quick = true) }
+                                  }
+                              }
                         }
                         Spacer(Modifier.height(12.dp))
                     }
@@ -269,6 +288,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
 
 private fun ShellDestination.icon(): String = when (this) {
     ShellDestination.GAMES -> "games"
+    ShellDestination.PODS -> "pods"
     ShellDestination.DECKS -> "decks"
     ShellDestination.CONTACTS -> "contacts"
     ShellDestination.SETTINGS -> "settings"

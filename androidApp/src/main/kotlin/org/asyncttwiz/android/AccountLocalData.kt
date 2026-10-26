@@ -10,7 +10,7 @@ import org.asyncttwiz.storage.GameplayTreeCache
 import org.asyncttwiz.storage.GameplayTreeStore
 import java.io.File
 
-enum class ShellDestination(val title: String) { MENU("Menu"), GAMES("Games"), DECKS("Manage decks"), CONTACTS("Contacts"), SETTINGS("Settings") }
+enum class ShellDestination(val title: String) { MENU("Menu"), GAMES("Games"), PODS("Pods"), DECKS("Manage decks"), CONTACTS("Contacts"), SETTINGS("Settings") }
 
 /** Blocking local operations. Called only on the auth worker, never from a Composable. */
 interface AccountLocalData {

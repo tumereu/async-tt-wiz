@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,
                         auth.lobby.state.selected, auth.lobby.state.detail)
                     auth.activity.display(displayed, resumed)
+                    if (state.account != null) auth.activity.rememberPods(auth.pods.state.pods)
                     val route = notificationRoute
                     if (route != null && !state.restoring && !state.busy) {
                         notificationRoute = null
@@ -124,8 +125,8 @@ class MainActivity : ComponentActivity() {
                     !catalog.state.busy && !catalog.needsInitialDownloadConsent && !catalog.promptPolicy.shouldPrompt(catalog.state) &&
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
-                    AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation and game activity alerts") },
-                        text = { Text("Enable Android notifications for new invitations and opponent activity? You can change the two channels in Android settings.") },
+                    AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation, game and draft alerts") },
+                        text = { Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.") },
                         confirmButton = { TextButton(onClick = { dismiss(); permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) { Text("Enable alerts") } },
                         dismissButton = { TextButton(onClick = { dismiss() }) { Text("Not now") } })
                 }
@@ -135,7 +136,7 @@ class MainActivity : ComponentActivity() {
                     DebugLatency.drawn()
                 } else Modifier)) {
                     if (storage.state == StorageState.Ready) {
-                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish)
+                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods)
                     }
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),

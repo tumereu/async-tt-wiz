@@ -69,12 +69,14 @@ class CardInspectionUiTest {
     @Test fun explicitInspectionRetainsTitleAndArtworkControls() {
         val controller = CardInspectionController().apply {
             open(InspectedCard(CardDefinition("Inspector header", listOf(DefinitionFace("face", "Face name",
-                manaCost = "{0}{G}", rulesText = "{Q}: Add {S}{E}. Unknown {FOO}."))), listOf(null)))
+                 manaCost = "{0}{G}", rulesText = "{Q}: Add {S}{E}. Unknown {FOO}.", power = "2", toughness = "3"))), listOf(null)))
         }
         compose.setContent { MaterialTheme { CardInspection(controller) } }
         compose.onNodeWithText("Inspector header").assertExists()
         compose.onNodeWithText("Enlarge artwork").assertExists()
         compose.onNodeWithText("{Q}: Add {S}{E}. Unknown {FOO}.").assertExists()
+        compose.onNodeWithText("2/3").assertExists()
+        compose.onNodeWithText("Power / Toughness", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Close card inspection").performClick()
         compose.runOnIdle { assertNull(controller.state) }
     }

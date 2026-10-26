@@ -243,6 +243,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
             val presented = presentation?.invoke()
+            if (presented?.localPanelOutside(point) == true &&
+                relay.ring?.outside?.invoke(screenOrigin + down.position) != false &&
+                presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
             val bubble = presented?.stackBubbles
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
                 toolkit?.showStackBubbles(null); localStackBubble = null
@@ -679,7 +682,7 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
             Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
                 Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
-                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Clip)
                 Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
             Spacer(Modifier.height(2.dp))
@@ -693,7 +696,7 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
                         val waiting = attention.label.substringBefore(" · ", "")
                         if (waiting.isNotEmpty()) Text("$waiting · ", fontSize = 11.sp, maxLines = 1, fontWeight = weight)
                         Text(attention.label.removePrefix(if (waiting.isNotEmpty()) "$waiting · " else ""), Modifier.weight(1f, fill = false),
-                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = weight)
+                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Clip, fontWeight = weight)
                     }
                 }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }
@@ -796,25 +799,15 @@ private class TableDrawCache(density: Float) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
-    private data class FitKey(val text: TextKey, val width: Float)
     private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
     private fun <K, V> bounded() = object : java.util.LinkedHashMap<K, V>(256, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > 256
     }
     private val measurements = bounded<TextKey, Float>()
     private val centerOffsets = bounded<Float, Float>()
-    private val labels = bounded<FitKey, String>()
     private val outlines = bounded<FaceKey, androidx.compose.ui.graphics.Path>()
     fun measure(value: String): Float = measurements.getOrPut(TextKey(value, paint.textSize, paint.isFakeBoldText)) { paint.measureText(value) }
     fun centerOffset(): Float = centerOffsets.getOrPut(paint.textSize) { paint.fontMetrics.let { (it.ascent + it.descent) / 2 } }
-    fun fitted(value: String, width: Float): String = labels.getOrPut(FitKey(TextKey(value, paint.textSize, paint.isFakeBoldText), width)) {
-        var label = value
-        if (measure(label) > width) {
-            while (label.isNotEmpty() && measure("$label…") > width) label = label.dropLast(1)
-            label += "…"
-        }
-        label
-    }
     fun outline(width: Float, height: Float, token: Boolean) = outlines.getOrPut(FaceKey(width, height, token)) {
         cardSilhouette(width, height, token, 0f, 0f, width / 14f)
     }
@@ -832,8 +825,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
     }
     fun fittedText(value: String, x: Float, y: Float, width: Float, right: Boolean = false) {
-        val label = cache.fitted(value, width * density)
-        text(label, if (right) x - cache.measure(label) / density else x, y, label.length)
+        val left = if (right) x - width else x
+        val start = if (right) x - minOf(width, cache.measure(value) / density) else x
+        clipRect(left * density, 0f, (left + width) * density, size.height) {
+            text(value, start, y, value.length)
+        }
     }
     fun centeredText(value: String, bounds: TableBounds, maxSize: Float) {
         paint.textSize = maxSize * density
@@ -846,8 +842,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     fun emptySlot(i: TableItem, color: Color) {
         val z = 1f
-        val inset = if (i.countBadge != null) 28f * .24f else 8f
-        val x = i.bounds.x + inset * z; val y = i.bounds.y + inset * z
+        val x = i.bounds.x; val y = i.bounds.y
         val w = 28f; val h = 40f
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
@@ -1004,8 +999,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val port = panel.viewport.bounds
         clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
             for (header in panel.typeHeaders) {
+                drawRect(color.copy(alpha = .22f), xy(header.bounds.x, header.bounds.y),
+                    size(header.bounds.width, header.bounds.height))
                 paint.textSize = 8 * density; paint.isFakeBoldText = true
-                fittedText(header.title, header.bounds.x, header.bounds.y + 13, header.bounds.width)
+                fittedText(header.title, header.bounds.x + 3, header.bounds.y + 13, header.bounds.width - 6)
                 paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
@@ -1073,18 +1070,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 if (i.cards.isEmpty()) {
                     if (i.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) emptySlot(i, color)
                 } else if (i.zone != PlayZone.STACK) {
-                    for (peek in minOf(2, i.cards.size - 1) downTo 0) {
-                        val d = peek * 4f
-                        val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
-                        val x = b.x + 8 - d; val y = b.y + 8 - d
-                        if (peek == 0) cardFace(i, x, y, peekColor, i.faceTitle) else {
-                            drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(28f, 40f), CornerRadius(2 * density))
-                            drawRoundRect(peekColor, xy(x, y), size(28f, 40f), CornerRadius(2 * density), style = Stroke(density))
-                        }
-                    }
+                    cardFace(i, b.x, b.y, color, i.faceTitle)
                     if (i.covered) {
                         paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * density
-                        text("✧", b.x + 16, b.y + 34, 1)
+                        text("✧", b.x + 8, b.y + 26, 1)
                         paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
                     }
                 }

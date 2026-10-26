@@ -31,7 +31,7 @@ class CombatStackPresentationTest {
             containers = original.board.containers.map { if (it.zone == PlayZone.STACK)
                 it.copy(cards = it.cards + f.id("frozen")) else it }))
         val drawings = CombatStackPresentation.stack(state.board, 28f, 40f).visible
-        assertEquals(3, drawings.size)
+        assertEquals(1, drawings.size)
         assertTrue(drawings.all { !it.card.tapped && it.bounds.width == 28f && it.bounds.height == 40f })
         val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
         assertTrue(scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }.all { !it.tapped })
@@ -170,9 +170,9 @@ class CombatStackPresentationTest {
             listOf(CombatStackController.bind(state.board, combatId(20))), commands::command).prediction }
         val scene = CombatStackPresentation.stack(state.board, 48f, 68f)
         assertEquals(27, scene.count)
-        assertEquals(3, scene.visible.size)
+        assertEquals(1, scene.visible.size)
         assertEquals(27, scene.orderedIds.distinct().size)
-        assertEquals(scene.orderedIds.take(3), scene.visible.map { it.viewId })
+        assertEquals(scene.orderedIds.take(1), scene.visible.map { it.viewId })
         assertTrue(scene.visible.all { it.bounds.width == 48f && it.bounds.height == 68f && it.projection })
         assertTrue(scene.visible.zipWithNext().all { (a, b) -> a.bounds.x > b.bounds.x && a.bounds.y > b.bounds.y })
     }

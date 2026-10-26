@@ -66,6 +66,31 @@ class PreparedDeckTest {
         }
     }
 
+    @Test fun `old saved adventure definitions become durable single face game definitions without modifying saved decks`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "PhysicalA"); val b = account(runtime, "PhysicalB")
+                val summary = game(runtime, a, b)
+                val defs = definitions().mapIndexed { index, submitted ->
+                    val definition = if (index == 0) submitted.definition.copy(layout = "adventure", provider = "mtgjson") else submitted.definition
+                    SubmittedDefinition(DeckJson.digest(definition), definition)
+                }
+                val source = deck(runtime, a, defs)
+                val games = GameService(runtime); val stream = Stream(games, a, summary)
+                assertEquals("accepted", stream.execute(stream.selection(source)).outcome)
+                val preparation = games.head(a, summary.id).preparation!!
+                val digest = preparation.players.first().deck!!.entries.first().definition
+                assertNotEquals(defs.first().digest, digest)
+                assertEquals(1, preparation.definitions.single { it.digest == digest }.definition.faces.size)
+                assertEquals(1L, number(db, "SELECT count(*) FROM definition WHERE digest='$digest'"))
+                assertEquals(source.entries.first().definition, defs.first().digest)
+                assertEquals(1L, number(db, "SELECT count(*) FROM deck_entry WHERE definition_digest='${defs.first().digest}'"))
+            }
+        }
+    }
+
     @Test fun `per copy transfers retain identities source isolation independent partial outcomes and own Ready on ordered path`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

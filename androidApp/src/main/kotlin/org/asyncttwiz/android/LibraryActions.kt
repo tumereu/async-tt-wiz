@@ -2,22 +2,12 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
@@ -73,26 +63,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     if (editing != null) {
         BackHandler { editing = null }
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-        for ((label, delta) in listOf("−" to -1, "+" to 1)) InlinePopupCell(MenuControl(label, enabled) {
-            text = selectedLibraryQuantity(stepLibraryQuantity(text.text, delta).toString())
-        }, label = "")
-        val color = LocalInlinePopupColor.current
-        Surface(Modifier.size(96.dp, 48.dp).ringInputTarget(draggable = true), shape = RoundedCornerShape(3.dp),
-            color = androidx.compose.ui.graphics.Color.White, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
-            Box(contentAlignment = Alignment.Center) {
-                BasicTextField(text, { text = it }, Modifier.fillMaxWidth().padding(8.dp)
-                    .semantics { contentDescription = "$editing quantity" }
-                    .onFocusChanged { if (it.isFocused) text = selectedLibraryQuantity(text.text) }
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            do { val event = awaitPointerEvent(PointerEventPass.Final) } while (event.changes.any { it.pressed })
-                            text = selectedLibraryQuantity(text.text)
-                        }
-                    }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MenuInk, textAlign = androidx.compose.ui.text.style.TextAlign.Center))
-            }
-        }
+        ValueInputControl("$editing quantity", text, { text = it }, enabled)
         // The floating row has no title, so the confirm cell names the action it performs.
         InlinePopupCell(MenuControl(editing ?: "OK", enabled = (if (editing in listOf("Look", "Reveal")) mayOpen else enabled) &&
             text.text.toIntOrNull()?.let { it >= 0 } == true) {
@@ -107,7 +78,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
 
 internal fun selectedLibraryQuantity(text: String) = TextFieldValue(text, TextRange(0, text.length))
 internal fun stepLibraryQuantity(text: String, delta: Int): Int =
-    ((text.toIntOrNull() ?: 0).toLong() + delta).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+    stepValueInput(text, delta)
 
 internal class LibraryQuantityStore(context: Context, account: String) {
     private val preferences = context.applicationContext.getSharedPreferences("library-quantities", Context.MODE_PRIVATE)

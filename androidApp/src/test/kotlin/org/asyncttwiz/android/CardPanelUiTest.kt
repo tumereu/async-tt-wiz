@@ -147,7 +147,7 @@ class CardPanelUiTest {
         assertTrue((f.commands().last().action as GameAction.Play).action is PlayAction.ReorderContents)
         for (s in listOf(scene(), scene(width = 892f, height = 412f, landscape = true))) {
             val p = s.cardPanels.single()
-            assertTrue(p.bounds.width <= 96f)
+            assertEquals(104f, p.bounds.width)
             assertEquals(28f, p.rows.first().bounds.width)
             assertEquals(40f, p.rows.first().bounds.height)
             assertEquals(s.world!!.viewport.x - 6, p.bounds.x)
@@ -191,15 +191,15 @@ class CardPanelUiTest {
         assertNull(ui.peek)
     }
 
-    @Test fun twoCardPanelSpansAvailableHeightAndHeaderFitsOneColumn() {
+    @Test fun twoCardPanelUsesThreeColumnsAndStaysInsideTheBattlefield() {
         setup(); show(count = 2); mount()
-        compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertWidthIsEqualTo(64.dp)
+        compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertWidthIsEqualTo(104.dp)
         for (s in listOf(scene(), scene(width = 892f, height = 412f, landscape = true))) {
             val p = s.cardPanels.single()
-            assertTrue(p.bounds.width <= 96f)
-            assertTrue(p.bounds.height >= s.world!!.visibleViewport.height)
+            assertEquals(104f, p.bounds.width)
+            assertEquals(s.world!!.visibleViewport.height, p.bounds.height)
             assertEquals(0f, p.viewport.maxScrollY)
-            assertEquals(p.rows.first().bounds.x, p.rows.last().bounds.x)
+            assertEquals(32f, p.rows.last().bounds.x - p.rows.first().bounds.x)
             assertTrue(p.rows.last().bounds.bottom < p.bounds.bottom)
         }
     }
@@ -214,7 +214,7 @@ class CardPanelUiTest {
         val play = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards + opponents,
             contentsDisplays = listOf(own, opponent)))
         compose.setContent { MaterialTheme { TableSurface(f.game, play, f.actor, false) } }
-        compose.onNodeWithContentDescription("Opponent Look panel, 4 cards").assertWidthIsEqualTo(64.dp)
+        compose.onNodeWithContentDescription("Opponent Look panel, 4 cards").assertWidthIsEqualTo(72.dp)
         compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertIsDisplayed()
         compose.onNodeWithText("Card back").assertDoesNotExist()
         for (landscape in listOf(false, true)) {

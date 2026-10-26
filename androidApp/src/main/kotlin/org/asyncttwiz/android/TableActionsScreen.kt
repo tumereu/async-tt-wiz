@@ -90,8 +90,11 @@ internal fun BasicMoveControls(play: PlayState, names: Map<String, String>, enab
 
 internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false): List<MenuControl> = buildList {
-    val owner = CombatStackRules.liveSource(play.board, scope.contextId)?.owner ?: return@buildList
+    val context = CombatStackRules.liveSource(play.board, scope.contextId) ?: return@buildList
+    val owner = context.owner
+    val currentZone = play.board.containers.single { it.id == context.containerId }.zone
     for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+        if (context.token && zone in setOf(PlayZone.HAND, PlayZone.LIBRARY)) continue
         val target = play.board.containers.single { it.accountId == owner && it.zone == zone }
         val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
         for (bottom in choices) {
@@ -102,9 +105,20 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
                 val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
                 TableDestination.Grid(target.id, column, 0, ownerOnly = true)
             } else TableDestination.Container(target.id, zone, bottom)
-            add(MenuControl(label, enabled) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
+            add(MenuControl(label, enabled && currentZone != zone) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
         }
     }
+    if (!context.token) add(MenuControl("Shuffle into library", enabled && currentZone != PlayZone.LIBRARY) {
+        val invocation = java.util.UUID.randomUUID().toString()
+        val library = play.board.containers.single { it.accountId == owner && it.zone == PlayZone.LIBRARY }
+        if (request(TableIntent.Move(scope, TableDestination.Container(library.id, PlayZone.LIBRARY), sources, invocation))) {
+            val libraries = scope.cardIds.mapNotNull { id -> CombatStackRules.liveSource(play.board, id)?.owner }
+                .distinct().map { account -> play.board.containers.single { it.accountId == account && it.zone == PlayZone.LIBRARY } }
+            for (target in libraries) request(TableIntent.Submit(PlayAction.ShuffleLibrary(target.id,
+                RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })), invocation))
+            dismiss()
+        }
+    })
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
     if (scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.let {
             CombatStackRules.canProject(play.board, it) } == true }) add(MenuControl("Move to Stack", enabled) {

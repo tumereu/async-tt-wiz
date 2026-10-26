@@ -46,7 +46,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
             Column(Modifier.padding(12.dp)) {
                 if (!peek) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(card.definition.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                         maxLines = 2, overflow = TextOverflow.Clip)
                     ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
                 }
                 if (!peek && card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -100,7 +100,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                             face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
                                 markedText(paragraph, index)
                             }
-                            if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("Power / Toughness: ${face.power} / ${face.toughness}")
+                             if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("${face.power}/${face.toughness}")
                             if (face.loyalty.isNotEmpty()) Text("Loyalty: ${face.loyalty}")
                             if (face.defense.isNotEmpty()) Text("Defense: ${face.defense}")
                             if (face.corner.isNotEmpty() && face.power.isEmpty() && face.toughness.isEmpty() &&

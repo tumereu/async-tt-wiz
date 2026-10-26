@@ -208,16 +208,14 @@ class LobbyStartTest {
                     }
                 }
                 val piles = scene.items.filter { it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }
-                // Filled piles draw diagonal peeks; allocation, not the ink bounds, stays equal.
+                // Every special pile occupies exactly one card, including when empty.
                 assertEquals(1, piles.filter { it.zone != PlayZone.STACK }.map { it.footprint.width to it.footprint.height }.distinct().size)
                 for (pile in piles) {
-                    assertEquals(if (pile.zone == PlayZone.STACK && !landscape) 28f * 1.24f else scene.footprint, pile.footprint.width)
-                    assertEquals(scene.footprint, pile.footprint.height)
+                    assertEquals(28f, pile.footprint.width)
+                    assertEquals(40f, pile.footprint.height)
                     assertEquals(pile.bounds, pile.bounds.intersection(pile.footprint))
-                    // Bounds include the total badge and peeks, not just the top card's face.
-                    assertEquals(if (pile.zone == PlayZone.STACK) { if (landscape) scene.footprint else 28f * 1.24f }
-                        else scene.cardWidth + 12f, pile.bounds.width)
-                    assertEquals(if (pile.zone == PlayZone.STACK) scene.footprint else scene.cardHeight + 12f, pile.bounds.height)
+                    assertEquals(28f, pile.bounds.width)
+                    assertEquals(40f, pile.bounds.height)
                 }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),

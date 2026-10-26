@@ -62,7 +62,7 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
      perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap()) {
     val scope = TableActionScope(play.gameId, play.id)
-    var sides by remember(scope) { mutableStateOf("6") }
+    var sides by remember(scope) { mutableStateOf(selectedLibraryQuantity("6")) }
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var die by remember(scope) { mutableStateOf(false) }
@@ -105,10 +105,9 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             dismissButton = { TextButton(onClick = { outcome = null }) { Text("Cancel") } })
     }
     if (die) TableMenuPanel({ die = false }, title = "Roll die") {
-        OutlinedTextField(sides, { sides = it }, label = { Text("Die sides") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(), isError = sides.toIntOrNull()?.let { it <= 0 } != false)
-        MenuButton("Roll die", Modifier.fillMaxWidth(), enabled && (sides.toIntOrNull() ?: 0) > 0) {
-            sides.toIntOrNull()?.let { if (controller.rollDie(scope, it)) onDismiss() }
+        ValueInputControl("Die sides", sides, { sides = it }, enabled, minimum = 1)
+        MenuButton("Roll die", Modifier.fillMaxWidth(), enabled && (sides.text.toIntOrNull() ?: 0) > 0) {
+            sides.text.toIntOrNull()?.let { if (controller.rollDie(scope, it)) onDismiss() }
         }
     }
 }

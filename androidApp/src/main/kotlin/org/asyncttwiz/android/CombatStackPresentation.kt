@@ -99,12 +99,10 @@ object CombatStackPresentation {
     fun stack(board: BoardState, cardWidth: Float, cardHeight: Float): StackGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val ids = CombatStackRules.stack(board).cards
-        val peek = cardWidth * .12f
-        val visible = ids.take(3).mapIndexed { index, id ->
+        val visible = ids.take(1).map { id ->
             val card = requireNotNull(CombatStackRules.inspection(board, id)).copy(tapped = false)
             val effect = board.stackEffects.find { it.id == id }
-            // Same top-at-bottom-right corner peeks as Library/Graveyard, not a fan.
-            OccurrenceDrawing(id, card, TableBounds((2 - index) * peek, (2 - index) * peek,
+            OccurrenceDrawing(id, card, TableBounds(0f, 0f,
                 cardWidth, cardHeight), effect != null, effect?.frozen != null,
                 board.stackTextMarks[id].orEmpty())
         }

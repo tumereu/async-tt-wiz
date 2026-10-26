@@ -243,6 +243,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
             val presented = presentation?.invoke()
+            if (presented?.localPanelOutside(point) == true &&
+                relay.ring?.outside?.invoke(screenOrigin + down.position) != false &&
+                presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
             val bubble = presented?.stackBubbles
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
                 toolkit?.showStackBubbles(null); localStackBubble = null
@@ -839,8 +842,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     fun emptySlot(i: TableItem, color: Color) {
         val z = 1f
-        val inset = if (i.countBadge != null) 28f * .24f else 8f
-        val x = i.bounds.x + inset * z; val y = i.bounds.y + inset * z
+        val x = i.bounds.x; val y = i.bounds.y
         val w = 28f; val h = 40f
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
@@ -997,8 +999,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val port = panel.viewport.bounds
         clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
             for (header in panel.typeHeaders) {
+                drawRect(color.copy(alpha = .22f), xy(header.bounds.x, header.bounds.y),
+                    size(header.bounds.width, header.bounds.height))
                 paint.textSize = 8 * density; paint.isFakeBoldText = true
-                fittedText(header.title, header.bounds.x, header.bounds.y + 13, header.bounds.width)
+                fittedText(header.title, header.bounds.x + 3, header.bounds.y + 13, header.bounds.width - 6)
                 paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
@@ -1066,18 +1070,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 if (i.cards.isEmpty()) {
                     if (i.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) emptySlot(i, color)
                 } else if (i.zone != PlayZone.STACK) {
-                    for (peek in minOf(2, i.cards.size - 1) downTo 0) {
-                        val d = peek * 4f
-                        val peekColor = i.peekOwners.getOrNull(peek)?.let { if (it == viewer) OwnTableColor else OpponentTableColor } ?: color
-                        val x = b.x + 8 - d; val y = b.y + 8 - d
-                        if (peek == 0) cardFace(i, x, y, peekColor, i.faceTitle) else {
-                            drawRoundRect(if (i.covered) Color(0xff506b61) else Color.White, xy(x, y), size(28f, 40f), CornerRadius(2 * density))
-                            drawRoundRect(peekColor, xy(x, y), size(28f, 40f), CornerRadius(2 * density), style = Stroke(density))
-                        }
-                    }
+                    cardFace(i, b.x, b.y, color, i.faceTitle)
                     if (i.covered) {
                         paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * density
-                        text("✧", b.x + 16, b.y + 34, 1)
+                        text("✧", b.x + 8, b.y + 26, 1)
                         paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
                     }
                 }

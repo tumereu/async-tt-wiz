@@ -37,7 +37,7 @@ class TableToolkitGeometryTest {
             assertTrue(scene.combatDrops.any { it.destination.role == CombatRole.ATTACKER && it.destination.pairId == f.id(303) })
             val stack = scene.items.single { it.id == f.container(PlayZone.STACK) }
             assertEquals("27", stack.value); assertEquals(27, stack.cards.size)
-            assertEquals(3, scene.items.count { it.id.startsWith("stackDrawing/") })
+            assertEquals(1, scene.items.count { it.id.startsWith("stackDrawing/") })
             val top = scene.items.last { it.id.startsWith("stackDrawing/") }
             assertEquals(top.id, scene.hit(top.visible.first().center)!!.id)
             assertEquals(real.sourceId, top.sourceId)

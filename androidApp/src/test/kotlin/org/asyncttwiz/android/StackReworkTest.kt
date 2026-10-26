@@ -9,7 +9,28 @@ class StackReworkTest {
     private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
     private fun actions(f: BasicTableFixture, from: Int) = f.commands().drop(from).map { (it.action as GameAction.Play).action }
 
-    @Test fun lowerPeeksIgnoreTapAndDragButHoldInspectsTheirOwnCardAndDoubleTapManagesStack() {
+    @Test fun exileBubbleMovesTheSourceToItsOwnerAndIsUndoableForRealCardsAndEffects() {
+        for (legacy in listOf(false, true)) {
+            val f = BasicTableFixture(); f.connect()
+            try {
+                assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1)))
+                val ui = toolkit(f)
+                if (legacy) assertTrue(f.legacyStack(40)) else assertTrue(ui.addEffects(listOf(f.id(40))))
+                val before = f.play.board
+                val top = CombatStackRules.stack(before).cards.first()
+                val count = f.commands().size
+                assertTrue(ui.handle(TableIntent.StackDestination(top, PlayZone.EXILE, fromBubble = true)))
+                assertEquals(f.container(PlayZone.EXILE, f.card(40).owner), f.card(40).containerId)
+                assertTrue(CombatStackRules.stack(f.play.board).cards.isEmpty())
+                assertEquals(1, actions(f, count).filterIsInstance<PlayAction.MoveCard>().size)
+                assertEquals(1, f.commands().drop(count).map { it.invocationId }.distinct().size)
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertEquals(before, f.play.board)
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
+    @Test fun onlyTopIsDrawnAndDraggableHoldInspectsAndDoubleTapManagesAllEntries() {
         val f = BasicTableFixture(); f.connect()
         try {
             assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1)))
@@ -19,24 +40,23 @@ class StackReworkTest {
             val top = CombatStackRules.stack(f.play.board).cards.first()
             val entries = scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }
             assertEquals(listOf(top), entries.filter(scene::canDrag).map { it.cardId })
-            val lower = entries.first { it.cardId != top }
-            val point = lower.visible.flatMap { b -> listOf(b.center, TablePoint(b.x + .5f, b.bottom - .5f)) }
-                .first { scene.hit(it)?.id == lower.id }
+            assertEquals(1, entries.size)
+            assertEquals(3, scene.items.single { it.kind == TableItemKind.PILE && it.zone == PlayZone.STACK }.cards.size)
+            val card = entries.single()
+            val point = card.visible.first().center
             val events = mutableListOf<TableIntent>()
             val gestures = TableGestureCoordinator(events::add)
             gestures.update(scene, TableSelection(ids = entries.mapNotNull { it.cardId }.toSet()), true)
             gestures.down(point, 0); gestures.up(point, 20); gestures.tick(400)
-            assertTrue(events.isEmpty())
-            gestures.down(point, 500); gestures.move(TablePoint(100f, 700f), 580); gestures.up(TablePoint(100f, 700f), 600)
-            assertTrue(events.none { it is TableIntent.Move })
+            assertEquals(listOf<TableIntent>(TableIntent.StackBubbles(top)), events)
             events.clear()
             gestures.down(point, 1000); gestures.tick(1400); gestures.up(point, 1420)
-            assertEquals(listOf<TableIntent>(TableIntent.Peek(lower.cardId), TableIntent.Peek(null)), events)
+            assertEquals(listOf<TableIntent>(TableIntent.Peek(top), TableIntent.Peek(null)), events)
             events.clear()
             gestures.down(point, 1800); gestures.up(point, 1820)
             gestures.down(point, 1900); gestures.up(point, 1920)
             val event = events.filterIsInstance<TableIntent.Actions>().single()
-            ui.open(event, lower, TableSelection())
+            ui.open(event, card, TableSelection())
             assertEquals("manageStack", ui.panel)
             assertNull(ui.manual.scope)
         } finally { f.lobby.close(); f.worker.drain() }
@@ -153,7 +173,7 @@ class StackReworkTest {
             val state = f.combat()
             val scene = TablePresentation.scene(f.game, state, f.a, width, height, width > height)
             val bubble = TablePresentation.stackBubbles(scene, state, CombatStackRules.stack(state.board).cards.first(), width, height)!!
-            assertEquals(4, bubble.controls.size)
+            assertEquals(5, bubble.controls.size)
             for (control in bubble.controls) {
                 assertEquals(control.bounds, control.bounds.intersection(TableBounds(0f, 0f, width, height)))
                 assertTrue(bubble.controls.filter { it != control }.none { it.bounds.intersection(control.bounds) != null })

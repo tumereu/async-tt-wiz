@@ -61,7 +61,7 @@ class TableLayoutScreenshotTest {
         assertRenderedLandsBands(image, scene, "a")
         val region = scene.stackRegion!!
         assertEquals(0xff2a1740.toInt(), image.getRGB((region.x + 2).toInt(), region.center.y.toInt()))
-        assertEquals(0xffeee3f5.toInt(), image.getRGB((region.x + 5).toInt(), (region.y + 5).toInt()))
+        assertEquals(0xffeee3f5.toInt(), image.getRGB(region.center.x.toInt(), (region.y + 8).toInt()))
         assertEquals(if (landscape) 12 else counterOwners.size * 6, scene.items.count { it.kind == TableItemKind.COUNTER })
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         compose.onNodeWithContentDescription(stack.label).assertIsDisplayed().assertHasClickAction()

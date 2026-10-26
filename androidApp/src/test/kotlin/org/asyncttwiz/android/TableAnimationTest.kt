@@ -124,9 +124,7 @@ class TableAnimationTest {
             val projected = projected(initial, listOf("effect"), sourceId)
             val base = TableFixture.scene(initial, landscape)
             val stack = TableFixture.scene(projected, landscape)
-            val real = base.items.firstOrNull { it.cardId == sourceId }?.bounds ?: base.items.single { it.id == "a/$zone" }.bounds.let {
-                TableBounds(it.x + 8f, it.y + 8f, base.cardWidth, base.cardHeight)
-            }
+            val real = base.items.firstOrNull { it.cardId == sourceId }?.bounds ?: base.items.single { it.id == "a/$zone" }.bounds
             val slot = stack.items.single { it.cardId == "effect" }.bounds
             val animation = HistorySceneAnimation(base)
             repeat(2) { // Add/remove, then undo removal / redo removal.
@@ -149,16 +147,16 @@ class TableAnimationTest {
         }
     }
 
-    @Test fun projectionFallingOutOfThreePeeksDoesNotFlyBackAndRevealedPeekDoesNotFlyFromSource() {
+    @Test fun buriedTopDoesNotFlyBackAndUncoveredTopDoesNotFlyFromSource() {
         val initial = TableFixture.play(hand = 1)
         val three = TableFixture.scene(projected(initial, listOf("one", "two", "three"), "a/HAND/0"))
         val four = TableFixture.scene(projected(initial, listOf("new", "one", "two", "three"), "a/HAND/0"))
         val animation = HistorySceneAnimation(three)
         animation.retarget(four, 1f)
-        val before = three.items.single { it.cardId == "three" }.bounds
-        assertEquals(before, animation.frame(.5f).single { it.item.cardId == "three" }.bounds)
+        val before = three.items.single { it.cardId == "one" }.bounds
+        assertEquals(before, animation.frame(.5f).single { it.item.cardId == "one" }.bounds)
         animation.retarget(three, 1f)
-        val revealed = animation.frame(0f).single { it.item.cardId == "three" }
+        val revealed = animation.frame(0f).single { it.item.cardId == "one" }
         assertNotEquals(three.items.single { it.cardId == "a/HAND/0" }.bounds, revealed.bounds)
     }
     @Test fun buriedRemovalFliesHomeAndUndoSendsItBackEvenWithoutAVisiblePeek() {
@@ -257,8 +255,8 @@ class TableAnimationTest {
             val library = source.items.single { it.id == "$owner/LIBRARY" }
             for (id in ids) {
                 val start = animation.frame(0f).single { it.item.cardId == id }
-                assertEquals(library.bounds.x + 8f, start.bounds.x)
-                assertEquals(library.bounds.y + 8f, start.bounds.y)
+                assertEquals(library.bounds.x, start.bounds.x)
+                assertEquals(library.bounds.y, start.bounds.y)
                 assertEquals(1f, start.alpha)
                 assertTrue(start.item.covered) // Even the viewer's draw leaves a face-down Library pile.
                 val half = animation.frame(.5f).single { it.item.cardId == id }

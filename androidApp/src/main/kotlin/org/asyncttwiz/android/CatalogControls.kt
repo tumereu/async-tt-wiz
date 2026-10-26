@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.CatalogProgress
 import org.asyncttwiz.storage.CatalogPhase
@@ -55,38 +56,32 @@ internal fun CatalogControls(controller: CatalogViewModel) {
             ScreenButton(controller::confirmFullRefresh, Modifier.weight(1f)) { Text("Refresh full catalog") }
         }
     }
-    Box(Modifier.widthIn(max = 540.dp).fillMaxWidth()) {
-    InitialLoadArea(state.loaded, Modifier.fillMaxWidth().heightIn(min = 552.dp)) {
+    InitialLoadArea(state.loaded, Modifier.widthIn(max = 540.dp).fillMaxWidth()
+        .heightIn(min = if (state.loaded) 0.dp else 160.dp).testTag("catalog-controls")) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Card records", style = MaterialTheme.typography.titleMedium)
-        Box(Modifier.fillMaxWidth().height(64.dp)) {
-            Text(state.installed?.let { "Installed: ${it.date} · ${it.records} records" }
-                ?: "Download card records before importing a new deck. Artwork loads only when needed.", maxLines = 3)
-        }
-        Column(Modifier.fillMaxWidth().height(80.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!state.background && !state.error) state.status?.let { Text(it, maxLines = 2) }
-                if (!state.background) state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
-        }
-        Column(Modifier.fillMaxWidth().height(128.dp)) {
-            Box(Modifier.fillMaxWidth().height(72.dp)) {
-                if (state.available != null) Text("${catalogDownloadEstimate(state)} ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."}", maxLines = 3)
+        Text(state.installed?.let { "Installed: ${it.date} · ${it.records} records" }
+            ?: "Download card records before importing a new deck. Artwork loads only when needed.")
+        Box(Modifier.fillMaxWidth().testTag("catalog-status")) {
+            Text(state.status?.takeIf { !state.background && !state.error }.orEmpty(),
+                Modifier.fillMaxWidth().padding(bottom = 8.dp), minLines = 2, maxLines = 2)
+            if (!state.background) state.progress?.let {
+                CatalogProgressBar(it, Modifier.fillMaxWidth().align(Alignment.BottomCenter))
             }
-            if (state.available != null) {
+        }
+        if (state.available != null) {
+            Text("${catalogDownloadEstimate(state)} ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."}")
             ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
-            }
         }
-        TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp), enabled = !state.busy) {
+        TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp)
+            .testTag("catalog-check"), enabled = !state.busy) {
             EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
         }
-        Box(Modifier.fillMaxWidth().height(48.dp)) {
         if (state.installed != null) TextButton(onClick = controller::requestFullRefresh,
             Modifier.heightIn(min = 48.dp), enabled = !state.busy) { Text("Refresh full catalog") }
-        }
     }
-    }
-    FloatingTransientError(state.status?.takeIf { state.error }, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
 }
 

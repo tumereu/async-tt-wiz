@@ -1,8 +1,13 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.lifecycle.ViewModelStore
+import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 import org.junit.Rule
@@ -112,6 +117,79 @@ class LobbyDeckScreensTest {
         compose.runOnIdle { fixture.lobby.seed(fixture.lobby.state.copy(busy = true, games = listOf(game.copy(attentionHolder = "b")))) }
         assertEquals(menu, compose.onNodeWithTag("menu-DECKS").fetchSemanticsNode().boundsInRoot)
         assertEquals(row, compose.onNodeWithTag("quick-continue-${game.id}").fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test fun drawerKeepsNavigationAndAccountActionsAvailableDuringInitialLoadAndFailure() {
+        val fixture = ScreenFixtures(accountSwitcher = true)
+        fixture.auth.seed(AuthState(account = ScreenFixtures.alex, restoring = false,
+            rememberedAccounts = listOf(RememberedAccount(ScreenFixtures.alex, "alex@example.test"),
+                RememberedAccount(ScreenFixtures.riley, "riley@example.test"))))
+        fixture.lobby.seed(LobbyState(busy = true))
+        compose.setContent { ScreenTheme {
+            Surface(Modifier.fillMaxSize()) {
+                if (fixture.auth.state.destination == ShellDestination.SETTINGS)
+                    SettingsContent(null, "a", fixture.auth::logout)
+                else Navigation(fixture.auth, true, fixture.lobby)
+            }
+        } }
+        compose.onNodeWithText(ShellDestination.DECKS.title).assertIsDisplayed()
+        compose.onNodeWithText("Settings").assertIsDisplayed()
+        compose.onNodeWithTag("switch-account-b").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Add account").performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { fixture.lobby.seed(LobbyState(error = "Synthetic lobby failure")) }
+        compose.onNodeWithText("Retry").performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("switch-account-b").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Add account").assertIsDisplayed()
+        compose.onNodeWithText(ShellDestination.DECKS.title).performScrollTo().performClick()
+        assertEquals(ShellDestination.DECKS, fixture.auth.state.destination)
+        compose.onNodeWithText("Settings").performClick()
+        compose.onNodeWithTag("logout").performScrollTo().performClick()
+        assertNull(fixture.auth.state.account)
+    }
+
+    @Test @Config(qualifiers = "w412dp-h640dp-port-mdpi")
+    fun portraitCatalogRecoveryPreservesDraftAndShowsErrorsAboveTheScroller() = assertCatalogRecovery(false)
+
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun landscapeCatalogRecoveryPreservesDraftAndShowsErrorsAboveTheScroller() = assertCatalogRecovery(true)
+
+    private fun assertCatalogRecovery(landscape: Boolean) {
+        val models = ViewModelStore()
+        val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { models.put("catalog", it) }
+        val metadata = CatalogMetadata("2026-10-26", "test")
+        catalog.seed(CatalogUiState(loaded = true, available = metadata))
+        val worker = Worker()
+        var resolved = false
+        val printing = CatalogPrinting(id(), "Unknown", "TST", "1", "English", "", null, false, emptyList(), "{}")
+        val importer = DeckImportController({ text -> DeckImportResult(text,
+            if (resolved) listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))) else emptyList(),
+            if (resolved) emptyList() else listOf(ImportIssue(1, "Card records are missing or outdated")),
+            if (resolved) metadata else null) }, worker, { it() })
+        importer.open(); importer.name("Keep my draft"); importer.edit("1 Unknown"); importer.lookup(); worker.drain()
+        try {
+            compose.setContent { ScreenTheme { DeckImportScreen(importer, landscape, null, catalog) } }
+            compose.onNodeWithText("Download card records").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Check for updates").performScrollTo().assertIsDisplayed()
+            // Report a transfer failure while the catalog section is outside the viewport.
+            compose.onNodeWithTag("deck-list").performScrollTo()
+            val paste = compose.onNodeWithTag("deck-list").getUnclippedBoundsInRoot()
+            compose.runOnIdle { catalog.seed(catalog.state.copy(error = true, status = "Synthetic catalog transfer failure")) }
+            compose.onNodeWithText("Synthetic catalog transfer failure").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Dismiss message").performClick()
+            assertNull(catalog.state.status)
+            assertEquals("Keep my draft", importer.state.name)
+            assertEquals("1 Unknown", importer.state.text)
+            compose.runOnIdle {
+                resolved = true
+                catalog.seed(CatalogUiState(loaded = true, installed = metadata))
+            }
+            compose.runOnIdle { worker.drain() }
+            compose.onNodeWithTag("save-deck").assertIsEnabled()
+            assertTrue(importer.state.active)
+            assertEquals("Keep my draft", importer.state.name)
+            assertEquals("1 Unknown", importer.state.text)
+            assertEquals(paste, compose.onNodeWithTag("deck-list").getUnclippedBoundsInRoot())
+        } finally { importer.close(); worker.drain(); models.clear() }
     }
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")

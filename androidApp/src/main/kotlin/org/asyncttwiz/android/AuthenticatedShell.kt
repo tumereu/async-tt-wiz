@@ -117,9 +117,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
         if (close) IconButton(onClick = { controller.drawer(false) }, Modifier.align(Alignment.End)) {
             EntryIcon("Close navigation", "close")
         }
-        InitialLoadArea(lobby == null || lobby.state.loaded, Modifier.weight(1f).fillMaxWidth(),
-            failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
@@ -133,6 +131,10 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 lobby?.back()
                 controller.navigate(ShellDestination.GAMES)
             }
+            InitialLoadArea(lobby == null || lobby.state.loaded, Modifier.fillMaxWidth()
+                .heightIn(min = if (lobby != null && !lobby.state.loaded) 80.dp else 0.dp),
+                failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
+            Column {
             for (game in lobby?.state?.games.orEmpty()) {
                 val selectedGame = controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
@@ -153,6 +155,8 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                         EntryIcon(null, "chevron")
                     }
                 }
+            }
+            }
             }
             if (controller.accountSwitcher) {
                 Spacer(Modifier.height(16.dp))
@@ -179,7 +183,6 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 }
                 NavigationItem("Add account", "person", false, action = controller::addAccount)
             }
-        }
         }
     }
 }

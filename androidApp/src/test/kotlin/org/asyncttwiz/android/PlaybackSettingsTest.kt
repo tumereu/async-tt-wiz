@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogMetadata
+import org.asyncttwiz.storage.CatalogPhase
+import org.asyncttwiz.storage.CatalogProgress
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,10 +146,10 @@ class PlaybackSettingsTest {
         assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
     }
 
-    @Test fun catalogReservesStableStatusAndActionSlotsInPortrait() = assertCatalogGeometry()
+    @Test fun catalogAtBottomKeepsSettingsStableAndCompactInPortrait() = assertCatalogGeometry()
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun catalogReservesStableStatusAndActionSlotsInLandscape() = assertCatalogGeometry()
+    fun catalogAtBottomKeepsSettingsStableAndCompactInLandscape() = assertCatalogGeometry()
 
     private fun assertCatalogGeometry() {
         val models = ViewModelStore()
@@ -157,20 +159,41 @@ class PlaybackSettingsTest {
         }
         try {
             compose.setContent { MaterialTheme { SettingsContent(catalog, "gap") {} } }
-            // The reserved catalog slots can put the next section outside the viewport.
-            // Compare actual layout bounds, not rectangles clipped by the settings scroller.
-            val installed = compose.onNodeWithText("Installed:", substring = true).getUnclippedBoundsInRoot()
-            val check = compose.onNodeWithText("Check for updates").getUnclippedBoundsInRoot()
-            val refresh = compose.onNodeWithText("Refresh full catalog").getUnclippedBoundsInRoot()
-            val playback = compose.onNodeWithText("Playback").getUnclippedBoundsInRoot()
-            assertTrue(playback.top - refresh.bottom < 60.dp, "Playback should follow Card records without a blank block: $refresh -> $playback")
-            compose.runOnIdle { catalog.seed(catalog.state.copy(busy = true, status = "Checking card records…")) }
-            assertEquals(check, compose.onNodeWithText("Check for updates").getUnclippedBoundsInRoot())
-            assertEquals(playback, compose.onNodeWithText("Playback").getUnclippedBoundsInRoot())
-            compose.runOnIdle { catalog.seed(catalog.state.copy(busy = false, error = true, status = "Synthetic network failure")) }
-            assertEquals(check, compose.onNodeWithText("Retry").getUnclippedBoundsInRoot())
-            assertEquals(installed, compose.onNodeWithText("Installed:", substring = true).getUnclippedBoundsInRoot())
-            assertEquals(playback, compose.onNodeWithText("Playback").getUnclippedBoundsInRoot())
+            // Compare unclipped bounds: Card records is below all preferences, even on short screens.
+            val fixedSections = listOf("playback-settings", "card-size", "logout", "app-version")
+                .associateWith { compose.onNodeWithTag(it).getUnclippedBoundsInRoot() }
+            val controls = compose.onNodeWithTag("catalog-controls").getUnclippedBoundsInRoot()
+            assertEquals(24.dp, controls.top - fixedSections.getValue("app-version").bottom)
+            assertTrue(controls.bottom - controls.top < 300.dp, "Installed catalog must not reserve a large empty block: $controls")
+            val check = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
+            val status = compose.onNodeWithTag("catalog-status").getUnclippedBoundsInRoot()
+            val installed = catalog.state
+            val available = CatalogMetadata("2026-10-26", "2", records = 200)
+            for (state in listOf(
+                CatalogUiState(),
+                installed.copy(busy = true, status = "Downloading card records…", progress = CatalogProgress(CatalogPhase.DOWNLOADING, 1, 10)),
+                installed.copy(error = true, status = "Synthetic network failure"),
+                installed.copy(available = available, size = 12_000_000),
+                CatalogUiState(loaded = true, available = available),
+                installed.copy(installed = available, status = "Card records are up to date.")
+            )) {
+                compose.runOnIdle { catalog.seed(state) }
+                fixedSections.forEach { (tag, bounds) -> assertEquals(bounds, compose.onNodeWithTag(tag).getUnclippedBoundsInRoot(), tag) }
+                if (!state.loaded) {
+                    compose.onNodeWithText("Card records").assertDoesNotExist()
+                    continue
+                }
+                val action = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
+                val slot = compose.onNodeWithTag("catalog-status").getUnclippedBoundsInRoot()
+                assertEquals(check.right - check.left, action.right - action.left)
+                assertEquals(check.bottom - check.top, action.bottom - action.top)
+                assertEquals(status.bottom - status.top, slot.bottom - slot.top)
+                if (state.error) {
+                    compose.onNodeWithText("Retry").assertExists()
+                    compose.onNodeWithText("Synthetic network failure").assertIsDisplayed()
+                    assertEquals(check, action)
+                }
+            }
         } finally { models.clear() }
     }
 }

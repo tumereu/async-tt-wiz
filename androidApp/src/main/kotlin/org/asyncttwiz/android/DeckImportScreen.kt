@@ -103,9 +103,14 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
             }
         } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             list()
+            if (catalog != null) {
+                Spacer(Modifier.height(16.dp))
+                CatalogControls(catalog)
+            }
         }
     }
-    FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
+    FloatingTransientError(state.error ?: catalog?.state?.status?.takeIf { catalog.state.error },
+        { if (state.error != null) controller.dismissError() else catalog?.dismissError() }, Modifier.align(Alignment.BottomCenter))
     }
     }
     if (state.discard) ScreenDialog(controller::keepEditing) {

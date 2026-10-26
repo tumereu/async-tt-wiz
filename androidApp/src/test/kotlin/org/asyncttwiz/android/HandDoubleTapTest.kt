@@ -117,4 +117,50 @@ class HandDoubleTapTest {
             } finally { f.lobby.close(); f.worker.drain() }
         }
     }
+
+    @Test fun normalizedSpellHalfLayoutsStayOnStackAfterHandDoubleTapButPermanentFlipResolves() {
+        for ((layout, types) in listOf(
+            "adventure" to listOf("Creature — Giant", "Instant — Adventure"),
+            "split" to listOf("Instant", "Sorcery"),
+            "aftermath" to listOf("Sorcery", "Sorcery — Aftermath"),
+            "flip" to listOf("Creature — Human Monk", "Legendary Creature — Spirit"))) {
+            val f = BasicTableFixture()
+            val definition = PhysicalCardFaces.normalize(f.definition.copy(provider = "mtgjson", layout = layout,
+                faces = types.mapIndexed { index, type -> f.definition.faces.first().copy(
+                    faceId = f.id(800 + index), name = "Half $index", typeLine = type) }))
+            assertEquals(1, definition.faces.size)
+            assertEquals(types.first(), definition.faces.single().typeLine)
+            assertTrue(types.last() in definition.faces.single().rulesText)
+            assertEquals(layout == "flip", StackContexts.permanentOnly(definition), layout)
+            val digest = DeckJson.digest(definition)
+            val initial = f.root.copy(definitions = listOf(SubmittedDefinition(digest, definition)),
+                board = f.root.board.copy(cards = f.root.board.cards.map {
+                    it.copy(definition = digest, faceId = definition.faces.single().faceId) }))
+            f.connect(initial)
+            try {
+                assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
+                val before = f.commands().size
+                val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+                val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+                val card = scene.items.single { it.cardId == f.id(40) }
+                val gestures = TableGestureCoordinator({ if (it is TableIntent.Move) assertTrue(toolkit.handle(it), layout) })
+                gestures.update(scene, TableSelection(), true)
+                val point = card.visible.first().center
+                gestures.down(point, 0); gestures.up(point, 20)
+                gestures.down(point, 100); gestures.up(point, 120)
+                val commands = f.commands().drop(before)
+                assertEquals(if (layout == "flip") 2 else 1, commands.size, layout)
+                assertEquals(f.id(40), assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(
+                    assertIs<GameAction.Play>(commands.first().action).action).action).sourceId)
+                if (layout == "flip") {
+                    assertTrue(CombatStackRules.stack(f.play.board).cards.isEmpty())
+                    assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
+                } else {
+                    assertEquals(1, CombatStackRules.stack(f.play.board).cards.size, layout)
+                    assertEquals(f.id(40), f.play.board.stackEffects.single().sourceId)
+                    assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
+                }
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
 }

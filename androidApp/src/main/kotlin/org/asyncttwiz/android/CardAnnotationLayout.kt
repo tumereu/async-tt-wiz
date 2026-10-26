@@ -10,12 +10,13 @@ internal fun cardAnnotationLayout(titleBand: Float, artBottom: Float, noteHeight
         val columns = (counterCount + 1) / 2
         val noteColumns = if (hasNote) 1 else 0
         val slotWidth = 24f / (columns + noteColumns)
-        // Two full-height rows may cover the title; keep a separate column for the note.
-        val counterTop = (artBottom - 2 * counterHeight).coerceIn(0f, (40f - 2 * counterHeight).coerceAtLeast(0f))
+        // Two rows may cover the title, but must fit the face; keep a separate column for the note.
+        val rowHeight = minOf(counterHeight, 39f / 2)
+        val counterTop = (artBottom - 2 * rowHeight).coerceIn(0f, 39f - 2 * rowHeight)
         return CardAnnotationLayout(
             if (hasNote) TableBounds(2f, top.coerceAtMost(39f - noteHeight), slotWidth, noteHeight) else null,
             List(counterCount) { index -> TableBounds(2f + (index % columns + noteColumns) * slotWidth,
-                counterTop + index / columns * counterHeight, slotWidth, counterHeight) })
+                counterTop + index / columns * rowHeight, slotWidth, rowHeight) })
     }
     // Never cap a line to the remaining art height. At large text sizes annotations
     // share a row and extend over the art instead of losing their lower glyphs.

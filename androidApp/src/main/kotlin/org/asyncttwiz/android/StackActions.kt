@@ -25,8 +25,9 @@ object StackContexts {
             else -> StackContextKind.UNCLASSIFIED
         }
     }
-    /** Conservative shortcut classification: every face must be a non-land permanent. */
+    /** Spell halves may be folded into rules text; every physical face must be a non-land permanent. */
     fun permanentOnly(definition: CardDefinition?): Boolean = definition != null && definition.faces.isNotEmpty() &&
+        definition.layout !in setOf("adventure", "split", "aftermath") &&
         definition.faces.all { kind(it.typeLine) == StackContextKind.PERMANENT && "Land" !in types(it.typeLine) }
     fun destinations(context: StackContext, configured: List<StackMoveChoice>, quick: Boolean): List<StackMoveChoice> =
         if (context.target.sourceId == null) emptyList() else configured.filter {

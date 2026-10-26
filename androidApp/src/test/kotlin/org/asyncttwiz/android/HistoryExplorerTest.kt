@@ -165,12 +165,12 @@ class HistoryExplorerTest {
         val internal = branch.copy(currentNodeId = second.currentNodeId, currentBranchId = second.currentBranchId)
         val groups = internal.nodes.keys.associateWith { "same-effective-group" }
         val graph = HistoryGraphLayout.build(internal, groups)
-        assertEquals(4, graph.ranges.size) // root, prefix, old suffix, interruption
-        val prefix = graph.ranges.single { it.targetId == first.currentNodeId }
+        assertEquals(3, graph.ranges.size) // root, original chip (never split), interruption
+        val prefix = graph.ranges.single { first.currentNodeId in it.nodeIds }
         val suffixes = graph.ranges.filter { it.parentRangeId == prefix.id }
-        assertEquals(2, suffixes.size)
-        assertEquals(setOf(third.currentNodeId, branch.currentNodeId), suffixes.map { it.targetId }.toSet())
-        assertNotEquals(suffixes[0].position.y, suffixes[1].position.y)
+        assertEquals(1, suffixes.size)
+        assertEquals(branch.currentNodeId, suffixes.single().targetId)
+        assertNotEquals(prefix.position.y, suffixes.single().position.y)
         assertEquals(graph.positions[second.currentNodeId], graph.positions[third.currentNodeId])
         val suffix = graph.ranges.single { second.currentNodeId in it.nodeIds }
         val parent = graph.ranges.single { it.id == suffix.parentRangeId }

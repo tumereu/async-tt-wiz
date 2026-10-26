@@ -18,6 +18,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var gate by mutableStateOf<ResultPlaybackGate?>(null); private set
     var foreground by mutableStateOf(true); private set
     var usernames by mutableStateOf<Map<String, String>>(emptyMap()); private set
+    internal var explorerHistory by mutableStateOf<HistoryTree?>(null); private set
     private var tree: GameplayTree? = null
     private var firstRequest: String? = null
     private var precedingPresented: String? = null
@@ -30,6 +31,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private val indexes = LatestReview(worker)
     // Worker-only presentation cache; no per-node boards and no cross-thread tree cache mutation.
     private var textIndex: HistoryTree? = null
+    private var acceptedIndex: HistoryTree? = null
+    private var acceptedTree: GameplayTree? = null
     private var opening = false
     private var lastSeen: String? = null
     private var recordSeen: ((String, String) -> Unit)? = null
@@ -62,22 +65,30 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         opening = true; lastSeen = nodeId; recordSeen = record
     }
 
-    fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null) {
+    fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null,
+        accepted: GameplayTree = value, indexed: HistoryTree? = null) {
         val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
-        if (closed || (tree === value && playback?.tree?.liveVersion == version && usernames == names && textViewer == viewer)) return
-        tree = value; usernames = names; textViewer = viewer
+        if (closed || (tree === value && acceptedTree === accepted && playback?.tree?.liveVersion == version && usernames == names && textViewer == viewer)) return
+        tree = value; acceptedTree = accepted; usernames = names; textViewer = viewer
         val generation = ++epoch
         val isolated = value.materializedCopy()
+        val acceptedCopy = if (accepted.nodes === value.nodes) isolated else accepted.materializedCopy()
         indexes.submit("index") {
             if (generation != epoch) return@submit
-            val previous = textIndex?.takeIf { it.rootId == value.initial.root.id }
+            val retained = indexed?.takeIf { it.rootId == value.initial.root.id && it.nodes === accepted.nodes }
+            val previous = retained?.takeIf { it.nodes === value.nodes }
+                ?: textIndex?.takeIf { it.rootId == value.initial.root.id } ?: retained
             val index = HistoryTree(value.initial.root.id, emptyList(), value.currentNodeId, version,
                 containers = value.initial.board.containers, source = isolated, previous = previous, lazyPresentation = true)
+            val acceptedHistory = if (acceptedCopy === isolated) index else HistoryTree(accepted.initial.root.id,
+                emptyList(), accepted.currentNodeId, version, containers = accepted.initial.board.containers,
+                source = acceptedCopy, previous = retained ?: acceptedIndex?.takeIf { it.rootId == accepted.initial.root.id }, lazyPresentation = true)
             if (generation != epoch) return@submit
-            index.texts = TimelineTexts(isolated, viewer, names); textIndex = index
+            index.texts = TimelineTexts(isolated, viewer, names); textIndex = index; acceptedIndex = acceptedHistory
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
+                    explorerHistory = acceptedHistory
                     val old = playback
                     if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index, ::playbackChanges,
                         { clearChanges() }).also {
@@ -237,5 +248,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     }
 
     fun leaving() { clearChanges(); lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
-    override fun close() { leaving(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null }
+    override fun close() { leaving(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null
+        acceptedTree = null; explorerHistory = null; acceptedIndex = null; textIndex = null }
 }

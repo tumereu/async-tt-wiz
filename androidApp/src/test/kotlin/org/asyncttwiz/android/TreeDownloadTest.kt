@@ -127,8 +127,11 @@ class TreeDownloadTest {
         assertEquals(transfer.compressed.indices.toList(), reads)
         assertNull(store.accepted())
         assertEquals(input, assertNotNull(staged).generation)
+        assertEquals(input.tree.nodes.size, staged.history.indexedNodes)
         val result = download.publish(staged, emptyList(), 10) as TreePublication.Published
         assertEquals(input, result.value.generation)
+        assertSame(staged.history.index, result.value.history.index)
+        assertSame(result.value.history.index, download.accepted()!!.history.index)
         assertEquals(input, download.accepted()!!.generation)
         assertTrue(input.tree.nodes.keys.all { download.accepted()!!.generation.tree.stateAt(it) != null })
         assertNull(store.transfer())
@@ -188,6 +191,7 @@ class TreeDownloadTest {
         val result = download.publish(staged, listOf(delta), 11) as TreePublication.Published
         assertEquals(11L, result.value.version.revision)
         assertEquals(first, result.value.generation)
+        assertEquals(1, result.value.history.indexedNodes)
         val old = store.saved
         val stale = download.stage(transfer.plan) { transfer.compressed[it].inputStream() }
         assertEquals(TreePublication.RestartRequired, download.publish(stale, emptyList(), 11))
@@ -196,6 +200,19 @@ class TreeDownloadTest {
         val gap = download.stage(transfer.plan) { transfer.compressed[it].inputStream() }
         assertEquals(TreePublication.RestartRequired, download.publish(gap, listOf(delta.copy(baseRevision = 11, revision = 12)), 12))
         assertEquals(old, store.saved)
+    }
+
+    @Test fun cachedGenerationKeepsLayoutAndLiveDeltaIndexesOnlyNewRecords() {
+        val before = f.tap(f.root())
+        val after = f.tap(before, 101, f.b, 12)
+        val download = TreeDownload(TreeStoreFixture().apply { seed(f.generation(before)) }, nonWorkerThread)
+        val cold = assertNotNull(download.accepted())
+        assertEquals(1, cold.history.indexedNodes)
+        assertSame(cold.history.index, download.accepted()!!.history.index)
+        val published = (download.apply(f.delta(f.generation(before), f.generation(after))) as TreePublication.Published).value
+        assertEquals(1, published.history.indexedNodes)
+        assertSame(cold.history.index.layout.chips[before.currentNodeId], published.history.index.layout.chips[before.currentNodeId])
+        assertSame(published.history.index, download.accepted()!!.history.index)
     }
 
     @Test fun actualChangedRecordAdapterHandlesReparentingRedoRemovalParentsAndDuplicates() {

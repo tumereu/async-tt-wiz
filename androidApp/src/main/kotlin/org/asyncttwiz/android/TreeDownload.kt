@@ -31,8 +31,10 @@ data class TreeDownloadPlan(val id: String, val gameId: String, val playId: Stri
 /** Local changed-record adapter; production GameSession maps GameRevision.treeDelta into it. */
 data class TreeRecordDelta(val gameId: String, val playId: String, val baseRevision: Long, val revision: Long,
     val upserts: List<TreeSyncRecord>, val removals: List<Pair<String, String>> = emptyList())
-data class StagedDownloadedTree(val plan: TreeDownloadPlan, val generation: DownloadedTree)
-data class PublishedDownloadedTree(val version: TreeCacheVersion, val generation: DownloadedTree)
+data class StagedDownloadedTree(val plan: TreeDownloadPlan, val generation: DownloadedTree,
+    val history: HistoryTree = HistoryTree.ingest(generation.tree, plan.revision.toString()))
+data class PublishedDownloadedTree(val version: TreeCacheVersion, val generation: DownloadedTree,
+    val history: HistoryTree = HistoryTree.ingest(generation.tree, version.revision.toString()))
 sealed interface TreePublication {
     data class Published(val value: PublishedDownloadedTree) : TreePublication
     data object RestartRequired : TreePublication
@@ -124,19 +126,21 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (cache.transfer()?.manifest != staged.plan.identity()) return fail("manifestChanged")
         val expected = cache.version()
         var generation = staged.generation
+        var history = staged.history
         var revision = staged.plan.revision
         for (delta in tail) {
             validate(delta)
             if (delta.revision <= revision) continue
             if (delta.baseRevision != revision) return restart(staged.plan.id)
             generation = merge(generation, delta)
+            history = HistoryTree.ingest(generation.tree, delta.revision.toString(), history)
             revision = delta.revision
         }
         if (revision < verifiedHead || (expected != null && revision < expected.revision)) return restart(staged.plan.id)
         // Recheck mutable adapter input before crossing the accepted boundary.
         val records = TreeSync.records(generation).map(::encode).toList()
         val next = cache.publish(staged.plan.id, expected, revision, records) ?: return fail("publishCAS")
-        return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
+        return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
 
     private fun restart(id: String): TreePublication { cache.restart(id); return fail("stagedTailGap") }
@@ -147,9 +151,10 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (delta.revision <= current.version.revision) return TreePublication.Published(current)
         if (delta.baseRevision != current.version.revision) return fail("revisionGap:cache=${current.version.revision}:base=${delta.baseRevision}:result=${delta.revision}")
         val generation = merge(current.generation, delta)
+        val history = HistoryTree.ingest(generation.tree, delta.revision.toString(), current.history)
         val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode), delta.removals.map { RecordKey(it.first, it.second) })
             ?: return fail("applyCAS")
-        return TreePublication.Published(PublishedDownloadedTree(next, generation).also { materialized = it })
+        return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
 
     private fun validate(plan: TreeDownloadPlan) {

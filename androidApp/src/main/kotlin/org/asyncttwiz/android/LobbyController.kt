@@ -249,6 +249,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             captured = { historyOwner?.captured(it) }).also { if (it != null) historyOwner?.inspectionSubmitted(state.play) }
     }
     fun retainedTree() = state.selected?.let { session?.retainedTree(it) }
+    fun retainedHistory() = state.selected?.let { session?.retainedHistory(it) }
     fun displayTree() = state.selected?.let { session?.displayTree(it) }
     fun reviewHistory(nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean =
         state.selected?.let { session?.review(it, nodeId, complete) } == true

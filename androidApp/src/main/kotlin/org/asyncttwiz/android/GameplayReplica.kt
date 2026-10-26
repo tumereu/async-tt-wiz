@@ -18,6 +18,9 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
     private val records = linkedMapOf<String, GameRevision>()
     var tree: DownloadedTree? = null
         private set
+    /** Retained with accepted game/play data across table exits. */
+    var history: HistoryTree? = null
+        private set
     var revision: String? = null
         private set
     var accepted: PlayState? = null
@@ -84,6 +87,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
             head.summary.lifecycle == GameLifecycle.ACTIVE && head.summary.playId == play.id && head.gameId == play.gameId &&
             head.summary.preparationRound == play.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
         tree = TreeSync.generation(GameplayTree(play))
+        history = HistoryTree.ingest(tree!!.tree, head.revision)
         accepted = play; revision = head.revision; records.clear(); rebase()
         animatedPredictions.clear(); tableChanges(TableChangeBatch(jump = true)); return true
     }
@@ -111,6 +115,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         val confirmation = update.requestId in predicted
         animatedPredictions.remove(update.requestId)
         tree = nextTree
+        history = nextTree?.let { HistoryTree.ingest(it.tree, update.resultRevision, history) }
         accepted = endpoint; revision = update.resultRevision; records[update.resultRevision] = update.copy(chatMessage = null)
         correlate(update); rebase()
         if (!confirmation) effects(before, previous, predicted, accepted, tree?.tree)
@@ -155,6 +160,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         }
         staged.values.forEach { update -> predictions[update.requestId]?.let { require(update.scope == it.command.scope) } }
         tree = retained
+        history = retained?.let { HistoryTree.ingest(it.tree, at) }
         accepted = state; revision = at; records.clear(); records.putAll(staged)
         staged.values.forEach(::correlate)
         for (status in baseline.statuses) if (status.status == "final") correlateResult(status.result!!)
@@ -218,7 +224,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
 
     /** Worker-prepared accepted generation: no disk/replay work is hidden in the UI publication. */
     fun published(head: GameHead, generation: DownloadedTree, at: String,
-        statuses: List<GameRequestStatus>, tail: List<GameRevision>, animate: Boolean = false): Boolean {
+        statuses: List<GameRequestStatus>, tail: List<GameRevision>, indexed: HistoryTree, animate: Boolean = false): Boolean {
         val tree = generation.tree
         val endpoint = requireNotNull(tree.stateAt(tree.currentNodeId))
         if (revision?.let { GameWire.ordinal(it) > GameWire.ordinal(at) } == true) return false
@@ -227,6 +233,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         val previous = this.tree?.tree
         val predicted = animatedPredictions.toSet()
         this.tree = generation; accepted = endpoint; revision = at; records.clear()
+        history = indexed
         tail.forEach(::correlate)
         // Correlate the whole snapshot before replaying its remaining tail: status ordering must
         // not temporarily replay already-accepted originals and permanently withdraw later controls.

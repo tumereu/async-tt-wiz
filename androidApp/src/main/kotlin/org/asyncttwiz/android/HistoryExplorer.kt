@@ -101,7 +101,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                             } while (event.changes.any { it.pressed })
                         }
                     }) {
-                    LaunchedEffect(graph, state.busy, maxWidth, maxHeight) {
+                    LaunchedEffect(IdentityKey(graph), state.busy, maxWidth, maxHeight) {
                         if (!framed && graph != null && !state.busy) {
                             val point = graph.centeredOn(requireNotNull(state.selectedNodeId), maxWidth.value, maxHeight.value)
                             viewport = HistoryTreeViewport(point)
@@ -112,12 +112,11 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         val visible = viewport.visible(graph, maxWidth.value, maxHeight.value)
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = viewport.screen(this).let { Offset(it.x * density, it.y * density) }
-                            val ranges = graph.rangesById
-                            for (range in visible) {
-                                ranges[range.parentRangeId]?.position?.let { parent ->
+                             for (range in visible) {
+                                 graph.positionOfRange(range.parentRangeId)?.let { parent ->
                                     val point = range.position
                                     val from = parent.screen(); val to = point.screen()
-                                    val active = range.id in graph.activeRanges
+                                     val active = graph.isActive(range.id)
                                     // A branch changes lanes only at its fork; subsequent groups remain parallel.
                                     val corner = Offset(from.x, to.y)
                                     drawLine(if (active) activeColor else edgeColor, from, corner, (if (active) 2f else 1f) * density)
@@ -125,14 +124,14 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                                 }
                             }
                         }
-                        val events = graph.eventsById
-                        for (range in visible) {
-                            val event = events.getValue(range.targetId)
+                         val events = graph.eventsById
+                         for (range in visible) {
                             val point = range.position
                             val screen = viewport.screen(point)
                             val x = screen.x; val y = screen.y
                             val zoom = viewport.zoom
-                            if (x >= -24f * zoom && x <= maxWidth.value + 24 * zoom && y >= -16 * zoom && y <= maxHeight.value + 32 * zoom) {
+                             if (x >= -24f * zoom && x <= maxWidth.value + 24 * zoom && y >= -16 * zoom && y <= maxHeight.value + 32 * zoom) {
+                                 val event = events.getValue(range.targetId)
                                 val text = texts[event.id]
                                 HistoryEventChip(event.copy(description = text?.description ?: event.description),
                                     authorColors[event.author] ?: Color(0xff59656a), graph.rangeOf[state.selectedNodeId] == range.id,
@@ -153,7 +152,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         }
                         Canvas(Modifier.fillMaxSize()) {
                             fun HistoryPoint.screen() = viewport.screen(this).let { Offset(it.x * density, it.y * density) }
-                            for (range in visible) if (range.id in graph.headRanges) graph.positions[range.targetId]?.let {
+                             for (range in visible) if (graph.isHead(range.id)) graph.positions[range.targetId]?.let {
                                 drawCircle(activeColor, 2.5f * density * viewport.zoom, it.screen() + Offset(0f, 14 * density * viewport.zoom))
                             }
                             graph.positions[graph.currentNodeId]?.let {

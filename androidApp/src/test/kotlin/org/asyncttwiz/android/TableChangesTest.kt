@@ -102,17 +102,17 @@ class TableChangesTest {
             val revision = GameRevision(f.game.id, rev.toString(), (++rev).toString(), command.requestId, f.actor,
                 command.scope, f.game.copy(revision = rev.toString()), play = state)
             assertTrue(replica.published(f.head(state, rev.toString()), TreeSync.generation(updated), rev.toString(),
-                emptyList(), listOf(revision), animate = true))
+                emptyList(), listOf(revision), HistoryTree.ingest(updated, rev.toString()), animate = true))
             assertEquals(1, batches.flatMap { it.events }.size)
             tree = updated; batches.clear()
         }
         val remote = f.command(PlayAction.AdjustLife(f.actor, "2"))
         val updated = assertNotNull(tree.play(f.other, remote).tree)
         val state = assertNotNull(updated.stateAt(updated.currentNodeId))
-        assertTrue(replica.published(f.head(state, (++rev).toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList(), animate = true))
+        assertTrue(replica.published(f.head(state, (++rev).toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList(), HistoryTree.ingest(updated, rev.toString()), animate = true))
         assertEquals("+2", ActiveTableChange(TableChangeExtraction.extract(batches.single().events.single()).single(), 0, 0).tag)
         batches.clear()
-        assertTrue(replica.published(f.head(state, rev.toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList()))
+        assertTrue(replica.published(f.head(state, rev.toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList(), HistoryTree.ingest(updated, rev.toString())))
         assertTrue(batches.single().jump)
     }
 

@@ -68,7 +68,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val displayTree = controller.displayTree()
     LaunchedEffect(IdentityKey(displayTree), live?.currentNodeId, IdentityKey(live?.board), game.revision) {
         history.openFrom(playbackPreferences.lastSeen(game.id), playbackPreferences::shown)
-        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId) }
+        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId,
+            accepted = tree ?: it, indexed = controller.retainedHistory()) }
     }
     DisposableEffect(history) { onDispose { history.leaving() } }
     val playback = history.playback
@@ -77,6 +78,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
+    var explorerOpeningCursor by remember(game.id, live?.id) { mutableStateOf<String?>(null) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
     val playbackPause by playbackPreferences.pauseState()
     val playbackAutoPause by playbackPreferences.autoPauseState()
@@ -85,11 +87,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
     val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
-    LaunchedEffect(IdentityKey(tree), explorerOpen, showHidden) {
+    LaunchedEffect(IdentityKey(tree), history.explorerHistory, explorerOpen, showHidden) {
         // The live timeline includes provisional nodes; the explorer's review targets
         // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
-        if (explorerOpen && tree != null) {
-            explorer.update(tree, showHidden = showHidden)
+        if (explorerOpen && tree != null && history.explorerHistory?.nodes === tree.nodes) {
+            explorer.update(tree, openingNodeId = explorerOpeningCursor, showHidden = showHidden, indexed = history.explorerHistory)
+            explorerOpeningCursor = null
         }
     }
     var appliedActivity by remember(history) { mutableStateOf<ActivityTarget?>(null) }
@@ -256,8 +259,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
                                   onTree = {
                                       playback.pause()
-                                      tree?.let {
-                                          explorer.update(it, openingNodeId = it.resolveCursor(playback.position.cursorId), showHidden = showHidden)
+                                       tree?.let {
+                                           explorerOpeningCursor = it.resolveCursor(playback.position.cursorId)
+                                           explorer.opening(explorerOpeningCursor)
                                           explorerOpen = true
                                       }
                                   },

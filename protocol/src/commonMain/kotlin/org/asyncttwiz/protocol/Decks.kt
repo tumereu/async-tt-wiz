@@ -82,6 +82,7 @@ object DeckJson {
 internal expect fun sha256(bytes: ByteArray): String
 
 object DeckValidation {
+    const val MAX_CARDS = 1000
     const val RECORD_BYTES = 256 * 1024
     const val FIELD_BYTES = 64 * 1024
     fun uuid(value: String): Boolean = runCatching { EntityId(value) }.isSuccess
@@ -120,8 +121,11 @@ object DeckValidation {
         return !host.endsWith(".localhost") && !host.endsWith(".local") && !host.endsWith(".internal") &&
             host.any { it in 'a'..'z' }
     }
+    fun quantity(value: Int): Boolean = value in 1..MAX_CARDS
+    fun cardCount(value: Long): Boolean = value in 1..MAX_CARDS.toLong()
+    fun quantities(value: List<Int>): Boolean = value.all(::quantity) && cardCount(value.sumOf { it.toLong() })
     fun entries(value: List<SavedDeckEntry>): Boolean = value.isNotEmpty() &&
-        value.all { digest(it.definition) && it.quantity > 0 } &&
+        quantities(value.map { it.quantity }) && value.all { digest(it.definition) } &&
         value.map { it.section to it.definition }.distinct().size == value.size
     fun create(value: CreateDeck): Boolean = text(value.name) && value.name.isNotBlank() && entries(value.entries)
 }

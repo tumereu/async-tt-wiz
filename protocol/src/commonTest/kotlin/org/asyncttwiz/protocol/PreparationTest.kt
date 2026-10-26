@@ -102,13 +102,14 @@ class PreparationTest {
     }
 
     @Test fun largeQuantitiesRetainConcreteIdentitiesWithoutAllocatingPerCopy() {
-        val entries = source.entries.map { it.copy(quantity = Int.MAX_VALUE) }
+        assertEquals("invalidSource", select(saved = source.copy(entries = source.entries.map { it.copy(quantity = Int.MAX_VALUE) })).reason)
+        val entries = source.entries.map { it.copy(quantity = 500) }
         val deck = select(saved = source.copy(entries = entries)).state!!.players[0].deck!!
-        assertEquals(Int.MAX_VALUE.toLong(), deck.count(SavedDeckSection.MAINBOARD))
-        assertEquals(Int.MAX_VALUE.toLong(), deck.count(SavedDeckSection.SIDEBOARD))
-        assertEquals("2147483647", deck.entries[1].firstIndex)
-        val last = deck.card(deck.entries[1], Int.MAX_VALUE - 1)
-        assertEquals(CommandIds.output(id(1), "prepared-card", 4294967293L), last.id)
+        assertEquals(500L, deck.count(SavedDeckSection.MAINBOARD))
+        assertEquals(500L, deck.count(SavedDeckSection.SIDEBOARD))
+        assertEquals("500", deck.entries[1].firstIndex)
+        val last = deck.card(deck.entries[1], 499)
+        assertEquals(CommandIds.output(id(1), "prepared-card", 999L), last.id)
         assertNotEquals(deck.card(deck.entries[0], 0).id, last.id)
         assertTrue(GameWire.json.encodeToString(deck).length < 2000)
     }

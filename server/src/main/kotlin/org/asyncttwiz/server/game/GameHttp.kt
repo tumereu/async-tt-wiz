@@ -103,7 +103,14 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             boundary = UnavailabilityBoundary.GAME_HTTP_WRITE
             response.status = 200; response.contentType = "application/json;charset=UTF-8"; response.writer.write(body)
         } catch (failure: GameProtocolFailure) {
-            error(if (failure.code == "accessDenied") 404 else if (failure.code == "baselineExpired") 410 else if (failure.code == "requestIdentityMismatch") 409 else 400, failure.code)
+            error(when (failure.code) {
+                "accessDenied" -> 404
+                "baselineExpired" -> 410
+                "baselineRateLimited" -> 429
+                "baselineTooLarge" -> 413
+                "requestIdentityMismatch" -> 409
+                else -> 400
+            }, failure.code)
         } catch (_: IllegalArgumentException) { error(400, "invalid_request")
         } catch (_: java.nio.charset.CharacterCodingException) { error(400, "invalid_request")
         } catch (failure: Exception) {

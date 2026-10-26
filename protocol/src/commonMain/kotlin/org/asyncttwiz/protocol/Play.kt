@@ -121,6 +121,7 @@ object StartRules {
         librarySecret?.let(RandomV1::decodeSeed)
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
+        require(players.all { DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) })
         require(librarySeeds.keys == players.map { it.accountId }.toSet())
         val choice = preparation.startingChoice
         val starter = if (choice.accountId == null) InitialStarter(choice,

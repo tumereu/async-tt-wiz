@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.GZIPOutputStream
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
@@ -18,10 +17,47 @@ import org.jooq.JSONB
 import org.jooq.impl.DSL
 
 /** Relational mutations and coherent exports share the existing game-locked execution domain. */
-internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
+internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
+    private val accountByteBudget: Long = 32L * 1024 * 1024,
+    private val globalByteBudget: Long = 128L * 1024 * 1024,
+    private val accountCreationLimit: Int = 60,
+    private val globalCreationLimit: Int = 240) {
+    init { require(accountByteBudget > 0 && globalByteBudget > 0 && accountCreationLimit > 0 && globalCreationLimit > 0) }
     private data class Export(val account: UUID, val manifest: GameplayManifest,
-        val chunks: List<ByteArray>, val expires: java.time.Instant)
-    private val exports = ConcurrentHashMap<String, Export>()
+        val chunks: List<ByteArray>, val expires: java.time.Instant, val bytes: Long)
+    private val exports = linkedMapOf<String, Export>()
+    private data class CreationWindow(val start: java.time.Instant, var count: Int = 0)
+    private val accountCreations = mutableMapOf<UUID, CreationWindow>()
+    private var globalCreations = CreationWindow(clock.instant())
+
+    /** Runs periodically even without baseline traffic, and also before capacity decisions. */
+    @Synchronized fun evictExpiredExports() {
+        val now = clock.instant()
+        exports.entries.removeIf { !it.value.expires.isAfter(now) }
+        accountCreations.entries.removeIf { !it.value.start.plusSeconds(60).isAfter(now) }
+    }
+
+    private fun admitCreation(account: UUID) {
+        val now = clock.instant()
+        if (!globalCreations.start.plusSeconds(60).isAfter(now)) globalCreations = CreationWindow(now)
+        if (globalCreations.count >= globalCreationLimit) throw GameProtocolFailure("baselineRateLimited", true)
+        val window = accountCreations.getOrPut(account) { CreationWindow(now) }
+        if (window.count >= accountCreationLimit) throw GameProtocolFailure("baselineRateLimited", true)
+        window.count++; globalCreations.count++
+    }
+
+    private fun retain(account: UUID, manifest: GameplayManifest, chunks: List<ByteArray>): GameplayManifest {
+        // Include the retained endpoint/status metadata, not just highly compressible tree bytes.
+        // Shared arrays are charged conservatively for each distinct immutable manifest.
+        val bytes = chunks.sumOf { it.size.toLong() } + GameWire.json.encodeToString(manifest).toByteArray().size
+        if (bytes > accountByteBudget || bytes > globalByteBudget) throw GameProtocolFailure("baselineTooLarge")
+        while (exports.values.filter { it.account == account }.sumOf { it.bytes } + bytes > accountByteBudget) {
+            exports.remove(exports.entries.first { it.value.account == account }.key)
+        }
+        while (exports.values.sumOf { it.bytes } + bytes > globalByteBudget) exports.remove(exports.keys.first())
+        exports[manifest.id] = Export(account, manifest, chunks, clock.instant().plus(Duration.ofMinutes(10)), bytes)
+        return manifest
+    }
     private data class Head(val revision: Long, val root: PlayState, val tree: GameplayTree?, val records: EndpointReadCache?)
     private val transactionRecords = ThreadLocal<Pair<java.lang.ref.WeakReference<GameplayTree>, EndpointReadCache>?>()
     private val heads = object : LinkedHashMap<String, Head>(16, 0.75f, true) {
@@ -38,8 +74,20 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
     }
 
     /** Caller holds the game's admission/execution lock: state, record coverage and results share one R. */
-    fun create(sql: DSLContext, account: UUID, head: GameHead, statuses: List<GameRequestStatus>): GameplayManifest {
+    @Synchronized fun create(sql: DSLContext, account: UUID, head: GameHead, statuses: List<GameRequestStatus>): GameplayManifest {
         val play = head.play ?: throw GameProtocolFailure("inapplicable")
+        evictExpiredExports()
+        val retained = exports.values.filter { it.account == account && it.manifest.gameId == head.gameId &&
+            it.manifest.playId == play.id && it.manifest.revision == head.revision }
+        retained.firstOrNull { it.manifest.statuses == statuses }?.let { return it.manifest }
+        // Admission precedes checkpoint reads, full-history SQL, serialization and compression.
+        admitCreation(account)
+        retained.firstOrNull()?.let { export ->
+            // Request-status variants stay immutable, but share the same pinned tree and endpoint.
+            val manifest = export.manifest.copy(id = UUID.randomUUID().toString(), statuses = statuses, digest = "")
+                .let { it.copy(digest = GameplaySync.manifestDigest(it)) }
+            return retain(account, manifest, export.chunks)
+        }
         read(sql, play, GameWire.ordinal(head.revision)) // Verify the durable checkpoint, not replay history.
         // A full transfer necessarily reads the requested records. They were validated when
         // accepted; do not decode/replay the entire tree merely to export those same bytes.
@@ -54,9 +102,7 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
             decoded.mapIndexed { index, chunk -> GameplayChunk(index, chunk.size, GameplaySync.digest(chunk)) }, statuses,
             recordCount = records.size, head = head)
             .let { it.copy(digest = GameplaySync.manifestDigest(it)) }
-        exports.entries.removeIf { !it.value.expires.isAfter(clock.instant()) }
-        exports[manifest.id] = Export(account, manifest, chunks, clock.instant().plus(Duration.ofMinutes(10)))
-        return manifest
+        return retain(account, manifest, chunks)
     }
     private fun export(account: UUID, id: String): Export {
         val export = exports[id]?.takeIf { it.account == account } ?: throw GameProtocolFailure("accessDenied")
@@ -65,8 +111,8 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC()) {
         }
         return export
     }
-    fun manifest(account: UUID, id: String) = export(account, id).manifest
-    fun chunk(account: UUID, id: String, index: Int): ByteArray = export(account, id).chunks.getOrNull(index)
+    @Synchronized fun manifest(account: UUID, id: String) = export(account, id).manifest
+    @Synchronized fun chunk(account: UUID, id: String, index: Int): ByteArray = export(account, id).chunks.getOrNull(index)
         ?: throw GameProtocolFailure("invalidInput")
 
     /** Called inside the execution transaction, before outcome/revision/outbox. */

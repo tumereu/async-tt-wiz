@@ -6,6 +6,24 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableArtworkTest {
+    @Test fun everyServerAcceptedFaceCountFallsBackForUnsupportedArtworkIndices() {
+        for (count in listOf(17, 64)) {
+            val ids = List(count) { java.util.UUID.randomUUID().toString() }
+            val definition = CardDefinition("Many faces", ids.map { id ->
+                DefinitionFace(id, "Face", ids - id, scryfallId = printing, imageUri = custom.customUrl)
+            })
+            assertTrue(DeckValidation.definition(definition))
+            val submitted = SubmittedDefinition(DeckJson.digest(definition), DeckJson.normalized(definition))
+            assertEquals((0..15).toList(), gameArtworkReferences(listOf(submitted)).map { it.face })
+            assertTrue(InspectedCard.retained(submitted.digest, definition).artwork.drop(16).all { it == null })
+            val initial = TableFixture.play(board = 1, hand = 1)
+            val play = initial.copy(definitions = listOf(submitted), board = initial.board.copy(cards = initial.board.cards.map {
+                it.copy(definition = submitted.digest, faceId = ids.last())
+            }))
+            assertTrue(TableFixture.scene(play).items.filter { it.cardId != null }.all { it.artwork == null })
+        }
+    }
+
     private val printing = "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a"
     private val full = ArtworkReference(printing, 0, "v1")
     private val custom = full.copy(customUrl = "https://example.com/card.png")

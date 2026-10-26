@@ -5,6 +5,9 @@ import java.util.ArrayDeque
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
@@ -13,27 +16,31 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
 
 /** Running admission, execution and publication workers, all included in readiness/recovery. */
-class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
+class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    private val workers: ScheduledExecutorService = Executors.newScheduledThreadPool(5) {
+        Thread(it, "game-worker").apply { isDaemon = true }
+    }) : AutoCloseable {
     val games = GameService(runtime)
     val dispatcher = GameDispatcher()
     private val accounts = AccountService(runtime)
     private val handlerTiming = GameHandlerTiming()
     private val sockets = ConcurrentHashMap.newKeySet<GameSocket>()
-    private val workers = Executors.newScheduledThreadPool(5) { Thread(it, "game-worker").apply { isDaemon = true } }
+    private val tasks = CopyOnWriteArrayList<ScheduledFuture<*>>()
     fun start() {
         repeat(4) {
-            workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_EXECUTION) { repeat(32) { if (!games.executeOne()) return@guarded } } }, 0, 100, TimeUnit.MILLISECONDS)
+            tasks.add(workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_EXECUTION) { repeat(32) { if (!games.executeOne()) return@guarded } } }, 0, 100, TimeUnit.MILLISECONDS))
         }
-        workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_PUBLICATION) {
+        tasks.add(workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_PUBLICATION) {
             for (publication in games.publications()) {
                 // Only committed rows are visible; delivery is retryable/duplicate-safe and outside SQL.
                 for (socket in sockets) socket.publish(publication)
                 games.published(publication.id)
             }
-        } }, 0, 100, TimeUnit.MILLISECONDS)
-        workers.scheduleWithFixedDelay({
+        } }, 0, 100, TimeUnit.MILLISECONDS))
+        tasks.add(workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_PUBLICATION) {
             sockets.forEach { it.heartbeat() }
-        }, 30, 30, TimeUnit.SECONDS)
+        } }, 30, 30, TimeUnit.SECONDS))
+        tasks.add(workers.scheduleWithFixedDelay({ games.evictExpiredBaselines() }, 1, 1, TimeUnit.SECONDS))
     }
     private fun guarded(boundary: UnavailabilityBoundary, action: () -> Unit) {
         try { if (runtime.ready()) action() }
@@ -41,12 +48,12 @@ class GameHub(private val runtime: ServiceRuntime) : AutoCloseable {
             // Ownership recovery still stops all workers until validation succeeds.
             runtime.recordUnavailability(boundary, failure)
         }
-        catch (failure: Exception) {
+        catch (failure: Throwable) {
             runtime.invalidateWorkerRecovery()
             runtime.recordUnavailability(boundary, failure)
         }
     }
-    fun available() = !workers.isShutdown && dispatcher.available()
+    fun available() = !workers.isShutdown && tasks.none { it.isDone } && dispatcher.available()
     fun validatePending() = games.validatePending()
     fun endpoint(token: String, accountId: String): Endpoint = GameSocket(token, accountId)
     override fun close() {

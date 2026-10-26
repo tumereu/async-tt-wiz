@@ -26,6 +26,7 @@ class GameService(private val runtime: ServiceRuntime) {
     private val json = GameWire.json
     private val lobby = LobbyService(runtime)
     private val gameplayStore = GameplayStore()
+    internal fun evictExpiredBaselines() = gameplayStore.evictExpiredExports()
     private fun uuid(value: String): UUID {
         if (!DeckValidation.uuid(value)) throw GameProtocolFailure("invalidInput")
         return UUID.fromString(value)
@@ -239,6 +240,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val inbox = sql.selectFrom(GAME_INBOX).where(GAME_INBOX.GAME_ID.eq(game.id)).and(GAME_INBOX.RESULT.isNull)
             .orderBy(GAME_INBOX.INGRESS_ORDINAL).limit(1).fetchSingle()
         val command = GameWire.decodeClient(inbox.command!!) as GameCommand
+        val requestSavepoint = context.connectionResult { it.setSavepoint() }
         val processingStarted = System.nanoTime()
         var historyLoaded = processingStarted
         var reduced = processingStarted
@@ -338,6 +340,24 @@ class GameService(private val runtime: ServiceRuntime) {
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result))
             .set(GAME_OUTBOX.REVISION, encodedUpdate).execute()
         true
+        } catch (failure: org.asyncttwiz.server.database.OwnershipFailure) {
+            throw failure
+        } catch (failure: org.jooq.exception.DataAccessException) {
+            // Storage failures remain retryable at the fenced transaction/recovery boundary.
+            throw failure
+        } catch (failure: Throwable) {
+            // A poison request must not terminate a scheduled worker or retain tentative writes.
+            context.connection { it.rollback(requestSavepoint) }
+            committedTree = null
+            val result = GameResult(command.requestId, command.scope, "rejected",
+                (failure as? GameProtocolFailure)?.code ?: "internalError", inbox.ingressOrdinal.toString())
+            context.update(GAME_INBOX).set(GAME_INBOX.RESULT, json.encodeToString(result))
+                .where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
+            context.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game.id).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
+                .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()
+            org.slf4j.LoggerFactory.getLogger(GameService::class.java).error(
+                "Gameplay request rejected game={} request={} failureType={}", game.id, command.requestId, failure.javaClass.simpleName)
+            true
         } finally {
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).info(
                 "Gameplay command game={} action={} processingMs={} historyLoadMs={} reduceMs={} saveMs={} bookkeepingMs={}", command.scope.gameId,
@@ -418,6 +438,9 @@ class GameService(private val runtime: ServiceRuntime) {
     private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         val summary = lobby.summary(sql, game.id!!)
         val change = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&
+            preparation.players.any { !DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) } } == true)
+            return "invalidDeck"
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             if (StartRules.canStart(summary, preparation)) PlayStore.start(sql, summary, preparation, command.requestId)

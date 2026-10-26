@@ -248,7 +248,7 @@ class DeckHttpTest {
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(good)), owner.token).statusCode())
                 val created = (1..101).map {
                     val response = post(settings, "/v1/decks", CreateDeck(id(), "Same name", listOf(
-                        SavedDeckEntry(SavedDeckSection.SIDEBOARD, good.digest, Int.MAX_VALUE))), owner.token)
+                        SavedDeckEntry(SavedDeckSection.SIDEBOARD, good.digest, 1000))), owner.token)
                     if (response.statusCode() != 201) println("DIAGNOSTIC pagination create index=$it status=${response.statusCode()} retained=${count(db, "saved_deck")}")
                     assertEquals(201, response.statusCode(), response.body())
                     json.decodeFromString<SavedDeck>(response.body()).deck.id
@@ -259,7 +259,7 @@ class DeckHttpTest {
                 assertEquals(1, page2.decks.size); assertNull(page2.next)
                 assertEquals(created, (page1.decks + page2.decks).map { it.id }.toSet())
                 assertEquals(400, request(settings, "GET", "/v1/decks?after=not-an-id", token = owner.token).statusCode())
-                println("PASS 101 ordinary HTTP creates with equal names and sideboard-only Int.MAX_VALUE quantities, complete nonoverlapping 100/1 keyset pages, invalid cursor refusal; no invented deck count/legality cap")
+                println("PASS 101 ordinary HTTP creates with equal names and sideboard-only maximum budget quantities, complete nonoverlapping 100/1 keyset pages, invalid cursor refusal")
             }
         }
     }

@@ -7,9 +7,15 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import org.asyncttwiz.protocol.SubmittedDefinition
+import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.storage.ArtworkReference
 
 internal fun ArtworkReference.forTable() = copy(size = if (customUrl != null) "normal" else "art_crop")
+
+/** Server definitions support more faces than the artwork provider. Keep the ordinary fallback. */
+internal fun DefinitionFace.tableArtwork(index: Int, digest: String): ArtworkReference? =
+    if (index !in 0..15 || scryfallId == null && imageUri == null) null
+    else ArtworkReference(scryfallId, index, digest, customUrl = imageUri)
 
 internal enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
 
@@ -22,10 +28,7 @@ internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Bool
 
 internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> = definitions.flatMap { submitted ->
     submitted.definition.faces.flatMapIndexed { index, face ->
-        if (face.scryfallId == null && face.imageUri == null) emptyList() else {
-            val full = ArtworkReference(face.scryfallId, index, submitted.digest, customUrl = face.imageUri)
-            listOf(full, full.forTable())
-        }
+        face.tableArtwork(index, submitted.digest)?.let { listOf(it, it.forTable()) }.orEmpty()
     }
 }.distinct()
 

@@ -5,6 +5,15 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 
 class DecksTest {
+    @Test fun deckExpansionHasABoundedCombinedCardBudget() {
+        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 1000)
+        assertTrue(DeckValidation.entries(listOf(entry)))
+        for (quantity in listOf(0, -1, 1001, Int.MAX_VALUE))
+            assertFalse(DeckValidation.entries(listOf(entry.copy(quantity = quantity))), "quantity=$quantity")
+        assertTrue(DeckValidation.entries(listOf(entry.copy(quantity = 600), entry.copy(section = SavedDeckSection.SIDEBOARD, quantity = 400))))
+        assertFalse(DeckValidation.entries(listOf(entry.copy(quantity = 600), entry.copy(section = SavedDeckSection.SIDEBOARD, quantity = 401))))
+    }
+
     private val id = "00000000-0000-4000-8000-000000000001"
     private val other = "00000000-0000-4000-8000-000000000002"
     private fun card() = CardDefinition("Test 😀", listOf(DefinitionFace(id, "Test 😀")))
@@ -49,7 +58,7 @@ class DecksTest {
             assertFalse(DeckValidation.definition(card().copy(faces = listOf(face.copy(imageUri = uri)))))
         assertTrue(DeckValidation.definition(card().copy(faces = listOf(face.copy(imageUri = "https://art.example.invalid/a.png",
             rulesText = "<script>plain text only</script>\n", corner = "*/*")))))
-        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), Int.MAX_VALUE)
+        val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 1000)
         assertTrue(DeckValidation.create(CreateDeck(id, " exact name ", listOf(entry))))
         assertFalse(DeckValidation.create(CreateDeck(id, "", listOf(entry))))
         assertFalse(DeckValidation.create(CreateDeck(id, "name", listOf(entry.copy(quantity = 0)))))

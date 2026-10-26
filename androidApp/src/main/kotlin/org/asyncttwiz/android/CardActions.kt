@@ -159,12 +159,12 @@ internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean,
                     if (index > 0) VerticalDivider(Modifier.height(36.dp))
                     val name = color.name.lowercase()
                     val value = values[color]
-                    ManualActionSquare("Set $name counter, ${value?.takeIf { it.isNotEmpty() } ?: "no value"}",
-                        if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value), enabled,
-                        fill = counterColor(color), circle = true, tooltipName = "Set $name counter", iconTint = counterOutline(color),
-                        dragValue = value ?: "0", onDelta = { adjust(color, it) }, onClick = { set(color) })
-                    for (delta in listOf(1, -1)) ManualActionSquare("${if (delta > 0) "Increase" else "Decrease"} $name counter",
-                        if (delta > 0) "+" else "−", enabled && applicable(color, delta), onClick = { adjust(color, delta.toLong()) })
+                    fun step(delta: Int) = MenuControl("${if (delta > 0) "Increase" else "Decrease"} $name counter",
+                        enabled && applicable(color, delta)) { adjust(color, delta.toLong()) }
+                    ValueControl(if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value),
+                        MenuControl("Set $name counter", enabled) { set(color) }, step(-1), step(1),
+                        color = counterOutline(color), fill = counterColor(color), dragValue = value ?: "0",
+                        drag = { adjust(color, it) })
                 }
             }
         }

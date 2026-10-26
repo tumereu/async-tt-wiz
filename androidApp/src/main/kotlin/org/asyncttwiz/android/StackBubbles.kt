@@ -41,7 +41,7 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
     companion object {
         fun combat(board: BoardState, entryId: String, anchor: TableBounds, width: Float, height: Float): StackBubbleGeometry {
             val base = create(entryId, anchor, width, height, null, 0)
-            val controls = base.controls.filterNot { it.id.endsWith("/remove") }.map { item ->
+            val controls = base.controls.filterNot { it.id.endsWith("/remove") || it.id.endsWith("/exile") }.map { item ->
                 val kind = when {
                     item.id.endsWith("/battlefield") -> "undeclare"
                     item.id.endsWith("/graveyard") -> "graveyard"
@@ -61,9 +61,9 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
             val side = 40f
             fun bounds(x: Float, y: Float) = TableBounds(x.coerceIn(4f, (width - side - 4).coerceAtLeast(4f)),
                 y.coerceIn(4f, (height - side - 4).coerceAtLeast(4f)), side, side)
-            val toward = if (anchor.center.x > width / 2) anchor.x - side - 10 else anchor.right + 10
-            val above = bounds(anchor.center.x - side / 2, anchor.y - side - 10)
-            val below = bounds(anchor.center.x - side / 2, anchor.bottom + 10)
+            val toward = if (anchor.x >= side + 20) anchor.x - side - 16 else anchor.right + 16
+            val above = bounds(anchor.center.x - side / 2, anchor.y - side - 24)
+            val below = bounds(anchor.center.x - side / 2, anchor.bottom + 24)
             // Near top/bottom flip the obstructed action beside the other; never stack hit regions.
             val beside = if (toward > anchor.center.x) above.right + 8 else above.x - side - 8
             val top = if (above.intersection(anchor) != null) bounds(beside, below.y) else above
@@ -74,10 +74,15 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
                 bounds(toward, below.bottom + 8)).first { candidate ->
                 listOf(top, bottom, handle, anchor).none { it.intersection(candidate) != null }
             }
-            val controls = listOf("battlefield" to top, "graveyard" to bottom, "remove" to remove, "mark" to handle).map { (kind, b) ->
+            val exile = sequenceOf(bounds(toward, below.y), bounds(toward, below.bottom + 8),
+                bounds(toward + (if (toward < anchor.x) -1 else 1) * (side + 8), below.y)).first { candidate ->
+                listOf(top, bottom, handle, remove, anchor).none { it.intersection(candidate) != null }
+            }
+            val controls = listOf("battlefield" to top, "graveyard" to bottom, "remove" to remove,
+                "exile" to exile, "mark" to handle).map { (kind, b) ->
                 TableItem("stackBubble/$kind", b, when (kind) {
                     "battlefield" -> "Put to battlefield"; "graveyard" -> "Put to graveyard"
-                    "remove" -> "Remove from Stack"; else -> "Mark text · drag up or down"
+                    "remove" -> "Remove from Stack"; "exile" -> "Put to exile"; else -> "Mark text · drag up or down"
                 }, entryId)
             }
             return StackBubbleGeometry(entryId, anchor, controls, selected, count)
@@ -117,13 +122,16 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
             } else onClick(item.label) {
                 if (enabled) perform(geometry.actions[item.id] ?: if (item.id.endsWith("/remove")) TableIntent.StackBubbleRemove(geometry.entryId)
                     else TableIntent.StackDestination(geometry.entryId,
-                        if (item.id.endsWith("battlefield")) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD, fromBubble = true)); enabled
+                        when { item.id.endsWith("battlefield") -> PlayZone.BATTLEFIELD
+                            item.id.endsWith("exile") -> PlayZone.EXILE
+                            else -> PlayZone.GRAVEYARD }, fromBubble = true)); enabled
             }
         }, shape = RoundedCornerShape(10.dp), color = ownerColor, contentColor = Color.White, shadowElevation = 3.dp) {
             Box(contentAlignment = Alignment.Center) { if (item.id.endsWith("/ping")) TableChromeIcon("ping") else Icon(when {
                 marker -> Icons.Outlined.BorderColor
                 item.id.endsWith("/remove") || item.id.endsWith("/undeclare") -> Icons.Outlined.Close
-                item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
+                 item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
+                 item.id.endsWith("exile") -> menuIcon("Exile")
                 else -> Icons.Outlined.Inventory2
             }, null, Modifier.size(22.dp)) }
         }
@@ -156,15 +164,17 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
 internal fun SpeechBubbleTail(anchor: TableBounds, b: TableBounds, color: Color) {
         Canvas(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)) {
             val a = anchor.center
-            val dx = a.x - b.center.x; val dy = a.y - b.center.y
+             val dx = a.x - b.center.x; val dy = a.y - b.center.y
+             val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+             val tipX = dx / length * 8.dp.toPx(); val tipY = dy / length * 8.dp.toPx()
             val path = Path()
             if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
                 val x = if (dx > 0) size.width else 0f
-                path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + (if (dx > 0) 8 else -8).dp.toPx(), size.height / 2)
+                 path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + tipX, size.height / 2 + tipY)
                 path.lineTo(x, size.height / 2 + 6.dp.toPx())
             } else {
                 val y = if (dy > 0) size.height else 0f
-                path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2, y + (if (dy > 0) 8 else -8).dp.toPx())
+                 path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2 + tipX, y + tipY)
                 path.lineTo(size.width / 2 + 6.dp.toPx(), y)
             }
             path.close(); drawPath(path, color)

@@ -464,7 +464,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Bob, red, no value").assertDoesNotExist()
         compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
         compose.onNodeWithContentDescription("Life / counters").assertExists()
-        compose.onNodeWithContentDescription("Set red counter, no value").assertExists()
+        compose.onNodeWithContentDescription("Set red counter").assertExists()
     }
 
       @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {

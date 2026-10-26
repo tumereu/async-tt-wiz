@@ -326,7 +326,10 @@ class StackProjectionJourneyTest {
         opponent.inspect(j.f.id(42)); assertTrue(opponent.inspection!!.faceIds.isEmpty())
         for (effect in j.f.play.board.stackEffects) {
             assertFalse(j.scene(j.f.other).items.single { it.cardId == effect.sourceId }.covered)
-            assertFalse(j.scene(j.f.other).items.single { it.cardId == effect.id }.covered)
+            val opponentScene = j.scene(j.f.other)
+            val drawing = opponentScene.items.singleOrNull { it.cardId == effect.id }
+                ?: opponentScene.stackProjections.single { it.cardId == effect.id }
+            assertFalse(drawing.covered)
             assertTrue(stackTextOptions(j.f.play, effect.id, j.f.other).isNotEmpty())
             opponent.inspect(effect.id); assertTrue(opponent.inspection!!.faceIds.isNotEmpty())
             opponent.inspect(effect.sourceId); assertTrue(opponent.inspection!!.faceIds.isNotEmpty())

@@ -7,6 +7,19 @@ import kotlin.test.*
 class CardPanelLayoutTest {
     private val f = BasicTableFixture()
 
+    @Test fun playerCreatedPileHasOneTopDrawingAndKeepsItsTotal() {
+        val initial = TableFixture.play(board = 3)
+        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
+            if (it.containerId == "a/BATTLEFIELD") it.copy(placement = PlayPlacement(BoardPosition(0, 0), "pile")) else it
+        }))
+        val scene = TableFixture.scene(play)
+        val top = scene.items.single { it.zone == PlayZone.BATTLEFIELD && it.owner == "a" }
+        assertEquals(3, top.copies)
+        assertEquals(3, top.cards.size)
+        assertEquals(28f, top.bounds.width)
+        assertEquals(40f, top.bounds.height)
+    }
+
     @Test fun eyeBadgesBelongOnlyToTheAuthorOfLookAndSearchAndSplitMixedVisibilityCopies() {
         val root = f.root
         val library = f.container(PlayZone.LIBRARY)
@@ -32,14 +45,14 @@ class CardPanelLayoutTest {
         }
     }
 
-    @Test fun fewestColumnsThatFitAreChosenAndOverflowIsCapped() {
-        assertEquals(1, panelColumnCount(listOf(4), 236f, 3))
-        assertEquals(2, panelColumnCount(listOf(5), 236f, 3))
-        assertEquals(3, panelColumnCount(listOf(9), 236f, 3))
-        assertEquals(3, panelColumnCount(listOf(1000), 236f, 3))
-        assertEquals(2, panelColumnCount(listOf(9), 236f, 2))
-        assertEquals(2, panelColumnCount(listOf(2, 2), 172f, 2, typeHeaders = true))
-        assertEquals(1, panelColumnCount(listOf(0), 0f, 3))
+    @Test fun maximumColumnsAndRightAlignedPartialRowsAreIndependentOfCardCount() {
+        assertEquals(3, panelColumnCount(3))
+        assertEquals(2, panelColumnCount(2))
+        for (columns in 2..3) for (count in 1..12) {
+            val positions = (0 until count).map { panelColumn(it, count, columns) }
+            assertEquals(columns - 1, positions.last())
+            positions.chunked(columns).forEach { assertEquals((columns - it.size until columns).toList(), it) }
+        }
     }
 
     private fun manyCards(): PlayState {
@@ -54,7 +67,7 @@ class CardPanelLayoutTest {
             }) }, contentsDisplays = listOf(display)))
     }
 
-    @Test fun oneAndTwoPanelsFitPortraitAndLandscapeAndReserveBothPortraitHands() {
+    @Test fun oneAndTwoPanelsFitBattlefieldWithoutCoveringOrShrinkingHands() {
         val play = manyCards()
         for (landscape in listOf(false, true)) for (two in listOf(false, true)) {
             val width = if (landscape) 892f else 412f
@@ -78,16 +91,13 @@ class CardPanelLayoutTest {
                 assertEquals(left.bounds.y, right.bounds.y)
                 assertEquals(left.bounds.bottom, right.bounds.bottom)
             }
-            if (landscape) {
-                assertEquals(scene.world!!.viewport.y, left.bounds.y)
-                assertEquals(scene.world!!.viewport.bottom, left.bounds.bottom)
-            } else {
-                val hands = scene.items.filter { it.kind == TableItemKind.HAND }
-                assertEquals(hands.minOf { it.bounds.y }, left.bounds.y)
-                assertEquals(hands.maxOf { it.bounds.bottom }, left.bounds.bottom)
-                assertTrue(hands.all { it.bounds.x > scene.cardPanels.last().bounds.right })
-                assertTrue(scene.viewports.filter { it.hand }.all { it.bounds.x > scene.cardPanels.last().bounds.right })
-            }
+            assertEquals(scene.world!!.viewport.y, left.bounds.y)
+            assertEquals(scene.world!!.viewport.bottom, left.bounds.bottom)
+            val hands = scene.items.filter { it.kind == TableItemKind.HAND }
+            assertTrue(hands.all { hand -> scene.cardPanels.all { it.bounds.intersection(hand.bounds) == null } })
+            val closed = TablePresentation.scene(f.game, play.copy(board = play.board.copy(contentsDisplays = emptyList())),
+                f.actor, width, height, landscape)
+            assertEquals(closed.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }, hands.map { it.bounds })
             val rows = left.rows
             assertTrue(rows[0].bounds.x < rows[1].bounds.x)
             assertEquals(rows[0].bounds.y, rows[1].bounds.y)
@@ -111,6 +121,8 @@ class CardPanelLayoutTest {
         assertEquals(listOf("Artifact", "Creature", "Land"), panel.typeHeaders.map { it.title })
         assertEquals(listOf("Rock", "Beta", "Zulu", "Alpha"), panel.rows.map { it.entry.name })
         assertEquals(listOf(1, 2, 1, 1), panel.rows.map { it.copies })
+        assertTrue(panel.typeHeaders.all { it.bounds.width == panel.bounds.width - 4 && it.bounds.height == 20f })
+        assertEquals(panel.rows.first().bounds.x, panel.rows.last().bounds.x) // Singleton sections use the rightmost cell.
         val backs = listOf(ContentsEntry("a", "Card back", "Cards", "", faceVisible = false),
             ContentsEntry("b", "Card back", "Cards", "", faceVisible = false))
         assertEquals(2, panelGroups(backs).size)

@@ -371,6 +371,7 @@ class TableGestureCoordinator(
             if (writable && c.bubble != null) when (item.id) {
                 "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD, fromBubble = true))
                 "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD, fromBubble = true))
+                "stackBubble/exile" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.EXILE, fromBubble = true))
                 "stackBubble/remove" -> emit(TableIntent.StackBubbleRemove(c.bubble.entryId))
             }
             return

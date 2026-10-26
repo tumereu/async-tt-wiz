@@ -31,12 +31,16 @@ data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBoun
 internal fun panelGroups(entries: List<ContentsEntry>): List<List<ContentsEntry>> =
     entries.groupBy { if (it.faceVisible) it.name else it.cardId }.values.toList()
 
-internal fun panelColumnCount(groupCounts: List<Int>, height: Float, maxColumns: Int,
-    typeHeaders: Boolean = false): Int {
-    fun required(columns: Int) = groupCounts.sumOf { ceil(it.toDouble() / columns).toInt() } * PANEL_PITCH +
-        if (typeHeaders) groupCounts.size * 20f else 0f
-    return (1..maxColumns).firstOrNull { required(it) <= (height - PANEL_HEADER).coerceAtLeast(0f) } ?: maxColumns
+internal fun panelColumnCount(maxColumns: Int): Int = maxColumns.coerceIn(1, 3)
+
+/** Partial rows hug the panel's right edge, including each type section's last row. */
+internal fun panelColumn(index: Int, count: Int, columns: Int): Int {
+    val rowStart = index / columns * columns
+    return columns - minOf(columns, count - rowStart) + index % columns
 }
+
+internal fun TableScene.localPanelOutside(point: TablePoint): Boolean =
+    cardPanels.any { it.localZone != null && !it.bounds.contains(point) }
 
 internal fun localPanelDisplay(play: PlayState, viewer: String, ui: TableLayoutState): ContentsDisplay? {
     val pile = play.board.containers.singleOrNull { it.id == ui.localPileId && it.zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE) }
@@ -60,7 +64,7 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
                 it.name to (it.cardId in display.revealedIds)
             }.values.toList() else entries.map { listOf(it) }
         val sections = if (localZone != null) grouped.groupBy { it.first().category }.toSortedMap().values.toList() else listOf(grouped)
-        val columns = panelColumnCount(sections.map { it.size }, area.height, if (displays.size == 1) 3 else 2, localZone != null)
+        val columns = panelColumnCount(if (displays.size == 1) 3 else 2)
         val width = maxOf(64f, columns * 32f + 8f)
         val bounds = TableBounds(x, area.y, width, area.height)
         x = bounds.right + 4f
@@ -80,7 +84,7 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
                 y += 20f
             }
             section.forEachIndexed { n, group ->
-                val b = TableBounds(bounds.x + (width - columns * 32f) / 2 + n % columns * 32f + 2,
+                val b = TableBounds(bounds.x + (width - columns * 32f) / 2 + panelColumn(n, section.size, columns) * 32f + 2,
                     y + n / columns * PANEL_PITCH + 2, 28f, 40f)
                 if (b.intersection(portBounds) != null) rows += CardPanelRow(group.first(), group.size, b)
             }
@@ -123,7 +127,8 @@ internal fun TableScene.panelReorder(point: TablePoint, scope: TableScope?): Pla
         it.localZone == null && !it.display.search } ?: return null
     val gridX = panel.bounds.x + (panel.bounds.width - panel.columns * 32f) / 2 + 2
     val row = floor((point.y - panel.viewport.bounds.y + panel.viewport.scrollY - 2) / PANEL_PITCH).toInt().coerceAtLeast(0)
-    val column = floor((point.x - gridX + 18) / 32f).toInt().coerceIn(0, panel.columns)
+    val rowCount = (panel.display.cardIds.size - row * panel.columns).coerceIn(0, panel.columns)
+    val column = (floor((point.x - gridX + 18) / 32f).toInt() - (panel.columns - rowCount)).coerceIn(0, rowCount)
     val index = (row * panel.columns + column).coerceIn(0, panel.display.cardIds.size)
     val before = panel.display.cardIds.asSequence().drop(index).firstOrNull { it != id }
     return PlayAction.ReorderContents(panel.display.id, id, before)

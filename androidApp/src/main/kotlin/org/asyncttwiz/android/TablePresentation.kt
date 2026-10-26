@@ -245,10 +245,8 @@ object TablePresentation {
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
         val worldViewport = TableBounds(sidebar + 6f, worldTop, (width - sidebar - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
-        val panelArea = if (landscape) worldViewport.copy(x = sidebar, width = width - sidebar)
-            else TableBounds(0f, worldTop - railHeight, width, ownDockY - (worldTop - railHeight))
+        val panelArea = worldViewport.copy(x = sidebar, width = width - sidebar)
         val panels = cardPanelGeometry(play, viewer, ui, panelArea)
-        val panelRight = panels.maxOfOrNull { it.bounds.right + 4f } ?: 0f
         // Reserve room for a normal open combat lane at home without changing row spacing when it opens.
         val normalCombatBand = (hudHeight + 2 * hudWidth * .04f) * 2 + 4f
         val rowHeight = ((worldViewport.height - normalCombatBand) / 6).coerceAtLeast(12f)
@@ -313,8 +311,7 @@ object TablePresentation {
                 else TableBounds(0f, worldTop - railHeight, width, railHeight)
             } else TableBounds(if (landscape) 64f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
                  (width - if (landscape) 356f else 16f).coerceAtLeast(28f), railHeight)
-            val handBounds = if (!landscape && panels.isNotEmpty()) normalHandBounds.copy(x = panelRight,
-                width = (normalHandBounds.right - panelRight).coerceAtLeast(28f)) else normalHandBounds
+            val handBounds = normalHandBounds
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (hudWidth + 4f) + hudWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll
@@ -326,9 +323,12 @@ object TablePresentation {
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
+            val piles = battlefield.cards.filter { positions[it]?.pileId != null }.groupBy { positions[it]!!.pileId }
             battlefield.cards.sortedWith(compareByDescending<String> { positions[it]?.pileIndex ?: 0 }.thenBy { battlefield.cards.indexOf(it) })
                 .forEach { id -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
+                    val pile = piles[p.pileId].orEmpty()
+                    if (pile.isNotEmpty() && p.pileIndex != 0) return@let
                     val x = field.gridBounds.x + p.column * COLUMN_PITCH * zoom + 16f * zoom
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
@@ -336,8 +336,10 @@ object TablePresentation {
                     val y = rowY + (rowHeight - envelope) / 2
                     val cardHeight = if (c.tapped) cw else ch
                     val footprint = TableBounds(x, y, COLUMN_PITCH * zoom, envelope)
-                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, zoom)
+                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight,
+                        if (p.pileId == null) p.pileIndex else 0, zoom)
                     card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
+                    if (pile.size > 1) items[items.lastIndex] = items.last().copy(copies = pile.size, cards = pile)
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * COLUMN_PITCH
             port(battlefield.id, field.bounds, logicalWidth * zoom)
@@ -353,10 +355,10 @@ object TablePresentation {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(76f + n * spacing - dp.scroll, rowY + 4f, hudWidth + 12f, hudHeight + 12f)
+                val b = TableBounds(84f + n * spacing - dp.scroll, rowY + 12f, hudWidth, hudHeight)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
-                    footprint = TableBounds(b.x, b.y, hudEnvelope, hudEnvelope), peekOwners = c.cards.take(3).mapNotNull { byId[it]?.owner },
+                    footprint = b, peekOwners = listOfNotNull(top?.owner),
                     token = top?.token == true,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
@@ -377,18 +379,17 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, hudWidth, hudHeight)
-        val stackWidth = if (landscape) hudEnvelope else hudWidth * 1.24f // Stable portrait top-card/peek envelope, including when empty.
+        val stackWidth = hudWidth
         val stackPadding = 4f
-        val stackRegion = if (landscape) TableBounds(6f, boardTop + sidebarRow - sidebarScroll,
-            sidebar - 6f, sidebarContent - 2 * sidebarRow)
+        val stackRegion = if (landscape) TableBounds(16f, boardTop + sidebarRow - sidebarScroll,
+            sidebar - 16f, sidebarContent - 2 * sidebarRow)
             else TableBounds(width - stackWidth - 2 * stackPadding,
                 height / 2 - hudEnvelope / 2 - stackPadding, stackWidth + 2 * stackPadding, hudEnvelope + 2 * stackPadding)
-        val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - hudEnvelope / 2, stackWidth, hudEnvelope)
+        val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - hudHeight / 2, stackWidth, hudHeight)
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
-            // Outside the lower-left corner: clear of card titles and the shortcuts above/below the pile.
-            countBadge = if (landscape) null else TableBounds(sb.x - 28f, sb.bottom - 6f, 20f, 20f))
+            countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)

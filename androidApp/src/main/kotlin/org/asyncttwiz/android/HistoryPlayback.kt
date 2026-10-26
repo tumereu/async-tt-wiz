@@ -360,7 +360,7 @@ class HistorySceneAnimation(initial: TableScene) {
                 continue
             }
             val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
-            val bounds = TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, 28f, 40f)
+            val bounds = pile.bounds
             start = start + (arrival.item.animationId to arrival.copy(bounds = bounds,
                 item = arrival.item.copy(zone = pile.zone, viewport = pile.viewport)))
         }
@@ -416,7 +416,7 @@ class HistorySceneAnimation(initial: TableScene) {
     }
     private fun TableScene.realCardBounds(source: String?): TableBounds? {
         items.firstOrNull { it.kind == TableItemKind.CARD && !it.projection && it.cardId == source }?.let { return it.bounds }
-        val pile = items.firstOrNull { it.kind == TableItemKind.PILE && source in it.cards } ?: return null
-        return TableBounds(pile.bounds.x + 8f, pile.bounds.y + 8f, cardWidth, cardHeight)
+        val pile = items.firstOrNull { (it.kind == TableItemKind.PILE || it.copies > 1) && source in it.cards } ?: return null
+        return pile.bounds
     }
 }

@@ -382,7 +382,8 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
         if (!reviewing) assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
         // Portrait Stack is a screen-fixed overlay on the world's right edge.
         val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
-        val start = minOf(field.bounds.right - 8, overlay?.x?.minus(24) ?: Float.MAX_VALUE).toInt()
+        // Also avoid the fixed quick-action square to the left of the narrowed Stack area.
+        val start = minOf(field.bounds.right - 8, overlay?.x?.minus(36) ?: Float.MAX_VALUE).toInt()
         val x = (start downTo field.bounds.x.toInt() + 2).first { x -> scene.items.none { item ->
             item.kind != TableItemKind.HAND && (item.visible + listOfNotNull(item.countBadge)).any { part ->
                 x >= part.x - 4 && x <= part.right + 4 && part.intersection(field.bounds) != null }

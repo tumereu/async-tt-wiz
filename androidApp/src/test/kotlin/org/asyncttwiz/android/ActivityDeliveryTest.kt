@@ -39,6 +39,17 @@ class ActivityDeliveryTest {
         assertTrue(restarted.apply(alice, page(hint(5, "group-2"))) { true }); assertFalse(posted.last().silent)
         assertEquals(1, posted.map { it.key }.distinct().size)
     }
+    @Test fun laterPodPickAndCompletionAlertAgainWithSameAttemptAndReplacementKey() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        listOf(ActivityKind.POD_YOUR_PICK, ActivityKind.POD_YOUR_PICK, ActivityKind.POD_DRAFT_COMPLETE).forEachIndexed { index, kind ->
+            val page = page(hint(index + 1L, "same-attempt", kind, "pod"))
+            delivery.apply(alice, page) { true }
+            delivery.apply(alice, page) { true } // Poll/push overlap must not alert twice.
+        }
+        assertEquals(listOf(false, false, false), posted.map { it.silent })
+        assertEquals(listOf("pod:pod", "pod:pod", "pod:pod"), posted.map { it.key })
+    }
     @Test fun reviewIsActiveDisplayButBackgroundIsNotAndInvitesRemainIndependent() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice); it.display("game", true) }

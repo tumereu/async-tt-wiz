@@ -137,6 +137,17 @@ class PodControllerTest {
         override fun redownload(code: String): SetSourceUpload { calls += "redownload:$code"; if (fail) error("offline"); return upload }
     }
 
+    @Test fun setupFieldTransformsMergeIntoLatestPendingSettingsAndSaveTogether() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.editSettings { it.copy(packsPerPlayer = 4) }
+        f.controller.editSettings { it.copy(cardsPerPack = 12) }
+        f.controller.editSettings { it.copy(sideboardLimit = 5) }
+        f.controller.flushSetup(); f.deliver()
+        val saved = (f.api.calls.single().second as UpdatePod).settings!!
+        assertEquals(DraftSettings().copy(packsPerPlayer = 4, cardsPerPack = 12, sideboardLimit = 5), saved)
+        assertEquals(saved, f.controller.state.detail!!.settings)
+    }
+
     @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.chooseSet()

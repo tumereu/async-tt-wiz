@@ -43,10 +43,15 @@ class PodChallengeLobbyTest {
     private inner class Fixture : AutoCloseable {
         val worker = Worker(); val wire = Wire(); val calls = mutableListOf<String>()
         val challenges = mutableListOf<ChallengeFromPod>(); val submissions = mutableListOf<SubmitDefinitions>()
+        val challengedPods = mutableListOf<String>()
+        var failure: Exception? = null
+        var submissionFailure: Exception? = null
         var fail = false; var resolutions = 0; var opens = 0; var resolve: () -> List<SubmittedDefinition> = { resolutions++; definitions }
         val decks = object : Decks {
             override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted {
-                calls.add("definitions"); submissions.add(value); return DefinitionsAccepted(value.definitions.map { it.digest })
+                calls.add("definitions"); submissions.add(value)
+                submissionFailure?.let { throw it }
+                return DefinitionsAccepted(value.definitions.map { it.digest })
             }
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck = error("No saved decks")
@@ -58,7 +63,8 @@ class PodChallengeLobbyTest {
         }
         val api = object : Lobbies {
             override suspend fun challengeFromPod(token: String, podId: String, input: ChallengeFromPod): GameSummary {
-                assertEquals(pod, podId); calls.add("challenge"); challenges.add(input)
+                challengedPods.add(podId); calls.add("challenge"); challenges.add(input)
+                failure?.let { throw it }
                 if (fail) throw LobbyFailure("invalid_response")
                 return game
             }
@@ -92,6 +98,45 @@ class PodChallengeLobbyTest {
         assertEquals(game.id, f.controller.state.selected); assertEquals(1, f.opens)
         f.controller.clear(); f.challenge()
         assertEquals(2, f.resolutions); assertNotEquals(f.challenges[0].requestId, f.challenges.last().requestId)
+    }
+
+    @Test fun freshSuggestedNameRetriesRetainedPodChallengeAndBothRequestIds() = Fixture().use { f ->
+        f.fail = true; f.challenge()
+        assertEquals(game.gameName, f.controller.state.retryPodChallengeName)
+        f.fail = false
+        f.controller.challengeFromPod(pod, b.accountId, "A fresh suggestion"); f.worker.drain()
+        assertEquals(2, f.challenges.size)
+        assertEquals(f.challenges.first(), f.challenges.last())
+        assertEquals(f.submissions.first(), f.submissions.last())
+        assertEquals(1, f.resolutions)
+        assertNull(f.controller.state.retryPodChallengeName)
+    }
+
+    @Test fun retainedRetryIsAvailableAcrossPodsAndTerminalFailureUnblocksDifferentChallenge() = Fixture().use { f ->
+        f.fail = true; f.challenge()
+        val otherPod = id(); val opponent = id()
+        f.controller.challengeFromPod(otherPod, opponent, "Another game"); f.worker.drain()
+        assertEquals(1, f.challenges.size)
+        assertNotNull(f.controller.state.retryPodChallengeName)
+        f.failure = LobbyFailure("not_found")
+        f.controller.retryPodChallenge(); f.worker.drain()
+        assertEquals(f.challenges.first(), f.challenges.last())
+        assertNull(f.controller.state.retryPodChallengeName)
+        f.fail = false; f.failure = null
+        f.controller.challengeFromPod(otherPod, opponent, "Another game"); f.worker.drain()
+        assertEquals(listOf(pod, pod, otherPod), f.challengedPods)
+        assertEquals(opponent, f.challenges.last().opponentId)
+        assertNotEquals(f.challenges.first().requestId, f.challenges.last().requestId)
+        assertEquals(game.id, f.controller.state.selected)
+    }
+
+    @Test fun terminalDefinitionFailureDoesNotRetainChallenge() = Fixture().use { f ->
+        f.submissionFailure = DeckFailure("invalid_definition"); f.challenge()
+        assertNull(f.controller.state.retryPodChallengeName)
+        f.submissionFailure = null
+        f.controller.challengeFromPod(id(), id(), "Another game"); f.worker.drain()
+        assertEquals(1, f.challenges.size)
+        assertNotEquals(f.submissions.first().requestId, f.submissions.last().requestId)
     }
 
     @Test fun missingBasicsAndClearedAccountNeverCreateChallenges() = Fixture().use { f ->

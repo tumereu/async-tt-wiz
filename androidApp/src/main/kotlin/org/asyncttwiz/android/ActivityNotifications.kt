@@ -25,6 +25,13 @@ object ActivityChannels {
         permission && applicationEnabled && channelEnabled
 }
 
+internal object ActivityPermissionPrompt {
+    fun shouldPrompt(sdk: Int, signedIn: Boolean, destination: ShellDestination, selectedGame: String?,
+        asked: Boolean, catalogBlocked: Boolean, granted: Boolean): Boolean =
+        sdk >= 33 && signedIn && !asked && !catalogBlocked && !granted &&
+            ((destination == ShellDestination.GAMES && selectedGame == null) || destination == ShellDestination.PODS)
+}
+
 class ActivityNotifications(private val context: Context, private val podName: (String) -> String? = { null }) {
     private val manager = context.getSystemService(NotificationManager::class.java)
     fun channels() { manager.createNotificationChannels(ActivityChannels.names.map { (id, name) ->

@@ -142,6 +142,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             cubeId = if (setSource != null) null else cubeId ?: old.cubeId,
             setSource = if (cubeId != null) null else setSource ?: old.setSource, revision = ++editRevision), error = null)
     }
+    /** Apply field edits to the latest pending settings, not a UI snapshot awaiting recomposition. */
+    fun editSettings(change: (DraftSettings) -> DraftSettings) {
+        val settings = state.setup?.settings ?: state.detail?.settings ?: return
+        editSetup(settings = change(settings))
+    }
     fun flushSetup() {
         val detail = state.detail ?: return
         val edit = state.setup ?: return

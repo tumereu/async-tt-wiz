@@ -6,6 +6,24 @@ import org.asyncttwiz.protocol.ActivityKind
 import java.time.Instant
 
 class ActivityNotificationsTest {
+    @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
+        for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {
+            fun prompt(sdk: Int = 33, signedIn: Boolean = true, asked: Boolean = false,
+                catalogBlocked: Boolean = false, granted: Boolean = false, selected: String? = null) =
+                ActivityPermissionPrompt.shouldPrompt(sdk, signedIn, destination, selected, asked, catalogBlocked, granted)
+            assertTrue(prompt())
+            assertFalse(prompt(sdk = 32))
+            assertFalse(prompt(signedIn = false))
+            assertFalse(prompt(asked = true))
+            assertFalse(prompt(catalogBlocked = true))
+            assertFalse(prompt(granted = true))
+            assertEquals(destination == ShellDestination.PODS, prompt(selected = "previous-game"))
+        }
+        ShellDestination.entries.filter { it !in listOf(ShellDestination.PODS, ShellDestination.GAMES) }.forEach {
+            assertFalse(ActivityPermissionPrompt.shouldPrompt(35, true, it, null, false, false, false))
+        }
+    }
+
     @Test fun threeDefaultChannelsAndAllPathsRespectAllOsControls() {
         assertEquals(setOf("Invitations", "Game activity", "Draft activity"), ActivityChannels.names.values.toSet())
         assertEquals(3, ActivityChannels.names.size)

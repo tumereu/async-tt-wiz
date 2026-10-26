@@ -15,6 +15,7 @@ class CubeControllerTest {
     private inner class Api : Cubes {
         var saved: SavedCube? = SavedCube(summary, listOf(SavedCubeEntry(digest, 1500)))
         val creates = mutableListOf<CreateCube>(); val updates = mutableListOf<UpdateCube>(); val deletes = mutableListOf<DeleteCube>()
+        val submissions = mutableListOf<SubmitDefinitions>()
         val definitions = mutableMapOf(digest to card)
         var fail = false
         var afterRead: () -> Unit = {}
@@ -23,6 +24,7 @@ class CubeControllerTest {
         val definitionBatches = mutableListOf<List<String>>()
         var failBatch: Int? = null
         override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted {
+            submissions += value
             value.definitions.forEach { definitions[it.digest] = it.definition }
             return DefinitionsAccepted(value.definitions.map { it.digest })
         }
@@ -67,8 +69,8 @@ class CubeControllerTest {
     }
     private fun result(quantity: Int = 2) = DeckImportResult("$quantity Retained card",
         listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, quantity, listOf(CatalogPrinting(card.faces.first().faceId, card.name, "", "", "English", "a", null, false, emptyList(), "{}")), listOf(1))), emptyList(), null)
-    private fun controller(api: Api, worker: Worker, lookup: (String, Boolean) -> DeckImportResult = { _, _ -> result() }, post: (() -> Unit) -> Unit = { it() }) =
-        CubeController(api, { "token" }, lookup, { result() }, worker, post,
+    private fun controller(api: Api, worker: Worker, lookup: (String, Boolean) -> DeckImportResult = { _, _ -> result() }, post: (() -> Unit) -> Unit = { it() }, credential: () -> String? = { "token" }) =
+        CubeController(api, credential, lookup, { result() }, worker, post,
             fetchCobra = { CubeCobraImport.parse("""{"cards":{"mainboard":[{"details":{"name":"Retained card"}}]}}""") })
 
     @Test fun editPrefillsAndPreservesMoreThanOneThousandAcceptedCopiesWithoutCatalog() {
@@ -130,6 +132,34 @@ class CubeControllerTest {
         assertTrue(api.definitionBatches.isEmpty())
         assertNull(controller.state.detail)
         controller.close(); worker.drain()
+    }
+    @Test fun obsoleteSaveCompletionsReleaseBusyFenceDataAndRetainSaveIdentitiesForReauthentication() {
+        for (failed in listOf(false, true)) {
+            val api = Api(); val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
+            var token: String? = "original"
+            val controller = controller(api, worker, post = { posts.add(it) }, credential = { token })
+            fun deliver() {
+                do { worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()() } while (controller.state.busy)
+            }
+            controller.open(summary.id); deliver(); controller.edit(); deliver(); controller.name("Edited")
+            api.fail = failed; controller.save(); worker.drain()
+            assertTrue(controller.state.busy)
+            token = null // Auth expiry arrives before the operation's posted completion.
+            while (posts.isNotEmpty()) posts.removeFirst()()
+            assertFalse(controller.state.busy)
+            assertTrue(controller.state.editing)
+            assertNull(controller.state.error)
+            assertEquals(summary.name, controller.state.detail!!.saved.cube.name)
+            token = "replacement"; api.fail = false
+            controller.save(); deliver()
+            assertEquals(2, api.updates.size)
+            assertEquals(api.updates.first(), api.updates.last())
+            assertEquals(api.submissions.first(), api.submissions.last())
+            assertEquals("Edited", controller.state.detail!!.saved.cube.name)
+            assertFalse(controller.state.editing)
+            controller.back(); deliver(); assertNull(controller.state.selected)
+            controller.close(); worker.drain()
+        }
     }
     private fun populate(api: Api, count: Int) {
         api.definitions.clear()

@@ -120,10 +120,10 @@ class MainActivity : ComponentActivity() {
                 val permissionPrefs = remember { getSharedPreferences("notification-permission", 0) }
                 var asked by remember { mutableStateOf(permissionPrefs.getBoolean("asked", false)) }
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
-                if (android.os.Build.VERSION.SDK_INT >= 33 && state.account != null &&
-                    state.destination == ShellDestination.GAMES && auth.lobby.state.selected == null && !asked &&
-                    !catalog.state.busy && !catalog.needsInitialDownloadConsent && !catalog.promptPolicy.shouldPrompt(catalog.state) &&
-                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if (ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
+                    state.destination, auth.lobby.state.selected, asked,
+                    catalog.state.busy || catalog.needsInitialDownloadConsent || catalog.promptPolicy.shouldPrompt(catalog.state),
+                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
                     AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation, game and draft alerts") },
                         text = { Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.") },

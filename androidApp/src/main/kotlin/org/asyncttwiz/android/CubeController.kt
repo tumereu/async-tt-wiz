@@ -195,14 +195,16 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             if (generation != epoch) return@execute
             try {
                 val apply = runBlocking { action { !closed && generation == epoch && credential() == token } }
-                post { if (!closed && generation == epoch && credential() == token) {
-                    state = state.copy(busy = false); apply?.invoke()
+                post { if (!closed && generation == epoch) {
+                    // Credential expiry fences data, not completion. Keep ambiguous save intent for retry.
+                    state = state.copy(busy = false)
+                    if (credential() == token) apply?.invoke() else onFailure()
                 } }
             } catch (failure: Exception) {
-                post { if (!closed && generation == epoch && credential() == token) {
+                post { if (!closed && generation == epoch) {
                     onFailure()
-                    state = state.copy(busy = false,
-                    error = when ((failure as? DeckFailure)?.code) {
+                    state = state.copy(busy = false)
+                    if (credential() == token) state = state.copy(error = when ((failure as? DeckFailure)?.code) {
                         "invalid_cube" -> "Check the cube name and quantities (maximum 3000 copies)."
                         "not_found" -> "This cube is no longer available. Return to your collection."
                         else -> "Could not complete the cube request. Your input is kept. Check card records or your connection and retry."

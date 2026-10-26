@@ -26,7 +26,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
-    val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false) {
+    val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
+    val retryPodChallengeName: String? = null) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
 }
 
@@ -522,17 +523,21 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
-    /** Pod UI supplies the chosen name; transport and basic resolution belong to the ordinary lobby. */
+    fun retryPodChallenge() {
+        val request = pendingChallenge ?: return
+        challengeFromPod(request.podId, request.input.opponentId, request.input.gameName)
+    }
+    /** Pod UI supplies a suggested name; retries retain the original name and request identities. */
     fun challengeFromPod(podId: String, opponentId: String, gameName: String) {
         if (closed || state.mutating) return
-        if (!LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
         val token = credential() ?: return
         val decks = deckApi ?: return
         val resolve = basicLandDefinitions ?: return
         val previous = pendingChallenge
-        if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId || previous.input.gameName != gameName)) {
+        if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId)) {
             state = state.copy(error = "Retry the original pod challenge before creating another."); return
         }
+        if (previous == null && !LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
         val generation = epoch
         state = state.copy(mutating = true, error = null)
         worker.execute {
@@ -549,10 +554,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             post { if (!closed && generation == epoch) {
                 val game = result.getOrNull()
                 val failure = result.exceptionOrNull()
-                val terminal = (failure as? LobbyFailure)?.code in listOf("not_found", "opponent_not_member", "invalid_opponent",
-                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_basic_definitions", "invalid_deck")
+                val code = when (failure) { is LobbyFailure -> failure.code; is DeckFailure -> failure.code; else -> null }
+                val terminal = code in listOf("not_found", "opponent_not_member", "invalid_opponent",
+                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_basic_definitions", "invalid_deck", "invalid_definition")
                 pendingChallenge = if (game != null || terminal) null else captured
-                state = state.copy(mutating = false, error = failure?.let(::lobbyError))
+                state = state.copy(mutating = false, error = failure?.let(::lobbyError),
+                    retryPodChallengeName = pendingChallenge?.input?.gameName)
                 if (game != null) {
                     if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
                     else refresh()

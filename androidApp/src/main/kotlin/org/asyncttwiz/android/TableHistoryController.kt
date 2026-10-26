@@ -188,9 +188,12 @@ class TableHistoryController(private val worker: Executor, private val post: (()
 
     /** Every basic/manual/Library/token/quick/combat lowering callback passes this same seam. */
     fun gameplay(action: PlayAction, invocation: String?, predicted: () -> PlayState?): Boolean {
+        return gameplay(predicted) { continuation -> submit(action, invocation, continuation) }
+    }
+    fun gameplay(predicted: () -> PlayState?, send: (Continuation?) -> Boolean): Boolean {
         val boundary = armed
         val before = predicted()?.currentNodeId
-        val sent = submit(action, invocation, boundary?.let { Continuation(it, explicit = true) })
+        val sent = send(boundary?.let { Continuation(it, explicit = true) })
         if (sent && boundary != null) {
             val after = predicted()
             if (after != null && after.currentNodeId != before) {

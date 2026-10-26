@@ -191,7 +191,7 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
     }
 
     /** Same transaction as the original inbox/result/revision/outbox. Only changed records are written. */
-    fun save(sql: DSLContext, before: GameplayTree, next: GameplayTree, revision: Long): GameplayTreeDelta {
+    fun save(sql: DSLContext, before: GameplayTree, next: GameplayTree, revision: Long, requestId: String? = null): GameplayTreeDelta {
         val delta = TreeSync.delta(before, next)
         val removedNodes = delta.removals.filter { it.kind == "node" }.map { id(it.id) }
         if (removedNodes.isNotEmpty()) sql.update(GAMEPLAY_MUTATION).set(GAMEPLAY_MUTATION.RETAINED, false)
@@ -200,6 +200,7 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
         if (removedControls.isNotEmpty()) sql.deleteFrom(GAMEPLAY_TREE_CONTROL)
             .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(next.initial.id)))
             .and(DSL.row(GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID).`in`(removedControls.map { DSL.row(it.kind, it.id) })).execute()
+        var memberIndex = 0
         for (record in delta.upserts) when (record.kind) {
             "node" -> {
                 val mutation = next.nodes.getValue(record.id)
@@ -217,6 +218,8 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
                     .set(GAMEPLAY_MUTATION.GAME_ID, id(state.gameId)).set(GAMEPLAY_MUTATION.PLAY_ID, id(state.id))
                     .set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId)).set(GAMEPLAY_MUTATION.BRANCH_ID, id(mutation.branchId))
                     .set(GAMEPLAY_MUTATION.AUTHOR_ID, id(mutation.author)).set(GAMEPLAY_MUTATION.REQUEST_ID, id(mutation.requestId))
+                    .set(GAMEPLAY_MUTATION.COMMAND_REQUEST_ID, id(requestId ?: mutation.requestId))
+                    .set(GAMEPLAY_MUTATION.MEMBER_INDEX, if (mutation.invocationId == requestId) memberIndex++ else 0)
                     .set(GAMEPLAY_MUTATION.GROUP_ID, id(group.id)).set(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL, revision)
                     .set(GAMEPLAY_MUTATION.PAYLOAD, mutationPayload)
                     .onConflict(GAMEPLAY_MUTATION.ID).doUpdate().set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId))
@@ -238,8 +241,14 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
     fun history(sql: DSLContext, state: PlayState, revision: Long, after: Long): GameplayHistoryPage {
         val rows = sql.selectFrom(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id(state.id)))
             .and(GAMEPLAY_MUTATION.RETAINED.eq(true))
-            .and(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL.gt(after)).orderBy(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL).limit(101).fetch()
-        val page = rows.take(100)
+            .and(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL.gt(after)).orderBy(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL, GAMEPLAY_MUTATION.MEMBER_INDEX).limit(101).fetch()
+        // A revision cursor cannot represent a partial batch. Include its entire boundary revision.
+        val boundary = rows.take(100).lastOrNull()?.effectiveOrdinal
+        val page = if (rows.size > 100 && rows[100].effectiveOrdinal == boundary) rows.takeWhile { it.effectiveOrdinal != boundary } +
+            sql.selectFrom(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id(state.id)))
+                .and(GAMEPLAY_MUTATION.RETAINED.eq(true)).and(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL.eq(boundary))
+                .orderBy(GAMEPLAY_MUTATION.MEMBER_INDEX).fetch()
+            else rows.take(100)
         val groups = if (page.isEmpty()) emptyList() else sql.selectFrom(GAMEPLAY_GROUP)
             .where(GAMEPLAY_GROUP.PLAY_ID.eq(id(state.id))).and(GAMEPLAY_GROUP.ID.`in`(page.map { it.groupId }))
             .orderBy(GAMEPLAY_GROUP.ID).fetch().map { json.decodeFromString<GameplayGroup>(it.payload!!.data()) }

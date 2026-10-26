@@ -49,7 +49,7 @@ class HandDoubleTapTest {
             }) }))
         f.connect(initial)
         try {
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
             val card = scene.items.single { it.cardId == f.id(42) }
             val gestures = TableGestureCoordinator({ toolkit.handle(it) })
@@ -59,11 +59,13 @@ class HandDoubleTapTest {
             gestures.down(point, 100); gestures.up(point, 120)
             assertEquals(field, f.card(42).containerId)
             assertEquals(BoardPosition(1, 1), f.card(42).placement!!.position)
-            val commands = f.commands()
+            assertEquals(1, f.commands().size)
+            assertIs<GameAction.PlayBatch>(f.commands().single().action)
+            val commands = f.commands().playMembers()
             assertEquals(2, commands.size)
             assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(assertIs<GameAction.Play>(commands[0].action).action).action)
             assertIs<PlayAction.MoveCard>(assertIs<GameAction.Play>(commands[1].action).action)
-            assertEquals(2, commands.map { it.invocationId }.distinct().size)
+            assertEquals(1, commands.map { it.invocationId }.distinct().size)
 
             var tree = GameplayTree(initial)
             val boards = mutableListOf(initial)
@@ -140,7 +142,7 @@ class HandDoubleTapTest {
             try {
                 assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
                 val before = f.commands().size
-                val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+                val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
                 val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
                 val card = scene.items.single { it.cardId == f.id(40) }
                 val gestures = TableGestureCoordinator({ if (it is TableIntent.Move) assertTrue(toolkit.handle(it), layout) })
@@ -148,7 +150,8 @@ class HandDoubleTapTest {
                 val point = card.visible.first().center
                 gestures.down(point, 0); gestures.up(point, 20)
                 gestures.down(point, 100); gestures.up(point, 120)
-                val commands = f.commands().drop(before)
+                assertEquals(1, f.commands().drop(before).size)
+                val commands = f.commands().drop(before).playMembers()
                 assertEquals(if (layout == "flip") 2 else 1, commands.size, layout)
                 assertEquals(f.id(40), assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(
                     assertIs<GameAction.Play>(commands.first().action).action).action).sourceId)

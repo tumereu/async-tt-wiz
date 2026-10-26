@@ -29,7 +29,7 @@ class PanelRevisionUiTest {
         f.connect()
         assertTrue(f.move(40, TableDestination.Container(f.container(zone), zone)))
         assertTrue(f.lobby.gameplay(PlayAction.ShowContents(f.container(PlayZone.LIBRARY), selection, 2, reveal)))
-        val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+        val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
         ui.openPublicPile(f.container(zone))
         compose.setContent { MaterialTheme { TableSurface(f.game, f.play, f.actor, landscape,
             connected = true, toolkit = ui, onIntent = ui::handle) } }
@@ -58,7 +58,7 @@ class PanelRevisionUiTest {
     private fun stackAndValues(landscape: Boolean) {
         f.connect()
         assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1)))
-        val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+        val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
         repeat(2) { assertTrue(ui.addEffects(listOf(f.id(40)))) }
         compose.setContent { MaterialTheme { TableSurface(f.game, f.play, f.actor, landscape,
             connected = true, toolkit = ui, onIntent = ui::handle) } }

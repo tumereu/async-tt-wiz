@@ -15,14 +15,16 @@ object SelectiveUndo {
             if (command.action == GameAction.Undo) {
                 val target = target(tree, actor) ?: return@run GameplayTreeChange(reason = candidateFailure(tree))
                 val members = mutableListOf(target)
+                val atomic = PlayBatches.isMember(target)
                 if (target.invocationId != null) {
                     var previous = tree.nodes[target.parentId]
                     while (previous != null && previous.author == actor && previous.invocationId == target.invocationId && previous.branchId == target.branchId) {
-                        if (members.size >= 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+                        if (members.size >= if (atomic) 100 else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
                         members += previous; previous = tree.nodes[previous.parentId]
                     }
                 }
                 var candidate = tree
+                if (atomic) budget.remaining = members.size * 51
                 val keys = mutableSetOf<GameplayTreeKey>()
                 // Each constituent keeps the same tuple/fork checks and shares the work budget. Failure publishes
                 // none of the candidate edits, rather than undoing only the tail of a user action.
@@ -37,9 +39,11 @@ object SelectiveUndo {
                 val queue = tree.redoByAccount[actor].orEmpty()
                 val target = queue.lastOrNull()?.mutation
                     ?: return@run GameplayTreeChange(reason = "noCandidate")
+                val atomic = PlayBatches.isMember(target)
                 val members = if (target.invocationId == null) 1 else queue.asReversed()
-                    .take(52).takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
-                if (members > 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+                    .take(if (atomic) 101 else 52).takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
+                if (members > if (atomic) 100 else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+                if (atomic) budget.remaining = members * 51
                 var candidate = tree
                 val keys = mutableSetOf<GameplayTreeKey>()
                 repeat(members) {

@@ -26,7 +26,8 @@ class CardRingInteractionTest {
     private val sent = mutableListOf<PlayAction>()
     private fun render(multi: Boolean = false, play: PlayState = f.combat(),
         contextId: String = f.source(f.a, "1/3").id): TableToolkitController {
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true },
+            playBatch = { actions, _ -> sent += actions; true })
         val source = f.source(f.a, "1/3").id
         toolkit.openCard(TableScope(contextId, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(contextId)))
         compose.setContent {

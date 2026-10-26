@@ -326,7 +326,7 @@ class TableToolkitWiringTest {
     }
     @Test fun productionInspectorUsesAcceptedTreeProofNotReceiptOrResultAndClosedLifetimeCannotReopen() {
         val f = BasicTableFixture(); f.connect()
-        val ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay,
+        val ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch,
             acceptedInspection = f.lobby::inspectFace)
         ui.reviewContext("live")
         var tree = GameplayTree(f.root)
@@ -374,16 +374,15 @@ class TableToolkitWiringTest {
             assertTrue(personal.arm(root.initial.root.id)); assertTrue(f.commands().isEmpty())
             val ui = TableToolkitController(f.actor, {
                 if (personal.provisional) f.lobby.state.play else personal.view?.state
-            }, { true }, f.lobby::gameplay)
+            }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
             assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
                 MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
             val originals = f.commands()
-            assertEquals(2, originals.size)
+            assertEquals(1, originals.size)
+            assertEquals(2, assertIs<GameAction.PlayBatch>(originals.single().action).actions.size)
             assertEquals(Continuation(root.initial.root.id, true), originals.first().continuation)
-            originals.zipWithNext().forEach { (a, b) ->
-                assertEquals(Continuation(CommandIds.uuidV5(a.requestId, "board-node"), true), b.continuation)
-            }
+            assertNull(originals.single().playMembers()[1].continuation)
             assertEquals(f.root.board, f.lobby.state.acceptedPlay!!.board.copy(players = f.root.board.players))
             assertTrue(f.lobby.historyControl(GameAction.Undo))
             val undo = f.commands().last(); assertEquals(GameAction.Undo, undo.action); assertNull(undo.continuation)
@@ -393,8 +392,8 @@ class TableToolkitWiringTest {
     }
 
     private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.lobby.state.play },
-        { f.game.id in f.lobby.state.connectedGames }, f.lobby::gameplay)
-    private fun BasicTableFixture.actions() = commands().map { (it.action as GameAction.Play).action }
+        { f.game.id in f.lobby.state.connectedGames }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
+    private fun BasicTableFixture.actions() = commands().flatMap { it.playActions() }
 
     @Test fun mountedManualCaptureReadsCurrentValuesAndQueuesManyRequestsBeforeAnyResult() {
         val f = BasicTableFixture()
@@ -461,25 +460,24 @@ class TableToolkitWiringTest {
         }
     }
 
-    @Test fun localRefusalRetainsLaterOriginalConstituentsAndNeverRefillsOrResetsUnmovedCard() {
+    @Test fun localRefusalQueuesNoMembersAndNeverRefillsOrResetsUnmovedCard() {
         for (top in listOf(false, true)) {
         val f = BasicTableFixture(); f.connect()
         val attempted = mutableListOf<Pair<PlayAction, String?>>()
         val ui = TableToolkitController(f.actor, { f.play }, { true }, { action, invocation ->
             attempted += action to invocation
             if (action is PlayAction.MoveCard && action.cardId == f.id(40)) false else f.lobby.gameplay(action, invocation)
-        })
+        }, playBatch = { actions, request -> attempted += actions.map { it to request }; false })
         val library = assertNotNull(ui.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND)))
         val destination = MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)
         val result = if (top) library.move(ContentsSelection.TOP, 2, destination)
             else library.moveCards(listOf(f.id(40), f.id(41)), destination)
-        // TOP's second captured card is not top after the first refusal. MEMBER remains independent.
-        assertEquals(if (top) LibrarySubmission(0, 2) else LibrarySubmission(1, 1), result)
+        assertEquals(LibrarySubmission(0, 2), result)
         assertEquals(listOf(f.id(40), f.id(41)), attempted.mapNotNull { (it.first as? PlayAction.MoveCard)?.cardId })
         assertTrue(attempted.none { it.first == PlayAction.ResetCorner(f.id(40)) })
         assertEquals(f.container(PlayZone.LIBRARY), f.card(40).containerId)
-        assertEquals(f.container(if (top) PlayZone.LIBRARY else PlayZone.EXILE), f.card(41).containerId)
-        if (top) assertTrue(f.commands().isEmpty())
+        assertEquals(f.container(PlayZone.LIBRARY), f.card(41).containerId)
+        assertTrue(f.commands().isEmpty())
         assertEquals(1, attempted.map { it.second }.distinct().size)
         assertNotNull(ui.error)
         }
@@ -496,7 +494,7 @@ class TableToolkitWiringTest {
             MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)))
         f.message(f.update(f.root, remote, 1, f.other))
         assertTrue(ui.perform(intent))
-        assertEquals(f.id(40), (attempted.first().first as PlayAction.MoveCard).cardId)
+        assertEquals(listOf<PlayAction>(PlayAction.NextStep), attempted.map { it.first })
         assertEquals(listOf<PlayAction>(PlayAction.NextStep), f.actions()) // Known-stale prediction is refused, not replaced.
         assertEquals(f.container(PlayZone.LIBRARY), f.card(41).containerId)
         assertEquals("UPKEEP", f.play.board.turn.step)
@@ -509,7 +507,8 @@ class TableToolkitWiringTest {
         assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))
         val start = f.commands().size
         assertTrue(ui.declare(listOf(f.id(40)), true))
-        assertEquals(3, f.commands().drop(start).size)
+        assertEquals(1, f.commands().drop(start).size)
+        assertEquals(3, f.commands().last().playActions().size)
         assertEquals(1, f.commands().drop(start).map { it.invocationId }.distinct().size)
         assertTrue(f.card(40).tapped)
         assertTrue(ui.addEffects(listOf(f.id(40)))); assertTrue(ui.addEffects(listOf(f.id(40))))
@@ -538,7 +537,8 @@ class TableToolkitWiringTest {
         assertTrue(pair.attackers.isEmpty())
         assertEquals(1, f.commands().drop(start).map { it.invocationId }.distinct().size)
         assertEquals(f.id(40), bound.contextViewId)
-        assertEquals(2, f.commands().drop(start).size)
+        assertEquals(1, f.commands().drop(start).size)
+        assertEquals(2, f.commands().last().playActions().size)
         assertFalse(f.card(40).tapped)
     }
 

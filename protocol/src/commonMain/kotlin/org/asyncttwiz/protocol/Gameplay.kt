@@ -87,7 +87,7 @@ import kotlinx.serialization.json.*
     /** Explicit disclosure binds the requested face AND region, never whichever card/side is now there. */
     @Serializable @SerialName("inspectFace") data class InspectFace(val cardId: String, val faceId: String,
         val containerId: String) : Manual
-    /** Ordinary entry conveniences lower to separate requests; projection pulls are explicitly atomic. */
+    /** Entry conveniences can be batch members; projection pulls are a single mutation. */
     @Serializable @SerialName("clearCardCounter") data class ClearCardCounter(val cardId: String, val color: CounterColor) : PlayAction
     @Serializable @SerialName("createToken") data class CreateToken(val definition: SubmittedDefinition) : PlayAction
     @Serializable @SerialName("cloneToken") data class CloneToken(val cardId: String) : PlayAction
@@ -308,7 +308,7 @@ object GameplayRules {
         return GameplayChange(state.copy(board = closed, currentNodeId = mutation.id, currentGroup = group), mutation)
     }
 
-    /** Callers send these constituents in order, each with its own request ID and ordinary outcome. */
+    /** Constituents retain their own history nodes inside the caller's atomic invocation. */
     fun moveActions(state: PlayState, action: PlayAction.MoveCard): List<PlayAction> {
         // r13 defaults belong to the move itself, including its exact inverse.
         return listOf(action)

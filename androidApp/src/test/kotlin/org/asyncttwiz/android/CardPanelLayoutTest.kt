@@ -179,13 +179,13 @@ class CardPanelLayoutTest {
         f.connect()
         try {
             assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD)))
-            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             ui.openPublicPile(f.container(PlayZone.GRAVEYARD))
             val count = f.commands().size
             ui.localPanelAction(f.id(40), PlayZone.BATTLEFIELD, tapped = true)
             assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
             assertTrue(f.card(40).tapped)
-            assertTrue(f.commands().drop(count).map { (it.action as GameAction.Play).action }.none {
+            assertTrue(f.commands().drop(count).flatMap { it.playActions() }.none {
                 it is PlayAction.ShowContents || it is PlayAction.RevealContentsCard || it is PlayAction.DismissContents })
             assertEquals(f.container(PlayZone.GRAVEYARD), ui.layoutState.value.localPileId)
         } finally { f.lobby.close(); f.worker.drain() }

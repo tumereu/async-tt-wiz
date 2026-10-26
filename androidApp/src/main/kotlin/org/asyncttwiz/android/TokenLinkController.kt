@@ -12,8 +12,7 @@ data class ProjectionLinkScope(val context: ProjectionEndpoint, val endpoints: L
  */
 class TokenLinkController(private val current: () -> PlayState?, private val submit: (PlayAction) -> Boolean) {
     private var submitInvocation: ((List<PlayAction>) -> Boolean)? = null
-    /** The session adapter allocates ONE invocation and individual request IDs, queues without waiting
-     * for results, and reports local enqueue failure only. It must not introduce an atomic bulk command. */
+    /** The session adapter queues this selection as one atomic invocation. */
     constructor(current: () -> PlayState?, submit: (PlayAction) -> Boolean,
         submitInvocation: (List<PlayAction>) -> Boolean) : this(current, submit) {
         this.submitInvocation = submitInvocation
@@ -59,8 +58,11 @@ class TokenLinkController(private val current: () -> PlayState?, private val sub
         return scope?.cardIds.orEmpty().mapNotNull { id -> board.cards.singleOrNull { it.id == id } }
     }
 
-    fun clone() { cards().forEach { send(PlayAction.CloneToken(it.id)) } }
-    fun removeTokens() { cards().filter { it.token }.forEach { send(PlayAction.RemoveToken(it.id)) } }
+    fun clone() { sendSelection(cards().map { PlayAction.CloneToken(it.id) }) }
+    fun removeTokens() { sendSelection(cards().filter { it.token }.map { PlayAction.RemoveToken(it.id) }) }
+    private fun sendSelection(actions: List<PlayAction>) {
+        if (actions.size == 1) send(actions.single()) else if (actions.isNotEmpty()) sendLinks(actions)
+    }
     private fun occurrences(): List<ProjectionEndpoint> = boundState()?.board?.let { board ->
         projectionScope?.endpoints.orEmpty().filter { CombatStackRules.exists(board, it) }
     }.orEmpty()

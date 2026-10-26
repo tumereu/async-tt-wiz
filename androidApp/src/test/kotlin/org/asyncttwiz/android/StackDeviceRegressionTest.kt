@@ -10,7 +10,7 @@ class StackDeviceRegressionTest {
             val f = BasicTableFixture()
             f.connect()
             try {
-                val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+                val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
                 assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
                 if (populated) assertTrue(f.legacyStack(41))
                 val events = mutableListOf<TableIntent>()

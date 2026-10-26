@@ -25,7 +25,7 @@ class CardPanelUiTest {
     private lateinit var ui: TableToolkitController
     private fun setup(viewer: String = f.actor) {
         f.connect()
-        ui = TableToolkitController(viewer, { f.lobby.state.play }, { true }, f.lobby::gameplay)
+        ui = TableToolkitController(viewer, { f.lobby.state.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
     }
     private fun mount(viewer: String = f.actor, review: Boolean = false, pause: () -> Unit = {}) {
         compose.setContent { MaterialTheme {
@@ -87,16 +87,17 @@ class CardPanelUiTest {
         assertEquals("3", f.play.currentGroup!!.count) // Open, one card move, close+shuffle.
     }
 
-    @Test fun revealAndHandAreSeparateRequestsAndHistoryGroups() {
+    @Test fun revealAndHandAreOneRequestWithSeparateHistoryGroups() {
         setup(); show(); mount()
         val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
         compose.onAllNodesWithContentDescription(item.label)[0].performClick()
         val count = f.commands().size
         click("Reveal+Hand")
-        val commands = f.commands().drop(count)
+        assertEquals(1, f.commands().drop(count).size)
+        val commands = f.commands().drop(count).playMembers()
         assertTrue((commands[0].action as GameAction.Play).action is PlayAction.RevealContentsCard)
         assertTrue((commands[1].action as GameAction.Play).action is PlayAction.MoveCard)
-        assertNotEquals(commands[0].invocationId, commands[1].invocationId)
+        assertEquals(commands[0].invocationId, commands[1].invocationId)
         val disclosure = GameplayRules.change(f.root, f.actor, f.commands().first()).state!!
         val revealed = GameplayRules.change(disclosure, f.actor, commands[0]).state!!
         assertNotEquals(revealed.currentGroup!!.id, f.play.currentGroup!!.id)

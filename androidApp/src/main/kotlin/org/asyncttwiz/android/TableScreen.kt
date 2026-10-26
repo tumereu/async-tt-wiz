@@ -185,7 +185,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
                 }
             }, acceptedInspection = controller::inspectFace,
-                waitingForConnection = { game.id !in controller.state.connectedGames }) }
+                waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch) }
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
@@ -230,11 +230,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     if (!history.foreground || controller.state.detail?.id != game.id ||
                         controller.state.detail?.playId != play.id || intent.reference.playId != play.id ||
                         game.id in controller.state.reconnectingGames) false else {
-                        var sent = false
-                        intent.actions().forEach { action ->
-                            sent = (if (history.armed != null) controller.gameplay(action) else controller.annotate(action)) || sent
-                        }
-                        sent
+                        val actions = intent.actions()
+                        if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
+                        else controller.annotateBatch(actions)
                     }
                 }
                 CompositionLocalProvider(LocalTableMenuAnnotations provides menuAnnotations) {

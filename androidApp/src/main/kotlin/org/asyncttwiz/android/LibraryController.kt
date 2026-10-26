@@ -20,7 +20,8 @@ class LibraryController(
     },
     private val request: ((PlayAction, String) -> Boolean)? = null,
     private val moveRequest: ((TableIntent.Move) -> LibrarySubmission)? = null,
-    private val viewer: String? = null
+    private val viewer: String? = null,
+    private val batchRequest: ((List<PlayAction>, String) -> Boolean)? = null
 ) {
     private fun current(): PlayState? = state()?.takeIf { it.id == playId }
     fun available() = connected() && current() != null
@@ -30,21 +31,17 @@ class LibraryController(
         if (!maySetKeepTopRevealed()) LibrarySubmission(0, 1)
         else send(listOf(PlayAction.SetKeepTopRevealed(libraryId, enabled)))
     private fun send(actions: List<PlayAction>, invocation: String = UUID.randomUUID().toString()): LibrarySubmission {
-        var sent = 0; var refused = 0
-        var prefixAccepted = true
-        for (action in actions) {
-            val routed = if (action is PlayAction.MoveCard) current()?.let {
-                action.copy(source = action.source.copy(takeFromEdge = prefixAccepted &&
+        if (actions.isEmpty()) return LibrarySubmission(0, 0)
+        val routed = actions.map { action ->
+            if (action is PlayAction.MoveCard) current()?.let {
+                action.copy(source = action.source.copy(takeFromEdge =
                     (action.source.edge != MoveSourceEdge.MEMBER || action.source.bottomSlice.isNotEmpty())),
                     destination = ownerMoveDestination(it.board, action.cardId, action.destination))
             } ?: action else action
-            if (available() && (request?.invoke(routed, invocation) ?: submit(routed))) sent++ else {
-                refused++
-                // A refused prefix is never permission to refill its missing draw/mill with another card.
-                prefixAccepted = false
-            }
         }
-        return LibrarySubmission(sent, refused)
+        val sent = available() && routed.size <= 100 && (batchRequest?.invoke(routed, invocation)
+            ?: if (routed.size == 1) (request?.invoke(routed.single(), invocation) ?: submit(routed.single())) else false)
+        return if (sent) LibrarySubmission(routed.size, 0) else LibrarySubmission(0, routed.size)
     }
     fun draw(count: Int = 1, selection: ContentsSelection = ContentsSelection.TOP): LibrarySubmission {
         val current = current()?.takeIf { available() && count >= 0 } ?: return LibrarySubmission(0, 1)

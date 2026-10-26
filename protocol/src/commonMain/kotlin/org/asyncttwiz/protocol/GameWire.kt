@@ -13,6 +13,7 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("redo") data object Redo : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
     @Serializable @SerialName("play") data class Play(val action: PlayAction) : GameAction
+    @Serializable @SerialName("playBatch") data class PlayBatch(val actions: List<PlayAction>) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -86,7 +87,7 @@ object GameWire {
     fun valid(command: GameCommand): Boolean = runCatching {
         require(command.commandVersion == 1 && command.inlineDefinitions.isEmpty())
         command.continuation?.let {
-            require(command.action is GameAction.Play && it.explicit && DeckValidation.uuid(it.nodeId))
+            require(command.action.isPlay && it.explicit && DeckValidation.uuid(it.nodeId))
         }
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
@@ -96,9 +97,11 @@ object GameWire {
         } else if (command.action is GameAction.AcceptResult) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             require(DeckValidation.uuid(command.action.suggestionId))
-        } else if (command.action is GameAction.Play || command.action == GameAction.Undo || command.action == GameAction.Redo) {
+        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action))
+            if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..100 &&
+                command.action.actions.all(GameplayRules::valid))
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {

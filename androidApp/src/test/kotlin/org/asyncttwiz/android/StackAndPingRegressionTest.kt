@@ -34,7 +34,7 @@ class StackAndPingRegressionTest {
             val f = BasicTableFixture()
             f.connect()
             try {
-                val setup = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+                val setup = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
                 assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1), true))
                 assertTrue(setup.addEffects(listOf(f.id(40))))
                 assertTrue(setup.addEffects(listOf(f.id(40))))
@@ -42,7 +42,7 @@ class StackAndPingRegressionTest {
                 assertEquals(2, order.size)
                 val top = order.first()
                 var published = f.play
-                val ui = TableToolkitController(f.actor, { published }, { true }, f.lobby::gameplay)
+                val ui = TableToolkitController(f.actor, { published }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
                 ui.showStackBubbles(top)
                 val intent = when (kind) {
                     "battlefield" -> TableIntent.StackDestination(top, PlayZone.BATTLEFIELD, fromBubble = true)
@@ -81,7 +81,7 @@ class StackAndPingRegressionTest {
             it.copy(definition = submitted.digest) })))
         try {
             assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1), true))
-            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             assertTrue(ui.addEffects(listOf(f.id(40))))
             val entry = CombatStackRules.stack(f.play.board).cards.single()
             assertTrue(ui.handle(TableIntent.Submit(StackMenuActions.toggleMark(entry, 0), null)))

@@ -33,18 +33,21 @@ class TokenLinkControllerTest {
     @Test fun selectedAndUnselectedContextScopeSurvivesReflowSelectionAndSync() {
         var current = state()
         val sent = mutableListOf<PlayAction>()
-        val controller = TokenLinkController({ current }) { sent += it; true }
+        var batches = 0
+        val controller = TokenLinkController({ current }, { sent += it; true }, { batches++; sent += it; true })
         val selected = mutableListOf(id(9), id(10))
         controller.open(id(9), selected)
         selected.clear(); selected += id(11)
         current = current.copy(board = current.board.copy(cards = current.board.cards.reversed().map { it.copy(note = "sync") }))
         controller.clone()
         assertEquals<List<PlayAction>>(listOf(PlayAction.CloneToken(id(9)), PlayAction.CloneToken(id(10))), sent)
+        assertEquals(1, batches)
         sent.clear()
         controller.open(id(11), listOf(id(9), id(10)))
         assertEquals(listOf(id(11)), controller.scope!!.cardIds)
         controller.clone()
         assertEquals<List<PlayAction>>(listOf(PlayAction.CloneToken(id(11))), sent)
+        assertEquals(1, batches)
         assertEquals(listOf(id(11)), selected) // controller never mutates personal selection
         assertTrue(current.board.cards.all { it.note == "sync" }) // no fake local shared edit
     }

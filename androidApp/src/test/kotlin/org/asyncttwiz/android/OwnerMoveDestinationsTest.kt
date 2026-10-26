@@ -126,7 +126,7 @@ class OwnerMoveDestinationsTest {
         }))
         f.connect(initial)
         try {
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val library = toolkit.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))!!
             val choices = libraryDestinations(f.play.board, mapOf(f.actor to "Alice", f.other to "Bob"),
                 sourceIds = listOf(f.id(40), f.id(41)))
@@ -134,7 +134,8 @@ class OwnerMoveDestinationsTest {
             assertTrue(choices.all { (_, destination) -> f.play.board.containers.single { it.id == destination.containerId }.accountId == f.actor })
             assertEquals(0, library.move(ContentsSelection.TOP, 4, choices.single { it.first == "Exile" }.second).refused)
             for (card in f.play.board.cards) assertEquals(f.container(PlayZone.EXILE, card.owner), card.containerId)
-            val moves = f.commands().mapNotNull { (it.action as? GameAction.Play)?.action as? PlayAction.MoveCard }
+            assertIs<GameAction.PlayBatch>(f.commands().single().action)
+            val moves = f.commands().flatMap { it.playActions() }.filterIsInstance<PlayAction.MoveCard>()
             assertEquals((40..43).map(f::id), moves.map { it.cardId })
             assertTrue(moves.all { it.source.edge == MoveSourceEdge.TOP })
             assertEquals(0, library.moveCards((40..43).map(f::id),

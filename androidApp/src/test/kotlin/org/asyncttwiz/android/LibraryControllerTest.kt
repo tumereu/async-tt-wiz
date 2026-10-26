@@ -137,11 +137,14 @@ class LibraryControllerTest {
         assertEquals(1, samples); assertEquals(1, sent.size)
     }
 
-    @Test fun bottomMoveAndDrawCaptureIdsAndLocalAdmissionRefusalIsNotAServerAck() {
+    @Test fun bottomMoveAndDrawCaptureIdsAndLocalAdmissionRefusesTheWholeBatch() {
         val state = initial()
         val sent = mutableListOf<PlayAction>()
-        val controller = LibraryController(id(2), id(10), id(11), { state }, { true }, { sent += it; sent.size != 1 })
-        assertEquals(LibrarySubmission(1, 1), controller.draw(2))
+        var calls = 0
+        val controller = LibraryController(id(2), id(10), id(11), { state }, { true }, { error("Must use batch") },
+            batchRequest = { actions, _ -> calls++; sent += actions; false })
+        assertEquals(LibrarySubmission(0, 2), controller.draw(2))
+        assertEquals(1, calls)
         assertEquals(listOf(id(20), id(21)), sent.map { (it as PlayAction.MoveCard).cardId })
         sent.clear()
         controller.move(ContentsSelection.BOTTOM, 2, MoveDestination(id(11), MoveInsertion.UNORDERED))
@@ -161,6 +164,13 @@ class LibraryControllerTest {
                 { if (armed) root else tree.stateAt(tree.currentNodeId) }, { true }, { action ->
                     val input = command(action).copy(continuation = if (armed) Continuation(root.root.id, true) else null)
                     val change = tree.play(id(7), input)
+                    tree = assertNotNull(change.tree, change.reason)
+                    armed = false
+                    true
+                }, batchRequest = { actions, requestId ->
+                    val input = command(actions.first()).copy(requestId = requestId, action = GameAction.PlayBatch(actions),
+                        continuation = if (armed) Continuation(root.root.id, true) else null)
+                    val change = HistoryContinuation.change(tree, id(7), input)
                     tree = assertNotNull(change.tree, change.reason)
                     armed = false
                     true

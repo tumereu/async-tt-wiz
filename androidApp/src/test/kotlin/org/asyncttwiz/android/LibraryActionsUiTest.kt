@@ -32,7 +32,8 @@ class LibraryActionsUiTest {
         val state = play.copy(board = play.board.copy(containers = play.board.containers.map {
             if (it.id == library.id) it.copy(keepTopRevealed = revealed) else it }))
         val controller = LibraryController(play.id, library.id, hand.id, { state }, { connected },
-            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) }, viewer = viewer)
+            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) }, viewer = viewer,
+            batchRequest = { actions, _ -> sent += actions; true })
         compose.setContent { MaterialTheme {
             InlinePopupPanel({}, "Library", width = 264.dp, height = 304.dp) {
                 LibraryActions(controller, state.board, hand.cards, onComplete = { completed++ })

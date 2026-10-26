@@ -180,6 +180,40 @@ class TableChangesTest {
         }
     }
 
+    @Test fun remoteShuffleAndOtherFeedbackUseTheDisplayedPredictionAsTheirFence() {
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })
+        history.use {
+            history.update(GameplayTree(f.initial), "v")
+            val shuffle = event(field(GameplayField.LIFE, "20", "19"), field(GameplayField.FACE, "front", "back"))
+                .let { it.copy(mutation = it.mutation.copy(id = "remote-shuffle",
+                    action = PlayAction.ShuffleLibrary("library", "seed"))) }
+            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "local-prediction"))
+            history.showChanges("remote-shuffle")
+            assertTrue(history.changes.active.isEmpty())
+            assertTrue(history.changes.shuffles("remote-shuffle").isEmpty())
+            history.showChanges("local-prediction")
+            assertEquals(setOf("library"), history.changes.shuffles("local-prediction"))
+            assertTrue(history.changes.animates("local-prediction"))
+            assertFalse(history.changes.animates("remote-shuffle"))
+            assertEquals(setOf(TableChangeKind.LIFE, TableChangeKind.FACE),
+                history.changes.active.keys.map { it.kind }.toSet())
+            assertEquals("-1", history.changes.active.values.single { it.change.key.kind == TableChangeKind.LIFE }.tag)
+        }
+    }
+
+    @Test fun playbackWithoutAnExplicitFenceUsesTheForwardOrReverseEndpoint() {
+        val changes = TableChanges()
+        val shuffle = event().let { it.copy(mutation = it.mutation.copy(id = "shuffle", parentId = "before",
+            action = PlayAction.ShuffleLibrary("library", "seed"))) }
+        changes.apply(TableChangeBatch(listOf(shuffle)))
+        assertEquals(setOf("library"), changes.shuffles("shuffle"))
+        assertFalse(changes.animates("before"))
+        changes.apply(TableChangeBatch(listOf(shuffle.copy(reverse = true))))
+        assertTrue(changes.animates("before"))
+        assertFalse(changes.animates("shuffle"))
+        assertTrue(changes.shuffles("before").isEmpty())
+    }
+
     @Test fun liveEffectsWaitForTheirDisplayedEndpointAndJumpsDiscardPendingEffects() {
         val tree = GameplayTree(f.initial)
         val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })

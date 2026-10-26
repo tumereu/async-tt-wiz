@@ -109,7 +109,9 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
                 else -> null
             }
         }.toSet()
-        batch.events.lastOrNull()?.let { motionCursor = if (it.reverse) it.mutation.parentId else it.mutation.id }
+        batch.events.lastOrNull()?.let {
+            motionCursor = batch.cursor ?: if (it.reverse) it.mutation.parentId else it.mutation.id
+        }
         val time = now()
         active.entries.removeAll { time - it.value.started >= WINDOW_MS }
         for (event in batch.events) for (change in TableChangeExtraction.extract(event)) {

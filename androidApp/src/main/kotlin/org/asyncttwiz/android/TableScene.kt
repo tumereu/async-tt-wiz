@@ -921,9 +921,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             val shown = value.take(3)
             val glyphs = android.graphics.Rect()
             paint.getTextBounds(shown, 0, shown.length, glyphs)
-            val available = (b.width - 2f).coerceAtLeast(1f) * z * density
-            if (glyphs.width() > available) {
-                paint.textSize *= available / glyphs.width()
+            val availableWidth = (b.width - 2f).coerceAtLeast(1f) * z * density
+            val availableHeight = (b.height - 2f).coerceAtLeast(1f) * z * density
+            val fit = minOf(1f, availableWidth / glyphs.width().coerceAtLeast(1),
+                availableHeight / glyphs.height().coerceAtLeast(1))
+            if (fit < 1f) {
+                paint.textSize *= fit
                 paint.getTextBounds(shown, 0, shown.length, glyphs)
             }
             text(shown, x + b.center.x * z - glyphs.exactCenterX() / density,

@@ -125,6 +125,18 @@ class PodDeckRulesTest {
         assertEquals(DraftColor.R.ordinal, PodDeckColumns.colorRank(giant))
     }
 
+    @Test fun normalizedSplitCardsCountBothHalvesAndCatalogColorsWin() {
+        val fireIce = CardDefinition("Fire // Ice", listOf(DefinitionFace("front", "Fire // Ice", typeLine = "Instant",
+            rulesText = "Fire\n{1}{R}\nInstant\nFire deals 2 damage.\n\n────────\n\nIce\n{1}{U}\nInstant\nTap target permanent.")),
+            layout = "split")
+        assertEquals(4.0, PodDeckManaCost.front(fireIce).value)
+        assertEquals(5, PodDeckColumns.bucket(7, fireIce))
+        assertEquals(setOf(DraftColor.U, DraftColor.R), PodDeckManaCost.front(fireIce).colors)
+        val devoid = card("Wasteland Strangler", "{2}{B}").let { it.copy(faces = listOf(it.faces.single().copy(sourceData = """{"colors":[]}"""))) }
+        val vision = card("Ancestral Vision", type = "Sorcery").let { it.copy(faces = listOf(it.faces.single().copy(sourceData = """{"colors":["U"]}"""))) }
+        assertEquals(listOf(6, DraftColor.U.ordinal), listOf(devoid, vision).map { PodDeckColumns.colorRank(it) })
+    }
+
     @Test fun inColumnSortIsWubrgThenMulticolorThenColorlessThenName() {
         val cards = listOf(card("Z white", "{W}"), card("a White", "{W}"), card("Blue", "{U}"),
             card("Black", "{B}"), card("Red", "{R}"), card("Green", "{G}"),

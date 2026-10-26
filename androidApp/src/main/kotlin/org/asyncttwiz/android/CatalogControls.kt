@@ -41,7 +41,7 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
     }
 }
 
-/** The persistent opt-in entry point remains available after dismissing startup consent. */
+/** Manual retry, incremental updates and explicit full re-import. */
 @Composable
 internal fun CatalogControls(controller: CatalogViewModel) {
     val state = controller.state

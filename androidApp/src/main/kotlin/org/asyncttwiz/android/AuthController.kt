@@ -30,6 +30,10 @@ data class AuthState(
     val logoutFailed: Boolean = false,
     val rememberedAccounts: List<RememberedAccount> = emptyList(),
     val validationMessage: Boolean = false,
+    val avatarChooser: Boolean = false,
+    val usernameDialog: Boolean = false,
+    val profileBusy: Boolean = false,
+    val profileError: String? = null,
 ) { override fun toString() = "AuthState[redacted]" }
 
 /** Main-thread state, one bounded background worker, callbacks fenced when the owner finishes. */
@@ -109,6 +113,33 @@ class AuthController(
 
     init { restore() }
     fun dismissMessage() { state = state.copy(message = null) }
+
+    fun chooseAvatar(open: Boolean = true) { if (!state.profileBusy) state = state.copy(avatarChooser = open, profileError = null) }
+    fun editUsername(open: Boolean = true) { if (!state.profileBusy) state = state.copy(usernameDialog = open, profileError = null) }
+    fun saveUsername(name: String) = updateProfile { accounts.changeUsername(it, name) }
+    fun saveAvatar(avatar: org.asyncttwiz.protocol.Avatar?) = updateProfile { accounts.changeAvatar(it, avatar) }
+
+    private fun updateProfile(update: suspend (String) -> AccountIdentity) {
+        val credential = sessionToken() ?: return
+        if (state.profileBusy) return
+        val epoch = generation.get()
+        state = state.copy(profileBusy = true, profileError = null)
+        worker.execute {
+            try {
+                val identity = runBlocking { update(credential) }
+                post {
+                    if (!closed && generation.get() == epoch && token.get() == credential)
+                        state = state.copy(account = identity, profileBusy = false, avatarChooser = false, usernameDialog = false)
+                }
+            } catch (failure: Exception) {
+                if (failure is AccountFailure && failure.code == "authentication_required") authenticationRequired(credential)
+                post {
+                    if (!closed && generation.get() == epoch && token.get() == credential)
+                        state = state.copy(profileBusy = false, profileError = errorMessage(failure as? AccountFailure ?: AccountFailure("network")))
+                }
+            }
+        }
+    }
 
     fun edit(username: String = state.username, email: String = state.email, password: String = state.password) {
         if (!closed && !state.busy && !state.restoring && state.account == null)
@@ -364,6 +395,7 @@ class AuthController(
                 else -> "Check the fields and try again."
             }
             "account_unavailable" -> "That username or email cannot be used. Choose another or sign in."
+            "username_taken" -> "That username is already taken. Choose another."
             "invalid_credentials" -> "Email or password not recognised."
             "try_later", "authentication_busy" -> "Too many attempts or the service is busy. Wait a moment and try again."
             "credential_storage" -> "Your login could not be protected on this device. Please try signing in again."

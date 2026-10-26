@@ -6,6 +6,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 class AccountsTest {
+    @kotlin.test.Test fun avatarIsOptionalForOldPayloadsAndRoundTrips() {
+        val legacy = AccountJson.format.decodeFromString<AccountIdentity>("""{"accountId":"id","username":"name"}""")
+        assertEquals(null, legacy.avatar)
+        val updated = legacy.copy(avatar = Avatar("00000000-0000-0000-0000-000000000001", 1))
+        assertEquals(updated, AccountJson.format.decodeFromString<AccountIdentity>(AccountJson.format.encodeToString(updated)))
+    }
     @Test fun credentialsRoundTripWithoutNormalizationOrDiagnosticDisclosure() {
         val input = RegisterAccount("Straße", "Local@Example.invalid", " \tPäSS e\u0301😀\n")
         val encoded = AccountJson.format.encodeToString(input)

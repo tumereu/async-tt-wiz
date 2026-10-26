@@ -31,7 +31,17 @@ data class ResetPassword(val token: String, val password: String) {
 
 /** The only identity projection exposed to clients/other accounts; deliberately no email. */
 @Serializable
-data class AccountIdentity(val accountId: String, val username: String)
+data class AccountIdentity(val accountId: String, val username: String, val avatar: Avatar? = null)
+
+@Serializable
+data class Avatar(val scryfallId: String, val face: Int = 0)
+
+/** Separate updates avoid accidentally clearing an avatar when changing a name. */
+@Serializable
+data class ChangeUsername(val username: String)
+
+@Serializable
+data class ChangeAvatar(val avatar: Avatar? = null)
 
 @Serializable
 data class SessionCreated(val token: String, val account: AccountIdentity) {

@@ -8,6 +8,43 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class AuthControllerTest {
+    @Test fun profileEditsKeepErrorsInDialogAndPublishOnlyAcceptedIdentity() {
+        val api = Api(); val worker = Worker(); val store = Store()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker) { it() }
+        try {
+            worker.drain()
+            controller.editUsername()
+            api.failure = AccountFailure("username_taken")
+            controller.saveUsername("Taken"); worker.drain()
+            assertEquals("Wizard", controller.state.account!!.username)
+            assertTrue(controller.state.usernameDialog)
+            assertContains(controller.state.profileError!!, "already taken")
+            api.failure = null
+            controller.saveUsername("New name"); worker.drain()
+            assertEquals("New name", controller.state.account!!.username)
+            assertFalse(controller.state.usernameDialog)
+            controller.chooseAvatar()
+            val avatar = org.asyncttwiz.protocol.Avatar(java.util.UUID.randomUUID().toString(), 1)
+            controller.saveAvatar(avatar); worker.drain()
+            assertEquals(avatar, controller.state.account!!.avatar)
+            assertFalse(controller.state.avatarChooser)
+            controller.saveAvatar(null); worker.drain()
+            assertNull(controller.state.account!!.avatar)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun profileResultCannotPublishAfterLogout() {
+        val api = Api(); val worker = Worker(); val store = Store()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker) { it() }
+        worker.drain()
+        controller.saveUsername("Old account")
+        controller.logout()
+        worker.drain()
+        assertNull(controller.state.account)
+        controller.close(); worker.drain()
+    }
     @Test fun ownerChangeDuringLoginOrIdentityReadDropsResultBeforePrivateStorageOrActivation() {
         for (restoring in listOf(false, true)) {
             val worker = Worker(); val api = Api(); val store = Store(); val local = Local()
@@ -118,6 +155,12 @@ class AuthControllerTest {
         }
         override suspend fun identity(token: String): AccountIdentity { failure?.let { throw it }; afterIdentity(); return identity }
         override suspend fun revoke(token: String) { revoked = true }
+        override suspend fun changeUsername(token: String, username: String): AccountIdentity {
+            failure?.let { throw it }; identity = identity.copy(username = username); return identity
+        }
+        override suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity {
+            failure?.let { throw it }; identity = identity.copy(avatar = avatar); return identity
+        }
         override fun close() = Unit
     }
 

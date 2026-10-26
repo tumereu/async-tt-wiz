@@ -21,13 +21,14 @@ data class CatalogUiState(val installed: CatalogMetadata? = null, val available:
     val background: Boolean = false, val plan: CatalogUpdatePlan? = null,
     val fullRefresh: CatalogUpdatePlan? = null, val fullSize: Long? = null, val loaded: Boolean = false)
 
-/** Volatile, process-wide consent deferral, deliberately not preferences or saved instance state. */
+/** Only optional updates to an installed catalog can be deferred within this process. */
 internal class CatalogPromptPolicy {
     private var dismissed by mutableStateOf(emptySet<String>())
     private fun key(state: CatalogUiState): String? {
-        val available = state.available ?: return null // Wait for actionable metadata, never offer a dead Download action.
+        if (state.installed == null) return null // Initial acquisition is mandatory, never prompts.
+        val available = state.available ?: return null
         if (state.plan == null && !CatalogUpdatePolicy.changed(state.installed, available)) return null
-        return if (state.installed == null) "missing" else "${available.date}/${available.version}/${available.indexVersion}"
+        return "${available.date}/${available.version}/${available.indexVersion}"
     }
     fun shouldPrompt(state: CatalogUiState): Boolean = !state.busy && key(state)?.let { it !in dismissed } == true
     fun dismiss(state: CatalogUiState) { key(state)?.let { dismissed = dismissed + it } }
@@ -93,7 +94,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 val plan = CatalogUpdatePolicy.plan(installed, repository.installedSets(), CatalogSetList(available, sets))
                 pending = plan
                 val due = force || cadence.due(System.currentTimeMillis()) || CatalogUpdatePolicy.changed(installed, available)
-                if (due && CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false)) {
+                if (due && catalogAutoDownload(installed, plan, metered)) {
                     installed = install(checkNotNull(plan), size)
                     cadence.checked(System.currentTimeMillis(), true)
                     publish(CatalogUiState(installed = installed, metered = metered, background = !force,
@@ -116,7 +117,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /** Only the explicit native consent action calls this for initial/metered bulk acquisition. */
+    /** Retry and optional metered incremental acquisition. */
     fun consent() {
         val current = state
         val plan = current.plan ?: current.available?.takeIf { CatalogUpdatePolicy.changed(current.installed, it) }
@@ -186,3 +187,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         worker.shutdownNow()
     }
 }
+
+internal fun catalogAutoDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean): Boolean =
+    plan != null && (installed == null || CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false))

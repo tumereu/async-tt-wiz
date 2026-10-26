@@ -69,6 +69,11 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.printing(id) } }
     }
 
+    /** Worker-only; query the installed public generation, never account data. */
+    fun avatarChoices(query: String = ""): List<CatalogAvatar> = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.avatarChoices(query) } }.orEmpty()
+    }
+
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
     fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
 
@@ -316,6 +321,24 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     }, 0).value.copy(indexVersion = long("PRAGMA user_version").toInt())
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
+
+    internal fun avatarChoices(query: String): List<CatalogAvatar> {
+        if (query.isNotBlank()) return rows("SELECT * FROM printing WHERE id IN (SELECT min(id) FROM printing WHERE scryfall IS NOT NULL AND instr(normalized, ?) > 0 GROUP BY normalized ORDER BY normalized LIMIT 60) ORDER BY normalized,id",
+            listOf(query.trim().lowercase(Locale.ROOT).take(512)), enrich = false)
+            .mapNotNull { it.avatarChoice(false) }.distinctBy { it.name }
+        // Keep provider JSON bounded even on the full real catalog, not just test fixtures.
+        val choices = linkedMapOf<String, CatalogAvatar>()
+        var after = ""
+        while (true) {
+            check(!Thread.currentThread().isInterrupted)
+            val batch = rows("SELECT * FROM printing WHERE id>? AND token=0 AND scryfall IS NOT NULL AND json LIKE '%Legendary%' AND (json LIKE '%Creature%' OR json LIKE '%Planeswalker%') ORDER BY id LIMIT 256",
+                listOf(after), enrich = false)
+            if (batch.isEmpty()) break
+            batch.mapNotNull { it.avatarChoice(true) }.forEach { choices.putIfAbsent(it.name, it) }
+            after = batch.last().id
+        }
+        return choices.values.toList()
+    }
     fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
         prepareImportNames()
@@ -411,7 +434,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         return rows("SELECT p.* FROM $from WHERE $where ORDER BY $prefix.normalized, $prefix.$id LIMIT $limit", args)
     }
 
-    private fun rows(query: String, args: List<String>): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
+    private fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
         val rows = mutableListOf<CatalogPrinting>()
         while (cursor.next().value) {
             val id = cursor.getString(0)!!
@@ -421,7 +444,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
         QueryResult.Value(rows)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value.map { record ->
-        record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)),
+        if (!enrich) record else record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)),
             releaseDate = releaseDates[record.set].orEmpty())
     }
 

@@ -33,6 +33,13 @@ private val Teal = Color(0xff107e7a)
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
     val state = controller.state
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val avatarMemory = remember { AvatarPromptMemory(context) }
+    LaunchedEffect(state.account?.accountId, catalog != null) {
+        if (catalog != null) state.account?.let {
+            if (avatarMemory.shouldShow(it)) { avatarMemory.shown(it.accountId); controller.chooseAvatar() }
+        }
+    }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
@@ -48,6 +55,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
         // only permanent cutouts (and the keyboard) may change its available geometry.
         Box(Modifier.fillMaxSize().background(ScreenBackground)
             .windowInsetsPadding(if (tabletop) WindowInsets.displayCutout else WindowInsets.safeDrawing).imePadding()) {
+            Column(Modifier.fillMaxSize()) {
+            if (state.account == null && catalog != null) CatalogDownloadStatus(catalog)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 reset.state != null -> ResetEntry(reset)
                 state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)
@@ -92,6 +102,8 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                             branded = state.page == AuthPage.LOGIN)
                     }
                 }
+            }
+            }
             }
             if (state.account == null && reset.state == null) FloatingTransientError(
                 state.message?.takeIf { !state.busy && !state.validationMessage }, controller::dismissMessage,

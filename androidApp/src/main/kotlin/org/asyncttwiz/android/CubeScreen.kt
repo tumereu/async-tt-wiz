@@ -16,11 +16,12 @@ import org.asyncttwiz.storage.DeckSection
 
 @Composable
 internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryController?,
-    importer: DeckImportController?, landscape: Boolean, navigation: (() -> Unit)?, catalog: CatalogViewModel?) {
-    var cubeTab by remember { mutableStateOf(false) }
+    importer: DeckImportController?, landscape: Boolean, navigation: (() -> Unit)?, catalog: CatalogViewModel?,
+    draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
+    var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
     LaunchedEffect(cubeTab) { if (cubeTab && !cubes.state.loaded) cubes.refresh() }
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
-        CubeScreen(cubes, navigation); return
+        CubeScreen(cubes, navigation, draftCube); return
     }
     if (!cubeTab && importer?.state?.active == true) {
         DeckImportScreen(importer, landscape, navigation, catalog); return
@@ -76,7 +77,7 @@ private fun CubeCollection(controller: CubeController) {
 }
 
 @Composable
-internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?) {
+internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
     ScreenBusyOverlay(if (state.busy) "Working on cube…" else null) {
@@ -127,6 +128,9 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?) {
                                 ScreenOutlinedButton(onClick = controller::edit) { Text("Edit") }
                                 ScreenOutlinedButton(onClick = { controller.dialog(CubeDialog.RENAME) }) { Text("Rename") }
                                 TextButton(onClick = { controller.dialog(CubeDialog.DELETE) }) { Text("Delete") }
+                            }
+                            if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
+                                EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
                             }
                         }
                         items(detail.saved.entries, key = { it.definition }) { entry ->

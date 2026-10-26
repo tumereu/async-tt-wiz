@@ -513,6 +513,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         openGame(); refresh(background = true)
     }
     fun openActivity(route: ActivityRoute, current: () -> Boolean) {
+        if (route.kind.isPodActivity()) return
         val read = activityTarget ?: return activityUnavailable()
         val token = credential() ?: return activityUnavailable()
         if (closed || state.mutating) return

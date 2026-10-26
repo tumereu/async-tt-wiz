@@ -19,3 +19,20 @@ object ActivityDisplay {
     fun game(inGames: Boolean, selected: String?, detail: GameSummary?): String? =
         detail?.takeIf { inGames && selected == it.id && it.lifecycle == GameLifecycle.ACTIVE }?.id
 }
+
+internal fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
+internal fun ActivityHint.notificationKey(): String = when {
+    kind == ActivityKind.GAME -> "game:$gameId"
+    kind == ActivityKind.INVITATION -> "invite:$identity"
+    kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
+    else -> "pod:$gameId"
+}
+
+internal fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {
+    ActivityKind.POD_INVITATION -> "New pod invitation"
+    ActivityKind.POD_YOUR_PICK -> name?.let { "Your pick in $it" } ?: "Your pick"
+    ActivityKind.POD_DRAFT_COMPLETE -> "Draft complete: build your deck"
+    ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
+    ActivityKind.POD_DESTROYED -> "Pod destroyed"
+    else -> "Game activity"
+}

@@ -65,4 +65,18 @@ class QuickContinueTest {
         assertEquals("00:05", format("2026-12-31T22:05:00Z"))
         assertEquals("31 Dec 2026", format("2026-12-31T21:05:00Z"))
     }
+
+    @Test fun podsWithPicksMixWithOwnGamesOldestFirstBeforeOtherGames() {
+        fun pod(id: String, hour: Int, attention: PodAttention = PodAttention.YOUR_PICK) = PodSummary(id, id,
+            PodPhase.DRAFTING, self, listOf(self, other), attention, 2,
+            "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
+        val pods = listOf(pod("pick-new", 9), pod("pick-old", 1), pod("waiting", 0, PodAttention.NONE))
+        val entries = quickContinue(listOf(game("own", 5, "a"), game("other", 20)), pods, "a")
+        assertEquals(listOf("pick-old", "own", "pick-new"), entries.map { it.id })
+        assertEquals(listOf(true, true, true), entries.map { it.yours })
+        assertNotNull(entries.first().pod)
+        assertNotNull(entries[1].game)
+        assertEquals(listOf("pick-old", "other"), quickContinue(listOf(game("other", 20)),
+            listOf(pods[1], pods[2], pods[0].copy(phase = PodPhase.DRAFTED)), "a").map { it.id })
+    }
 }

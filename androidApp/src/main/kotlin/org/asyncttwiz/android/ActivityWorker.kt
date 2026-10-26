@@ -42,7 +42,8 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
     private val lock = Any()
     private val fetchLock = Any()
     private val preferences = context.getSharedPreferences("activity-delivery", Context.MODE_PRIVATE)
-    private val notifications = ActivityNotifications(context)
+    private val podNames = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val notifications = ActivityNotifications(context, podNames::get)
     private val jobs get() = WorkManager.getInstance(context)
     private var owner: ActivityOwner? = preferences.getString("account", null)?.let { account ->
         preferences.getString("binding", null)?.let { ActivityOwner(account, it) }
@@ -68,6 +69,8 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
             }.commit()
     }) { notice -> owner?.let { notifications.post(it, notice) } }
     @Volatile var authenticationRequired: ((String) -> Unit)? = null
+    @Volatile var activityHints: ((List<ActivityHint>) -> Unit)? = null
+    fun rememberPods(pods: List<PodSummary>) { pods.forEach { podNames[it.id] = it.name } }
     init { delivery.bind(owner); notifications.channels() }
 
     fun session(account: String?, token: String?): Boolean = synchronized(lock) {
@@ -87,6 +90,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         if (expectedBinding != null && expectedBinding != owner?.binding) return
         // Fence already-running callbacks first, not just scheduler cancellation.
         delivery.bind(null); owner = null; ownerFingerprint = null
+        podNames.clear()
         notifications.cancelAll(); jobs.cancelAllWorkByTag(TAG)
         check(preferences.edit().clear().commit())
     }
@@ -124,7 +128,12 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
                 }
                 val pushToken = synchronized(lock) { preferences.getString("pushToken", null) }
                 val refresh = ActivityRefresh({ delivery.current(expected) }, { delivery.cursor(expected) }, { page ->
-                    synchronized(lock) { owner == expected && delivery.apply(expected, page, notifications::allowed) }
+                    synchronized(lock) {
+                        if (owner != expected) false else {
+                            activityHints?.invoke(page.entries)
+                            delivery.apply(expected, page, notifications::allowed)
+                        }
+                    }
                 })
                 val more = refresh.run(register = {
                     val registration = api.register(token, RegisterInstallation(installation, binding, pushToken))

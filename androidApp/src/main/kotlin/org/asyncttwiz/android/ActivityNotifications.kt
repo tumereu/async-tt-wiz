@@ -14,13 +14,18 @@ import org.asyncttwiz.protocol.ActivityKind
 object ActivityChannels {
     const val INVITATIONS = "invitations"
     const val GAME_ACTIVITY = "game_activity"
-    val names = mapOf(INVITATIONS to "Invitations", GAME_ACTIVITY to "Game activity")
-    fun channel(kind: ActivityKind) = if (kind == ActivityKind.INVITATION) INVITATIONS else GAME_ACTIVITY
+    const val DRAFT_ACTIVITY = "draft_activity"
+    val names = mapOf(INVITATIONS to "Invitations", GAME_ACTIVITY to "Game activity", DRAFT_ACTIVITY to "Draft activity")
+    fun channel(kind: ActivityKind) = when {
+        kind == ActivityKind.INVITATION || kind == ActivityKind.POD_INVITATION -> INVITATIONS
+        kind.isPodActivity() -> DRAFT_ACTIVITY
+        else -> GAME_ACTIVITY
+    }
     fun allowed(permission: Boolean, applicationEnabled: Boolean, channelEnabled: Boolean) =
         permission && applicationEnabled && channelEnabled
 }
 
-class ActivityNotifications(private val context: Context) {
+class ActivityNotifications(private val context: Context, private val podName: (String) -> String? = { null }) {
     private val manager = context.getSystemService(NotificationManager::class.java)
     fun channels() { manager.createNotificationChannels(ActivityChannels.names.map { (id, name) ->
         NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT)
@@ -39,8 +44,10 @@ class ActivityNotifications(private val context: Context) {
         val pending = PendingIntent.getActivity(context, 0, route, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(context, ActivityChannels.channel(notice.hint.kind))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else "Game activity")
-            .setContentText(if (notice.hint.kind == ActivityKind.INVITATION) "Open Games to view the invitation." else "Open the game to catch up.")
+            .setContentTitle(if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, podName(notice.hint.gameId))
+                else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else "Game activity")
+            .setContentText(if (notice.hint.kind.isPodActivity()) "Open Pods to view current activity."
+                else if (notice.hint.kind == ActivityKind.INVITATION) "Open Games to view the invitation." else "Open the game to catch up.")
             .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(notice.silent)
             // Platform Notification.Builder has no setSilent. A child-only group
             // with summary-only alerts also silences an extension after dismissal.

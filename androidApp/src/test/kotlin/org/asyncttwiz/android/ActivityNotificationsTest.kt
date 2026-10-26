@@ -6,11 +6,15 @@ import org.asyncttwiz.protocol.ActivityKind
 import java.time.Instant
 
 class ActivityNotificationsTest {
-    @Test fun exactlyTwoDefaultChannelsAndBothPathsRespectAllOsControls() {
-        assertEquals(setOf("Invitations", "Game activity"), ActivityChannels.names.values.toSet())
-        assertEquals(2, ActivityChannels.names.size)
+    @Test fun threeDefaultChannelsAndAllPathsRespectAllOsControls() {
+        assertEquals(setOf("Invitations", "Game activity", "Draft activity"), ActivityChannels.names.values.toSet())
+        assertEquals(3, ActivityChannels.names.size)
         assertEquals("invitations", ActivityChannels.channel(ActivityKind.INVITATION))
         assertEquals("game_activity", ActivityChannels.channel(ActivityKind.GAME))
+        assertEquals("invitations", ActivityChannels.channel(ActivityKind.POD_INVITATION))
+        ActivityKind.entries.filter { it.isPodActivity() && it != ActivityKind.POD_INVITATION }.forEach {
+            assertEquals("draft_activity", ActivityChannels.channel(it))
+        }
         for (permission in listOf(false, true)) for (application in listOf(false, true)) for (channel in listOf(false, true))
             assertEquals(permission && application && channel, ActivityChannels.allowed(permission, application, channel))
     }

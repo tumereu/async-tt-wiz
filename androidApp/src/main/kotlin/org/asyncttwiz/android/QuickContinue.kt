@@ -2,6 +2,9 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.GameSummary
+import org.asyncttwiz.protocol.PodSummary
+import org.asyncttwiz.protocol.PodAttention
+import org.asyncttwiz.protocol.PodPhase
 import java.time.Instant
 import java.time.Clock
 import java.time.LocalDate
@@ -19,6 +22,26 @@ internal fun quickContinueGames(games: List<GameSummary>, accountId: String): Li
             aOwn != bOwn -> if (aOwn) -1 else 1
             aTime != bTime -> if (aOwn) aTime.compareTo(bTime) else bTime.compareTo(aTime)
             else -> a.id.compareTo(b.id)
+        }
+    }.take(3)
+
+internal data class QuickContinueEntry(val id: String, val updatedAt: String, val yours: Boolean,
+    val game: GameSummary? = null, val pod: PodSummary? = null)
+
+/** Own moves/picks oldest first, then other active games newest first, with stable type/id ties. */
+internal fun quickContinue(games: List<GameSummary>, pods: List<PodSummary>, accountId: String): List<QuickContinueEntry> =
+    (games.filter { it.lifecycle == GameLifecycle.ACTIVE }.map {
+        QuickContinueEntry(it.id, it.updatedAt, it.attentionHolder == accountId, game = it)
+    } + pods.filter { it.phase == PodPhase.DRAFTING && it.attention == PodAttention.YOUR_PICK }.map {
+        QuickContinueEntry(it.id, it.updatedAt, true, pod = it)
+    }).sortedWith { a, b ->
+        when {
+            a.yours != b.yours -> if (a.yours) -1 else 1
+            Instant.parse(a.updatedAt) != Instant.parse(b.updatedAt) ->
+                if (a.yours) Instant.parse(a.updatedAt).compareTo(Instant.parse(b.updatedAt))
+                else Instant.parse(b.updatedAt).compareTo(Instant.parse(a.updatedAt))
+            a.id != b.id -> a.id.compareTo(b.id)
+            else -> (a.pod != null).compareTo(b.pod != null)
         }
     }.take(3)
 

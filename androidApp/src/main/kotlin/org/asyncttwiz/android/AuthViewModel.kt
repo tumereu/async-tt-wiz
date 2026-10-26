@@ -19,6 +19,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val local = AndroidAccountLocalData(application)
     val activity = AndroidActivityDelivery.get(application)
     fun openActivity(route: ActivityRoute) {
+        if (route.kind.isPodActivity()) {
+            controller.navigate(ShellDestination.PODS)
+            if (controller.state.account?.accountId != route.accountId || !activity.accepts(route.accountId, route.binding)) {
+                pods.showList()
+                return
+            }
+            if (route.kind == org.asyncttwiz.protocol.ActivityKind.POD_INVITATION) pods.showList() else pods.open(route.gameId)
+            return
+        }
         controller.navigate(ShellDestination.GAMES)
         if (controller.state.account?.accountId != route.accountId || !activity.accepts(route.accountId, route.binding)) {
             lobby.activityUnavailable("This notification belongs to an earlier sign-in. Showing your current Games.")
@@ -49,6 +58,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val cubes = CubeController(DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, cubeResolver::resolve, cubeResolver::resolve,
         Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } })
+    val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
+        DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
+        Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } })
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
@@ -75,13 +87,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }, main, lobby::tick)
     init {
         activity.authenticationRequired = ::authenticationRequired
+        activity.activityHints = { hints ->
+            val token = controller.sessionToken()
+            main.post { if (token != null && token == controller.sessionToken()) hints.forEach(pods::hint) }
+        }
         deckImport.connectSave(saveApi, controller::sessionToken, saved = {
             lobby.importedForPicker()
             controller.navigate(ShellDestination.DECKS)
             decks.open(it.deck.id)
         })
     }
-    private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); cubes.clear(); lobby.clear() }
+    private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); cubes.clear(); pods.clear(); lobby.clear() }
 
     val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,
         Executors.newSingleThreadExecutor { Thread(it, "password-reset") },
@@ -90,10 +106,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         gameMaintenance.close()
         activity.authenticationRequired = null
+        activity.activityHints = null
         controller.close()
         deckImport.close()
         decks.close()
         cubes.close()
+        pods.close()
         saveApi.close()
         lobby.close()
         revocations.execute { local.close() }

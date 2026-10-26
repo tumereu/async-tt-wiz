@@ -3,6 +3,7 @@ package org.asyncttwiz.storage
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import java.util.Locale
+import org.asyncttwiz.protocol.DeckValidation
 
 enum class DeckSection(val title: String) { MAINBOARD("Mainboard"), SIDEBOARD("Sideboard") }
 data class ImportIssue(val line: Int, val message: String)
@@ -28,6 +29,7 @@ object DeckTextParser {
         val explicit = lines.any { it.trim().lowercase(Locale.ROOT) in listOf("deck", "mainboard", "sideboard") }
         var section = DeckSection.MAINBOARD
         var sawMain = false
+        var total = 0L
         val result = mutableListOf<ImportLine>()
         val issues = mutableListOf<ImportIssue>()
         lines.forEachIndexed { index, original ->
@@ -49,9 +51,12 @@ object DeckTextParser {
             val quantity = match?.groupValues?.get(1)?.toIntOrNull()
             if (match == null) {
                 issues += ImportIssue(line, "Use quantity Card Name, Deck or Sideboard. Unsupported section or entry: $value")
-            } else if (quantity == null || quantity <= 0) {
-                issues += ImportIssue(line, "Quantity must be a positive whole number no greater than ${Int.MAX_VALUE}.")
+            } else if (quantity == null || !DeckValidation.quantity(quantity)) {
+                issues += ImportIssue(line, "Quantity must be a whole number from 1 to ${DeckValidation.MAX_CARDS}.")
+            } else if (!DeckValidation.cardCount(total + quantity)) {
+                issues += ImportIssue(line, "A deck may contain at most ${DeckValidation.MAX_CARDS} cards including sideboard.")
             } else {
+                total += quantity
                 val name = match.groupValues[2].trimEnd()
                 val printing = suffix.matchEntire(name)
                 result += ImportLine(line, target, quantity, printing?.groupValues?.get(1) ?: name,
@@ -109,8 +114,8 @@ class DeckImportResolver(private val repository: CatalogRepository) {
             val key = line.section to faces.first().id
             val previous = entries[key]
             val quantity = (previous?.quantity?.toLong() ?: 0) + line.quantity
-            if (quantity > Int.MAX_VALUE) {
-                issues += ImportIssue(line.line, "Combined quantity for ${line.name} exceeds ${Int.MAX_VALUE}.")
+            if (!DeckValidation.cardCount(quantity)) {
+                issues += ImportIssue(line.line, "Combined quantity for ${line.name} exceeds ${DeckValidation.MAX_CARDS}.")
             } else entries[key] = ResolvedDeckEntry(line.section, quantity.toInt(), faces,
                 previous?.sourceLines.orEmpty() + line.line)
         }

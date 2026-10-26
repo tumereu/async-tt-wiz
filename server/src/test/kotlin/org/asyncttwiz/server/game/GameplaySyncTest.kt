@@ -28,6 +28,92 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameplaySyncTest {
+    @Test fun `unchanged baselines reuse the same pinned export and compressed arrays`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start()
+                val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+                while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
+                val a = account(runtime, "ReuseA"); val b = account(runtime, "ReuseB")
+                val started = start(runtime, a, b)
+                val store = GameplayStore(accountCreationLimit = 12)
+                val account = UUID.fromString(a.account.accountId)
+                val manifests = db.connection().use { connection ->
+                    List(8) { store.create(DSL.using(connection, SQLDialect.POSTGRES), account, started.head, emptyList()) }
+                }
+                assertEquals(1, manifests.map { it.id }.distinct().size)
+                assertTrue(manifests.all { it == manifests.first() })
+                assertTrue(manifests.all { store.chunk(account, it.id, 0) === store.chunk(account, manifests.first().id, 0) })
+                // Cache hits must not read/checkpoint/serialize the retained SQL history again.
+                val noSql = DSL.using(SQLDialect.POSTGRES)
+                assertEquals(manifests.first(), store.create(noSql, account, started.head, emptyList()))
+                val statuses = listOf(GameRequestStatus(id(), "unknown"))
+                val variant = store.create(noSql, account, started.head, statuses)
+                GameplaySync.validate(variant)
+                assertEquals(statuses, variant.statuses)
+                assertSame(store.chunk(account, manifests.first().id, 0), store.chunk(account, variant.id, 0))
+                assertEquals(manifests.first(), store.manifest(account, manifests.first().id))
+                repeat(10) { store.create(noSql, account, started.head, listOf(GameRequestStatus(id(), "unknown"))) }
+                val limited = assertThrows(GameProtocolFailure::class.java) {
+                    store.create(noSql, account, started.head.copy(revision = "999"), emptyList())
+                }
+                assertEquals("baselineRateLimited", limited.code); assertTrue(limited.retryable)
+                assertEquals(manifests.first(), store.create(noSql, account, started.head, emptyList()))
+            }
+        }
+    }
+
+    @Test fun `account and global byte budgets evict whole exports and expiry needs no incoming request`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+                while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
+                val a = account(runtime, "ByteA"); val b = account(runtime, "ByteB")
+                val head = start(runtime, a, b).head
+                val owner = UUID.fromString(a.account.accountId); val other = UUID.fromString(b.account.accountId)
+                class MutableClock(var now: Instant) : Clock() {
+                    override fun instant() = now
+                    override fun getZone() = ZoneOffset.UTC
+                    override fun withZone(zone: java.time.ZoneId): Clock = this
+                }
+                val clock = MutableClock(Instant.parse("2026-10-23T00:00:00Z"))
+                db.connection().use { connection ->
+                    val sql = DSL.using(connection, SQLDialect.POSTGRES)
+                    val probe = GameplayStore(clock)
+                    val sample = probe.create(sql, owner, head, emptyList())
+                    val size = json.encodeToString(sample).toByteArray().size.toLong() + sample.chunks.sumOf { probe.chunk(owner, sample.id, it.index).size.toLong() }
+                    val store = GameplayStore(clock, accountByteBudget = size + 1024, globalByteBudget = size * 2 + 2048)
+                    val first = store.create(sql, owner, head, emptyList())
+                    val replacement = store.create(sql, owner, head, listOf(GameRequestStatus(id(), "unknown")))
+                    assertThrows(GameProtocolFailure::class.java) { store.chunk(owner, first.id, 0) }
+                    assertNotNull(store.chunk(owner, replacement.id, 0))
+                    val second = store.create(sql, other, head, emptyList())
+                    assertNotNull(store.manifest(other, second.id))
+                    val third = store.create(sql, UUID.randomUUID(), head, emptyList())
+                    assertThrows(GameProtocolFailure::class.java) { store.manifest(owner, replacement.id) }
+                    assertNotNull(third)
+                    clock.now = clock.now.plusSeconds(601)
+                    store.evictExpiredExports()
+                    // No access/create call did the cleanup: a missing expired entry is already gone.
+                    assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { store.manifest(other, second.id) }.code)
+                    val tooSmall = GameplayStore(clock, accountByteBudget = 1, globalByteBudget = 1)
+                    assertEquals("baselineTooLarge", assertThrows(GameProtocolFailure::class.java) { tooSmall.create(sql, owner, head, emptyList()) }.code)
+                    assertNotNull(store.create(sql, owner, head, emptyList())) // Expiry also resets creation limits.
+                    val globallyLimited = GameplayStore(clock, globalCreationLimit = 2)
+                    globallyLimited.create(sql, owner, head, emptyList())
+                    globallyLimited.create(sql, other, head, emptyList())
+                    assertEquals("baselineRateLimited", assertThrows(GameProtocolFailure::class.java) {
+                        globallyLimited.create(DSL.using(SQLDialect.POSTGRES), UUID.randomUUID(), head, emptyList())
+                    }.code)
+                    clock.now = clock.now.plusSeconds(61)
+                    assertNotNull(globallyLimited.create(sql, UUID.randomUUID(), head, emptyList()))
+                }
+            }
+        }
+    }
+
     private val json = GameWire.json
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun id() = UUID.randomUUID().toString()
@@ -70,13 +156,16 @@ class GameplaySyncTest {
             return command
         }
         execute(1, GameAction.AcceptInvitation)
-        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Face", rulesText = "Definition stays in the baseline")))
+        // Keep multi-chunk coverage within the shared 1000-card deck budget using valid metadata.
+        val definition = CardDefinition("Retained", listOf(DefinitionFace(id(), "Face",
+            rulesText = "Definition stays in the baseline\n" + "r".repeat(60_000), typeLine = "t".repeat(60_000),
+            manaCost = "m".repeat(60_000), sourceData = "s".repeat(60_000))))
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         principals.forEachIndexed { index, principal ->
             val decks = DeckService(runtime); assertEquals(200, decks.submit(principal, SubmitDefinitions(id(), listOf(submitted))).status)
             // Large ordinary prepared deck makes the JSON span independently hashed gzip chunks.
             val source = json.decodeFromString<SavedDeck>(decks.create(principal, CreateDeck(id(), "Source",
-                listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 1300)))).body)
+                listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 1000)))).body)
             execute(index, GameAction.SelectDeck(source.deck.id, source.deck.revision))
         }
         execute(0, GameAction.SetStarter(StarterChoice(a.account.accountId))); execute(0, GameAction.Ready)

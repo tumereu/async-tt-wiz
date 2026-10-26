@@ -12,7 +12,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
-import org.asyncttwiz.storage.ArtworkReference
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -110,7 +109,7 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
         val definition = definitions[card.definition]?.definition
         val face = definition?.faces?.firstOrNull { it.faceId == card.faceId }
         val art = if (!row.entry.faceVisible || face == null || face.scryfallId == null && face.imageUri == null) null else
-            ArtworkReference(face.scryfallId, definition.faces.indexOf(face), card.definition, customUrl = face.imageUri).forTable()
+            face.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
         TableItem("card/${card.id}", row.bounds,
             "${panel.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}", if (row.entry.faceVisible) row.entry.name else "",
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,

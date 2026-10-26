@@ -15,6 +15,78 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameStartTest {
+    @Test fun `oversized create and merged contents are terminal validation errors`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "BudgetA"); val source = deck(runtime, a)
+                val decks = DeckService(runtime)
+                val input = CreateDeck(id(), "Oversized", listOf(source.entries.first().copy(quantity = Int.MAX_VALUE)))
+                val rejected = decks.create(a, input)
+                assertEquals(400, rejected.status); assertEquals("invalid_deck", json.decodeFromString<DeckError>(rejected.body).code)
+                assertEquals(rejected, decks.create(a, input))
+                val merged = UpdateDeck(id(), contents = DeckContentsImport(listOf(source.entries.first().copy(quantity = 1000)), DeckImportMode.MERGE))
+                assertEquals(400, decks.update(a, source.deck.id, merged).status)
+                assertEquals(source, json.decodeFromString<SavedDeck>(decks.read(a, source.deck.id).body))
+            }
+        }
+    }
+
+    @Test fun `legacy oversized prepared deck rejects Ready without allocating a play`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "LegacyBudgetA"); val b = account(runtime, "LegacyBudgetB")
+                val game = game(runtime, a, b); val games = GameService(runtime)
+                val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
+                recipient.execute(GameAction.AcceptInvitation)
+                owner.execute(owner.select(deck(runtime, a))); recipient.execute(recipient.select(deck(runtime, b)))
+                owner.execute(GameAction.Ready)
+                val prepared = games.head(a, game.id).preparation!!.players.single { it.accountId == a.account.accountId }.deck!!
+                val oversized = prepared.copy(entries = listOf(prepared.entries.first().copy(quantity = 1001)))
+                sql(db, "UPDATE player_preparation SET deck='${json.encodeToString(oversized)}' WHERE game_id='${game.id}' AND account_id='${a.account.accountId}'")
+                val command = recipient.command(GameAction.Ready)
+                val result = recipient.execute(command)
+                assertEquals("rejected", result.outcome); assertEquals("invalidDeck", result.reason)
+                assertEquals(result, recipient.admit(command))
+                assertNull(games.head(a, game.id).play)
+                assertFalse(games.head(a, game.id).preparation!!.players.single { it.accountId == b.account.accountId }.ready)
+                assertFalse(games.executeOne())
+            }
+        }
+    }
+
+    @Test fun `request Error rolls back partial work records a terminal rejection and allows the next request`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "ErrorA"); val b = account(runtime, "ErrorB")
+                val game = game(runtime, a, b); val games = GameService(runtime)
+                val owner = Stream(games, a, game)
+                owner.execute(owner.select(deck(runtime, a)))
+                val before = games.head(a, game.id)
+                val command = owner.command(GameAction.Ready)
+                assertTrue(owner.admit(command) is GameReceipt)
+                val listener = object : org.jooq.impl.DefaultExecuteListener() {
+                    override fun executeStart(ctx: org.jooq.ExecuteContext) {
+                        if (ctx.sql().orEmpty().startsWith("update \"public\".\"game\""))
+                            throw AssertionError("synthetic request failure")
+                    }
+                }
+                assertTrue(games.executeOne(listener))
+                val result = owner.result(command)
+                assertEquals("rejected", result.outcome); assertEquals("internalError", result.reason)
+                assertEquals(before, games.head(a, game.id))
+                assertEquals(result, owner.admit(command))
+                assertEquals("accepted", owner.execute(GameAction.Ready).outcome)
+                assertFalse(games.executeOne())
+            }
+        }
+    }
+
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }

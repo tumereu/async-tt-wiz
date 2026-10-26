@@ -13,6 +13,20 @@ import java.sql.DriverManager
 import java.util.UUID
 
 class DeckImportTest {
+    @Test fun oversizedImportsProduceOrdinaryLineIssuesWithoutAPartialPreview() {
+        val resolver = DeckImportResolver(repository("prism"))
+        for ((text, line) in listOf("2147483647 Quiet Lattice Bolt" to 1,
+            "1001 Quiet Lattice Bolt" to 1,
+            "600 Quiet Lattice Bolt\nSideboard\n401 Quiet Lattice Bolt" to 3,
+            "600 Quiet Lattice Bolt\n401 Quiet Lattice Bolt" to 2)) {
+            val result = resolver.resolve(text)
+            assertFalse(result.resolved, text)
+            assertTrue(result.entries.isEmpty())
+            assertEquals(line, result.issues.first().line)
+        }
+        assertTrue(resolver.resolve("600 Quiet Lattice Bolt\nSideboard\n400 Quiet Lattice Bolt").resolved)
+    }
+
     @TempDir lateinit var temporary: Path
     private fun repository(family: String): CatalogRepository {
         val repository = CatalogRepository(temporary.resolve(family).toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
@@ -116,7 +130,7 @@ class DeckImportTest {
             assertEquals(text, result.text)
         }
         assertTrue(resolver.resolve("1 Coppercloud Echo (zpa) 10").resolved)
-        assertTrue(resolver.resolve("2147483647 Quiet Lattice Bolt").resolved) // resource representation, not deck legality
+        assertTrue(resolver.resolve("1000 Quiet Lattice Bolt").resolved) // resource budget, not deck legality
         assertTrue(resolver.resolve("1 Coppercloud Echo!").resolved) // no punctuation/fuzzy substitution
         val exactSpaces = resolver.resolve("1 Velvet  Prism Engine")
         assertFalse(exactSpaces.resolved)

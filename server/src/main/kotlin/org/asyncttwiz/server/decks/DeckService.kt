@@ -103,6 +103,7 @@ class DeckService(private val runtime: ServiceRuntime) {
                     merged.values.toList()
                 }
             }
+            if (contents != null && !DeckValidation.entries(next)) return@business error(400, "invalid_deck")
             if (requestedCover != null && (!DeckValidation.digest(requestedCover) || next.none { it.definition == requestedCover }))
                 return@business error(400, "invalid_cover", "cover")
             val name = input.name ?: row.name!!

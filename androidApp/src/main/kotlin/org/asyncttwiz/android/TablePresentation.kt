@@ -227,8 +227,7 @@ object TablePresentation {
         fun art(card: PlayCard?, hidden: Boolean): ArtworkReference? {
             val f = face(card) ?: return null
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
-            return ArtworkReference(f.scryfallId, definitions[card!!.definition]!!.faces.indexOf(f), card.definition,
-                customUrl = f.imageUri).forTable()
+            return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f), card.definition)?.forTable()
         }
         val sidebar = if (landscape) sidebarWidth(width) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID

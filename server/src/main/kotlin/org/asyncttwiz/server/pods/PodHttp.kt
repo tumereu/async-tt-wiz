@@ -39,7 +39,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
-                action in listOf("invitations", "accept", "decline", "start", "pick", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("invitations", "accept", "decline", "start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("build/move", "build/basics") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -53,8 +53,11 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
                     !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
                 }) { error(response, 415, "json_required"); return true }
-                val bytes = request.inputStream.readNBytes(65537)
-                if (bytes.size > 65536) { error(response, 413, "request_too_large"); return true }
+                // Only source creation/replacement needs room for an entire set and its definitions.
+                val maxBytes = if ((path == "/v1/pods" && request.method == "POST") ||
+                    (parts.size == 1 && request.method == "PUT")) 8 * 1024 * 1024 else 65536
+                val bytes = request.inputStream.readNBytes(maxBytes + 1)
+                if (bytes.size > maxBytes) { error(response, 413, "request_too_large"); return true }
                 val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
                 when {
@@ -64,7 +67,8 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")
                     action == "start" -> pods.start(principal, id, json.decodeFromString<PodRequest>(text))
-                    action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
+                     action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
+                     action == "grid/select" -> pods.selectGrid(principal, id, json.decodeFromString<SelectPodGrid>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))
                     action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
                      action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))

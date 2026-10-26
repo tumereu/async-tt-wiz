@@ -93,6 +93,14 @@ class PodHttpTest {
             return PickPod(id(), detail.draftAttemptId!!, head.id, keep, burn)
         }
         fun pick(who: SessionCreated, pod: String): PodDetail = json.decodeFromString(send(who, "POST", "/v1/pods/$pod/pick", selection(who, pod)))
+        fun gridSelection(who: SessionCreated, pod: String): SelectPodGrid {
+            val detail = get(who, pod); val grid = detail.grid!!
+            val board = grid.publicView.grids.single { it.id == grid.mine.headGridId }
+            val row = (0..2).first { row -> (0..2).any { board.positions[row * 3 + it] != null } }
+            return SelectPodGrid(id(), detail.draftAttemptId!!, board.id, GridLineType.ROW, row)
+        }
+        fun select(who: SessionCreated, pod: String, input: SelectPodGrid = gridSelection(who, pod)): PodDetail =
+            json.decodeFromString(send(who, "POST", "/v1/pods/$pod/grid/select", input))
         fun finish(pod: String, players: List<SessionCreated>) {
             var actions = 0
             while (get(a, pod).phase == PodPhase.DRAFTING) {
@@ -182,7 +190,8 @@ class PodHttpTest {
         val aCards = a.draft!!.head?.cards.orEmpty() + a.draft!!.pool
         val bCards = b.draft!!.head?.cards.orEmpty() + b.draft!!.pool
         val payload = json.encodeToString(b)
-        for (copy in aCards.filter { aCard -> bCards.none { it.id == aCard.id } }) assertFalse(payload.contains(copy.id), copy.id)
+        // Match a complete JSON string: set copy :1 must not be confused with :10 through :14.
+        for (copy in aCards.filter { aCard -> bCards.none { it.id == aCard.id } }) assertFalse(payload.contains(json.encodeToString(copy.id)), copy.id)
         for (definition in a.definitions.filter { aDefinition -> b.definitions.none { it.digest == aDefinition.digest } }) {
             assertFalse(payload.contains(definition.digest), definition.digest)
             assertFalse(payload.contains(json.encodeToString(definition.definition.name)), definition.definition.name)
@@ -507,5 +516,262 @@ class PodHttpTest {
         assertEquals("Renamed", f.get(f.b, pod).name)
         f.send(f.b, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id), 403)
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), settings = DraftSettings(packsOpenAtOnce = 0)), 400)
+    }
+
+    private fun finishGrid(f: Fixture, pod: String, players: List<SessionCreated>) {
+        var actions = 0
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val before = players.associateWith { f.get(it, pod) }
+            val public = before.values.first().grid!!.publicView
+            for ((player, detail) in before) {
+                assertNull(detail.draft)
+                assertEquals(public, detail.grid!!.publicView)
+                assertEquals(player.account.accountId, detail.grid!!.mine.player)
+                assertEquals(detail.grid!!.mine.pool.map { it.id }.toSet(), detail.build!!.copies.map { it.copyId }.toSet())
+                assertEquals(detail.grid!!.mine.pool.size, detail.build!!.copies.size)
+                val waiting = public.grids.count { it.currentPlayer == player.account.accountId }
+                assertEquals(waiting, detail.members.single { it.account == player.account }.packsWaiting)
+                assertEquals(waiting > 0, detail.members.single { it.account == player.account }.picking)
+                val hints = f.activity(player).entries.filter { it.gameId == pod && it.kind == ActivityKind.POD_YOUR_PICK }
+                assertEquals(waiting > 0, hints.isNotEmpty())
+                if (waiting > 0) assertEquals(detail.draftAttemptId, hints.single().identity)
+                assertEquals(if (waiting > 0) PodAttention.YOUR_PICK else PodAttention.NONE,
+                    f.list(player).pods.single { it.id == pod }.attention)
+                val visible = public.grids.flatMap { it.positions.filterNotNull() } + public.log.flatMap { it.kept + it.discarded } + detail.grid!!.mine.pool
+                assertEquals(visible.map { it.definition }.toSet(), detail.definitions.map { it.digest }.toSet())
+                val payload = json.encodeToString(detail)
+                assertFalse(payload.contains("sourceSnapshot")); assertFalse(payload.contains("\"supply\":["))
+                assertFalse(payload.contains("turns")); assertFalse(payload.contains("submittedDeck"))
+            }
+            val player = players.first { before.getValue(it).grid!!.mine.headGridId != null }
+            val counts = players.associateWith { f.count(ActivityKind.POD_YOUR_PICK, pod, it) }
+            f.select(player, pod)
+            for (other in players) {
+                val had = before.getValue(other).grid!!.mine.headGridId != null
+                val has = f.get(other, pod).grid!!.mine.headGridId != null
+                assertEquals(counts.getValue(other) + if (!had && has) 1 else 0, f.count(ActivityKind.POD_YOUR_PICK, pod, other))
+            }
+            check(++actions < 100)
+        }
+        val finished = players.map { f.get(it, pod) }
+        assertTrue(finished.all { it.grid!!.publicView.finished && it.grid!!.publicView.grids.isEmpty() })
+        val copies = finished.flatMap { it.grid!!.mine.pool }
+        assertEquals(copies.size, copies.map { it.id }.distinct().size)
+        assertEquals(players.size, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
+        for (player in players) {
+            val detail = f.get(player, pod)
+            assertEquals(PodAttention.BUILD, f.list(player).pods.single { it.id == pod }.attention)
+            val page = f.activity(player, "0")
+            assertFalse(page.entries.any { it.kind == ActivityKind.POD_YOUR_PICK && it.gameId == pod })
+            assertEquals(detail.draftAttemptId, page.entries.single { it.kind == ActivityKind.POD_DRAFT_COMPLETE && it.gameId == pod }.identity)
+        }
+    }
+
+    @Test fun `two player Grid HTTP two picks parallel boards private builds notifications and submit`() = fixture { f ->
+        val pod = f.create(DraftMode.GRID).id; f.join(pod)
+        assertEquals(DraftMode.GRID, f.get(f.a, pod).settings.mode)
+        f.configure(pod, DraftSettings.grid().copy(grids = 5, gridsOpenAtOnce = 3, twoPicks = true))
+        val started = f.start(pod)
+        assertEquals(3, started.grid!!.publicView.grids.size)
+        assertEquals(2, f.count(ActivityKind.POD_YOUR_PICK, pod)) // Not one hint per board.
+        assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod").statusCode())
+        val player = listOf(f.a, f.b).single { it.account.accountId == started.grid!!.publicView.grids.first().currentPlayer }
+        val selection = f.gridSelection(player, pod)
+        val attempts = List(2) { CompletableFuture.supplyAsync { f.send(player, "POST", "/v1/pods/$pod/grid/select", selection) } }
+        assertEquals(attempts[0].join(), attempts[1].join())
+        val after = f.get(player, pod)
+        assertEquals(3, after.grid!!.mine.pool.size)
+        assertEquals(9, after.grid!!.publicView.grids.first().positions.filterNotNull().size) // First-pick refill.
+        val copy = after.grid!!.mine.pool.first().id
+        val other = listOf(f.a, f.b).single { it != player }
+        f.send(other, "PUT", "/v1/pods/$pod/build/move", MovePodCopy(id(), selection.draftAttemptId, copy, PodDeckCategory.TRASH), 400)
+        f.send(player, "PUT", "/v1/pods/$pod/build/move", MovePodCopy(id(), selection.draftAttemptId, copy, PodDeckCategory.SIDE))
+        finishGrid(f, pod, listOf(f.a, f.b))
+        val complete = f.get(player, pod)
+        assertEquals(PodDeckCategory.SIDE, complete.build!!.copies.single { it.copyId == copy }.category)
+        assertEquals(60, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
+        f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), selection.draftAttemptId, PodDeckBasics(plains = 40)))
+        f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), selection.draftAttemptId))
+        assertTrue(f.get(player, pod).submitted); assertNull(f.get(other, pod).deck)
+    }
+
+    @Test fun `three player Grid HTTP refills rotates starters and completes parallel rounds`() = fixture { f ->
+        val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
+        f.configure(pod, DraftSettings.grid().copy(grids = 5, gridsOpenAtOnce = 2))
+        val started = f.start(pod)
+        assertEquals(DraftSupply(60, 90), started.supply)
+        assertEquals(2, f.count(ActivityKind.POD_YOUR_PICK, pod))
+        finishGrid(f, pod, listOf(f.a, f.b, f.c))
+        val view = f.get(f.a, pod).grid!!.publicView
+        assertEquals(15, view.log.size)
+        for (number in 0..4) {
+            val log = view.log.filter { it.gridId == "grid-$number" }
+            assertEquals(List(3) { view.seating[(number + it) % 3] }, log.map { it.player })
+        }
+        assertEquals(45, listOf(f.a, f.b, f.c).sumOf { f.get(it, pod).grid!!.mine.pool.size })
+    }
+
+    @Test fun `Grid HTTP rejections supply mode locking cancellation retries and expired attempts`() = fixture { f ->
+        val pod = f.create(DraftMode.GRID).id; f.join(pod)
+        f.send(f.a, "POST", "/v1/pods/$pod/start", PodRequest(id()), 409) // 18 grids exceed the cube.
+        f.configure(pod, DraftSettings.grid().copy(grids = 3, gridsOpenAtOnce = 3))
+        val started = f.start(pod)
+        val players = listOf(f.a, f.b)
+        val first = players.single { it.account.accountId == started.grid!!.publicView.grids.first().currentPlayer }
+        val other = players.single { it != first }
+        val input = f.gridSelection(first, pod)
+        fun reject(who: SessionCreated, request: SelectPodGrid, code: String) {
+            assertEquals(code, json.decodeFromString<PodError>(f.send(who, "POST", "/v1/pods/$pod/grid/select", request, 409)).code)
+        }
+        reject(other, input.copy(requestId = id()), "not_your_turn")
+        reject(first, input.copy(requestId = id(), gridId = "grid-2"), "not_head_grid")
+        reject(first, input.copy(requestId = id(), index = 3), "invalid_line")
+        reject(first, input.copy(requestId = id(), index = -1), "invalid_line")
+        reject(first, input.copy(requestId = id(), gridId = "missing"), "not_your_turn")
+        f.send(f.c, "POST", "/v1/pods/$pod/grid/select", input.copy(requestId = id()), 404)
+        f.send(first, "POST", "/v1/pods/$pod/pick", PickPod(id(), input.draftAttemptId, "pack-0", emptyList()), 409)
+        val picked = f.send(first, "POST", "/v1/pods/$pod/grid/select", input)
+        assertEquals(picked, f.send(first, "POST", "/v1/pods/$pod/grid/select", input))
+        reject(first, input.copy(index = 1), "request_conflict")
+        reject(other, input.copy(requestId = id()), "empty_line")
+        assertTrue(f.get(other, pod).grid!!.mine.pool.isEmpty())
+        val cancel = PodDraftRequest(id(), input.draftAttemptId)
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", cancel)
+        val reset = f.get(f.a, pod)
+        assertNull(reset.grid); assertNull(reset.build)
+        reject(first, input, "draft_attempt_expired")
+        assertFalse(f.activity(first, "0").entries.any { it.kind == ActivityKind.POD_YOUR_PICK })
+        val next = f.start(pod)
+        reject(first, input.copy(requestId = id()), "draft_attempt_expired")
+        assertNotEquals(input.draftAttemptId, next.draftAttemptId)
+        assertTrue(next.grid!!.mine.pool.isEmpty())
+        f.send(f.b, "POST", "/v1/pods/$pod/leave", PodRequest(id()))
+        assertNull(f.get(f.a, pod).grid)
+        // A booster pod cannot accept grid selections.
+        val booster = f.create().id; f.join(booster)
+        f.configure(booster, DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
+        val draft = f.start(booster)
+        assertEquals("wrong_draft_mode", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/$booster/grid/select",
+            input.copy(requestId = id(), draftAttemptId = draft.draftAttemptId!!), 409)).code)
+    }
+
+    private fun setUpload(recipe: Boolean = true, large: Boolean = false): PodSetSource {
+        val definitions = List(3) { index ->
+            val card = CardDefinition("Set fixture $index", listOf(DefinitionFace(id(), "Set fixture $index",
+                rulesText = if (large) "x".repeat(30000) else "")))
+            SubmittedDefinition(DeckJson.digest(card), card)
+        }
+        val cards = definitions.mapIndexed { index, definition ->
+            // Reverse UUID order makes accidental JSONB key sorting of a fixed sheet observable.
+            SetSourceCard(definition.digest, "00000000-0000-4000-8000-${(3 - index).toString().padStart(12, '0')}",
+                listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index])
+        }
+        val booster = if (recipe) SetBoosterRecipe(listOf(SetBoosterComposition(mapOf("fixed" to 3), 1)),
+            mapOf("fixed" to SetBoosterSheet(cards.associate { it.uuid to 1 }, fixed = true)), name = "play") else null
+        return PodSetSource(SetSourceSnapshot("TST", "Uploaded test set", cards, booster), definitions)
+    }
+
+    @Test fun `set upload validates definitions digest coverage recipes sizes and exclusive sources`() = fixture { f ->
+        val upload = setUpload()
+        fun create(source: PodSetSource, code: String) {
+            val result = f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Set", setSource = source), 400)
+            assertEquals(code, json.decodeFromString<PodError>(result).code)
+        }
+        create(upload.copy(definitions = upload.definitions.dropLast(1)), "definitions_unavailable")
+        create(upload.copy(definitions = upload.definitions.map { it.copy(digest = "sha256:" + "0".repeat(64)) }), "invalid_definition")
+        create(upload.copy(snapshot = upload.snapshot.copy(cards = List(5001) { upload.snapshot.cards.first().copy(uuid = id()) })), "invalid_set_snapshot")
+        create(upload.copy(snapshot = upload.snapshot.copy(recipe = upload.snapshot.recipe!!.copy(boostersTotalWeight = 99))), "invalid_set_snapshot")
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "No source"), 400)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Two sources", f.cube.cube.id, setSource = upload), 400)
+        val oversized = " ".repeat(8 * 1024 * 1024 + 1)
+        assertEquals(413, f.request(f.a, "POST", "/v1/pods", oversized).statusCode())
+        val pod = f.create().id
+        assertEquals(413, f.request(f.a, "PUT", "/v1/pods/$pod", oversized).statusCode())
+        assertEquals(413, f.request(f.a, "POST", "/v1/pods/$pod/start", " ".repeat(65537)).statusCode())
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id, setSource = upload), 400)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload.copy(definitions = emptyList())), 400)
+        assertEquals(PodSourceKind.CUBE, f.get(f.a, pod).source.kind)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload))
+        assertEquals(PodSourceKind.SET, f.get(f.a, pod).source.kind)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), cubeId = f.cube.cube.id))
+        assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
+    }
+
+    @Test fun `recipe and approximate set boosters draft over HTTP ignore pack size and allow challenges`() = fixture { f ->
+        for (recipe in listOf(true, false)) {
+            val upload = setUpload(recipe, large = true) // A real source upload larger than the ordinary 64 KiB route limit.
+            val request = CreatePod(id(), "Set pod", setSource = upload)
+            val created = f.send(f.a, "POST", "/v1/pods", request, 201)
+            assertEquals(created, f.send(f.a, "POST", "/v1/pods", request, 201))
+            if (recipe) {
+                val booster = upload.snapshot.recipe!!
+                val reordered = booster.copy(sheets = booster.sheets.mapValues { (_, sheet) ->
+                    sheet.copy(cards = sheet.cards.entries.reversed().associate { it.key to it.value })
+                })
+                f.send(f.a, "POST", "/v1/pods", request.copy(setSource = upload.copy(snapshot = upload.snapshot.copy(recipe = reordered))), 409)
+            }
+            val pod = json.decodeFromString<PodDetail>(created).id
+            assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Uploaded test set",
+                boosterKind = if (recipe) SetBoosterKind.RECIPE_BASED else SetBoosterKind.APPROXIMATE), f.get(f.a, pod).source)
+            f.join(pod)
+            f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1))
+            val started = f.start(pod)
+            assertTrue(started.supply.sufficient)
+            val packSize = if (recipe) 3 else 15
+            assertEquals(packSize, started.draft!!.head!!.cards.size)
+            assertNull(started.grid)
+            f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = setUpload(!recipe)), 409)
+            val all = started.draft!!.head!!.cards
+            assertTrue(all.all { card -> upload.definitions.any { it.digest == card.definition } })
+            if (recipe) assertEquals(upload.snapshot.cards.map { it.definition }, all.map { it.definition })
+            f.finish(pod, listOf(f.a, f.b))
+            assertEquals(2 * packSize, listOf(f.a, f.b).sumOf { f.get(it, pod).draft!!.pool.size })
+            assertPrivacy(f, pod)
+            for (player in listOf(f.a, f.b)) {
+                val attempt = f.get(player, pod).draftAttemptId!!
+                f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 40)))
+                f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+            }
+            val basics = BasicLand.entries.map { land ->
+                val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
+                SubmittedDefinition(DeckJson.digest(card), card)
+            }
+            val result = f.send(f.a, "POST", "/v1/pods/$pod/challenge", ChallengeFromPod(id(), f.b.account.accountId, "Set challenge", basics), 201)
+            val game = json.decodeFromString<GameSummary>(result)
+            assertEquals(pod, game.podId)
+            assertEquals(InvitationState.PENDING, game.invitationState)
+        }
+    }
+
+    @Test fun `set Grid generates ordered cards with unlimited supply and completes`() = fixture { f ->
+        val upload = setUpload()
+        val pod = f.create(DraftMode.GRID).id
+        f.join(pod)
+        val replacement = UpdatePod(id(), setSource = upload,
+            settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2))
+        val updated = f.send(f.a, "PUT", "/v1/pods/$pod", replacement)
+        assertEquals(updated, f.send(f.a, "PUT", "/v1/pods/$pod", replacement))
+        val recipe = upload.snapshot.recipe!!
+        val reordered = recipe.copy(sheets = recipe.sheets.mapValues { (_, sheet) ->
+            sheet.copy(cards = sheet.cards.entries.reversed().associate { it.key to it.value })
+        })
+        f.send(f.a, "PUT", "/v1/pods/$pod", replacement.copy(setSource = upload.copy(snapshot = upload.snapshot.copy(recipe = reordered))), 409)
+        val started = f.start(pod)
+        assertTrue(started.supply.sufficient)
+        assertEquals(upload.snapshot.cards.map { it.definition }, started.grid!!.publicView.grids.first().positions.take(3).map { it!!.definition })
+        finishGrid(f, pod, listOf(f.a, f.b))
+        assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
+        for (player in listOf(f.a, f.b)) {
+            val attempt = f.get(player, pod).draftAttemptId!!
+            f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 40)))
+            f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        }
+        val basics = BasicLand.entries.map { land ->
+            val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
+            SubmittedDefinition(DeckJson.digest(card), card)
+        }
+        val game = json.decodeFromString<GameSummary>(f.send(f.a, "POST", "/v1/pods/$pod/challenge",
+            ChallengeFromPod(id(), f.b.account.accountId, "Grid challenge", basics), 201))
+        assertEquals(pod, game.podId)
     }
 }

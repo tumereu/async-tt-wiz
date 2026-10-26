@@ -36,14 +36,60 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun error(status: Int, code: String) = Result(status, json.encodeToString(PodError(code)))
     private inline fun <reified T> encoded(value: T) = JSONB.valueOf(json.encodeToString(value))
     private fun settings(row: PodRecord) = json.decodeFromString<DraftSettings>(row.settings!!.data())
-    private fun source(row: PodRecord) = json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data())
-    private fun state(row: PodRecord) = row.draftState?.let { json.decodeFromString<DraftState>(it.data()) }
+    // Legacy cubes remain arrays. A set is stored as a JSON string inside JSONB: PostgreSQL's
+    // object-key reordering must not change the significant card-map order of fixed recipe sheets.
+    private fun isSetSource(row: PodRecord) = row.sourceSnapshot!!.data().trimStart().startsWith("\"")
+    private fun setSource(row: PodRecord): SetSourceSnapshot? = row.sourceSnapshot!!.data().let {
+        if (isSetSource(row)) json.decodeFromString<SetSourceSnapshot>(json.decodeFromString<String>(it)) else null
+    }
+    private fun encodedSet(source: SetSourceSnapshot) = encoded(json.encodeToString(source))
+    private fun sourceIntent(input: JsonElement, source: PodSetSource?): JsonElement {
+        val fixed = source?.snapshot?.recipe?.sheets.orEmpty().filterValues { it.fixed }
+        if (fixed.isEmpty()) return input
+        // Canonical JSON sorts object keys; include significant fixed-sheet order as ordered arrays.
+        return buildJsonObject {
+            put("input", input)
+            putJsonObject("fixedSheetOrder") {
+                for ((name, sheet) in fixed) putJsonArray(name) { sheet.cards.keys.forEach { add(it) } }
+            }
+        }
+    }
+    private fun source(row: PodRecord) = if (!isSetSource(row))
+        json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data()) else emptyList()
+    private fun supply(row: PodRecord, players: Int): DraftSupply {
+        val finite = settings(row).supply(players, source(row))
+        return if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
+    }
+    private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode != DraftMode.GRID }
+        ?.let { json.decodeFromString<DraftState>(it.data()) }
+    private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
+        ?.let { json.decodeFromString<GridState>(it.data()) }
+    private fun pools(row: PodRecord) = gridState(row)?.pools ?: state(row)!!.pools
+    private fun copies(row: PodRecord) = gridState(row)?.copies ?: state(row)!!.copies
+    private fun gridWaiting(state: GridState?, player: String) = state?.grids?.count { it.currentPlayer == player } ?: 0
     private fun members(sql: DSLContext, pod: UUID) = sql.selectFrom(MEMBER).where(MEMBER.POD_ID.eq(pod)).orderBy(MEMBER.ACCOUNT_ID).fetch()
     private fun pending(sql: DSLContext, pod: UUID) = sql.selectFrom(INVITE).where(INVITE.POD_ID.eq(pod)).and(INVITE.STATE.eq("PENDING")).orderBy(INVITE.ACCOUNT_ID).fetch()
     private fun identity(sql: DSLContext, id: UUID): AccountIdentity {
         return AccountService.identity(sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchSingle())
     }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
+
+    private fun validateSet(input: PodSetSource): Result? {
+        if (input.snapshot.validate().isNotEmpty()) return error(400, "invalid_set_snapshot")
+        val definitions = input.definitions
+        if (definitions.size !in 1..SetSourceValidation.MAX_CARDS || definitions.map { it.digest }.distinct().size != definitions.size ||
+            definitions.any { !DeckValidation.digest(it.digest) || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != it.digest })
+            return error(400, "invalid_definition")
+        if (!definitions.map { it.digest }.toSet().containsAll(input.snapshot.cards.map { it.definition }))
+            return error(400, "definitions_unavailable")
+        return null
+    }
+
+    private fun storeSet(sql: DSLContext, input: PodSetSource) {
+        for (submitted in input.definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
+            .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
+            .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
+    }
 
     private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): Pair<String, List<DraftCubeEntry>>? {
         if (!DeckValidation.uuid(cubeId)) return null
@@ -65,29 +111,40 @@ class PodService(private val runtime: ServiceRuntime) {
     }
 
     fun create(principal: AccountService.Principal, input: CreatePod): Result =
-        business(principal, input.requestId, "createPod", DeckJson.canonical(input)) { sql, owner, _ ->
+        business(principal, input.requestId, "createPod", DeckJson.canonicalElement(sourceIntent(json.encodeToJsonElement(input), input.setSource))) { sql, owner, _ ->
             if (!validName(input.name)) return@business error(400, "invalid_name")
-            val snapshot = snapshot(sql, owner, input.cubeId) ?: return@business error(404, "cube_not_found")
-            val settings = if (input.mode == DraftMode.GLIMPSE) DraftSettings.glimpse() else DraftSettings.booster()
+            if ((input.cubeId == null) == (input.setSource == null)) return@business error(400, "invalid_source")
+            input.setSource?.let { validateSet(it)?.let { failure -> return@business failure } }
+            val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
+            input.setSource?.let { storeSet(sql, it) }
+            val settings = when (input.mode) {
+                DraftMode.GLIMPSE -> DraftSettings.glimpse()
+                DraftMode.GRID -> DraftSettings.grid()
+                DraftMode.BOOSTER -> DraftSettings.booster()
+            }
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
-                .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings)).set(POD.SOURCE_NAME, snapshot.first)
-                .set(POD.SOURCE_SNAPSHOT, encoded(snapshot.second)).returning().fetchSingle()
+                .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
+                .set(POD.SOURCE_NAME, snapshot?.first ?: input.setSource!!.snapshot.setName)
+                .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.second) } ?: encodedSet(input.setSource!!.snapshot)).returning().fetchSingle()
             sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
             detail(sql, row, owner, 201)
         }
 
     fun update(principal: AccountService.Principal, id: String, input: UpdatePod): Result =
-        mutate(principal, id, input.requestId, "updatePod", json.encodeToJsonElement(input)) { sql, owner, row ->
+        mutate(principal, id, input.requestId, "updatePod", sourceIntent(json.encodeToJsonElement(input), input.setSource)) { sql, owner, row ->
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
             if (input.name?.let { !validName(it) } == true) return@mutate error(400, "invalid_name")
             // Setup may have only its creator; validate settings against the minimum startable membership.
             if (input.settings?.validate(members(sql, row.id!!).size.coerceAtLeast(2))?.isNotEmpty() == true)
                 return@mutate error(400, "invalid_settings")
+            if (input.cubeId != null && input.setSource != null) return@mutate error(400, "invalid_source")
+            input.setSource?.let { validateSet(it)?.let { failure -> return@mutate failure } }
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@mutate error(404, "cube_not_found") }
             input.name?.let { row.name = it }
             input.settings?.let { row.settings = encoded(it) }
             snapshot?.let { row.sourceName = it.first; row.sourceSnapshot = encoded(it.second) }
+            input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot) }
             save(sql, row)
             detail(sql, row, owner)
         }
@@ -131,12 +188,25 @@ class PodService(private val runtime: ServiceRuntime) {
             if (players.size < 2) return@mutate error(409, "not_enough_members")
             val settings = settings(row); val cube = source(row)
             if (settings.validate(players.size).isNotEmpty()) return@mutate error(400, "invalid_settings")
-            if (!settings.supply(players.size, cube).sufficient) return@mutate error(409, "insufficient_supply")
+            if (!supply(row, players.size).sufficient) return@mutate error(409, "insufficient_supply")
             val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
-            val next = DraftEngine.start(players, cube, settings, seed)
             row.draftAttemptId = UUID.randomUUID()
             sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
-            advance(sql, row, null, next)
+            val set = setSource(row)
+            if (settings.mode == DraftMode.GRID) {
+                val next = if (set == null) GridEngine.start(players, cube, settings, seed) else {
+                    // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
+                    val needed = settings.supply(players.size, emptyList()).needed.toInt()
+                    val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
+                    val cards = SetBoosters.generate(set, (needed + minPack - 1) / minPack, seed).flatMap { it.cards }.take(needed)
+                    GridEngine.startWithCards(players, cards, settings, seed)
+                }
+                advanceGrid(sql, row, null, next)
+            } else {
+                val next = if (set == null) DraftEngine.start(players, cube, settings, seed) else
+                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed).map { it.cards }, settings, seed)
+                advance(sql, row, null, next)
+            }
             detail(sql, row, owner)
         }
 
@@ -144,10 +214,23 @@ class PodService(private val runtime: ServiceRuntime) {
         mutate(principal, id, input.requestId, "pickPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
+            if (settings(row).mode == DraftMode.GRID) return@mutate error(409, "wrong_draft_mode")
             val previous = state(row)!!
             val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
             advance(sql, row, previous, result.state!!)
+            detail(sql, row, owner)
+        }
+
+    fun selectGrid(principal: AccountService.Principal, id: String, input: SelectPodGrid): Result =
+        mutate(principal, id, input.requestId, "selectPodGrid", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
+            if (settings(row).mode != DraftMode.GRID) return@mutate error(409, "wrong_draft_mode")
+            val previous = gridState(row)!!
+            val result = GridEngine.pick(previous, GridPick(owner.toString(), input.gridId, GridLine(input.line, input.index)))
+            if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
+            advanceGrid(sql, row, previous, result.state!!)
             detail(sql, row, owner)
         }
 
@@ -181,7 +264,7 @@ class PodService(private val runtime: ServiceRuntime) {
             val member = members(sql, row.id!!).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
             val build = json.decodeFromString<PodDeckBuild>(member.build!!.data())
-            val issues = PodDeckRules.validate(build, state(row)!!.pools.getValue(owner.toString()), settings(row).sideboardLimit)
+            val issues = PodDeckRules.validate(build, pools(row).getValue(owner.toString()), settings(row).sideboardLimit)
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             val deck = build.copy(copies = build.copies.filter { it.category != PodDeckCategory.TRASH })
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(deck)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
@@ -208,7 +291,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 return@mutate error(409, "deck_not_submitted")
             val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
                 ?: return@mutate error(400, "invalid_basic_definitions")
-            val copies = state(row)!!.copies.associateBy { it.id }
+            val copies = copies(row).associateBy { it.id }
             val builds = listOf(owner.toString(), input.opponentId).associateWith {
                 json.decodeFromString<PodDeckBuild>(players.getValue(it).submittedDeck!!.data())
             }
@@ -316,6 +399,24 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
+    private fun advanceGrid(sql: DSLContext, row: PodRecord, previous: GridState?, next: GridState) {
+        row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
+        for (member in members(sql, row.id!!)) {
+            val owner = member.accountId!!; val player = owner.toString()
+            val build = json.decodeFromString<PodDeckBuild>(member.build!!.data())
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
+                .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            // More simultaneous turns do not notify a member who already has an actionable grid.
+            if (gridWaiting(previous, player) == 0 && gridWaiting(next, player) > 0)
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+        }
+        if (next.finished && previous?.finished != true) {
+            clearDraftHints(sql, row.id!!)
+            notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
+        }
+        save(sql, row)
+    }
+
     private fun clearDraftHints(sql: DSLContext, id: UUID) {
         val summary = org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
         val push = org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH
@@ -357,7 +458,7 @@ class PodService(private val runtime: ServiceRuntime) {
             .orderBy(POD.ID).forShare().fetch()
         val pods = rows.map { row ->
             val members = members(sql, row.id!!)
-            val waiting = state(row)?.queues?.get(owner.toString())?.size ?: 0
+            val waiting = state(row)?.queues?.get(owner.toString())?.size ?: gridWaiting(gridState(row), owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
                 row.phase == "DRAFTED" && members.first { it.accountId == owner }.submittedDeck == null -> PodAttention.BUILD
@@ -374,26 +475,37 @@ class PodService(private val runtime: ServiceRuntime) {
         Result(200, json.encodeToString(PodList(pods, invitations)))
     }
 
-    /** Only the caller's head pack and pool are used to select definition payloads. */
+    /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only. */
     private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200): Result {
         val draft = state(row)
         val view = draft?.let { DraftEngine.privateView(it, owner.toString()) }
         val public = draft?.let(DraftEngine::publicStatus)
+        val grid = gridState(row)
+        val gridView = grid?.let { PodGridView(GridEngine.publicView(it), GridEngine.privateView(it, owner.toString())) }
         val members = members(sql, row.id!!)
         val mine = members.first { it.accountId == owner }
-        val definitions = ((view?.head?.cards.orEmpty() + view?.pool.orEmpty()).map { it.definition }).toSet()
+        val visible = view?.head?.cards.orEmpty() + view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
+            gridView?.publicView?.grids.orEmpty().flatMap { it.positions.filterNotNull() } +
+            gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded }
+        val definitions = visible.map { it.definition }.toSet()
         val cards = if (definitions.isEmpty()) emptyList() else sql.selectFrom(DEFINITION).where(DEFINITION.DIGEST.`in`(definitions))
             .orderBy(DEFINITION.DIGEST).fetch().map { SubmittedDefinition(it.digest!!, json.decodeFromString<CardDefinition>(it.payload!!)) }
+        val set = setSource(row)
+        val sourceView = if (set == null) PodSource(row.sourceName!!, source(row).sumOf { it.quantity.toLong() }) else
+            PodSource(kind = PodSourceKind.SET, setCode = set.setCode, setName = set.setName,
+                boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED)
         val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),
-            settings(row), PodSource(row.sourceName!!, source(row).sumOf { it.quantity.toLong() }), settings(row).supply(members.size, source(row)),
+            settings(row), sourceView, supply(row, members.size),
             members.map { member ->
-                val progress = public?.members?.firstOrNull { it.player == member.accountId.toString() }
-                PodMember(identity(sql, member.accountId!!), progress?.packsWaiting ?: 0, progress?.picksMade ?: 0,
-                    row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null)
+                val player = member.accountId.toString()
+                val progress = public?.members?.firstOrNull { it.player == player }
+                val waiting = progress?.packsWaiting ?: gridWaiting(grid, player)
+                PodMember(identity(sql, member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player } ?: 0,
+                    row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null, waiting > 0)
             }, pending(sql, row.id!!).map { identity(sql, it.accountId!!) }, row.draftAttemptId?.toString(), view,
-            if (draft != null) json.decodeFromString<PodDeckBuild>(mine.build!!.data()) else null,
+            if (row.draftState != null) json.decodeFromString<PodDeckBuild>(mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { json.decodeFromString<PodDeckBuild>(it.data()) }, cards,
-            row.updatedAt!!.toInstant().toString())
+            row.updatedAt!!.toInstant().toString(), gridView)
         return Result(status, json.encodeToString(result))
     }
 

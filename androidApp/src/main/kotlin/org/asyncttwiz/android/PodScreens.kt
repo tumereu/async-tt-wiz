@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -63,7 +64,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                             PodMemberStrip(detail)
                             if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
                             else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
-                            else PodDraftScreen(controller, detail)
+                            else PodDraftScreen(controller, detail, accountId, lobby)
                         }
                     }
                 }
@@ -306,7 +307,7 @@ private fun PodChooseMember(controller: PodController, lobby: LobbyController, d
 }
 
 @Composable
-private fun PodDraftScreen(controller: PodController, detail: PodDetail) {
+private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val state = controller.state
     val tabs = if (detail.phase == PodPhase.DRAFTING) listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)
         else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
@@ -327,18 +328,40 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail) {
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
                     controller::move, controller::basics, { controller.requestConfirmation(PodConfirmation.SUBMIT) }, Modifier.fillMaxSize())
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
-                PodTab.GAMES -> PodGamesTab(detail)
+                PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
         }
     }
 }
 
-/** Integration point for pod challenges: add a per-member action to MemberLine's trailing slot. */
+/** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */
 @Composable
-internal fun PodGamesTab(detail: PodDetail) {
+internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
+    val mine = detail.members.firstOrNull { it.account.accountId == accountId }
+    val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Members", style = MaterialTheme.typography.titleMedium)
-        detail.members.forEach { member -> MemberLine(member.account, if (member.submitted) "deck submitted" else "building") }
+        detail.members.forEach { member ->
+            MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
+                if (member.account.accountId != accountId && member.submitted && lobby != null)
+                    TextButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
+                        enabled = mine?.submitted == true && !lobby.state.mutating) { Text("Challenge") }
+            }
+        }
+        if (mine?.submitted != true) Text("Submit your deck to challenge other members.", style = MaterialTheme.typography.bodySmall)
+        lobby?.state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        if (games.isNotEmpty()) {
+            Text("Games", style = MaterialTheme.typography.titleMedium)
+            games.forEach { game ->
+                val opponent = if (game.inviter.accountId == accountId) game.recipient else game.inviter
+                Row(Modifier.fillMaxWidth().clickable { lobby?.open(game.id) }.heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Avatar(opponent)
+                    Text(game.gameName, Modifier.weight(1f))
+                    Text("vs ${opponent.username}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
     }
 }
 

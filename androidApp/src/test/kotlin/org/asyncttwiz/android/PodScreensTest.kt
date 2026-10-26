@@ -54,11 +54,12 @@ class PodScreensTest {
             PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(alice, building = true), PodMember(bob, submitted = true)), emptyList(),
             updatedAt = "2026-10-26T00:00:00Z")
-        compose.setContent { ScreenTheme { PodGamesTab(detail) } }
+        compose.setContent { ScreenTheme { PodGamesTab(detail, alice.accountId, null) } }
         compose.onNodeWithText("Alice").assertIsDisplayed()
         compose.onNodeWithText("building").assertIsDisplayed()
         compose.onNodeWithText("Bob").assertIsDisplayed()
         compose.onNodeWithText("deck submitted").assertIsDisplayed()
         compose.onNodeWithText("Challenge").assertDoesNotExist()
+        compose.onNodeWithText("Submit your deck to challenge other members.").assertIsDisplayed()
     }
 }

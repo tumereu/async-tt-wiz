@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
@@ -185,6 +186,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     menuContent: (@Composable () -> Unit)? = null, animationFinished: Boolean = true, onTree: (() -> Unit)? = null,
     autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults,
     board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
+    definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
     background: Color = Color(0xffedf3ef)) {
     require(pauseMillis > 0)
     val position = playback.position
@@ -198,29 +200,41 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val latestPauseMillis by rememberUpdatedState(pauseMillis)
     val latestAutoPause by rememberUpdatedState(autoPause)
     val latestBoard by rememberUpdatedState(board)
+    val latestDefinitions by rememberUpdatedState(definitions)
+    val branchAlpha = remember(playback) { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(playback, playback.branched) {
-        if (playback.branched) { delay(1_000); playback.acknowledgeBranch() }
+        if (playback.branched) {
+            branchAlpha.snapTo(1f)
+            delay(1_500)
+            branchAlpha.animateTo(0f, androidx.compose.animation.core.tween(150))
+            playback.acknowledgeBranch()
+        }
     }
     LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground,
         animationFinished, playback.branched) {
-        if (position.playing && playback.foreground && animationFinished && !playback.branched) {
+        if (playback.foreground && animationFinished && !playback.branched) {
+            if (playback.finishAnimation(position.cursorId)) return@LaunchedEffect
+            if (!position.playing) return@LaunchedEffect
             if (playback.pauseAfterAnimation()) return@LaunchedEffect
             // Sample once per completed animation: a setting change affects the next pause,
             // not a pause already in progress.
             delay(playback.stepPauseMillis(latestPauseMillis))
-            playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard)
+            playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard, definitions = latestDefinitions)
         }
     }
     val timeline: @Composable () -> Unit = {
         var options by remember { mutableStateOf(false) }
         Row(Modifier.height(TableTimelineHeight.dp), verticalAlignment = Alignment.CenterVertically) {
-            HistoryTimeline(events, position.cursorId, viewer, playback::pause, playback::scrub,
+            HistoryTimeline(events, position.cursorId, viewer, { if (!playback.transportLocked) playback.pause() },
+                { if (!playback.transportLocked) playback.scrub(it) },
                 Modifier.weight(1f))
             if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
+                enabled = !playback.transportLocked,
                 modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
             }
             if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
+                enabled = !playback.transportLocked,
                 modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
                 TableChromeIcon("tree")
             }
@@ -235,13 +249,16 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             position.cursorId != playback.tree.sharedHeadId, connected && continuationReady,
             playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
                 if (connected && playback.canContinue(captured)) continuation(captured)
-             })
+            }, controlsEnabled = !playback.transportLocked)
     }
     val panel: @Composable () -> Unit = {
         val timelineRow: @Composable () -> Unit = {
             Box(Modifier.height(TableTimelineHeight.dp)) {
                 timeline()
-                if (playback.branched) Text("Branched", Modifier.align(Alignment.TopEnd), fontSize = 10.sp)
+                if (playback.branched) Surface(Modifier.align(Alignment.Center).graphicsLayer { alpha = branchAlpha.value },
+                    color = Color(0xffa84f58), contentColor = Color.White, shape = MaterialTheme.shapes.small) {
+                    Text("Opponent branched", Modifier.padding(horizontal = 24.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall)
+                }
             }
         }
         val controlsRow: @Composable () -> Unit = {
@@ -316,27 +333,28 @@ internal fun historyIconGlyph(icon: String): String = when (icon) {
 @Composable
 fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean, connected: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onPause: () -> Unit,
-    onContinue: (String) -> Unit, modifier: Modifier = Modifier) {
+    onContinue: (String) -> Unit, modifier: Modifier = Modifier, controlsEnabled: Boolean = true) {
     val current by rememberUpdatedState(position)
     val continueAction by rememberUpdatedState(onContinue)
     val play by rememberUpdatedState(onPlay)
     val pause by rememberUpdatedState(onPause)
-    val toggle = { if (current.playing) pause() else play() }
+    val toggle = { if (controlsEnabled) { if (current.playing) pause() else play() } }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onPrevious, modifier = Modifier.width(48.dp).semantics { contentDescription = "Previous" }, enabled = previousEnabled,
+            TextButton(onPrevious, modifier = Modifier.width(48.dp).semantics { contentDescription = "Previous" }, enabled = previousEnabled && controlsEnabled,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("previous") }
             run {
                 var captured by remember { mutableStateOf<String?>(null) }
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
                     role = Role.Button; contentDescription = "Auto advance"
                     stateDescription = if (position.playing) "Auto: on" else "Auto: off"
-                    onClick { toggle(); true }
-                    if (connected) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
+                    if (!controlsEnabled) disabled() else onClick { toggle(); true }
+                    if (connected && controlsEnabled) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
                         val cursor = current.cursorId
                         pause(); continueAction(cursor); true
                     })
-                }.pointerInput(connected) {
+                }.pointerInput(connected, controlsEnabled) {
+                    if (!controlsEnabled) return@pointerInput
                     detectTapGestures(onPress = { captured = current.cursorId; tryAwaitRelease() },
                         onTap = { toggle() }, onLongPress = if (!connected) null else ({
                             pause()
@@ -354,7 +372,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                     }
                 }
             }
-            TextButton(onNext, modifier = Modifier.width(48.dp).semantics { contentDescription = "Next" }, enabled = nextEnabled,
+            TextButton(onNext, modifier = Modifier.width(48.dp).semantics { contentDescription = "Next" }, enabled = nextEnabled && controlsEnabled,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("next") }
         }
     }

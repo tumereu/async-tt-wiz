@@ -68,8 +68,12 @@ class PlaybackSettingsTest {
         compose.runOnIdle { assertFalse(player.position.playing) }
         compose.onNode(isDialog()).assertExists()
         compose.onNodeWithText("Playback", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("auto-pause-STACK").assertIsOn().performClick().assertIsOff()
-        compose.runOnIdle { assertFalse(PlaybackAutoPause.STACK in settings.autoPause) }
+        compose.onNodeWithTag("auto-pause-STACK_ADDED").assertIsOn().performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(PlaybackAutoPause.STACK_ADDED in settings.autoPause) }
+        for (trigger in listOf(PlaybackAutoPause.STACK_REMOVED, PlaybackAutoPause.LAND_FROM_HAND, PlaybackAutoPause.NONLAND_FROM_HAND)) {
+            compose.onNodeWithTag("auto-pause-${trigger.name}").performScrollTo().assertIsOff().performClick().assertIsOn()
+            compose.runOnIdle { assertTrue(trigger in settings.autoPause) }
+        }
         compose.onNodeWithTag("card-move-speed").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Done").performScrollTo().performClick()
         compose.onNode(isDialog()).assertDoesNotExist()
@@ -85,7 +89,7 @@ class PlaybackSettingsTest {
         compose.onNodeWithText("0.5 s after each group").assertExists()
     }
 
-    @Test fun matchingGroupKeepsAutoOnDuringAnimationThenStopsWithoutAnotherDelayAndCanResume() {
+    @Test fun terminalMatchingGroupKeepsAutoOnDuringAnimationThenGoesLiveWithoutAnotherDelay() {
         val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
             PlayAction.RollDie(6, 4), GameplayTransition())
         val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
@@ -107,11 +111,23 @@ class PlaybackSettingsTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(48) // Recompose and run the completion effect, well before the 500ms group delay.
         compose.waitForIdle()
-        compose.runOnIdle { assertFalse(player.position.playing); assertEquals(HistoryMode.PLAYBACK, player.position.mode) }
-        compose.onNodeWithContentDescription("Auto advance").performClick()
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(600)
-        compose.runOnIdle { assertEquals(HistoryMode.LIVE, player.position.mode) }
+        compose.runOnIdle { assertFalse(player.position.playing); assertEquals(HistoryMode.LIVE, player.position.mode) }
+    }
+
+    @Test fun legacyStackPreferenceMigratesOptOutAndOtherwiseUsesNewDefaultsOnlyOnce() {
+        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+        stored.edit().putBoolean("auto-pause/off/STACK", false).putBoolean("auto-pause/on/STACK", true).commit()
+        val off = HistoryPlaybackPreferences(context, "off")
+        assertFalse(PlaybackAutoPause.STACK_ADDED in off.autoPause)
+        assertFalse(PlaybackAutoPause.STACK_REMOVED in off.autoPause)
+        for (account in listOf("on", "unset")) {
+            assertTrue(PlaybackAutoPause.STACK_ADDED in HistoryPlaybackPreferences(context, account).autoPause)
+            assertFalse(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, account).autoPause)
+        }
+        off.setAutoPause(PlaybackAutoPause.STACK_ADDED, true)
+        off.setAutoPause(PlaybackAutoPause.STACK_REMOVED, true)
+        assertTrue(PlaybackAutoPause.STACK_ADDED in HistoryPlaybackPreferences(context, "off").autoPause)
+        assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
     }
 
     @Test fun idleCatalogHasNoReservedStatusGapInPortrait() = assertCatalogGap()

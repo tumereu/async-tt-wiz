@@ -20,7 +20,46 @@ import org.asyncttwiz.protocol.*
 class HistoryModeReworkTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun branchNoticeExpiresWhilePausedAndRollbackResumesFasterThanNormalPacing() {
+    @Test fun treePinchAndPanKeepTurnTagsAttachedWithoutSelectingOrClosing() {
+        val tree = F.play(GameplayTree(F.root()), PlayAction.EndTurn, 401)
+        val controller = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
+        controller.update(tree, openingNodeId = tree.initial.root.id, showHidden = true)
+        var dismissed = 0
+        try {
+            compose.setContent { MaterialTheme {
+                HistoryExplorer(controller, mapOf(F.a to OwnTableColor, F.b to OpponentTableColor), true, {}, { dismissed++ }, {})
+            } }
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
+            val canvas = compose.onNodeWithContentDescription("Game history group tree")
+            fun zoom() = canvas.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription]
+                .removePrefix("Zoom ").toFloat()
+            assertEquals(1f, zoom())
+            canvas.performTouchInput { pinch(
+                start0 = center + androidx.compose.ui.geometry.Offset(-40f, 0f), start1 = center + androidx.compose.ui.geometry.Offset(40f, 0f),
+                end0 = center + androidx.compose.ui.geometry.Offset(-80f, 0f), end1 = center + androidx.compose.ui.geometry.Offset(80f, 0f)) }
+            val enlarged = zoom()
+            assertTrue(enlarged > 1f, "Pinch out must zoom in (after touch slop): $enlarged")
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
+            canvas.performTouchInput { pinch(
+                start0 = center + androidx.compose.ui.geometry.Offset(-80f, 0f), start1 = center + androidx.compose.ui.geometry.Offset(80f, 0f),
+                end0 = center + androidx.compose.ui.geometry.Offset(-40f, 0f), end1 = center + androidx.compose.ui.geometry.Offset(40f, 0f)) }
+            assertTrue(zoom() < enlarged)
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
+            val before = compose.onNodeWithText("T1").fetchSemanticsNode().boundsInRoot.center
+            canvas.performTouchInput { swipe(center, center + androidx.compose.ui.geometry.Offset(50f, 40f), 200) }
+            val after = compose.onNodeWithText("T1").fetchSemanticsNode().boundsInRoot.center
+            assertTrue(after.x > before.x && after.y > before.y)
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
+            assertEquals(tree.initial.root.id, controller.state.selectedNodeId)
+            assertEquals(0, dismissed)
+        } finally { controller.close() }
+    }
+
+    @Test fun branchNoticeThenQuickFadeThenFastRollbackLocksTransportUntilCommonAncestor() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
         val old2 = F.play(old1, PlayAction.AdjustLife(F.a, "1"), 102)
@@ -29,25 +68,39 @@ class HistoryModeReworkTest {
         val player = HistoryPlayback(HistoryTree(branch.initial.root.id, emptyList(), branch.currentNodeId,
             "branch", containers = branch.initial.board.containers, source = branch, lazyPresentation = true))
         player.openFrom(old2.currentNodeId)
+        var animatedCursor by mutableStateOf<String?>(null)
         compose.mainClock.autoAdvance = false
         compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(player, old2.currentNodeId, F.a, true, 1_500, {})
+            HistoryPlaybackPanel(player, old2.currentNodeId, F.a, true, 1_500, {},
+                animationFinished = animatedCursor == player.position.cursorId)
         } }
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("Branched", substring = true).assertIsDisplayed()
-        compose.runOnIdle { player.pause() }
-        compose.mainClock.advanceTimeBy(1_100)
+        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
+        for (description in listOf("Auto advance", "Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
+        compose.runOnIdle {
+            player.previous(); player.next(); player.play()
+            assertEquals(old2.currentNodeId, player.position.cursorId)
+        }
+        compose.mainClock.advanceTimeBy(1_400)
+        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(player.branched); assertEquals(old2.currentNodeId, player.position.cursorId) }
+        compose.mainClock.advanceTimeBy(400)
         compose.runOnIdle {
             assertFalse(player.branched)
             assertEquals(old2.currentNodeId, player.position.cursorId)
-            player.play()
+            assertTrue(player.transportLocked)
+            animatedCursor = old2.currentNodeId
         }
         compose.waitForIdle()
-        compose.mainClock.advanceTimeByFrame()
-        compose.mainClock.advanceTimeBy(64)
-        compose.runOnIdle { assertEquals(old2.currentNodeId, player.position.cursorId) }
-        compose.mainClock.advanceTimeBy(80)
-        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId); player.pause() }
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId) }
+        for (description in listOf("Auto advance", "Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId); animatedCursor = old1.currentNodeId }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.transportLocked); player.pause() }
+        compose.onNodeWithContentDescription("Auto advance").assertIsEnabled()
     }
 
     @Test fun autoButtonShowsStateAndTogglesFromBothStates() {

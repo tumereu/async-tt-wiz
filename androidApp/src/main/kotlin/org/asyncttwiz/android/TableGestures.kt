@@ -49,6 +49,7 @@ class TableGestureCoordinator(
         set(value) { sceneSnapshot = value }
     private var selection = TableSelection()
     private var writable = false
+    private var reviewing = false
     private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
     private data class SpringReturn(val from: TableCamera, val to: TableCamera, var start: Long? = null)
     private var spring: SpringReturn? = null
@@ -63,9 +64,12 @@ class TableGestureCoordinator(
             distance(point, it.capture.start) <= slopDp * 4
     } == true
 
-    fun update(scene: TableScene, selection: TableSelection, writable: Boolean, sceneSource: (() -> TableScene)? = null) {
+    fun update(scene: TableScene, selection: TableSelection, writable: Boolean, sceneSource: (() -> TableScene)? = null,
+        reviewing: Boolean = false) {
         this.scene = scene; this.sceneSource = sceneSource; lastSample = null
-        this.selection = selection; this.writable = writable
+        this.reviewing = reviewing
+        this.selection = if (reviewing) selection.copy(ids = emptySet(), mode = if (selection.mode == TableMode.SELECT) TableMode.NORMAL else selection.mode) else selection
+        this.writable = writable
         // Removed cards cannot become the card that has slid into their old bounds.
         val c = capture
         if (c?.scope != null && c.phase !in listOf(Phase.PAN, Phase.SCROLL, Phase.TRANSFORM) &&
@@ -179,6 +183,8 @@ class TableGestureCoordinator(
                 c.viewport?.maxScrollY?.let { it > 0 } == true && abs(dy) > abs(dx) && c.item == null -> Phase.SCROLL
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
                     c.item?.kind != TableItemKind.CARD -> Phase.SCROLL
+                reviewing && (c.item?.kind == TableItemKind.HAND || c.item == null) ->
+                    if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
                 c.item?.kind == TableItemKind.HAND || c.item == null -> Phase.RECTANGLE
                 c.scope != null && scene.canDrag(c.item) || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
@@ -210,6 +216,11 @@ class TableGestureCoordinator(
         move(point, time)
         capture = null
         transforming = false; transformRegion = null
+        if (reviewing && c.double && c.item != null && c.phase == Phase.PRESS) {
+            if (c.replacingLocal) emit(TableIntent.DismissTapUi)
+            preview = TableGesturePreview()
+            return
+        }
         if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.STACK && c.phase == Phase.PRESS)
             diagnostic("recognized")
         if (c.replacingLocal && c.phase == Phase.PRESS) emit(TableIntent.DismissTapUi)
@@ -279,7 +290,7 @@ class TableGestureCoordinator(
                     }
                 }
             }
-            Phase.RECTANGLE -> emit(TableIntent.Selection(c.selection.copy(ids = scene.rectangle(rectangle(c.start, point)))))
+            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.copy(ids = scene.rectangle(rectangle(c.start, point)))))
             Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
@@ -364,7 +375,7 @@ class TableGestureCoordinator(
         val scope = if (item.zone == PlayZone.STACK) TableScope(id, listOf(id)) else selection.scope(id, order())
         if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }))
     }
-    fun select(item: TableItem) { item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
+    fun select(item: TableItem) { if (!reviewing) item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
         scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     })

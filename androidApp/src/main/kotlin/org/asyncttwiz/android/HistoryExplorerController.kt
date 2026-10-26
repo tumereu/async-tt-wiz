@@ -8,6 +8,26 @@ import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executor
 
 data class HistoryPoint(val x: Float, val y: Float)
+data class HistoryTurnStart(val number: String, val player: String) {
+    val label get() = "T$number"
+}
+
+/** Screen-dp translation; zoom keeps the point under the gesture centroid anchored. */
+internal data class HistoryTreeViewport(val pan: HistoryPoint = HistoryPoint(0f, 0f), val zoom: Float = 1f) {
+    fun transform(centroid: HistoryPoint, delta: HistoryPoint, scale: Float, graph: HistoryGraph,
+        width: Float, height: Float): HistoryTreeViewport {
+        if (!centroid.x.isFinite() || !centroid.y.isFinite() || !delta.x.isFinite() || !delta.y.isFinite() ||
+            !scale.isFinite() || scale <= 0f || !width.isFinite() || !height.isFinite() ||
+            !graph.width.isFinite() || !graph.height.isFinite()) return this
+        val nextZoom = (zoom * scale).coerceIn(.5f, 3f)
+        val ratio = nextZoom / zoom
+        return HistoryTreeViewport(HistoryPoint(
+            (centroid.x - (centroid.x - pan.x) * ratio + delta.x).coerceIn(-graph.width * nextZoom, width),
+            (centroid.y - (centroid.y - pan.y) * ratio + delta.y).coerceIn(-graph.height * nextZoom, height)), nextZoom)
+    }
+    fun screen(point: HistoryPoint) = HistoryPoint(point.x * zoom + pan.x, point.y * zoom + pan.y)
+    fun visible(graph: HistoryGraph, width: Float, height: Float) = graph.visible(-pan.x / zoom, -pan.y / zoom, width / zoom, height / zoom)
+}
 enum class HistoryGlyph(val label: String, val icon: String) {
     ROOT("Initial state", "flag"), TAP("Tap / untap", "rotate_90_degrees_cw"), MOVE("Move", "open_with"), LIFE("Life", "favorite"),
     COUNTER("Counter", "exposure_plus_1"), TURN("Turn / step", "outlined_flag"), DIE("Die", "casino"),
@@ -29,7 +49,7 @@ enum class HistoryGlyph(val label: String, val icon: String) {
 }
 data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<String>,
     val representativeId: String?, val glyph: HistoryGlyph, val author: String?,
-    val parentRangeId: String?, val position: HistoryPoint) {
+    val parentRangeId: String?, val position: HistoryPoint, val turnStart: HistoryTurnStart? = null) {
     val targetId: String get() = nodeIds.last()
 }
 data class HistoryGraph(val ranges: List<HistoryRange>, val positions: Map<String, HistoryPoint>,
@@ -42,8 +62,8 @@ data class HistoryGraph(val ranges: List<HistoryRange>, val positions: Map<Strin
     val headRanges = branchHeadIds.mapNotNull { rangeOf[it] }.toSet()
     private val spatial = HistorySpatialIndex(ranges.map { range ->
         val parent = rangesById[range.parentRangeId]?.position ?: range.position
-        HistorySpatialEntry(range, minOf(parent.x, range.position.x) - 12f, minOf(parent.y, range.position.y) - 16f,
-            maxOf(parent.x, range.position.x) + 12f, maxOf(parent.y, range.position.y) + 16f)
+        HistorySpatialEntry(range, minOf(parent.x, range.position.x) - 24f, minOf(parent.y, range.position.y) - 32f,
+            maxOf(parent.x, range.position.x) + 24f, maxOf(parent.y, range.position.y) + 16f)
     })
     fun visible(x: Float, y: Float, width: Float, height: Float) = spatial.query(x, y, x + width, y + height)
     val spatialVisits get() = spatial.visits
@@ -78,6 +98,9 @@ object HistoryGraphLayout {
         val segments = linkedMapOf(root to Segment(root, root, null, mutableListOf(root)))
         val segmentOf = mutableMapOf(root to root)
         val groups = mutableMapOf<String, GameplayGroup>()
+        val initialTurn = tree.initial.board.turn
+        val turns = mutableMapOf(root to HistoryTurnStart(initialTurn.number, initialTurn.accountId))
+        val turnStarts = mutableMapOf(root to turns.getValue(root))
         val stack = ArrayDeque<GameplayMutation>()
         allChildren[root].orEmpty().asReversed().forEach(stack::addLast)
         val seen = mutableSetOf<String>()
@@ -86,12 +109,18 @@ object HistoryGraphLayout {
             require(seen.add(node.id)) { "Cyclic tree" }
             if (node.id !in visible) continue
             val parentSegment = segments.getValue(segmentOf.getValue(node.parentId))
+            val previousTurn = turns.getValue(node.parentId)
+            val turn = HistoryTurnStart(
+                node.transition.fields.lastOrNull { it.field == GameplayField.TURN_NUMBER }?.to ?: previousTurn.number,
+                node.transition.fields.lastOrNull { it.field == GameplayField.TURN_PLAYER }?.to ?: previousTurn.player)
+            turns[node.id] = turn
+            if (turn != previousTurn) turnStarts[node.id] = turn
             val group = GameplayHistory.append(groups[node.parentId], node, tree.initial.board.containers)
             groups[node.id] = group
             val groupId = membership[node.id] ?: group.id
             // A real fork ends the rendered range even if the automatic group continues through it.
             val joins = parentSegment.id != root && parentSegment.group == groupId &&
-                allChildren[node.parentId].orEmpty().size == 1
+                allChildren[node.parentId].orEmpty().size == 1 && node.id !in turnStarts
             val segment = if (joins) parentSegment else Segment(node.id, groupId, parentSegment.id,
                 mutableListOf()).also { segments[it.id] = it }
             segment.nodes.add(node.id); segmentOf[node.id] = segment.id
@@ -116,7 +145,7 @@ object HistoryGraphLayout {
             val range = HistoryRange(segment.id, segment.group, segment.nodes.toList(), representativeEvent?.id,
                 representativeEvent?.let { HistoryGlyph.fromIcon((it.grouping ?:
                     HistoryGrouping.classify(it.action, tree.initial.board.containers, it.transition)).icon) } ?: HistoryGlyph.ROOT,
-                representativeEvent?.author, segment.parent, point)
+                 representativeEvent?.author, segment.parent, point, turnStarts[segment.nodes.first()])
             // Exact interior cursors are still reviewable, but share their group's single chip.
             segment.nodes.forEach { positions[it] = point }
             range

@@ -62,6 +62,7 @@ class ClientNormalPathScaleTest {
             assertTrue(events.projectedEvents <= 23)
             player.next(true)
             history.displayPosition()
+            player.finishAnimation(player.position.cursorId)
         }
         assertEquals(HistoryMode.LIVE, player.position.mode)
         assertEquals(tree.currentNodeId, history.view?.cursor)

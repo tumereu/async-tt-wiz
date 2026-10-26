@@ -29,6 +29,7 @@ class CatchupPlaybackTest {
         assertEquals(next.currentNodeId, player.position.cursorId)
         player.next(true)
         assertEquals(head.currentNodeId, player.position.cursorId)
+        player.finishAnimation(head.currentNodeId)
         assertEquals(HistoryMode.LIVE, player.position.mode)
         assertFalse(player.position.playing)
     }
@@ -43,7 +44,7 @@ class CatchupPlaybackTest {
         val player = HistoryPlayback(index(head))
         player.openFrom(old2.currentNodeId)
         assertTrue(player.branched)
-        assertEquals(100L, player.stepPauseMillis(1_500))
+        assertEquals(50L, player.stepPauseMillis(1_500))
         player.acknowledgeBranch()
         player.next(true)
         assertEquals(old1.currentNodeId, player.position.cursorId)
@@ -54,6 +55,7 @@ class CatchupPlaybackTest {
         player.next(true)
         assertEquals(branch.currentNodeId, player.position.cursorId)
         player.next(true)
+        player.finishAnimation(head.currentNodeId)
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
@@ -87,6 +89,7 @@ class CatchupPlaybackTest {
         assertEquals(HistoryMode.PLAYBACK, player.position.mode)
         player.next(true)
         assertEquals(head.currentNodeId, player.position.cursorId)
+        player.finishAnimation(head.currentNodeId)
         assertEquals(HistoryMode.LIVE, player.position.mode)
         player.scrub(seen.currentNodeId)
         assertFalse(player.position.playing)
@@ -106,6 +109,7 @@ class CatchupPlaybackTest {
         assertTrue(saved.isEmpty())
         history.playback!!.next(true)
         val state = head.stateAt(head.currentNodeId)!!
+        history.playback!!.finishAnimation(state.currentNodeId)
         history.presented(state, state, true)
         assertEquals(listOf(state.gameId to state.currentNodeId), saved)
         history.select(seen.currentNodeId)

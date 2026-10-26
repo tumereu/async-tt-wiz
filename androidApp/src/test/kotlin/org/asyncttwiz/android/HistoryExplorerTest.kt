@@ -8,6 +8,61 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class HistoryExplorerTest {
+    @Test fun turnLabelsUseTurnPlayerNotAuthorAndOnlyStartOfEachTurnIncludingForks() {
+        val initial = GameplayTree(root())
+        val first = play(initial, 600)
+        val next = play(first, 601, a, PlayAction.EndTurn)
+        val later = play(next, 602, a)
+        val fork = assertNotNull(later.play(b, command(603, PlayAction.EndTurn).copy(
+            continuation = Continuation(first.currentNodeId, true))).tree)
+        val graph = HistoryGraphLayout.build(fork)
+        val tags = graph.ranges.mapNotNull { range -> range.turnStart?.let { range.nodeIds.first() to it } }.toMap()
+        assertEquals(mapOf(root().root.id to HistoryTurnStart("1", a), next.currentNodeId to HistoryTurnStart("2", b),
+            fork.currentNodeId to HistoryTurnStart("2", b)), tags)
+        assertEquals("T2", tags.getValue(next.currentNodeId).label)
+        assertEquals(a, graph.ranges.single { next.currentNodeId in it.nodeIds }.author)
+        assertFalse(first.currentNodeId in tags)
+        assertFalse(later.currentNodeId in tags)
+    }
+
+    @Test fun pinchZoomAnchorsCentroidAndPanningAndVisibleQueriesStayWindowBounded() {
+        val nodes = (1..10_000).map { n -> GameplayMutation(id(1000 + n), if (n == 1) root().root.id else id(999 + n),
+            id(6), id(20_000 + n), a, null, PlayAction.EndTurn, GameplayTransition()) }
+        val tree = GameplayTree(root(), nodes = nodes.associateBy { it.id }, currentNodeId = nodes.last().id)
+        val graph = HistoryGraphLayout.build(tree, membership = nodes.associate { it.id to it.id })
+        val center = HistoryPoint(200f, 100f)
+        val viewport = HistoryTreeViewport().transform(center, HistoryPoint(0f, 0f), 2f, graph, 400f, 200f)
+        assertEquals(center, viewport.screen(center))
+        assertEquals(2f, viewport.zoom)
+        val moved = viewport.transform(center, HistoryPoint(-100f, -20f), 1f, graph, 400f, 200f)
+        assertEquals(HistoryPoint(100f, 80f), moved.screen(center))
+        val zoomedOut = moved.transform(center, HistoryPoint(0f, 0f), .01f, graph, 400f, 200f)
+        assertEquals(.5f, zoomedOut.zoom)
+        assertTrue(zoomedOut.visible(graph, 400f, 200f).size < 40)
+        assertTrue(graph.spatialVisits < 100, "Pan/zoom must query the spatial index, not scan history")
+    }
+
+    @Test fun nonFiniteGestureInputsLeaveViewportUnchanged() {
+        val graph = HistoryGraphLayout.build(GameplayTree(root()))
+        val viewport = HistoryTreeViewport(HistoryPoint(120f, 80f), 1.5f)
+        val center = HistoryPoint(200f, 100f)
+        val delta = HistoryPoint(20f, -10f)
+        for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            assertSame(viewport, viewport.transform(center.copy(x = invalid), delta, 1f, graph, 400f, 200f))
+            assertSame(viewport, viewport.transform(center.copy(y = invalid), delta, 1f, graph, 400f, 200f))
+            assertSame(viewport, viewport.transform(center, delta.copy(x = invalid), 1f, graph, 400f, 200f))
+            assertSame(viewport, viewport.transform(center, delta.copy(y = invalid), 1f, graph, 400f, 200f))
+            assertSame(viewport, viewport.transform(center, delta, invalid, graph, 400f, 200f))
+            assertSame(viewport, viewport.transform(center, delta, 1f, graph, invalid, 200f))
+            assertSame(viewport, viewport.transform(center, delta, 1f, graph, 400f, invalid))
+            assertSame(viewport, viewport.transform(center, delta, 1f, graph.copy(width = invalid), 400f, 200f))
+            assertSame(viewport, viewport.transform(center, delta, 1f, graph.copy(height = invalid), 400f, 200f))
+        }
+        assertSame(viewport, viewport.transform(center, delta, 0f, graph, 400f, 200f))
+        assertSame(viewport, viewport.transform(center, delta, -1f, graph, 400f, 200f))
+        assertNotEquals(viewport, viewport.transform(center, delta, 1f, graph, 400f, 200f))
+    }
+
     @Test fun diagnosticsDistinguishMissingCursorReplayFailureAndLayoutException() {
         val failures = mutableListOf<Pair<String, Throwable>>()
         val controller = HistoryExplorerController(Executor { it.run() }, { it() },

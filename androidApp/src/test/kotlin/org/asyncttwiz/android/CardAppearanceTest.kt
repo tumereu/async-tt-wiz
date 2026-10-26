@@ -42,16 +42,22 @@ class CardAppearanceTest {
         var observed = b.read()
         val stop = b.observe { observed = b.read() }
         a.setSize(9f)
-        assertEquals(2f, observed.cardSize)
+        assertEquals(3f, observed.cardSize)
         a.setText(-1f)
-        assertEquals(.75f, b.read().textSize)
+        assertEquals(.5f, b.read().textSize)
         a.setText(Float.NaN)
         assertEquals(1f, b.read().textSize)
         stop()
-        for (text in listOf("", "NaN", "Infinity", "-1", "0.749", "2.001", "oops")) assertNull(parseCardScale(text), text)
-        assertEquals(.75f, parseCardScale("0.75"))
-        assertEquals(2f, parseCardScale(" 2.0 "))
+        for (text in listOf("", "NaN", "Infinity", "oops")) assertNull(parseCardScale(text), text)
+        assertEquals(.5f, parseCardScale("-1"))
+        assertEquals(.5f, parseCardScale("0.499"))
+        assertEquals(3f, parseCardScale(" 3.001 "))
         assertEquals(1.234f, parseCardScale("1.234"))
+        a.customizeAreas(true); a.customizeText(true)
+        for (area in CardArea.entries) { a.setSize(-5f, area); assertEquals(.5f, b.read().size(area))
+            a.setSize(9f, area); assertEquals(3f, b.read().size(area)) }
+        for (part in CardTextScalePart.entries) { a.setText(-5f, part); assertEquals(.5f, b.read().text(part))
+            a.setText(9f, part); assertEquals(3f, b.read().text(part)) }
     }
 
     @Test fun areaSizesAreIndependentOfZoomAndKeepHudRegionsSeparateAtBothExtremes() {
@@ -60,14 +66,16 @@ class CardAppearanceTest {
         val library = initial.board.containers.first { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
         val play = initial.copy(board = initial.board.copy(contentsDisplays = listOf(
             ContentsDisplay("sample-panel", f.a, library.id, ContentsSelection.TOP, library.cards.size, false, library.cards))))
-        for (landscape in listOf(false, true)) for (scale in listOf(.75f, 2f)) for (zoom in listOf(.65f, 2f)) {
+        for (landscape in listOf(false, true)) for (scale in listOf(.5f, 3f)) for (zoom in listOf(.65f, 2f)) {
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
             val appearance = CardAppearance(cardSize = scale, textSize = scale)
             val scene = TablePresentation.scene(f.game, play, f.a, width, height, landscape,
                 TableLayoutState(camera = TableCamera(zoom = zoom)), appearance = appearance)
-            assertEquals(28f * zoom, scene.cardWidth)
-            assertEquals(40f * zoom, scene.cardHeight)
+            assertEquals(28f * scale * zoom, scene.cardWidth, .001f)
+            assertEquals(40f * scale * zoom, scene.cardHeight, .001f)
+            assertTrue((scene.items.map { it.bounds } + scene.viewports.map { it.bounds }).all {
+                it.width.isFinite() && it.height.isFinite() && it.width >= 0f && it.height >= 0f })
             assertEquals(scale, scene.appearance.text(CardTextScalePart.TITLE))
             for (item in scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND || it.kind == TableItemKind.PILE }) {
                 assertEquals(28f * scale, item.bounds.width, item.id)
@@ -103,7 +111,11 @@ class CardAppearanceTest {
                         "Own piles must become fully visible when the sidebar is scrolled: ${item.bounds} / $port")
                 }
             }
-            val bubbles = TablePresentation.stackBubbles(scene, play, scene.stackTopId, width, height)!!
+            // At 3x the landscape sidebar overflows: scroll its middle Stack into view before opening bubbles.
+            val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" }
+            val stackScene = if (sidebar == null) scene else TablePresentation.scene(f.game, play, f.a, width, height, true,
+                TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY / 2)), appearance = appearance)
+            val bubbles = TablePresentation.stackBubbles(stackScene, play, stackScene.stackTopId, width, height)!!
             for ((index, control) in bubbles.controls.withIndex()) {
                 assertNull(control.bounds.intersection(bubbles.anchor))
                 for (other in bubbles.controls.drop(index + 1)) assertNull(control.bounds.intersection(other.bounds))
@@ -128,6 +140,6 @@ class CardAppearanceTest {
             TableScope(panel.rows.first().entry.cardId, listOf(panel.rows.first().entry.cardId)))!!
         assertEquals(next.entry.cardId, reorder.beforeId)
         assertEquals(42f, scene.items.single { it.kind == TableItemKind.PILE && it.zone == PlayZone.STACK }.bounds.width)
-        assertEquals(28f, scene.cardWidth)
+        assertEquals(28f * 1.2f, scene.cardWidth)
     }
 }

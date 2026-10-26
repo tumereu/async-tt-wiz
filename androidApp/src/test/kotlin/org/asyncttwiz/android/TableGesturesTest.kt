@@ -408,26 +408,31 @@ class TableGesturesTest {
             for (reviewing in listOf(false, true)) for (combat in listOf(false, true)) {
                 val initial = LiveTableFixture.play()
                 val play = if (combat) initial.copy(board = initial.board.copy(combat = org.asyncttwiz.protocol.CombatArea("combat"))) else initial
-                val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape, reviewing = reviewing)
-                val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
-                val geometry = TableAnnotationGeometry(scene, "a")
-                for (field in scene.fields) for (row in 0..1) for (fraction in listOf(.1f, .5f, .9f)) {
-                    val distance = (row + fraction) * field.rowHeight
-                    val end = TablePoint(field.bounds.x + 5 * TablePresentation.GRID,
-                        if (field.owner == "a") field.gridBounds.bottom - distance else field.gridBounds.y + distance)
-                    val events = mutableListOf<TableIntent>()
-                    val gesture = TableGestureCoordinator(events::add)
-                    gesture.update(scene, TableSelection(), true)
-                    gesture.down(start, 0); gesture.move(end, 80); gesture.up(end, 100)
-                    val destination = assertIs<TableDestination.Grid>(events.filterIsInstance<TableIntent.Move>().single().destination,
-                        "$width x $height, reviewing=$reviewing, combat=$combat, ${field.owner} row $row at $end")
-                    assertEquals(field.containerId, destination.containerId)
-                    assertEquals(row, destination.row)
-                    val target = assertNotNull(geometry.location(end))
-                    assertEquals(row, Math.floorDiv(target.position!!.y, 2))
-                    val marker = assertNotNull(geometry.endpoint(target))
-                    assertEquals(target, geometry.location(marker))
-                    assertEquals(row == 0, field.landsBounds(field.owner == "a").contains(marker))
+                val home = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape, reviewing = reviewing)
+                for (owner in listOf("a", "b")) {
+                    val anchor = home.fields.single { it.owner == owner }.landsBounds(owner == "a").center
+                    val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape,
+                        TableLayoutState(home.world!!.clamp(TableCamera(y = anchor.y - home.world.viewport.center.y))), reviewing = reviewing)
+                    val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
+                    val geometry = TableAnnotationGeometry(scene, "a")
+                    for (field in scene.fields.filter { it.owner == owner }) for (row in 0..1) for (fraction in listOf(.1f, .5f, .9f)) {
+                        val distance = (row + fraction) * field.rowHeight
+                        val end = TablePoint(field.bounds.x + 5 * TablePresentation.GRID,
+                            if (field.owner == "a") field.gridBounds.bottom - distance else field.gridBounds.y + distance)
+                        val events = mutableListOf<TableIntent>()
+                        val gesture = TableGestureCoordinator(events::add)
+                        gesture.update(scene, TableSelection(), true)
+                        gesture.down(start, 0); gesture.move(end, 80); gesture.up(end, 100)
+                        val destination = assertIs<TableDestination.Grid>(events.filterIsInstance<TableIntent.Move>().single().destination,
+                            "$width x $height, reviewing=$reviewing, combat=$combat, ${field.owner} row $row at $end")
+                        assertEquals(field.containerId, destination.containerId)
+                        assertEquals(row, destination.row)
+                        val target = assertNotNull(geometry.location(end))
+                        assertEquals(row, Math.floorDiv(target.position!!.y, 2))
+                        val marker = assertNotNull(geometry.endpoint(target))
+                        assertEquals(target, geometry.location(marker))
+                        assertEquals(row == 0, field.landsBounds(field.owner == "a").contains(marker))
+                    }
                 }
             }
         }

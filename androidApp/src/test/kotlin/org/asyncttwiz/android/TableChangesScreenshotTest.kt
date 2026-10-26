@@ -145,7 +145,7 @@ class TableChangesScreenshotTest {
         assertTrue(pt.x >= left.bounds.right, "P/T tag belongs beside the bottom-right value, not over the art")
         assertTrue(pt.width > left.bounds.width, "The full tag must extend beyond the smallest card width")
         assertOpaquePill(image, TableBounds(310f, 850f, 102f, 42f), TableChangeTagFill, "+2/+2")
-        assertOpaquePill(image, TableBounds(2f, 250f, 110f, left.bounds.height + 10), counterColor(CounterColor.RED), "+1")
+        assertOpaquePill(image, TableBounds(2f, left.bounds.y - 24f, 110f, left.bounds.height + 34), counterColor(CounterColor.RED), "+1")
         compose.onRoot().performTouchInput { click(Offset(pt.center.x, pt.center.y)) }
         compose.runOnIdle { assertEquals(1, taps, "Tags must not intercept touches") }
         compose.mainClock.advanceTimeBy(550); compose.waitForIdle()

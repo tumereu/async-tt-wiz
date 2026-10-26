@@ -378,8 +378,8 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
     overlayTop: Int = image.height, reviewing: Boolean = false, turnPlayer: String = "a") {
     for (field in scene.fields) {
         val lands = field.landsBounds(field.owner == viewer)
-        // Timeline deliberately clips the bottom, so the lower lands band may be off screen.
-        if (!reviewing) assertNotNull(lands.intersection(field.bounds), "${field.owner} lands band must be visible")
+        // Card-driven rows can exceed the viewport; geometry tests verify the pan bounds.
+        // Check the exact background colors of every currently visible part of either field.
         // Portrait Stack is a screen-fixed overlay on the world's right edge.
         val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
         // Also avoid the fixed quick-action square to the left of the narrowed Stack area.

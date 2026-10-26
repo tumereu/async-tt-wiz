@@ -31,9 +31,9 @@ class TableAnimationTest {
         }
     }
     private fun halfwayX(from: TableBounds, to: TableBounds): Float = from.center.x +
-        (to.center.x - from.center.x) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED) -
-        (from.width + (to.width - from.width) * cardMoveProgress(from, to, .5f, 180, DEFAULT_CARD_MOVE_SPEED)) / 2
-    @Test fun tapAndUntapUseNinetyMillisButMovesDrawsAndMixedChangesKeepOneEighty() {
+        (to.center.x - from.center.x) * cardMoveProgress(from, to, .5f, 350, DEFAULT_CARD_MOVE_SPEED) -
+        (from.width + (to.width - from.width) * cardMoveProgress(from, to, .5f, 350, DEFAULT_CARD_MOVE_SPEED)) / 2
+    @Test fun tapAndUntapUseNinetyMillisButMovesDrawsAndMixedChangesAllowThreeFifty() {
         val initial = TableFixture.play(board = 2, hand = 1)
         fun tapped(play: PlayState, id: String) = play.copy(board = play.board.copy(cards = play.board.cards.map {
             if (it.id == id) it.copy(tapped = !it.tapped) else it
@@ -57,7 +57,7 @@ class TableAnimationTest {
             moved(initial, listOf("a/LIBRARY/0"), "a/HAND"))) {
             val animation = HistorySceneAnimation(base)
             animation.retarget(TableFixture.scene(target), 1f)
-            assertEquals(180, animation.durationMillis)
+            assertEquals(350, animation.durationMillis)
         }
     }
 
@@ -131,7 +131,7 @@ class TableAnimationTest {
                 assertTrue(animation.retarget(stack, 1f))
                 assertEquals(real, animation.frame(0f).single { it.item.cardId == "effect" }.bounds)
                 val half = animation.frame(.5f).single { it.item.cardId == "effect" }
-                assertEquals(cardMoveProgress(real, slot, .5f, 180, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
+                assertEquals(cardMoveProgress(real, slot, .5f, 350, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
                 assertEquals(halfwayX(real, slot), half.bounds.x, .001f)
                 assertEquals(slot, animation.frame(1f).single { it.item.cardId == "effect" }.bounds)
                 stack.items.firstOrNull { it.cardId == sourceId }?.let { card ->
@@ -261,7 +261,7 @@ class TableAnimationTest {
                 assertTrue(start.item.covered) // Even the viewer's draw leaves a face-down Library pile.
                 val half = animation.frame(.5f).single { it.item.cardId == id }
                 val endBounds = target.items.single { it.cardId == id }.bounds
-                assertEquals(cardMoveProgress(start.bounds, endBounds, .5f, 180, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
+                assertEquals(cardMoveProgress(start.bounds, endBounds, .5f, 350, DEFAULT_CARD_MOVE_SPEED) < 1f, half.item.inTransit)
                 assertNotEquals(start.bounds, half.bounds)
                 val rendered = TablePresentation.clip(target.copy(items = animation.frame(.5f).map { it.item.copy(bounds = it.bounds) }),
                     if (landscape) 900f else 412f, if (landscape) 412f else 820f)

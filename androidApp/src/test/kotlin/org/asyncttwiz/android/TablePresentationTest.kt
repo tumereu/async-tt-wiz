@@ -67,12 +67,16 @@ class TablePresentationTest {
                 val lane = scene.viewports.single { it.id == "combat" }.bounds
                 for (field in scene.fields) {
                     val lands = field.landsBounds(field.owner == "a")
-                    assertEquals(field.bounds.height / 3, lands.height, .001f)
-                    assertEquals(lands, lands.intersection(field.bounds))
+                    assertEquals(field.gridBounds.height / 3, lands.height, .001f)
+                    assertEquals(lands, lands.intersection(field.gridBounds))
                     assertNull(lands.intersection(lane))
                     assertNull(field.bounds.intersection(lane))
-                    val land = scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
-                    assertTrue(land.visible.any { it.intersection(lands) != null })
+                    val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
+                    val panned = TablePresentation.scene(LiveTableFixture.game, play, "a", w, h, true,
+                        TableLayoutState(camera), reviewing = reviewing)
+                    val land = panned.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
+                    val pannedLands = panned.fields.single { it.owner == field.owner }.landsBounds(field.owner == "a")
+                    assertTrue(land.visible.any { it.intersection(pannedLands) != null })
                     assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
                 }
             }
@@ -106,7 +110,8 @@ class TablePresentationTest {
         assertEquals(0, after.items.count { it.kind == TableItemKind.COUNTER })
         assertEquals(6, before.items.count { it.kind == TableItemKind.COUNTER })
         assertTrue(after.viewports.none { it.id.startsWith("counters/") })
-        assertTrue(after.fields.first().bounds.height > before.fields.first().bounds.height)
+        assertTrue(after.world!!.viewport.height > before.world!!.viewport.height)
+        assertEquals(after.fields.first().rowHeight, before.fields.first().rowHeight)
         val landscape = TableFixture.scene(TableFixture.play(), true)
         assertEquals(12, landscape.items.count { it.kind == TableItemKind.COUNTER })
         assertTrue(landscape.items.filter { it.kind == TableItemKind.COUNTER }.all { it.value.isEmpty() })
@@ -349,7 +354,7 @@ class TablePresentationTest {
                     assertEquals(446f, region.center.y, .001f)
                     assertEquals(width, region.right, .001f)
                     assertEquals(28f, stack.bounds.width, .001f)
-                    assertEquals(stack.bounds.width + 8f, region.width, .001f)
+                    assertEquals(stack.bounds.width + 24f, region.width, .001f)
                     assertEquals(64f, region.height, .001f)
                     assertEquals(region.x + 1.5f, stack.stackBadge.center.x, .001f)
                     assertEquals(region.y + 1.5f, stack.stackBadge.center.y, .001f)

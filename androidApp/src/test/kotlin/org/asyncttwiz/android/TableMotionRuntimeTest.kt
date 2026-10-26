@@ -89,14 +89,14 @@ class TableMotionRuntimeTest {
         // BoxWithConstraints subcomposes on Android's layout traversal, not on the test clock.
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(80)
+        val distance = kotlin.math.hypot(source.bounds.center.x - target.bounds.center.x, source.bounds.center.y - target.bounds.center.y)
+        val travelMillis = cardMoveDurationMillis(distance)
+        compose.mainClock.advanceTimeBy(travelMillis.toLong() + 32)
         compose.waitForIdle()
         val node = compose.onNodeWithContentDescription(target.label)
         node.assertIsDisplayed()
         val during = node.fetchSemanticsNode().boundsInRoot
-        val start = TableBounds(source.bounds.x + 8f, source.bounds.y + 8f, 28f, 40f)
-        val distance = kotlin.math.hypot(start.center.x - target.bounds.center.x, start.center.y - target.bounds.center.y)
-        assertTrue(cardMoveDurationMillis(distance) <= 80, "This short draw must arrive before the scene ends")
+        assertTrue(travelMillis < MAX_CARD_MOVE_DURATION_MILLIS, "This short draw must arrive before the scene ends")
         assertEquals(target.bounds.x, during.left, .01f)
         assertEquals(target.bounds.y, during.top, .01f)
         // Confirmation metadata must not restart a short move that has already arrived while

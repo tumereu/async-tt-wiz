@@ -21,11 +21,11 @@ data class CardAppearance(
     fun text(part: CardTextScalePart) = cardScale(if (customizeText) text[part] ?: textSize else textSize)
 }
 
-internal const val MIN_CARD_SCALE = .75f
-internal const val MAX_CARD_SCALE = 2f
+internal const val MIN_CARD_SCALE = .5f
+internal const val MAX_CARD_SCALE = 3f
 internal fun cardScale(value: Float) = if (value.isFinite()) value.coerceIn(MIN_CARD_SCALE, MAX_CARD_SCALE) else 1f
 internal fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
-    ?.takeIf { it.isFinite() && it in MIN_CARD_SCALE..MAX_CARD_SCALE }
+    ?.takeIf { it.isFinite() }?.let(::cardScale)
 
 /** One file for the device, intentionally independent of account IDs and logout cleanup. */
 internal class CardAppearancePreferences(context: Context) {

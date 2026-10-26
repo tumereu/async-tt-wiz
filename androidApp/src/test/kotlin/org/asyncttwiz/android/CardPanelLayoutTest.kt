@@ -32,13 +32,12 @@ class CardPanelLayoutTest {
         }
     }
 
-    @Test fun maximumColumnsAndRightAlignedPartialRowsAreIndependentOfCardCount() {
+    @Test fun maximumColumnsAndLeftAlignedPartialRowsAreIndependentOfCardCount() {
         assertEquals(3, panelColumnCount(3))
         assertEquals(2, panelColumnCount(2))
         for (columns in 2..3) for (count in 1..12) {
             val positions = (0 until count).map { panelColumn(it, count, columns) }
-            assertEquals(columns - 1, positions.last())
-            positions.chunked(columns).forEach { assertEquals((columns - it.size until columns).toList(), it) }
+            positions.chunked(columns).forEach { assertEquals((0 until it.size).toList(), it) }
         }
     }
 
@@ -104,15 +103,40 @@ class CardPanelLayoutTest {
             faceId = d.definition.faces.single().faceId, containerId = grave) }
         val play = f.root.copy(definitions = definitions, board = f.root.board.copy(cards = cards,
             containers = f.root.board.containers.map { it.copy(cards = if (it.id == grave) cards.map { c -> c.id } else emptyList()) }))
-        val panel = cardPanelGeometry(play, f.actor, TableLayoutState(localPileId = grave), TableBounds(0f, 0f, 412f, 700f)).single()
-        assertEquals(listOf("Artifact", "Creature", "Land"), panel.typeHeaders.map { it.title })
-        assertEquals(listOf("Rock", "Beta", "Zulu", "Alpha"), panel.rows.map { it.entry.name })
-        assertEquals(listOf(1, 2, 1, 1), panel.rows.map { it.copies })
-        assertTrue(panel.typeHeaders.all { it.bounds.width == panel.bounds.width - 4 && it.bounds.height == 20f })
-        assertEquals(panel.rows.first().bounds.x, panel.rows.last().bounds.x) // Singleton sections use the rightmost cell.
+        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.LIBRARY)) {
+            val container = f.container(zone)
+            val ids = cards.map { it.id }
+            val variant = play.copy(board = play.board.copy(cards = cards.map { it.copy(containerId = container) },
+                containers = play.board.containers.map { it.copy(cards = if (it.id == container) ids else emptyList()) },
+                contentsDisplays = if (zone == PlayZone.LIBRARY) listOf(ContentsDisplay("search", f.actor, container,
+                    ContentsSelection.ALL, ids.size, false, ids)) else emptyList()))
+            val panel = cardPanelGeometry(variant, f.actor, TableLayoutState(localPileId = container.takeIf { zone != PlayZone.LIBRARY }),
+                TableBounds(0f, 0f, 412f, 700f)).single()
+            assertEquals(listOf("Artifact (1)", "Creature (3)", "Land (1)"), panel.typeHeaders.map { it.title })
+            assertEquals(listOf("Rock", "Beta", "Zulu", "Alpha"), panel.rows.map { it.entry.name })
+            assertEquals(listOf(1, 2, 1, 1), panel.rows.map { it.copies })
+            assertTrue(panel.typeHeaders.all { it.bounds.width == panel.bounds.width - 4 && it.bounds.height == 20f })
+            assertEquals(panel.rows.first().bounds.x, panel.rows.last().bounds.x) // Singleton sections use the leftmost cell.
+            assertEquals(panel.rows.first().bounds.x, panel.rows[1].bounds.x)
+        }
         val backs = listOf(ContentsEntry("a", "Card back", "Cards", "", faceVisible = false),
             ContentsEntry("b", "Card back", "Cards", "", faceVisible = false))
         assertEquals(2, panelGroups(backs).size)
+    }
+
+    @Test fun partialLookAndRevealRowsReorderAtTheLeftEdge() {
+        val play = manyCards().let { initial -> initial.copy(board = initial.board.copy(
+            contentsDisplays = initial.board.contentsDisplays.map { it.copy(cardIds = it.cardIds.take(4), requestedCount = 4) })) }
+        for (reveal in listOf(false, true)) {
+            val state = play.copy(board = play.board.copy(contentsDisplays = play.board.contentsDisplays.map { it.copy(reveal = reveal) }))
+            val scene = TablePresentation.scene(f.game, state, f.actor, 412f, 892f, false)
+            val panel = scene.cardPanels.single()
+            val last = panel.rows.last()
+            assertEquals(panel.rows.first().bounds.x, last.bounds.x)
+            val scope = TableScope(panel.rows.first().entry.cardId, listOf(panel.rows.first().entry.cardId))
+            assertEquals(last.entry.cardId, scene.panelReorder(last.bounds.center.copy(x = last.bounds.x), scope)!!.beforeId)
+            assertNull(scene.panelReorder(last.bounds.center.copy(x = last.bounds.right + 8f), scope)!!.beforeId)
+        }
     }
 
     @Test fun fixedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {

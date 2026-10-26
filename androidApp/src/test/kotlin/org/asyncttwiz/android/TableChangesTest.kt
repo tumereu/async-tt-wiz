@@ -83,7 +83,7 @@ class TableChangesTest {
             val target = initial.copy(items = initial.items.map { it.copy(faceId = "back", covered = covered) })
             val animation = HistorySceneAnimation(initial)
             assertTrue(animation.retarget(target, 1f, setOf("card")))
-            assertEquals(180, animation.durationMillis)
+            assertEquals(350, animation.durationMillis)
             assertEquals(.02f, animation.frame(.5f).single().item.flipScale)
             assertEquals("front", animation.frame(.25f).single().item.faceId)
             assertEquals("back", animation.frame(.75f).single().item.faceId)

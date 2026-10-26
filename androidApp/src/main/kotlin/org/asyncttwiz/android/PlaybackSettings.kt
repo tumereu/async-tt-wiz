@@ -34,13 +34,19 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
         Slider(value = pause.toFloat(), onValueChange = { preferences.pauseMillis = (it / 100).roundToInt() * 100L },
             valueRange = HistoryPlaybackPreferences.MIN_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_PAUSE_MILLIS.toFloat(),
             steps = 98, modifier = Modifier.testTag("history-playback-pause"))
-        if (BuildConfig.DEBUG) {
-            val movePreferences = rememberCardMovePreferences(accountId)
-            var speed by remember(movePreferences) { mutableFloatStateOf(movePreferences.speed) }
-            Text("Card move speed (debug)", style = MaterialTheme.typography.titleSmall)
-            Text("${(speed * 10).roundToInt() / 10f} dp/ms")
-            Slider(value = speed, onValueChange = { speed = (it * 10).roundToInt() / 10f; movePreferences.speed = speed },
-                valueRange = .5f..10f, steps = 94, modifier = Modifier.testTag("card-move-speed"))
+        val movePreferences = rememberCardMovePreferences(accountId)
+        val multiplier by movePreferences.multiplierState()
+        var exact by remember { mutableStateOf(false) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Card move speed", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            TextButton({ exact = true }, Modifier.testTag("card-move-speed-value")) { Text("${multiplier}×") }
+        }
+        Slider(value = multiplier, onValueChange = { movePreferences.multiplier = (it * 100).roundToInt() / 100f },
+            valueRange = MIN_CARD_MOVE_MULTIPLIER..MAX_CARD_MOVE_MULTIPLIER, modifier = Modifier.testTag("card-move-speed"))
+        if (exact) ScaleValueInput("Card move speed", multiplier, MIN_CARD_MOVE_MULTIPLIER..MAX_CARD_MOVE_MULTIPLIER,
+            { exact = false }) {
+            movePreferences.multiplier = it
+            exact = false
         }
     }
 }

@@ -322,7 +322,7 @@ class HistorySceneAnimation(initial: TableScene) {
     private var destination = initial
     private var start = initial.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
     private var end = start
-    var durationMillis: Int = 180; private set
+    var durationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS; private set
     internal var rotatingCardIds: Set<String> = emptySet(); private set
     private var flippingCardIds: Set<String> = emptySet()
     private var latestScene = initial
@@ -455,7 +455,7 @@ class HistorySceneAnimation(initial: TableScene) {
                 a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to ->
                     from.width == to.width && from.height == to.height
                 } })
-        }) 90 else 180
+        }) 90 else MAX_CARD_MOVE_DURATION_MILLIS
         destination = target
         return true
     }

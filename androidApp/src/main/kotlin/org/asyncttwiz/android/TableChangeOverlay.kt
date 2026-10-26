@@ -182,9 +182,12 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                      b.center.x + (dx * kotlin.math.cos(radians) - dy * kotlin.math.sin(radians)).toFloat(),
                      b.center.y + (dx * kotlin.math.sin(radians) + dy * kotlin.math.cos(radians)).toFloat())
                      else TablePoint(b.right - width / 2, b.y)
-                 val x = (if (card) anchor.x + 3f else anchor.x)
+                  val x = (if (card) maxOf(anchor.x + 3f, b.right + 3f) else anchor.x)
                      .coerceIn(2f, (size.width / density - width - 2f).coerceAtLeast(2f))
-                 val y = (anchor.y - height / 2)
+                  // At the smallest card size, screen-sized counter and P/T pills need separate rows.
+                  val tagY = if (card && key.kind == TableChangeKind.COUNTER && b.height < 2 * height)
+                      minOf(anchor.y, b.bottom - height - 4f) else anchor.y
+                  val y = (tagY - height / 2)
                      .coerceIn(48f, (size.height / density - height - 2f).coerceAtLeast(48f))
                  val tag = TableBounds(x, y, width, height)
                  val fill = if (key.kind == TableChangeKind.COUNTER) key.color?.let(::counterColor) ?: TableChangeTagFill else TableChangeTagFill

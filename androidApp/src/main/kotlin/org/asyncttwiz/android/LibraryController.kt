@@ -19,10 +19,16 @@ class LibraryController(
         RandomV1.encodeSeed(ByteArray(32).also { SecureRandom().nextBytes(it) })
     },
     private val request: ((PlayAction, String) -> Boolean)? = null,
-    private val moveRequest: ((TableIntent.Move) -> LibrarySubmission)? = null
+    private val moveRequest: ((TableIntent.Move) -> LibrarySubmission)? = null,
+    private val viewer: String? = null
 ) {
     private fun current(): PlayState? = state()?.takeIf { it.id == playId }
     fun available() = connected() && current() != null
+    fun maySetKeepTopRevealed() = available() && current()?.board?.containers?.any {
+        it.id == libraryId && it.zone == PlayZone.LIBRARY && it.accountId == viewer } == true
+    fun setKeepTopRevealed(enabled: Boolean): LibrarySubmission =
+        if (!maySetKeepTopRevealed()) LibrarySubmission(0, 1)
+        else send(listOf(PlayAction.SetKeepTopRevealed(libraryId, enabled)))
     private fun send(actions: List<PlayAction>, invocation: String = UUID.randomUUID().toString()): LibrarySubmission {
         var sent = 0; var refused = 0
         var prefixAccepted = true

@@ -132,6 +132,11 @@ internal object LibraryKnowledge {
         val topSet = top.toSet(); val bottomSet = bottom.toSet()
         top = library.cards.takeWhile { it in topSet }
         bottom = library.cards.takeLastWhile { it in bottomSet && it !in topSet }
+        // A continuously exposed top is a fixed identity across branch reseeds, even after shuffle.
+        if (library.keepTopRevealed && top.isEmpty()) library.cards.firstOrNull()?.let { id ->
+            top = listOf(id)
+            bottom = bottom.filterNot { it == id }
+        }
         library.copy(knownTop = top, knownBottom = bottom)
     })
 }

@@ -35,6 +35,15 @@ object LibraryRules {
         fun record(next: BoardState, transition: GameplayTransition) =
             GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion)
         return when (action) {
+            is PlayAction.SetKeepTopRevealed -> {
+                val library = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
+                    ?: return GameplayChange(reason = "missingReference")
+                if (library.accountId != actor) return GameplayChange(reason = "accessDenied")
+                if (library.keepTopRevealed == action.enabled) return GameplayChange(state)
+                record(board.copy(containers = board.containers.map {
+                    if (it.id == library.id) it.copy(keepTopRevealed = action.enabled) else it
+                }), GameplayTransition())
+            }
             is PlayAction.Mulligan -> {
                 val library = board.containers.singleOrNull { it.id == action.libraryId && it.zone == PlayZone.LIBRARY }
                     ?: return GameplayChange(reason = "missingReference")

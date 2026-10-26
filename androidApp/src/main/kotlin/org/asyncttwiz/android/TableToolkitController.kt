@@ -332,7 +332,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             adapter.handle(intent)
             LibrarySubmission(submitted, intent.scope.cardIds.size - submitted)
-        })
+        }, viewer = viewer)
     }
 
     fun inspect(viewId: String) {

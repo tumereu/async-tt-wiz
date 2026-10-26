@@ -189,7 +189,8 @@ internal object GameplayConcerns {
                     // Removal/repositioning normalizes both edges even when they stay empty.
                     // Retained replay must not skip cleanup made necessary by an earlier undo.
                     entity("container", source.id, "knownTop"); entity("container", source.id, "knownBottom")
-                    if (a.source.edge == MoveSourceEdge.TOP && c.id in source.knownTop && a.destination.containerId != source.id)
+                    if (a.source.edge == MoveSourceEdge.TOP && c.id in source.knownTop && a.destination.containerId != source.id &&
+                        !(mutation.transition.rulesVersion >= 14 && source.keepTopRevealed))
                         fields += ConcernField.Top(source.id, c.id)
                     else if (c.id in source.unknownMiddle && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))
                         fields += ConcernField.ShuffleSet(source.id)
@@ -217,6 +218,10 @@ internal object GameplayConcerns {
             }
             is PlayAction.RemoveProjectionLink -> Unit
             is PlayAction.ShuffleLibrary -> knowledge(a.containerId)
+            is PlayAction.SetKeepTopRevealed -> {
+                entity("container", a.containerId, "zone"); entity("container", a.containerId, "accountId")
+                if (a.enabled) fields += ConcernField.Slice(a.containerId, ContentsSelection.TOP, 1)
+            }
             is PlayAction.Mulligan -> {
                 knowledge(a.libraryId)
                 entity("container", a.libraryId, "cards"); entity("container", a.handId, "cards")
@@ -289,6 +294,18 @@ internal object GameplayConcerns {
             is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
             is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
             is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult -> Unit
+        }
+        if (mutation.transition.rulesVersion >= 14) {
+            // Retained library edits must not lose their continuous-disclosure semantics when
+            // the toggle is selectively undone. These are local field reads, not history scans.
+            val touched = delta.entities.filter { it.kind == "container" }.map { it.id }.toMutableSet()
+            touched += mutation.transition.disclosures.map { it.containerId }
+            (mutation.action as? PlayAction.MoveCard)?.let { touched += it.source.containerId; touched += it.destination.containerId }
+            from.board.containers.filter { it.zone == PlayZone.LIBRARY && it.id in touched }.forEach {
+                entity("container", it.id, "keepTopRevealed")
+            }
+            mutation.transition.disclosures.filter { it.automatic || mutation.action is PlayAction.SetKeepTopRevealed }
+                .forEach { entity("card", it.cardId, "faceId") }
         }
         if (mutation.transition.rulesVersion >= 13) {
             val edit = when (val a = mutation.action) {

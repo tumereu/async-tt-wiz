@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,6 +11,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import android.content.Context
 import org.asyncttwiz.protocol.*
 
@@ -58,6 +60,14 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             InlinePopupCell(MenuControl("Mulligan 7", enabled) { finish(controller.mulligan(displayedHand, 7)) })
             InlinePopupCell(MenuControl("Mulligan −1", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
+        }
+        val revealed = board.containers.single { it.id == controller.libraryId }.keepTopRevealed
+        Row(Modifier.width(248.dp).heightIn(min = 48.dp).ringInputTarget()
+            .toggleable(revealed, enabled = controller.maySetKeepTopRevealed(), role = Role.Switch,
+                onValueChange = { finish(controller.setKeepTopRevealed(it)) }),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Keep top card revealed", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            Switch(revealed, onCheckedChange = null, enabled = controller.maySetKeepTopRevealed())
         }
     }
     if (editing != null) {

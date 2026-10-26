@@ -25,7 +25,8 @@ import kotlinx.serialization.Serializable
     /** Library cards are knownTop + unknown middle + knownBottom, all top first.
      * Old snapshots have no knowledge metadata and therefore start entirely unknown. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownTop: List<String> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownBottom: List<String> = emptyList()) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownBottom: List<String> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val keepTopRevealed: Boolean = false) {
     val unknownMiddle: List<String> get() = cards.subList(knownTop.size, cards.size - knownBottom.size)
 }
 
@@ -39,6 +40,7 @@ object CardVisibility {
 
     fun isVisibleFaceUp(board: BoardState, card: PlayCard, viewer: String): Boolean {
         val container = board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        if (container.zone == PlayZone.LIBRARY && container.keepTopRevealed && container.cards.firstOrNull() == card.id) return true
         if (card.knownToAll) return true
         if (board.contentsDisplays.any { it.panelVersion >= 3 && it.containerId == card.containerId &&
                 card.id in it.cardIds && it.faceVisibleTo(card.id, viewer) }) return true

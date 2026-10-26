@@ -49,7 +49,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
             if (t.combatStack?.let { it.effects.isNotEmpty() || it.order.isNotEmpty() } == true ||
                 movement != null && containers.any { it.zone == PlayZone.STACK &&
                     it.id in listOf(movement.from.containerId, movement.to.containerId) }) result += PlaybackAutoPause.STACK
-            if (t.disclosures.any { viewer in it.viewers } || t.contents?.let { change ->
+            if (action is PlayAction.SetKeepTopRevealed || t.disclosures.any { !it.automatic && viewer in it.viewers } || t.contents?.let { change ->
                     change.to?.let { display -> change.from == null && display.cardIds.any { display.faceVisibleTo(it, viewer) } } == true
                 } == true) result += PlaybackAutoPause.REVEAL
             if (action is PlayAction.Ping || action is PlayAction.EventComment) result += PlaybackAutoPause.PINGS_COMMENTS

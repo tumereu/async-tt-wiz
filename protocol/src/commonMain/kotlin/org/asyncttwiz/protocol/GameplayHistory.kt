@@ -15,8 +15,11 @@ import kotlinx.serialization.Serializable
     val coverRulesVersion: Int = 1)
 @Serializable data class GameplayRead(val targetId: String, val field: GameplayField, val value: String)
 /** Accepted information exposure, not a whole-card snapshot or a local inspection permission. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayDisclosure(val cardId: String, val faceId: String, val containerId: String,
-    val viewers: List<String>)
+    val viewers: List<String>,
+    /** Continuous top exposure is information, but not a separate Reveal playback stop. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatic: Boolean = false)
 @Serializable data class AttentionChange(val from: String?, val to: String)
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameplayTransition(val fields: List<GameplayFieldChange> = emptyList(),

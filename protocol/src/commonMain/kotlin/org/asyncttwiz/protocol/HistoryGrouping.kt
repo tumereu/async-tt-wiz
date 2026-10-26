@@ -66,6 +66,8 @@ object HistoryGrouping {
         is PlayAction.RollDie -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "casino")
         is PlayAction.FlipCoin -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "monetization_on")
         is PlayAction.ShuffleLibrary -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.containerId)
+        is PlayAction.SetKeepTopRevealed -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
+            "visibility", isolated = true)
         is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.libraryId)
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) "visibility" else "pageview")

@@ -54,6 +54,8 @@ import kotlinx.serialization.json.*
         @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
     @Serializable @SerialName("shuffleLibrary") data class ShuffleLibrary(val containerId: String,
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
+    @Serializable @SerialName("setKeepTopRevealed") data class SetKeepTopRevealed(val containerId: String,
+        val enabled: Boolean) : PlayAction
     @Serializable @SerialName("mulligan") data class Mulligan(val libraryId: String, val handId: String,
         val displayedHand: List<String>, val drawCount: Int, val seed: String) : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
@@ -135,6 +137,7 @@ object GameplayRules {
             (action.destination.insertion == MoveInsertion.PILE_GAP || action.destination.targetCardId == null) &&
             (action.expectedStackDigest == null || DeckValidation.digest(action.expectedStackDigest)) &&
             (action.removeStackEntryId == null || DeckValidation.uuid(action.removeStackEntryId))
+        is PlayAction.SetKeepTopRevealed -> DeckValidation.uuid(action.containerId)
         is PlayAction.ShuffleLibrary -> DeckValidation.uuid(action.containerId) && action.algorithm == "shuffle-v1" &&
             runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.Mulligan -> listOf(action.libraryId, action.handId).all(DeckValidation::uuid) &&
@@ -242,7 +245,7 @@ object GameplayRules {
                 transition = GameplayTransition(listOf(GameplayFieldChange(account, GameplayField.LIFE, player.life, value)))
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
-            is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
+            is PlayAction.SetKeepTopRevealed, is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
             is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
                 return LibraryRules.change(state, actor, command, action)
             PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep,
@@ -276,7 +279,20 @@ object GameplayRules {
         }), action)
         val closed = CombatStackRules.closeInvariants(state.board, resolved)
             ?: return GameplayChange(reason = "invalidStructure")
-        val relevant = transition.copy(rulesVersion = 13, combatStack = CombatStackRules.transition(state, closed, action),
+        // At most one newly exposed card per library, recorded in this transition, never a new event.
+        val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
+            val id = library.cards.firstOrNull() ?: return@mapNotNull null
+            val card = closed.cards.single { it.id == id }
+            val old = state.board.containers.single { it.id == library.id }
+            if (old.keepTopRevealed && old.cards.firstOrNull() == id &&
+                state.board.cards.single { it.id == id }.faceId == card.faceId) return@mapNotNull null
+            GameplayDisclosure(id, card.faceId, library.id, closed.players.map { it.accountId }.sorted(),
+                // Only replacement tops are automatic; an explicit face change is still a Reveal.
+                automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
+        }
+        val relevant = transition.copy(rulesVersion = 14, combatStack = CombatStackRules.transition(state, closed, action),
+            disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {
+                it.cardId == disclosure.cardId && it.containerId == disclosure.containerId } } + topDisclosures,
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)
                 contentsRulesVersion else transition.contentsRulesVersion,
             contents = if (panel == null) transition.contents else ContentsDisplayChange(panel, closed.contentsDisplays.singleOrNull { it.id == panel.id }))

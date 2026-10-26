@@ -21,8 +21,8 @@ class ManualActions {
         scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewId = id)
         edit(ManualValue(ManualValueKind.NOTE), state, viewer)
     }
-    fun player(state: PlayState, accountId: String) {
-        scope = ManualScope(state.gameId, state.id, accountId, listOf(accountId), player = true)
+    fun player(state: PlayState, accountId: String, counters: Boolean = false) {
+        scope = ManualScope(state.gameId, state.id, accountId, listOf(accountId), player = true, playerCounters = counters)
         editor = null
     }
     fun edit(field: ManualValue, state: PlayState, viewer: String) {
@@ -69,7 +69,8 @@ data class ManualInspection(val gameId: String, val playId: String, val cardId: 
     val provisional: Boolean = false, val stackEntryId: String? = null)
 
 data class ManualScope(val gameId: String, val playId: String, val contextId: String,
-    val targetIds: List<String>, val player: Boolean = false, val noteViewId: String? = null) {
+    val targetIds: List<String>, val player: Boolean = false, val noteViewId: String? = null,
+    val playerCounters: Boolean = false) {
     fun usable(state: PlayState): Boolean = gameId == state.gameId && playId == state.id &&
         if (player) state.board.players.any { it.accountId == contextId }
         else if (noteViewId != null) CombatStackRules.projectionNote(state.board, noteViewId) != null
@@ -159,7 +160,7 @@ internal fun ManualActionsHost(state: PlayState, viewer: String, actions: Manual
     editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val scope = actions.scope
     if (scope != null && scope.usable(state)) {
-        if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, submit)
+        if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, landscape, submit)
         else if (actions.editor == null && state.board.cards.any { it.id == scope.contextId })
             CardActions(state, viewer, scope, actions, canEdit, names, submitAll, tools, previewViewId, inspect, editProjectionNote, submit)
         actions.editor?.let { draft ->

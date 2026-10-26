@@ -72,8 +72,11 @@ class TableActionWiringTest {
         assertEquals("Retained face", TablePresentation.inspection(f.play, f.other, f.id(40))!!.name)
     }
 
-    @Test fun lifeAndDisappearingCounterRowEmitOneRelativeRequestOnReleaseOnlyAndRespectCancelAndDisconnect() {
-        val f = BasicTableFixture(); f.connect()
+    @Test fun lifeAndZeroCounterEmitOneRelativeRequestOnReleaseOnlyAndRespectCancelAndDisconnect() {
+        val f = BasicTableFixture()
+        f.connect(f.root.copy(board = f.root.board.copy(players = f.root.board.players.map {
+            if (it.accountId == f.actor) it.copy(counters = mapOf(CounterColor.BLUE to "1")) else it
+        })))
         val gestures = TableGestureCoordinator({ f.basic.handle(it) })
         fun scene() = TablePresentation.scene(f.game, f.play, f.actor, 412f, 900f, false)
         gestures.update(scene(), TableSelection(), true)
@@ -81,22 +84,24 @@ class TableActionWiringTest {
         gestures.down(life, 0); gestures.move(TablePoint(life.x, life.y - 72), 100)
         assertTrue(f.commands().isEmpty()); assertEquals("20", f.play.board.players.first().life)
         gestures.up(TablePoint(life.x, life.y - 72), 150)
-        assertEquals(PlayAction.AdjustLife(f.actor, "-6"), (f.commands().single().action as GameAction.Play).action)
-        assertEquals("14", f.play.board.players.first().life)
+        assertEquals(PlayAction.AdjustLife(f.actor, "-1"), (f.commands().single().action as GameAction.Play).action)
+        assertEquals("19", f.play.board.players.first().life)
         gestures.down(life, 200); gestures.move(TablePoint(life.x, life.y - 48), 250); gestures.cancel()
         assertEquals(1, f.commands().size)
         gestures.down(life, 300); gestures.move(TablePoint(life.x, life.y - 48), 350)
         gestures.update(scene(), TableSelection(), false); gestures.up(TablePoint(life.x, life.y - 48), 400)
         assertEquals(1, f.commands().size)
-        // Landscape absent-counter field has a semantic identity even after portrait hides its row.
+        // A captured landscape counter survives portrait reflow and becomes an empty slot at zero.
         val landscape = TablePresentation.scene(f.game, f.play, f.actor, 900f, 500f, true)
         val counter = landscape.items.single { it.id == "counter/${f.actor}/BLUE" }
         gestures.update(landscape, TableSelection(), true)
         gestures.down(counter.bounds.center, 500); gestures.move(TablePoint(counter.bounds.center.x, counter.bounds.center.y - 48), 550)
         gestures.update(scene(), TableSelection(), true)
         gestures.up(TablePoint(counter.bounds.center.x, counter.bounds.center.y - 48), 600)
-        assertEquals(PlayAction.AdjustCounter(CounterTarget.PLAYER, f.actor, CounterColor.BLUE, "-4"),
+        assertEquals(PlayAction.AdjustCounter(CounterTarget.PLAYER, f.actor, CounterColor.BLUE, "-1"),
             (f.commands().last().action as GameAction.Play).action)
+        assertEquals("", scene().items.single { it.id == counter.id }.value)
+        assertTrue(TablePresentation.scene(f.game, f.play, f.actor, 900f, 500f, true).items.none { it.id == counter.id })
     }
 
     @Test fun capturedLibraryMenuAndMoveDestinationDoNotRetargetAfterSyncOrReflow() {

@@ -156,7 +156,7 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
         }
         if (face != null && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
             fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale, overflow = TextOverflow.Clip)
-        Row { for ((color, value) in card.counters) Text(value, Modifier.background(counterColor(color)),
+        Row { for ((color, value) in card.counters.filterValues(TablePresentation::nonzero)) Text(value, Modifier.background(counterColor(color)),
             maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
         Text("${if (count > 1) "×$count " else ""}${card.corner}", Modifier.align(Alignment.End), maxLines = 1,
             fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)

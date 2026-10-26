@@ -64,8 +64,7 @@ private fun changeCard(id: String, item: (String) -> TableItem?) =
 internal fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableItem? {
     val shown = when (key.kind) {
         TableChangeKind.LIFE -> item("life/${key.target}")
-        // Portrait removes an empty counter row immediately. Only the visual feedback moves to
-        // the public HUD; no removed counter item or input target is kept alive for the fade.
+        // Portrait retains empty slots; hidden landscape counters fall back to the life HUD.
         TableChangeKind.PLAYER_COUNTER -> item("counter/${key.target}/${key.color}") ?: item("life/${key.target}")
         else -> changeCard(key.target, item)
     } ?: return null

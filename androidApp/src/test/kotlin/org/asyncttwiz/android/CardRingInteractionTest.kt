@@ -248,7 +248,7 @@ class CardRingInteractionTest {
         compose.ringPage(2)
         compose.mainClock.advanceTimeBy(600)
         val value = compose.onNodeWithContentDescription("Set blue counter")
-        value.performTouchInput { down(center); moveBy(Offset(40f, 0f)) }
+        value.performTouchInput { down(center); moveBy(Offset(144f, 0f)) }
         val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
         compose.onNodeWithText(valueDragLabel(initial, 3)).assertExists()
         compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
@@ -277,7 +277,7 @@ class CardRingInteractionTest {
         compose.ringPage(1)
         compose.mainClock.advanceTimeBy(600)
         val value = compose.onNodeWithContentDescription("Set corner")
-        value.performTouchInput { down(center); moveBy(Offset(10f, -30f)) }
+        value.performTouchInput { down(center); moveBy(Offset(10f, -96f)) }
         compose.onNodeWithText("+2 → 3/5").assertExists()
         value.performTouchInput { up() }
         compose.runOnIdle {
@@ -295,8 +295,8 @@ class CardRingInteractionTest {
         val value = compose.onNodeWithContentDescription("Set blue counter")
         val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
         // Rendering settles well within the 280ms guard; the opening gesture's tail stays inert.
-        value.performTouchInput { down(center); moveBy(Offset(20f, -40f)) }
-        compose.onNodeWithText(valueDragLabel(initial, 4)).assertDoesNotExist()
+        value.performTouchInput { down(center); moveBy(Offset(20f, -144f)) }
+        compose.onNodeWithText(valueDragLabel(initial, 3)).assertDoesNotExist()
         value.performTouchInput { up() }
         compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
         compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()

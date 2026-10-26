@@ -218,12 +218,12 @@ class TableChangesScreenshotTest {
             "Public owner feedback must only pulse the border")
     }
 
-    @Test fun vanishedCounterKeepsMinusOneTagOnHudForItsFadeThenExpires() {
+    @Test fun zeroedCounterKeepsMinusOneTagOnItsOutlineSlotThenExpires() {
         val initial = LiveTableFixture.menuPlay()
         val play = initial.copy(board = initial.board.copy(players = initial.board.players.map { it.copy(counters = emptyMap()) }))
         val scene = ChangeTargetFixture.scene(play)
-        val hud = scene.items.single { it.id == "life/a" }
-        assertTrue(scene.items.none { it.kind == TableItemKind.COUNTER })
+        val hud = scene.items.single { it.id == "counter/a/BLUE" }
+        assertEquals("", hud.value)
         val changes = TableChanges { 0L }
         overlay(scene, changes)
         val before = capture("zero-counter-changefx-before")
@@ -233,7 +233,7 @@ class TableChangesScreenshotTest {
         compose.mainClock.advanceTimeBy(650); compose.waitForIdle()
         val tagArea = TableBounds(hud.bounds.x, hud.bounds.y - 20, hud.bounds.width + 24, 40f)
         assertTrue(changedPixels(before, capture("zero-counter-changefx-tag"), tagArea) > 20,
-            "The tag must outlive the flash even though its counter row was removed")
+            "The tag must outlive the flash on the empty counter slot")
         compose.mainClock.advanceTimeBy(900); compose.waitForIdle()
         compose.runOnIdle { assertTrue(changes.active.isEmpty()) }
         assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired"), TableBounds(0f, 0f, 412f, 892f)))

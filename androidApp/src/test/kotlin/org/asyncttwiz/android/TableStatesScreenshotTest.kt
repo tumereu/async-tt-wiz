@@ -453,18 +453,22 @@ class TableStatesScreenshotTest {
         compose.runOnIdle { assertTrue(sent.isEmpty()) }
     }
 
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun blankOpponentCounterOpensPlayerActionsWithoutMutationInLandscape() {
-        render("combat", true)
-        compose.onNodeWithContentDescription("Bob, red, no value").performClick()
-        compose.onNodeWithContentDescription("Life / counters").assertExists()
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLifeOpensOnlyLifeInLandscape() {
+        val sent = render("combat", true)
+        compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
+        compose.onNodeWithContentDescription("Life", substring = false).assertExists()
+        compose.onNodeWithContentDescription("Set life").assertExists()
+        compose.onNodeWithContentDescription("Set red counter").assertDoesNotExist()
+        assertTrue(sent.isEmpty())
     }
 
-    @Test fun hiddenPortraitCountersRemainReachableThroughLifeWithoutMutation() {
-        render("combat", false)
-        compose.onNodeWithContentDescription("Bob, red, no value").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
-        compose.onNodeWithContentDescription("Life / counters").assertExists()
+    @Test fun emptyPortraitCounterOpensOnlyCountersWithoutMutation() {
+        val sent = render("combat", false)
+        compose.onNodeWithContentDescription("Bob, red, no value").performClick()
+        compose.onNodeWithContentDescription("Counters").assertExists()
         compose.onNodeWithContentDescription("Set red counter").assertExists()
+        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
+        assertTrue(sent.isEmpty())
     }
 
       @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {

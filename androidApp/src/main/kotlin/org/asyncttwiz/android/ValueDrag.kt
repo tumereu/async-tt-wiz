@@ -20,15 +20,16 @@ internal fun cardValueDragSide(board: org.asyncttwiz.protocol.BoardState, card: 
     return if (controller == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP
 }
 
-/** First four units cost 12dp each, then a smooth quadratic accelerates to ~50 at 250dp.
- * [step] is the initial unit distance in the caller's coordinates. Ties use the vertical axis. */
-internal fun valueDragDelta(dx: Float, dy: Float, step: Float = 12f, side: ValueDragSide = ValueDragSide.BOTTOM): Long {
+/** First three units cost 48dp each, then a smooth quadratic accelerates to ~30 at 412dp.
+ * Magnitudes truncate to whole units. [step] is the initial unit distance in the caller's
+ * coordinates. Ties use the vertical axis. */
+internal fun valueDragDelta(dx: Float, dy: Float, step: Float = 48f, side: ValueDragSide = ValueDragSide.BOTTOM): Long {
     require(step.isFinite() && step > 0f)
     if (!dx.isFinite() || !dy.isFinite()) return 0
     val distance = if (abs(dx) > abs(dy)) dx else if (side == ValueDragSide.BOTTOM) dy else -dy
     val units = abs(distance.toDouble()) / step
-    val extra = (units - 4).coerceAtLeast(0.0)
-    val magnitude = (units + .103 * extra * extra).toLong()
+    val extra = (units - 3).coerceAtLeast(0.0)
+    val magnitude = (units + .6871 * extra * extra).toLong()
     return if (distance < 0) -magnitude else magnitude
 }
 
@@ -75,7 +76,7 @@ internal fun Modifier.valueDragGestures(enabled: Boolean, preview: (Long?) -> Un
                     }
                     if (dragging) {
                         change.consume()
-                        val delta = valueDragDelta(distance.x, distance.y, 12.dp.toPx(), dragSide)
+                        val delta = valueDragDelta(distance.x, distance.y, 48.dp.toPx(), dragSide)
                         currentPreview(delta)
                         if (!change.pressed && delta != 0L) release(delta)
                     }

@@ -28,7 +28,11 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 sawData = true
                 reader.beginArray()
                 while (reader.hasNext()) {
-                    val json = value(reader, 2, intArrayOf(0)).asJsonObject
+                    // Real entries embed large decks/sealedProduct lists; keep only the planning fields.
+                    val json = JsonObject()
+                    objectFields(reader) { key ->
+                        if (key == "code" || key == "releaseDate") json.add(key, value(reader, 3, intArrayOf(0))) else skip(reader, 3)
+                    }
                     val code = string(json, "code", true)
                     catalogSetFilename(code) // Reject path-like codes before planning or downloading.
                     val date = string(json, "releaseDate", true).also { LocalDate.parse(it) }

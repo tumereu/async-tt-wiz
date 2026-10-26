@@ -107,7 +107,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                     stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
-                            enabled = enabled, modifier = Modifier.ringInputTarget(), leadingIcon = { StackMarkChip(option) },
+                             enabled = enabled, modifier = Modifier.ringInputTarget().tableChangeFlash(LocalTableChanges.current,
+                                 TableChangeKey(id, TableChangeKind.TEXT_MARK, line = option)), leadingIcon = { StackMarkChip(option) },
                             label = { CardText(text.text, maxLines = 3) })
                     }
                     HorizontalDivider()

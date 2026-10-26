@@ -33,7 +33,8 @@ import org.asyncttwiz.protocol.*
 internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
     markedOptions: List<Pair<Int, StackTextOption>> = emptyList(),
     token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false,
-    peekScroll: ScrollState? = null) {
+    peekScroll: ScrollState? = null, stackEntryId: String? = null,
+    textOptions: List<StackTextOption> = emptyList()) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
@@ -87,8 +88,11 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                             val marked = markedOptions.filter { it.second.faceId == face.faceId }
                             @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
                                 val selected = marked.firstOrNull { it.second.paragraph == paragraph }
-                                Row(if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
-                                    RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier,
+                                val lineIndex = textOptions.indexOfFirst { it.faceId == face.faceId && it.paragraph == paragraph }
+                                val flash = if (stackEntryId != null && lineIndex >= 0) Modifier.tableChangeFlash(LocalTableChanges.current,
+                                    TableChangeKey(stackEntryId, TableChangeKind.TEXT_MARK, line = lineIndex)) else Modifier
+                                Row((if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
+                                    RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier).then(flash),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (selected != null) StackMarkChip(selected.first)
                                     CardText(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
@@ -177,7 +181,8 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                 card.note.takeIf(String::isNotBlank)).joinToString("\n"),
             markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
-            projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll)
+             projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll,
+             stackEntryId = inspection.stackEntryId, textOptions = inspection.stackEntryId?.let { StackText.options(state, it) }.orEmpty())
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

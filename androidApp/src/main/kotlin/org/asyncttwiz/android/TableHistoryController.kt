@@ -34,6 +34,27 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var lastSeen: String? = null
     private var recordSeen: ((String, String) -> Unit)? = null
     private var lastPresentedLive: Pair<String, String>? = null
+    val changes = TableChanges()
+    private var stepChanges: Pair<String, TableChangeBatch>? = null
+    private val pendingChanges = ArrayDeque<TableChangeBatch>()
+    private fun clearChanges() { changes.clear(); stepChanges = null; pendingChanges.clear() }
+    fun liveChanges(batch: TableChangeBatch) {
+        if (batch.jump) clearChanges()
+        else if (!closed && foreground && batch.events.isNotEmpty() &&
+            (playback?.position?.mode == HistoryMode.LIVE || armed != null)) {
+            if (pendingChanges.size >= 256) clearChanges()
+            pendingChanges.addLast(batch)
+        }
+    }
+    /** Align the effects with the actual displayed endpoint, including held live reveals and
+     * coalesced rapid predictions. The pending window has a fixed bound, independent of history. */
+    fun showChanges(cursor: String) {
+        val through = pendingChanges.indexOfLast { it.cursor == cursor }
+        repeat(through + 1) { changes.apply(pendingChanges.removeFirst()) }
+    }
+    private fun playbackChanges(from: String, to: String, index: HistoryTree) {
+        stepChanges = to to TableChangeExtraction.between(from, to, index.nodes)
+    }
 
     /** Configure once before the first update; ordinary review never changes this bookmark. */
     fun openFrom(nodeId: String?, record: (String, String) -> Unit) {
@@ -58,7 +79,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
                     val old = playback
-                    if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index).also {
+                    if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index, ::playbackChanges,
+                        { clearChanges() }).also {
                         if (opening) it.openFrom(lastSeen)
                     }
                     else old.receive(index, viewer)
@@ -90,13 +112,14 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (next.cursor != null && (!index.contains(next.cursor) ||
                         (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
+                stepChanges?.takeIf { it.first == next.cursor }?.let { changes.apply(it.second); stepChanges = null }
                 if (position.mode == HistoryMode.PLAYBACK && next.cursor != null && next.cursor != position.cursorId)
                     playback.scrub(next.cursor)
             }
         }) error = "History is not downloaded yet."
     }
 
-    fun select(node: String) { cancel(); playback?.takeIf { it.tree.contains(node) }?.scrub(node) }
+    fun select(node: String) { clearChanges(); cancel(); playback?.takeIf { it.tree.contains(node) }?.scrub(node) }
     fun canArm(node: String): Boolean {
         val playback = playback ?: return false
         return playback.canContinue(node) && view?.cursor == node && view?.state != null && viewVersion == playback.tree.liveVersion
@@ -141,9 +164,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     }
     fun cancel() { armed = null; continuationTarget = null; provisional = false; firstRequest = null; gate = null }
     /** Abandon only local intent and show the live head; no gameplay or control request. */
-    fun cancelContinuation() { cancel(); playback?.continuationApplied() }
+    fun cancelContinuation() { clearChanges(); cancel(); playback?.continuationApplied() }
     fun current() { if (armed != null) cancelContinuation() else { cancel(); playback?.play() } }
     fun updateForeground(value: Boolean) {
+        if (!value) clearChanges()
         foreground = value
         if (value) playback?.foreground() else playback?.background()
     }
@@ -212,6 +236,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         precedingPresented = state.currentNodeId
     }
 
-    fun leaving() { lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
+    fun leaving() { clearChanges(); lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
     override fun close() { leaving(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null }
 }

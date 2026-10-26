@@ -234,7 +234,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 coordinator.pointFromPixels(center.x - screenOrigin.x, center.y - screenOrigin.y))
             preview = coordinator.preview
         }) }
-    CompositionLocalProvider(LocalTableTapRelay provides relay) {
+    CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
@@ -273,7 +273,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         SideEffect { animation.updateMetadata(targetScene) }
         LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
-            if (animation.retarget(targetScene, progress.value)) {
+            val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
+            if (animation.retarget(targetScene, progress.value, faceChanges)) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
@@ -534,6 +535,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             }
         }
+        TableChangeOverlay(runtime.changes, accountId, scene.appearance,
+            item = { id -> rendered.value.items[id] })
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
         CardPanelHeaders(scene, accountId, writable, toolkit)
         if (runtime.reviewing) runtime.reviewPanel?.invoke()
@@ -686,7 +689,8 @@ private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: P
         val turnPlayer = if (play.board.turn.accountId == game.inviter.accountId) game.inviter else game.recipient
         ActionSquare("Turn ${play.board.turn.number}, ${turnPlayer.username}'s turn, ${turnStepName(play.board.turn)}. Choose phase/step",
             "", toolkit != null && !runtime.reviewing,
-             Modifier.width(buttonWidth.dp), fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
+             Modifier.width(buttonWidth.dp).tableChangeFlash(runtime.changes, TableChangeKey("turn", TableChangeKind.STEP)),
+             fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
             icon = { TurnStepIcon(play.board.turn) },
             onClick = { toolkit?.phasePicker() })
         if (runtime.continuationArmed) {

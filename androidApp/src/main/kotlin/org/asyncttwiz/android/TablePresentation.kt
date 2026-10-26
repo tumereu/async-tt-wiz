@@ -396,8 +396,8 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, stackWidth, stackHeight)
-        // Preserve the existing vertical inset, including the landscape sidebar's reserved lane.
-        val stackPadding = if (landscape) (sidebarContent - 2 * sidebarRow - stackHeight) / 2 else 12f
+        // The same inset on every side; landscape centres the padded Stack in the sidebar lane.
+        val stackPadding = 12f
         val stackHalfHeight = stackHeight / 2 + stackPadding
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)

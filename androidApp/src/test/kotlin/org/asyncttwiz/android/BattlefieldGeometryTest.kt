@@ -63,8 +63,7 @@ class BattlefieldGeometryTest {
                 appearance = CardAppearance(cardSize = scale))
             val stack = visible.items.single { it.zone == PlayZone.STACK }.bounds
             val region = visible.stackRegion!!
-            val padding = if (landscape) (sidebar!!.contentHeight -
-                2 * (maxOf(64f, 68f + 40f * scale - 40f) + 48f) - stack.height) / 2 else 12f
+            val padding = 12f
             assertEquals(padding, stack.x - region.x, .001f)
             assertEquals(padding, region.right - stack.right, .001f)
             assertEquals(padding, stack.y - region.y, .001f)

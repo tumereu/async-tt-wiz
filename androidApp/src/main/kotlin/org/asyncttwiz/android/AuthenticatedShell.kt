@@ -32,6 +32,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null) {
     val state = controller.state
+    if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
     val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby.state.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
@@ -63,7 +64,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                 } else ShellContent(state.destination, !landscape, { controller.drawer(true) }, { destination ->
                     if (destination == ShellDestination.GAMES) lobby?.back()
                     controller.navigate(destination)
-                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout)
+                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller)
             }
         }
     }
@@ -148,7 +149,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                     color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
                     Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        EntryIcon(null, "games")
+                        Avatar(game.opponent(controller.state.account!!.accountId))
                         Column(Modifier.weight(1f)) {
                             Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
@@ -203,7 +204,7 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 @Composable
 internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
-    logout: () -> Unit = {}) {
+    logout: () -> Unit = {}, auth: AuthController? = null) {
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
@@ -219,7 +220,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
-            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout)
+            else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth)
             else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),

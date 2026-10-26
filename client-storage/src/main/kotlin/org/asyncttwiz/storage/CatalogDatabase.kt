@@ -69,6 +69,11 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.printing(id) } }
     }
 
+    /** Worker-only; query the installed public generation, never account data. */
+    fun avatarChoices(query: String = "", previous: List<CatalogAvatar> = emptyList()): List<CatalogAvatar> = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.avatarChoices(query, previous) } }.orEmpty()
+    }
+
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
     fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
 
@@ -141,6 +146,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
                 index.transaction {
                     val records = index.validate()
                     index.prepareTokenSearch()
+                    index.prepareAvatarChoices(rebuild = true)
                     completed = result.copy(records = records)
                     tokenChoices = index.rebuildTokenChoices(completed)
                     index.finish(completed)
@@ -326,6 +332,37 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
         return rows("SELECT * FROM printing WHERE scryfall=? ORDER BY id", listOf(id.lowercase(Locale.ROOT)))
     }
+
+    internal fun avatarChoices(query: String, previous: List<CatalogAvatar>): List<CatalogAvatar> {
+        if (query.isNotBlank()) return rows("SELECT * FROM printing WHERE id IN (SELECT min(id) FROM printing WHERE scryfall IS NOT NULL AND instr(normalized, ?) > 0 GROUP BY normalized ORDER BY normalized LIMIT 60) ORDER BY normalized,id",
+            listOf(query.trim().lowercase(Locale.ROOT).take(512)), enrich = false)
+            .mapNotNull { it.avatarChoice(false) }.distinctBy { it.name }
+        prepareAvatarChoices()
+        val names = previous.take(6).map { it.name.lowercase(Locale.ROOT) }
+        val repeats = if (names.isEmpty()) "" else "a.normalized IN (${names.joinToString { "?" }}), "
+        // Randomize only the small, deduplicated eligibility index, then fetch six retained records.
+        return rows("SELECT p.* FROM printing p JOIN (SELECT printing_id FROM avatar_choice a ORDER BY ${repeats}random() LIMIT 6) chosen ON p.id=chosen.printing_id",
+            names, enrich = false).mapNotNull { it.avatarChoice(true) }
+    }
+
+    /** Backfills existing installations once; refreshes rebuild on the unpublished generation. */
+    internal fun prepareAvatarChoices(rebuild: Boolean = false) = transaction {
+        if (rebuild) sql("DROP TABLE IF EXISTS avatar_choice")
+        if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='avatar_choice')") != 0L) return@transaction
+        sql("CREATE TABLE avatar_choice (normalized TEXT NOT NULL PRIMARY KEY, printing_id TEXT NOT NULL)")
+        var after = ""
+        while (true) {
+            check(!Thread.currentThread().isInterrupted)
+            // This is only a coarse prefilter; eligibility uses the retained type line, not rules text.
+            val batch = rows("SELECT * FROM printing WHERE id>? AND token=0 AND scryfall IS NOT NULL AND json LIKE '%Legendary%' AND (json LIKE '%Creature%' OR json LIKE '%Planeswalker%') ORDER BY id LIMIT 256",
+                listOf(after), enrich = false)
+            if (batch.isEmpty()) break
+            batch.filter { it.avatarChoice(true) != null }.forEach {
+                sql("INSERT OR IGNORE INTO avatar_choice VALUES (?, ?)", listOf(it.name.lowercase(Locale.ROOT), it.id))
+            }
+            after = batch.last().id
+        }
+    }
     fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
         prepareImportNames()
@@ -421,7 +458,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         return rows("SELECT p.* FROM $from WHERE $where ORDER BY $prefix.normalized, $prefix.$id LIMIT $limit", args)
     }
 
-    private fun rows(query: String, args: List<String>): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
+    private fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
         val rows = mutableListOf<CatalogPrinting>()
         while (cursor.next().value) {
             val id = cursor.getString(0)!!
@@ -431,7 +468,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
         QueryResult.Value(rows)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value.map { record ->
-        record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)),
+        if (!enrich) record else record.copy(otherFaces = texts("SELECT target FROM face WHERE source=? ORDER BY target", listOf(record.id)),
             releaseDate = releaseDates[record.set].orEmpty())
     }
 

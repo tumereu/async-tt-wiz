@@ -6,6 +6,8 @@ import java.util.Base64
 import java.util.UUID
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.protocol.SessionCreated
+import org.asyncttwiz.protocol.Avatar
+import org.asyncttwiz.protocol.DeckValidation
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION
@@ -37,8 +39,8 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
         val address = AccountFields.email(email)
         AccountFields.password(password)
         val row = runtime.transaction { connection ->
-            DSL.using(connection, SQLDialect.POSTGRES).select(ACCOUNT.ID, ACCOUNT.USERNAME, ACCOUNT.PASSWORD_PHC, ACCOUNT.AUTH_EPOCH)
-                .from(ACCOUNT).where(ACCOUNT.EMAIL_KEY.eq(address.key)).fetchOne()
+            DSL.using(connection, SQLDialect.POSTGRES).selectFrom(ACCOUNT)
+                .where(ACCOUNT.EMAIL_KEY.eq(address.key)).fetchOne()
         }
         if (!passwords.verify(password, row?.get(ACCOUNT.PASSWORD_PHC))) return null
         checkNotNull(row)
@@ -54,19 +56,58 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
                 .set(ACCOUNT_SESSION.ACCOUNT_ID, row[ACCOUNT.ID]).set(ACCOUNT_SESSION.AUTH_EPOCH, row[ACCOUNT.AUTH_EPOCH])
                 .set(ACCOUNT_SESSION.TOKEN_HASH, verifier).execute()
         }
-        return SessionCreated(token, AccountIdentity(row[ACCOUNT.ID].toString(), row[ACCOUNT.USERNAME]!!))
+        return SessionCreated(token, identity(row))
     }
 
     fun authenticate(token: String): Principal? {
         if (!validTokenShape(token)) return null
         return runtime.transaction { connection ->
-            DSL.using(connection, SQLDialect.POSTGRES).select(ACCOUNT_SESSION.ID, ACCOUNT.ID, ACCOUNT.USERNAME)
+            DSL.using(connection, SQLDialect.POSTGRES).select(ACCOUNT_SESSION.ID, *ACCOUNT.fields())
                 .from(ACCOUNT_SESSION).join(ACCOUNT).on(ACCOUNT.ID.eq(ACCOUNT_SESSION.ACCOUNT_ID))
                 .where(ACCOUNT_SESSION.TOKEN_HASH.eq(hash(token))).and(ACCOUNT_SESSION.REVOKED_AT.isNull)
                 .and(ACCOUNT_SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH)).fetchOne()?.let {
-                    Principal(it[ACCOUNT_SESSION.ID]!!, AccountIdentity(it[ACCOUNT.ID].toString(), it[ACCOUNT.USERNAME]!!))
+                    Principal(it[ACCOUNT_SESSION.ID]!!, identity(it))
                 }
         }
+    }
+
+    fun changeUsername(principal: Principal, username: String): AccountIdentity? {
+        val name = AccountFields.username(username)
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            // Keep expected uniqueness conflicts inside the transaction fence. A concurrent
+            // registration/rename can still win after a preflight availability check.
+            val savepoint = connection.setSavepoint()
+            try {
+                sql.update(ACCOUNT).set(ACCOUNT.USERNAME, name.display).set(ACCOUNT.USERNAME_KEY, name.key)
+                    .where(ACCOUNT.ID.eq(UUID.fromString(principal.account.accountId))).execute()
+                connection.releaseSavepoint(savepoint)
+                identity(sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(UUID.fromString(principal.account.accountId))).fetchSingle())
+            } catch (failure: org.jooq.exception.DataAccessException) {
+                if (generateSequence<Throwable>(failure) { it.cause }.any { it is java.sql.SQLException && it.sqlState == "23505" }) {
+                    connection.rollback(savepoint)
+                    connection.releaseSavepoint(savepoint)
+                    null
+                } else throw failure
+            }
+        }
+    }
+
+    fun changeAvatar(principal: Principal, avatar: Avatar?): AccountIdentity {
+        if (avatar != null && (!DeckValidation.uuid(avatar.scryfallId) || avatar.face !in 0..15))
+            throw InvalidAccountField("avatar")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            sql.update(ACCOUNT).set(ACCOUNT.AVATAR_SCRYFALL_ID, avatar?.let { UUID.fromString(it.scryfallId) })
+                .set(ACCOUNT.AVATAR_FACE, avatar?.face ?: 0)
+                .where(ACCOUNT.ID.eq(UUID.fromString(principal.account.accountId))).execute()
+            identity(sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(UUID.fromString(principal.account.accountId))).fetchSingle())
+        }
+    }
+
+    companion object {
+        fun identity(row: org.jooq.Record): AccountIdentity = AccountIdentity(row[ACCOUNT.ID].toString(),
+            row[ACCOUNT.USERNAME]!!, row[ACCOUNT.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), row[ACCOUNT.AVATAR_FACE] ?: 0) })
     }
 
     fun revoke(principal: Principal) {

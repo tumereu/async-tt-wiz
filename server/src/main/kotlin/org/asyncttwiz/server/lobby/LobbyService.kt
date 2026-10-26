@@ -31,10 +31,10 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             // Literal prefix, not SQL wildcards; same pinned Unicode key as registration.
-            val users = sql.select(ACCOUNT.ID, ACCOUNT.USERNAME).from(ACCOUNT)
+            val users = sql.selectFrom(ACCOUNT)
                 .where(ACCOUNT.USERNAME_KEY.startsWith(key)).and(ACCOUNT.ID.ne(owner(principal)))
                 .orderBy(ACCOUNT.USERNAME_KEY, ACCOUNT.ID).limit(50).fetch().map {
-                    AccountIdentity(it[ACCOUNT.ID].toString(), it[ACCOUNT.USERNAME]!!)
+                    AccountService.identity(it)
                 }
             Result(200, json.encodeToString(UserSearch(users)))
         }
@@ -44,11 +44,11 @@ class LobbyService(private val runtime: ServiceRuntime) {
         if (after != null && !DeckValidation.uuid(after)) return error(400, "invalid_request")
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
-            val rows = sql.select(ACCOUNT.ID, ACCOUNT.USERNAME).from(CONTACT).join(ACCOUNT)
+            val rows = sql.select(*ACCOUNT.fields()).from(CONTACT).join(ACCOUNT)
                 .on(ACCOUNT.ID.eq(CONTACT.CONTACT_ID)).where(CONTACT.ACCOUNT_ID.eq(owner(principal)))
                 .and(if (after == null) DSL.trueCondition() else ACCOUNT.ID.gt(UUID.fromString(after)))
                 .orderBy(ACCOUNT.ID).limit(101).fetch()
-            val contacts = rows.take(100).map { AccountIdentity(it[ACCOUNT.ID].toString(), it[ACCOUNT.USERNAME]!!) }
+            val contacts = rows.take(100).map { AccountService.identity(it) }
             Result(200, json.encodeToString(ContactList(contacts, if (rows.size > 100) contacts.last().accountId else null)))
         }
     }
@@ -69,10 +69,10 @@ class LobbyService(private val runtime: ServiceRuntime) {
             if (!DeckValidation.uuid(input.accountId) || input.accountId == actor.toString())
                 return@business error(400, "invalid_contact")
             val id = UUID.fromString(input.accountId)
-            val name = sql.select(ACCOUNT.USERNAME).from(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchOne(ACCOUNT.USERNAME)
+            val identity = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchOne()?.let(AccountService::identity)
                 ?: return@business error(404, "not_found")
             sql.insertInto(CONTACT).set(CONTACT.ACCOUNT_ID, actor).set(CONTACT.CONTACT_ID, id).onConflictDoNothing().execute()
-            Result(200, json.encodeToString(AccountIdentity(input.accountId, name)))
+            Result(200, json.encodeToString(identity))
         }
 
     fun create(principal: AccountService.Principal, input: CreateInvitation): Result =
@@ -103,12 +103,15 @@ class LobbyService(private val runtime: ServiceRuntime) {
         attentionHolder: String?): GameSummary {
         val inviter = ACCOUNT.`as`("inviter")
         val recipient = ACCOUNT.`as`("recipient")
-        val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME).from(INVITATION)
+        val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME,
+            inviter.AVATAR_SCRYFALL_ID, inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE).from(INVITATION)
             .join(inviter).on(inviter.ID.eq(game.inviterId)).join(recipient).on(recipient.ID.eq(game.recipientId))
             .where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
         return GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
-            AccountIdentity(game.inviterId.toString(), identities.value2()!!),
-            AccountIdentity(game.recipientId.toString(), identities.value3()!!), game.preparationRound.toString(),
+            AccountIdentity(game.inviterId.toString(), identities.value2()!!,
+                identities[inviter.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[inviter.AVATAR_FACE] ?: 0) }),
+            AccountIdentity(game.recipientId.toString(), identities.value3()!!,
+                identities[recipient.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[recipient.AVATAR_FACE] ?: 0) }), game.preparationRound.toString(),
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             attentionHolder,

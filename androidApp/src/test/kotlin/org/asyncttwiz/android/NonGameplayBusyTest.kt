@@ -125,7 +125,10 @@ class NonGameplayBusyTest {
         } }
         compose.onAllNodes(hasClickAction()).assertCountEquals(2)
         compose.onNodeWithContentDescription("Not now").assertDoesNotExist()
-        compose.onNodeWithText("Not now").performClick()
+        compose.onNodeWithText("Not now").assertDoesNotExist()
+        compose.onNodeWithText("The app needs the card catalog to work. Artwork downloads separately, only when needed.").assertIsDisplayed()
+        compose.onNodeWithText("Approximate download size: 450 MB (varies by catalog version).").assertIsDisplayed()
+        compose.onNodeWithText("Exit").performClick()
         assertEquals(1, dismissals)
         assertEquals(0, downloads)
         compose.onNodeWithText("Download").performClick()

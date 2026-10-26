@@ -36,13 +36,13 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val limits = AccountRateLimits()
     private val json = AccountJson.format
     private val form = if (resets != null && settings != null) ResetFormHttp(resets, settings, limits) else null
-    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/account/token-favorites", "/password-reset-requests", "/password-resets", "/password-reset-links",
+    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/account/username", "/account/avatar", "/account/token-favorites", "/password-reset-requests", "/password-resets", "/password-reset-links",
         "/reset-password", "/reset-password/request")
     private val security = FilterChainProxy(DefaultSecurityFilterChain({ true }, listOf(
         SecurityContextHolderFilter(NullSecurityContextRepository()),
         object : OncePerRequestFilter() {
             override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
-                if (request.requestURI in setOf("/account", "/account/token-favorites")) {
+                if (request.requestURI in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites")) {
                     val principal = bearer(request)?.let(service::authenticate)
                     if (principal != null) {
                         SecurityContextHolder.getContext().authentication =
@@ -54,7 +54,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
         },
         ExceptionTranslationFilter({ _, response, _ -> error(response, 401, "authentication_required") }, NullRequestCache()),
         AuthorizationFilter { authentication, request ->
-            AuthorizationDecision(request.requestURI !in setOf("/account", "/account/token-favorites") || authentication.get().isAuthenticated)
+            AuthorizationDecision(request.requestURI !in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites") || authentication.get().isAuthenticated)
         },
     )))
 
@@ -90,6 +90,18 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     private fun dispatch(request: HttpServletRequest, response: HttpServletResponse) {
         when (request.method to request.requestURI) {
+            "PUT" to "/account/username" -> {
+                val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
+                val input = json.decodeFromString<org.asyncttwiz.protocol.ChangeUsername>(body(request, response) ?: return)
+                val account = service.changeUsername(principal, input.username)
+                if (account == null) error(response, 409, "username_taken", "username")
+                else reply(response, 200, json.encodeToString(account))
+            }
+            "PUT" to "/account/avatar" -> {
+                val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
+                val input = json.decodeFromString<org.asyncttwiz.protocol.ChangeAvatar>(body(request, response) ?: return)
+                reply(response, 200, json.encodeToString(service.changeAvatar(principal, input.avatar)))
+            }
             "GET" to "/account/token-favorites" -> {
                 val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
                 reply(response, 200, json.encodeToString(tokenFavorites.read(principal.account.accountId)))
@@ -156,6 +168,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
             else -> { response.setHeader("Allow", when (request.requestURI) {
                 "/accounts", "/sessions", "/password-reset-requests", "/password-resets", "/password-reset-links" -> "POST"
                 "/account" -> "GET"
+                "/account/username", "/account/avatar" -> "PUT"
                 "/account/token-favorites" -> "GET, PUT"
                 else -> "DELETE"
             }); error(response, 405, "method_not_allowed") }

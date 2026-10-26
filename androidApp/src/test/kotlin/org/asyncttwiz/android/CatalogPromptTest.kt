@@ -8,12 +8,13 @@ class CatalogPromptTest {
     private val old = CatalogMetadata("2026-10-20", "5.2.2")
     private val newer = old.copy(date = "2026-10-21", indexVersion = old.indexVersion + 1)
 
-    @Test fun missingRecordsWaitForMetadataThenPromptOnEitherConnection() {
+    @Test fun missingRecordsNeverAutomaticallyDownloadWithoutInitialConsent() {
         val policy = CatalogPromptPolicy()
         assertFalse(policy.shouldPrompt(CatalogUiState()))
         for (metered in listOf(false, true)) {
             val state = CatalogUiState(available = newer, size = 450_000_000, metered = metered)
-            assertTrue(policy.shouldPrompt(state))
+            assertFalse(policy.shouldPrompt(state))
+            assertFalse(catalogAutoDownload(null, CatalogUpdatePlan(newer, full = true), metered))
             assertFalse(policy.shouldPrompt(state.copy(busy = true)))
         }
     }
@@ -32,7 +33,7 @@ class CatalogPromptTest {
         policy.dismiss(missing)
         assertFalse(policy.shouldPrompt(missing))
         assertFalse(policy.shouldPrompt(missing.copy(available = newer)))
-        assertTrue(CatalogPromptPolicy().shouldPrompt(missing))
+        assertFalse(CatalogPromptPolicy().shouldPrompt(missing))
         val update = CatalogUiState(installed = old, available = newer)
         assertTrue(policy.shouldPrompt(update))
         policy.dismiss(update)

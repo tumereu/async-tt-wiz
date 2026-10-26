@@ -21,18 +21,20 @@ internal fun CatalogProgress.label(): String {
 
 @Composable
 internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, dismiss: () -> Unit) {
-    ScreenDialog(dismiss) {
+    val initial = state.installed == null
+    ScreenDialog(if (initial) ({}) else dismiss) {
         Text(if (state.installed == null) "Download card records?" else "Update card records?",
             style = MaterialTheme.typography.titleLarge)
-        Text("Card records are needed to import decks. Artwork downloads separately, only when needed.")
-        Text(catalogDownloadEstimate(state))
+        Text(if (initial) "The app needs the card catalog to work. Artwork downloads separately, only when needed."
+            else "Card records are needed to import decks. Artwork downloads separately, only when needed.")
+        Text(if (initial && state.size == null) "Approximate download size: 450 MB (varies by catalog version)." else catalogDownloadEstimate(state))
         Text(if (state.metered) "You’re on a metered connection. This download may incur data charges."
             else "A metered connection may incur data charges. You’re currently using an unmetered connection.",
             style = MaterialTheme.typography.bodyMedium)
         Text("Indexed records may use up to 4 GB of storage.", style = MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(dismiss, Modifier.weight(1f)) {
-                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Not now")
+                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text(if (initial) "Exit" else "Not now")
             }
             ScreenButton(download, Modifier.weight(1f)) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Download")
@@ -41,7 +43,7 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
     }
 }
 
-/** The persistent opt-in entry point remains available after dismissing startup consent. */
+/** Manual retry, incremental updates and explicit full re-import. */
 @Composable
 internal fun CatalogControls(controller: CatalogViewModel) {
     val state = controller.state

@@ -31,7 +31,9 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isolated: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val untap: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val moveIntoLibrary: String? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rulesVersion: Int = 1) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rulesVersion: Int = 1,
+    /** Entry created by this event, or the exact projection receiving a text mark/note. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null) {
     init {
         require(icon.isNotBlank())
         require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
@@ -132,9 +134,23 @@ object HistoryGrouping {
                 move.source.containerId != move.destination.containerId && containers.any {
                     it.id == move.destination.containerId && it.zone == PlayZone.LIBRARY } }?.destination?.containerId)
             else semantic
+        val casting = if (transition?.rulesVersion?.let { it >= 15 } == true) versioned.copy(rulesVersion = 3,
+            stackEntryId = when (action) {
+                is PlayAction.MoveCard -> action.cardId.takeIf { semantic.significance == HistorySignificance.STACK_ENTRY }
+                is PlayAction.Stack -> when (val stack = action.action) {
+                    is StackAction.MarkText -> stack.entryId
+                    is StackAction.ToggleTextMark -> stack.entryId
+                    is StackAction.AddEffect, is StackAction.CopyEffect -> transition.combatStack?.effects
+                        ?.firstOrNull { it.from == null && it.to != null }?.id
+                    else -> null
+                }
+                is PlayAction.SetProjectionNote -> action.occurrenceId
+                is PlayAction.SetNote -> action.cardId
+                else -> null
+            }) else versioned
         val panel = transition?.contents?.from ?: transition?.contents?.to
         return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
-            versioned.copy(panelSession = panel.id) else versioned
+            casting.copy(panelSession = panel.id) else casting
     }
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */
@@ -143,8 +159,14 @@ object HistoryGrouping {
         val context = previous?.let { group -> HistoryCategory.entries.single { it.key == group.category } }
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
+        val casting = semantic.rulesVersion >= 3 && previous?.stackEntryId != null
         val joins = previous != null && !semantic.isolated && previous.representative?.semantic?.isolated != true &&
-            ((semantic.panelSession != null && previous.panelSession == semantic.panelSession && previous.author == author &&
+            (if (casting) previous.author == author && when (semantic.significance) {
+                HistorySignificance.ORIENTATION -> !semantic.untap
+                HistorySignificance.CARD_TEXT_NOTE_EDIT -> semantic.stackEntryId == previous.stackEntryId
+                HistorySignificance.PING, HistorySignificance.EVENT_COMMENT -> true
+                else -> false
+            } else ((semantic.panelSession != null && previous.panelSession == semantic.panelSession && previous.author == author &&
                 (semantic.rulesVersion < 2 || incoming in setOf(HistoryCategory.P, HistoryCategory.B) ||
                     incoming != HistoryCategory.U && context != HistoryCategory.U || incoming == context)) ||
             (semantic.panelSession == null && previous.panelSession == null && (pass || (previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
@@ -158,12 +180,12 @@ object HistoryGrouping {
                 HistoryCategory.E, HistoryCategory.K, HistoryCategory.L -> incoming == context
                 else -> false
             }
-        }))))
+        })))))
         val representative = HistoryRepresentative(nodeId, semantic)
         if (!joins) return GameplayGroup(CommandIds.uuidV5(requestId, "group/0"), author, nodeId, nodeId,
             (if (incoming in setOf(HistoryCategory.P, HistoryCategory.B)) HistoryCategory.O else incoming).key,
              semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative, semantic.panelSession,
-             semantic.moveIntoLibrary)
+             semantic.moveIntoLibrary, semantic.stackEntryId.takeIf { semantic.significance == HistorySignificance.STACK_ENTRY })
         val old = requireNotNull(previous)
         val nextContext = when {
             incoming in setOf(HistoryCategory.P, HistoryCategory.B) -> context!!
@@ -175,7 +197,8 @@ object HistoryGrouping {
             key = if (pending && semantic.significance.anchor) semantic.key else old.key,
             count = (old.count.toLong() + 1).toString(),
             tapsAndPingsOnly = old.tapsAndPingsOnly && incoming in setOf(HistoryCategory.T, HistoryCategory.P),
-            representative = choose(old.representative, representative), lastMoveIntoLibrary = semantic.moveIntoLibrary)
+            representative = choose(old.representative, representative), lastMoveIntoLibrary = semantic.moveIntoLibrary,
+            stackEntryId = if (semantic.significance == HistorySignificance.STACK_ENTRY) semantic.stackEntryId else old.stackEntryId)
     }
 
     fun choose(first: HistoryRepresentative?, next: HistoryRepresentative): HistoryRepresentative {

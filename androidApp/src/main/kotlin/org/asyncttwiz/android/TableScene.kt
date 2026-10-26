@@ -281,7 +281,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
-                if (navigation) progress.snapTo(1f) else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
+                if (navigation || runtime.changes?.animates(play.currentNodeId) == false) progress.snapTo(1f)
+                else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
                 progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             }

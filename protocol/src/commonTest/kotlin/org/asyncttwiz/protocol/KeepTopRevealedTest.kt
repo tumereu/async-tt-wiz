@@ -253,7 +253,7 @@ class KeepTopRevealedTest {
                 val before = state.board
                 val result = assertNotNull(tree.play(actor, command(state, GameAction.Play(PlayAction.SetKeepTopRevealed(libraryId, enabled)))).tree)
                 val toggled = assertNotNull(result.stateAt(result.currentNodeId))
-                assertEquals(14, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
+                assertEquals(15, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
                 if (enabled) assertTop(toggled) else assertTrue(toggled.board.cards.none { CardVisibility.isVisibleFaceUp(toggled.board, it, b) })
                 val later = assertNotNull(result.play(other, command(toggled, GameAction.Play(PlayAction.AdjustLife(other, "1")))).tree)
                 val laterState = assertNotNull(later.stateAt(later.currentNodeId))
@@ -370,7 +370,10 @@ class KeepTopRevealedTest {
         val action = PlayAction.ShuffleLibrary(libraryId, seed)
         val accepted = change(state, action)
         val next = accepted.state!!
-        val raw = accepted.mutation!!.let { it.copy(transition = it.transition.copy(rulesVersion = 13, concerns = null, delta = null)) }
+        val raw = accepted.mutation!!.let {
+            val transition = it.transition.copy(rulesVersion = 13, concerns = null, delta = null)
+            it.copy(transition = transition, grouping = HistoryGrouping.classify(it.action, state.board.containers, transition))
+        }
         val delta = GameplayDeltas.capture(state, next, raw.id)
         val recorded = GameplayHistory.recontextualize(state, raw.copy(transition = raw.transition.copy(delta = delta)))
         val legacy = recorded.copy(transition = recorded.transition.copy(delta = delta.copy(seal = GameplayDeltas.seal(recorded))))
@@ -379,7 +382,7 @@ class KeepTopRevealedTest {
         assertFalse("automatic" in bytes)
         val decoded = GameWire.json.decodeFromString<GameplayMutation>(bytes)
         val replayed = assertNotNull(GameplayHistory.apply(state, decoded))
-        assertEquals(next, replayed)
+        assertEquals(next.copy(currentGroup = legacy.bookkeeping!!.toGroup), replayed)
         assertEquals(state, GameplayHistory.unapply(replayed, decoded))
         assertTrue(library(replayed).knownTop.isEmpty())
         assertTrue(replayed.board.cards.none { CardVisibility.isVisibleFaceUp(replayed.board, it, b) })

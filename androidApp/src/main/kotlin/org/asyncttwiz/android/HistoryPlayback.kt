@@ -325,6 +325,7 @@ class HistorySceneAnimation(initial: TableScene) {
     var durationMillis: Int = MAX_CARD_MOVE_DURATION_MILLIS; private set
     internal var rotatingCardIds: Set<String> = emptySet(); private set
     private var flippingCardIds: Set<String> = emptySet()
+    private var stackFlightIds: Set<String> = emptySet()
     private var latestScene = initial
     private var latestItems = initial.items.associateBy { it.animationId }
     fun updateMetadata(target: TableScene) {
@@ -351,7 +352,11 @@ class HistorySceneAnimation(initial: TableScene) {
             fun mix(x: Float, y: Float) = x + (y - x) * t
             val flipping = b.item.cardId in flippingCardIds ||
                 a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
-            val shown = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
+            val metadata = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
+            // Real spells share the destination card's identity. While flying they still leave
+            // the screen-fixed Stack, not the clipped Battlefield viewport they are entering.
+            val shown = if (id in stackFlightIds && t < 1f) metadata.copy(zone = PlayZone.STACK, viewport = a.item.viewport)
+                else metadata
             // A flying face cannot expose a Library top, including at the exact departure frame.
             val item = if (t < 1f && shown.kind == TableItemKind.CARD && a.bounds != b.bounds &&
                 listOf(a.item, b.item).any { it.zone == PlayZone.LIBRARY && !it.viewport.startsWith("cardPanel/") })
@@ -377,9 +382,11 @@ class HistorySceneAnimation(initial: TableScene) {
                 else -> TableBounds(mix(a.bounds.x, b.bounds.x), mix(a.bounds.y, b.bounds.y),
                     mix(a.bounds.width, b.bounds.width), mix(a.bounds.height, b.bounds.height))
             }
+            val alphaProgress = if (id in stackFlightIds) ((t - .75f) / .25f).coerceIn(0f, 1f) else t
             HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * t).coerceAtLeast(.02f) else 1f,
                 inTransit = item.kind == TableItemKind.CARD && t < 1f &&
-                (a.bounds != b.bounds || a.item.faceTransform(a.bounds) != b.item.faceTransform(b.bounds))), bounds, mix(a.alpha, b.alpha))
+                (a.bounds != b.bounds || a.item.faceTransform(a.bounds) != b.item.faceTransform(b.bounds))), bounds,
+                a.alpha + (b.alpha - a.alpha) * alphaProgress)
         }.sortedBy { it.item.inTransit }
     }
     /** False means confirmation/metadata only: the caller must leave the running clock alone. */
@@ -435,6 +442,20 @@ class HistorySceneAnimation(initial: TableScene) {
                 end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f,
                     item = departure.item.copy(zone = pile?.zone ?: departure.item.zone,
                         viewport = pile?.viewport ?: departure.item.viewport)))
+            }
+        }
+        val flights = stackRemovalFlights(destination, target)
+        stackFlightIds = flights.map { it.entry.animationId }.toSet()
+        for (flight in flights) {
+            val entry = flight.entry
+            val departure = start[entry.animationId] ?: HistoryAnimatedItem(entry, entry.bounds, 1f)
+            start = start + (entry.animationId to departure)
+            if (entry.projection) {
+                // The real card is already at its accepted destination; do not also fly it from
+                // Hand/Battlefield while its Stack projection is resolving to that same place.
+                val realId = "card/${entry.sourceId}"
+                end[realId]?.let { start = start + (realId to it) }
+                end = end + (entry.animationId to departure.copy(bounds = flight.destination.bounds, alpha = 0f))
             }
         }
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other

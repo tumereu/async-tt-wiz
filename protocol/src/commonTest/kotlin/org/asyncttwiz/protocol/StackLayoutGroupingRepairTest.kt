@@ -10,13 +10,16 @@ class StackLayoutGroupingRepairTest {
         private fun container(zone: PlayZone) = state.board.containers.single { it.zone == zone }
 
         fun step(action: PlayAction, request: Int, significance: HistorySignificance, icon: String,
-            start: Int = request, representative: Int = request, count: Int = 1): GameplayMutation {
+            start: Int = request, representative: Int = request, count: Int = 1,
+            category: HistoryCategory = significance.category): GameplayMutation {
             val before = state
             val result = gameplayChange(before, action, request)
             assertEquals("accepted", result.outcome, "$action: ${result.reason}")
             val mutation = assertNotNull(result.mutation)
             val untap = action is PlayAction.SetTapped && !action.tapped
-            assertEquals(HistorySemantic(significance, icon, untap = untap, rulesVersion = 2), mutation.grouping)
+            val entryId = if (significance == HistorySignificance.STACK_ENTRY)
+                (action as? PlayAction.MoveCard)?.cardId ?: mutation.transition.combatStack?.effects?.single()?.id else null
+            assertEquals(HistorySemantic(significance, icon, untap = untap, rulesVersion = 3, stackEntryId = entryId), mutation.grouping)
             assertEquals(result, GameplayHistory.replay(before, mutation))
             assertEquals(before.currentNodeId, mutation.parentId)
             state = assertNotNull(result.state)
@@ -24,7 +27,7 @@ class StackLayoutGroupingRepairTest {
             assertEquals(CommandIds.uuidV5(gameplayId(start), "group/0"), group.id)
             assertEquals(CommandIds.uuidV5(gameplayId(start), "board-node"), group.firstNodeId)
             assertEquals(mutation.id, group.lastNodeId)
-            assertEquals(if (untap) HistoryCategory.U.key else significance.category.key, group.category)
+            assertEquals(if (untap) HistoryCategory.U.key else category.key, group.category)
             assertEquals(count.toString(), group.count)
             assertEquals(CommandIds.uuidV5(gameplayId(representative), "board-node"), group.representative?.nodeId)
             mutations += mutation
@@ -112,9 +115,10 @@ class StackLayoutGroupingRepairTest {
         journey.move(11, PlayZone.STACK, MoveInsertion.TOP, 301, HistorySignificance.STACK_ENTRY,
             order = listOf(gameplayId(11), gameplayId(10)))
         // Orientation prefixes still group with Stack actions, but address a Battlefield card.
-        journey.step(PlayAction.SetTapped(gameplayId(14), true), 302, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
+        journey.step(PlayAction.SetTapped(gameplayId(14), true), 302, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw",
+            start = 301, representative = 301, count = 2, category = HistoryCategory.I)
         journey.move(10, PlayZone.STACK, MoveInsertion.TOP, 303, HistorySignificance.STACK_LAYOUT,
-            start = 302, representative = 303, count = 2, order = listOf(gameplayId(10), gameplayId(11)))
+            order = listOf(gameplayId(10), gameplayId(11)))
         journey.step(PlayAction.SetTapped(gameplayId(14), false), 304, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(10, PlayZone.HAND, MoveInsertion.UNORDERED, 305, HistorySignificance.STACK_REMOVAL,
             order = listOf(gameplayId(11)))

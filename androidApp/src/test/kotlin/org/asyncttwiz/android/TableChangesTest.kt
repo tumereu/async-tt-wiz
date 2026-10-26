@@ -6,6 +6,13 @@ import java.util.concurrent.Executor
 import kotlin.test.*
 
 class TableChangesTest {
+    @Test fun tagsHoldOpaqueForOneSecondThenFadeForHalfASecond() {
+        for (elapsed in listOf(0L, 300L, 999L, TableChanges.HOLD_MS))
+            assertEquals(1f, tableChangeTagAlpha(elapsed.toFloat() / TableChanges.WINDOW_MS), .0001f)
+        assertEquals(.5f, tableChangeTagAlpha(1_250f / TableChanges.WINDOW_MS), .0001f)
+        assertEquals(0f, tableChangeTagAlpha(1f))
+    }
+
     private val f = GameplayFixture()
     private fun event(vararg fields: GameplayFieldChange, transition: GameplayTransition = GameplayTransition()) =
         TableAppliedEvent(GameplayMutation("event", "root", "branch", "request", f.actor, null,

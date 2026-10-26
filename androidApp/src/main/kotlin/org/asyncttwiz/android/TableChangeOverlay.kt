@@ -13,11 +13,13 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 internal val LocalTableChanges = staticCompositionLocalOf<TableChanges?> { null }
@@ -46,6 +48,14 @@ internal fun Modifier.tableChangeFlash(changes: TableChanges?, key: TableChangeK
 
 private fun flashAlpha(progress: Float) = ((1f - progress * 3f).coerceAtLeast(0f) * .65f)
 
+internal fun tableChangeTagAlpha(progress: Float): Float =
+    ((1f - progress) * TableChanges.WINDOW_MS / (TableChanges.WINDOW_MS - TableChanges.HOLD_MS)).coerceIn(0f, 1f)
+
+internal val TableChangeTagFill = Color(0xff202a2e)
+
+internal fun tableChangeTagInk(fill: Color): Color =
+    if ((fill.luminance() + .05f) / .05f > 1.05f / (fill.luminance() + .05f)) Color.Black else Color.White
+
 /** Resolve the recorded card/occurrence identity, not its source or a container's top card.
  * Both lookups use the rendered frame's index; buried/offscreen entries never get a stand-in. */
 private fun changeCard(id: String, item: (String) -> TableItem?) =
@@ -72,21 +82,25 @@ internal fun tableChangeLinkAnchors(change: TableChange, item: (String) -> Table
     return first to second
 }
 
-/** One independent draw node per changed value. No input modifiers and no board/frame diff. */
+/** Independent clocks per changed value. No input modifiers and no board/frame diff. */
 @Composable
 internal fun TableChangeOverlay(changes: TableChanges?, viewer: String, appearance: CardAppearance,
     item: (String) -> TableItem?) {
     if (changes == null) return
-    for ((changeKey, active) in changes.active) if (changeKey.kind != TableChangeKind.STEP) key(changeKey) {
-        TableElementChange(changes, active, viewer, appearance, item)
+    val effects = changes.active.values.filter { it.change.key.kind != TableChangeKind.STEP }.map { active ->
+        key(active.change.key) { active to changeProgress(changes, active) }
+    }
+    // All pills must be above ALL value flashes, not just their own. In particular a small
+    // card's P/T flash must never tint a neighbouring counter pill drawn by another node.
+    for (tagsOnly in listOf(false, true)) for ((active, progress) in effects) key(tagsOnly, active.change.key) {
+        TableElementChange(active, progress, viewer, appearance, item, tagsOnly)
     }
 }
 
 @Composable
-private fun TableElementChange(changes: TableChanges, active: ActiveTableChange, viewer: String,
-    appearance: CardAppearance, item: (String) -> TableItem?) {
+private fun TableElementChange(active: ActiveTableChange, progress: State<Float>, viewer: String,
+    appearance: CardAppearance, item: (String) -> TableItem?, tagsOnly: Boolean) {
         val key = active.change.key
-        val progress = changeProgress(changes, active)
         if (key.kind == TableChangeKind.FACE) return // Existing scene flip owns the transform.
         val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true } }
         Canvas(Modifier.fillMaxSize()) {
@@ -97,16 +111,16 @@ private fun TableElementChange(changes: TableChanges, active: ActiveTableChange,
             fun rect(b: TableBounds, color: Color, border: Boolean = false) {
                 drawRoundRect(color, point(TablePoint(b.x, b.y)), Size(b.width * density, b.height * density),
                     CornerRadius(2f * density), style = if (border) Stroke(3f * density) else androidx.compose.ui.graphics.drawscope.Fill)
-            }
-            if (key.kind == TableChangeKind.LINK) {
-                tableChangeLinkAnchors(change, item)?.let { (first, second) ->
+             }
+             if (key.kind == TableChangeKind.LINK) {
+                 if (!tagsOnly) tableChangeLinkAnchors(change, item)?.let { (first, second) ->
                     drawLine(Color(0xffffce56).copy(alpha = .25f * fade), point(first), point(second), 10f * density)
                     drawLine(Color(0xffffbd36).copy(alpha = fade), point(first), point(second), 3f * density)
                 }
                 return@Canvas
             }
             val shown = tableChangeTarget(key, item) ?: return@Canvas
-            val color = key.color?.let { counterColor(it).let { c -> Color(c.red * .55f, c.green * .55f, c.blue * .55f) } }
+             val color = key.color?.let(::counterColor)
                 ?: if ((change.owner ?: shown.owner) == viewer) OwnTableColor else OpponentTableColor
             val b = shown.bounds
             val transform = shown.faceTransform()
@@ -117,7 +131,10 @@ private fun TableElementChange(changes: TableChanges, active: ActiveTableChange,
             val noteScale = appearance.text(CardTextScalePart.NOTE)
             fun local(r: TableBounds) = TableBounds(origin.x + r.x * z, origin.y + r.y * z, r.width * z, r.height * z)
             val slot = when (key.kind) {
-                TableChangeKind.CORNER -> local(TableBounds(1f, 29f, 26f, 11f))
+                 TableChangeKind.CORNER -> {
+                     val height = maxOf(10f, 7f * valueScale + 3f)
+                     local(TableBounds(1f, 40f - height, 26f, height))
+                 }
                 TableChangeKind.NOTE, TableChangeKind.COUNTER -> {
                     paint.textSize = 7f * noteScale * z * density
                     val noteHeight = (paint.fontMetrics.bottom - paint.fontMetrics.top) / (z * density) + 2f
@@ -128,31 +145,54 @@ private fun TableElementChange(changes: TableChanges, active: ActiveTableChange,
                         40f - maxOf(10f, 7f * valueScale + 3f), noteHeight, counterHeight,
                         shown.note.isNotEmpty() || key.kind == TableChangeKind.NOTE, colors.size)
                     val r = if (key.kind == TableChangeKind.NOTE) layout.note else layout.counters.getOrNull(colors.indexOf(key.color))
-                    r?.let(::local) ?: return@Canvas
+                     r?.let {
+                         val width = if (key.kind == TableChangeKind.COUNTER)
+                             minOf(it.width, maxOf(counterHeight, paint.measureText(shown.counters[key.color].orEmpty().take(3)) / (z * density) + 2f))
+                         else it.width
+                         local(it.copy(width = width))
+                     } ?: return@Canvas
                 }
                 TableChangeKind.TEXT_MARK -> TableBounds(b.x, b.y, b.width, 16f)
                 else -> b
             }
-            for (fragment in shown.visible) clipRect(fragment.x * density, fragment.y * density, fragment.right * density, fragment.bottom * density) {
-                rotate(if (card) transform.rotation else 0f, point(b.center)) {
-                    if (key.kind == TableChangeKind.OWNER) {
-                        val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * Math.PI)).toFloat())
-                        rect(local(TableBounds(0f, 0f, 28f, 40f)), color.copy(alpha = pulse), border = true)
-                    } else rect(slot, color.copy(alpha = flashAlpha(t)))
-                }
-            }
+             if (!tagsOnly) {
+                 for (fragment in shown.visible) clipRect(fragment.x * density, fragment.y * density, fragment.right * density, fragment.bottom * density) {
+                     rotate(if (card) transform.rotation else 0f, point(b.center)) {
+                         if (key.kind == TableChangeKind.OWNER) {
+                             val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * Math.PI)).toFloat())
+                             rect(local(TableBounds(0f, 0f, 28f, 40f)), color.copy(alpha = pulse), border = true)
+                         } else {
+                             // A bright pulse over the value, even on a white card; not just an ink hue change.
+                             rect(slot, Color(0xffffce56).copy(alpha = flashAlpha(t)))
+                         }
+                     }
+                 }
+                 return@Canvas
+             }
             if (active.tag.isNotEmpty()) {
-                // Tags may extend beside their value, but never install a hit target.
-                paint.textSize = (if (card) 7f * z * valueScale else 11f) * density
-                val width = paint.measureText(active.tag) / density + 5f
-                val height = (paint.fontMetrics.bottom - paint.fontMetrics.top) / density + 2f
-                val x = (if (card) slot.right - width else b.right - width / 2).coerceIn(0f, (size.width / density - width).coerceAtLeast(0f))
-                val y = (if (card) slot.y - height else b.y - height / 2).coerceAtLeast(48f)
-                val tag = TableBounds(x, y, width, height)
-                rect(tag, Color.White.copy(alpha = fade))
-                rect(tag, color.copy(alpha = fade), border = true)
-                paint.color = color.toArgb(); paint.alpha = (fade * 255).toInt()
-                drawContext.canvas.nativeCanvas.drawText(active.tag, (x + 2.5f) * density,
+                 // Screen-space sibling above all cards: no card/fragment clip, rotation or hit target.
+                 // Keep the anchor attached to the value when the card is tapped, but the tag upright.
+                 paint.textSize = maxOf(11.sp.toPx(), if (card) 7f * z * valueScale * density else 0f)
+                 val width = paint.measureText(active.tag) / density + 10f
+                 val height = (paint.fontMetrics.bottom - paint.fontMetrics.top) / density + 4f
+                 val radians = Math.toRadians(transform.rotation.toDouble())
+                 val dx = slot.right - b.center.x
+                 val dy = (if (key.kind == TableChangeKind.CORNER) slot.bottom else slot.center.y) - b.center.y
+                 val anchor = if (card) TablePoint(
+                     b.center.x + (dx * kotlin.math.cos(radians) - dy * kotlin.math.sin(radians)).toFloat(),
+                     b.center.y + (dx * kotlin.math.sin(radians) + dy * kotlin.math.cos(radians)).toFloat())
+                     else TablePoint(b.right - width / 2, b.y)
+                 val x = (if (card) anchor.x + 3f else anchor.x)
+                     .coerceIn(2f, (size.width / density - width - 2f).coerceAtLeast(2f))
+                 val y = (anchor.y - height / 2)
+                     .coerceIn(48f, (size.height / density - height - 2f).coerceAtLeast(48f))
+                 val tag = TableBounds(x, y, width, height)
+                 val fill = if (key.kind == TableChangeKind.COUNTER) key.color?.let(::counterColor) ?: TableChangeTagFill else TableChangeTagFill
+                 val alpha = tableChangeTagAlpha(t)
+                 drawRoundRect(fill.copy(alpha = alpha), point(TablePoint(tag.x, tag.y)),
+                     Size(tag.width * density, tag.height * density), CornerRadius(height * density / 2))
+                 paint.color = tableChangeTagInk(fill).toArgb(); paint.alpha = (alpha * 255).toInt()
+                 drawContext.canvas.nativeCanvas.drawText(active.tag, (x + 5f) * density,
                     (y + height / 2) * density - (paint.fontMetrics.top + paint.fontMetrics.bottom) / 2, paint)
             }
         }

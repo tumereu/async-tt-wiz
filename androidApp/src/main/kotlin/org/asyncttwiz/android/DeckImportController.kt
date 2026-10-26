@@ -34,7 +34,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var chosenCover: SubmittedDefinition? = null
     val coverCards: List<SubmittedDefinition> get() = state.result?.let { result ->
         result.entries.map { entry ->
-            val definition = source?.definitions?.get(entry.printing.id) ?: entry.definition(result.catalog)
+            val definition = PhysicalCardFaces.normalize(source?.definitions?.get(entry.printing.id) ?: entry.definition(result.catalog))
             SubmittedDefinition(DeckJson.digest(definition), definition)
         }.distinctBy { it.digest }
     }.orEmpty()
@@ -112,8 +112,11 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         if (closed) return
         val retained = DeckEditorSource(detail)
         source = retained
+        val cover = detail.saved.deck.cover?.definition?.let { digest ->
+            retained.definitions[digest]?.let { DeckJson.digest(PhysicalCardFaces.normalize(it)) } ?: digest
+        }
         state = state.copy(target = detail.saved.deck.id, name = detail.saved.deck.name, text = retained.text,
-            cover = detail.saved.deck.cover?.definition, editing = true)
+            cover = cover, editing = true)
         initial = state
         lookup()
     }

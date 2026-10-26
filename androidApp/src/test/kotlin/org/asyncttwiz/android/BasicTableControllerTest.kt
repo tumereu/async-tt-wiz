@@ -84,6 +84,38 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    @Test fun handDoubleTapLandAndNonlandUseTheDragRequestPath() {
+        for (land in listOf(false, true)) {
+            val f = BasicTableFixture()
+            val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = if (land) "Basic Land — Forest" else "Creature") })
+            val digest = DeckJson.digest(definition)
+            val initial = f.root.copy(definitions = listOf(SubmittedDefinition(digest, definition)),
+                board = f.root.board.copy(cards = f.root.board.cards.map { it.copy(definition = digest) }))
+            f.connect(initial)
+            try {
+                assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
+                val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+                val hand = scene.items.single { it.cardId == f.id(40) }
+                val destination = assertNotNull(handDoubleTapDestination(scene, hand))
+                assertEquals(if (land) TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)
+                    else TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK), destination)
+                val before = f.commands().size
+                val moves = mutableListOf<TableIntent.Move>()
+                val gestures = TableGestureCoordinator({ if (it is TableIntent.Move) { moves += it; assertTrue(f.basic.handle(it)) } })
+                gestures.update(scene, TableSelection(), true)
+                val point = hand.visible.first().center
+                gestures.down(point, 0); gestures.up(point, 20)
+                gestures.down(point, 100); gestures.up(point, 120)
+                assertEquals(1, moves.size)
+                val action = (f.commands().drop(before).first().action as GameAction.Play).action
+                if (land) {
+                    assertEquals(f.container(PlayZone.BATTLEFIELD), assertIs<PlayAction.MoveCard>(action).destination.containerId)
+                    assertEquals(BoardPosition(0, 0), action.destination.position)
+                } else assertEquals(f.id(40), assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(action).action).sourceId)
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
     @Test fun nonBattlefieldOrientationIsIgnoredWithoutShowingAnError() {
         val f = BasicTableFixture(); f.connect()
         try {

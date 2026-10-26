@@ -97,6 +97,46 @@ class DeckEditorTest {
         assertEquals(mixed.saved.entries.toSet(), plan.deck.entries.toSet())
         assertEquals(mixed.definitions, plan.definitions.definitions.associate { it.digest to it.definition })
     }
+    @Test fun editingMultipartSavedDeckRemapsCoverEntriesAndReselectionToNormalizedDigests() {
+        for (layout in listOf("adventure", "split")) {
+            val old = first.copy(layout = layout, faces = first.faces + DefinitionFace(id(), "Back", rulesText = "Other half"))
+            val oldDigest = DeckJson.digest(old)
+            val normalized = PhysicalCardFaces.normalize(old)
+            val normalizedDigest = DeckJson.digest(normalized)
+            assertNotEquals(oldDigest, normalizedDigest)
+            val saved = detail.saved.copy(deck = detail.saved.deck.copy(cover = DeckCover(oldDigest, old.name)),
+                entries = detail.saved.entries.filter { it.definition == cover }.map { it.copy(definition = oldDigest) })
+            val multipart = DeckDetail(saved, mapOf(oldDigest to old))
+            val source = DeckEditorSource(multipart)
+            val result = source.resolve(source.text) { error("Retained cards must not require lookup") }
+            // The save boundary also accepts a caller still holding the original digest.
+            assertEquals(normalizedDigest, DeckSavePlan.from(result, saved.deck.name, cover = oldDigest,
+                retained = source.definitions).cover)
+            for (reselect in listOf(false, true)) {
+                val worker = Worker()
+                var plan: DeckSavePlan? = null
+                val editor = DeckImportController({ error("Retained cards must not require lookup") }, worker) { it() }
+                editor.connectSave({ { input -> plan = input; SavedDeck(saved.deck, input.deck.entries) } }, {})
+                editor.openEditor(multipart); worker.drain()
+                assertEquals(normalizedDigest, editor.state.cover)
+                assertEquals(normalizedDigest, editor.currentCover?.definition)
+                assertEquals(listOf(normalizedDigest), editor.coverCards.map { it.digest })
+                assertEquals(normalized, editor.coverCards.single().definition)
+                if (reselect) {
+                    editor.chooseCover(); editor.cover(editor.coverCards.single().digest)
+                    assertFalse(editor.state.choosingCover)
+                }
+                editor.edit(editor.state.text.replace("4 Front", "5 Front"))
+                editor.save(); worker.drain()
+                assertFalse(editor.state.active, editor.state.error)
+                assertEquals(saved.deck.id, plan!!.target)
+                assertEquals(normalizedDigest, plan!!.update().cover)
+                assertEquals(saved.entries.map { it.copy(definition = normalizedDigest,
+                    quantity = if (it.section == SavedDeckSection.MAINBOARD) 5 else it.quantity) }, plan!!.deck.entries)
+                assertEquals(listOf(SubmittedDefinition(normalizedDigest, normalized)), plan!!.definitions.definitions)
+            }
+        }
+    }
     @Test fun coverRemovedFromListIsClearedAndInvalidListCannotSaveAndCancelConfirmsDirtyInput() {
         val worker = Worker()
         val editor = DeckImportController({ text -> DeckImportResult(text, emptyList(), listOf(ImportIssue(2, "Unknown card")), null) }, worker) { it() }

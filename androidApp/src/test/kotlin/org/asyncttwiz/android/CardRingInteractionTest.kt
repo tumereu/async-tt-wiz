@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
@@ -23,13 +24,20 @@ class CardRingInteractionTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
     private val sent = mutableListOf<PlayAction>()
-    private fun render(multi: Boolean = false, play: PlayState = f.combat()): TableToolkitController {
+    private fun render(multi: Boolean = false, play: PlayState = f.combat(),
+        contextId: String = f.source(f.a, "1/3").id): TableToolkitController {
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
         val source = f.source(f.a, "1/3").id
-        toolkit.openCard(TableScope(source, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(source)))
+        toolkit.openCard(TableScope(contextId, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(contextId)))
         compose.setContent {
-            MaterialTheme { TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(),
-                connected = true, toolkit = toolkit, onIntent = toolkit::handle) }
+            MaterialTheme {
+                CompositionLocalProvider(LocalTableMenuAnnotations provides TableMenuAnnotations(EventReference(play.id, play.currentNodeId)) {
+                    sent += it.actions(); true
+                }) {
+                    TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(),
+                        connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+                }
+            }
         }
         compose.waitForIdle()
         return toolkit
@@ -43,18 +51,82 @@ class CardRingInteractionTest {
         }
     }
 
-    @Test fun tokenOwnerEntryStaysOnEverydayAndSkipsRealCardsInMixedSelection() {
+    @Test fun handDisablesBattlefieldOnlyWidgetsAndNote() = zoneEnablement(PlayZone.HAND)
+    @Test fun stackEnablesNoteButDisablesBattlefieldOnlyWidgets() = zoneEnablement(PlayZone.STACK)
+    @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
+
+    @Test fun stackProjectionFromHandEnablesNoteAndPingAndTargetsTheProjection() {
+        val initial = f.combat()
+        val source = f.source(f.a, "1/2").id
+        val hand = initial.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
+        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
+            if (it.id == source) it.copy(containerId = hand.id, placement = null, note = "source note") else it
+        }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards - source +
+            if (container.id == hand.id) listOf(source) else emptyList()) }))
+        projectionNoteAndPing(play, f.id("effect"), battlefield = false)
+    }
+
+    @Test fun combatProjectionKeepsBattlefieldControlsButTargetsItsOwnNoteAndPing() {
+        projectionNoteAndPing(f.combat(), f.id("attacker1"), battlefield = true)
+    }
+
+    private fun projectionNoteAndPing(play: PlayState, id: String, battlefield: Boolean) {
+        val toolkit = render(play = play, contextId = id)
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
+        compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
+        for (name in listOf("Set corner", "Declare + tap")) {
+            val node = compose.onNodeWithContentDescription(name)
+            if (battlefield) node.assertIsEnabled() else node.assertIsNotEnabled()
+        }
+        compose.onNodeWithContentDescription("Edit card note").performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
+        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
+        compose.runOnIdle {
+            assertEquals(listOf<PlayAction>(PlayAction.SetNote(id, "projection note")), sent)
+            toolkit.openCard(TableScope(id, listOf(id)))
+        }
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Ping / Unping").performClick()
+        compose.runOnIdle {
+            assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target)
+        }
+    }
+
+    private fun zoneEnablement(zone: PlayZone) {
+        val source = f.source(f.a, "1/3").id
+        val initial = f.combat()
+        val target = initial.board.containers.single { it.zone == zone && (zone == PlayZone.STACK || it.accountId == f.a) }
+        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
+            if (it.id == source) it.copy(containerId = target.id, placement = if (zone == PlayZone.BATTLEFIELD) it.placement else null) else it
+        }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards.filterNot { it == source } +
+            if (container.id == target.id) listOf(source) else emptyList()) }))
+        render(play = play)
+        compose.ringPage(1)
+        fun enabled(name: String, expected: Boolean) {
+            val node = compose.onNodeWithContentDescription(name)
+            if (expected) node.assertIsEnabled() else node.assertIsNotEnabled()
+        }
+        enabled("Edit card note", zone != PlayZone.HAND)
+        for (name in listOf("Set corner", "Increase corner", "Decrease corner", "Declare + tap", "Declare without tapping"))
+            enabled(name, zone == PlayZone.BATTLEFIELD)
+        compose.ringPage(2)
+        enabled("Set blue counter", zone == PlayZone.BATTLEFIELD)
+        enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)
+    }
+
+    @Test fun tokenOwnerEntryStaysOnMoreAndSkipsRealCardsInMixedSelection() {
         val source = f.source(f.a, "1/3").id
         val initial = f.combat()
         val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
             if (it.id == source) it.copy(token = true) else it
         }))
         render(multi = true, play = play)
-        for (page in 2..4) {
+        for (page in listOf(1, 2, 4)) {
             compose.ringPage(page)
             compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
         }
-        compose.ringPage(1)
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Owner Alice; switch to other player").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetOwner(source, f.b)), sent) }
     }

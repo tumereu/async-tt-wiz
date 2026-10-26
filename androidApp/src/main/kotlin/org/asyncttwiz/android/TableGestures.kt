@@ -225,6 +225,14 @@ class TableGestureCoordinator(
                 diagnostic("dropped:combatHasNoRotation")
             } else if (c.double && c.item?.zone == PlayZone.STACK) {
                 single(c, explicit = true)
+            } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone == PlayZone.HAND) {
+                val id = c.scope?.contextId
+                val item = scene.items.firstOrNull { it.cardId == id && it.zone == PlayZone.HAND }
+                val destination = item?.let { handDoubleTapDestination(scene, it) }
+                if (writable && id != null && destination != null) {
+                    emit(TableIntent.Selection(c.selection.afterMove(id)))
+                    emit(TableIntent.Move(TableScope(id, listOf(id)), destination, c.sources.filterKeys { it == id }))
+                }
             } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.BATTLEFIELD) {
                 // Non-Battlefield cards have no orientation gesture, including legacy tapped cards.
                 Unit
@@ -444,4 +452,16 @@ class TableGestureCoordinator(
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
     private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))
+}
+
+/** The same semantic destination and Move intent as a drag; no special mutation/animation path. */
+internal fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {
+    if (item.zone != PlayZone.HAND) return null
+    if ("Land" !in item.typeLine) return scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+        ?.let { TableDestination.Container(it.id, PlayZone.STACK) }
+    val field = scene.fields.firstOrNull { it.owner == item.owner } ?: return null
+    val occupied = scene.sources.values.filter { it.containerId == field.containerId }.mapNotNull { it.placement }
+        .filter { it.row == 0f }.map { it.column.toInt() }.toSet()
+    val column = generateSequence(0) { it + 1 }.first { it !in occupied }
+    return TableDestination.Grid(field.containerId, column, 0)
 }

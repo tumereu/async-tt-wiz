@@ -8,9 +8,9 @@ class CardRingTest {
     @Test fun normalMultiFaceMoreAndCounterPagesFitThreeRowsAndFacesCycleIndividually() {
         val ids = CardRingPages.defaults.flatMap { it.actions } + "Select / deselect"
         val pages = CardRingPages.resolve(ids)
-        assertEquals(listOf("flip", "otherSide", "switchFace", "Link", "Unlink", "resetCorner", "corner/LEFT/1",
-            "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "Add Stack effect", "Select / deselect"), pages[2].actions)
-        for (page in pages.slice(1..2)) assertEquals(12, CardRingPages.layout(page.actions).last().let { it.cell + it.span })
+        assertEquals(listOf("owner", "otherSide", "Link", "Unlink", "resetCorner", "corner/LEFT/1",
+            "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "Select / deselect"), pages[2].actions)
+        for (page in pages.slice(1..2)) assertTrue(CardRingPages.layout(page.actions).last().let { it.cell + it.span } <= 12)
         val definition = CardDefinition("Two faces", listOf(DefinitionFace("front", "Front"), DefinitionFace("back", "Back")))
         val submitted = SubmittedDefinition("digest", definition)
         val play = PlayState("game", "play", "a", "b", PlayRoot("root", "seed"), "root",
@@ -20,11 +20,11 @@ class CardRingTest {
         assertEquals(PlayAction.SetFace("card", "front"), nextPrintedFace(play, card.copy(faceId = "back")))
         assertNull(nextPrintedFace(play.copy(definitions = listOf(submitted.copy(definition = definition.copy(faces = definition.faces.take(1))))), card))
     }
-    @Test fun ownerEntryIsAssignedToEverydayOnlyWhenAvailableForAToken() {
+    @Test fun ownerEntryIsAssignedToMoreOnlyWhenAvailableForAToken() {
         for (token in listOf(false, true)) {
             val ids = CardRingPages.defaults.flatMap { it.actions }.filter { it != "owner" || token }
             val pages = CardRingPages.resolve(ids)
-            assertEquals(if (token) listOf("Everyday") else emptyList(), pages.filter { "owner" in it.actions }.map { it.name })
+            assertEquals(if (token) listOf("More") else emptyList(), pages.filter { "owner" in it.actions }.map { it.name })
             assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
             assertEquals(ids.size, pages.sumOf { it.actions.size })
         }
@@ -33,10 +33,11 @@ class CardRingTest {
     @Test fun pagesAreDataAndEveryAvailableActionIsOnExactlyOnePage() {
         val ids = CardRingPages.defaults.take(2).flatMap { it.actions } +
             listOf("flip", "otherSide", "switchFace", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token")
-        val pages = CardRingPages.resolve(ids)
+        val available = ids.distinct()
+        val pages = CardRingPages.resolve(available)
         assertEquals(listOf("Everyday", "Counters", "More", "Move"), pages.map { it.name })
         assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
-        assertEquals(ids.size, pages.flatMap { it.actions }.size)
+        assertEquals(available.size, pages.flatMap { it.actions }.size)
         assertEquals(CardRingPages.defaults[0], pages[0])
         assertEquals(6, pages[1].actions.size)
         assertEquals(12, CardRingPages.layout(pages[1].actions).sumOf { it.span })
@@ -45,9 +46,31 @@ class CardRingTest {
         val everydayMoves = listOf("Library top", "Library bottom", "Graveyard", "Exile")
         assertTrue(pages[0].actions.containsAll(everydayMoves))
         assertTrue(pages[3].actions.none { it in everydayMoves })
-        assertTrue(pages[2].actions.indexOf("switchFace") < pages[2].actions.indexOf("Link"))
+        assertTrue("switchFace" in pages[0].actions)
         val custom = CardRingPages.defaults.toMutableList().apply { this[0] = this[0].copy(actions = listOf("Clone", "inspect")) }
         assertEquals(listOf("Clone", "inspect"), CardRingPages.resolve(ids, custom)[0].actions)
+    }
+
+    @Test fun everydayHasStableFourByFourCellsForCardsAndTokens() {
+        val ids = CardRingPages.defaults.flatMap { it.actions }
+        val card = CardRingPages.layout(CardRingPages.resolve(ids)[0].actions)
+        assertEquals(listOf("inspect", "note", "corner", "Declare + tap", "Declare without tapping", "flip", "switchFace",
+            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library"), card.map { it.id })
+        assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), card.map { it.cell })
+        val tokenIds = ids.filterNot { it in listOf("Hand", "Library top", "Library bottom", "Shuffle into library") } + "Remove token"
+        val token = CardRingPages.layout(CardRingPages.resolve(tokenIds, token = true)[0].actions)
+        assertEquals(card.map { it.cell }, token.map { it.cell })
+        assertEquals("Remove token", token.single { it.cell == 12 }.id)
+        assertTrue(token.filter { it.cell >= 13 }.all { it.id.startsWith("empty/") })
+    }
+
+    @Test fun battlefieldModificationsAreDisabledElsewhereExceptStackAndProjectionNotes() {
+        for (zone in PlayZone.entries) {
+            assertEquals(zone == PlayZone.BATTLEFIELD, cardModificationEnabled(zone))
+            assertEquals(zone in listOf(PlayZone.BATTLEFIELD, PlayZone.STACK), cardModificationEnabled(zone, note = true))
+            assertFalse(cardModificationEnabled(zone, projection = true))
+            assertTrue(cardModificationEnabled(zone, note = true, projection = true))
+        }
     }
 
     @Test fun overflowingPagesSpillForwardWithoutDuplicatesOrGrowingTheGrid() {

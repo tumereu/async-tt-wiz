@@ -5,19 +5,22 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
-    @Test fun doubleTapInHandNeverRotatesOrSubmitsEvenWithBattlefieldCardsSelected() {
+    @Test fun doubleTapInHandMovesOnlyThatCardEvenWithBattlefieldCardsSelected() {
         val hand = TableItem("card/hand", TableBounds(0f, 0f, 28f, 40f), "Hand card", "",
             kind = TableItemKind.CARD, cardId = "hand", zone = PlayZone.HAND)
         val field = hand.copy(id = "card/field", cardId = "field", zone = PlayZone.BATTLEFIELD,
             bounds = TableBounds(50f, 0f, 28f, 40f), visible = listOf(TableBounds(50f, 0f, 28f, 40f)))
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
-        gestures.update(TableScene(listOf(hand, field), emptyList()),
+        val stack = TableItem("stack", TableBounds(100f, 0f, 28f, 40f), "Stack", "", zone = PlayZone.STACK)
+        gestures.update(TableScene(listOf(hand, field, stack), emptyList(), sources = mapOf("hand" to TableMoveSource("hand-zone"))),
             TableSelection(mode = TableMode.SELECT, ids = setOf("hand", "field")), true)
         gestures.down(hand.bounds.center, 0); gestures.up(hand.bounds.center, 10)
         events.clear()
         gestures.down(hand.bounds.center, 100); gestures.up(hand.bounds.center, 110)
-        assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Submit || it is TableIntent.Selection })
+        assertEquals(TableIntent.Move(TableScope("hand", listOf("hand")), TableDestination.Container("stack", PlayZone.STACK),
+            mapOf("hand" to TableMoveSource("hand-zone"))), events.filterIsInstance<TableIntent.Move>().single())
+        assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Submit })
         gestures.rotate(hand, true)
         assertTrue(events.none { it is TableIntent.Rotate })
     }

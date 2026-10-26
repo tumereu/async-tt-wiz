@@ -22,13 +22,27 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
     val bound = toolkit.capture
     val popup = toolkit.popupItem
+    var projectionNote by remember(play.gameId, play.id) { mutableStateOf<ValueDraft?>(null) }
+    fun editProjectionNote(id: String) {
+        projectionNote = ValueDraft(ManualScope(play.gameId, play.id, id, listOf(id)),
+            ManualValue(ManualValueKind.NOTE), CombatStackRules.inspection(play.board, id)?.note.orEmpty())
+        toolkit.dismiss()
+    }
+    projectionNote?.let { draft ->
+        val card = CombatStackRules.inspection(play.board, draft.scope.contextId)
+        ValueEditor(draft, card?.note, enabled && draft.scope.contextId in CombatStackRules.projectionIds(play.board),
+            onCancel = { projectionNote = null }, onSubmit = {
+                toolkit.submit(PlayAction.SetNote(draft.scope.contextId, draft.text.trim())).also { if (it) projectionNote = null }
+            }, preview = {})
+    }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
     val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
         cardExtraTools(toolkit, play, bound, selection, select, names, enabled) else emptyList()
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
         submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
-        previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } }) { action -> toolkit.submit(action) }
+        previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } },
+        editProjectionNote = bound?.let { { editProjectionNote(it.contextViewId) } }) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
@@ -46,13 +60,15 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         } }
         "occurrence" -> if (bound != null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
+                MenuControl("Note", enabled) { editProjectionNote(bound.contextViewId) },
+                cardPingTool(toolkit, play, bound, enabled, LocalTableMenuAnnotations.current),
                 MenuControl("Select / deselect") { select(bound.contextViewId) }) +
                 (if (toolkit.tokens.projectionScope != null) listOf(
                     MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
                     MenuControl("Links") { toolkit.tokens.links(); toolkit.dismiss() }) else emptyList()) +
                 occurrenceRemovalTools(toolkit, play, bound, enabled)
             CardActionRing(play.gameId, toolkit.viewer, bound.contextViewId, bound.contextViewId,
-                occurrenceTools.map { RingEntry(if (it.name == "Inspect") "inspect" else it.name, ringShortLabel(it.name), it) },
+                occurrenceTools.map { RingEntry(when (it.name) { "Inspect" -> "inspect"; "Note" -> "note"; else -> it.name }, ringShortLabel(it.name), it) },
                 own = false, OpponentTableColor, toolkit::dismiss)
         }
         "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {
@@ -120,19 +136,22 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
             toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
         },
         MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
-        MenuControl("Ping / Unping", enabled && annotations != null) {
-            if (annotations != null) {
-                val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
-                    PingTarget(if (play.board.cards.any { it.id == id }) PingTargetKind.CARD else PingTargetKind.OCCURRENCE, id)) }
-                var sent = false
-                intents.forEach { sent = annotations.ping(it) || sent }
-                if (sent) toolkit.dismiss()
-            }
-        },
+        cardPingTool(toolkit, play, bound, enabled, annotations),
         MenuControl("Declare without tapping", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, false)) toolkit.dismiss() },
         MenuControl("Declare + tap", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, true)) toolkit.dismiss() },
         MenuControl("Unlink", enabled) { toolkit.tokens.links(); toolkit.manual.close() }
     )
+}
+
+private fun cardPingTool(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
+    enabled: Boolean, annotations: TableMenuAnnotations?) = MenuControl("Ping / Unping", enabled && annotations != null) {
+    if (annotations != null) {
+        val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
+            PingTarget(if (play.board.cards.any { it.id == id }) PingTargetKind.CARD else PingTargetKind.OCCURRENCE, id)) }
+        var sent = false
+        intents.forEach { sent = annotations.ping(it) || sent }
+        if (sent) toolkit.dismiss()
+    }
 }
 
 private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, enabled: Boolean): List<MenuControl> = buildList {

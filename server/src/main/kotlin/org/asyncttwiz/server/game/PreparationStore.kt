@@ -62,6 +62,10 @@ internal object PreparationStore {
             .onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID).doUpdate()
             .set(PLAYER_PREPARATION.READY, player.ready).set(PLAYER_PREPARATION.DECK, encoded).execute()
         for (definition in state.definitions) {
+            // Selection can normalize old catalog parts into a new game-local physical definition.
+            sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, definition.digest)
+                .set(DEFINITION.SCHEMA_VERSION, definition.definition.schemaVersion)
+                .set(DEFINITION.PAYLOAD, DeckJson.canonical(definition.definition)).onConflictDoNothing().execute()
             sql.insertInto(GAME_DEFINITION).set(GAME_DEFINITION.GAME_ID, game)
                 .set(GAME_DEFINITION.DIGEST, definition.digest).onConflictDoNothing().execute()
         }

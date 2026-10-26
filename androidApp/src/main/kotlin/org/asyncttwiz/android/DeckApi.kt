@@ -25,7 +25,7 @@ interface Decks : Closeable {
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
 class DeckApi(private val origin: String, private val client: HttpClient = AccountApi.client(),
-    private val authenticationRequired: (String) -> Unit = {}) : Decks {
+    private val authenticationRequired: (String) -> Unit = {}) : Decks, Cubes {
     init {
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
@@ -35,6 +35,31 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
     }
     override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted =
         call(token, HttpMethod.Post, "/v1/definitions", DeckJson.format.encodeToString(value))
+    override suspend fun create(token: String, value: CreateCube): SavedCube =
+        call(token, HttpMethod.Post, "/v1/cubes", DeckJson.format.encodeToString(value))
+    override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Put, "/v1/cubes/$id", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Delete, "/v1/cubes/$id", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun listCubes(token: String, after: String?): CubeList {
+        if (after != null && !DeckValidation.uuid(after)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Get, "/v1/cubes" + (after?.let { "?after=$it" } ?: ""))
+    }
+    override suspend fun readCube(token: String, id: String): SavedCube {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Get, "/v1/cubes/$id")
+    }
+    override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition {
+        if (!DeckValidation.uuid(id) || !DeckValidation.digest(digest)) throw DeckFailure("invalid_response")
+        return call<SubmittedDefinition>(token, HttpMethod.Get, "/v1/cubes/$id/definitions/$digest").also {
+            if (it.digest != digest || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != digest)
+                throw DeckFailure("invalid_response")
+        }
+    }
     override suspend fun create(token: String, value: CreateDeck): SavedDeck =
         call(token, HttpMethod.Post, "/v1/decks", DeckJson.format.encodeToString(value))
     override suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck {

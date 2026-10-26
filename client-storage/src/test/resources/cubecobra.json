@@ -1,0 +1,11 @@
+{
+  "name": "Fixture snapshot",
+  "cards": {
+    "mainboard": [
+      {"cardID": "00000000-0000-4000-8000-000000000099", "details": {"name": "Quiet Lattice Bolt", "set": "zpa", "collector_number": "2"}},
+      {"quantity": 2, "details": {"name": "Velvet Prism Engine"}}
+    ],
+    "maybeboard": [{"details": {"name": "Not in the mainboard"}}],
+    "sideboard": [{"details": {"name": "Also ignored"}}]
+  }
+}

@@ -316,6 +316,16 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     }, 0).value.copy(indexVersion = long("PRAGMA user_version").toInt())
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
+    private var scryfallLookupPrepared = false
+    /** Cube Cobra supplies Scryfall printing identities, not MTGJSON UUIDs. Prepare on the import worker
+     * so already installed catalogs need neither a format bump nor a fresh download. */
+    fun findScryfall(id: String): List<CatalogPrinting> {
+        if (!scryfallLookupPrepared) {
+            sql("CREATE INDEX IF NOT EXISTS printing_scryfall_lookup ON printing(scryfall)")
+            scryfallLookupPrepared = true
+        }
+        return rows("SELECT * FROM printing WHERE scryfall=? ORDER BY id", listOf(id.lowercase(Locale.ROOT)))
+    }
     fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
         prepareImportNames()

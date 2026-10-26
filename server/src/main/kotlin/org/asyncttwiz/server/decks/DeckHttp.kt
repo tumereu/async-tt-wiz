@@ -16,6 +16,7 @@ import org.asyncttwiz.server.database.OwnershipFailure
 class DeckHttp(private val runtime: ServiceRuntime) {
     private val accounts = AccountService(runtime)
     private val decks = DeckService(runtime)
+    private val cubes = org.asyncttwiz.server.cubes.CubeService(runtime)
     private val limits = AccountRateLimits()
     private val json = DeckJson.format
     // An HTTP resource bound, not a card-count/deck-legality limit or an application chunk protocol.
@@ -23,7 +24,8 @@ class DeckHttp(private val runtime: ServiceRuntime) {
 
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path != "/v1/definitions" && path != "/v1/decks" && !path.startsWith("/v1/decks/")) return false
+        val cube = path == "/v1/cubes" || path.startsWith("/v1/cubes/")
+        if (!cube && path != "/v1/definitions" && path != "/v1/decks" && !path.startsWith("/v1/decks/")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         try {
@@ -38,7 +40,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val parts = path.removePrefix("/v1/").split('/')
             val allowed = when {
                 path == "/v1/definitions" -> "POST"
-                path == "/v1/decks" -> "GET, POST"
+                path == "/v1/decks" || path == "/v1/cubes" -> "GET, POST"
                 parts.size == 2 -> "GET, PUT, DELETE"
                 parts.size == 4 && parts[2] == "definitions" -> "GET"
                 else -> { error(response, 404, "not_found"); return true }
@@ -49,11 +51,18 @@ class DeckHttp(private val runtime: ServiceRuntime) {
             val result = when {
                 request.method in listOf("POST", "PUT", "DELETE") -> {
                     val text = body(request, response) ?: return true
-                    if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
+                    if (cube) when (request.method) {
+                        "PUT" -> cubes.update(principal, parts[1], json.decodeFromString<UpdateCube>(text))
+                        "DELETE" -> cubes.delete(principal, parts[1], json.decodeFromString<DeleteCube>(text))
+                        else -> cubes.create(principal, json.decodeFromString<CreateCube>(text))
+                    }
+                    else if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
                     else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))
                     else if (path == "/v1/definitions") decks.submit(principal, json.decodeFromString<SubmitDefinitions>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))
                 }
+                path == "/v1/cubes" -> cubes.list(principal, request.getParameter("after"))
+                cube -> cubes.read(principal, parts[1], parts.getOrNull(3))
                 path == "/v1/decks" -> decks.list(principal, request.getParameter("after"))
                 else -> decks.read(principal, parts[1], parts.getOrNull(3))
             }

@@ -8,14 +8,14 @@ import org.asyncttwiz.protocol.DeckValidation
 enum class DeckSection(val title: String) { MAINBOARD("Mainboard"), SIDEBOARD("Sideboard") }
 data class ImportIssue(val line: Int, val message: String)
 data class ImportLine(val line: Int, val section: DeckSection, val quantity: Int,
-    val name: String, val set: String?, val number: String?)
+    val name: String, val set: String?, val number: String?, val scryfallId: String? = null)
 data class ParsedDeck(val text: String, val lines: List<ImportLine>, val issues: List<ImportIssue>)
 data class ResolvedDeckEntry(val section: DeckSection, val quantity: Int,
     val faces: List<CatalogPrinting>, val sourceLines: List<Int>) {
     val printing get() = faces.first()
 }
 data class DeckImportResult(val text: String, val entries: List<ResolvedDeckEntry>,
-    val issues: List<ImportIssue>, val catalog: CatalogMetadata?) {
+    val issues: List<ImportIssue>, val catalog: CatalogMetadata?, val substitutions: List<ImportIssue> = emptyList()) {
     val resolved get() = issues.isEmpty() && entries.isNotEmpty()
     fun count(section: DeckSection): Long = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
 }
@@ -24,7 +24,7 @@ data class DeckImportResult(val text: String, val entries: List<ResolvedDeckEntr
 object DeckTextParser {
     private val entry = Regex("([0-9]+)[xX]?\\s+(.+)")
     private val suffix = Regex("(.+?)\\s+\\(([A-Za-z0-9_-]+)\\)\\s+(\\S+)")
-    fun parse(text: String): ParsedDeck {
+    fun parse(text: String, maxCards: Int = DeckValidation.MAX_CARDS, includeSideboard: Boolean = true): ParsedDeck {
         val lines = text.split(Regex("\\r\\n|\\n|\\r"))
         val explicit = lines.any { it.trim().lowercase(Locale.ROOT) in listOf("deck", "mainboard", "sideboard") }
         var section = DeckSection.MAINBOARD
@@ -47,14 +47,15 @@ object DeckTextParser {
             if (value.startsWith("SB:", ignoreCase = true)) {
                 target = DeckSection.SIDEBOARD; value = value.substring(3).trimStart()
             }
+            if (!includeSideboard && target == DeckSection.SIDEBOARD) return@forEachIndexed
             val match = entry.matchEntire(value)
             val quantity = match?.groupValues?.get(1)?.toIntOrNull()
             if (match == null) {
                 issues += ImportIssue(line, "Use quantity Card Name, Deck or Sideboard. Unsupported section or entry: $value")
-            } else if (quantity == null || !DeckValidation.quantity(quantity)) {
-                issues += ImportIssue(line, "Quantity must be a whole number from 1 to ${DeckValidation.MAX_CARDS}.")
-            } else if (!DeckValidation.cardCount(total + quantity)) {
-                issues += ImportIssue(line, "A deck may contain at most ${DeckValidation.MAX_CARDS} cards including sideboard.")
+            } else if (quantity == null || quantity !in 1..maxCards) {
+                issues += ImportIssue(line, "Quantity must be a whole number from 1 to $maxCards.")
+            } else if (total + quantity > maxCards) {
+                issues += ImportIssue(line, "A list may contain at most $maxCards cards including sideboard.")
             } else {
                 total += quantity
                 val name = match.groupValues[2].trimEnd()
@@ -71,9 +72,11 @@ object DeckTextParser {
 
 /** Worker-only resolution on the installed, disk-backed catalog; exact face text/defaults are retained. */
 class DeckImportResolver(private val repository: CatalogRepository) {
-    fun resolve(text: String): DeckImportResult = repository.snapshot { catalog ->
-        val parsed = DeckTextParser.parse(text)
+    fun resolve(text: String): DeckImportResult = resolve(DeckTextParser.parse(text))
+    fun resolve(parsed: ParsedDeck, maxCards: Int = DeckValidation.MAX_CARDS,
+        allowSubstitutions: Boolean = false): DeckImportResult = repository.snapshot { catalog ->
         val issues = parsed.issues.toMutableList()
+        val substitutions = mutableListOf<ImportIssue>()
         val entries = linkedMapOf<Pair<DeckSection, String>, ResolvedDeckEntry>()
         val metadata = catalog?.metadata()
         if (catalog == null) {
@@ -82,14 +85,19 @@ class DeckImportResolver(private val repository: CatalogRepository) {
             check(!Thread.currentThread().isInterrupted)
             // Page through every matching printing: prolific cards must not become ambiguous just
             // because they exceed a lookup page, nor may a later, different identity be ignored.
-            val found = buildList {
+            fun find(set: String?, number: String?) = buildList {
                 var after: String? = null
                 do {
                     check(!Thread.currentThread().isInterrupted)
-                    val page = catalog.find(line.name, line.set, line.number, 256, after)
+                    val page = catalog.find(line.name, set, number, 256, after)
                     addAll(page)
                     after = page.lastOrNull()?.id
                 } while (page.size == 256)
+            }
+            var found = if (line.scryfallId == null) find(line.set, line.number) else catalog.findScryfall(line.scryfallId)
+            var replaced = false
+            if (found.isEmpty() && allowSubstitutions && (line.set != null || line.scryfallId != null)) {
+                found = find(null, null); replaced = true
             }
             val groups = found.groupBy { (it.otherFaces + it.id).sorted().joinToString("|") }
             val matching = groups.values.map { group ->
@@ -103,7 +111,7 @@ class DeckImportResolver(private val repository: CatalogRepository) {
             // lookup only when there is no primary match; genuine front-name conflicts stay errors.
             val cards = matching.filterNot { it.printing.token }.ifEmpty { matching }
             val candidates = cards.filter { it.primaryName(line.name) }.ifEmpty { cards }
-            val ambiguous = if (line.set != null) candidates.size != 1 else !sameCard(candidates)
+            val ambiguous = if (!replaced && (line.set != null || line.scryfallId != null)) candidates.size != 1 else !sameCard(candidates)
             if (ambiguous) {
                 issues += ImportIssue(line.line, if (found.isEmpty())
                     "${line.name}${line.set?.let { " ($it) ${line.number}" }.orEmpty()} could not be resolved. Check the name/printing or update card records."
@@ -111,16 +119,18 @@ class DeckImportResolver(private val repository: CatalogRepository) {
                 continue
             }
             val faces = candidates.minWith(defaultPrinting).faces
+            if (replaced) substitutions += ImportIssue(line.line,
+                "${line.name}: requested ${line.scryfallId ?: "(${line.set}) ${line.number}"} → (${faces.first().set}) ${faces.first().number}")
             val key = line.section to faces.first().id
             val previous = entries[key]
             val quantity = (previous?.quantity?.toLong() ?: 0) + line.quantity
-            if (!DeckValidation.cardCount(quantity)) {
-                issues += ImportIssue(line.line, "Combined quantity for ${line.name} exceeds ${DeckValidation.MAX_CARDS}.")
+            if (quantity !in 1..maxCards.toLong()) {
+                issues += ImportIssue(line.line, "Combined quantity for ${line.name} exceeds $maxCards.")
             } else entries[key] = ResolvedDeckEntry(line.section, quantity.toInt(), faces,
                 previous?.sourceLines.orEmpty() + line.line)
         }
         // A partial resolution is useful only as diagnostics, never as a preview/save payload.
-        DeckImportResult(text, if (issues.isEmpty()) entries.values.toList() else emptyList(), issues, metadata)
+        DeckImportResult(parsed.text, if (issues.isEmpty()) entries.values.toList() else emptyList(), issues, metadata, substitutions)
     }
 
     private class Candidate(val faces: List<CatalogPrinting>) {

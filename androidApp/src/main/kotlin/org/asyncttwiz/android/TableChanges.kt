@@ -91,9 +91,11 @@ data class ActiveTableChange(val change: TableChange, val started: Long, val ser
 
 /** Table-lifetime UI state; the clock is sampled on events, never by board composition. */
 class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000 }) {
+    internal val feedback = TableEventFeedback(now)
     val active = mutableStateMapOf<TableChangeKey, ActiveTableChange>()
     private var serial = 0L
     fun apply(batch: TableChangeBatch) {
+        feedback.apply(batch)
         if (batch.jump) { clear(); return }
         val time = now()
         active.entries.removeAll { time - it.value.started >= WINDOW_MS }
@@ -105,7 +107,7 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
         }
     }
     fun expire(key: TableChangeKey, serial: Long) { if (active[key]?.serial == serial) active.remove(key) }
-    fun clear() { active.clear() }
+    fun clear() { active.clear(); feedback.clear() }
     companion object {
         const val HOLD_MS = 1_000L
         const val WINDOW_MS = 1_500L

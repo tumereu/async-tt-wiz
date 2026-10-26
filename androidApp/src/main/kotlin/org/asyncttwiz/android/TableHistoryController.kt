@@ -56,7 +56,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         repeat(through + 1) { changes.apply(pendingChanges.removeFirst()) }
     }
     private fun playbackChanges(from: String, to: String, index: HistoryTree) {
-        stepChanges = to to TableChangeExtraction.between(from, to, index.nodes)
+        stepChanges = to to tablePlaybackChanges(from, to, index)
     }
 
     /** Configure once before the first update; ordinary review never changes this bookmark. */

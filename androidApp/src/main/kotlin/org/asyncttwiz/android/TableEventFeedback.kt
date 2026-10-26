@@ -38,6 +38,9 @@ internal class TableEventFeedback(private val now: () -> Long = { System.nanoTim
     private var group: String? = null
     private var previousPings = emptyList<RecordedPingChange>()
     private var stoppedNode: GameplayMutation? = null
+    private var presentedNode: String? = null
+    /** The endpoint shown when a jump arrived; it may be presented again while the target loads. */
+    private var staleNode: String? = null
     private var serial = 0L
 
     fun elapsed(started: Long) = (now() - started).coerceAtLeast(0)
@@ -57,12 +60,15 @@ internal class TableEventFeedback(private val now: () -> Long = { System.nanoTim
         prune()
         isStopped = stopped
         val nextGroup = play.currentGroup?.id
-        if (group != nextGroup) {
+        val stale = staleNode != null && staleNode == play.currentNodeId
+        if (!stale) staleNode = null
+        if (group != nextGroup && !stale) {
             val time = now()
             for (record in previousPings) pings[++serial] = LingeringTablePing(record, time, serial)
         }
         group = nextGroup
-        previousPings = projection.records(play)
+        previousPings = if (stale) emptyList() else projection.records(play)
+        presentedNode = play.currentNodeId
         // Re-entering a group restores its real, numbered input markers; don't draw a ghost too.
         pings.entries.removeAll { it.value.record.recording.groupId == nextGroup }
         val endpoint = if (stopped) nodes[play.currentNodeId] else null
@@ -95,6 +101,7 @@ internal class TableEventFeedback(private val now: () -> Long = { System.nanoTim
     fun clear() {
         rolls.clear(); pings.clear(); stoppedRolls = emptyList(); isStopped = false
         group = null; previousPings = emptyList(); stoppedNode = null
+        staleNode = presentedNode
     }
     companion object {
         const val HOLD_MS = 2_500L

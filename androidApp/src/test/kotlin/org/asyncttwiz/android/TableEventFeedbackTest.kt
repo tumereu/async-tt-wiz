@@ -114,6 +114,16 @@ class TableEventFeedbackTest {
             feedback.apply(TableChangeBatch(jump = true))
             feedback.present(after, false, emptyMap())
             assertTrue(feedback.pings.isEmpty())
+            // The pre-jump endpoint may be composed again while the jump target loads.
+            feedback.present(before, false, emptyMap())
+            feedback.apply(TableChangeBatch(jump = true))
+            feedback.present(before, false, emptyMap())
+            feedback.present(after, false, emptyMap())
+            assertTrue(feedback.pings.isEmpty(), "A stale pre-jump frame must not create a lingering ring")
+            // Ordinary departures linger again afterwards.
+            feedback.present(before, false, emptyMap())
+            feedback.present(after, false, emptyMap())
+            assertEquals(1, feedback.pings.size)
         }
     }
 

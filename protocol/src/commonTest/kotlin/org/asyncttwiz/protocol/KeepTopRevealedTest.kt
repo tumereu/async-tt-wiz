@@ -49,26 +49,33 @@ class KeepTopRevealedTest {
         }
     }
 
-    @Test fun ownerOnlyToggleIsRecordedAndBothDirectionsUndoRedoAcrossUnrelatedOpponentEdit() {
-        var state = root()
-        assertEquals("accessDenied", change(state, PlayAction.SetKeepTopRevealed(libraryId, true), b).reason)
-        assertEquals("missingReference", change(state, PlayAction.SetKeepTopRevealed(handId, true)).reason)
-        assertNull(change(state, PlayAction.SetKeepTopRevealed(libraryId, false)).mutation)
-        var tree = GameplayTree(state)
-        for (enabled in listOf(true, false)) {
-            val before = state.board
-            val result = assertNotNull(tree.play(a, command(state, GameAction.Play(PlayAction.SetKeepTopRevealed(libraryId, enabled)))).tree)
-            val toggled = assertNotNull(result.stateAt(result.currentNodeId))
-            assertEquals(14, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
-            if (enabled) assertTop(toggled) else assertTrue(toggled.board.cards.none { CardVisibility.isVisibleFaceUp(toggled.board, it, b) })
-            val later = assertNotNull(result.play(b, command(toggled, GameAction.Play(PlayAction.AdjustLife(b, "1")))).tree)
-            val undone = assertNotNull(SelectiveUndo.change(later, a, command(toggled, GameAction.Undo)).tree)
-            val undoneState = assertNotNull(undone.stateAt(undone.currentNodeId))
-            assertEquals(before.containers, undoneState.board.containers)
-            val redone = assertNotNull(SelectiveUndo.change(undone, a, command(undoneState, GameAction.Redo)).tree)
-            state = assertNotNull(redone.stateAt(redone.currentNodeId))
-            assertEquals(toggled.board.containers, state.board.containers)
-            tree = redone
+    @Test fun eitherPlayerCanToggleAndBothDirectionsUndoRedoAcrossUnrelatedOtherPlayerEdit() {
+        for (actor in listOf(a, b)) {
+            val other = if (actor == a) b else a
+            var state = root()
+            assertEquals("missingReference", change(state, PlayAction.SetKeepTopRevealed(handId, true), actor).reason)
+            assertEquals("missingReference", change(state, PlayAction.SetKeepTopRevealed(id(99), true), actor).reason)
+            val noOp = change(state, PlayAction.SetKeepTopRevealed(libraryId, false), actor)
+            assertEquals(state, noOp.state)
+            assertNull(noOp.mutation)
+            assertNull(noOp.reason)
+            var tree = GameplayTree(state)
+            for (enabled in listOf(true, false)) {
+                val before = state.board
+                val result = assertNotNull(tree.play(actor, command(state, GameAction.Play(PlayAction.SetKeepTopRevealed(libraryId, enabled)))).tree)
+                val toggled = assertNotNull(result.stateAt(result.currentNodeId))
+                assertEquals(14, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
+                if (enabled) assertTop(toggled) else assertTrue(toggled.board.cards.none { CardVisibility.isVisibleFaceUp(toggled.board, it, b) })
+                val later = assertNotNull(result.play(other, command(toggled, GameAction.Play(PlayAction.AdjustLife(other, "1")))).tree)
+                val laterState = assertNotNull(later.stateAt(later.currentNodeId))
+                val undone = assertNotNull(SelectiveUndo.change(later, actor, command(laterState, GameAction.Undo)).tree)
+                val undoneState = assertNotNull(undone.stateAt(undone.currentNodeId))
+                assertEquals(before.copy(players = laterState.board.players), undoneState.board)
+                val redone = assertNotNull(SelectiveUndo.change(undone, actor, command(undoneState, GameAction.Redo)).tree)
+                state = assertNotNull(redone.stateAt(redone.currentNodeId))
+                assertEquals(laterState, state)
+                tree = redone
+            }
         }
     }
 

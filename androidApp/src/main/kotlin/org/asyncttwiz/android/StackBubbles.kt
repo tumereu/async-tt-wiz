@@ -61,23 +61,39 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
             val side = 40f
             fun bounds(x: Float, y: Float) = TableBounds(x.coerceIn(4f, (width - side - 4).coerceAtLeast(4f)),
                 y.coerceIn(4f, (height - side - 4).coerceAtLeast(4f)), side, side)
+            val occupied = mutableListOf(anchor)
+            fun place(vararg preferred: TableBounds): TableBounds {
+                fun free(candidate: TableBounds) = occupied.none { it.intersection(candidate) != null }
+                // Fixed-size search, independent of game/history size. Prefer nearby slots before
+                // using a board-wide grid when edge clamping has consumed those slots.
+                val fallback = sequence {
+                    for (distance in 1..3) for (offset in -2..2) {
+                        val y = anchor.center.y - side / 2 + offset * (side + 8)
+                        yield(bounds(anchor.x - side - 16 - (distance - 1) * (side + 8), y))
+                        yield(bounds(anchor.right + 16 + (distance - 1) * (side + 8), y))
+                    }
+                    for (row in 0..7) for (column in 0..7)
+                        yield(bounds(4 + column * (width - side - 8) / 7, 4 + row * (height - side - 8) / 7))
+                }
+                val result = preferred.firstOrNull(::free) ?: fallback.firstOrNull(::free)
+                    // Even an unusually small board must not throw or cover the card.
+                    ?: TableBounds(occupied.maxOf { it.right } + 16, anchor.y, side, side)
+                occupied += result
+                return result
+            }
             val toward = if (anchor.x >= side + 20) anchor.x - side - 16 else anchor.right + 16
             val above = bounds(anchor.center.x - side / 2, anchor.y - side - 24)
             val below = bounds(anchor.center.x - side / 2, anchor.bottom + 24)
             // Near top/bottom flip the obstructed action beside the other; never stack hit regions.
             val beside = if (toward > anchor.center.x) above.right + 8 else above.x - side - 8
-            val top = if (above.intersection(anchor) != null) bounds(beside, below.y) else above
-            val bottom = if (below.intersection(anchor) != null) bounds(beside, above.y) else below
-            val handle = bounds(toward, anchor.center.y - side / 2)
-            val remove = sequenceOf(bounds(toward, above.y), bounds(toward, above.y - side - 8),
+            val top = place(if (above.intersection(anchor) != null) bounds(beside, below.y) else above)
+            val bottom = place(if (below.intersection(anchor) != null) bounds(beside, above.y) else below)
+            val handle = place(bounds(toward, anchor.center.y - side / 2))
+            val remove = place(bounds(toward, above.y), bounds(toward, above.y - side - 8),
                 bounds(toward + (if (toward < anchor.x) -1 else 1) * (side + 8), above.y),
-                bounds(toward, below.bottom + 8)).first { candidate ->
-                listOf(top, bottom, handle, anchor).none { it.intersection(candidate) != null }
-            }
-            val exile = sequenceOf(bounds(toward, below.y), bounds(toward, below.bottom + 8),
-                bounds(toward + (if (toward < anchor.x) -1 else 1) * (side + 8), below.y)).first { candidate ->
-                listOf(top, bottom, handle, remove, anchor).none { it.intersection(candidate) != null }
-            }
+                bounds(toward, below.bottom + 8))
+            val exile = place(bounds(toward, below.y), bounds(toward, below.bottom + 8),
+                bounds(toward + (if (toward < anchor.x) -1 else 1) * (side + 8), below.y))
             val controls = listOf("battlefield" to top, "graveyard" to bottom, "remove" to remove,
                 "exile" to exile, "mark" to handle).map { (kind, b) ->
                 TableItem("stackBubble/$kind", b, when (kind) {
@@ -130,8 +146,8 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
             Box(contentAlignment = Alignment.Center) { if (item.id.endsWith("/ping")) TableChromeIcon("ping") else Icon(when {
                 marker -> Icons.Outlined.BorderColor
                 item.id.endsWith("/remove") || item.id.endsWith("/undeclare") -> Icons.Outlined.Close
-                 item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
-                 item.id.endsWith("exile") -> menuIcon("Exile")
+                item.id.endsWith("battlefield") -> Icons.Outlined.TableRows
+                item.id.endsWith("exile") -> menuIcon("Exile")
                 else -> Icons.Outlined.Inventory2
             }, null, Modifier.size(22.dp)) }
         }
@@ -162,23 +178,23 @@ internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<Sta
 /** Shared pointer toward a card, used by both the Stack shortcuts and the action ring. */
 @Composable
 internal fun SpeechBubbleTail(anchor: TableBounds, b: TableBounds, color: Color) {
-        Canvas(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)) {
-            val a = anchor.center
-             val dx = a.x - b.center.x; val dy = a.y - b.center.y
-             val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
-             val tipX = dx / length * 8.dp.toPx(); val tipY = dy / length * 8.dp.toPx()
-            val path = Path()
-            if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
-                val x = if (dx > 0) size.width else 0f
-                 path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + tipX, size.height / 2 + tipY)
-                path.lineTo(x, size.height / 2 + 6.dp.toPx())
-            } else {
-                val y = if (dy > 0) size.height else 0f
-                 path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2 + tipX, y + tipY)
-                path.lineTo(size.width / 2 + 6.dp.toPx(), y)
-            }
-            path.close(); drawPath(path, color)
+    Canvas(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)) {
+        val a = anchor.center
+        val dx = a.x - b.center.x; val dy = a.y - b.center.y
+        val length = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
+        val tipX = dx / length * 8.dp.toPx(); val tipY = dy / length * 8.dp.toPx()
+        val path = Path()
+        if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+            val x = if (dx > 0) size.width else 0f
+            path.moveTo(x, size.height / 2 - 6.dp.toPx()); path.lineTo(x + tipX, size.height / 2 + tipY)
+            path.lineTo(x, size.height / 2 + 6.dp.toPx())
+        } else {
+            val y = if (dy > 0) size.height else 0f
+            path.moveTo(size.width / 2 - 6.dp.toPx(), y); path.lineTo(size.width / 2 + tipX, y + tipY)
+            path.lineTo(size.width / 2 + 6.dp.toPx(), y)
         }
+        path.close(); drawPath(path, color)
+    }
 }
 
 @Composable

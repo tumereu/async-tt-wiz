@@ -7,19 +7,6 @@ import kotlin.test.*
 class CardPanelLayoutTest {
     private val f = BasicTableFixture()
 
-    @Test fun playerCreatedPileHasOneTopDrawingAndKeepsItsTotal() {
-        val initial = TableFixture.play(board = 3)
-        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
-            if (it.containerId == "a/BATTLEFIELD") it.copy(placement = PlayPlacement(BoardPosition(0, 0), "pile")) else it
-        }))
-        val scene = TableFixture.scene(play)
-        val top = scene.items.single { it.zone == PlayZone.BATTLEFIELD && it.owner == "a" }
-        assertEquals(3, top.copies)
-        assertEquals(3, top.cards.size)
-        assertEquals(28f, top.bounds.width)
-        assertEquals(40f, top.bounds.height)
-    }
-
     @Test fun eyeBadgesBelongOnlyToTheAuthorOfLookAndSearchAndSplitMixedVisibilityCopies() {
         val root = f.root
         val library = f.container(PlayZone.LIBRARY)

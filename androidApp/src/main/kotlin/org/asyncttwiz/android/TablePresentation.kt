@@ -323,12 +323,9 @@ object TablePresentation {
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
-            val piles = battlefield.cards.filter { positions[it]?.pileId != null }.groupBy { positions[it]!!.pileId }
             battlefield.cards.sortedWith(compareByDescending<String> { positions[it]?.pileIndex ?: 0 }.thenBy { battlefield.cards.indexOf(it) })
                 .forEach { id -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(battlefield.cards.indexOf(id), 0)
-                    val pile = piles[p.pileId].orEmpty()
-                    if (pile.isNotEmpty() && p.pileIndex != 0) return@let
                     val x = field.gridBounds.x + p.column * COLUMN_PITCH * zoom + 16f * zoom
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
@@ -336,10 +333,8 @@ object TablePresentation {
                     val y = rowY + (rowHeight - envelope) / 2
                     val cardHeight = if (c.tapped) cw else ch
                     val footprint = TableBounds(x, y, COLUMN_PITCH * zoom, envelope)
-                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight,
-                        if (p.pileId == null) p.pileIndex else 0, zoom)
+                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, zoom)
                     card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
-                    if (pile.size > 1) items[items.lastIndex] = items.last().copy(copies = pile.size, cards = pile)
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * COLUMN_PITCH
             port(battlefield.id, field.bounds, logicalWidth * zoom)

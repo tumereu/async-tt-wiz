@@ -49,9 +49,10 @@ class GameplayDeltaTest {
             PlayAction.AdjustCounter(CounterTarget.CARD, card, CounterColor.RED, "-1"),
             PlayAction.ClearCardCounter(card, CounterColor.RED), PlayAction.SetNote(card, "new note"),
             PlayAction.SetOwner(card, b), PlayAction.ShuffleLibrary(gameplayId(20), RandomV1.encodeSeed(ByteArray(32))),
-            PlayAction.SuggestResult(SuggestedResult.DRAW))) check(root, action)
+            PlayAction.SuggestResult(SuggestedResult.DRAW))) check(if (action is PlayAction.Manual || action is PlayAction.ClearCardCounter)
+                root.withBattlefieldCards(card) else root, action)
 
-        val numeric = check(root, PlayAction.SetCorner(card, "3/5"))
+        val numeric = check(root.withBattlefieldCards(card), PlayAction.SetCorner(card, "3/5"))
         check(numeric, PlayAction.AdjustCorner(card, CornerPart.LEFT, 1))
         val shown = check(root, PlayAction.ShowContents(gameplayId(20), ContentsSelection.ALL, reveal = true))
         check(shown, PlayAction.DismissContents(shown.board.contentsDisplays.single().id))
@@ -86,6 +87,8 @@ class GameplayDeltaTest {
         check(stack, PlayAction.Stack(StackAction.RemoveEffect(order[0])))
         val textStack = check(twoFaces, PlayAction.Stack(StackAction.AddEffect(card, GameplayRules.stackDigest(twoFaces))))
         val textEntry = textStack.board.stackEffects.single().id
+        check(textStack, PlayAction.SetProjectionNote(textEntry, "projection"))
+        check(root, PlayAction.Mulligan(gameplayId(20), gameplayId(21), emptyList(), 3, RandomV1.encodeSeed(ByteArray(32))))
         val marked = check(textStack, PlayAction.Stack(StackAction.MarkText(textEntry, 0)))
         check(marked, PlayAction.Stack(StackAction.MarkText(textEntry, null)))
         val multiMarked = check(marked, PlayAction.Stack(StackAction.ToggleTextMark(textEntry, 1)))
@@ -108,7 +111,7 @@ class GameplayDeltaTest {
         val ping = check(root, PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, card)), resolver)
         check(ping, PlayAction.Unping(reference, PingTarget(PingTargetKind.CARD, card)), resolver)
         assertEquals(setOf("SuggestResult", "SetTapped", "SetLife", "AdjustLife", "SetPlayerCounter", "AdjustPlayerCounter",
-            "NextStep", "PassAttention", "EndTurn", "ChooseStep", "RollDie", "FlipCoin", "MoveCard", "ShuffleLibrary",
+            "NextStep", "PassAttention", "EndTurn", "ChooseStep", "RollDie", "FlipCoin", "MoveCard", "ShuffleLibrary", "Mulligan", "SetProjectionNote",
             "ShowContents", "DismissContents", "EventComment", "Ping", "Unping", "SetCorner", "AdjustCorner", "ResetCorner",
             "SetCounter", "AdjustCounter", "SetNote", "SetOwner", "SetFace", "SetCovered", "InspectFace", "ClearCardCounter",
             "CreateToken", "CloneToken", "RemoveToken", "Link", "RemoveLink", "LinkProjections", "RemoveProjectionLink", "Combat", "Stack"), seen)
@@ -127,11 +130,11 @@ class GameplayDeltaTest {
             val card = cards[index % cards.size]
             val action = when (index % 9) {
                 0 -> PlayAction.AdjustLife(actor, "-1")
-                1 -> PlayAction.SetNote(card.id, "note $index")
+                1 -> PlayAction.SetPlayerCounter(actor, CounterColor.RED, "note $index")
                 2 -> PlayAction.AdjustPlayerCounter(actor, CounterColor.BLUE, "1")
                 3 -> PlayAction.NextStep
                 4 -> PlayAction.RollDie(20, index % 20 + 1)
-                5 -> PlayAction.SetCounter(CounterTarget.CARD, card.id, CounterColor.GREEN, index.toString())
+                5 -> PlayAction.SetPlayerCounter(actor, CounterColor.GREEN, index.toString())
                 6 -> PlayAction.ShuffleLibrary(gameplayId(if (actor == a) 20 else 30), RandomV1.encodeSeed(ByteArray(32) { index.toByte() }))
                 7 -> PlayAction.FlipCoin(CoinFace.HEADS)
                 else -> PlayAction.AdjustLife(actor, "2")
@@ -184,7 +187,7 @@ class GameplayDeltaTest {
         assertTrue(medianMillis { assertNotNull(GameplayHistory.apply(before, head)) } < 20.0)
         val undo = command(tree.initial, GameAction.Undo)
         assertTrue(medianMillis { assertNotNull(HistoryContinuation.change(tree, head.author, undo).tree) } < 20.0)
-        var selective = assertNotNull(tree.play(a, command(tree.initial, GameAction.Play(PlayAction.SetNote(gameplayId(1000), "target")))).tree)
+        var selective = assertNotNull(tree.play(a, command(tree.initial, GameAction.Play(PlayAction.SetPlayerCounter(a, CounterColor.PURPLE, "target")))).tree)
         repeat(50) { selective = assertNotNull(selective.play(b, command(tree.initial, GameAction.Play(PlayAction.AdjustLife(b, "1")))).tree) }
         assertTrue(medianMillis { assertNotNull(HistoryContinuation.change(selective, a, undo).tree) } < 20.0)
         val fiftyOne = assertNotNull(selective.play(b, command(tree.initial, GameAction.Play(PlayAction.AdjustLife(b, "1")))).tree)

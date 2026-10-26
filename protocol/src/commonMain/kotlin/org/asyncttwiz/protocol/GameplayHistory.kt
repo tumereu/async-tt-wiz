@@ -32,7 +32,9 @@ import kotlinx.serialization.Serializable
      * Omit the legacy default so existing event seals and retained deltas remain unchanged. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val contentsRulesVersion: Int = 1,
     /** Absent on retained v2 events: their validation and seals must not change. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val concerns: ConcernSet? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val concerns: ConcernSet? = null,
+    /** New acceptance rules only. Retained events are applied from their sealed deltas, never re-executed. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rulesVersion: Int = 1)
 @Serializable enum class RandomTool { DIE, COIN }
 @Serializable data class GameplayRandomResult(val tool: RandomTool, val value: String, val sides: String? = null)
 @Serializable data class GameplayMutation(val id: String, val parentId: String, val branchId: String,
@@ -57,7 +59,9 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
 @Serializable data class GameplayGroup(val id: String, val author: String, val firstNodeId: String,
     val lastNodeId: String, val category: String, val key: String?, val count: String,
     val tapsAndPingsOnly: Boolean = category == "tap", val representative: HistoryRepresentative? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null,
+    /** Only the immediately preceding event, not any earlier move in this group. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lastMoveIntoLibrary: String? = null)
 @Serializable data class GameplayHistoryPage(val playId: String, val mutations: List<GameplayMutation>,
     val groups: List<GameplayGroup>, val throughRevision: String, val next: String? = null)
 
@@ -283,7 +287,7 @@ object GameplayHistory {
      * This hook deliberately refuses a compound inverse rather than returning a partially restored board. */
     fun inverseProjectionLinks(board: BoardState, transition: GameplayTransition): BoardState? {
         val effects = transition.combatStack ?: return null
-        if (transition.copy(combatStack = null, delta = null, concerns = null) != GameplayTransition() ||
+        if (transition.copy(combatStack = null, delta = null, concerns = null, rulesVersion = 1) != GameplayTransition() ||
             effects.copy(removedLinks = emptyList(), addedLinks = emptyList()) != CombatStackTransition()) return null
         if (effects.removedLinks.isEmpty() && effects.addedLinks.isEmpty()) return null
         var next = board

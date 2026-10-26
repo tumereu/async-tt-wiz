@@ -44,6 +44,7 @@ internal object GameplayDeltas {
             "contents" -> b.contentsDisplays.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "link" -> b.links.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "effect" -> b.stackEffects.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
+            "occurrence" -> CombatStackRules.occurrences(b.combat).singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "projectionLink" -> b.projectionLinks.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "definition" -> state.definitions.singleOrNull { it.digest == id }?.let { json.encodeToJsonElement(it) }
             "turn" -> json.encodeToJsonElement(b.turn)
@@ -69,7 +70,7 @@ internal object GameplayDeltas {
         put("delta", mutation.transition.delta?.let { json.encodeToJsonElement(GameplayDelta.serializer(), it.copy(seal = "")) } ?: JsonNull)
     }.let(DeckJson::canonicalElement))
 
-    fun capture(from: PlayState, to: PlayState, nodeId: String): GameplayDelta {
+    fun capture(from: PlayState, to: PlayState, nodeId: String, projectionNoteId: String? = null): GameplayDelta {
         val changes = mutableListOf<GameplayEntityDelta>()
         fun <T> entity(kind: String, id: String, index: Int, old: T?, next: T?, serializer: KSerializer<T>) {
             if (old == next) return
@@ -102,7 +103,12 @@ internal object GameplayDeltas {
         members("projectionLink", a.projectionLinks, b.projectionLinks, ProjectionLink.serializer()) { it.id }
         members("definition", from.definitions, to.definitions, SubmittedDefinition.serializer()) { it.digest }
         entity("turn", "", 0, a.turn, b.turn, TurnState.serializer())
-        entity("combat", "", 0, a.combat, b.combat, CombatArea.serializer())
+        // Notes address an occurrence, not its current pair/role. Keep their sparse path stable
+        // when an unrelated combat placement is selectively undone before replaying the note.
+        if (projectionNoteId != null) entity("occurrence", projectionNoteId, 0,
+            CombatStackRules.occurrences(a.combat).singleOrNull { it.id == projectionNoteId },
+            CombatStackRules.occurrences(b.combat).singleOrNull { it.id == projectionNoteId }, CombatOccurrence.serializer())
+        else entity("combat", "", 0, a.combat, b.combat, CombatArea.serializer())
         entity("result", "", 0, a.resultSuggestion, b.resultSuggestion, ResultSuggestion.serializer())
         entity("attention", "", 0, JsonPrimitive(a.attentionHolder), JsonPrimitive(b.attentionHolder), JsonElement.serializer())
         entity("marks", "", 0, marks(a), marks(b), JsonElement.serializer())
@@ -254,6 +260,14 @@ internal object GameplayDeltas {
                 "contents" -> result.copy(board = b.copy(contentsDisplays = members(b.contentsDisplays, ContentsDisplay.serializer()) { it.id }))
                 "link" -> result.copy(board = b.copy(links = members(b.links, PlayLink.serializer()) { it.id }))
                 "effect" -> result.copy(board = b.copy(stackEffects = members(b.stackEffects, StackEffect.serializer()) { it.id }))
+                "occurrence" -> {
+                    val current = CombatStackRules.occurrences(b.combat).singleOrNull { it.id == entity.id } ?: throw Mismatch()
+                    val next = value(current, CombatOccurrence.serializer()) ?: throw Mismatch()
+                    result.copy(board = b.copy(combat = b.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair ->
+                        pair.copy(attackers = pair.attackers.map { if (it.id == entity.id) next else it },
+                            blockers = pair.blockers.map { if (it.id == entity.id) next else it })
+                    }) }))
+                }
                 "projectionLink" -> result.copy(board = b.copy(projectionLinks = members(b.projectionLinks, ProjectionLink.serializer()) { it.id }))
                 "definition" -> result.copy(definitions = members(result.definitions, SubmittedDefinition.serializer()) { it.digest })
                 "turn" -> result.copy(board = b.copy(turn = value(b.turn, TurnState.serializer()) ?: throw Mismatch()))

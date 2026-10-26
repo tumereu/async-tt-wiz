@@ -96,13 +96,13 @@ class PilePrefixInsertionTest {
 
     @Test fun unrelatedOrdinaryEditsStayLiveAndStackEqualityRemainsADistinctGuard() {
         val root = root(); val first = action(root, a, pending = listOf(b))
-        var edited = gameplayChange(root, PlayAction.SetNote(a, "current source note"), 140).state!!
+        var edited = gameplayChange(root, PlayAction.SetLife(gameplayId(7), "19"), 140).state!!
         edited = gameplayChange(edited, PlayAction.SetNote(x, "current target note"), 141).state!!
         val accepted = gameplayChange(edited, first, 142)
         assertEquals("accepted", accepted.outcome)
-        assertEquals("current source note", accepted.state!!.board.cards.single { it.id == a }.note)
+        assertEquals("", accepted.state!!.board.cards.single { it.id == a }.note)
         assertEquals("current target note", accepted.state.board.cards.single { it.id == x }.note)
-        assertEquals(edited.board.cards.single { it.id == a }.copy(containerId = field, placement = placement(root), covered = false),
+        assertEquals(edited.board.cards.single { it.id == a }.copy(containerId = field, placement = placement(root), covered = false, note = ""),
             accepted.state.board.cards.single { it.id == a })
         assertNull(accepted.mutation!!.transition.movement!!.stackFrom)
         assertEquals("invalidInput", gameplayChange(root, first.copy(expectedStackDigest = GameplayRules.stackDigest(root)), 143).reason)

@@ -35,6 +35,40 @@ object LibraryRules {
         fun record(next: BoardState, transition: GameplayTransition) =
             GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion)
         return when (action) {
+            is PlayAction.Mulligan -> {
+                val library = board.containers.singleOrNull { it.id == action.libraryId && it.zone == PlayZone.LIBRARY }
+                    ?: return GameplayChange(reason = "missingReference")
+                val hand = board.containers.singleOrNull { it.id == action.handId && it.zone == PlayZone.HAND &&
+                    it.accountId == library.accountId } ?: return GameplayChange(reason = "missingReference")
+                if (action.displayedHand.toSet() != hand.cards.toSet()) return GameplayChange(reason = "movementConflict")
+                val returned = action.displayedHand.toSet()
+                if (board.cards.any { it.id in returned && it.token } || board.contentsDisplays.any {
+                        it.containerId == library.id || it.cardIds.any { id -> id in returned } })
+                    return GameplayChange(reason = "inapplicable")
+                val order = RandomV1.shuffle(action.displayedHand + library.cards, action.seed)
+                val drawn = order.take(action.drawCount)
+                val drawnIds = drawn.toSet()
+                val affected = returned + library.cards
+                val cards = board.cards.map { card -> if (card.id !in affected) card else card.copy(
+                    containerId = if (card.id in drawnIds) hand.id else library.id, placement = null,
+                    covered = true, explicitlyCovered = false, knownToAll = false, tapped = false,
+                    note = if (card.id in returned || card.id in drawnIds) "" else card.note) }
+                val byId = cards.associateBy { it.id }
+                val fields = board.cards.filter { it.id in affected }.flatMap { card ->
+                    val next = byId.getValue(card.id)
+                    listOf(GameplayFieldChange(card.id, GameplayField.NOTE, card.note, next.note),
+                        GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), next.tapped.toString()),
+                        GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), next.covered.toString()),
+                        GameplayFieldChange(card.id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), next.explicitlyCovered.toString()))
+                        .filter { it.from != it.to }
+                }
+                record(board.copy(cards = cards, containers = board.containers.map { when (it.id) {
+                    library.id -> it.copy(cards = order.drop(drawn.size), knownTop = emptyList(), knownBottom = emptyList())
+                    hand.id -> it.copy(cards = drawn)
+                    else -> it
+                } }), GameplayTransition(fields = fields, disclosures = drawn.map { id ->
+                    GameplayDisclosure(id, byId.getValue(id).faceId, hand.id, listOfNotNull(hand.accountId)) }))
+            }
             is PlayAction.ShuffleLibrary -> {
                 val source = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
                     ?: return GameplayChange(reason = "missingReference")
@@ -275,6 +309,7 @@ object LibraryActions {
     data class Mulligan(val libraryId: String, val handId: String, val handIds: List<String>,
         val preReturnSize: Int, val drawCount: Int, val seed: String, val returns: List<PlayAction.MoveCard>) {
         fun prefix(): List<PlayAction> = returns + PlayAction.ShuffleLibrary(libraryId, seed)
+        fun action() = PlayAction.Mulligan(libraryId, handId, handIds, drawCount, seed)
     }
     fun mulligan(board: BoardState, libraryId: String, handId: String, displayedHand: List<String>, seed: String,
         count: Int = 7, minusOne: Boolean = false): Mulligan {

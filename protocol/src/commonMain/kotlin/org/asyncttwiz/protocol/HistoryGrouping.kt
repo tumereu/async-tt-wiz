@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /** Semantic presentation categories, not request types or rules-engine interpretations. */
 @Serializable enum class HistoryCategory(val key: String) {
     T("tap"), M("move"), I("stack"), E("edit"), C("creation"), K("combat"), L("stackLayout"),
-    V("view"), H("shuffle"), F("closure"), R("random"), P("ping"), B("backward"), S("ending"), O("leading")
+    V("view"), H("shuffle"), F("closure"), R("random"), P("ping"), B("backward"), S("ending"), O("leading"), U("untap")
 }
 
 /** D-299 ranks. The representative retains the event's literal icon, never a rank-label icon. */
@@ -28,12 +28,15 @@ import kotlinx.serialization.Serializable
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: String, val key: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isolated: Boolean = false) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isolated: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val untap: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val moveIntoLibrary: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rulesVersion: Int = 1) {
     init {
         require(icon.isNotBlank())
         require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
     }
-    val category: HistoryCategory get() = significance.category
+    val category: HistoryCategory get() = if (untap) HistoryCategory.U else significance.category
 }
 @Serializable data class HistoryRepresentative(val nodeId: String, val semantic: HistorySemantic)
 
@@ -63,6 +66,7 @@ object HistoryGrouping {
         is PlayAction.RollDie -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "casino")
         is PlayAction.FlipCoin -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "monetization_on")
         is PlayAction.ShuffleLibrary -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.containerId)
+        is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.libraryId)
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) "visibility" else "pageview")
         is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, "close")
@@ -77,7 +81,7 @@ object HistoryGrouping {
             HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
         is PlayAction.AdjustCounter -> HistorySemantic(if (action.target == CounterTarget.PLAYER)
             HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
-        is PlayAction.SetNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "sticky_note_2")
+        is PlayAction.SetNote, is PlayAction.SetProjectionNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "sticky_note_2")
         is PlayAction.SetOwner -> HistorySemantic(HistorySignificance.OWNER_EDIT, "switch_account")
         is PlayAction.SetFace -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT, "flip_camera_android")
         is PlayAction.SetCovered -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT,
@@ -119,9 +123,16 @@ object HistoryGrouping {
             }
         }
         }
+        val versioned = if (transition?.rulesVersion?.let { it >= 13 } == true) semantic.copy(rulesVersion = 2,
+            untap = action is PlayAction.SetTapped && !action.tapped || transition.fields.any {
+                it.field == GameplayField.TAPPED && it.to == "false" } && action !is PlayAction.MoveCard && action !is PlayAction.Mulligan,
+            moveIntoLibrary = (action as? PlayAction.MoveCard)?.takeIf { move ->
+                move.source.containerId != move.destination.containerId && containers.any {
+                    it.id == move.destination.containerId && it.zone == PlayZone.LIBRARY } }?.destination?.containerId)
+            else semantic
         val panel = transition?.contents?.from ?: transition?.contents?.to
         return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
-            semantic.copy(panelSession = panel.id) else semantic
+            versioned.copy(panelSession = panel.id) else versioned
     }
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */
@@ -131,12 +142,15 @@ object HistoryGrouping {
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
         val joins = previous != null && !semantic.isolated && previous.representative?.semantic?.isolated != true &&
-            ((semantic.panelSession != null && previous.panelSession == semantic.panelSession && previous.author == author) ||
+            ((semantic.panelSession != null && previous.panelSession == semantic.panelSession && previous.author == author &&
+                (semantic.rulesVersion < 2 || incoming in setOf(HistoryCategory.P, HistoryCategory.B) ||
+                    incoming != HistoryCategory.U && context != HistoryCategory.U || incoming == context)) ||
             (semantic.panelSession == null && previous.panelSession == null && (pass || (previous.author == author && context != HistoryCategory.S && incoming != HistoryCategory.S && when (incoming) {
+            HistoryCategory.U -> context == HistoryCategory.U
             HistoryCategory.T -> previous.tapsAndPingsOnly
             HistoryCategory.P, HistoryCategory.B -> true
             HistoryCategory.F, HistoryCategory.R -> pending
-            else -> pending || when (context) {
+            else -> incoming == HistoryCategory.H && semantic.rulesVersion >= 2 && previous.lastMoveIntoLibrary == semantic.key || pending || when (context) {
                 HistoryCategory.C -> incoming in setOf(HistoryCategory.C, HistoryCategory.E)
                 HistoryCategory.M, HistoryCategory.H -> incoming == context && previous.key == semantic.key
                 HistoryCategory.E, HistoryCategory.K, HistoryCategory.L -> incoming == context
@@ -146,7 +160,8 @@ object HistoryGrouping {
         val representative = HistoryRepresentative(nodeId, semantic)
         if (!joins) return GameplayGroup(CommandIds.uuidV5(requestId, "group/0"), author, nodeId, nodeId,
             (if (incoming in setOf(HistoryCategory.P, HistoryCategory.B)) HistoryCategory.O else incoming).key,
-            semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative, semantic.panelSession)
+             semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative, semantic.panelSession,
+             semantic.moveIntoLibrary)
         val old = requireNotNull(previous)
         val nextContext = when {
             incoming in setOf(HistoryCategory.P, HistoryCategory.B) -> context!!
@@ -158,7 +173,7 @@ object HistoryGrouping {
             key = if (pending && semantic.significance.anchor) semantic.key else old.key,
             count = (old.count.toLong() + 1).toString(),
             tapsAndPingsOnly = old.tapsAndPingsOnly && incoming in setOf(HistoryCategory.T, HistoryCategory.P),
-            representative = choose(old.representative, representative))
+            representative = choose(old.representative, representative), lastMoveIntoLibrary = semantic.moveIntoLibrary)
     }
 
     fun choose(first: HistoryRepresentative?, next: HistoryRepresentative): HistoryRepresentative {

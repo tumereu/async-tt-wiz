@@ -16,10 +16,12 @@ import kotlinx.serialization.json.*
     @Serializable data class LinkPair(val first: LinkEndpoint, val second: LinkEndpoint) : ConcernField
     @Serializable data class ProjectionPair(val first: String, val second: String) : ConcernField
     @Serializable data class Projection(val id: String) : ConcernField
+    @Serializable data class ProjectionIdentity(val id: String) : ConcernField
     @Serializable data class ProjectionIncident(val id: String) : ConcernField
     @Serializable data class Controller(val id: String) : ConcernField
     @Serializable data class Live(val id: String) : ConcernField
     @Serializable data class TapEligible(val id: String) : ConcernField
+    @Serializable data class EditEligible(val id: String, val stackAllowed: Boolean = false) : ConcernField
     @Serializable data class Slice(val container: String, val selection: ContentsSelection, val count: Int) : ConcernField
     @Serializable data class ShuffleSet(val container: String) : ConcernField
     @Serializable data class Top(val container: String, val card: String) : ConcernField
@@ -108,6 +110,10 @@ internal object GameplayConcerns {
                 put("occurrence", encoded(CombatStackRules.occurrences(b.combat).singleOrNull { it.id == field.id }))
                 put("location", encoded(b.combat?.let { CombatStackRules.location(it, field.id) }))
             }
+            is ConcernField.ProjectionIdentity -> encoded(
+                b.stackEffects.singleOrNull { it.id == field.id }?.let { listOf("effect", it.id, it.sourceId) }
+                    ?: CombatStackRules.occurrences(b.combat).singleOrNull { it.id == field.id }
+                        ?.let { listOf("occurrence", it.id, it.sourceId) })
             is ConcernField.ProjectionIncident -> buildJsonObject {
                 put("links", encoded(b.projectionLinks.filter { it.first == field.id || it.second == field.id }.sortedBy { it.id }))
                 put("marks", encoded(b.stackTextMarks[field.id]))
@@ -117,6 +123,10 @@ internal object GameplayConcerns {
             is ConcernField.TapEligible -> encoded(b.cards.singleOrNull { it.id == field.id }?.let {
                 val zone = container(it.containerId).zone
                 if (mutation.transition.concerns!!.rulesVersion >= 2) zone == PlayZone.BATTLEFIELD else zone != PlayZone.STACK
+            } == true)
+            is ConcernField.EditEligible -> encoded(b.cards.singleOrNull { it.id == field.id }?.let {
+                val zone = container(it.containerId).zone
+                zone == PlayZone.BATTLEFIELD || field.stackAllowed && zone == PlayZone.STACK
             } == true)
             is ConcernField.Slice -> encoded(LibraryRules.slice(container(field.container).cards, field.selection, field.count).let {
                 if (field.selection == ContentsSelection.ALL) it.sorted() else it })
@@ -134,7 +144,7 @@ internal object GameplayConcerns {
 
     fun matches(state: PlayState, mutation: GameplayMutation, after: Boolean): Boolean {
         val concerns = mutation.transition.concerns ?: return true
-        if (concerns.rulesVersion !in 1..2) return false
+        if (concerns.rulesVersion !in 1..3) return false
         val endpoint = if (after) state else LibraryKnowledge.applyReseeds(state, mutation.transition.delta!!.libraryReseeds, false) ?: return false
         return runCatching { concerns.fields.all { read(endpoint, mutation, it.field, after) == if (after) it.after else it.before } }.getOrDefault(false)
     }
@@ -166,6 +176,15 @@ internal object GameplayConcerns {
                 // Entry defaults write these flags even when their values happen not to change.
                 for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped")) entity("card", c.id, key)
                 val source = from.board.containers.single { it.id == a.source.containerId }
+                if (mutation.transition.rulesVersion >= 13 && to.board.cards.any { it.id == c.id }) {
+                    val target = from.board.containers.single { it.id == a.destination.containerId }
+                    if (source.id != target.id && (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD))
+                        entity("card", c.id, "note")
+                    if (source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD) {
+                        for (key in listOf("corner", "counters", "faceId", "owner")) entity("card", c.id, key)
+                        definition(c.definition)
+                    }
+                }
                 if (source.zone == PlayZone.LIBRARY) {
                     // Removal/repositioning normalizes both edges even when they stay empty.
                     // Retained replay must not skip cleanup made necessary by an earlier undo.
@@ -198,6 +217,20 @@ internal object GameplayConcerns {
             }
             is PlayAction.RemoveProjectionLink -> Unit
             is PlayAction.ShuffleLibrary -> knowledge(a.containerId)
+            is PlayAction.Mulligan -> {
+                knowledge(a.libraryId)
+                entity("container", a.libraryId, "cards"); entity("container", a.handId, "cards")
+                val ids = from.board.containers.single { it.id == a.libraryId }.cards + a.displayedHand
+                val returned = a.displayedHand.toSet()
+                val drawn = to.board.containers.single { it.id == a.handId }.cards.toSet()
+                ids.forEach { id ->
+                    for (key in listOf("containerId", "covered", "explicitlyCovered", "tapped")) entity("card", id, key)
+                    if (id in returned || id in drawn)
+                        entity("card", id, "note")
+                }
+            }
+            // The delta witnesses the note itself; controller, snapshot and combat location are unrelated.
+            is PlayAction.SetProjectionNote -> fields += ConcernField.ProjectionIdentity(a.occurrenceId)
             is PlayAction.ShowContents -> {
                 fields += ConcernField.PanelSlot
                 fields += ConcernField.Slice(a.containerId, a.selection, a.count)
@@ -257,6 +290,20 @@ internal object GameplayConcerns {
             is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
             is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult -> Unit
         }
+        if (mutation.transition.rulesVersion >= 13) {
+            val edit = when (val a = mutation.action) {
+                is PlayAction.SetNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                is PlayAction.SetOwner -> ConcernField.EditEligible(a.cardId)
+                is PlayAction.SetCorner -> ConcernField.EditEligible(a.cardId)
+                is PlayAction.AdjustCorner -> ConcernField.EditEligible(a.cardId)
+                is PlayAction.ResetCorner -> ConcernField.EditEligible(a.cardId)
+                is PlayAction.ClearCardCounter -> ConcernField.EditEligible(a.cardId)
+                is PlayAction.SetCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
+                is PlayAction.AdjustCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
+                else -> null
+            }
+            edit?.let { fields += it }
+        }
         for (read in mutation.transition.reads) when (read.field) {
             GameplayField.FACE -> entity("card", read.targetId, "faceId")
             GameplayField.COVERED -> entity("card", read.targetId, "covered")
@@ -271,7 +318,7 @@ internal object GameplayConcerns {
         }
         delta.entities.forEachIndexed { i, e -> e.values.indices.forEach { fields += ConcernField.Written(i, it) } }
         // Install selectors first: known-order source edits deliberately do not bind the exposed next card.
-        val version = if (mutation.action is PlayAction.SetTapped) 2 else 1
+        val version = if (mutation.transition.rulesVersion >= 13) 3 else if (mutation.action is PlayAction.SetTapped) 2 else 1
         val selectors = ConcernSet(fields.map { ConcernTuple(it, JsonNull, JsonNull) }, rulesVersion = version)
         val recorded = mutation.copy(transition = mutation.transition.copy(delta = delta, concerns = selectors))
         return ConcernSet(fields.map { ConcernTuple(it, read(from, recorded, it, false), read(to, recorded, it, true)) }, rulesVersion = version)

@@ -124,12 +124,19 @@ class GameplayTest {
                         originals.add(command to predicted)
                         bob.send(command)
                     }
-                    // No per-action acknowledgement barrier, including the Return Hand constituents.
+                    // One prediction/request/event per mulligan, without acknowledgement barriers.
                     repeat(2) {
-                        val plan = LibraryActions.mulligan(predicted.board, library.id, hand.id,
-                            predicted.board.containers.single { it.id == hand.id }.cards, RandomV1.encodeSeed(ByteArray(32) { it.toByte() }))
-                        plan.prefix().forEach(::send)
-                        LibraryActions.draw(predicted.board, library.id, hand.id, plan.drawCount).forEach(::send)
+                        send(PlayAction.Mulligan(library.id, hand.id,
+                            predicted.board.containers.single { it.id == hand.id }.cards, 7, RandomV1.encodeSeed(ByteArray(32) { it.toByte() })))
+                        if (it == 0) {
+                            val source = predicted.board.containers.single { it.id == hand.id }.cards.first()
+                            send(PlayAction.Stack(StackAction.AddEffect(source, GameplayRules.stackDigest(predicted))))
+                            val effect = predicted.board.stackEffects.single().id
+                            send(PlayAction.SetProjectionNote(effect, "X=3; target opponent"))
+                            assertEquals("X=3; target opponent", predicted.board.stackEffects.single().note)
+                            assertEquals("", predicted.board.cards.single { card -> card.id == source }.note)
+                            send(PlayAction.Stack(StackAction.RemoveEffect(effect)))
+                        }
                     }
                     val drawn = predicted
                     val card = drawn.board.containers.single { it.id == hand.id }.cards.first()
@@ -269,7 +276,7 @@ class GameplayTest {
                     var accepted = apply(owner.revision(secondLife.requestId))
                     val stack = root.board.containers.single { it.zone == PlayZone.STACK }
                     val oldDigest = GameplayRules.stackDigest(accepted)
-                    val rotate = command(PlayAction.SetNote(library.cards[1], "unrelated Stack guard edit"))
+                    val rotate = command(PlayAction.SetPlayerCounter(a.account.accountId, CounterColor.PURPLE, "unrelated Stack guard edit"))
                     val entry = command(PlayAction.MoveCard(library.cards[1], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), oldDigest))
                     owner.send(rotate); owner.send(entry)
                     assertEquals("accepted", owner.result(rotate.requestId).outcome); assertEquals("accepted", owner.result(entry.requestId).outcome)

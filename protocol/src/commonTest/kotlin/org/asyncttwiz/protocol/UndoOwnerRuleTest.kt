@@ -184,10 +184,11 @@ class UndoOwnerRuleTest {
         assertEquals("replayBlocked", control(tree).reason)
     }
 
-    @Test fun resolvedOwnerRedirectHasNoOwnerRead() {
+    @Test fun battlefieldLeaveOwnerResetConcernsThePreviousOwnerEvenWithAnExplicitDestination() {
         var tree = play(GameplayTree(root()), a, PlayAction.SetOwner(id(10), b))
         tree = move(tree, b, id(10), MoveDestination(id(26), MoveInsertion.UNORDERED))
-        val card = state(undo(tree)).board.cards.single { it.id == id(10) }
+        assertEquals("replayBlocked", control(tree).reason)
+        val card = state(tree).board.cards.single { it.id == id(10) }
         assertEquals(a, card.owner)
         assertEquals(id(26), card.containerId)
     }
@@ -385,8 +386,8 @@ class UndoOwnerRuleTest {
         val anchor = tree.initial.root.id
         tree = play(tree, a, PlayAction.AdjustLife(a, "1"), anchor)
         val own = tree.currentNodeId
-        tree = play(tree, b, PlayAction.SetNote(id(10), "other branch"), anchor)
-        tree = play(tree, b, PlayAction.SetNote(id(11), "retained"), own)
+        tree = play(tree, b, PlayAction.SetPlayerCounter(b, CounterColor.RED, "other branch"), anchor)
+        tree = play(tree, b, PlayAction.SetPlayerCounter(b, CounterColor.BLUE, "retained"), own)
         val suffix = tree.currentNodeId
         val original = tree.nodes.getValue(suffix).transition.delta!!.libraryReseeds
         assertEquals("replayBlocked", control(tree).reason)

@@ -4,24 +4,20 @@ import kotlin.test.*
 
 /** Independent regressions for the movement/Manual conflict resolution, not a capability audit. */
 class GameplayMergeVerificationTest {
-    @Test fun entryConstituentsReadInterleavedFaceAndRetainConcreteResetOutputAndInverse() {
-        val original = gameplayFixture()
+    @Test fun battlefieldLeaveRetainsFrontFaceResetOutputAndInverseWithoutFollowupEdits() {
+        val original = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val card = original.board.cards.first()
         val face = gameplayId(31)
         val definition = original.definitions.single().definition.let {
             it.copy(faces = it.faces + DefinitionFace(face, "Other", corner = "7/9"))
         }
         var state = original.copy(definitions = listOf(SubmittedDefinition(card.definition, definition)))
-        state = gameplayChange(state, PlayAction.MoveCard(card.id, MoveSource(card.containerId),
-            MoveDestination(state.board.containers[1].id, MoveInsertion.UNORDERED)), 200).state!!
+        state = gameplayChange(state, PlayAction.SetFace(card.id, face), 200).state!!
         val beforeEntry = state
-        val move = PlayAction.MoveCard(card.id, MoveSource(state.board.containers[1].id),
+        val move = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
             MoveDestination(state.board.containers[3].id, MoveInsertion.UNORDERED), faceDown = true)
-        assertEquals(listOf(move, PlayAction.ClearCardCounter(card.id, CounterColor.RED),
-            PlayAction.ResetCorner(card.id)), GameplayRules.moveActions(state, move))
-        val sequence = listOf(move, PlayAction.ClearCardCounter(card.id, CounterColor.RED),
-            PlayAction.SetFace(card.id, face), PlayAction.ResetCorner(card.id),
-            PlayAction.SetCovered(card.id, false), PlayAction.InspectFace(card.id, gameplayId(30), move.destination.containerId))
+        assertEquals(listOf(move), GameplayRules.moveActions(state, move))
+        val sequence = listOf(move, PlayAction.InspectFace(card.id, gameplayId(30), move.destination.containerId))
         val changes = sequence.mapIndexed { index, action ->
             val before = state
             gameplayChange(before, action, 201 + index).also { change ->
@@ -32,23 +28,18 @@ class GameplayMergeVerificationTest {
             }
         }
         val moved = changes[0].state!!.board.cards.first()
-        assertEquals(beforeEntry.board.cards.first().copy(containerId = move.destination.containerId, explicitlyCovered = true), moved)
-        val reset = changes[3]
-        assertEquals(listOf(GameplayRead(card.id, GameplayField.FACE, face)), reset.mutation!!.transition.reads)
-        assertEquals(GameplayFieldChange(card.id, GameplayField.CORNER, "custom", "7/9"), reset.mutation.transition.fields.single())
-        val resetInput = changes[2].state!!
-        assertEquals("replayBlocked", GameplayHistory.replay(resetInput.copy(definitions = emptyList()), reset.mutation).reason)
-        assertEquals("replayBlocked", GameplayHistory.replay(changes[1].state!!, reset.mutation).reason)
-        assertEquals(listOf(gameplayId(7), gameplayId(8)), changes[4].mutation!!.transition.disclosures.single().viewers)
-        assertEquals(listOf(gameplayId(7)), changes[5].mutation!!.transition.disclosures.single().viewers)
-        assertEquals(state.board, changes[4].state!!.board) // Viewing logs exposure, not a field change.
-        assertNotEquals(changes[4].state!!.currentGroup!!.id, state.currentGroup!!.id)
-        assertEquals(card.copy(containerId = move.destination.containerId, faceId = face, corner = "7/9",
-            counters = emptyMap(), covered = false), state.board.cards.first())
+        assertEquals(card.copy(containerId = move.destination.containerId, placement = null, corner = "3/5",
+            counters = emptyMap(), covered = false, note = ""), moved)
+        val reset = changes[0]
+        assertTrue(GameplayFieldChange(card.id, GameplayField.FACE, face, gameplayId(30)) in reset.mutation!!.transition.fields)
+        assertEquals("replayBlocked", GameplayHistory.replay(beforeEntry.copy(definitions = emptyList()), reset.mutation).reason)
+        assertEquals(listOf(gameplayId(7)), changes[1].mutation!!.transition.disclosures.single().viewers)
+        assertEquals(state.board, changes[0].state!!.board) // Viewing logs exposure, not a field change.
+        assertNotEquals(changes[0].state!!.currentGroup!!.id, state.currentGroup!!.id)
     }
 
     @Test fun liveManualUsesCurrentValueWhileReplayAndStackAdditionKeepTheirDifferentGuards() {
-        val root = gameplayFixture(); val card = root.board.cards.first()
+        val root = gameplayFixture().withBattlefieldCards(gameplayId(10)); val card = root.board.cards.first()
         val stack = root.board.containers.last()
         val manual = PlayAction.AdjustCounter(CounterTarget.CARD, card.id, CounterColor.RED, "1")
         val captured = gameplayChange(root, manual, 220)
@@ -58,11 +49,11 @@ class GameplayMergeVerificationTest {
         assertEquals(GameplayFieldChange(card.id, GameplayField.COUNTER, "8", "9", CounterColor.RED),
             live.mutation!!.transition.fields.single())
         assertEquals("replayBlocked", GameplayHistory.replay(remote, captured.mutation!!).reason)
-        val addition = PlayAction.MoveCard(card.id, MoveSource(card.containerId),
+        val addition = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
             MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(root), faceDown = true)
         val added = gameplayChange(live.state!!, addition, 223)
         assertEquals("accepted", added.outcome) // Manual edits did not change semantic Stack contents.
-        assertEquals("9", added.state!!.board.cards.first().counters[CounterColor.RED])
+        assertTrue(added.state!!.board.cards.first().counters.isEmpty())
         // Stack order is a merged transition: traverse the complete retained tree, not the scalar inverse helper.
         val addedTree = GameplayTree(root,
             listOf(remoteChange.mutation!!, live.mutation, added.mutation!!).associateBy { it.id }, added.state.currentNodeId)
@@ -73,7 +64,7 @@ class GameplayMergeVerificationTest {
         assertEquals(added.mutation.id, withoutAdded.targetId)
         val restoredLive = assertNotNull(withoutAdded.tree)
         assertEquals(live.state.board, assertNotNull(restoredLive.stateAt(restoredLive.currentNodeId)).board)
-        val later = addition.copy(cardId = root.board.cards[1].id)
+        val later = addition.copy(cardId = root.board.cards[1].id, source = MoveSource(root.board.cards[1].containerId))
         assertEquals("stackConflict", gameplayChange(added.state, later, 224).reason)
         val fresh = gameplayChange(added.state, later.copy(expectedStackDigest = GameplayRules.stackDigest(added.state)), 225)
         assertEquals("accepted", fresh.outcome)

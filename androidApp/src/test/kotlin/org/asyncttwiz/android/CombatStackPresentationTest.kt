@@ -5,6 +5,21 @@ import org.junit.Test
 import kotlin.test.*
 
 class CombatStackPresentationTest {
+    @Test fun projectionNoteChipsUseOccurrenceTextNotTheSourceNoteAndPingTargetsTheOccurrence() {
+        val f = TableStatesFixture
+        val original = f.combat()
+        val state = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(note = "source") },
+            stackEffects = original.board.stackEffects.map { it.copy(note = "effect") },
+            combat = original.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
+                attackers = pair.attackers.map { it.copy(note = "attacker") }, blockers = pair.blockers.map { it.copy(note = "blocker") }) }) }))
+        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
+        for (item in scene.items.filter { it.projection && !it.covered }) {
+            assertEquals(CombatStackRules.projectionNote(state.board, item.cardId!!), item.note)
+            assertEquals(PingTarget(PingTargetKind.OCCURRENCE, item.cardId), tablePingTarget(state, item))
+            assertNotEquals("source", item.note)
+        }
+        assertTrue(scene.items.any { it.projection && it.note.isNotEmpty() })
+    }
     @Test fun stackAndCombatDrawingsIgnoreTappedSourcesWithoutChangingRealCards() {
         val f = TableStatesFixture
         val original = f.combat()

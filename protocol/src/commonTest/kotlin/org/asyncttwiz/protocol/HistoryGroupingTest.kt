@@ -5,7 +5,7 @@ import kotlin.test.*
 class HistoryGroupingTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun semantic(category: HistoryCategory, key: String = "a") = HistorySemantic(when (category) {
-        HistoryCategory.T -> HistorySignificance.ORIENTATION; HistoryCategory.M -> HistorySignificance.CROSS_ZONE_MOVE
+        HistoryCategory.T, HistoryCategory.U -> HistorySignificance.ORIENTATION; HistoryCategory.M -> HistorySignificance.CROSS_ZONE_MOVE
         HistoryCategory.I -> HistorySignificance.STACK_ENTRY; HistoryCategory.E -> HistorySignificance.CARD_TEXT_NOTE_EDIT
         HistoryCategory.C -> HistorySignificance.TOKEN_CLONE_CREATION; HistoryCategory.K -> HistorySignificance.COMBAT_MEMBERSHIP
         HistoryCategory.L -> HistorySignificance.STACK_LAYOUT; HistoryCategory.V -> HistorySignificance.EXPLICIT_DISCLOSURE

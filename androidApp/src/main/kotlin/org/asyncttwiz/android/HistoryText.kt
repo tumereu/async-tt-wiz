@@ -105,6 +105,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             else text("moved ${card(action.cardId)} from ${zone(action.source.containerId)} to ${zone(action.destination.containerId)}", "Move")
         }
         is PlayAction.ShuffleLibrary -> text("shuffled ${container(action.containerId)?.accountId?.let(::player) ?: "their"} library", "Shuffle")
+        is PlayAction.Mulligan -> text("mulliganed and drew ${action.drawCount} cards", "Mulligan")
         is PlayAction.ShowContents -> {
             val size = transition.contents?.to?.cardIds?.size
             val quantity = size?.let { "$it ${if (it == 1) "card" else "cards"}" } ?: "cards"
@@ -130,6 +131,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.AdjustCounter -> counter(counterTarget(action.target, action.targetId), action.color, action.delta, true)
         is PlayAction.ClearCardCounter -> text("cleared the ${action.color.name.lowercase()} counter on ${card(action.cardId)}", "Clear counter")
         is PlayAction.SetNote -> text("edited the note on ${card(action.cardId)}", "Note")
+        is PlayAction.SetProjectionNote -> text("edited a projection note", "Note")
         is PlayAction.SetOwner -> text("changed the owner of ${card(action.cardId)} to ${historyPlayerName(action.accountId, usernames)}", "Owner")
         is PlayAction.SetFace -> text("changed the face of ${card(action.cardId)}", "Change face")
         is PlayAction.SetCovered -> text("turned ${card(action.cardId)} face ${if (action.covered) "down" else "up"}", if (action.covered) "Cover" else "Uncover")

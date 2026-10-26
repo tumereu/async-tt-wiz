@@ -110,6 +110,7 @@ internal object LibraryKnowledge {
             }
         }
         when (action) {
+            is PlayAction.Mulligan -> if (action.libraryId == library.id) { top = emptyList(); bottom = emptyList() }
             is PlayAction.ShuffleLibrary -> if (action.containerId == library.id) { top = emptyList(); bottom = emptyList() }
             is PlayAction.MoveCard -> if (action.destination.containerId == library.id && action.cardId in members) {
                 val insertion = action.destination.libraryInsertion ?: action.destination.insertion

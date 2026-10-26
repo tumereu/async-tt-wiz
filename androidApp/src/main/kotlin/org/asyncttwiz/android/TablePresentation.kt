@@ -310,9 +310,11 @@ object TablePresentation {
                  zone, kind = TableItemKind.CARD, viewport = viewport,
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
-                token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
-                  typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
-                  typeLine = if (hidden) "" else f?.typeLine.orEmpty()).also { if (draw) items += it }
+                token = card.token, note = if (hidden) "" else if (projection)
+                    CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
+                counters = if (hidden) emptyMap() else card.counters,
+                   typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
+                   typeLine = if (hidden) "" else f?.typeLine.orEmpty()).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer

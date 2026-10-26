@@ -32,7 +32,7 @@ class GameplayHistoryTest {
     }
 
     @Test fun resetRetainsManualConcreteTupleAndLiveFaceReadAcrossMovementIntegration() {
-        val root = gameplayFixture(); val card = root.board.cards.first()
+        val root = gameplayFixture().withBattlefieldCards(gameplayId(10)); val card = root.board.cards.first()
         val reset = gameplayChange(root, PlayAction.ResetCorner(card.id), 100)
         val changedDefault = root.copy(definitions = root.definitions.map { it.copy(definition = it.definition.copy(
             faces = it.definition.faces.map { face -> face.copy(corner = "different") })) })

@@ -24,7 +24,7 @@ class LibraryTurnHistoryIntegrationTest {
         val groups = mutableListOf<GameplayGroup>()
         fun unrelated(state: PlayState) = state.copy(board = state.board.copy(
             players = state.board.players.map { if (it.accountId == id(8)) it.copy(life = "unrelated") else it },
-            cards = state.board.cards.map { it.copy(note = "unrelated note") }))
+            cards = state.board.cards.map { if (it.id == id(24)) it.copy(note = "unrelated note") else it }))
         fun accept(action: PlayAction, boundary: Boolean, category: String, representative: Int,
             icon: String, author: String = id(7)): GameplayMutation {
             val before = current

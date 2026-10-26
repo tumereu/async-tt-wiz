@@ -23,18 +23,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
     val bound = toolkit.capture
     val popup = toolkit.popupItem
-    var projectionNote by remember(play.gameId, play.id) { mutableStateOf<ValueDraft?>(null) }
     fun editProjectionNote(id: String) {
-        projectionNote = ValueDraft(ManualScope(play.gameId, play.id, id, listOf(id)),
-            ManualValue(ManualValueKind.NOTE), CombatStackRules.inspection(play.board, id)?.note.orEmpty())
-        toolkit.dismiss()
-    }
-    projectionNote?.let { draft ->
-        val card = CombatStackRules.inspection(play.board, draft.scope.contextId)
-        ValueEditor(draft, card?.note, enabled && draft.scope.contextId in CombatStackRules.projectionIds(play.board),
-            onCancel = { projectionNote = null }, onSubmit = {
-                toolkit.submit(PlayAction.SetNote(draft.scope.contextId, draft.text.trim())).also { if (it) projectionNote = null }
-            }, preview = {})
+        toolkit.manual.projectionNote(play, id, toolkit.viewer)
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
@@ -59,7 +49,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             LibraryActions(library.controller, play.board, library.handIds,
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
-        "occurrence" -> if (bound != null) {
+        "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
                 MenuControl("Note", enabled) { editProjectionNote(bound.contextViewId) },
                 cardPingTool(toolkit, play, bound, enabled, LocalTableMenuAnnotations.current),

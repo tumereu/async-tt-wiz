@@ -345,7 +345,7 @@ class TableToolkitWiringTest {
             assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
                 MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
             val originals = f.commands()
-            assertTrue(originals.size >= 4)
+            assertEquals(2, originals.size)
             assertEquals(Continuation(root.initial.root.id, true), originals.first().continuation)
             originals.zipWithNext().forEach { (a, b) ->
                 assertEquals(Continuation(CommandIds.uuidV5(a.requestId, "board-node"), true), b.continuation)
@@ -363,7 +363,17 @@ class TableToolkitWiringTest {
     private fun BasicTableFixture.actions() = commands().map { (it.action as GameAction.Play).action }
 
     @Test fun mountedManualCaptureReadsCurrentValuesAndQueuesManyRequestsBeforeAnyResult() {
-        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        val f = BasicTableFixture()
+        val ids = listOf(f.id(40), f.id(41))
+        val initial = f.root.copy(board = f.root.board.copy(cards = f.root.board.cards.map { card ->
+            if (card.id !in ids) card else card.copy(containerId = f.container(PlayZone.BATTLEFIELD), covered = false,
+                placement = PlayPlacement(BoardPosition(ids.indexOf(card.id), 0), f.id(600 + ids.indexOf(card.id))))
+        }, containers = f.root.board.containers.map { container -> when (container.id) {
+            f.container(PlayZone.LIBRARY) -> container.copy(cards = container.cards - ids.toSet())
+            f.container(PlayZone.BATTLEFIELD) -> container.copy(cards = ids)
+            else -> container
+        } }))
+        f.connect(initial); val ui = toolkit(f)
         ui.openCard(TableScope(f.id(40), listOf(f.id(40), f.id(41))))
         val scope = ui.manual.scope!!
         ui.manual.edit(ManualValue(ManualValueKind.CORNER), f.play, f.actor)
@@ -372,13 +382,13 @@ class TableToolkitWiringTest {
         assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.id(40), "9/11"), PlayAction.SetCorner(f.id(41), "9/11")), f.actions())
         assertEquals(1, f.commands().map { it.invocationId }.distinct().size)
         assertEquals("9/11", scope.value(f.play, ManualValue(ManualValueKind.CORNER), f.actor))
-        assertEquals(f.root, f.lobby.state.acceptedPlay)
+        assertEquals(initial, f.lobby.state.acceptedPlay)
         assertEquals(scope, ui.manual.scope); assertNull(ui.manual.editor)
         assertTrue(ui.submit(PlayAction.SetNote(f.id(40), " a\n b ")))
         assertTrue(ui.submit(PlayAction.SetOwner(f.id(40), f.other)))
         assertEquals("a\n b", f.card(40).note); assertEquals(f.other, f.card(40).owner)
         val endpoint = f.play.board
-        var accepted = f.root
+        var accepted = initial
         val revisions = f.commands().mapIndexed { index, command -> f.update(accepted, command, index + 1).also { accepted = it.play!! } }
         for (revision in revisions) { f.message(f.result(revision)); f.message(revision); assertEquals(endpoint, f.play.board) }
         f.message(revisions.first()); assertEquals(endpoint, f.play.board)
@@ -390,12 +400,12 @@ class TableToolkitWiringTest {
         assertEquals(LibrarySubmission(2, 0), library.move(ContentsSelection.TOP, 2,
             MoveDestination(f.container(PlayZone.GRAVEYARD), MoveInsertion.UNORDERED)))
         val actions = f.actions()
-        assertEquals(listOf(PlayAction.MoveCard::class, PlayAction.ClearCardCounter::class, PlayAction.ResetCorner::class,
-            PlayAction.MoveCard::class, PlayAction.ResetCorner::class), actions.map { it::class })
+        assertEquals(listOf(PlayAction.MoveCard::class, PlayAction.MoveCard::class), actions.map { it::class })
         assertEquals(listOf(f.id(40), f.id(41)), actions.filterIsInstance<PlayAction.MoveCard>().map { it.cardId })
         assertEquals(1, f.commands().map { it.invocationId }.distinct().size)
-        assertEquals("2/3", f.card(40).corner); assertTrue(f.card(40).counters.isEmpty())
-        assertEquals("retained", f.card(40).note); assertEquals(f.root, f.lobby.state.acceptedPlay)
+        assertEquals(f.root.board.cards.single { it.id == f.id(40) }.corner, f.card(40).corner)
+        assertEquals(f.root.board.cards.single { it.id == f.id(40) }.counters, f.card(40).counters)
+        assertEquals("", f.card(40).note); assertEquals(f.root, f.lobby.state.acceptedPlay)
     }
 
     @Test fun bottomSliceSubsetAndBothMulligansKeepCapturedOrderAndInvocation() {
@@ -409,12 +419,10 @@ class TableToolkitWiringTest {
             assertEquals(0, result.refused)
             val commands = f.commands().drop(start)
             val actions = commands.map { (it.action as GameAction.Play).action }
-            val moves = actions.filterIsInstance<PlayAction.MoveCard>()
-            assertEquals(displayed, moves.take(3).map { it.cardId })
-            assertEquals(if (minusOne) 2 else 1, moves.drop(3).size)
-            assertEquals(1, actions.filterIsInstance<PlayAction.ShuffleLibrary>().size)
+            val action = actions.single() as PlayAction.Mulligan
+            assertEquals(displayed, action.displayedHand)
+            assertEquals(if (minusOne) 2 else 1, action.drawCount)
             assertEquals(1, commands.map { it.invocationId }.distinct().size)
-            assertEquals(displayed[0], moves[1].destination.afterId)
             assertEquals(if (minusOne) 2 else 1, f.play.board.containers.single { it.id == f.container(PlayZone.HAND) }.cards.size)
         }
     }

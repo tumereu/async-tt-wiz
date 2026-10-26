@@ -302,20 +302,20 @@ class BasicTableControllerTest {
         assertFalse(f.game.id in f.lobby.state.pendingGames)
         assertEquals(commands, f.commands())
         assertEquals(BoardPosition(0, 0), f.card(40).placement!!.position)
-        assertTrue(f.card(40).tapped); assertEquals("retained", f.card(40).note)
+        assertTrue(f.card(40).tapped); assertEquals("", f.card(40).note)
     }
 
     @Test fun defaultsAreOrdinaryOrderedConstituentsWithOneInvocationAndUnorderedDestinations() {
         val f = BasicTableFixture(); f.connect()
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD), true))
         val commands = f.commands()
-        assertEquals(listOf(PlayAction.MoveCard::class, PlayAction.ClearCardCounter::class, PlayAction.ResetCorner::class),
+        assertEquals(listOf(PlayAction.MoveCard::class),
             commands.map { (it.action as GameAction.Play).action::class })
         assertEquals(1, commands.map { it.invocationId }.distinct().size); assertNotNull(commands[0].invocationId)
         val move = (commands[0].action as GameAction.Play).action as PlayAction.MoveCard
         assertEquals(MoveInsertion.UNORDERED, move.destination.insertion); assertNull(move.destination.beforeId)
-        assertEquals("2/3", f.card(40).corner); assertTrue(f.card(40).counters.isEmpty())
-        assertEquals("retained", f.card(40).note)
+        assertEquals("7/8", f.card(40).corner); assertEquals(mapOf(CounterColor.BLUE to "3"), f.card(40).counters)
+        assertEquals("", f.card(40).note)
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.EXILE), PlayZone.EXILE)))
         assertEquals(f.container(PlayZone.EXILE), f.card(40).containerId)
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.LIBRARY), PlayZone.LIBRARY)))

@@ -15,7 +15,8 @@ class StackLayoutGroupingRepairTest {
             val result = gameplayChange(before, action, request)
             assertEquals("accepted", result.outcome, "$action: ${result.reason}")
             val mutation = assertNotNull(result.mutation)
-            assertEquals(HistorySemantic(significance, icon), mutation.grouping)
+            val untap = action is PlayAction.SetTapped && !action.tapped
+            assertEquals(HistorySemantic(significance, icon, untap = untap, rulesVersion = 2), mutation.grouping)
             assertEquals(result, GameplayHistory.replay(before, mutation))
             assertEquals(before.currentNodeId, mutation.parentId)
             state = assertNotNull(result.state)
@@ -23,7 +24,7 @@ class StackLayoutGroupingRepairTest {
             assertEquals(CommandIds.uuidV5(gameplayId(start), "group/0"), group.id)
             assertEquals(CommandIds.uuidV5(gameplayId(start), "board-node"), group.firstNodeId)
             assertEquals(mutation.id, group.lastNodeId)
-            assertEquals(significance.category.key, group.category)
+            assertEquals(if (untap) HistoryCategory.U.key else significance.category.key, group.category)
             assertEquals(count.toString(), group.count)
             assertEquals(CommandIds.uuidV5(gameplayId(representative), "board-node"), group.representative?.nodeId)
             mutations += mutation
@@ -49,7 +50,11 @@ class StackLayoutGroupingRepairTest {
             assertEquals(GameplayRules.stackDigest(before), movement.stackFrom)
             assertEquals(GameplayRules.stackDigest(state), movement.stackTo)
             assertNotEquals(movement.stackFrom, movement.stackTo)
-            assertEquals(original.copy(containerId = target.id, placement = null, covered = to == PlayZone.HAND),
+            val leavingField = before.board.containers.single { it.id == original.containerId }.zone == PlayZone.BATTLEFIELD
+            assertEquals(original.copy(containerId = target.id, placement = null, covered = to == PlayZone.HAND,
+                tapped = false, note = if (original.containerId != target.id) "" else original.note,
+                corner = if (leavingField) "3/5" else original.corner,
+                counters = if (leavingField) emptyMap() else original.counters),
                 state.board.cards.single { it.id == original.id })
             assertEquals(before.board.cards.filterNot { it.id == original.id }, state.board.cards.filterNot { it.id == original.id })
             assertEquals(order, container(PlayZone.STACK).cards)
@@ -112,13 +117,13 @@ class StackLayoutGroupingRepairTest {
             start = 302, representative = 303, count = 2, order = listOf(gameplayId(10), gameplayId(11)))
         journey.step(PlayAction.SetTapped(gameplayId(14), false), 304, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(10, PlayZone.HAND, MoveInsertion.UNORDERED, 305, HistorySignificance.STACK_REMOVAL,
-            start = 304, representative = 305, count = 2, order = listOf(gameplayId(11)))
+            order = listOf(gameplayId(11)))
         journey.step(PlayAction.SetTapped(gameplayId(14), true), 306, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         journey.move(12, PlayZone.STACK, MoveInsertion.TOP, 307, HistorySignificance.STACK_ENTRY,
             start = 306, representative = 307, count = 2, order = listOf(gameplayId(12), gameplayId(11)))
         journey.step(PlayAction.SetTapped(gameplayId(14), false), 308, HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         val card = journey.state.board.cards.single { it.id == gameplayId(11) }
         journey.step(PlayAction.InspectFace(card.id, card.faceId, card.containerId), 309,
-            HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", start = 308, representative = 309, count = 2)
+            HistorySignificance.EXPLICIT_DISCLOSURE, "visibility")
     }
 }

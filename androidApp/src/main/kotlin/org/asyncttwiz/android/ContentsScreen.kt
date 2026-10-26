@@ -161,9 +161,10 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
     var peek by remember { mutableStateOf<ManualInspection?>(null) }
     val peekScroll = rememberScrollState()
     val groups = if (grouped) entries.groupBy { it.category } else mapOf("" to entries)
+    val size = rememberCardAppearance().size(if (grouped) CardArea.PANELS else CardArea.STACK)
     Row(modifier.ringInputTarget(draggable = true).horizontalScroll(rememberScrollState())) {
         groups.forEach { (category, cards) ->
-            Column(Modifier.width(220.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
+            Column(Modifier.width(220.dp + 40.dp * (size - 1f)).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
                 if (category.isNotEmpty()) Text(category, style = MaterialTheme.typography.labelMedium)
                 cards.forEach { entry ->
                     Row(Modifier.fillMaxWidth().onGloballyPositioned { onRowBounds?.invoke(entry.cardId, it.boundsInRoot()) }
@@ -185,7 +186,7 @@ private fun ContentsRows(state: PlayState, viewer: String, entries: List<Content
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
                         val owner = if (card?.owner == viewer) OwnTableColor else OpponentTableColor
-                        Box(Modifier.size(40.dp, 56.dp).cardFrame(card?.token == true, owner,
+                        Box(Modifier.size(40.dp * size, 56.dp * size).cardFrame(card?.token == true, owner,
                             entry.cardId in CombatStackRules.projectionIds(state.board)), contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 80, 112, Modifier.fillMaxSize())
                             else MenuIcon(if (entry.faceVisible) "Inspect" else "Turn face down")

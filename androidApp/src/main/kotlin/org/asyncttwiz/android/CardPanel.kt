@@ -17,12 +17,11 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 private const val PANEL_HEADER = 28f
-private const val PANEL_PITCH = 52f
 data class CardPanelRow(val entry: ContentsEntry, val copies: Int, val bounds: TableBounds)
 data class CardPanelTypeHeader(val title: String, val bounds: TableBounds)
 data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBounds,
     val viewport: TableViewport, val rows: List<CardPanelRow>, val columns: Int = 1,
-    val localZone: PlayZone? = null, val typeHeaders: List<CardPanelTypeHeader> = emptyList()) {
+    val localZone: PlayZone? = null, val typeHeaders: List<CardPanelTypeHeader> = emptyList(), val cardScale: Float = 1f) {
     val title get() = localZone?.let(::moveZoneLabel) ?: display.title
     val closeBounds get() = TableBounds(bounds.right - 24, bounds.y + 2, 24f, 24f)
 }
@@ -50,11 +49,15 @@ internal fun localPanelDisplay(play: PlayState, viewer: String, ui: TableLayoutS
 }
 
 /** Layout depends only on the current materialized board and personal viewport, never history. */
-internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutState, area: TableBounds): List<CardPanelGeometry> {
+internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutState, area: TableBounds,
+    scale: Float = 1f): List<CardPanelGeometry> {
     val local = localPanelDisplay(play, viewer, ui)
     // Keep old multi-panel data usable; new opens are limited game-wide by the protocol.
     val displays = play.board.contentsDisplays.sortedBy { if (it.author == viewer) 1 else 0 } + listOfNotNull(local)
     var x = area.x
+    val columnPitch = 28f * scale + 4f
+    val rowPitch = 40f * scale + 12f
+    val availablePerPanel = (area.width - (displays.size - 1).coerceAtLeast(0) * 4f) / displays.size.coerceAtLeast(1)
     return displays.map { display ->
         val localZone = if (display == local) play.board.containers.single { it.id == display.containerId }.zone else null
         val entries = if (localZone != null) contentsEntries(play, PileContents(display.containerId, "", display.cardIds), viewer)
@@ -64,12 +67,13 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
                 it.name to (it.cardId in display.revealedIds)
             }.values.toList() else entries.map { listOf(it) }
         val sections = if (localZone != null) grouped.groupBy { it.first().category }.toSortedMap().values.toList() else listOf(grouped)
-        val columns = panelColumnCount(if (displays.size == 1) 3 else 2)
-        val width = maxOf(64f, columns * 32f + 8f)
+        val columns = minOf(panelColumnCount(if (displays.size == 1) 3 else 2),
+            ((availablePerPanel - 8f) / columnPitch).toInt().coerceAtLeast(1))
+        val width = maxOf(64f, columns * columnPitch + 8f)
         val bounds = TableBounds(x, area.y, width, area.height)
         x = bounds.right + 4f
         val portBounds = TableBounds(bounds.x, bounds.y + PANEL_HEADER, width, (bounds.height - PANEL_HEADER).coerceAtLeast(0f))
-        val content = sections.sumOf { ceil(it.size.toDouble() / columns).toInt() } * PANEL_PITCH +
+        val content = sections.sumOf { ceil(it.size.toDouble() / columns).toInt() } * rowPitch +
             if (localZone != null) sections.size * 20f else 0f
         val portId = "cardPanel/${display.id}"
         val scroll = (ui.scrollY[portId] ?: 0f).coerceIn(0f, (content - portBounds.height).coerceAtLeast(0f))
@@ -84,13 +88,13 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
                 y += 20f
             }
             section.forEachIndexed { n, group ->
-                val b = TableBounds(bounds.x + (width - columns * 32f) / 2 + panelColumn(n, section.size, columns) * 32f + 2,
-                    y + n / columns * PANEL_PITCH + 2, 28f, 40f)
+                val b = TableBounds(bounds.x + (width - columns * columnPitch) / 2 + panelColumn(n, section.size, columns) * columnPitch + 2,
+                    y + n / columns * rowPitch + 2, 28f * scale, 40f * scale)
                 if (b.intersection(portBounds) != null) rows += CardPanelRow(group.first(), group.size, b)
             }
-            y += ceil(section.size.toDouble() / columns).toInt() * PANEL_PITCH
+            y += ceil(section.size.toDouble() / columns).toInt() * rowPitch
         }
-        CardPanelGeometry(display, bounds, port, rows, columns, localZone, headers)
+        CardPanelGeometry(display, bounds, port, rows, columns, localZone, headers, scale)
     }
 }
 
@@ -113,7 +117,7 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
             panelRevealed = panel.localZone == null && panel.display.author == viewer && !panel.display.reveal &&
                 card.id in panel.display.revealedIds,
             corner = if (row.entry.faceVisible) card.corner else "", note = if (row.entry.faceVisible) card.note else "",
-            copies = row.copies, token = card.token,
+            copies = row.copies, token = card.token, counters = if (row.entry.faceVisible) card.counters else emptyMap(),
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
     } }
     val ids = panels.flatMap { it.display.cardIds }.toSet()
@@ -125,10 +129,11 @@ internal fun TableScene.panelReorder(point: TablePoint, scope: TableScope?): Pla
     val id = scope?.contextId ?: return null
     val panel = cardPanels.firstOrNull { id in it.display.cardIds && it.viewport.bounds.contains(point) &&
         it.localZone == null && !it.display.search } ?: return null
-    val gridX = panel.bounds.x + (panel.bounds.width - panel.columns * 32f) / 2 + 2
-    val row = floor((point.y - panel.viewport.bounds.y + panel.viewport.scrollY - 2) / PANEL_PITCH).toInt().coerceAtLeast(0)
+    val pitch = 28f * panel.cardScale + 4f
+    val gridX = panel.bounds.x + (panel.bounds.width - panel.columns * pitch) / 2 + 2
+    val row = floor((point.y - panel.viewport.bounds.y + panel.viewport.scrollY - 2) / (40f * panel.cardScale + 12f)).toInt().coerceAtLeast(0)
     val rowCount = (panel.display.cardIds.size - row * panel.columns).coerceIn(0, panel.columns)
-    val column = (floor((point.x - gridX + 18) / 32f).toInt() - (panel.columns - rowCount)).coerceIn(0, rowCount)
+    val column = (floor((point.x - gridX + pitch / 2 + 2) / pitch).toInt() - (panel.columns - rowCount)).coerceIn(0, rowCount)
     val index = (row * panel.columns + column).coerceIn(0, panel.display.cardIds.size)
     val before = panel.display.cardIds.asSequence().drop(index).firstOrNull { it != id }
     return PlayAction.ReorderContents(panel.display.id, id, before)

@@ -60,12 +60,12 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 val x = right?.bounds?.x?.minus(2) ?: left?.bounds?.right?.plus(2) ?: item.bounds.center.x
                 TableDragLanding(hand = item.bounds, insertionX = x.coerceIn(item.bounds.x + 2, item.bounds.right - 2))
             } else {
-                val step = if (destination.zone == PlayZone.STACK) 28f * .12f else 4f
+                val step = if (destination.zone == PlayZone.STACK) item.bounds.width * .12f else 4f
                 val x = item.bounds.x + if (destination.zone == PlayZone.STACK) 2 * step else 8f
                 val y = item.bounds.y + if (destination.zone == PlayZone.STACK) 2 * step else 8f
                 val port = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds ?: item.bounds
                 TableDragLanding(ids.take(3).mapIndexedNotNull { n, _ -> TableBounds(x - n * step, y - n * step,
-                    28f, 40f).intersection(port) })
+                    item.bounds.width, item.bounds.height).intersection(port) })
             }
         }
         is TableDestination.CardPile -> {

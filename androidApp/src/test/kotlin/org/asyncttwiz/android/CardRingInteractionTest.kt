@@ -250,11 +250,11 @@ class CardRingInteractionTest {
         val value = compose.onNodeWithContentDescription("Set blue counter")
         value.performTouchInput { down(center); moveBy(Offset(40f, 0f)) }
         val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
-        compose.onNodeWithText(valueDragLabel(initial, 4)).assertExists()
+        compose.onNodeWithText(valueDragLabel(initial, 3)).assertExists()
         compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
         value.performTouchInput { up() }
         compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "4")), sent)
+            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "3")), sent)
             assertNull(toolkit.manual.editor)
         }
         value.assertExists()
@@ -278,11 +278,11 @@ class CardRingInteractionTest {
         compose.mainClock.advanceTimeBy(600)
         val value = compose.onNodeWithContentDescription("Set corner")
         value.performTouchInput { down(center); moveBy(Offset(10f, -30f)) }
-        compose.onNodeWithText("+3 → 4/6").assertExists()
+        compose.onNodeWithText("+2 → 3/5").assertExists()
         value.performTouchInput { up() }
         compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.source(f.a, "1/3").id, "4/6"),
-                PlayAction.SetCorner(f.source(f.a, "1/2").id, "4/5")), sent)
+            assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.source(f.a, "1/3").id, "3/5"),
+                PlayAction.SetCorner(f.source(f.a, "1/2").id, "3/4")), sent)
             assertNull(toolkit.manual.editor)
         }
         value.performClick()

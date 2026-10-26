@@ -59,6 +59,9 @@ internal fun turnStepName(turn: TurnState): String {
     return if (position.label == phase) phase else "$phase · ${position.label}"
 }
 
+internal fun nextStepLabel(turn: TurnState) =
+    if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn" else "Next step"
+
 @Composable
 internal fun TurnStepIcon(turn: TurnState) {
     val position = TurnPosition.of(turn)
@@ -107,7 +110,7 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
+            MenuButton(nextStepLabel(turn), Modifier.weight(1f), controller.enabled(scope)) {
                 if (controller.perform(TableActionIntent.Next(scope))) onComplete()
             }
             MenuButton(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",

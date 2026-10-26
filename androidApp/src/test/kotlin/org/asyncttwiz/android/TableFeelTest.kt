@@ -15,20 +15,20 @@ class TableFeelTest {
         gestures.update(scene, TableSelection(), true)
         gestures.down(TablePoint(24f, 24f), 0)
         gestures.move(TablePoint(54f, 23f), 10)
-        assertEquals(3, gestures.preview.delta)
+        assertEquals(2, gestures.preview.delta)
         assertTrue(events.isEmpty())
         gestures.up(TablePoint(54f, 23f), 20)
-        assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", org.asyncttwiz.protocol.CounterColor.BLUE, 3)), events)
+        assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", org.asyncttwiz.protocol.CounterColor.BLUE, 2)), events)
     }
 
-    @Test fun dominantAxisCompleteTenDpStepsAndSigns() {
+    @Test fun dominantAxisCompleteTwelveDpStepsAndSigns() {
         for ((x, y, expected) in listOf(Triple(39f, 20f, 3L), Triple(-39f, -20f, -3L),
-            Triple(20f, -39f, -3L), Triple(-20f, 39f, 3L), Triple(10f, 0f, 1L),
-            Triple(0f, 10f, 1L), Triple(9.99f, 0f, 0L), Triple(-9.99f, 0f, 0L),
-            Triple(10f, 10f, 1L), Triple(100f, -99f, 10L), Triple(99f, 100f, 10L))) {
+            Triple(20f, -39f, -3L), Triple(-20f, 39f, 3L), Triple(12f, 0f, 1L),
+            Triple(0f, 12f, 1L), Triple(11.99f, 0f, 0L), Triple(-11.99f, 0f, 0L),
+            Triple(12f, 12f, 1L), Triple(100f, -99f, 10L), Triple(99f, 100f, 10L))) {
             assertEquals(expected, valueDragDelta(x, y), "displacement $x, $y")
         }
-        assertEquals(3L, valueDragDelta(60f, 20f, 20f)) // Same 30dp at density 2.
+        assertEquals(2L, valueDragDelta(60f, 20f, 24f)) // Same 30dp at density 2.
         assertEquals(0L, valueDragDelta(Float.NaN, 20f))
         assertEquals("+3 → 23", valueDragLabel("20", 3))
         assertEquals("−3 → 17", valueDragLabel("20", -3))
@@ -39,15 +39,32 @@ class TableFeelTest {
         assertEquals(-3L, valueDragDelta(-39f, 10f, side = ValueDragSide.TOP))
     }
 
+    @Test fun dragCurveIsMonotonicSymmetricDensityIndependentAndAcceleratesAfterFourUnits() {
+        for (unit in 1..4) {
+            assertEquals((unit - 1).toLong(), valueDragDelta(unit * 12f - .01f, 0f))
+            assertEquals(unit.toLong(), valueDragDelta(unit * 12f, 0f))
+        }
+        var previous = 0L
+        for (dp in 0..1000) {
+            val delta = valueDragDelta(dp.toFloat(), 0f)
+            assertTrue(delta >= previous)
+            assertEquals(-delta, valueDragDelta(-dp.toFloat(), 0f))
+            assertEquals(delta, valueDragDelta(dp * 2.625f, 0f, 12f * 2.625f))
+            previous = delta
+        }
+        assertEquals(50L, valueDragDelta(250f, 0f))
+        assertTrue(valueDragDelta(250f, 0f) - valueDragDelta(200f, 0f) > valueDragDelta(100f, 0f) - valueDragDelta(50f, 0f))
+    }
+
     @Test fun lifeAndPlayerCountersSubtractTowardOtherPlayerInBothOrientations() {
         val f = TableStatesFixture
         for (landscape in listOf(false, true)) {
             val scene = TablePresentation.scene(f.game, f.combat(), f.a,
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape)
             for (item in scene.items.filter { it.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) }) {
-                for ((dx, dy, expected) in listOf(Triple(35f, 1f, 3), Triple(-35f, 1f, -3),
-                    Triple(1f, if (item.owner == f.a) -35f else 35f, -3),
-                    Triple(1f, if (item.owner == f.a) 35f else -35f, 3))) {
+                for ((dx, dy, expected) in listOf(Triple(39f, 1f, 3), Triple(-39f, 1f, -3),
+                    Triple(1f, if (item.owner == f.a) -39f else 39f, -3),
+                    Triple(1f, if (item.owner == f.a) 39f else -39f, 3))) {
                     val sent = mutableListOf<TableIntent>()
                     val gestures = TableGestureCoordinator(sent::add)
                     gestures.update(scene, TableSelection(), true)

@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
 class TableMotionRuntimeTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun finalManualStepAnimatesBeforeTheSingleLiveHandoff() = finalAnimation(false)
+    @Test fun finalManualStepAnimatesAndStaysInTimeline() = finalAnimation(false)
     @Test fun finalAutoStepAnimatesBeforeTheSingleLiveHandoff() = finalAnimation(true)
 
     private fun finalAnimation(automatic: Boolean) {
@@ -59,11 +59,14 @@ class TableMotionRuntimeTest {
         compose.runOnIdle { assertEquals(HistoryMode.PLAYBACK, player.position.mode); assertEquals(0, handoffs) }
         assertTrue(during.height > item.bounds.height + 1f, "The last card must still be rotating, not snapped to its endpoint")
         compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
-        compose.runOnIdle { assertEquals(HistoryMode.LIVE, player.position.mode); assertEquals(1, handoffs) }
+        compose.runOnIdle {
+            assertEquals(if (automatic) HistoryMode.LIVE else HistoryMode.PLAYBACK, player.position.mode)
+            assertEquals(if (automatic) 1 else 0, handoffs)
+        }
         val finished = node.fetchSemanticsNode().boundsInRoot
         compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
         assertEquals(finished, node.fetchSemanticsNode().boundsInRoot)
-        compose.runOnIdle { assertEquals(1, handoffs) }
+        compose.runOnIdle { assertEquals(if (automatic) 1 else 0, handoffs) }
         compose.mainClock.autoAdvance = true
     }
 

@@ -35,6 +35,17 @@ internal class RecordingRoutes : TableActionRoutes {
 }
 
 class QuickActionsTest {
+    @Test fun nextStepLabelOnlySaysEndTurnWhenNextPassesToOtherPlayer() {
+        val fixture = GameplayFixture()
+        for (step in TurnPosition.entries) {
+            val play = fixture.initial.copy(board = fixture.initial.board.copy(turn =
+                TurnState(fixture.actor, "3", step.phase, step.step)))
+            val result = GameplayRules.change(play, fixture.actor, fixture.command(PlayAction.NextStep))
+            val passedTurn = requireNotNull(result.state).board.turn.accountId != fixture.actor
+            assertEquals(if (passedTurn) "End turn" else "Next step", nextStepLabel(play.board.turn), step.name)
+        }
+    }
+
     private fun catalog(position: TurnPosition, number: String = "1", context: QuickContext = QuickContext()): List<QuickAction> {
         val play = TableToolFixture.play(position, number)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
@@ -163,12 +174,12 @@ class QuickActionsTest {
 
     @Test fun deltaPreviewReversalZeroCancelAndOneReleaseRetainOriginalTarget() {
         val target = PlayerValueTarget(TableActionScope(TableToolFixture.id(1), TableToolFixture.id(2)), TableToolFixture.id(7), CounterColor.BLUE)
-        val drag = PlayerDeltaDrag(target, 10f)
+        val drag = PlayerDeltaDrag(target, 12f)
         drag.move(30f)
-        assertEquals(-3L, drag.delta)
+        assertEquals(-2L, drag.delta)
         drag.move(-50f)
-        assertEquals(2L, drag.delta)
-        assertEquals(PlayerDeltaRelease(target, 2), drag.release())
+        assertEquals(1L, drag.delta)
+        assertEquals(PlayerDeltaRelease(target, 1), drag.release())
         assertNull(drag.release())
         val zero = PlayerDeltaDrag(target, 10f)
         zero.move(30f); zero.move(-30f)

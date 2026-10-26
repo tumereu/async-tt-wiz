@@ -153,7 +153,8 @@ class HistoryPlaybackTest {
         playback.pause(); playback.next(true); assertEquals(id(5), playback.position.cursorId)
         playback.next(); assertEquals(id(6), playback.position.cursorId)
         playback.finishAnimation(id(6))
-        assertEquals(HistoryMode.LIVE, playback.position.mode)
+        assertEquals(HistoryMode.PLAYBACK, playback.position.mode)
+        assertFalse(playback.position.playing)
     }
 
     @Test fun deletedCursorFallsBackThroughParentsWithoutRetargetingCapturedContinuation() {
@@ -190,7 +191,7 @@ class HistoryPlaybackTest {
         playback.next()
         assertEquals(id(1), playback.position.cursorId)
         playback.finishAnimation(id(1))
-        assertEquals(HistoryMode.LIVE, playback.position.mode)
+        assertEquals(HistoryMode.PLAYBACK, playback.position.mode)
     }
 
     @Test fun gm25EndingSingletonEndpointIsAfterFinalBoardNotNetworkBatch() {
@@ -244,10 +245,25 @@ class HistoryPlaybackTest {
             assertEquals(0f, animation.frame(0f).single().bounds.x)
             assertEquals(100f, animation.frame(1f).single().bounds.x)
             assertFalse(player.finishAnimation(id(0))) // stale callback
-            assertTrue(player.finishAnimation(id(1)))
-            assertEquals(HistoryMode.LIVE, player.position.mode)
+            assertEquals(automatic, player.finishAnimation(id(1)))
+            assertEquals(if (automatic) HistoryMode.LIVE else HistoryMode.PLAYBACK, player.position.mode)
             assertFalse(player.finishAnimation(id(1)))
             assertFalse(animation.retarget(end, 1f)) // Live metadata cannot restart the final motion.
+        }
+    }
+
+    @Test fun exactManualSelectionAtHeadStaysPausedInTimelineAfterAnimationAndReceipt() {
+        val events = listOf(node(1, 0), node(2, 1))
+        val player = HistoryPlayback(tree(events))
+        for (wasPlaying in listOf(false, true)) {
+            player.scrub(id(0))
+            if (wasPlaying) player.play()
+            player.scrub(id(2)) // Event tap, drag and accessibility scroll share this path.
+            assertFalse(player.finishAnimation(id(2)))
+            player.receive(tree(events, version = "updated"))
+            assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+            assertFalse(player.position.playing)
+            assertEquals(id(2), player.position.cursorId)
         }
     }
 }

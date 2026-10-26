@@ -11,6 +11,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.outlined.*
@@ -55,15 +58,15 @@ object HistoryTimelineLayout {
                 mutation?.author, tree.group(id)?.id, tree.alternatives(id), text.label)
         }
     }
-    fun x(index: Int, selected: Int, width: Float, pitch: Float, rightAligned: Boolean = false) =
-        (if (rightAligned) width - 12f else width / 2f) + (index - selected) * pitch
+    fun x(index: Int, selected: Int, width: Float, pitch: Float) =
+        width / 2f + (index - selected) * pitch
     fun selectedAfterDrag(start: Int, delta: Float, pitch: Float, count: Int): Int {
         require(count > 0 && pitch > 0)
         return (start - (delta / pitch).roundToInt()).coerceIn(0, count - 1)
     }
-    fun visible(count: Int, selected: Int, width: Float, pitch: Float, rightAligned: Boolean = false): IntRange {
+    fun visible(count: Int, selected: Int, width: Float, pitch: Float): IntRange {
         require(count > 0 && selected in 0 until count && width >= 0 && pitch > 0)
-        val radius = (width / (if (rightAligned) pitch else 2f * pitch)).toInt() + 1
+        val radius = (width / (2f * pitch)).toInt() + 1
         return maxOf(0, selected - radius)..minOf(count - 1, selected + radius)
     }
 }
@@ -83,7 +86,8 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val pitch = 24f
     BoxWithConstraints(modifier.fillMaxWidth().height(TableTimelineHeight.dp).clipToBounds()
-        .then(if (readOnly) Modifier.clickable(onClickLabel = "Open timeline", onClick = onEnter) else Modifier.pointerInput(Unit) {
+        .then(if (readOnly) Modifier.pressFeedback().clickable(
+            onClickLabel = "Open timeline", onClick = onEnter) else Modifier.pointerInput(Unit) {
         awaitEachGesture { awaitFirstDown(requireUnconsumed = false); pause(); waitForUpOrCancellation() }
     }.pointerInput(IdentityKey(events), density) {
         var start = selectedNow; var delta = 0f
@@ -104,15 +108,15 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             }
         })
         Canvas(Modifier.fillMaxSize()) {
-            val first = HistoryTimelineLayout.x(0, selected, size.width / density, pitch, readOnly).dp.toPx()
-            val last = HistoryTimelineLayout.x(events.lastIndex, selected, size.width / density, pitch, readOnly).dp.toPx()
+            val first = HistoryTimelineLayout.x(0, selected, size.width / density, pitch).dp.toPx()
+            val last = HistoryTimelineLayout.x(events.lastIndex, selected, size.width / density, pitch).dp.toPx()
             if (first != last) drawLine(Color.Gray.copy(alpha = .3f), Offset(maxOf(0f, first), center.y),
                 Offset(minOf(size.width, last), center.y), 1.dp.toPx())
-            if (!readOnly) drawRect(Color(0xff287f85), Offset(center.x - 11.dp.toPx(), center.y - 12.dp.toPx()),
+            drawRect(Color(0xff287f85), Offset(center.x - 11.dp.toPx(), center.y - 12.dp.toPx()),
                 Size(22.dp.toPx(), 24.dp.toPx()), style = Stroke(1.5.dp.toPx()))
         }
-        for (i in HistoryTimelineLayout.visible(events.size, selected, width, pitch, readOnly)) {
-            val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch, readOnly)
+        for (i in HistoryTimelineLayout.visible(events.size, selected, width, pitch)) {
+            val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = historyAuthorColor(event.author, viewer)
             if (event.alternatives > 0) Canvas(Modifier.offset(x.dp).width(24.dp).fillMaxHeight()) {
@@ -123,7 +127,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
                 drawLine(edge, fork, corner, 1.dp.toPx())
                 drawLine(edge, corner, Offset(size.width, corner.y), 1.dp.toPx())
             }
-            TimelineEventChip(event, authorColor, !readOnly && i == selected,
+            TimelineEventChip(event, authorColor, i == selected,
                 Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon) {
                 if (readOnly) onEnter() else { pause(); select(event.id) }
             }
@@ -187,10 +191,12 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults,
     board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
     definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
-    background: Color = Color(0xffedf3ef)) {
+    background: Color = TimelineBarColor, readOnly: Boolean = false, onEnter: () -> Unit = {},
+    playControls: (@Composable () -> Unit)? = null) {
     require(pauseMillis > 0)
     val position = playback.position
     val endpoint = when {
+        readOnly -> playback.tree.sharedHeadId
         playback.tree.isAncestor(position.cursorId, timelineEndpoint) -> timelineEndpoint
         playback.tree.isAncestor(position.cursorId, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
         else -> position.cursorId
@@ -224,23 +230,28 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val timeline: @Composable () -> Unit = {
         var options by remember { mutableStateOf(false) }
-        Row(Modifier.height(TableTimelineHeight.dp), verticalAlignment = Alignment.CenterVertically) {
-            HistoryTimeline(events, position.cursorId, viewer, { if (!playback.transportLocked) playback.pause() },
+        Row(Modifier.height(TableTimelineHeight.dp)
+            .then(if (readOnly) Modifier.clickable(onClickLabel = "Open timeline", onClick = onEnter) else Modifier),
+            verticalAlignment = Alignment.CenterVertically) {
+            HistoryTimeline(events, if (readOnly) playback.tree.sharedHeadId else position.cursorId, viewer, { if (!playback.transportLocked) playback.pause() },
                 { if (!playback.transportLocked) playback.scrub(it) },
-                Modifier.weight(1f))
-            if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
-                enabled = !playback.transportLocked,
-                modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
-                Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
-            }
-            if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
-                enabled = !playback.transportLocked,
-                modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
-                TableChromeIcon("tree")
-            }
-            if (menuContent != null) Box {
-                IconButton(onClick = { options = true }, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.MoreVert, "History options") }
-                DropdownMenu(options, { options = false }) { menuContent() }
+                Modifier.weight(1f), readOnly = readOnly, onEnter = onEnter)
+            Row(Modifier.graphicsLayer { alpha = if (readOnly) 0f else 1f }
+                .then(if (readOnly) Modifier.clearAndSetSemantics {} else Modifier)) {
+                if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
+                    enabled = !readOnly && !playback.transportLocked,
+                    modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
+                    Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
+                }
+                if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
+                    enabled = !readOnly && !playback.transportLocked,
+                    modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
+                    TableChromeIcon("tree")
+                }
+                if (menuContent != null) Box {
+                    IconButton(onClick = { options = true }, enabled = !readOnly, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.MoreVert, "History options") }
+                    DropdownMenu(options, { options = false }) { menuContent() }
+                }
             }
         }
     }
@@ -262,12 +273,16 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             }
         }
         val controlsRow: @Composable () -> Unit = {
-            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) { transport() }
+            Crossfade(readOnly, Modifier.fillMaxWidth().height(TableControlsHeight.dp), animationSpec = tween(200), label = "Table controls") { live ->
+                if (live) playControls?.invoke()
+                else Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) { transport() }
+            }
         }
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(background), verticalAlignment = Alignment.CenterVertically) {
+        val barColor by animateColorAsState(background, tween(200), label = "Timeline bar")
+        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(barColor), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { timelineRow() }
             Box(Modifier.weight(1f)) { controlsRow() }
-        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(background)) {
+        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(barColor)) {
             timelineRow(); controlsRow()
         }
     }

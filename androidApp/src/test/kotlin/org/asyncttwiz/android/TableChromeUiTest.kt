@@ -38,11 +38,11 @@ class TableChromeUiTest {
             TableSurface(TableFixture.game, play, viewer, landscape, Modifier.fillMaxSize(),
                 connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = review,
-                    history = { review = true }, returnCurrent = { review = false }, continueHere = {},
-                    liveTimeline = { HistoryTimeline(events, playback.tree.sharedHeadId, viewer, {}, {},
-                        readOnly = true, onEnter = { review = true }) },
-                    reviewPanel = { HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, viewer, true, 60_000, {},
-                        overlay = true, landscape = landscape, background = tableBarColor(play.board, viewer)) }))
+                    history = { playback.scrub(playback.tree.sharedHeadId); review = true }, returnCurrent = { review = false }, continueHere = {},
+                    bottomPanel = { playControls -> HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, viewer, true, 60_000, {},
+                        overlay = true, landscape = landscape, background = tableBarColor(play.board, viewer, review),
+                        readOnly = !review, onEnter = { playback.scrub(playback.tree.sharedHeadId); review = true }, playControls = playControls,
+                        onSettings = {}, onTree = {}, menuContent = {}) }))
         } }
         for (who in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
             compose.runOnIdle {
@@ -66,23 +66,43 @@ class TableChromeUiTest {
             val pixels = ImageIO.read(output)
             val tint = tableBarColor(play.board, who).toArgb()
             assertEquals(tint, pixels.getRGB(2, 35))
+            assertEquals(tint, pixels.getRGB(pixels.width - 2, 35), "Tint continues to the screen edge")
             assertEquals(tint, pixels.getRGB(2, pixels.height - 2))
             if (visible) {
                 val b = next.fetchSemanticsNode().boundsInRoot
                 assertEquals(48f, b.width); assertEquals(48f, b.height)
+                assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 assertEquals(advanceButtonStyle(play.board, who).fill.toArgb(), pixels.getRGB(b.left.toInt() + 4, b.top.toInt() + 4))
+                val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+                val actions = QuickActions.contextual(play, QuickContext(viewer = who), controller)
+                val cells = actions.map { compose.onNodeWithContentDescription(it.name).fetchSemanticsNode().boundsInRoot }
+                assertTrue(cells.isNotEmpty())
+                for (cell in cells) assertEquals(cells.first().width, cell.width, 1f, "Equal quick action widths")
+                assertEquals((if (landscape) pixels.width / 2f else 0f) + 60f, cells.first().left)
+                assertEquals(b.left - 4f, cells.last().right)
             }
             val handLabel = TablePresentation.scene(TableFixture.game, play, who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
                 .items.single { it.cardId == "$who/HAND/0" }.label
             val handBefore = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             // The read-only strip enters at the latest event; it cannot scrub live play.
-            compose.onNodeWithContentDescription(events.last().description, useUnmergedTree = true).performClick()
+            val latest = compose.onNodeWithContentDescription(events.last().description, useUnmergedTree = true)
+            latest.assertIsSelected()
+            val latestBefore = latest.fetchSemanticsNode().boundsInRoot
+            latest.performClick()
             compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
             val handAfter = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             assertEquals(handBefore, handAfter, "HUD must not move on mode change")
+            assertEquals(latestBefore, compose.onNode(hasContentDescription(events.last().description) and isSelected(), useUnmergedTree = true)
+                .assertIsSelected().fetchSemanticsNode().boundsInRoot, "The strip must not jump on mode change")
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
             if (visible) assertEquals(pixels.height - 4f, transport.bottom)
-            if (turn == "a" && move == "a") compose.onRoot().captureRoboImage("build/outputs/roborazzi/$prefix-review.png")
+            val reviewOutput = "build/outputs/roborazzi/$prefix-review.png"
+            compose.onRoot().captureRoboImage(reviewOutput)
+            val reviewPixels = ImageIO.read(File(reviewOutput))
+            assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
+            assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))
+            assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, reviewPixels.height - 2))
+            assertEquals(HistoryMode.PLAYBACK, playback.position.mode, "Opening at the latest event stays in timeline")
         }
         compose.runOnIdle { review = false }
         compose.onNodeWithContentDescription("Table actions").performClick()
@@ -163,5 +183,53 @@ class TableChromeUiTest {
         assertEquals(0, entered); assertEquals(0, selected)
         event.performTouchInput { click() }
         assertEquals(1, entered); assertEquals(0, selected)
+    }
+
+    @Test fun readOnlyStripShowsPressedTintAcrossEmptySpace() {
+        val events = listOf(HistoryTimelineEvent("root", "flag", "Game started", "a", null))
+        var entered = 0
+        compose.setContent { MaterialTheme {
+            HistoryTimeline(events, "root", "a", {}, {}, readOnly = true, onEnter = { entered++ })
+        } }
+        val output = File("build/outputs/roborazzi/timeline-strip-pressed.png").also { it.parentFile!!.mkdirs() }
+        compose.onRoot().captureRoboImage(output.path)
+        val before = ImageIO.read(output)
+        compose.mainClock.autoAdvance = false
+        compose.onRoot().performTouchInput { down(androidx.compose.ui.geometry.Offset(350f, 24f)) }
+        compose.mainClock.advanceTimeBy(300)
+        compose.onRoot().captureRoboImage(output.path)
+        val pressed = ImageIO.read(output)
+        assertNotEquals(before.getRGB(350, 24), pressed.getRGB(350, 24))
+        assertNotEquals(before.getRGB(50, 24), pressed.getRGB(50, 24), "Empty strip space shares press feedback")
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        assertEquals(1, entered)
+    }
+
+    @Test fun controlsCrossfadeWithoutMovingTheStripOrChangingPanelHeight() {
+        val playback = LiveTableFixture.playback().apply { scrub(tree.sharedHeadId) }
+        var live by mutableStateOf(true)
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {},
+                readOnly = live, playControls = { androidx.compose.material3.Text("Quick actions") },
+                onSettings = {}, onTree = {}, menuContent = {})
+        } }
+        val selected = hasContentDescription(HistoryTimelineLayout.events(playback.tree, playback.tree.sharedHeadId).last().description) and isSelected()
+        val before = compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val panelBefore = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { live = false }
+        // Commit the target-state recomposition before measuring animation time.
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
+        compose.waitForIdle()
+        compose.onNodeWithText("Quick actions").assertExists()
+        compose.onNodeWithContentDescription("Auto advance").assertExists()
+        assertEquals(before, compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot)
+        compose.mainClock.advanceTimeBy(150)
+        compose.onNodeWithText("Quick actions").assertDoesNotExist()
+        assertEquals(panelBefore, compose.onRoot().fetchSemanticsNode().boundsInRoot)
+        compose.mainClock.autoAdvance = true
     }
 }

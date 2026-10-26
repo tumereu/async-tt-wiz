@@ -64,7 +64,9 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     val tapsAndPingsOnly: Boolean = category == "tap", val representative: HistoryRepresentative? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null,
     /** Only the immediately preceding event, not any earlier move in this group. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lastMoveIntoLibrary: String? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lastMoveIntoLibrary: String? = null,
+    /** The casting anchor only; text edits never establish casting context themselves. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null)
 @Serializable data class GameplayHistoryPage(val playId: String, val mutations: List<GameplayMutation>,
     val groups: List<GameplayGroup>, val throughRevision: String, val next: String? = null)
 

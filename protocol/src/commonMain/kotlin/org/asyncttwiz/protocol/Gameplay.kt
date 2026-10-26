@@ -290,7 +290,7 @@ object GameplayRules {
                 // Only replacement tops are automatic; an explicit face change is still a Reveal.
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
-        val relevant = transition.copy(rulesVersion = 14, combatStack = CombatStackRules.transition(state, closed, action),
+        val relevant = transition.copy(rulesVersion = 15, combatStack = CombatStackRules.transition(state, closed, action),
             disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {
                 it.cardId == disclosure.cardId && it.containerId == disclosure.containerId } } + topDisclosures,
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)

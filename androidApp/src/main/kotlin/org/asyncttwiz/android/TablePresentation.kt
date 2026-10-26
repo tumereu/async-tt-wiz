@@ -405,11 +405,12 @@ object TablePresentation {
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
             items[items.lastIndex] = items.last().copy(id = "stackDrawing/${drawing.viewId}", cards = stack.cards)
         }
-        // Animation metadata for ALL projections: a buried removal still sends a ghost home.
-        val stackProjections = play.board.stackEffects.map { effect ->
-            items.firstOrNull { it.cardId == effect.id } ?: card(CombatStackRules.inspection(play.board, effect.id)!!,
-                TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, effect.id,
-                projection = true, frozen = effect.frozen != null, draw = false).copy(id = "stackDrawing/${effect.id}")
+        // Animation metadata for ALL entries, including a real spell buried below the peeks.
+        val stackProjections = stack.cards.map { entryId ->
+            val effect = play.board.stackEffects.firstOrNull { it.id == entryId }
+            items.firstOrNull { it.cardId == entryId && it.zone == PlayZone.STACK } ?: card(CombatStackRules.inspection(play.board, entryId)!!,
+                TableBounds(sb.x, sb.y, stackWidth, stackHeight), sb, null, PlayZone.STACK, sp.id, entryId,
+                projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
         val combatY = worldViewport.height / 2 - combat.height / 2
         val combatBounds = world.screen(TableBounds(world.bounds.x, maxOf(combatY, bandY), world.bounds.width, minOf(combat.height, bandHeight)), camera)

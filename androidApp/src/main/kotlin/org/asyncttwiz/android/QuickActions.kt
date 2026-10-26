@@ -13,7 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
@@ -21,7 +22,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.style.TextAlign
 import org.asyncttwiz.protocol.*
 
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
@@ -72,8 +72,9 @@ object QuickActions {
                 add("Declare without tapping", "⚔", TableActionIntent.Combat(scope, CombatTool.DECLARE,
                     context.combatAreaId, context.selectedSourceIds.distinct()))
             } else {
-                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
-                add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
+                val declared = play.board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
+                add(if (declared) "Select more attackers" else "Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
+                if (!declared) add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
             }
             TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
@@ -114,7 +115,7 @@ class ActionPress(private val assignedHold: Boolean) {
     fun cancel() { consumed = true }
 }
 
-/** Equal-width popup cells fill the space before the fixed right-corner step button. */
+/** Equal-width popup cells fill the space before the right-corner advance arrow. */
 @Composable
 fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform) {
@@ -129,24 +130,38 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
     val scope = TableActionScope(play.gameId, play.id)
     val style = advanceButtonStyle(play.board, requireNotNull(context.viewer))
     val nextLabel = nextStepLabel(play.board.turn)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            for (action in actions) key(action.intent) {
-                InlinePopupCell(MenuControl(action.name, controller.enabled(scope)) { perform(action.intent) },
-                    quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val compact = maxWidth < 480.dp && actions.size >= 3
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for (action in actions) key(action.intent) {
+                    InlinePopupCell(MenuControl(action.name, controller.enabled(scope)) { perform(action.intent) },
+                        quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
+                }
             }
+            ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 76.dp else 120.dp).shadow(3.dp, AdvanceArrowShape)
+                .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
+                fill = style.fill, ink = style.ink, compactContent = true,
+                holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
+                gestureKey = scope,
+                icon = { Row(Modifier.padding(start = 6.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    MenuIcon(nextStep(play.board.turn)?.label ?: "End turn", Modifier.size(20.dp), tint = LocalContentColor.current)
+                    Text(nextStepLabel(play.board.turn, compact), fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
+                } },
+                onClick = { perform(TableActionIntent.Next(scope)) })
         }
-        val shape = RoundedCornerShape(3.dp)
-        ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.shadow(3.dp, shape)
-            .background(style.fill, shape).border(1.dp, style.outline, shape), fill = style.fill, ink = style.ink,
-            holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
-            gestureKey = scope,
-            icon = { Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                TableChromeIcon("next")
-                Text(nextLabel, fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center)
-            } },
-            onClick = { perform(TableActionIntent.Next(scope)) })
     }
+}
+
+internal val AdvanceArrowShape = GenericShape { size, _ ->
+    val tip = size.height / 4f
+    moveTo(0f, 0f)
+    lineTo(size.width - tip, 0f)
+    lineTo(size.width, size.height / 2f)
+    lineTo(size.width - tip, size.height)
+    lineTo(0f, size.height)
+    close()
 }
 
 internal fun quickActionLabel(name: String) = when (name) {

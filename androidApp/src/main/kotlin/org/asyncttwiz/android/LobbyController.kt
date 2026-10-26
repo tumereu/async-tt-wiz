@@ -262,7 +262,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 state.detail?.playId == target.playId && isCurrent()
         }, complete = complete) == true
     }
-    fun downloadHistory(): Boolean = state.detail?.let { session?.downloadHistory(it) } == true
     fun leaveActivityReview() { state = state.copy(activityTarget = null, error = null); historyOwner?.current() }
     private fun readiness(action: GameAction) {
         val game = state.detail ?: return

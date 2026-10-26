@@ -271,11 +271,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                  overlay = true, landscape = landscape,
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                   readOnly = !reviewing, onEnter = { history.select(playback.tree.sharedHeadId) },
-                                  playControls = playControls, menuContent = {
-                                     HistoryEventActions(history, play, toolkit, interactive, controller::annotate)
-                                    DropdownMenuItem(text = { Text("Download history") }, onClick = controller::downloadHistory,
-                                         enabled = interactive)
-                                })
+                                   playControls = playControls)
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         continuationArmed = history.armed != null,

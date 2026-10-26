@@ -27,13 +27,15 @@ class LibraryActionsUiTest {
     private var completed = 0
     private val labels = listOf("Draw", "Reveal", "Look", "Mill", "Exile")
 
-    private fun render(connected: Boolean = true, viewer: String = "a") {
+    private fun render(connected: Boolean = true, viewer: String = "a", revealed: Boolean = false) {
         ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("library-quantities", 0).edit().clear().commit()
-        val controller = LibraryController(play.id, library.id, hand.id, { play }, { connected },
+        val state = play.copy(board = play.board.copy(containers = play.board.containers.map {
+            if (it.id == library.id) it.copy(keepTopRevealed = revealed) else it }))
+        val controller = LibraryController(play.id, library.id, hand.id, { state }, { connected },
             { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) }, viewer = viewer)
         compose.setContent { MaterialTheme {
             InlinePopupPanel({}, "Library", width = 264.dp, height = 304.dp) {
-                LibraryActions(controller, play.board, hand.cards, onComplete = { completed++ })
+                LibraryActions(controller, state.board, hand.cards, onComplete = { completed++ })
             }
         } }
         compose.waitForIdle()
@@ -142,7 +144,7 @@ class LibraryActionsUiTest {
     @Test fun ownerCanEnableContinuousRevealFromTheLibraryMenu() {
         render()
         compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsOff().performClick()
+        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsNotSelected().performClick()
         assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(library.id, true)), sent)
         assertEquals(1, completed)
     }
@@ -150,8 +152,19 @@ class LibraryActionsUiTest {
     @Test fun opponentCanEnableContinuousRevealFromAnotherLibraryMenu() {
         render(viewer = "b")
         compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsEnabled().assertIsOff().performClick()
+        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsEnabled().assertIsNotSelected().performClick()
         assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(library.id, true)), sent)
         assertEquals(1, completed)
+    }
+
+    @Test fun continuousRevealIsASelectedButtonRatherThanASwitchAndCanBeTurnedOff() {
+        render(revealed = true)
+        compose.mainClock.advanceTimeBy(350)
+        compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role,
+            androidx.compose.ui.semantics.Role.Switch)).assertCountEquals(0)
+        compose.onNodeWithText("Keep top card revealed").assertIsSelected().assert(
+            SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role,
+                androidx.compose.ui.semantics.Role.Button)).performClick()
+        assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(library.id, false)), sent)
     }
 }

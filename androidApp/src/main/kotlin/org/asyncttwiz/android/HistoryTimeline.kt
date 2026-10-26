@@ -187,7 +187,7 @@ internal fun LivePanelRevealPacing(playback: HistoryPlayback?, pauseMillis: Long
 fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, viewer: String, connected: Boolean,
     pauseMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
     continuationReady: Boolean = true, overlay: Boolean = false, landscape: Boolean = false,
-    menuContent: (@Composable () -> Unit)? = null, animationFinished: Boolean = true, onTree: (() -> Unit)? = null,
+    animationFinished: Boolean = true, onTree: (() -> Unit)? = null,
     autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults,
     board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
     definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
@@ -229,15 +229,11 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
         }
     }
     val timeline: @Composable () -> Unit = {
-        var options by remember { mutableStateOf(false) }
-        Row(Modifier.height(TableTimelineHeight.dp)
-            .then(if (readOnly) Modifier.clickable(onClickLabel = "Open timeline", onClick = onEnter) else Modifier),
-            verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
             HistoryTimeline(events, if (readOnly) playback.tree.sharedHeadId else position.cursorId, viewer, { if (!playback.transportLocked) playback.pause() },
                 { if (!playback.transportLocked) playback.scrub(it) },
-                Modifier.weight(1f), readOnly = readOnly, onEnter = onEnter)
-            Row(Modifier.graphicsLayer { alpha = if (readOnly) 0f else 1f }
-                .then(if (readOnly) Modifier.clearAndSetSemantics {} else Modifier)) {
+                Modifier.fillMaxWidth(), readOnly = readOnly, onEnter = onEnter)
+            if (!readOnly) Row(Modifier.align(Alignment.CenterEnd).background(background)) {
                 if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
                     enabled = !readOnly && !playback.transportLocked,
                     modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
@@ -247,10 +243,6 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
                     enabled = !readOnly && !playback.transportLocked,
                     modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
                     TableChromeIcon("tree")
-                }
-                if (menuContent != null) Box {
-                    IconButton(onClick = { options = true }, enabled = !readOnly, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.MoreVert, "History options") }
-                    DropdownMenu(options, { options = false }) { menuContent() }
                 }
             }
         }

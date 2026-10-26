@@ -54,7 +54,7 @@ class CardRingTest {
     @Test fun everydayHasStableFourByFourCellsForCardsAndTokens() {
         val ids = CardRingPages.defaults.flatMap { it.actions }
         val card = CardRingPages.layout(CardRingPages.resolve(ids)[0].actions)
-        assertEquals(listOf("inspect", "note", "corner", "Declare + tap", "Declare without tapping", "flip", "switchFace",
+        assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library"), card.map { it.id })
         assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15), card.map { it.cell })
         val tokenIds = ids.filterNot { it in listOf("Hand", "Library top", "Library bottom", "Shuffle into library") } + "Remove token"

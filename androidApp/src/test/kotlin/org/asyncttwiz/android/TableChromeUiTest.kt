@@ -42,7 +42,7 @@ class TableChromeUiTest {
                     bottomPanel = { playControls -> HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, viewer, true, 60_000, {},
                         overlay = true, landscape = landscape, background = tableBarColor(play.board, viewer, review),
                         readOnly = !review, onEnter = { playback.scrub(playback.tree.sharedHeadId); review = true }, playControls = playControls,
-                        onSettings = {}, onTree = {}, menuContent = {}) }))
+                         onSettings = {}, onTree = {}) }))
         } }
         for (who in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
             compose.runOnIdle {
@@ -53,7 +53,7 @@ class TableChromeUiTest {
             }
             val prefix = "chrome-${if (landscape) "landscape" else "portrait"}-$who-turn-$turn-move-$move"
             val visible = who == turn || who == move
-            val next = compose.onNodeWithContentDescription("Next step")
+            val next = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn))
             if (visible) next.assertIsDisplayed() else {
                 next.assertDoesNotExist()
                 compose.onNodeWithText("Opponent's turn").assertIsDisplayed()
@@ -70,7 +70,7 @@ class TableChromeUiTest {
             assertEquals(tint, pixels.getRGB(2, pixels.height - 2))
             if (visible) {
                 val b = next.fetchSemanticsNode().boundsInRoot
-                assertEquals(48f, b.width); assertEquals(48f, b.height)
+                assertTrue(b.width >= 76f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 assertEquals(advanceButtonStyle(play.board, who).fill.toArgb(), pixels.getRGB(b.left.toInt() + 4, b.top.toInt() + 4))
                 val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
@@ -186,11 +186,15 @@ class TableChromeUiTest {
     }
 
     @Test fun readOnlyStripShowsPressedTintAcrossEmptySpace() {
-        val events = listOf(HistoryTimelineEvent("root", "flag", "Game started", "a", null))
+        val playback = LiveTableFixture.playback()
         var entered = 0
         compose.setContent { MaterialTheme {
-            HistoryTimeline(events, "root", "a", {}, {}, readOnly = true, onEnter = { entered++ })
+            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {},
+                readOnly = true, onEnter = { entered++ }, onSettings = {}, onTree = {})
         } }
+        compose.onNodeWithContentDescription("Playback settings").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Open game tree").assertDoesNotExist()
+        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
         val output = File("build/outputs/roborazzi/timeline-strip-pressed.png").also { it.parentFile!!.mkdirs() }
         compose.onRoot().captureRoboImage(output.path)
         val before = ImageIO.read(output)
@@ -212,11 +216,13 @@ class TableChromeUiTest {
         compose.setContent { MaterialTheme {
             HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {},
                 readOnly = live, playControls = { androidx.compose.material3.Text("Quick actions") },
-                onSettings = {}, onTree = {}, menuContent = {})
+                onSettings = {}, onTree = {})
         } }
         val selected = hasContentDescription(HistoryTimelineLayout.events(playback.tree, playback.tree.sharedHeadId).last().description) and isSelected()
         val before = compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val panelBefore = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(panelBefore.center.x, before.center.x, "Selection is centered on the whole row, not the space before controls")
+        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
         compose.mainClock.autoAdvance = false
         compose.runOnIdle { live = false }
         // Commit the target-state recomposition before measuring animation time.
@@ -226,6 +232,9 @@ class TableChromeUiTest {
         compose.waitForIdle()
         compose.onNodeWithText("Quick actions").assertExists()
         compose.onNodeWithContentDescription("Auto advance").assertExists()
+        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
+        compose.onNodeWithText("Event details").assertDoesNotExist()
+        compose.onNodeWithText("Download history").assertDoesNotExist()
         assertEquals(before, compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot)
         compose.mainClock.advanceTimeBy(150)
         compose.onNodeWithText("Quick actions").assertDoesNotExist()

@@ -28,7 +28,7 @@ class TokenMenuUiTest {
             TableActionMenu(play, "a", QuickContext(), controller, Color.Blue, { dismissed = true },
                 perform = { sent += it; true })
         } }
-        for (removed in listOf("Choose phase / step", "Next step", "End turn", "Draw one · turn player", "Create Blank token"))
+        for (removed in listOf("Untap all", "Untap all · turn player", "Choose phase / step", "Next step", "End turn", "Draw one · turn player", "Create Blank token"))
             compose.onNodeWithContentDescription(removed).assertDoesNotExist()
         compose.onNodeWithContentDescription("Suggest game end").performClick()
         for (outcome in listOf("My win", "My loss", "Draw")) compose.onNodeWithContentDescription(outcome).assertIsDisplayed()

@@ -56,7 +56,6 @@ class GameResumeTest {
         f.listener.disconnected()
         assertTrue(f.play())
         assertTrue(f.session.sendChat(f.data.game, "hello"))
-        assertTrue(f.session.downloadHistory(f.data.game))
         assertTrue(f.frames.filterIsInstance<GameCommand>().isEmpty())
         assertEquals("21", f.data.life(f.session.play(f.data.game)))
         f.time = 2_000

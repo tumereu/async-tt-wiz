@@ -71,7 +71,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                         with(density) { (width * scale).roundToPx() }.coerceIn(1, 4096),
                                         with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),
                                         Modifier.requiredSize(width * scale, height * scale)
-                                            .then(if (owner != null) Modifier.cardFrame(token, owner, projection) else Modifier))
+                                            // Inspection always shows the whole printed card, including token corners.
+                                            .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier))
                                 }
                             }
                             if (!peek) MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)

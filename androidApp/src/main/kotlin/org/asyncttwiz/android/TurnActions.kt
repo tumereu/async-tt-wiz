@@ -19,6 +19,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import org.asyncttwiz.protocol.*
 
 internal fun phaseColor(phase: String) = when (phase) {
@@ -59,15 +60,36 @@ internal fun turnStepName(turn: TurnState): String {
     return if (position.label == phase) phase else "$phase · ${position.label}"
 }
 
-internal fun nextStepLabel(turn: TurnState) =
-    if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn" else "Next step"
+/** One short vocabulary for the current indicator, picker and advance destination. */
+internal fun stepLabel(position: TurnPosition): String = when (position) {
+    TurnPosition.PRECOMBAT_MAIN -> "Main 1"
+    TurnPosition.BEGIN_COMBAT -> "Begin combat"
+    TurnPosition.DECLARE_ATTACKERS -> "Attackers"
+    TurnPosition.DECLARE_BLOCKERS -> "Blockers"
+    TurnPosition.COMBAT_DAMAGE -> "Damage"
+    TurnPosition.END_COMBAT -> "End combat"
+    TurnPosition.POSTCOMBAT_MAIN -> "Main 2"
+    else -> position.label
+}
+
+internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let {
+    TurnPosition.entries.getOrNull(it.ordinal + 1)
+}
+
+internal fun nextStepLabel(turn: TurnState, compact: Boolean = false): String =
+    if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn"
+    else nextStep(turn)?.let { if (compact) it.shortCode else stepLabel(it) } ?: "Next step"
 
 @Composable
 internal fun TurnStepIcon(turn: TurnState) {
-    val position = TurnPosition.of(turn)
+    StepIcon(TurnPosition.of(turn))
+}
+
+@Composable
+internal fun StepIcon(position: TurnPosition?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {}) {
         MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(22.dp), tint = LocalContentColor.current)
-        Text(position?.shortCode ?: "?", fontSize = 8.sp, lineHeight = 9.sp)
+        Text(position?.let(::stepLabel) ?: "?", fontSize = 8.sp, lineHeight = 9.sp, maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 
@@ -102,15 +124,17 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
                 Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
                     .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (step in steps) ManualActionSquare(step.label, "", controller.enabled(scope),
-                        iconTint = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
+                    for (step in steps) ActionSquare(step.label, step.glyph, controller.enabled(scope),
+                        Modifier.border(1.dp, if (TurnPosition.of(turn) == step) endingPlayerColor else MenuBorder),
+                        ink = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
                         selected = TurnPosition.of(turn) == step,
+                        icon = { StepIcon(step) },
                         onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MenuButton(nextStepLabel(turn), Modifier.weight(1f), controller.enabled(scope)) {
+            MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
                 if (controller.perform(TableActionIntent.Next(scope))) onComplete()
             }
             MenuButton(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",

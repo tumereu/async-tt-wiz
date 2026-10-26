@@ -123,7 +123,7 @@ data class TableItem(
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
-    val faceId: String? = null
+    val faceId: String? = null, val changedPowerToughness: Boolean = false
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -321,14 +321,15 @@ object TablePresentation {
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
                 counters = if (hidden) emptyMap() else card.counters,
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
-                    typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId).also { if (draw) items += it }
+                    typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
+                    changedPowerToughness = !hidden && changedPowerToughness(card.corner, f)).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             val hand = container(player.accountId, PlayZone.HAND)
             val normalHandBounds = if (!ownSide) {
-                if (landscape) TableBounds(sidebar + 10f, 0f, (width - sidebar - toolbarWidth - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
-                else TableBounds(0f, worldTop - railHeight, width, railHeight)
+                if (landscape) TableBounds(sidebar + 10f, 2f, (width - sidebar - toolbarWidth - 20f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
+                else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
             } else TableBounds(if (landscape) sidebar + 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
                  (width - if (landscape) sidebar + 20f else 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
@@ -380,7 +381,8 @@ object TablePresentation {
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
                     counters = if (hidden) emptyMap() else top?.counters.orEmpty(),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
-                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden))
+                    typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
+                    changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
             if (counterHeights[index] > 0f) {
                 val cp = port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),

@@ -263,22 +263,18 @@ class ClientNormalPathScaleTest {
         operation
     }
 
-    @Test fun item8SelectionReusesGraphPanIsCulledAndCommentsArePaged() = scale("8 selection/viewport/page") { tree ->
+    @Test fun item8SelectionReusesGraphAndPanIsCulled() = scale("8 selection/viewport") { tree ->
         val controller = HistoryExplorerController(Executor { it.run() }, { it() }, { _, error -> throw error })
         controller.update(tree)
         val graph = controller.state.graph!!
         val parent = tree.nodes.getValue(tree.currentNodeId).parentId
         val point = graph.positions.getValue(tree.currentNodeId)
-        val state = tree.preparedState(tree.currentNodeId)!!
         val operation: () -> Unit = {
             controller.select(parent); controller.select(tree.currentNodeId)
             assertSame(graph, controller.state.graph)
             val visible = graph.visible(point.x - 120, point.y - 60, 240f, 120f)
             assertTrue(visible.size < 50)
             assertTrue(graph.spatialVisits < 300)
-            val pages = CommentPages(state.annotations)
-            assertTrue(pages.next().size <= 50)
-            assertTrue(pages.inspected <= 50)
         }
         operation
     }

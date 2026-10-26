@@ -129,7 +129,10 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
         MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
         cardPingTool(toolkit, play, bound, enabled, annotations),
         MenuControl("Declare without tapping", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, false)) toolkit.dismiss() },
-        MenuControl("Declare + tap", enabled && battlefield) { if (toolkit.declare(bound.sourceIds, true)) toolkit.dismiss() },
+        MenuControl("Stack", enabled && bound.sourceIds.any { id -> play.board.cards.any {
+            it.id == id && CombatStackRules.canProject(play.board, it) } }) {
+            if (toolkit.addEffects(bound.sourceIds)) toolkit.dismiss()
+        },
         MenuControl("Unlink", enabled) { toolkit.tokens.links(); toolkit.manual.close() }
     )
 }

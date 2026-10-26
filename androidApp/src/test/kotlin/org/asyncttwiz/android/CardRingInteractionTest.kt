@@ -55,6 +55,17 @@ class CardRingInteractionTest {
     @Test fun stackEnablesNoteButDisablesBattlefieldOnlyWidgets() = zoneEnablement(PlayZone.STACK)
     @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
 
+    @Test fun everydayStackButtonAddsProjectionWithoutDeclaringOrTapping() {
+        val play = f.combat()
+        val toolkit = render(play = play)
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stack").assertIsDisplayed().performClick()
+        assertEquals(listOf<PlayAction>(PlayAction.Stack(StackAction.AddEffect(f.source(f.a, "1/3").id,
+            CombatStackRules.stackDigest(play)))), sent)
+        assertNull(toolkit.capture)
+    }
+
     @Test fun stackProjectionFromHandEnablesNoteAndPingAndTargetsTheProjection() {
         val initial = f.combat()
         val source = f.source(f.a, "1/2").id
@@ -75,7 +86,7 @@ class CardRingInteractionTest {
         compose.ringPage(1)
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
-        for (name in listOf("Set corner", "Declare + tap")) {
+        for (name in listOf("Set corner", "Declare without tapping")) {
             val node = compose.onNodeWithContentDescription(name)
             if (battlefield) node.assertIsEnabled() else node.assertIsNotEnabled()
         }
@@ -108,8 +119,10 @@ class CardRingInteractionTest {
             if (expected) node.assertIsEnabled() else node.assertIsNotEnabled()
         }
         enabled("Edit card note", zone != PlayZone.HAND)
-        for (name in listOf("Set corner", "Increase corner", "Decrease corner", "Declare + tap", "Declare without tapping"))
+        for (name in listOf("Set corner", "Increase corner", "Decrease corner", "Declare without tapping"))
             enabled(name, zone == PlayZone.BATTLEFIELD)
+        enabled("Stack", zone != PlayZone.STACK)
+        compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
         compose.ringPage(2)
         enabled("Set blue counter", zone == PlayZone.BATTLEFIELD)
         enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)

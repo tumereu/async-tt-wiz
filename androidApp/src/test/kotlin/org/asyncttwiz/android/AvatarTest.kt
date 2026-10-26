@@ -6,14 +6,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.protocol.Avatar as AvatarIdentity
-import org.asyncttwiz.storage.CatalogAvatar
 import org.junit.Rule
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.random.Random
 import kotlin.test.*
 
 @RunWith(RobolectricTestRunner::class)
@@ -56,16 +54,6 @@ class AvatarTest {
         compose.runOnIdle { fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex)) }
         compose.onNodeWithText("Choose your avatar").assertDoesNotExist()
         assertFalse(AvatarPromptMemory(context).shouldShow(ScreenFixtures.alex))
-    }
-
-    @Test fun rerollOffersSixDistinctNewChoicesWhenAvailable() {
-        val pool = (1..20).map { CatalogAvatar("Card $it", AvatarIdentity(java.util.UUID(0, it.toLong()).toString())) }
-        val first = randomAvatarChoices(pool, emptyList(), Random(1))
-        val second = randomAvatarChoices(pool, first, Random(2))
-        assertEquals(6, first.size)
-        assertEquals(6, second.size)
-        assertTrue(first.none { it in second })
-        assertEquals(3, randomAvatarChoices(pool.take(3), emptyList()).size)
     }
 
     @Test fun shownOrSkippedIsRememberedPerAccountAcrossMemoryInstances() {

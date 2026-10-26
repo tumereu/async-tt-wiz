@@ -31,7 +31,8 @@ private val Teal = Color(0xff107e7a)
 
 @Composable
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
-    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null) {
+    deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
+    exit: () -> Unit = {}) {
     val state = controller.state
     val context = androidx.compose.ui.platform.LocalContext.current
     val avatarMemory = remember { AvatarPromptMemory(context) }
@@ -113,6 +114,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
                 else -> null
             }, modifier = Modifier.align(Alignment.BottomCenter))
+        }
+        if (catalog != null && catalog.needsInitialDownloadConsent) {
+            CatalogStartupDialog(catalog.state, download = catalog::consent, dismiss = exit)
         }
     }
 }

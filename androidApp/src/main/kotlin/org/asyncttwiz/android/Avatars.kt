@@ -24,7 +24,6 @@ import kotlinx.coroutines.withContext
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.storage.CatalogAvatar
-import kotlin.random.Random
 
 internal fun avatarInitial(username: String): String = username.trim().let {
     if (it.isEmpty()) "?" else String(Character.toChars(it.codePointAt(0))).uppercase(java.util.Locale.ROOT)
@@ -49,11 +48,6 @@ internal class AvatarPromptMemory(context: Context) {
     fun shown(accountId: String) { preferences.edit().putBoolean(accountId, true).apply() }
 }
 
-internal fun randomAvatarChoices(pool: List<CatalogAvatar>, previous: List<CatalogAvatar>, random: Random = Random.Default): List<CatalogAvatar> {
-    val fresh = pool.filterNot { it in previous }.shuffled(random)
-    return (fresh + pool.filter { it in previous }.shuffled(random)).distinctBy { it.name }.take(6)
-}
-
 @Composable
 internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
     val state = catalog.state
@@ -74,17 +68,13 @@ internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel
     var choices by remember { mutableStateOf(emptyList<CatalogAvatar>()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf(false) }
-    var randomPool by remember { mutableStateOf<List<CatalogAvatar>?>(null) }
     val ready = catalog.state.installed != null
     LaunchedEffect(ready, query, reroll) {
         if (!ready) return@LaunchedEffect
         loading = true
         error = false
         try {
-            val pool = if (query.isBlank()) randomPool ?: withContext(Dispatchers.IO) {
-                catalog.repository.avatarChoices()
-            }.also { randomPool = it } else withContext(Dispatchers.IO) { catalog.repository.avatarChoices(query) }
-            choices = if (query.isBlank()) randomAvatarChoices(pool, choices) else pool.take(60)
+            choices = withContext(Dispatchers.IO) { catalog.repository.avatarChoices(query, previous = choices) }
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (_: Exception) { error = true
         } finally { loading = false }

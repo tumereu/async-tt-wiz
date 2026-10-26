@@ -25,7 +25,7 @@ data class CatalogUiState(val installed: CatalogMetadata? = null, val available:
 internal class CatalogPromptPolicy {
     private var dismissed by mutableStateOf(emptySet<String>())
     private fun key(state: CatalogUiState): String? {
-        if (state.installed == null) return null // Initial acquisition is mandatory, never prompts.
+        if (state.installed == null) return null // Mandatory first download has its own pre-login dialog.
         val available = state.available ?: return null
         if (state.plan == null && !CatalogUpdatePolicy.changed(state.installed, available)) return null
         return "${available.date}/${available.version}/${available.indexVersion}"
@@ -41,6 +41,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     internal val promptPolicy get() = processCatalogPrompt
     var state by mutableStateOf(CatalogUiState())
         private set
+    private var initialDownloadAccepted by mutableStateOf(false)
+    internal val needsInitialDownloadConsent get() = state.loaded && state.installed == null && !initialDownloadAccepted
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "public-catalog") }
     private val connectivity = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -73,6 +75,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             var pending: CatalogUpdatePlan? = null
             try {
                 installed = repository.metadata()
+                val local = installed
+                main.post { if (!cleared) state = state.copy(installed = local, loaded = true) }
                 available = preferences.getString("date", null)?.let { date ->
                     CatalogMetadata(date, preferences.getString("version", "")!!)
                 }
@@ -94,7 +98,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 val plan = CatalogUpdatePolicy.plan(installed, repository.installedSets(), CatalogSetList(available, sets))
                 pending = plan
                 val due = force || cadence.due(System.currentTimeMillis()) || CatalogUpdatePolicy.changed(installed, available)
-                if (due && catalogAutoDownload(installed, plan, metered)) {
+                if (due && (catalogAutoDownload(installed, plan, metered) || installed == null && initialDownloadAccepted && plan != null)) {
                     installed = install(checkNotNull(plan), size)
                     cadence.checked(System.currentTimeMillis(), true)
                     publish(CatalogUiState(installed = installed, metered = metered, background = !force,
@@ -117,12 +121,14 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /** Retry and optional metered incremental acquisition. */
+    /** Initial consent, retry and optional metered incremental acquisition. */
     fun consent() {
         val current = state
-        val plan = current.plan ?: current.available?.takeIf { CatalogUpdatePolicy.changed(current.installed, it) }
-            ?.let { CatalogUpdatePlan(it, full = true) } ?: return
+        if (current.installed == null) initialDownloadAccepted = true
         if (working || cleared) return
+        val plan = current.plan ?: current.available?.takeIf { CatalogUpdatePolicy.changed(current.installed, it) }
+            ?.let { CatalogUpdatePlan(it, full = true) }
+        if (plan == null) { foreground(force = true); return }
         startInstall(plan, current.size)
     }
 
@@ -180,7 +186,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             }
         }.also { AndroidTokenCatalog.refresh(getApplication()) }
     }
-    private fun publish(value: CatalogUiState) { main.post { if (!cleared) { state = value.copy(loaded = true); working = false } } }
+    private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
+        state = value.copy(loaded = true)
+        working = false
+        // Consent may arrive while the small metadata check is finishing.
+        if (initialDownloadAccepted && value.installed == null && !value.error && value.plan != null) consent()
+    } } }
     override fun onCleared() {
         cleared = true
         connectivity.unregisterNetworkCallback(callback)
@@ -189,4 +200,4 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
 }
 
 internal fun catalogAutoDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean): Boolean =
-    plan != null && (installed == null || CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false))
+    installed != null && plan != null && CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false)

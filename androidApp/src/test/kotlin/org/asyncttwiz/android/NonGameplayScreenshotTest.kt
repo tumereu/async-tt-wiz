@@ -167,7 +167,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 compose.onNodeWithText("Download size: 450 MB.").assertIsDisplayed()
                 compose.onNodeWithText("Download").assertIsDisplayed()
                 compose.onNodeWithContentDescription("Not now").assertDoesNotExist()
-                paired("Not now", "Download")
+                paired(if (screen == "catalog-startup") "Exit" else "Not now", "Download")
             }
             "catalog-checking" -> {
                 compose.onNodeWithText("Checking card records…").assertDoesNotExist()

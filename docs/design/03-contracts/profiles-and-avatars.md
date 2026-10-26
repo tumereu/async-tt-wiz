@@ -7,10 +7,12 @@
 
 ## Catalog download
 
-- The MTGJSON catalog download starts automatically at the **first app launch**,
-  before login, and is mandatory: there is no "later" option. This replaces the
-  optional startup download prompt. Incremental updates and the manual full
-  re-import in Settings stay as they are.
+- At the **first app launch**, before login, show a dialog explaining that the app
+  needs the card catalog to work, with its approximate download size and exactly
+  two buttons: **Download** and **Exit**. There is no "later" option. Exit finishes
+  the activity; the dialog appears on the next launch until a catalog exists.
+  Download starts the download. Incremental updates and the manual full re-import
+  in Settings stay as they are.
 - Registration and login are usable while it downloads; the download and import
   continue in the background with visible progress.
 

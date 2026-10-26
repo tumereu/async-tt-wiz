@@ -13,9 +13,10 @@ fun CatalogPrinting.avatarChoice(legendaryOnly: Boolean): CatalogAvatar? {
     if (face !in 0..15) return null
     val card = runCatching { JsonParser.parseString(json).asJsonObject }.getOrNull() ?: return null
     if (legendaryOnly) {
-        fun values(key: String) = card.getAsJsonArray(key)?.map { it.asString }.orEmpty()
-        if (token || "Legendary" !in values("supertypes") ||
-            values("types").none { it == "Creature" || it == "Planeswalker" }) return null
+        // Only the type line survives the production import. Subtypes are not card types.
+        val types = card.get("type")?.takeUnless { it.isJsonNull }?.asString
+            ?.substringBefore('—')?.split(' ').orEmpty()
+        if (token || "Legendary" !in types || types.none { it == "Creature" || it == "Planeswalker" }) return null
     }
     return CatalogAvatar(name, Avatar(id, face))
 }

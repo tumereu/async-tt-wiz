@@ -9,7 +9,7 @@ import kotlinx.serialization.json.jsonPrimitive
 data class PodDeckMana(val value: Double, val colors: Set<DraftColor>)
 
 object PodDeckManaCost {
-    private val symbols = Regex("\\{([^{}]+)}")
+    private val symbols = Regex("\\{([^{}]+)\\}")
 
     /** Hybrid takes the largest alternative; Phyrexian is one; X/Y/Z are zero. */
     fun parse(cost: String): PodDeckMana {
@@ -50,7 +50,7 @@ object PodDeckManaCost {
     fun catalogColors(card: CardDefinition): Set<DraftColor>? = card.faces.firstOrNull()?.let(::record)?.get("colors")
         ?.let { runCatching { it.jsonArray.mapNotNull { color -> DraftColor.entries.firstOrNull { c -> c.name == color.jsonPrimitive.content } }.toSet() }.getOrNull() }
 
-    private val costLine = Regex("(\\{[^{}]+})+")
+    private val costLine = Regex("(\\{[^{}]+\\})+")
     private fun record(face: DefinitionFace) = face.sourceData?.let { data -> runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() }
 }
 

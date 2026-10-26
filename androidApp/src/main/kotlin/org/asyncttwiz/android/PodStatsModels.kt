@@ -13,7 +13,7 @@ internal data class PodStats(
     val missingDefinitions: Int,
 )
 
-private val podStatsSymbols = Regex("\\{([^{}]+)}")
+private val podStatsSymbols = Regex("\\{([^{}]+)\\}")
 private val podStatsLand = Regex("\\bLand\\b", RegexOption.IGNORE_CASE)
 private val podStatsCreature = Regex("\\bCreature\\b", RegexOption.IGNORE_CASE)
 private val podStatsBasicTypes = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")

@@ -1133,6 +1133,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
             text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y + 4, 5)
             paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
+            if (i.keepTopRevealed) {
+                // Same eye treatment as revealed panel cards, separate from the count badge.
+                val cx = i.bounds.right - 7f; val cy = i.bounds.y + 7f
+                val ink = Color(0xff345451)
+                drawCircle(Color.White, 6f * density, xy(cx, cy))
+                drawOval(ink, xy(cx - 5f, cy - 3f), size(10f, 6f), style = Stroke(density))
+                drawCircle(ink, 1.7f * density, xy(cx, cy))
+            }
         }
     }
     for (ping in pings) {

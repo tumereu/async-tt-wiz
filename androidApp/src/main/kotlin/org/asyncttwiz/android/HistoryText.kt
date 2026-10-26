@@ -45,6 +45,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         val area = container(card.containerId) ?: return false
         return card.knownToAll || before?.board?.contentsDisplays?.any {
             card.id in it.cardIds && it.faceVisibleTo(card.id, viewer.orEmpty()) } == true ||
+            area.zone == PlayZone.LIBRARY && area.keepTopRevealed && area.cards.firstOrNull() == card.id ||
             CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty())
     }
     fun card(id: String): String {
@@ -105,6 +106,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             else text("moved ${card(action.cardId)} from ${zone(action.source.containerId)} to ${zone(action.destination.containerId)}", "Move")
         }
         is PlayAction.ShuffleLibrary -> text("shuffled ${container(action.containerId)?.accountId?.let(::player) ?: "their"} library", "Shuffle")
+        is PlayAction.SetKeepTopRevealed -> text("turned ${if (action.enabled) "on" else "off"} keep top card revealed", "Top reveal ${if (action.enabled) "on" else "off"}")
         is PlayAction.Mulligan -> text("mulliganed and drew ${action.drawCount} cards", "Mulligan")
         is PlayAction.ShowContents -> {
             val size = transition.contents?.to?.cardIds?.size

@@ -27,10 +27,10 @@ class LibraryActionsUiTest {
     private var completed = 0
     private val labels = listOf("Draw", "Reveal", "Look", "Mill", "Exile")
 
-    private fun render(connected: Boolean = true) {
+    private fun render(connected: Boolean = true, viewer: String = "a") {
         ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("library-quantities", 0).edit().clear().commit()
         val controller = LibraryController(play.id, library.id, hand.id, { play }, { connected },
-            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) })
+            { sent += it; true }, seed = { RandomV1.encodeSeed(ByteArray(32)) }, viewer = viewer)
         compose.setContent { MaterialTheme {
             InlinePopupPanel({}, "Library", width = 264.dp, height = 304.dp) {
                 LibraryActions(controller, play.board, hand.cards, onComplete = { completed++ })
@@ -76,7 +76,7 @@ class LibraryActionsUiTest {
         compose.onNodeWithContentDescription("Close").assertDoesNotExist()
         compose.onNodeWithText("Library").assertDoesNotExist()
         compose.onNodeWithText("Mulligan (hand → shuffle → draw)").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Context action grid").assertHeightIsEqualTo(204.dp).assertWidthIsEqualTo(248.dp)
+        compose.onNodeWithContentDescription("Context action grid").assertHeightIsEqualTo(256.dp).assertWidthIsEqualTo(248.dp)
         compose.onAllNodes(isDialog()).assertCountEquals(0)
     }
 
@@ -135,6 +135,20 @@ class LibraryActionsUiTest {
         render(false)
         for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
+        assertTrue(sent.isEmpty())
+    }
+
+    @Test fun ownerCanEnableContinuousRevealFromTheLibraryMenu() {
+        render()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsOff().performClick()
+        assertEquals(listOf<PlayAction>(PlayAction.SetKeepTopRevealed(library.id, true)), sent)
+        assertEquals(1, completed)
+    }
+
+    @Test fun opponentCannotToggleAnotherLibrary() {
+        render(viewer = "b")
+        compose.onNodeWithText("Keep top card revealed").assertIsDisplayed().assertIsNotEnabled()
         assertTrue(sent.isEmpty())
     }
 }

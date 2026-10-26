@@ -32,6 +32,32 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    @Test fun continuousLibraryRevealRendersOnlyTheTopFaceAndEyeForBothViewersAndAllowsInspect() {
+        val initial = TableFixture.play()
+        for (enabled in listOf(false, true)) for (viewer in listOf("a", "b")) for (landscape in listOf(false, true)) {
+            val state = initial.copy(board = initial.board.copy(containers = initial.board.containers.map {
+                if (it.zone == PlayZone.LIBRARY) it.copy(keepTopRevealed = enabled) else it }))
+            val scene = TablePresentation.scene(TableFixture.game, state, viewer,
+                if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
+            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY }) {
+                assertEquals(!enabled, pile.covered)
+                assertEquals(enabled, pile.keepTopRevealed)
+                assertEquals(if (enabled) "Secret face" else "", pile.faceTitle)
+                assertTrue(scene.items.none { it.kind == TableItemKind.CARD && it.cardId in pile.cards })
+                val events = mutableListOf<TableIntent>()
+                val gestures = TableGestureCoordinator(events::add)
+                gestures.update(scene, TableSelection(), true)
+                gestures.inspect(pile)
+                assertEquals(if (enabled) listOf(TableIntent.Inspect(pile.cards.first())) else emptyList(), events)
+                val top = state.board.cards.single { it.id == pile.cards.first() }
+                if (enabled) assertTrue(ManualDisclosure.permittedFaces(state, top, viewer, inspecting = true).isNotEmpty())
+            }
+        }
+        val empty = initial.copy(board = initial.board.copy(cards = emptyList(), containers = initial.board.containers.map {
+            it.copy(cards = emptyList(), keepTopRevealed = it.zone == PlayZone.LIBRARY) }))
+        assertTrue(TableFixture.scene(empty).items.filter { it.zone == PlayZone.LIBRARY }.all { it.keepTopRevealed && it.covered })
+    }
+
     @Test fun landscapeKeepsBothOuterLandsRowsSeparateFromCombatAndReview() {
         for ((w, h) in listOf(892f to 412f, 640f to 360f, 892f to 364f)) {
             for (reviewing in listOf(false, true)) for (combat in listOf(false, true)) {

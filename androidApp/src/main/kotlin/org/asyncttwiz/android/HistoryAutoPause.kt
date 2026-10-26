@@ -71,7 +71,8 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
             }
             val explicitDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard ||
                 action is PlayAction.InspectFace || action is PlayAction.SetCovered && !action.covered
-            if (explicitDisclosure && t.disclosures.any { viewer in it.viewers } || t.contents?.let { change ->
+            if (action is PlayAction.SetKeepTopRevealed ||
+                explicitDisclosure && t.disclosures.any { !it.automatic && viewer in it.viewers } || t.contents?.let { change ->
                     change.to?.let { display -> change.from == null && display.cardIds.any { display.faceVisibleTo(it, viewer) } } == true
                 } == true) result += PlaybackAutoPause.REVEAL
             if (action is PlayAction.Ping || action is PlayAction.EventComment) result += PlaybackAutoPause.PINGS_COMMENTS

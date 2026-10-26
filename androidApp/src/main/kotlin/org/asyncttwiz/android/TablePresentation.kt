@@ -119,7 +119,7 @@ data class TableItem(
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
-    val countBadge: TableBounds? = null, val typeLine: String = ""
+    val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -362,12 +362,13 @@ object TablePresentation {
             for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
-                val hidden = zone == PlayZone.LIBRARY || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
+                val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
                 val b = TableBounds(84f + n * spacing - dp.scroll, rowY + 12f, pileWidth, pileHeight)
-                items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards", c.cards.size.toString(),
+                items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
                     token = top?.token == true,
+                    keepTopRevealed = c.keepTopRevealed,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
                     counters = if (hidden) emptyMap() else top?.counters.orEmpty(),

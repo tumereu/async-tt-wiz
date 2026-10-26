@@ -474,12 +474,14 @@ class PodService(private val runtime: ServiceRuntime) {
         val owner = UUID.fromString(principal.account.accountId)
         val rows = sql.selectFrom(POD).where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
             .orderBy(POD.ID).forShare().fetch()
-        val pods = rows.map { row ->
+        // Membership is rechecked after each pod lock: a concurrent leave may have removed the caller.
+        val pods = rows.mapNotNull { row ->
             val members = members(sql, row.id!!)
+            val mine = members.firstOrNull { it.accountId == owner } ?: return@mapNotNull null
             val waiting = state(row)?.queues?.get(owner.toString())?.size ?: gridWaiting(gridState(row), owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
-                row.phase == "DRAFTED" && members.first { it.accountId == owner }.submittedDeck == null -> PodAttention.BUILD
+                row.phase == "DRAFTED" && mine.submittedDeck == null -> PodAttention.BUILD
                 else -> PodAttention.NONE
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),

@@ -118,6 +118,13 @@ class PodDeckRulesTest {
         assertEquals(0, PodDeckColumns.bucket(7, modal.copy(faces = modal.faces.reversed())))
     }
 
+    @Test fun normalizedAdventureUsesFrontRecordCost() {
+        val giant = CardDefinition("Bonecrusher Giant // Stomp", listOf(DefinitionFace("front", "Bonecrusher Giant // Stomp",
+            typeLine = "Creature — Giant", sourceData = """{"manaCost":"{2}{R}","type":"Creature — Giant"}""")))
+        assertEquals(4, PodDeckColumns.bucket(7, giant))
+        assertEquals(DraftColor.R.ordinal, PodDeckColumns.colorRank(giant))
+    }
+
     @Test fun inColumnSortIsWubrgThenMulticolorThenColorlessThenName() {
         val cards = listOf(card("Z white", "{W}"), card("a White", "{W}"), card("Blue", "{U}"),
             card("Black", "{B}"), card("Red", "{R}"), card("Green", "{G}"),

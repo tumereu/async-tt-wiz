@@ -1,5 +1,9 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 /** Mana cost, not color identity: reminders and a card's rules text never contribute colors. */
 data class PodDeckMana(val value: Double, val colors: Set<DraftColor>)
 
@@ -26,6 +30,17 @@ object PodDeckManaCost {
         }
         return PodDeckMana(value, colors)
     }
+
+    /** Catalog normalization blanks the cost of adventure/split/flip cards; their front record still has it. */
+    fun front(card: CardDefinition): PodDeckMana {
+        val face = card.faces.firstOrNull() ?: return PodDeckMana(0.0, emptySet())
+        val cost = face.manaCost.ifEmpty {
+            face.sourceData?.let { data -> runCatching {
+                Json.parseToJsonElement(data).jsonObject["manaCost"]?.jsonPrimitive?.content
+            }.getOrNull() }.orEmpty()
+        }
+        return parse(cost)
+    }
 }
 
 data class PodDeckBucket(val label: String, val minimumManaValue: Int? = null, val andAbove: Boolean = false)
@@ -46,13 +61,13 @@ object PodDeckColumns {
         require(columns in 2..10)
         val front = card.faces.firstOrNull()
         if (front != null && land.containsMatchIn(front.typeLine)) return 0
-        val value = PodDeckManaCost.parse(front?.manaCost.orEmpty()).value
+        val value = PodDeckManaCost.front(card).value
         return 1 + value.coerceIn(0.0, (columns - 2).toDouble()).toInt()
     }
 
     /** Use explicit colors for color indicators/devoid when available; otherwise infer from front-face cost. */
     fun colorRank(card: CardDefinition, colors: Set<DraftColor>? = null): Int {
-        val actual = colors ?: PodDeckManaCost.parse(card.faces.firstOrNull()?.manaCost.orEmpty()).colors
+        val actual = colors ?: PodDeckManaCost.front(card).colors
         return when (actual.size) {
             0 -> 6
             1 -> actual.single().ordinal

@@ -101,6 +101,7 @@ object StartRules {
             }
             GameAction.Ready -> when {
                 player.deck == null -> reject("deckRequired")
+                PodGamePreparation.readyProblem(current, actor) != null -> reject(PodGamePreparation.readyProblem(current, actor)!!)
                 else -> PreparationChange(current.copy(players = current.players.map {
                     if (it.accountId == actor) it.copy(ready = true) else it
                 }))

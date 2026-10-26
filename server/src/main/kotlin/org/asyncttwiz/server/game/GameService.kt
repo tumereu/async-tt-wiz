@@ -285,6 +285,7 @@ class GameService(private val runtime: ServiceRuntime) {
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
+            is GameAction.SetPodGameBasics -> applyPodBasics(sql, game, inbox.accountId!!, command)
             is GameAction.SetStarter, GameAction.Ready, GameAction.WithdrawReady -> applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
         }
@@ -404,10 +405,19 @@ class GameService(private val runtime: ServiceRuntime) {
         if (game.lifecycle != "LOBBY") return "lifecycleEnded"
         if (command.scope.preparationId != game.preparationRound.toString()) return "inapplicable"
         if (!canReadPreparation(summary, account.toString())) return "accessDenied"
+        if (summary.podId != null) return "podDeckFixed"
         val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
         val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
         val change = PreparationRules.select(summary, PreparationStore.read(sql, summary), account.toString(),
             command.requestId, command.scope, action, source, definitions)
+        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
+        return change.reason
+    }
+
+    private fun applyPodBasics(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
+        val summary = lobby.summary(sql, game.id!!)
+        val change = PodGamePreparation.setBasics(summary, PreparationStore.read(sql, summary), account.toString(),
+            command.scope, command.action as GameAction.SetPodGameBasics)
         change.state?.let { PreparationStore.saveSelection(sql, account, it) }
         return change.reason
     }

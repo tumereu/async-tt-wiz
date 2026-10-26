@@ -304,7 +304,7 @@ class GameSession(private val connection: GameConnection, private val credential
         }
         // Ready is submitted only after earlier predictions settle. Later per-card edits follow it.
         for (intent in readiness.values.filter { it.command.scope.gameId == game.id }) {
-            display = StartRules.change(current, display, intent.actor, intent.command.scope, intent.command.action).state ?: display
+            display = preparationIntent(current, display, intent.actor, intent.command.scope, intent.command.action).state ?: display
         }
         for (transfer in transfers.values.filter { it.command.scope.gameId == game.id && !it.withdrawn }) {
             val next = PreparationRules.transfer(current, display, transfer.actor, transfer.command.scope,
@@ -380,7 +380,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (action == GameAction.DeleteGame) return deleteGame(game)
         if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
-            action is GameAction.SetStarter || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
+            action is GameAction.SetStarter || action is GameAction.SetPodGameBasics || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
         if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
         return enqueue(game, action) != null
@@ -491,12 +491,16 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId != game.playId) return false
         return enqueue(game, GameAction.DeleteGame) != null
     }
+    private fun preparationIntent(game: GameSummary, base: LobbyPreparation, actor: String, scope: GameScope, action: GameAction) =
+        if (action is GameAction.SetPodGameBasics) PodGamePreparation.setBasics(game, base, actor, scope, action)
+        else StartRules.change(game, base, actor, scope, action)
+
     fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
-        if (action !is GameAction.SetStarter && action != GameAction.Ready && action != GameAction.WithdrawReady) return false
+        if (action !is GameAction.SetStarter && action !is GameAction.SetPodGameBasics && action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false
         val command = command(current, action) ?: return false
-        if (StartRules.change(current, base, actor, command.scope, action).state == null) return false
+        if (preparationIntent(current, base, actor, command.scope, action).state == null) return false
         readiness[command.requestId] = Readiness(command, actor)
         pending[command.requestId] = command
         latencySubmitted(command, true)
@@ -819,6 +823,9 @@ class GameSession(private val connection: GameConnection, private val credential
             "sourceChanged" -> "This saved deck changed. Choose it again to use the current version."
             "sourceUnavailable" -> "This saved deck is no longer available. Choose another deck."
             "deckRequired" -> "Select your deck to get ready."
+            "mainTooSmall" -> "Main must contain at least 40 cards including basics."
+            "sideboardLimit" -> "Side exceeds this pod's sideboard limit. Move cards to Main."
+            "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
             "starterRequired" -> "Choose the starting player to get ready."
             else -> "This game has changed. Refresh and try again."
         }

@@ -38,7 +38,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
-    treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null) : AutoCloseable {
+    treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
+    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null) : AutoCloseable {
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
@@ -49,6 +50,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var closed = false
     private var searchVersion = 0L
     private var pendingCreate: CreateInvitation? = null
+    private data class PodChallenge(val podId: String, val input: ChallengeFromPod, val submission: SubmitDefinitions)
+    private var pendingChallenge: PodChallenge? = null
     private var pendingRecipient: AccountIdentity? = null
     private val pendingAdds = mutableMapOf<String, AddContact>()
     private var pickerVersion = 0L
@@ -75,7 +78,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
         tableChanges = { gameId, batch -> if (state.selected == gameId) historyOwner?.liveChanges(batch) }) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
-    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -218,6 +221,18 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun ready() = readiness(GameAction.Ready)
     fun withdrawReady() = readiness(GameAction.WithdrawReady)
+    fun changePodBasic(land: BasicLand, delta: Int): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        val preparation = state.preparation ?: return false
+        val deck = preparation.players.find { it.accountId == actor }?.deck ?: return false
+        if (closed || preparation.podRules == null || delta !in listOf(-1, 1)) return false
+        val counts = PodGamePreparation.basics(deck)
+        val count = land.count(counts).toLong() + delta
+        if (count !in 0..DeckValidation.MAX_CARDS.toLong()) return false
+        val definitions = BasicLand.entries.map { basic -> preparation.definitions.find { it.digest == deck.basicDefinitions[basic] } ?: return false }
+        return session?.readiness(game, actor, GameAction.SetPodGameBasics(deck.id, land.withCount(counts, count.toInt()), definitions)) == true
+    }
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
@@ -293,7 +308,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun chooseDeck() {
         val game = state.detail ?: return
-        if (closed || deckApi == null || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames ||
+        if (closed || deckApi == null || game.podId != null || state.preparation?.podRules != null || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames ||
             game.id in state.pendingGames || (game.inviter.accountId != accountId() && game.invitationState != InvitationState.ACCEPTED)) return
         state = state.copy(picker = DeckPickerState(game))
         refreshPicker()
@@ -507,6 +522,44 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
         }
     }
+    /** Pod UI supplies the chosen name; transport and basic resolution belong to the ordinary lobby. */
+    fun challengeFromPod(podId: String, opponentId: String, gameName: String) {
+        if (closed || state.mutating) return
+        if (!LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
+        val token = credential() ?: return
+        val decks = deckApi ?: return
+        val resolve = basicLandDefinitions ?: return
+        val previous = pendingChallenge
+        if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId || previous.input.gameName != gameName)) {
+            state = state.copy(error = "Retry the original pod challenge before creating another."); return
+        }
+        val generation = epoch
+        state = state.copy(mutating = true, error = null)
+        worker.execute {
+            if (generation != epoch) return@execute
+            var captured = previous
+            val result = runCatching { runBlocking {
+                val request = captured ?: resolve().let { definitions ->
+                    PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName, definitions),
+                        SubmitDefinitions(UUID.randomUUID().toString(), definitions))
+                }.also { captured = it }
+                serviceRetry(current = { generation == epoch }) { decks.submit(token, request.submission) }
+                serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }
+            } }
+            post { if (!closed && generation == epoch) {
+                val game = result.getOrNull()
+                val failure = result.exceptionOrNull()
+                val terminal = (failure as? LobbyFailure)?.code in listOf("not_found", "opponent_not_member", "invalid_opponent",
+                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_basic_definitions", "invalid_deck")
+                pendingChallenge = if (game != null || terminal) null else captured
+                state = state.copy(mutating = false, error = failure?.let(::lobbyError))
+                if (game != null) {
+                    if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
+                    else refresh()
+                }
+            } }
+        }
+    }
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") {
         leaveUnavailable()
         state = state.copy(error = message)
@@ -666,5 +719,11 @@ internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFa
     "try_later" -> "Too many requests. Wait a moment and retry."
     "request_conflict" -> "This request could not be reused. Close the dialog and try again."
     "not_configured" -> "The game service is not configured in this build."
+    "basic_definitions_unavailable" -> "The five English M21 basic lands are missing. Update card records and retry."
+    "deck_not_submitted" -> "Both players must submit their pod decks before a challenge."
+    "opponent_not_member", "not_found" -> "This pod or player is no longer available."
+    "invalid_opponent" -> "Choose another member of this pod."
+    "invalid_basic_definitions" -> "Basic land definitions were refused. Update card records and retry."
+    "invalid_deck" -> "This deck exceeds the game's 1,000-card limit."
     else -> "Could not reach the game service. Your input is kept. Check your connection and retry."
 }

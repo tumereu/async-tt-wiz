@@ -55,9 +55,13 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
             val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
             OutlinedCard(modifier.onGloballyPositioned { targets[source] = it.boundsInRoot() }) {
                 Text("$title · ${deck.count(source)}", Modifier.padding(12.dp), style = MaterialTheme.typography.titleMedium)
-                val rows = deck.entries.filter { it.section == source }.groupBy { it.definition }
+                val rows = deck.entries.filter { it.section == source && it.suppliedBasic == null }.groupBy { it.definition }
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = if (landscape) 260.dp else 340.dp)
                     .semantics { contentDescription = "$title preparation" }) {
+                    if (source == SavedDeckSection.MAINBOARD && preparation.podRules != null) item {
+                        PodBasicSteppers(PodGamePreparation.basics(deck), connected && state.detail?.id !in state.pendingGames,
+                            deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS, controller::changePodBasic)
+                    }
                     items(rows.keys.toList(), key = { "${deck.id}/$source/$it" }) { digest ->
                         val definition = preparation.definitions.find { it.digest == digest }?.definition
                         val name = definition?.name ?: "Card"
@@ -98,6 +102,21 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
 }
 
 private fun SavedDeckSection.label() = if (this == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
+
+@Composable
+internal fun PodBasicSteppers(basics: PodDeckBasics, enabled: Boolean, canAdd: Boolean,
+    change: (BasicLand, Int) -> Boolean) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        for (land in BasicLand.entries) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(land.cardName, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { change(land, -1) }, enabled = enabled && land.count(basics) > 0,
+                modifier = Modifier.semantics { contentDescription = "Remove ${land.cardName}" }) { Text("−") }
+            Text(land.count(basics).toString(), Modifier.widthIn(min = 24.dp).semantics { contentDescription = "${land.cardName} count: ${land.count(basics)}" })
+            TextButton(onClick = { change(land, 1) }, enabled = enabled && canAdd,
+                modifier = Modifier.semantics { contentDescription = "Add ${land.cardName}" }) { Text("+") }
+        }
+    }
+}
 
 @Composable
 private fun PreparationHandle(label: String, glyph: String, enabled: Boolean, capture: () -> PreparedTransfer?,

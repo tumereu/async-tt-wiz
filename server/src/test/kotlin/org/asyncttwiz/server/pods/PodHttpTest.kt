@@ -337,6 +337,30 @@ class PodHttpTest {
         assertEquals(1, f.count(ActivityKind.POD_DESTROYED, drafted, f.b))
     }
 
+    @Test fun `challenge HTTP creates an ordinary invitation with supplied basic definitions`() = fixture { f ->
+        val pod = f.create().id; f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1)); f.start(pod)
+        for (player in listOf(f.a, f.b)) {
+            val attempt = f.get(player, pod).draftAttemptId!!
+            f.send(player, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(forest = 39)))
+            f.send(player, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        }
+        val definitions = BasicLand.entries.map { land ->
+            val card = CardDefinition(land.cardName, listOf(DefinitionFace(id(), land.cardName, typeLine = "Basic Land — ${land.cardName}")))
+            SubmittedDefinition(DeckJson.digest(card), card)
+        }
+        val input = ChallengeFromPod(id(), f.b.account.accountId, "HTTP challenge", definitions)
+        assertEquals(401, f.request(null, "POST", "/v1/pods/$pod/challenge", json.encodeToString(input)).statusCode())
+        val result = f.send(f.a, "POST", "/v1/pods/$pod/challenge", input, 201)
+        assertEquals(result, f.send(f.a, "POST", "/v1/pods/$pod/challenge", input, 201))
+        val summary = json.decodeFromString<GameSummary>(result)
+        assertEquals(pod, summary.podId); assertEquals(InvitationState.PENDING, summary.invitationState)
+        assertEquals(listOf(summary), json.decodeFromString<GameList>(f.request(f.b, "GET", "/v1/invitations").body()).games)
+        f.send(f.a, "DELETE", "/v1/pods/$pod", PodRequest(id()))
+        assertTrue(json.decodeFromString<GameList>(f.request(f.b, "GET", "/v1/invitations").body()).games.isEmpty())
+        assertFalse(f.activity(f.b).entries.any { it.kind == ActivityKind.INVITATION && it.gameId == summary.id })
+    }
+
     @Test fun `accepted members plus pending invitations cap at eight and setup can replace its source`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)

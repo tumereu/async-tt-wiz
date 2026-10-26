@@ -55,6 +55,8 @@ internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameL
 internal fun GameSummary.opponent(accountId: String) = if (inviter.accountId == accountId) recipient else inviter
 internal fun readyReason(preparation: LobbyPreparation?, accountId: String): String? = when {
     preparation?.players?.find { it.accountId == accountId }?.deck == null -> "Select your deck to get ready."
+    PodGamePreparation.readyProblem(preparation, accountId) == "mainTooSmall" -> "Main must contain at least 40 cards including basics."
+    PodGamePreparation.readyProblem(preparation, accountId) == "sideboardLimit" -> "Side exceeds this pod's sideboard limit (${preparation?.podRules?.sideboardLimit}). Move cards to Main."
     else -> null
 }
 
@@ -170,6 +172,7 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                     for (game in state.invitations) Surface(color = ScreenBackground, border = BorderStroke(1.dp, ScreenBorder), shape = MaterialTheme.shapes.medium) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(game.gameName, fontWeight = FontWeight.SemiBold)
+                            game.podName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Avatar(game.inviter)
                                 Text(game.inviter.username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -262,7 +265,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
                         PreparedSummary(state.preparation, accountId)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
+                             if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
                                 game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
                                  modifier = Modifier.weight(1f)) {
                                 EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp))

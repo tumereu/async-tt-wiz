@@ -28,7 +28,9 @@ internal object PreparationStore {
         return PreparationRules.empty(summary).let { empty -> empty.copy(players = empty.players.map { player ->
             val row = rows[player.accountId]
             player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) })
-        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice()) }
+        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice(),
+            podRules = if (summary.podId == null) null else PodGameRules(sql.select(GAME.POD_SIDEBOARD_LIMIT).from(GAME)
+                .where(GAME.ID.eq(game)).fetchSingle(GAME.POD_SIDEBOARD_LIMIT))) }
     }
 
     fun saveReadiness(sql: DSLContext, actor: UUID, state: LobbyPreparation) {

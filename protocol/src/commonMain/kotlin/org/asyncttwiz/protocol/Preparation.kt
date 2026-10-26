@@ -6,9 +6,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class PreparedCard(val id: String, val definition: String, val section: SavedDeckSection)
 /** A compact consecutive set of concrete command-derived identities, not fungible quantities. */
 @Serializable data class PreparedEntry(val definition: String, val section: SavedDeckSection,
-    val firstIndex: String, val quantity: Int)
+    val firstIndex: String, val quantity: Int, val suppliedBasic: BasicLand? = null)
 @Serializable data class PreparedDeck(val id: String, val sourceId: String, val sourceRevision: String,
-    val name: String, val cover: String?, val selectionRequestId: String, val entries: List<PreparedEntry>) {
+    val name: String, val cover: String?, val selectionRequestId: String, val entries: List<PreparedEntry>,
+    val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0") {
     fun count(section: SavedDeckSection) = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     fun card(entry: PreparedEntry, offset: Int): PreparedCard {
         require(entry in entries && offset in 0 until entry.quantity)
@@ -19,7 +20,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class PlayerPreparation(val accountId: String, val ready: Boolean = false, val deck: PreparedDeck? = null)
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
     val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList(),
-    val starter: StarterChoice? = StarterChoice()) {
+    val starter: StarterChoice? = StarterChoice(), val podRules: PodGameRules? = null) {
     /** Older snapshots may explicitly contain null. It means Random, never an empty selection. */
     val startingChoice: StarterChoice get() = starter ?: StarterChoice()
 }
@@ -43,7 +44,7 @@ object PreparationRules {
     fun capture(current: LobbyPreparation, actor: String, definition: String, section: SavedDeckSection,
         all: Boolean): PreparedTransfer? {
         val deck = current.players.find { it.accountId == actor }?.deck ?: return null
-        val entries = deck.entries.filter { it.definition == definition && it.section == section }
+        val entries = deck.entries.filter { it.definition == definition && it.section == section && it.suppliedBasic == null }
         if (entries.isEmpty()) return null
         return PreparedTransfer(current.gameId, current.roundId, deck.id, deck.selectionRequestId, section,
             if (all) entries.toList() else listOf(entries.first().copy(quantity = 1)))
@@ -64,6 +65,7 @@ object PreparationRules {
         val entry = deck.entries.find { index >= GameWire.ordinal(it.firstIndex) &&
             index - GameWire.ordinal(it.firstIndex) < it.quantity } ?: return reject("copyUnavailable")
         if (entry.section != action.source) return reject("sourceSectionChanged")
+        if (entry.suppliedBasic != null) return reject("useBasicStepper")
         val captured = PreparedTransfer(game.id, current.roundId, deck.id, deck.selectionRequestId, action.source,
             listOf(entry.copy(firstIndex = index.toString(), quantity = 1)))
         return PreparationChange(previewTransfer(current, actor, captured))
@@ -82,7 +84,7 @@ object PreparationRules {
                     entries = entries.flatMap { entry ->
                         val first = GameWire.ordinal(entry.firstIndex); val last = first + entry.quantity
                         val low = maxOf(first, start); val high = minOf(last, end)
-                        if (entry.section != captured.source || entry.definition != range.definition || low >= high) listOf(entry)
+                        if (entry.suppliedBasic != null || entry.section != captured.source || entry.definition != range.definition || low >= high) listOf(entry)
                         else {
                             moved = true
                             buildList {
@@ -98,7 +100,7 @@ object PreparationRules {
                 val compact = mutableListOf<PreparedEntry>()
                 for (entry in entries.sortedBy { GameWire.ordinal(it.firstIndex) }) {
                     val previous = compact.lastOrNull()
-                    if (previous != null && previous.definition == entry.definition && previous.section == entry.section &&
+                    if (previous != null && previous.definition == entry.definition && previous.section == entry.section && previous.suppliedBasic == entry.suppliedBasic &&
                         GameWire.ordinal(previous.firstIndex) + previous.quantity == GameWire.ordinal(entry.firstIndex) &&
                         previous.quantity.toLong() + entry.quantity <= Int.MAX_VALUE)
                         compact[compact.lastIndex] = previous.copy(quantity = previous.quantity + entry.quantity)
@@ -119,6 +121,7 @@ object PreparationRules {
             current.gameId != game.id || current.roundId != game.preparationRound) return reject("inapplicable")
         if (actor != game.inviter.accountId && (actor != game.recipient.accountId || game.invitationState != InvitationState.ACCEPTED))
             return reject("accessDenied")
+        if (game.podId != null || current.podRules != null) return reject("podDeckFixed")
         if (source == null || source.deck.id != action.deckId) return reject("sourceUnavailable")
         if (source.deck.revision != action.sourceRevision) return reject("sourceChanged")
         if (!DeckValidation.create(CreateDeck(requestId, source.deck.name, source.entries))) return reject("invalidSource")

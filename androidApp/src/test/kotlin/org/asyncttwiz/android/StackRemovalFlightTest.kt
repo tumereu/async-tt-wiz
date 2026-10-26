@@ -44,7 +44,10 @@ class StackRemovalFlightTest {
             val t = cardMoveProgress(start.bounds, destination.bounds, .25f, animation.durationMillis, .5f)
             assertEquals(start.bounds.center.x + (destination.bounds.center.x - start.bounds.center.x) * t,
                 middle.bounds.center.x, .001f)
-            assertEquals(1f, middle.alpha, "The projection stays opaque until the end of the flight")
+            // Opaque for the first three quarters of its own flight, then fades into the destination.
+            assertEquals(1f - ((t - .75f) / .25f).coerceIn(0f, 1f), middle.alpha, .001f)
+            val early = animation.frame(.01f).single { it.item.cardId == "effect" }
+            assertEquals(1f, early.alpha, "The projection stays opaque until the end of the flight")
             assertTrue(middle.item.inTransit)
             val nearEnd = animation.frame(.9f).single { it.item.cardId == "effect" }
             assertTrue(nearEnd.alpha in 0f..1f && nearEnd.alpha < 1f)

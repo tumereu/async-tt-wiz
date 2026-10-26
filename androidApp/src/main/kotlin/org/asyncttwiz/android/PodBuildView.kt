@@ -37,7 +37,7 @@ fun PodBuildView(
     editable: Boolean,
     canSubmit: Boolean,
     onMove: (copyId: String, category: PodDeckCategory) -> Unit,
-    onBasics: (PodDeckBasics) -> Unit,
+    onAdjustBasic: (index: Int, delta: Int) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -96,7 +96,7 @@ fun PodBuildView(
                         }
                     }
                 }
-                if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onBasics) }
+                if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }
                 item("labels-$category") {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
                         PodDeckColumns.buckets(columns).forEach { bucket ->
@@ -147,7 +147,7 @@ fun PodBuildView(
 }
 
 @Composable
-private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onBasics: (PodDeckBasics) -> Unit) {
+private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp).testTag("pod-build-basics"),
         verticalAlignment = Alignment.CenterVertically) {
         listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
@@ -157,12 +157,12 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onBasics: (
                 Text(listOf("W", "U", "B", "R", "G")[index], fontSize = 11.sp,
                     modifier = Modifier.semantics { contentDescription = name })
                 if (editable) PodSmallButton("Remove $name", "−", count > 0, width = 22.dp) {
-                    onBasics(basics.podBuildAdjust(index, -1))
+                    onAdjust(index, -1)
                 }
                 Text(count.toString(), fontSize = 11.sp, maxLines = 1,
                     modifier = Modifier.weight(1f), textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
                 if (editable) PodSmallButton("Add $name", "+", count < Int.MAX_VALUE, width = 22.dp) {
-                    onBasics(basics.podBuildAdjust(index, 1))
+                    onAdjust(index, 1)
                 }
             }
         }

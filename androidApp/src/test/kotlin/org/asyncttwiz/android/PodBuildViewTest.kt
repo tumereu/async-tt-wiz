@@ -98,7 +98,7 @@ class PodBuildViewTest {
         var submits = 0
         compose.setContent { MaterialTheme {
             PodBuildView(build, mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card), 0,
-                true, true, { _, _ -> }, { requestedBasics = it }, { submits++ })
+                true, true, { _, _ -> }, { index, delta -> requestedBasics = build.basics.podBuildAdjust(index, delta) }, { submits++ })
         } }
         compose.onNodeWithText("Main 1 + 38 basics = 39").assertIsDisplayed()
         compose.onNodeWithText("Main needs 40 cards").assertIsDisplayed()
@@ -122,7 +122,7 @@ class PodBuildViewTest {
         compose.setContent { ScreenTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first")), PodDeckBasics(plains = 38)),
                 mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card.copy(name = longName)), null,
-                true, false, { _, _ -> }, {}, {})
+                true, false, { _, _ -> }, { _, _ -> }, {})
         } }
         assertTrue(with(compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
         assertTrue(with(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
@@ -137,7 +137,7 @@ class PodBuildViewTest {
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.TRASH))),
                 mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card), null,
-                false, false, { _, _ -> fail("read-only") }, { fail("read-only") }, { fail("read-only") })
+                false, false, { _, _ -> fail("read-only") }, { _, _ -> fail("read-only") }, { fail("read-only") })
         } }
         compose.onNodeWithText("Deck submitted").assertIsDisplayed()
         compose.onNodeWithText("Submit").assertDoesNotExist()
@@ -153,7 +153,7 @@ class PodBuildViewTest {
         val preferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0)
         preferences.edit().putInt("columns-1", 3).putInt("columns-2", 10).commit()
         compose.setContent { MaterialTheme {
-            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, {}, {})
+            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {})
         } }
         compose.onNodeWithText("Columns 10").assertIsDisplayed()
         compose.onAllNodesWithText("8+").onFirst().assertIsDisplayed()

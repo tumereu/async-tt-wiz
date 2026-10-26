@@ -121,6 +121,15 @@ class PodControllerTest {
         assertEquals("picking · 2 packs", podMemberStatus(f.api.saved.members.first(), PodPhase.DRAFTING))
     }
 
+    @Test fun rapidRelativeBasicTapsAllCountBeforeAnyResponse() = Fixture().use { f ->
+        f.open()
+        repeat(5) { f.controller.adjustBasic(0, 1) }
+        f.controller.adjustBasic(0, -1)
+        assertEquals(4, f.controller.state.detail!!.build!!.basics.plains)
+        f.deliver()
+        assertEquals(listOf(1, 2, 3, 4, 5, 4), f.api.calls.filter { it.first == "basics" }.map { (it.second as SetPodBasics).basics.plains })
+    }
+
     @Test fun buildMovesAndBasicsPredictImmediatelyAndSendInOrderWithoutFlicker() = Fixture().use { f ->
         f.open()
         f.controller.move("copy", PodDeckCategory.SIDE)

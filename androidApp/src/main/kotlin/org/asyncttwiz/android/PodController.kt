@@ -168,6 +168,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         enqueue(Write(detail.id, input.draftAttemptId, predict = { it.copy(basics = basics) },
             send = { api.basics(it, detail.id, input) }))
     }
+    /** Relative so taps faster than recomposition each count against the latest predicted build. */
+    fun adjustBasic(index: Int, delta: Int) {
+        val current = state.detail?.build?.basics ?: return
+        basics(current.podBuildAdjust(index, delta))
+    }
     private fun editable() = state.detail?.takeIf { it.draftAttemptId != null && !it.submitted &&
         it.phase != PodPhase.SETUP && !state.uncertain && state.confirmation == null }
     fun requestConfirmation(action: PodConfirmation) {

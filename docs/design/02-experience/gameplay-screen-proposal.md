@@ -95,9 +95,9 @@ the existing zone counts, visibility and interaction rules.
 
 **D-296:** Library/Graveyard/Exile/Stack use a top-left circular **total** badge
 when entries are not all shown, not counts underneath icons or a separate Stack
-count button. Player counters are on a row beneath their special zones; portrait
-hides a player's row only when every counter is empty/numeric zero. Values/menu
-access remain. Tap life for life/counter actions. Drag up/down on numeric life/
+count button. All six player counters are always visible; portrait uses a 3×2 grid
+on the player row next to packed Library/Graveyard/Exile. Empty/zero counters show
+faint outlines, and zero is the same as empty everywhere. Tap life for life/counter actions. Drag up/down on numeric life/
 counter values previews +N/−N locally and commits one relative edit on release;
 cancel/zero delta commits nothing. See the primary player-value contract for
 capture, nonnumeric/absent values and concurrent server arithmetic.
@@ -108,15 +108,18 @@ capture, nonnumeric/absent values and concurrent server arithmetic.
 mode cycles Normal→Select→Ping; bottom-right Next step holds End turn, contextual
 bordered/non-filled squares align right beside it. Direct Table actions opens its
 dialog, not an overflow submenu. Redo only hold Undo/accessibility, not touch menu;
-history download is in timeline menu. Whose-turn header is Your turn/X's turn · N,
-only turn-player field tinted; whose-move is solid green Your move+once-pulsed
-frame, or outlined Waiting · X without frame. Hand backgrounds match.
+there are no table/timeline overflow, More or History options menus, Event details
+dialog, event-comments UI or manual Download history action. Sync/recovery is
+automatic; game chat is the only comment channel. Table toggles are normal buttons
+with state shown by color/icon, not label-plus-switch rows. Top and bottom bars show
+whose MOVE it is, battlefield tint shows whose turn it is. Timeline bars are gray;
+no green your-move screen frame. Hand backgrounds match.
 
 Reserve a **fixed bottom control area**, independent of board panning/zooming:
 
 | Position | Proposed content | Certainty |
 | --- | --- | --- |
-| Bottom left | Tap Undo; hold for Redo, never both. Explicit Redo is also available in the controls menu and accessibility actions. | Owner-selected first draft (D-291); timings remain to design. |
+| Bottom left | Tap Undo; hold for Redo, never both. Explicit Redo is available through native accessibility, not a touch menu. | Owner-selected gesture; timings remain to design. |
 | Bottom center | Contextual quick actions. | Requested direction; individual contents follow existing action contracts. |
 | Bottom right | Current selection/interaction mode indicator, perhaps a square showing only the mode; tap to change mode. | Tentative control shape/presentation. |
 
@@ -177,7 +180,7 @@ dividers and end/inter-group insert drops, and panels glue to the left edge.
 
 Timeline overlays without shrinking the viewport; field is clipped only at bottom,
 never moved/scaled, and the whole intact hand/pile/life/counter HUD sits above it.
-Dark top bar, dim board and faint centered Timeline mode + icon identify the mode.
+Gray top/bottom bars, dim board and faint centered Timeline mode + icon identify the mode.
 Use white-bordered Auto: off/on transport, green play/orange pause at left,
 “Tap: toggle · Hold: branch”. Pause AFTER group animation, default 1.5s; local
 account Settings 100ms–10s. These supersede old transport mockup details below;
@@ -273,7 +276,8 @@ not create an empty fork or pretend the continuation succeeded.
 
 ## 7. Continuation checklist and existing contract anchors
 
-**D-299 supersessions:** absent player counters are blank, zero stays 0; End
+**Counter correction:** zero is the same as empty everywhere; faint outlines keep
+all six player counters visible in portrait's player-row 3×2 grid. End
 controls use the tracked ending player's color fill, including tap-Next/hold-End.
 Unassigned icon-only/value-only button holds show a short action-name tooltip and
 consume tap without executing on release; assigned/inherited holds and card
@@ -301,8 +305,8 @@ visible through projections. Highlighting one card/projection emphasizes its rea
 source and other visible projections by stable source ID, without changing
 selection/command scope, hidden disclosure or unrelated same-name cards.
 
-Smaller player circles span the full portrait middle strip, including Stack-side
-width, not just the library column; preserve distinct usable hit allocations.
+Player counters use the always-visible portrait 3×2 grid next to packed special
+piles; preserve distinct usable hit allocations.
 Phase display is phase color + exact-step icon with turn-player border, no phase/
 step text. Five-row/twelve-position picker chooses phase/step only; End turn at
 bottom (End opponent's turn when applicable) changes player/number normally. Trial
@@ -312,18 +316,17 @@ Card actions have no title/X: top-left details take two square positions, other
 actions pack around them; landscape tools left, fields right. Seven P/T squares
 are value-Set,+/+,−/−,•/+,•/−,+/•,−/•; unchanged dots are centered. Counter controls
 are three rows of paired value-circle/Set,+,− triplets, divider between pairs.
-Player menu keeps title/X. Review supplies full action/phase legends, explicit
+Player popups float without title/close buttons. Review supplies full action/phase legends, explicit
 Table actions (formerly vague Game actions), graphical H06 and archive/return H07.
 Existing root/internal review versus shared activation/continuation, hidden filter,
 Redo clearing, reversible archive/restore and full-tree download rules govern.
 
-**Earlier D-297 direction (D-298 refines geometry above):** player counters beneath libraries are evenly spread
-circles, retaining portrait row conditions. Chat has a separate button/unread
+**Earlier D-297 direction (counter geometry corrected above):** Chat has a separate button/unread
 bubble and opens a panel; local viewing is not a shared read receipt. Card Actions
 has grouped square icon-only buttons with direct corner/counter +/−/Set and inline
 owner choices, no category submenus. The owner's follow-up accepts a dialog with a
 persistent title-corner current-state card preview, superseding their initial
-floating/non-dialog preference. Outside/native Back/X dismiss; repeated field
+floating/non-dialog preference. Outside/native Back dismiss; repeated field
 edits retain the dialog as already agreed. Value editors/necessary target selection
 complete chosen actions without adding category menus. Preview/availability follow
 captured scope, prediction/reconciliation and existing disclosure rules. See the

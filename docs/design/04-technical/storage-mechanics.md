@@ -151,7 +151,7 @@ On success update topology/node versions/current state/stack and a single shared
 revision atomically. Retained descendant transitions remain concrete recorded
 effects; invalidate affected descendant materializations lazily by tree-generation
 key, not full-subtree snapshot rewrite. Changed reference meaning is blocked by
-the tuple test, not repaired by silently attaching a comment to a different event.
+the tuple test, not repaired by silently rebinding a historical reference.
 Personal removed-node cursor fallback uses D-238's retained parent route. Store
 the removed-node→surviving-parent mapping with the edit so offline replicas can
 perform that fallback. Retained same-ID boundaries need revision qualification.

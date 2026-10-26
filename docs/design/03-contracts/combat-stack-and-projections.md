@@ -9,6 +9,9 @@ phase is rejected. No implementation is authorized by these capability decisions
 This is the primary contract for combat/Stack projections and contextual Stack
 actions. Existing gesture requirements remain in [board controls](board-and-controls.md);
 history, automatic queuing/sync, cooperative access, and undo still apply.
+Hand double tap sends lands to the land row, permanent-only cards to Stack then
+auto-resolves to Battlefield as a separate history group, and other cards to Stack.
+This explicit shortcut is not automatic resolution of arbitrary Stack entries.
 D-182 limits initial-delivery game actions/shared controls to connected use.
 Downloaded history can be inspected offline; offline recovery references below
 do not authorize offline play, shared Undo or a later-synchronized gameplay queue.

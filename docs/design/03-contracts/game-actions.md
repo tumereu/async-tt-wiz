@@ -14,7 +14,7 @@ Stack additions, not previous-value checks for ordinary fields.
 this broad catalog are excluded from R1, not approved by being listed. See the
 [product boundary](product.md#13-proposed-first-release-boundaries). Preserve
 confirmed controls, automatic grouping and current-game history/branch recovery.
-Dedicated event-comment Edit/Delete and saved-deck/cancelled-lobby trash/restore
+Event-comments UI and saved-deck/cancelled-lobby trash/restore
 are excluded; Logout cleanup/account isolation follows the account contract.
 
 ## 4.1 Shared action envelope
@@ -89,7 +89,7 @@ These supersede conflicting matrix/older capability paragraphs below; see
 | A-025 | Faces and visual composites | R1: printed face/cover controls and ordinary card placement. General composite/layout authoring is excluded (D-241); no inferred meld/merge/transform. |
 | A-026 | Additional containers | Excluded from R1: extra-container authoring/access beyond confirmed areas (D-241). Sideboard is lobby-only, never reachable during play (D-202). |
 | A-027 | Randomness | D-87/D-92/D-93 require fresh samples for new die/coin/Shuffle invocations and stored results/orders for review/Redo/retry. D-261 permits request-bound local die/coin samples reused by shared processing. D-274 selects fresh saved client seeds for in-game Shuffle and shared versioned Fisher–Yates/unbiased sampling over canonical actual member IDs; server records the concrete order, not a second roll. Server acquires independent fresh setup-shuffle inputs and resolves Random starter once at actual start. Authority/recovery stays server-owned; no offline invocation, gameplay seed epoch, commit–reveal or new random controls. Exact generator/seed/ID encoding/version registry remain technical design. |
-| A-028 | Communication | D-94 game-wide Chat is not undoable; D-240 keeps chat simple with no sent-message Edit/Delete or planned expansions. Corrections use another message. D-241 excludes dedicated event-comment Edit/Delete: use eligible ordinary Undo or another comment. D-95 event comments follow ordinary tree/Undo rules without a special comment-only branch mechanism; D-232 does not require preserving an original path. D-172 groups comments with preceding same-author play, subject to D-170. Historical association and unsent-chat handling need contract completion; card notes/pings stay distinct. |
+| A-028 | Communication | Game chat is the only comment channel, with no event-comments UI or Event details dialog. D-94 game-wide Chat is not undoable; D-240 keeps chat simple with no sent-message Edit/Delete or planned expansions. Corrections use another message. Unsent-chat handling needs contract completion; card notes/pings stay distinct. |
 | A-029 | Correction | R1 uses existing supported field/move/token/Undo controls. No separate general correction/authoring tool or mandatory preview (D-241). Non-token deletion is forbidden (D-174). |
 | A-030 | Suggest ending / accept | Suggest your win/loss or a draw as shared, undoable board state. The other player must accept, then both return to lobby (D-211 superseding D-210). Acceptance is not undoable (D-212), unlike pending suggestions. Restore last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game (D-213). No win-history/scorekeeping feature is required. Finished-session action-history review is optional future work, not R1 (D-214); current-game history is unchanged. Concurrent incompatible result actions use ordinary server ordering/applicability: the first applicable action takes effect and the later incompatible request is discarded (D-239), not replacement or multiple pending suggestions. Cross-game starter-option retention remains separate; D-274 resolves Random once at actual start when selected. |
 | A-031 | History controls | Latest-own removal and last-undone-first recorded-transition reinsertion edit the existing tree, not an original-path copy. The authoritative owner rule (2026-10-25) allows Undo/Redo iff every later game-tree event can apply with identical concerned-field before/after tuples, including reads/dependencies; information gained or seen never decides eligibility. No skipping blocked targets. Ordinary own successful play clears own Redo; ordinary opponent play does not. D-258 deliberate shared-history switches clear both players' queues atomically; normal Undo/Redo and personal UI review do not trigger a blanket reset. D-259 makes controls/stacks server-owned request-driven game state, not per-device history. Validate all retained successors, including beyond activated internal nodes; personal viewing and forks do not independently restrict eligibility. Resource/anchor/version mechanics remain technical. Graphical activation/filtering applies to genuine alternatives. |
@@ -357,10 +357,10 @@ draw/move/face changes remain recorded. D-286 reconciles revealing predictions t
 the server outcome without separate reports for temporary extra glimpses; missing
 inspection context rejects normally, without reconstructing it. Revealing accepted
 targets use the same concerned-field Undo/Redo rule; genuine retained alternatives, not Undo-created copies, are filtered by
-exposure/comment/author participation. D-160 keeps the whole alternative visible when it
-contains exposure or an event comment, without a last-exposure cutoff. D-222 also
+exposure/author participation. D-160 keeps the whole alternative visible when it
+contains exposure, without a last-exposure cutoff. D-222 also
 keeps mixed-player continuations visible and limits hiding to single-player/
-no-exposure paths, while D-223 confirms event comments remain a visibility exception. Exact
+no-exposure paths. Exact
 coalescing, event placement, forward presentation and non-Undo branch controls
 remain Q-31.
 What a player remembers is not an Undo/Redo eligibility input.

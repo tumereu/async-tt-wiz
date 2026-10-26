@@ -35,7 +35,8 @@ superseded. Corrected T-656/T-666/T-667 and T-671–T-673 carry these outcomes.
 - [Client architecture](client-architecture.md): selected Kotlin Multiplatform
   and Compose Canvas direction, shared core, accepted scene/gesture-coordinator
   boundaries and platform-specific interfaces. D-267 corrects normal card input
-  to single-tap Actions and double-tap tap/untap; D-281 confirms independent Select/Ping taps.
+  to single-tap Actions and double-tap tap/untap outside Hand; Hand uses the board
+  contract's land/Stack shortcut. D-281 confirms independent Select/Ping taps.
 - [Prediction and playback](prediction-and-playback.md): three-layer client state,
   cascade withdrawal without cancelling server requests, late accepted updates,
   live/grouped background catch-up and endpoint animation (D-277).

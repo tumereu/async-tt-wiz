@@ -6,9 +6,9 @@ Other confirmed family rules remain, except D-257 makes every ending suggestion 
 strict singleton group with no companions. This is not an action schema, an in-app
 group editor or an implementation authorization.
 
-D-267 changes the normal physical card gesture to double-tap tap/untap and
+D-267 changes the normal physical card gesture outside Hand to double-tap tap/untap and
 single-tap Actions. Here "tap" is the resulting orientation mutation, not a raw
-pointer tap: one double-tap operation is not two grouping inputs, and merely
+pointer tap: one double-tap orientation operation is not two grouping inputs, and merely
 opening Actions contributes none. Existing grouping rules are unchanged.
 
 [History section 3.4](history-and-undo.md#34-sensible-grouping) owns the invariants:
@@ -92,7 +92,7 @@ Resolve from the group's **currently effective prefix** at the viewed boundary:
 | 140 | Persistent link edit E | Relationship change, not a rules target. |
 | 150 | Card text/note edit E | Plain text; do not parse it to promote its importance. |
 | 160 | Combat slot/order/layout change K | Position-only change within the combat family. |
-| 170 | Stack layout/order change L | No automatic resolution or priority inferred. |
+| 170 | Stack layout/order change L | No automatic resolution or priority inferred from layout. Hand's permanent-only double-tap shortcut explicitly enters Stack then auto-resolves to Battlefield as a separate history group. |
 | 180 | Same-zone placement/rearrangement M | Useful fallback for a layout-only group. |
 
 If there is **no anchor**, use this companion ranking:
@@ -105,7 +105,6 @@ If there is **no anchor**, use this companion ranking:
 | 40 | Tap/untap orientation T |
 | 50 | Turn transition B |
 | 60 | Phase/step tracking B |
-| 70 | Event comment B |
 | 80 | Ping/Unping P |
 
 Thus taps → Stack entry → ping → Next step shows the **Stack entry** icon;
@@ -170,14 +169,14 @@ semantic data; they do not assign the new recording event to an old group.
    closures or random-tool runs remain separate; P/B after S start a new segment.
 2. A tap/untap starts a new group unless the current same-author group contains
    only taps and pings. In that case append it. Pings alone in a leading group
-   also qualify. A comment/tracking record is not a ping: it attaches backward
+   also qualify. A tracking record is not a ping: it attaches backward
    but makes a following tap start a new group.
 3. A taps/pings-only run accepts its following substantive action as anchor,
    except an ending suggestion, which is always separate.
    Thereafter the group uses that anchor's family/key; another tap starts a new
    run. Do not merge the preceding move/edit group back across the tap boundary,
    even if the following move/edit matches it.
-4. Pings/comments/tracking append to the preceding same-author segment, except
+4. Pings/tracking append to the preceding same-author segment, except
    after a singleton ending suggestion. With no attachable predecessor use a leading
    group. Closures and dice/coin runs start a forward
    segment, separate from completed prior play, and absorb the following anchor
@@ -223,7 +222,7 @@ M = non-Stack moves keyed by ordered origin/destination; I = isolated Stack
 entry/removal; E = ordinary edits; C = token/Clone creation plus customization;
 K = combat edits; V = explicit logged inspection/View/Reveal;
 H = Shuffle keyed by target; F = pending closure; R = pending dice/coin run;
-T = pending tap run; P = ping; B = backward comment/tracking; S = strict singleton
+T = pending tap run; P = ping; B = backward tracking; S = strict singleton
 ending suggestion, unlike companion-accepting I. These are literal categories,
 not game-rule interpretation. Accepted revealing board edits keep
 their ordinary category; a standalone actual-exposure record uses V. Local own-area
@@ -266,7 +265,7 @@ family/companion row below; author separation remains intact.
 
 | Incoming action/context | Confirmed behavior |
 | --- | --- |
-| Ending suggestion | D-257: a strict singleton S group. Never absorb preceding taps/closures/random runs or following pings/comments/tracking. Group playback exposes the preceding final board before the suggestion's acceptance dialog. Acceptance/return is a separate lifecycle transition. |
+| Ending suggestion | D-257: a strict singleton S group. Never absorb preceding taps/closures/random runs or following pings/tracking. Group playback exposes the preceding final board before the suggestion's acceptance dialog. Acceptance/return is a separate lifecycle transition. |
 | Tap actions | D-251: begin a new group unless the current group contains only taps/pings. The next substantive action joins the tap run except singleton S; another tap after an anchor begins a new group, even between matching moves. |
 | Pings | Same-author pings join the existing group and insert no group-start marker (D-168), except after singleton S, where a new segment is required. If the author changes, D-170 starts a new group even for a ping. No separate ownership-selection step. |
 | Actual-card moves outside Stack | Group moves with the same ordered (origin, destination) tuple. Hand, Battlefield, Exile, Graveyard and Library are the listed non-Stack locations. Different directions are different tuples. |
@@ -276,7 +275,6 @@ family/companion row below; author separation remains intact.
 | Ordinary card edits and token removal | D-165/D-169/D-171 group card edits together, including counter/corner/text/note, manual face/cover edits and explicit token removal across cards. More-specific move/tap/Stack rules still apply. Player-explicit spells/abilities stay separately represented on Stack. Token creation/Clone is covered below. |
 | Token creation and Clone | D-173: group token creation and Clone together, including interleaved customization edits: `[create token; edit; Clone; edit]`. Keep fresh independent token identities and every node; this is not projection creation. Do not infer a rule for arbitrary mixed categories. |
 | Player values/counters and persistent links | D-172: player value/counter edits and persistent-link creation/removal join the same ordinary edit family as card edits and token removal, not separate per-target/per-field families. Example: `[card counter; life change; link creation; card note]`. This does not classify participant-association edits or infer damage/targets. |
-| Event comments | D-172: join the preceding group without starting a new one, e.g. `[Stack entry; comment]`, except after singleton S under D-257. Author changes still start a new group. Comments keep individual nodes; they do not merge Stack entries or become game-wide Chat. D-241 excludes dedicated Edit/Delete; use eligible Undo or another comment. Historical placement needs contract completion. |
 | Combat-area creation and projection edits | Combat projections group together; D-166 includes repositioning of any kind, including role/slot/order changes. D-175 explicitly adds combat-area creation and occurrence removal to this family: `[create combat; declare; reposition; remove occurrence]`. Closure remains the separate forward case below; removal does not delete a real source. |
 | Explicit inspection/View/Reveal openings | Each explicit logged opening is a distinct V anchor, e.g. `[moves] → [View top 3] → [Reveal bottom 2]`. Pending forward companions can join it; a second opening cannot. D-252 own-area hold inspection is unlogged, so never splits a group. |
 | Explicit Stack-effect removal | D-175: each removal stays separately visible, like individual Stack entries: `[remove effect A] → [remove effect B]`. Existing companion rules still apply. D-176 makes bulk removal an ordered sequence of individual removal mutations, not an atomic bulk node; grouping remains presentation. Remove occurrences, not sources or sibling effects. |
@@ -383,7 +381,7 @@ changes or event mapping.
 | Creation/removal | Catalog token, Blank token, Clone, explicit token Remove; broader custom pieces only if approved. | A-003, A-013, A-014, A-016, A-021, A-024 | D-171: token removal joins ordinary card edits. D-173: token creation/Clone groups together with interleaved customization. D-174 forbids non-token Remove entirely; it is not an open grouping case. Distinguish token removal from occurrence removal. |
 | Persistent links | Create/remove binary links, including selected-source fan-out and occurrence endpoints. | A-017, A-019 | D-172: link creation/removal joins the ordinary edit family, including card/player edits. Links remain persistent connectors, not pings or inferred targets. |
 | Pings | Ping/Unping through mode/context; selected-set changes; historical references. | A-015, A-019 | No new marker except author separation; leading/root group and effective recording/reference contexts follow the sequence/annotation contracts. No owner picker. |
-| Event comments | Submit an event-linked comment; no dedicated Edit/Delete. | A-028 | Join the preceding recording group under author separation; historical reference is separate from placement. Eligible Undo or another comment corrects it. |
+| Game chat | The only comment channel; no event-comments UI. | A-028 | Outside ordinary board grouping and gameplay Undo. |
 | Tracking and combined shortcuts | Next step, phase/step choice, End turn, Untap/Draw + advance, advance-and-close. | A-008, A-022, A-034 | Tracking attaches backward to the preceding same-author segment, including a pending forward segment. Preserve individual invariant-closed nodes. |
 | Random tools | Roll die, Flip coin, Shuffle all; other random selection only if approved. | A-006, A-027 | D-167/D-171: same-target Shuffle groups; dice/coin runs start separately from prior play and attach forward. Stored results/exposure retention are unchanged. |
 | Setup/lifecycle and ending | Confirmed lobby preparation/Ready and D-211 undoable result suggestion with separate acceptance/return. | A-001–A-004, A-026, A-029, A-030 | D-257 maps pending ending suggestions to singleton S groups, never the E family or a companion-accepting anchor. Acceptance is outside gameplay grouping. Further lobby/game-history representation remains contract work; excluded setup/custom authoring is not an algorithm input. |
@@ -400,7 +398,7 @@ classify separately unless an approved event mapping says so.
    same-tuple tap interleaving, combat rearrangements, closure direction, Undo
    continuation or the highest-precedence author boundary (D-170).
 2. Do not reopen D-169/D-171/D-172's approved edit-family membership,
-   backward comments/tracking or forward dice/coin runs. Resolve only genuine remaining
+   backward tracking or forward dice/coin runs. Resolve only genuine remaining
    same-author precedence conflicts with concrete mixed sequences.
 3. Finish remaining action categories and first/leading-only/historical contexts
    without introducing an unnecessary ping ownership-selection workflow.

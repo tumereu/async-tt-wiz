@@ -101,7 +101,7 @@ The [category contract](history-grouping.md) and
 [scenario matrix](../05-verification/grouping-matrix.md) define current move/tap
 pairings and prefix behavior; later playtest revisions update those together.
 
-If later pings/comments are added to an older action, link them without moving
+If later pings are added to an older action, link them without moving
 unrelated operations into a non-contiguous group or changing its old state.
 Historical review indicates when the addition became effective; future markers
 do not appear retroactively at an earlier boundary.
@@ -113,9 +113,9 @@ current accepted path/boundary and its effective revision) from **what it refers
 to** (the selected historical event/group, object/occurrence or location and its
 original context). These contexts may differ; never replace one with the other.
 
-On shared `E → F → G`, submitting a comment or ping about E while reviewing E
+On shared `E → F → G`, submitting a ping about E while reviewing E
 records the addition at the current shared head, not inserted into E and not a
-fork at E. A comment is its own new current-path mutation. Ping changes retain
+fork at E. Ping changes retain
 their durable effective records. Ordinary grouping uses the recording sequence
 and author; the reference to E does not merge non-contiguous groups or place
 the addition before F/G. Explicit historical continuation remains a separate
@@ -143,11 +143,11 @@ First/root additions use a leading recording group under author separation,
 without an owner picker. Number pings in recorded action order within that group;
 delivery retries do not add numbers. Exact compact rendering remains later UI work.
 
-Comments use latest-own tree-editing Undo; durable ping changes retain their own
+Durable ping changes retain their own
 actor/effective before/after context and ordinary eligibility. Later dependent
 annotations protect referenced mutations under D-224, including retained-future
 validation; an unrelated personal cursor does not. Do not delete/rebind references
-to permit removal. No dedicated comment Edit/Delete or manual group editing is added.
+to permit removal. No event-comments UI or manual group editing is added.
 
 ## 11.4 Pings point; they do not declare mechanics
 
@@ -249,10 +249,10 @@ Exact event mappings and historical placement still need detailed review.
   settles cursor fallback; D-310 supersedes D-233's blanket fork refusal.
   Do not present this as appended
   compensation, require an explorer branch for removed mutations, or silently
-  reattach/delete pings/comments to force eligibility.
+  reattach/delete pings to force eligibility.
 - A graphical explorer can explicitly activate retained branch/nodes. Only
-  single-player alternatives with neither exposure nor comments qualify for hiding;
-  mixed-player/exposure/comment alternatives remain visible in full. Undo itself
+  single-player alternatives without exposure qualify for hiding;
+  mixed-player/exposure alternatives remain visible in full. Undo itself
   does not create a retained pre-edit copy (D-232).
   Undo/remove/edit pings
   through recoverable records; a ping is
@@ -265,7 +265,8 @@ Exact event mappings and historical placement still need detailed review.
 
 ## 11.6 Optional text
 
-Support action/group notes, contextual replies/questions, and general game chat.
+Game chat is the only comment channel; no event-comments UI, contextual event
+Note/Reply action or Event details dialog. Card notes and pings remain separate.
 Players can explain unusual situations or write their own interpretation. Keep
 that text visibly user-authored. Do not parse it into automatic state changes.
 
@@ -276,19 +277,8 @@ This is the selected scope, not a feature deferred to a planned later release;
 do not add a chat expansion roadmap. It does not decide account erasure or data
 retention, nor change ordinary unfinished text editing.
 
-D-95 makes an event comment
-another node on the current tree path; eligible Undo removes it for Redo under
-D-232, without retaining an original-path copy. No special comment-only fork
-or activation workflow. Normal tree/base rules apply, and comments are
-visibility qualifiers for a genuinely retained alternative under D-160/D-223,
-even with one author and no exposure. Card
-notes/pings stay distinct. D-172 makes event comments join the preceding group
-without a new group-start marker; D-170's author-change boundary still wins.
-**D-241 confirms no dedicated event-comment Edit/Delete.** Correct a comment
-through ordinary eligible Undo or by adding another comment; do not bypass
-latest-own targeting or concerned-field replay/dependency checks. Dedicated revision
-controls are not required. Historical placement and unsent-chat delivery handling
-still need contract completion, not another correction-scope decision.
+Unsent-chat delivery handling still needs contract completion; it does not add
+event-linked comments or a separate comment correction workflow.
 
 Common physical operations and pings need no explanatory text or mandatory
 labels. A participant may create a generic note/token with a label such as

@@ -363,12 +363,10 @@ Metadata/message revision streams must not silently reinstate broad stale-value
 rejection under D-187. Exact feature semantics and revision domains remain API/
 behavior design; the old batch's per-message CAS proposal was not approved.
 
-D-94 game-wide chat must not be retracted by gameplay Undo. D-95 event comments
-are ordinary nodes on the current path; no special comment-only branch mechanism
-is needed. D-232 Undo/Redo do not preserve an untouched original path for them;
-affected references/removal behavior remains open. Exact comment/
-group association, revisions, edit/delete, unsent chat delivery, and idempotent
-publication remain open. Do not apply a blanket message-undo policy to both.
+D-94 game-wide chat must not be retracted by gameplay Undo. Game chat is the only
+comment channel; there is no event-comments UI or Event details dialog.
+Unsent chat delivery and idempotent publication remain open; submitted messages
+have no Edit/Delete.
 
 Pings are generic communication records, not rule-target declarations. Recording
 and referenced contexts remain separate under the annotation contract, including

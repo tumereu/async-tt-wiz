@@ -67,7 +67,8 @@ class LibraryController(
             val source = current.board.containers.single { it.id == libraryId }
             val ids = LibraryRules.slice(source.cards, selection, count)
             val sources = BasicTableController.sources(current, ids, top = selection == ContentsSelection.TOP).mapValues { (id, value) ->
-                if (selection == ContentsSelection.BOTTOM) value.copy(bottomSlice = ids.drop(ids.indexOf(id))) else value
+                value.copy(bottomSlice = if (selection == ContentsSelection.BOTTOM) ids.drop(ids.indexOf(id)) else emptyList(),
+                    takeFromEdge = selection == ContentsSelection.TOP || selection == ContentsSelection.BOTTOM)
             }
             return moveAcross(current, ids, sources, destination)
         }

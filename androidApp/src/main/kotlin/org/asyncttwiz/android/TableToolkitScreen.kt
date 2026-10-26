@@ -137,14 +137,12 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
     )
 }
 
-private fun cardPingTool(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
+internal fun cardPingTool(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     enabled: Boolean, annotations: TableMenuAnnotations?) = MenuControl("Ping / Unping", enabled && annotations != null) {
     if (annotations != null) {
         val intents = bound.viewIds.map { id -> tablePingIntent(play, annotations.reference,
             PingTarget(if (play.board.cards.any { it.id == id }) PingTargetKind.CARD else PingTargetKind.OCCURRENCE, id)) }
-        var sent = false
-        intents.forEach { sent = annotations.ping(it) || sent }
-        if (sent) toolkit.dismiss()
+        if (annotations.submit(intents.flatMap { it.actions() })) toolkit.dismiss()
     }
 }
 

@@ -33,7 +33,7 @@ class CardRingInteractionTest {
         compose.setContent {
             MaterialTheme {
                 CompositionLocalProvider(LocalTableMenuAnnotations provides TableMenuAnnotations(EventReference(play.id, play.currentNodeId)) {
-                    sent += it.actions(); true
+                    sent += it; true
                 }) {
                     TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(),
                         connected = true, toolkit = toolkit, onIntent = toolkit::handle)

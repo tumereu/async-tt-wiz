@@ -9,7 +9,7 @@ enum class TableMode { NORMAL, SELECT, PING;
 }
 data class TableScope(val contextId: String, val cardIds: List<String>)
 data class TableMoveSource(val containerId: String, val placement: TablePlacement? = null, val libraryTop: Boolean = false,
-    val sourceId: String? = null, val bottomSlice: List<String> = emptyList())
+    val sourceId: String? = null, val bottomSlice: List<String> = emptyList(), val takeFromEdge: Boolean = false)
 
 /** Personal selection. Scope capture deliberately copies IDs, never indexes or a live selection view. */
 data class TableSelection(val ids: Set<String> = emptySet(), val mode: TableMode = TableMode.NORMAL,
@@ -40,6 +40,7 @@ sealed interface TableDestination {
 
 /** Semantic UI intent, not a shared mutation. I16 routes gameplay through normal requests/prediction. */
 sealed interface TableIntent {
+    data class Batch(val intents: List<TableIntent>, val invocationId: String) : TableIntent
     data class CombatBubbles(val occurrenceId: String?) : TableIntent
     data class StackBubbles(val entryId: String?) : TableIntent
     data class StackDestination(val entryId: String, val zone: org.asyncttwiz.protocol.PlayZone,

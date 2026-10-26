@@ -51,10 +51,14 @@ class ManualActions {
         inspection = ManualInspection(state.gameId, state.id, card.id, listOf(disclosure.faceId), explicit = true)
     }
 
+    fun valueActions(state: PlayState, viewer: String): List<PlayAction> {
+        val draft = editor ?: return emptyList()
+        if (!draft.scope.usable(state) || !draft.valid) return emptyList()
+        return draft.scope.actions(state, draft.field, draft.text, viewer)
+    }
+
     fun submitValue(state: PlayState, viewer: String, submit: (PlayAction) -> Boolean): Boolean {
-        val draft = editor ?: return false
-        if (!draft.scope.usable(state) || !draft.valid) return false
-        val actions = draft.scope.actions(state, draft.field, draft.text, viewer)
+        val actions = valueActions(state, viewer)
         if (actions.isEmpty()) return false
         var allSubmitted = true
         for (action in actions) if (!submit(action)) allSubmitted = false

@@ -6,7 +6,11 @@ import kotlin.math.hypot
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /** Menus use the table's existing annotation route, including its captured history context. */
-internal data class TableMenuAnnotations(val reference: EventReference, val ping: (EventPingIntent) -> Boolean)
+internal data class TableMenuAnnotations(val reference: EventReference, val submit: (List<PlayAction>) -> Boolean) {
+    val ping: (EventPingIntent) -> Boolean = { intent ->
+        intent.reference.playId == reference.playId && submit(intent.actions())
+    }
+}
 internal val LocalTableMenuAnnotations = staticCompositionLocalOf<TableMenuAnnotations?> { null }
 
 /** The LOCATION domain is a logical point, not a container/card endpoint or a screen pixel.

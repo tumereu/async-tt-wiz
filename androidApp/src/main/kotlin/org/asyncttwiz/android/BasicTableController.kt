@@ -258,7 +258,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
 
         private fun TableMoveSource.source(): MoveSource? = MoveSource(containerId, placement?.let {
             PlayPlacement(BoardPosition(it.column.toInt(), it.row.toInt()), it.pileId ?: return null)
-        }, if (libraryTop) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER, bottomSlice)
+        }, if (libraryTop) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER, bottomSlice, takeFromEdge)
 
         /** Same-source order is semantic; cross-source order is stable spatial order, not card name. */
         private fun ordered(state: PlayState, ids: List<String>): List<String> {

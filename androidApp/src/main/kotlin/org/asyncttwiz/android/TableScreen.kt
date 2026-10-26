@@ -185,7 +185,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
                 }
             }, acceptedInspection = controller::inspectFace,
-                waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch) }
+                waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch,
+                playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } }) }
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
@@ -226,11 +227,10 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val menuAnnotations = TableMenuAnnotations(EventReference(play.id, play.currentNodeId,
-                    history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion)) { intent ->
+                    history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion)) { actions ->
                     if (!history.foreground || controller.state.detail?.id != game.id ||
-                        controller.state.detail?.playId != play.id || intent.reference.playId != play.id ||
+                        controller.state.detail?.playId != play.id ||
                         game.id in controller.state.reconnectingGames) false else {
-                        val actions = intent.actions()
                         if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
                         else controller.annotateBatch(actions)
                     }

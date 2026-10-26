@@ -16,7 +16,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val ending: (TableActionIntent.Ending) -> Boolean = { false },
     private val acceptedInspection: ((PlayAction.InspectFace, String, () -> Boolean, (InspectionEvent) -> Unit) -> InspectionSubscription?)? = null,
     private val waitingForConnection: () -> Boolean = { false },
-    private val playBatch: ((List<PlayAction>, String) -> Boolean)? = null) : TableActionRoutes {
+    private val playBatch: ((List<PlayAction>, String) -> Boolean)? = null,
+    private val playTree: (() -> GameplayTree?)? = null,
+    private val continuation: () -> Continuation? = { null }) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -93,13 +95,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
 
     fun batch(block: () -> Unit) { batchResult { block(); true } }
-    private fun batchResult(block: () -> Boolean): Boolean {
+    private fun batchResult(requestId: String = UUID.randomUUID().toString(), block: () -> Boolean): Boolean {
         if (draft != null) return block()
         val initial = current() ?: return block()
-        val pending = PlayBatchDraft(initial, viewer)
+        val pending = if (playTree == null) PlayBatchDraft(initial, viewer, requestId)
+            else PlayBatchDraft(initial, viewer, requestId, playTree.invoke() ?: return false, continuation())
         draft = pending; invocation = pending.requestId; error = null
         val result = try { block() } finally { draft = null; invocation = null }
         if (pending.overflow) { error = "An action may contain at most 100 changes."; return false }
+        if (!result) return false
         if (pending.actions.isEmpty()) return result
         val sent = if (pending.actions.size == 1) gameplay(pending.actions.single(), pending.requestId)
             else playBatch?.invoke(pending.actions.toList(), pending.requestId) == true
@@ -110,11 +114,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun submitAll(actions: List<PlayAction>) { batch { actions.forEach { submit(it) } } }
     fun completeValue(): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        val actions = mutableListOf<PlayAction>()
-        if (!manual.submitValue(play, viewer) { actions += it; true }) return false
-        return if (actions.size == 1) submit(actions.single()) else batchResult {
-            actions.fold(false) { sent, action -> submit(action) || sent }
+        val editor = manual.editor
+        val actions = manual.valueActions(play, viewer)
+        if (actions.isEmpty()) return false
+        val sent = if (actions.size == 1) submit(actions.single()) else batchResult {
+            actions.fold(true) { all, action -> submit(action) && all }
         }
+        if (sent && manual.editor === editor) manual.cancelEditor()
+        return sent
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
@@ -346,10 +353,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 enqueue(action, group).also { if (it && (action is PlayAction.MoveCard ||
                     (action as? PlayAction.Stack)?.action is StackAction.AddEffect)) submitted++ }
             }
-            val sent = batchResult { adapter.handle(intent) }
+            val sent = batchResult(intent.invocationId ?: UUID.randomUUID().toString()) { adapter.handle(intent) }
             LibrarySubmission(if (sent) submitted else 0, if (sent) intent.scope.cardIds.size - submitted else intent.scope.cardIds.size)
-        }, viewer = viewer, batchRequest = { actions, _ ->
-            if (actions.size == 1) submit(actions.single()) else batchResult {
+        }, viewer = viewer, batchRequest = { actions, group ->
+            if (actions.size == 1) submit(actions.single(), group) else batchResult(group) {
                 var sent = false
                 actions.forEach { sent = submit(it) || sent }
                 sent
@@ -367,13 +374,18 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
     }
     fun handle(intent: TableIntent): Boolean {
+        if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
+            intent.intents.all { handle(it) }
+        }
         val multiple = when (intent) {
             is TableIntent.Move -> intent.scope.cardIds.size > 1 || intent.handDoubleTap
             is TableIntent.Rotate -> intent.scope.cardIds.size > 1
             is TableIntent.StackDestination, is TableIntent.StackBubbleRemove -> true
             else -> false
         }
-        return if (multiple) batchResult { handleOne(intent) } else handleOne(intent)
+        return if (multiple) batchResult((intent as? TableIntent.Move)?.invocationId ?: UUID.randomUUID().toString()) {
+            handleOne(intent)
+        } else handleOne(intent)
     }
     private fun handleOne(intent: TableIntent): Boolean {
         return when (intent) {

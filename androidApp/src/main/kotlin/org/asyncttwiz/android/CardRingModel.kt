@@ -8,15 +8,22 @@ internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 internal object CardRingPages {
     const val capacity = 16
     val defaults = listOf(
-        CardRingPage("Everyday", listOf("inspect", "Declare + tap", "Declare without tapping", "owner", "note", "corner", "Clone", "Ping / Unping",
-            "Library top", "Library bottom", "Graveyard", "Exile")),
+        CardRingPage("Everyday", listOf("inspect", "note", "corner", "Declare + tap", "Declare without tapping", "flip", "switchFace",
+            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
-        CardRingPage("More", listOf("flip", "otherSide", "switchFace", "Link", "Unlink", "resetCorner",
-            "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "Add Stack effect")),
+        CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "resetCorner",
+            "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1")),
         CardRingPage("Move", emptyList()))
 
-    private fun defaultLayout(available: List<String>) = defaults.mapIndexed { index, page ->
+    private fun defaultLayout(available: List<String>, token: Boolean) = defaults.mapIndexed { index, page ->
         when (index) {
+            0 -> page.copy(actions = page.actions.map { id ->
+                when {
+                    token && id == "Hand" -> if ("Remove token" in available) "Remove token" else "empty/Hand"
+                    token && id in listOf("Library top", "Library bottom", "Shuffle into library") -> "empty/$id"
+                    else -> id
+                }
+            })
             3 -> page.copy(actions = available.filter { isMove(it) && it !in defaults[0].actions }.sortedBy { it != "Move to Stack" })
             else -> page
         }
@@ -38,12 +45,13 @@ internal object CardRingPages {
         }
     }
 
-    fun resolve(available: List<String>, pages: List<CardRingPage> = defaultLayout(available)): List<CardRingPage> {
+    fun resolve(available: List<String>, pages: List<CardRingPage>? = null, token: Boolean = false): List<CardRingPage> {
+        val requested = pages ?: defaultLayout(available, token)
         val remaining = available.toMutableSet()
-        val assigned = pages.map { page -> page.actions.filter { remaining.remove(it) } }.toMutableList()
+        val assigned = requested.map { page -> page.actions.filter { remaining.remove(it) || pages == null && it.startsWith("empty/") } }.toMutableList()
         assigned[2] = assigned[2] + remaining.filterNot(::isMove)
         assigned[3] = assigned[3] + remaining.filter(::isMove)
-        val result = pages.map { it.copy(actions = emptyList()) }.toMutableList()
+        val result = requested.map { it.copy(actions = emptyList()) }.toMutableList()
         for ((index, actions) in assigned.withIndex()) for (action in actions) {
             // Spill forward, wrapping to unused cells on Everyday after Move.
             val destination = result.indices.map { (index + it) % result.size }

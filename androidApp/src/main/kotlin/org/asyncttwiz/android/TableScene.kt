@@ -679,7 +679,7 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
             val suffix = header.substring(header.indexOf("'s turn").takeIf { it >= 0 } ?: header.indexOf(" · "))
             Row(Modifier.semantics(mergeDescendants = true) { contentDescription = game.gameName }) {
                 Text(header.removeSuffix(suffix), Modifier.weight(1f, fill = false), color = turnColor, fontSize = 11.sp,
-                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Clip)
                 Text(suffix, color = turnColor, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
             Spacer(Modifier.height(2.dp))
@@ -693,7 +693,7 @@ private fun BoxScope.TableChromeHeader(game: GameSummary, play: PlayState, viewe
                         val waiting = attention.label.substringBefore(" · ", "")
                         if (waiting.isNotEmpty()) Text("$waiting · ", fontSize = 11.sp, maxLines = 1, fontWeight = weight)
                         Text(attention.label.removePrefix(if (waiting.isNotEmpty()) "$waiting · " else ""), Modifier.weight(1f, fill = false),
-                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = weight)
+                            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Clip, fontWeight = weight)
                     }
                 }, onClick = { if (!runtime.reviewing) toolkit?.submit(PlayAction.PassAttention) })
         }
@@ -796,25 +796,15 @@ private class TableDrawCache(density: Float) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
-    private data class FitKey(val text: TextKey, val width: Float)
     private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
     private fun <K, V> bounded() = object : java.util.LinkedHashMap<K, V>(256, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > 256
     }
     private val measurements = bounded<TextKey, Float>()
     private val centerOffsets = bounded<Float, Float>()
-    private val labels = bounded<FitKey, String>()
     private val outlines = bounded<FaceKey, androidx.compose.ui.graphics.Path>()
     fun measure(value: String): Float = measurements.getOrPut(TextKey(value, paint.textSize, paint.isFakeBoldText)) { paint.measureText(value) }
     fun centerOffset(): Float = centerOffsets.getOrPut(paint.textSize) { paint.fontMetrics.let { (it.ascent + it.descent) / 2 } }
-    fun fitted(value: String, width: Float): String = labels.getOrPut(FitKey(TextKey(value, paint.textSize, paint.isFakeBoldText), width)) {
-        var label = value
-        if (measure(label) > width) {
-            while (label.isNotEmpty() && measure("$label…") > width) label = label.dropLast(1)
-            label += "…"
-        }
-        label
-    }
     fun outline(width: Float, height: Float, token: Boolean) = outlines.getOrPut(FaceKey(width, height, token)) {
         cardSilhouette(width, height, token, 0f, 0f, width / 14f)
     }
@@ -832,8 +822,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
     }
     fun fittedText(value: String, x: Float, y: Float, width: Float, right: Boolean = false) {
-        val label = cache.fitted(value, width * density)
-        text(label, if (right) x - cache.measure(label) / density else x, y, label.length)
+        val left = if (right) x - width else x
+        val start = if (right) x - minOf(width, cache.measure(value) / density) else x
+        clipRect(left * density, 0f, (left + width) * density, size.height) {
+            text(value, start, y, value.length)
+        }
     }
     fun centeredText(value: String, bounds: TableBounds, maxSize: Float) {
         paint.textSize = maxSize * density

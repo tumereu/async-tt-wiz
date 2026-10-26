@@ -127,13 +127,18 @@ object PreparationRules {
         if (attached.size != definitions.size || needed.any { digest -> attached[digest]?.let {
                 DeckValidation.definition(it.definition) && DeckJson.digest(it.definition) == digest
             } != true }) return reject("definitionsUnavailable")
+        // New games use physical sides even when a saved catalog snapshot predates normalization.
+        val physical = needed.associateWith { digest ->
+            val definition = PhysicalCardFaces.normalize(attached.getValue(digest).definition)
+            SubmittedDefinition(DeckJson.digest(definition), definition)
+        }
         var index = 0L
         val entries = source.entries.map { entry ->
-            PreparedEntry(entry.definition, entry.section, index.toString(), entry.quantity).also { index += entry.quantity }
+            PreparedEntry(physical.getValue(entry.definition).digest, entry.section, index.toString(), entry.quantity).also { index += entry.quantity }
         }
         val deck = PreparedDeck(CommandIds.output(requestId, "prepared-deck", 0), source.deck.id,
-            source.deck.revision, source.deck.name, source.deck.cover?.definition, requestId, entries)
-        val retained = (current.definitions + needed.map { attached.getValue(it) }).associateBy { it.digest }
+            source.deck.revision, source.deck.name, source.deck.cover?.definition?.let { physical[it]?.digest }, requestId, entries)
+        val retained = (current.definitions + physical.values).associateBy { it.digest }
         return PreparationChange(current.copy(players = current.players.map {
             if (it.accountId == actor) it.copy(ready = false, deck = deck) else it
         }, definitions = retained.values.sortedBy { it.digest }))

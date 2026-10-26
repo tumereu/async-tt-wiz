@@ -35,6 +35,10 @@ internal fun nextPrintedFace(state: PlayState, card: PlayCard): PlayAction.SetFa
     return PlayAction.SetFace(card.id, faces[(faces.indexOfFirst { it.faceId == card.faceId } + 1) % faces.size].faceId)
 }
 
+internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, projection: Boolean = false) =
+    if (note) projection || zone == PlayZone.BATTLEFIELD || zone == PlayZone.STACK
+    else !projection && zone == PlayZone.BATTLEFIELD
+
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
@@ -42,6 +46,8 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
     inspect: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
+    val zone = state.board.containers.single { it.id == card.containerId }.zone
+    val battlefield = enabled && cardModificationEnabled(zone)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
     val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
@@ -54,10 +60,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     })
     add("flip", if (card.covered) "Face up" else "Face down",
         MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
-    add("resetCorner", "Reset P/T", MenuControl("Reset corner", enabled) { send { PlayAction.ResetCorner(it.id) } })
-    add("note", "Note", MenuControl("Edit card note", enabled) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
+    add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield) { send { PlayAction.ResetCorner(it.id) } })
+    add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true)) { actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer) })
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
-    if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", enabled, color = ownerColor) {
+    if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", battlefield, color = ownerColor) {
         val next = state.board.players.firstOrNull { it.accountId != card.owner }
         if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
     })
@@ -71,10 +77,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         val part = if ('/' in it.corner) CornerPart.BOTH else CornerPart.WHOLE
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
-    fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, enabled && requests.isNotEmpty()) { emit(requests) }
-    entries += RingEntry("corner", "P/T", MenuControl("Set corner", enabled) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
+    fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, battlefield && requests.isNotEmpty()) { emit(requests) }
+    entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
         RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
-            if (enabled) emit(scope.cardActions(state) { target ->
+            if (battlefield) emit(scope.cardActions(state) { target ->
                 cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
             })
         }, dragValue = card.corner, corner = true))
@@ -90,10 +96,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
             if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
                 PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
         })
-        entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", enabled,
+        entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", battlefield,
             color = counterOutline(color)) { actions.edit(ManualValue(ManualValueKind.COUNTER, color), state, viewer) },
             RingCompound(ManualText.cardCounterText(card.counters[color]), adjust(-1), adjust(1), drag = { delta ->
-                if (enabled) emit(scope.cardActions(state) {
+                if (battlefield) emit(scope.cardActions(state) {
                     if (ManualText.add(it.counters[color] ?: "0", delta) != null)
                         PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
                 })
@@ -103,13 +109,13 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val view = previewViewId ?: card.id
     val anchors = LocalCardRingAnchors.current
     CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {
-    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
+    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, token = card.token)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
         val anchor = TableBounds(maxWidth.value / 2 - 24, maxHeight.value / 2 - 50, 48f, 100f)
         Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
-            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close)
+            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, token = card.token)
         }
     }
     }
@@ -128,7 +134,7 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
         .padding(horizontal = if (card.token) 8.dp else 3.dp, vertical = 4.dp)
         .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (tapped) "tapped" else "untapped"}, $count captured targets" }) {
         Text(face?.name ?: if (card.covered) "Covered" else "Unavailable", maxLines = 1,
-            overflow = TextOverflow.Ellipsis, fontSize = 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
+            overflow = TextOverflow.Clip, fontSize = 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
         Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { rotationZ = if (tapped) 90f else 0f }) {
             if (face != null) {
                 val definition = state.definitions.single { it.digest == card.definition }.definition
@@ -141,7 +147,7 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
         Row { for ((color, value) in card.counters) Text(value, Modifier.background(counterColor(color)),
             maxLines = 1, fontSize = 8.sp, lineHeight = 9.sp) }
         Text("${if (count > 1) "×$count " else ""}${card.corner}", Modifier.align(Alignment.End), maxLines = 1,
-            fontSize = 10.sp, lineHeight = 11.sp, overflow = TextOverflow.Ellipsis)
+            fontSize = 10.sp, lineHeight = 11.sp, overflow = TextOverflow.Clip)
     }
 }
 
@@ -252,7 +258,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
             contentAlignment = Alignment.Center) {
             val tint = (if (circle) MenuInk else iconTint ?: MenuInk).copy(alpha = if (enabled) 1f else .38f)
             if (name.startsWith("Set ") || name.startsWith("Adjust corner") || name.startsWith("Adjust integer"))
-                Text(symbol, Modifier.padding(2.dp), color = tint, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                Text(symbol, Modifier.padding(2.dp), color = tint, maxLines = 2, overflow = TextOverflow.Clip,
                     fontSize = if (symbol.length > 7) 10.sp else if (name.startsWith("Set ") && !circle) 16.sp else 14.sp,
                     fontWeight = FontWeight.Bold)
             else MenuIcon(name, tint = tint)

@@ -47,6 +47,30 @@ class DeckSaveTest {
         assertEquals(SavedDeckSection.entries, plan.deck.entries.map { it.section })
         assertFailsWith<DeckFailure> { DeckSavePlan.from(result(), " \n") }
     }
+
+    @Test fun multipartCatalogCardsAndTokensUseOneArtworkAndRetainBothHalvesText() {
+        for (layout in listOf("adventure", "split", "flip", "aftermath", "transform", "modal_dfc", "meld", "reversible_card")) {
+            for (token in listOf(false, true)) {
+                val imported = result().let { original -> original.copy(entries = original.entries.map { entry ->
+                    entry.copy(faces = entry.faces.map { it.copy(token = token, json = it.json.replace("transform", layout)) })
+                }) }
+                val definition = imported.entries.first().definition(imported.catalog)
+                val twoSided = layout in listOf("transform", "modal_dfc", "meld", "reversible_card")
+                assertEquals(if (twoSided) 2 else 1, definition.faces.size, "$layout token=$token")
+                assertTrue(DeckValidation.definition(definition))
+                if (!twoSided) {
+                    val face = definition.faces.single()
+                    assertEquals(first, face.faceId)
+                    assertTrue(face.otherFaceIds.isEmpty())
+                    assertContains(face.rulesText, "Front\nCreature\nExact  text\nUnicode 🧙\n*/2")
+                    assertContains(face.rulesText, "────────")
+                    assertContains(face.rulesText, "Back\nCreature")
+                    assertEquals(definition, PhysicalCardFaces.normalize(definition))
+                }
+                assertEquals(definition, DeckSavePlan.from(imported, "Deck").definitions.definitions.single().definition)
+            }
+        }
+    }
     @Test fun trimmedCatalogImportsProduceValidServerDefinitionsWithoutUnusedProviderData() {
         val directory = temporary.newFolder()
         val repository = CatalogRepository(directory) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }

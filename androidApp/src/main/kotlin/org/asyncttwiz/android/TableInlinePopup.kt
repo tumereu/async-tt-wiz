@@ -70,11 +70,11 @@ internal fun ringShortLabel(name: String): String = when (name) {
 
 @Composable
 internal fun CardActionRing(game: String, viewer: String, identity: String, viewId: String,
-    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit) {
+    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit, token: Boolean = false) {
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
     var page by remember(viewer, game) { mutableIntStateOf(store.read()) }
-    val pages = CardRingPages.resolve(entries.map { it.id })
+    val pages = CardRingPages.resolve(entries.map { it.id }, token = token)
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
     val anchor = LocalCardRingAnchors.current[viewId]
@@ -248,7 +248,7 @@ internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, 
             RingPress(MenuControl("$name page", selected = index == selected) { select(index) },
                 Modifier.width(48.dp).fillMaxHeight(), color,
                 fill = if (index == selected) color.copy(alpha = .18f) else Color.White, role = Role.Tab) {
-                Text(name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Clip,
                     color = MenuInk, fontWeight = if (index == selected) FontWeight.Bold else FontWeight.Normal)
             }
         }
@@ -298,7 +298,7 @@ private fun RingWidget(entry: RingEntry, owner: Color) {
                 side = ValueDragSide.TOP.takeIf { compound.corner }, commit = compound.drag) else Modifier
         RingPress(entry.control, Modifier.width((48 + InlinePopupStyle.cellGap).dp).fillMaxHeight().then(drag), color, fill, bordered = false) {
             Text(compound.value, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
+                maxLines = 1, overflow = TextOverflow.Clip, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .35f), fontWeight = FontWeight.Bold)
             delta?.let { HoldTooltip(if (compound.corner) cornerDragLabel(compound.dragValue, it) else valueDragLabel(compound.dragValue, it)) }
         }
         RingPress(compound.plus, Modifier.width(24.dp).fillMaxHeight(), color, fill, bordered = false) {
@@ -324,7 +324,7 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
             val textModifier = if (twoLines) Modifier.semantics { hideFromAccessibility() }
                 else Modifier.clearAndSetSemantics {}
             Text(entry.label, Modifier.padding(horizontal = 2.dp).then(textModifier),
-                fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Clip,
                 letterSpacing = 0.sp, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f), fontWeight = FontWeight.Medium)
         }
         delta?.let { HoldTooltip(valueDragLabel(entry.dragValue, it)) }

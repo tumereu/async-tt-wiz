@@ -20,7 +20,7 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val definitions = linkedMapOf<String, SubmittedDefinition>()
             val entries = result.entries.map { entry ->
-                val definition = retained[entry.printing.id] ?: entry.definition(result.catalog)
+                val definition = PhysicalCardFaces.normalize(retained[entry.printing.id] ?: entry.definition(result.catalog))
                 if (!DeckValidation.definition(definition)) throw DeckFailure("invalid_definition")
                 val digest = DeckJson.digest(definition)
                 definitions[digest] = SubmittedDefinition(digest, definition)
@@ -50,9 +50,9 @@ internal fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefini
                 loyalty.isNotEmpty() -> loyalty; else -> defense }, face.scryfallId, sourceData = face.json)
     }
     val raw = DeckJson.format.parseToJsonElement(printing.json).jsonObject
-    return CardDefinition(printing.name, definitions, provider = "mtgjson",
+    return PhysicalCardFaces.normalize(CardDefinition(printing.name, definitions, provider = "mtgjson",
         sourceVersion = catalog?.let { "${it.date}/${it.version}" }, printingId = printing.id,
-        layout = (raw["layout"] as? JsonPrimitive)?.contentOrNull ?: "normal", token = printing.token)
+        layout = (raw["layout"] as? JsonPrimitive)?.contentOrNull ?: "normal", token = printing.token))
 }
 
 internal fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {

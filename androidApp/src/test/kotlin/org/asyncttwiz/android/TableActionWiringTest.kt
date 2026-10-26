@@ -55,18 +55,21 @@ class TableActionWiringTest {
         refresh()
         val card = scene().items.single { it.cardId == f.id(40) }.visible.first().center
         gestures.down(card, 200); gestures.up(card, 220); gestures.down(card, 300); gestures.up(card, 320)
-        gestures.tick(900); assertEquals(1, f.commands().size); assertFalse(f.card(40).tapped)
+        gestures.tick(900); assertEquals(2, f.commands().size); assertFalse(f.card(40).tapped)
+        assertEquals(f.id(40), assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(
+            (f.commands().last().action as GameAction.Play).action).action).sourceId)
         refresh()
         val point = scene().items.single { it.cardId == f.id(40) }.visible.first().center
         gestures.down(point, 1000); gestures.tick(1500); gestures.up(point, 1520); gestures.tick(1900)
-        assertEquals(1, f.commands().size)
+        assertEquals(2, f.commands().size)
         assertEquals(listOf(TableIntent.Peek(f.id(40)), TableIntent.Peek(null)), personal.filterIsInstance<TableIntent.Peek>())
         assertEquals(1, personal.filterIsInstance<TableIntent.Actions>().size)
         assertEquals(1, personal.count { it == TableIntent.DismissTapUi })
         gestures.transform(TablePoint(10f, 0f), 1.2f, scene().fields.last().bounds.center)
-        assertEquals(1, f.commands().size)
+        assertEquals(2, f.commands().size)
         assertNotNull(TablePresentation.inspection(f.play, f.actor, f.id(40)))
-        assertEquals("Covered card", TablePresentation.inspection(f.play, f.other, f.id(40))!!.name)
+        // Projecting from Hand reveals the same source face as dragging to the Stack.
+        assertEquals("Retained face", TablePresentation.inspection(f.play, f.other, f.id(40))!!.name)
     }
 
     @Test fun lifeAndDisappearingCounterRowEmitOneRelativeRequestOnReleaseOnlyAndRespectCancelAndDisconnect() {

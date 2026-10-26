@@ -9,7 +9,7 @@ class PreparationTest {
         AccountIdentity(id(3), "B"), id(11), id(12), InvitationState.PENDING)
     private val front = id(20); private val back = id(21)
     private val definition = CardDefinition("Two faces", listOf(DefinitionFace(front, "Front", listOf(back), corner = "2/4"),
-        DefinitionFace(back, "Back", listOf(front), rulesText = "Retained text")), sourceVersion = "old catalog")
+        DefinitionFace(back, "Back", listOf(front), rulesText = "Retained text")), sourceVersion = "old catalog", layout = "transform")
     private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     private val source = SavedDeck(DeckSummary(id(30), "  Chosen 😀  ", "9007199254740993", "2026-10-21T00:00:00Z",
         2, 1, DeckCover(submitted.digest, definition.name)), listOf(
@@ -40,6 +40,21 @@ class PreparationTest {
         val head = GameHead(game.id, game.revision, game, preparation = state)
         assertEquals(head, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(head)))
         assertNull(before.players[0].deck) // Original accepted base was not mutated.
+    }
+
+    @Test fun existingSavedMultipartDeckNormalizesOnlyItsNewGameSnapshot() {
+        val old = definition.copy(layout = "adventure")
+        val digest = DeckJson.digest(old)
+        val saved = source.copy(entries = source.entries.map { it.copy(definition = digest) },
+            deck = source.deck.copy(cover = source.deck.cover!!.copy(definition = digest)))
+        val selected = select(saved = saved, definitions = listOf(SubmittedDefinition(digest, old))).state!!
+        val physical = PhysicalCardFaces.normalize(old)
+        val expected = DeckJson.digest(physical)
+        assertEquals(listOf(SubmittedDefinition(expected, physical)), selected.definitions)
+        assertEquals(expected, selected.players.first().deck!!.cover)
+        assertTrue(selected.players.first().deck!!.entries.all { it.definition == expected })
+        assertEquals(2, old.faces.size)
+        assertEquals(1, selected.definitions.single().definition.faces.size)
     }
 
     @Test fun invitationAttemptAndUnrelatedRevisionsDoNotLockPreparation() {

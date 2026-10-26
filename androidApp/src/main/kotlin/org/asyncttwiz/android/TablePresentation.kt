@@ -119,7 +119,7 @@ data class TableItem(
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
-    val countBadge: TableBounds? = null
+    val countBadge: TableBounds? = null, val typeLine: String = ""
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -303,7 +303,8 @@ object TablePresentation {
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else card.note, counters = if (hidden) emptyMap() else card.counters,
-                  typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden)).also { if (draw) items += it }
+                  typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
+                  typeLine = if (hidden) "" else f?.typeLine.orEmpty()).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer

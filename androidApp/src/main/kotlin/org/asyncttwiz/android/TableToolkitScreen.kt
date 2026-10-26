@@ -22,6 +22,14 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
     val bound = toolkit.capture
     val popup = toolkit.popupItem
+    var projectionNote by remember(play.gameId, play.id) { mutableStateOf<ValueDraft?>(null) }
+    projectionNote?.let { draft ->
+        val card = CombatStackRules.inspection(play.board, draft.scope.contextId)
+        ValueEditor(draft, card?.note, enabled && draft.scope.contextId in CombatStackRules.projectionIds(play.board),
+            onCancel = { projectionNote = null }, onSubmit = {
+                toolkit.submit(PlayAction.SetNote(draft.scope.contextId, draft.text.trim())).also { if (it) projectionNote = null }
+            }, preview = {})
+    }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
     val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
@@ -46,13 +54,18 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         } }
         "occurrence" -> if (bound != null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
+                MenuControl("Note", enabled) {
+                    projectionNote = ValueDraft(ManualScope(play.gameId, play.id, bound.contextViewId, listOf(bound.contextViewId)),
+                        ManualValue(ManualValueKind.NOTE), CombatStackRules.inspection(play.board, bound.contextViewId)?.note.orEmpty())
+                    toolkit.dismiss()
+                },
                 MenuControl("Select / deselect") { select(bound.contextViewId) }) +
                 (if (toolkit.tokens.projectionScope != null) listOf(
                     MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
                     MenuControl("Links") { toolkit.tokens.links(); toolkit.dismiss() }) else emptyList()) +
                 occurrenceRemovalTools(toolkit, play, bound, enabled)
             CardActionRing(play.gameId, toolkit.viewer, bound.contextViewId, bound.contextViewId,
-                occurrenceTools.map { RingEntry(if (it.name == "Inspect") "inspect" else it.name, ringShortLabel(it.name), it) },
+                occurrenceTools.map { RingEntry(when (it.name) { "Inspect" -> "inspect"; "Note" -> "note"; else -> it.name }, ringShortLabel(it.name), it) },
                 own = false, OpponentTableColor, toolkit::dismiss)
         }
         "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {

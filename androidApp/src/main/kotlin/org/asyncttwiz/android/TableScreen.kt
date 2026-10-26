@@ -273,7 +273,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         dismiss = { dismissedResult = history.gate?.suggestionId }, accept = { controller.acceptResult(it) })
     if (state.chatOpen) {
         // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.
-        Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(
+            usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Box(Modifier.fillMaxSize()) {
                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd)
                     .fillMaxWidth(if (landscape) .5f else 1f))

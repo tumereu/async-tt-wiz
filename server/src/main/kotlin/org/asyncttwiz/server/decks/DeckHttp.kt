@@ -42,6 +42,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                 path == "/v1/definitions" -> "POST"
                 path == "/v1/decks" || path == "/v1/cubes" -> "GET, POST"
                 parts.size == 2 -> "GET, PUT, DELETE"
+                cube && parts.size == 3 && parts[2] == "definitions" -> "POST"
                 parts.size == 4 && parts[2] == "definitions" -> "GET"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -54,7 +55,8 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                     if (cube) when (request.method) {
                         "PUT" -> cubes.update(principal, parts[1], json.decodeFromString<UpdateCube>(text))
                         "DELETE" -> cubes.delete(principal, parts[1], json.decodeFromString<DeleteCube>(text))
-                        else -> cubes.create(principal, json.decodeFromString<CreateCube>(text))
+                        else -> if (parts.size == 3) cubes.definitions(principal, parts[1], json.decodeFromString<ReadCubeDefinitions>(text))
+                            else cubes.create(principal, json.decodeFromString<CreateCube>(text))
                     }
                     else if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
                     else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))

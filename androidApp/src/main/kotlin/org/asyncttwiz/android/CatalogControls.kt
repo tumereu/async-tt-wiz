@@ -77,7 +77,9 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         }
         TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp)
             .testTag("catalog-check"), enabled = !state.busy) {
+            // Full width keeps Check/Retry stable; left-aligned like the other text actions.
             EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
+            Spacer(Modifier.weight(1f))
         }
         if (state.installed != null) TextButton(onClick = controller::requestFullRefresh,
             Modifier.heightIn(min = 48.dp), enabled = !state.busy) { Text("Refresh full catalog") }

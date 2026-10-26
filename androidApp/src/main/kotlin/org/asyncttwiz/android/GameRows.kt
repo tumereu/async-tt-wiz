@@ -48,6 +48,6 @@ private fun GameRow(game: GameSummary, accountId: String, modifier: Modifier) {
         }
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game)} · ${gameLastActivity(game)}",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

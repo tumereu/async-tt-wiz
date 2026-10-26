@@ -521,9 +521,8 @@ private fun GameNameDialog(controller: LobbyController) {
                                 }
                              }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain,
                          trailingIcon = { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } })
-                 Box(Modifier.height(32.dp)) {
-                     if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                 }
+                 // Rare retry state; errors themselves float, so no permanently reserved gap.
+                 if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.mutating, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Cancel") }
                     ScreenButton(onClick = controller::create, enabled = !state.mutating, modifier = Modifier.weight(1f)) {

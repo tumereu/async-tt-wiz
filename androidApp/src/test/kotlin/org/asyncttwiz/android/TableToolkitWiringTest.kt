@@ -6,6 +6,40 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun drawUndoSearchCloseVariesTheNextDrawThroughTheSessionAndMatchesServer() {
+        for (keepTop in listOf(false, true)) {
+            val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+            var server = GameplayTree(f.root)
+            var processed = 0
+            fun verifyServer() {
+                for (command in f.commands().drop(processed)) {
+                    val change = HistoryContinuation.change(server, f.actor, command)
+                    server = assertNotNull(change.tree, change.reason)
+                    processed++
+                }
+                assertEquals(server.stateAt(server.currentNodeId)!!.board, f.play.board)
+            }
+            try {
+                val library = f.container(PlayZone.LIBRARY)
+                val hand = f.container(PlayZone.HAND)
+                if (keepTop) assertTrue(ui.submit(PlayAction.SetKeepTopRevealed(library, true)))
+                val drawn = mutableSetOf<String>()
+                repeat(20) {
+                    ui.openLibrary(library)
+                    assertEquals(1, ui.library!!.controller.draw().submitted)
+                    drawn += f.play.board.containers.single { it.id == hand }.cards.single()
+                    assertTrue(f.lobby.historyControl(GameAction.Undo))
+                    ui.openLibrary(library)
+                    ui.showLibraryContents(ContentsSelection.ALL, 1, false)
+                    ui.closeCardPanel(f.play.board.contentsDisplays.single())
+                    assertTrue(f.play.board.contentsDisplays.isEmpty())
+                    verifyServer()
+                }
+                assertTrue(drawn.size > 1, "Search close pins draws with keepTop=$keepTop")
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
     @Test fun opponentsLibraryOpensTheSameToolsAndActionsKeepOwnerZonesAndActingPanelAuthor() {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(

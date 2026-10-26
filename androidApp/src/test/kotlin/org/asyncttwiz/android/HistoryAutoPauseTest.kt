@@ -55,7 +55,8 @@ class HistoryAutoPauseTest {
         }
         assertFalse(PlaybackAutoPause.ATTACKERS in PlaybackAutoPause.defaults)
         assertEquals(setOf(PlaybackAutoPause.ATTACKERS), triggers(actions.last().action))
-        assertEquals(6, PlaybackAutoPause.defaults.size)
+        assertFalse(PlaybackAutoPause.RANDOM in PlaybackAutoPause.defaults)
+        assertEquals(5, PlaybackAutoPause.defaults.size)
     }
 
     @Test fun revealMustShowCardsToViewerAndUnpingDoesNotStop() {
@@ -262,7 +263,8 @@ class HistoryAutoPauseTest {
         val second = node(PlayAction.SetTapped(other.id, true), id = "two", parent = first.id)
         val group = GameplayGroup("group", opponent, first.id, second.id, "tap", null, "2")
         val tree = HistoryTree("root", listOf(first, second).map { it.copy(bookkeeping = GameplayBookkeeping(null, "branch", group)) }, second.id, "v")
-        assertTrue(tree.autoPauseBetween("root", second.id, me, PlaybackAutoPause.defaults, board))
+        assertFalse(tree.autoPauseBetween("root", second.id, me, PlaybackAutoPause.defaults, board))
+        assertTrue(tree.autoPauseBetween("root", second.id, me, setOf(PlaybackAutoPause.RANDOM), board))
         assertFalse(tree.autoPauseBetween(first.id, second.id, me, PlaybackAutoPause.defaults, board))
         val player = HistoryPlayback(tree)
         player.openFrom("root"); player.next(true, me, emptySet(), board)

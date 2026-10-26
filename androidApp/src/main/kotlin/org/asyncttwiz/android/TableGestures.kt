@@ -242,7 +242,7 @@ class TableGestureCoordinator(
                 val destination = item?.let { handDoubleTapDestination(scene, it) }
                 if (writable && id != null && destination != null) {
                     emit(TableIntent.Selection(c.selection.afterMove(id)))
-                    emit(TableIntent.Move(TableScope(id, listOf(id)), destination, c.sources.filterKeys { it == id }))
+                    emit(TableIntent.Move(TableScope(id, listOf(id)), destination, c.sources.filterKeys { it == id }, handDoubleTap = true))
                 }
             } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.BATTLEFIELD) {
                 // Non-Battlefield cards have no orientation gesture, including legacy tapped cards.
@@ -468,7 +468,7 @@ class TableGestureCoordinator(
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */
 internal fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {
     if (item.zone != PlayZone.HAND) return null
-    if ("Land" !in item.typeLine) return scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+    if ("Land" !in StackContexts.types(item.frontTypeLine)) return scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         ?.let { TableDestination.Container(it.id, PlayZone.STACK) }
     val field = scene.fields.firstOrNull { it.owner == item.owner } ?: return null
     val occupied = scene.sources.values.filter { it.containerId == field.containerId }.mapNotNull { it.placement }

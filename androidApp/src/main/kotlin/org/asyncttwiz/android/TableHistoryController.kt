@@ -53,7 +53,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
      * coalesced rapid predictions. The pending window has a fixed bound, independent of history. */
     fun showChanges(cursor: String) {
         val through = pendingChanges.indexOfLast { it.cursor == cursor }
-        repeat(through + 1) { changes.apply(pendingChanges.removeFirst()) }
+        if (through >= 0) {
+            val events = (0..through).flatMap { pendingChanges.removeFirst().events }
+            changes.apply(TableChangeBatch(events, cursor = cursor))
+        }
     }
     private fun playbackChanges(from: String, to: String, index: HistoryTree) {
         stepChanges = to to tablePlaybackChanges(from, to, index)

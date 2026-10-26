@@ -24,7 +24,7 @@ internal fun cardMoveDurationMillis(distanceDp: Float, speedDpPerMs: Float = DEF
 
 internal fun cardMoveProgress(from: TableBounds, to: TableBounds, sceneProgress: Float, sceneDuration: Int, speed: Float): Float {
     val distance = hypot(to.center.x - from.center.x, to.center.y - from.center.y)
-    if (distance == 0f) return sceneProgress // Rotation/fades retain their existing scene timing.
+    if (distance == 0f) return sceneProgress // Size-only changes use the fixed move duration.
     val t = (sceneProgress * sceneDuration / cardMoveDurationMillis(distance, speed, sceneDuration)).coerceIn(0f, 1f)
     // Quadratic ease-out: no slow ease-in before a nearby card starts moving.
     return 1f - (1f - t) * (1f - t)

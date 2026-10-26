@@ -31,9 +31,9 @@ object StackQuickActions {
         val target = state.board.containers.single { it.accountId == card.owner && it.zone == zone }
         // Coordinates run outwards-to-inwards for BOTH players. Row 0 is lands, row 1 the nearest main row.
         val destination = if (zone == PlayZone.BATTLEFIELD) {
-            val rightmost = state.board.cards.filter { it.containerId == target.id && it.placement?.position?.y == 1 }
-                .maxOfOrNull { it.placement!!.position.x } ?: -1
-            MoveDestination(target.id, MoveInsertion.EMPTY, BoardPosition(rightmost + 1, 1))
+            val occupied = state.board.cards.filter { it.containerId == target.id && it.placement?.position?.y == 1 }
+                .map { it.placement!!.position.x }.toSet()
+            MoveDestination(target.id, MoveInsertion.EMPTY, BoardPosition(generateSequence(0) { it + 1 }.first { it !in occupied }, 1))
         } else MoveDestination(target.id, MoveInsertion.UNORDERED)
         return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id,
             MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId.takeIf { remove.isNotEmpty() }))

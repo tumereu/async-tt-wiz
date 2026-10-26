@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.fixtures.ScaleGames as F
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.TreeCacheVersion
 import org.junit.Test
 import java.util.concurrent.Executor
 import kotlin.test.*
@@ -10,6 +11,66 @@ class HistoryLayoutIndexTest {
     private fun index(tree: GameplayTree, previous: HistoryTree? = null) = HistoryTree(tree.initial.root.id,
         emptyList(), tree.currentNodeId, tree.currentNodeId, containers = tree.initial.board.containers,
         source = tree, previous = previous, lazyPresentation = true)
+
+    @Test fun reenteringDownloadedTwentyThousandEventGameReusesRetainedLayoutAndExtendsOnlyNewEvents() {
+        var tree = GameplayTree(F.root())
+        repeat(20_000) { tree = F.play(tree, PlayAction.EndTurn, 1000 + it) }
+        // In-memory downloaded generation: the disk/decode adapter is exercised in TreeDownloadTest.
+        var downloaded = PublishedDownloadedTree(TreeCacheVersion(10, "fixture"), TreeSync.generation(tree))
+        assertEquals(20_000, downloaded.history.indexedNodes, "Cold load indexes the downloaded generation once")
+        val replica = GameplayReplica()
+        fun publish() {
+            // Same isolated presentation-copy handoff as GameSession, with the retained index attached.
+            val generation = downloaded.generation.copy(tree = downloaded.generation.tree.materializedCopy())
+            val play = assertNotNull(generation.tree.preparedState(generation.tree.currentNodeId))
+            val summary = GameSummary(play.gameId, "Layout", "date", AccountIdentity(F.a, "A"), AccountIdentity(F.b, "B"),
+                play.preparationRound, F.id(99), InvitationState.ACCEPTED, GameLifecycle.ACTIVE,
+                revision = downloaded.version.revision.toString(), playId = play.id)
+            assertTrue(replica.published(GameHead(play.gameId, summary.revision, summary, play = play), generation,
+                summary.revision, emptyList(), emptyList(), downloaded.history))
+        }
+        fun enter(): TableHistoryController {
+            val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> false }, { _, _, _ -> false })
+            history.update(replica.displayTree!!, replica.revision!!, accepted = replica.tree!!.tree, indexed = replica.history)
+            val presented = assertNotNull(history.playback).tree
+            assertEquals(0, presented.indexedNodes, "Table entry must not re-index already downloaded events")
+            assertSame(downloaded.history.index.layout, presented.index.layout)
+            return history
+        }
+        publish()
+        enter().close() // Leave discards the table controller, not the accepted generation's index.
+        assertSame(downloaded.history, replica.history)
+        enter().close()
+
+        val before = downloaded.generation.tree
+        val after = F.play(before, PlayAction.EndTurn, 50_000)
+        val delta = TreeSync.delta(before, after)
+        val generation = TreeSync.apply(downloaded.generation, delta)
+        downloaded = PublishedDownloadedTree(TreeCacheVersion(11, "next"), generation,
+            HistoryTree.ingest(generation.tree, "11", downloaded.history))
+        assertEquals(1, downloaded.history.indexedNodes, "An arrival while away extends the retained layout incrementally")
+        publish()
+        enter().close()
+    }
+
+    @Test fun selectingInitialStateInTwentyThousandEventLinearGameNeverAppliesOrUnappliesHistory() {
+        var tree = GameplayTree(F.root())
+        repeat(20_000) { tree = F.play(tree, PlayAction.EndTurn, 1000 + it) }
+        val prepared = index(tree)
+        assertNull(tree.preparedState(tree.initial.root.id))
+        val explorer = HistoryExplorerController(Executor { it.run() }, { it() }, { _, failure -> throw failure })
+        try {
+            explorer.update(tree, indexed = prepared)
+            tree.work.reset()
+            explorer.select(tree.initial.root.id)
+            assertNull(explorer.state.error)
+            assertSame(tree.initial, explorer.state.reviewed)
+            assertEquals(tree.initial.root.id, explorer.state.selectedNodeId)
+            assertEquals(0, tree.work.replayedNodes)
+            assertEquals(0, tree.work.unappliedNodes)
+            assertEquals(0, tree.work.ancestrySteps + tree.work.fullHistoryScans + tree.work.rootMaterializations)
+        } finally { explorer.close() }
+    }
 
     @Test fun twentyThousandEventsFiftyBranchesOpenAppendAndSelectWithoutHistorySizedWork() {
         var tree = GameplayTree(F.root())
@@ -153,6 +214,45 @@ class HistoryLayoutIndexTest {
         assertNull(hidden.positions[first.id])
         hidden.select(first.id)
         assertNotNull(hidden.positions[first.id], "Exact review exposes its hidden branch without scanning it")
+    }
+
+    @Test fun hidingSimpleAlternativesKeepsForkAncestryOfRevealingCommentedAndMixedAuthorBranches() {
+        for (reason in listOf("reveal", "comment", "mixed")) {
+            val initial = F.root()
+            fun node(n: Int, parent: String, branch: String) = GameplayMutation(F.id(n), parent, branch, F.id(n + 100), F.a,
+                null, PlayAction.EndTurn, GameplayTransition())
+            val ancestor = node(800, initial.root.id, F.id(900))
+            val simple = node(801, ancestor.id, F.id(901))
+            val tail = node(802, simple.id, simple.branchId)
+            val kept = node(803, simple.id, F.id(902))
+            val special = node(804, kept.id, kept.branchId).let {
+                when (reason) {
+                    "reveal" -> it.copy(revealsInformation = true)
+                    "comment" -> it.copy(action = PlayAction.EventComment(EventReference(initial.id, kept.id), "keep"))
+                    else -> it.copy(author = F.b)
+                }
+            }
+            val unrelated = node(805, initial.root.id, F.id(903))
+            val nodes = listOf(ancestor, simple, tail, kept, special, unrelated).associateBy { it.id }
+            var layout = HistoryLayoutIndex.root(initial)
+            for (node in nodes.values) layout = layout.append(node, node.id)
+            val tree = GameplayTree(initial, nodes = nodes)
+            val graph = HistoryGraph(tree, layout, showHidden = false)
+            assertNotNull(graph.positions[special.id], reason)
+            for (node in listOf(ancestor, simple, tail, kept)) {
+                assertNotNull(graph.positions[node.id], "$reason must retain entire fork-ancestry branches")
+                assertNotNull(graph.rangesById[node.id]?.parentRangeId?.let(graph.rangesById::get))
+            }
+            assertNull(graph.positions[unrelated.id])
+            val window = graph.visible(0f, 0f, 1000f, 1000f).associateBy { it.id }
+            for (chip in window.values) chip.parentRangeId?.let { assertTrue(it in window, "$reason disconnected ${chip.id}") }
+
+            val reverted = layout.remove(setOf(special.id), nodes)
+            val hidden = HistoryGraph(GameplayTree(initial, nodes = nodes - special.id), reverted, showHidden = false)
+            assertNull(hidden.positions[ancestor.id], "Removing the reason to keep a branch also releases its ancestry")
+            hidden.select(kept.id)
+            assertNotNull(hidden.positions[ancestor.id], "Selected simple branches still retain their fork path")
+        }
     }
 
     @Test fun crossingForkLineIsQueriedEvenWhenBothEndpointChipsAreOffscreen() {

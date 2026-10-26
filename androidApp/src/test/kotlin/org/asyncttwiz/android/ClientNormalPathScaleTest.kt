@@ -293,12 +293,13 @@ class ClientNormalPathScaleTest {
         for (action in listOf("Play", "Undo", "Redo", "HistoryReview")) scale("telemetry $action", 20.0) { fixture ->
             val tree = if (action == "Redo") F.change(fixture, F.command(fixture, GameAction.Undo, 800003)) else fixture
             val generation = TreeSync.generation(tree)
+            val indexed = HistoryTree.ingest(tree, "10001")
             val head = head(tree)
             val samples = mutableListOf<ActionLatency>()
             val recorder = LatencyRecorder(true, log = samples::add, record = { _, _ -> })
             val operation: () -> Unit = {
                 val replica = GameplayReplica()
-                assertTrue(replica.published(head, generation, head.revision, emptyList(), emptyList()))
+                assertTrue(replica.published(head, generation, head.revision, emptyList(), emptyList(), indexed))
                 tree.work.reset()
                 val trace = recorder.begin(tree.initial.gameId, action, tree.nodes.size + 1)!!
                 if (action == "HistoryReview") {

@@ -70,7 +70,8 @@ class GameplayReplicaTest {
         authoritative = assertNotNull(HistoryContinuation.change(authoritative, f.other, arrival).tree)
         val collisionReplica = GameplayReplica()
         val endpoint = authoritative.stateAt(authoritative.currentNodeId)!!
-        assertTrue(collisionReplica.published(f.head(endpoint, "3"), TreeSync.generation(authoritative), "3", emptyList(), emptyList()))
+        assertTrue(collisionReplica.published(f.head(endpoint, "3"), TreeSync.generation(authoritative), "3", emptyList(), emptyList(),
+            HistoryTree.ingest(authoritative, "3")))
         val blockedUndo = f.command(PlayAction.PassAttention).copy(action = GameAction.Undo)
         assertEquals("replayBlocked", HistoryContinuation.change(authoritative, f.actor, blockedUndo).reason)
         assertFalse(collisionReplica.predict(blockedUndo, f.actor))

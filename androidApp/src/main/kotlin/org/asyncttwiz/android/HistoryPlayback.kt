@@ -81,6 +81,14 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
         return path[offset]
     }
     fun version(id: String) = if (id == sharedHeadId) liveVersion else versions[id] ?: id
+
+    companion object {
+        /** Owned by the downloaded generation, not by the lifetime of a table screen. */
+        fun ingest(tree: GameplayTree, version: String, previous: HistoryTree? = null) = HistoryTree(
+            tree.initial.root.id, emptyList(), tree.currentNodeId, version,
+            containers = tree.initial.board.containers, source = tree,
+            previous = previous?.takeIf { it.rootId == tree.initial.root.id }, lazyPresentation = true)
+    }
 }
 
 /** Device-local transport only. No sync, request, activation, Undo or prediction ownership here. */

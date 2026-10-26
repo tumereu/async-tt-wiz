@@ -31,7 +31,25 @@ internal data class HistoryLayoutIndex(
     val lanes: PersistentMap<Int, PersistentMap<Int, String>>,
     val forks: HistoryForkIndex = HistoryForkIndex(),
     val nextLane: Int = 1, val maxColumn: Int = 0,
+    /** Number of non-simple branches kept through each branch's fork ancestry (including itself). */
+    val keptAncestry: PersistentMap<String, Int> = persistentMapOf(),
 ) {
+    private fun keepAncestors(branchId: String, delta: Int, topology: HistoryLayoutIndex = this): HistoryLayoutIndex {
+        var kept = keptAncestry
+        var cursor: String? = branchId
+        while (cursor != null) {
+            val count = (kept[cursor] ?: 0) + delta
+            check(count >= 0) { "Unbalanced kept branch ancestry" }
+            kept = if (count == 0) kept.remove(cursor) else kept.put(cursor, count)
+            cursor = topology.branches.getValue(cursor).fork?.let { fork ->
+                topology.boundaries[fork]?.let { topology.chips.getValue(it.chip).branch }
+            }
+        }
+        return copy(keptAncestry = kept)
+    }
+
+    private val HistoryLayoutBranch.kept get() = authors.isNotEmpty() && !simple
+
     fun append(node: GameplayMutation, group: String): HistoryLayoutIndex {
         val parentBoundary = checkNotNull(boundaries[node.parentId]) { "Unavailable retained ancestry" }
         val parent = chips.getValue(parentBoundary.chip)
@@ -47,12 +65,14 @@ internal data class HistoryLayoutIndex(
             HistoryLayoutChip(node.id, group, node.branchId, parent.id, parent.column + 1, branch.lane,
                 persistentListOf(node.id), turn.takeIf { it != parentBoundary.turn })
         val isFork = !joins && chip.lane != parent.lane
-        return copy(boundaries = boundaries.put(node.id, HistoryLayoutBoundary(chip.id, chip.nodes.lastIndex, turn)),
-            chips = chips.put(chip.id, chip), branches = branches.put(node.branchId, branch.change(node, 1)),
+        val changed = branch.change(node, 1)
+        val result = copy(boundaries = boundaries.put(node.id, HistoryLayoutBoundary(chip.id, chip.nodes.lastIndex, turn)),
+            chips = chips.put(chip.id, chip), branches = branches.put(node.branchId, changed),
             lanes = if (joins) lanes else lanes.put(chip.lane, (lanes[chip.lane] ?: persistentMapOf()).put(chip.column, chip.id)),
             forks = if (isFork) forks.put(parent.column, chip.lane, parent.lane, chip.id) else forks,
             nextLane = if (node.branchId in branches) nextLane else nextLane + 1,
             maxColumn = maxOf(maxColumn, chip.column))
+        return if (branch.kept != changed.kept) result.keepAncestors(node.branchId, if (changed.kept) 1 else -1) else result
     }
 
     /** All descendants of changed records are supplied by the existing topology index. */
@@ -63,7 +83,10 @@ internal data class HistoryLayoutIndex(
             val boundary = result.boundaries[id] ?: continue
             val node = oldNodes[id] ?: continue
             touched.add(boundary.chip)
-            val branch = result.branches.getValue(node.branchId).change(node, -1)
+            val prior = result.branches.getValue(node.branchId)
+            val branch = prior.change(node, -1)
+            if (prior.kept != branch.kept)
+                result = result.keepAncestors(node.branchId, if (branch.kept) 1 else -1, topology = this)
             result = result.copy(boundaries = result.boundaries.remove(id),
                 // Keep the lane reservation across a pop/redo or a rewritten suffix as well.
                 branches = result.branches.put(node.branchId, branch))

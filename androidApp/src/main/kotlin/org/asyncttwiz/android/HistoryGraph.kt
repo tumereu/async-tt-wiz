@@ -24,7 +24,7 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         val end = path[chip.branch] ?: return false
         return chip.column <= layout.chips.getValue(end.chip).column
     }
-    private fun included(chip: HistoryLayoutChip) = showHidden || !layout.branches.getValue(chip.branch).simple ||
+    private fun included(chip: HistoryLayoutChip) = showHidden || chip.branch in layout.keptAncestry ||
         onPath(chip, active) || onPath(chip, selectedPath)
     private fun chipOf(id: String): HistoryLayoutChip? = layout.boundaries[id]?.let { layout.chips[it.chip] }?.takeIf(::included)
     private fun nodeOnPath(id: String): Boolean {

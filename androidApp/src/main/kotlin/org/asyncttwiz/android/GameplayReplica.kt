@@ -10,6 +10,9 @@ class GameplayReplica {
     private val records = linkedMapOf<String, GameRevision>()
     var tree: DownloadedTree? = null
         private set
+    /** Retained with accepted game/play data across table exits. */
+    var history: HistoryTree? = null
+        private set
     var revision: String? = null
         private set
     var accepted: PlayState? = null
@@ -62,6 +65,7 @@ class GameplayReplica {
             head.summary.lifecycle == GameLifecycle.ACTIVE && head.summary.playId == play.id && head.gameId == play.gameId &&
             head.summary.preparationRound == play.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
         tree = TreeSync.generation(GameplayTree(play))
+        history = HistoryTree.ingest(tree!!.tree, head.revision)
         accepted = play; revision = head.revision; records.clear(); rebase(); return true
     }
     /** False means a gap/new incarnation: fetch a coherent baseline, never apply on an unmatched base. */
@@ -83,6 +87,7 @@ class GameplayReplica {
         val endpoint = nextTree?.tree?.let { requireNotNull(it.stateAt(it.currentNodeId)) } ?: update.play ?: current
         if (nextTree != null && update.play != null) require(endpoint == update.play)
         tree = nextTree
+        history = nextTree?.let { HistoryTree.ingest(it.tree, update.resultRevision, history) }
         accepted = endpoint; revision = update.resultRevision; records[update.resultRevision] = update.copy(chatMessage = null)
         correlate(update); rebase(); return true
     }
@@ -125,6 +130,7 @@ class GameplayReplica {
         }
         staged.values.forEach { update -> predictions[update.requestId]?.let { require(update.scope == it.command.scope) } }
         tree = retained
+        history = retained?.let { HistoryTree.ingest(it.tree, at) }
         accepted = state; revision = at; records.clear(); records.putAll(staged)
         staged.values.forEach(::correlate)
         for (status in baseline.statuses) if (status.status == "final") correlateResult(status.result!!)
@@ -188,12 +194,13 @@ class GameplayReplica {
 
     /** Worker-prepared accepted generation: no disk/replay work is hidden in the UI publication. */
     fun published(head: GameHead, generation: DownloadedTree, at: String,
-        statuses: List<GameRequestStatus>, tail: List<GameRevision>): Boolean {
+        statuses: List<GameRequestStatus>, tail: List<GameRevision>, indexed: HistoryTree): Boolean {
         val tree = generation.tree
         val endpoint = requireNotNull(tree.stateAt(tree.currentNodeId))
         if (revision?.let { GameWire.ordinal(it) > GameWire.ordinal(at) } == true) return false
         require(head.gameId == endpoint.gameId && head.play?.id == endpoint.id)
         this.tree = generation; accepted = endpoint; revision = at; records.clear()
+        history = indexed
         tail.forEach(::correlate)
         // Correlate the whole snapshot before replaying its remaining tail: status ordering must
         // not temporarily replay already-accepted originals and permanently withdraw later controls.

@@ -45,7 +45,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     }
 
     fun update(value: GameplayTree, version: String, game: GameSummary? = null, viewer: String? = null,
-        accepted: GameplayTree = value) {
+        accepted: GameplayTree = value, indexed: HistoryTree? = null) {
         val names = game?.let { listOf(it.inviter, it.recipient).associate { user -> user.accountId to user.username } }.orEmpty()
         if (closed || (tree === value && acceptedTree === accepted && playback?.tree?.liveVersion == version && usernames == names && textViewer == viewer)) return
         tree = value; acceptedTree = accepted; usernames = names; textViewer = viewer
@@ -54,12 +54,14 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         val acceptedCopy = if (accepted.nodes === value.nodes) isolated else accepted.materializedCopy()
         indexes.submit("index") {
             if (generation != epoch) return@submit
-            val previous = textIndex?.takeIf { it.rootId == value.initial.root.id }
+            val retained = indexed?.takeIf { it.rootId == value.initial.root.id && it.nodes === accepted.nodes }
+            val previous = retained?.takeIf { it.nodes === value.nodes }
+                ?: textIndex?.takeIf { it.rootId == value.initial.root.id } ?: retained
             val index = HistoryTree(value.initial.root.id, emptyList(), value.currentNodeId, version,
                 containers = value.initial.board.containers, source = isolated, previous = previous, lazyPresentation = true)
             val acceptedHistory = if (acceptedCopy === isolated) index else HistoryTree(accepted.initial.root.id,
                 emptyList(), accepted.currentNodeId, version, containers = accepted.initial.board.containers,
-                source = acceptedCopy, previous = acceptedIndex?.takeIf { it.rootId == accepted.initial.root.id }, lazyPresentation = true)
+                source = acceptedCopy, previous = retained ?: acceptedIndex?.takeIf { it.rootId == accepted.initial.root.id }, lazyPresentation = true)
             if (generation != epoch) return@submit
             index.texts = TimelineTexts(isolated, viewer, names); textIndex = index; acceptedIndex = acceptedHistory
             post {

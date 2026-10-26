@@ -58,7 +58,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val displayTree = controller.displayTree()
     LaunchedEffect(IdentityKey(displayTree), live?.currentNodeId, IdentityKey(live?.board), game.revision) {
         history.openFrom(playbackPreferences.lastSeen(game.id), playbackPreferences::shown)
-        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId, accepted = tree ?: it) }
+        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId,
+            accepted = tree ?: it, indexed = controller.retainedHistory()) }
     }
     DisposableEffect(history) { onDispose { history.leaving() } }
     val playback = history.playback

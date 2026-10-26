@@ -205,6 +205,7 @@ class GameSession(private val connection: GameConnection, private val credential
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
     fun play(game: GameSummary) = plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
     fun retainedTree(gameId: String) = plays[gameId]?.tree?.tree
+    fun retainedHistory(gameId: String) = plays[gameId]?.history
     fun displayTree(gameId: String) = plays[gameId]?.displayTree
     /** Personal read-only review, including offline. Cold replay and cursor persistence are worker
      * work; account/incarnation/clear fences are checked before disk and again before UI delivery. */
@@ -1021,7 +1022,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
                 val head = GameHead(game.id, at, game.copy(revision = at), play = endpoint)
                 val replica = plays.getOrPut(game.id) { GameplayReplica() }
-                if (replica.published(head, prepared, at, emptyList(), emptyList())) {
+                if (replica.published(head, prepared, at, emptyList(), emptyList(), published.history)) {
                     install(head.summary, at, null, replica.accepted); statusChanged()
                 }
             }
@@ -1076,7 +1077,7 @@ class GameSession(private val connection: GameConnection, private val credential
             }
             val replica = plays.getOrPut(gameId) { GameplayReplica() }
             if (!replica.published(requireNotNull(transfer.manifest.head), published.generation,
-                published.version.revision.toString(), transfer.manifest.statuses, appliedTail)) { connectionUnavailable("treePublicationFailed"); return }
+                published.version.revision.toString(), transfer.manifest.statuses, appliedTail, published.history)) { connectionUnavailable("treePublicationFailed"); return }
             val summary = appliedTail.lastOrNull { it.resultRevision == replica.revision }?.summary ?: transfer.manifest.head!!.summary
             install(summary, replica.revision!!, null, replica.accepted)
             val head = requireNotNull(transfer.manifest.head)
@@ -1147,7 +1148,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (plays[update.gameId]?.revision?.let { GameWire.ordinal(it) >= published.version.revision } == true) return@post
                 val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
                 val head = GameHead(update.gameId, update.resultRevision, update.summary, play = endpoint)
-                if (replica.published(head, prepared, published.version.revision.toString(), emptyList(), listOf(update))) {
+                if (replica.published(head, prepared, published.version.revision.toString(), emptyList(), listOf(update), published.history)) {
                     if (treeHead[update.gameId]?.let { newerOrEqual(replica.revision!!, it) } != false)
                         streams[update.gameId]?.head = true
                     install(update.summary, replica.revision!!, null, replica.accepted); statusChanged()

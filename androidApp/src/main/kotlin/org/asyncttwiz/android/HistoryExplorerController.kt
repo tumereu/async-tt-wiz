@@ -106,7 +106,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
             val result = runCatching {
                 val selected = checkNotNull(value.resolveCursor(nodeId)) { "Cannot resolve retained cursor $nodeId" }
                 val identity = value.endpointIndex().positions[selected]?.identity
-                val reviewed = value.preparedState(selected) ?: reviewedValue?.takeIf {
+                val reviewed = if (selected == value.initial.root.id) value.initial else value.preparedState(selected) ?: reviewedValue?.takeIf {
                     identity != null && identity == reviewedIdentity && it.currentNodeId == selected &&
                         it.id == value.initial.id && it.gameId == value.initial.gameId &&
                         (selected != value.currentNodeId || it.currentBranchId == value.currentBranchId)

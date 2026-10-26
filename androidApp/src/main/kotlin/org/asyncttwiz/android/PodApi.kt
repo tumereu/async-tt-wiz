@@ -23,6 +23,7 @@ interface Pods : Closeable {
     suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged
     suspend fun start(token: String, id: String, input: PodRequest): PodDetail
     suspend fun pick(token: String, id: String, input: PickPod): PodDetail
+    suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail
     suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail
     suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail
     suspend fun submit(token: String, id: String, input: PodDraftRequest): PodDetail
@@ -49,6 +50,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/decline"), DeckJson.format.encodeToString(input))
     override suspend fun start(token: String, id: String, input: PodRequest): PodDetail = call(token, path(id, "/start"), DeckJson.format.encodeToString(input))
     override suspend fun pick(token: String, id: String, input: PickPod): PodDetail = call(token, path(id, "/pick"), DeckJson.format.encodeToString(input))
+    override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail = call(token, path(id, "/grid/select"), DeckJson.format.encodeToString(input))
     override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail = call(token, path(id, "/build/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail = call(token, path(id, "/build/basics"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun submit(token: String, id: String, input: PodDraftRequest): PodDetail = call(token, path(id, "/submit"), DeckJson.format.encodeToString(input))

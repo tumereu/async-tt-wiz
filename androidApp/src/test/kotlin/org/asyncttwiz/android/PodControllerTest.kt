@@ -46,6 +46,7 @@ class PodControllerTest {
         var secondPod: PodDetail? = null
         var missing = false
         var failMoves = false
+        var gridFailure: String? = null
         var afterRead: () -> Unit = {}
         override suspend fun list(token: String) = listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
         override suspend fun detail(token: String, id: String): PodDetail {
@@ -63,6 +64,12 @@ class PodControllerTest {
         override suspend fun pick(token: String, id: String, input: PickPod): PodDetail {
             calls += "pick" to input
             saved = saved.copy(draft = saved.draft!!.copy(head = head.copy(id = "next"), packsBehind = 0))
+            return saved
+        }
+        override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail {
+            calls += "grid" to input
+            gridFailure?.let { throw PodFailure(it) }
+            saved = saved.copy(grid = saved.grid!!.copy(mine = saved.grid!!.mine.copy(headGridId = null)))
             return saved
         }
         override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail {
@@ -190,6 +197,82 @@ class PodControllerTest {
         assertEquals(next, f.controller.state.detail!!.id)
         assertEquals(next, f.api.readIds.last())
         assertEquals(1, f.api.calls.size)
+    }
+
+    private fun gridDetail(): PodDetail {
+        val boards = listOf(GridPublicBoard("grid-0", 1, List(9) { copy.copy(id = "copy-$it") }, self.accountId),
+            GridPublicBoard("grid-1", 2, List(9) { copy.copy(id = "later-$it") }, self.accountId))
+        return detail().copy(settings = DraftSettings.grid(), draft = null,
+            grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(1, 9, false, listOf(self.accountId, other.accountId), boards, emptyList()),
+                GridPrivateView(self.accountId, listOf(copy), "grid-0")))
+    }
+
+    @Test fun gridSelectSendsAttemptAndLineOnlyOnceAndDoesNotPredict() = Fixture().use { f ->
+        f.api.saved = gridDetail(); f.open()
+        val before = f.controller.state.detail!!.grid
+        f.controller.gridSelect("grid-1", GridLineType.ROW, 0) // Only the head can be selected.
+        f.controller.gridSelect("grid-0", GridLineType.ROW, 3)
+        assertEquals(0, f.controller.state.pending)
+        f.controller.gridSelect("grid-0", GridLineType.COLUMN, 1)
+        f.controller.gridSelect("grid-0", GridLineType.ROW, 0)
+        assertTrue(f.controller.state.picking)
+        assertEquals(before, f.controller.state.detail!!.grid)
+        f.worker.one()
+        assertEquals(before, f.controller.state.detail!!.grid)
+        f.posts.removeFirst()()
+        val input = f.api.calls.single().second as SelectPodGrid
+        assertTrue(DeckValidation.uuid(input.requestId))
+        assertEquals(attempt, input.draftAttemptId)
+        assertEquals("grid-0", input.gridId)
+        assertEquals(GridLineType.COLUMN, input.line)
+        assertEquals(1, input.index)
+        assertNull(f.controller.state.detail!!.grid!!.mine.headGridId)
+        assertFalse(f.controller.state.picking)
+        assertEquals(2, f.api.reads)
+    }
+
+    @Test fun rejectedGridSelectionKeepsBoardAndReleasesControls() = Fixture().use { f ->
+        f.api.saved = gridDetail(); f.api.gridFailure = "empty_line"; f.open()
+        val before = f.controller.state.detail!!.grid
+        f.controller.gridSelect("grid-0", GridLineType.ROW, 0); f.deliver()
+        assertEquals(before, f.controller.state.detail!!.grid)
+        assertNotNull(f.controller.state.error)
+        assertFalse(f.controller.state.uncertain)
+        assertFalse(f.controller.state.picking)
+        assertEquals(0, f.controller.state.pending)
+    }
+
+    @Test fun ambiguousGridSelectionRetriesOriginalRequestAndExpiredAttemptRefreshes() {
+        Fixture().use { f ->
+            f.api.saved = gridDetail(); f.api.gridFailure = "network"; f.open()
+            f.controller.gridSelect("grid-0", GridLineType.ROW, 2); f.deliver()
+            assertTrue(f.controller.state.uncertain)
+            assertTrue(f.controller.state.picking)
+            val original = f.api.calls.first().second as SelectPodGrid
+            assertTrue(f.api.calls.all { it.second == original })
+            f.api.gridFailure = null; f.controller.retry(); f.deliver()
+            assertEquals(original, f.api.calls.last().second)
+            assertFalse(f.controller.state.uncertain)
+            assertFalse(f.controller.state.picking)
+        }
+        Fixture().use { f ->
+            f.api.saved = gridDetail(); f.open()
+            f.api.gridFailure = "draft_attempt_expired"
+            f.api.saved = detail(PodPhase.SETUP)
+            f.controller.gridSelect("grid-0", GridLineType.ROW, 0); f.deliver()
+            assertEquals(PodPhase.SETUP, f.controller.state.detail!!.phase)
+            assertNull(f.controller.state.detail!!.grid)
+            assertEquals(0, f.controller.state.pending)
+        }
+    }
+
+    @Test fun gridMemberStatusUsesPickingFlagAndStartRequiresTwoToFourMembers() {
+        assertEquals("picking", podMemberStatus(PodMember(self, picking = true), PodPhase.DRAFTING, DraftMode.GRID))
+        assertEquals("waiting", podMemberStatus(PodMember(self, packsWaiting = 3), PodPhase.DRAFTING, DraftMode.GRID))
+        for (count in 1..8) {
+            val pod = detail(PodPhase.SETUP).copy(settings = DraftSettings.grid(), members = List(count) { PodMember(self) })
+            assertEquals(count in 2..4, podCanStart(pod))
+        }
     }
 
     @Test fun freshAwardsJoinMainWithoutLosingQueuedBuildIntents() = Fixture().use { f ->

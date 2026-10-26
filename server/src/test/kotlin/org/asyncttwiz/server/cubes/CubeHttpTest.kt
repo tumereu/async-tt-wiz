@@ -33,6 +33,52 @@ class CubeHttpTest {
         assertEquals(201, request(settings, "POST", "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password😀"))).statusCode())
         return json.decodeFromString(request(settings, "POST", "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password😀"))).body())
     }
+    @Test fun `definition batches require ownership and attached digests and enforce the size cap`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+            SpringService(settings).use { service ->
+                service.start()
+                val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
+                while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
+                    check(System.nanoTime() < deadline); Thread.sleep(20)
+                }
+                val owner = account(settings, "batch-owner"); val foreign = account(settings, "batch-foreign")
+                val definitions = List(251) { index ->
+                    val card = CardDefinition("Batch card $index", listOf(DefinitionFace(id(), "Batch card $index")))
+                    SubmittedDefinition(DeckJson.digest(card), card)
+                }
+                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), definitions)), owner.token).statusCode())
+                val attached = definitions.take(250)
+                val create = CreateCube(id(), "Batch cube", attached.map { SavedCubeEntry(it.digest, 1) })
+                val created = request(settings, "POST", "/v1/cubes", json.encodeToString(create), owner.token)
+                assertEquals(201, created.statusCode(), created.body())
+                val saved = json.decodeFromString<SavedCube>(created.body())
+                val path = "/v1/cubes/${saved.cube.id}/definitions"
+                val batch = ReadCubeDefinitions(attached.map { it.digest })
+                val read = request(settings, "POST", path, json.encodeToString(batch), owner.token)
+                assertEquals(200, read.statusCode(), read.body())
+                assertEquals(SubmittedDefinitions(attached), json.decodeFromString<SubmittedDefinitions>(read.body()))
+                assertEquals(401, request(settings, "POST", path, json.encodeToString(batch)).statusCode())
+                // A grant to the definitions is not ownership of the cube.
+                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), attached.take(1))), foreign.token).statusCode())
+                val denied = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest))), foreign.token)
+                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains("Batch card"))
+                val foreignCard = CardDefinition("Foreign card", listOf(DefinitionFace(id(), "Foreign card")))
+                val foreignDefinition = SubmittedDefinition(DeckJson.digest(foreignCard), foreignCard)
+                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), listOf(foreignDefinition))), foreign.token).statusCode())
+                for (unattached in listOf(definitions.last().digest, foreignDefinition.digest, "sha256:" + "f".repeat(64))) {
+                    val rejected = request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(listOf(attached.first().digest, unattached))), owner.token)
+                    assertEquals(404, rejected.statusCode()); assertFalse(rejected.body().contains("Batch card"))
+                }
+                for (invalid in listOf(emptyList(), definitions.map { it.digest }, List(251) { attached.first().digest }, listOf("invalid"))) {
+                    assertEquals(400, request(settings, "POST", path, json.encodeToString(ReadCubeDefinitions(invalid)), owner.token).statusCode())
+                }
+                assertEquals(404, request(settings, "POST", "/v1/cubes/${id()}/definitions", json.encodeToString(batch), owner.token).statusCode())
+                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
+            }
+        }
+    }
     @Test fun `cube CRUD ownership validation and retained retry outcomes over real HTTP`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

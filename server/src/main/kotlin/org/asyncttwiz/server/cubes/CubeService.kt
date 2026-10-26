@@ -94,6 +94,25 @@ class CubeService(private val runtime: ServiceRuntime) {
         }
     }
 
+    fun definitions(principal: AccountService.Principal, id: String, input: ReadCubeDefinitions): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!CubeValidation.definitionRead(input.digests)) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
+                .and(SAVED_CUBE.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val definitions = sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(CUBE_ENTRY).join(DEFINITION)
+                .on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
+                .where(CUBE_ENTRY.CUBE_ID.eq(row.id)).and(DEFINITION.DIGEST.`in`(input.digests))
+                .fetch().associate { it.get(DEFINITION.DIGEST)!! to it.get(DEFINITION.PAYLOAD)!! }
+            if (definitions.keys != input.digests.toSet()) return@transaction error(404, "not_found")
+            Result(200, json.encodeToString(SubmittedDefinitions(input.digests.distinct().map { digest ->
+                SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(definitions.getValue(digest)))
+            })))
+        }
+    }
+
     private fun owned(sql: DSLContext, owner: UUID, id: String): SavedCubeRecord? =
         if (!DeckValidation.uuid(id)) null else sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forUpdate().fetchOne()

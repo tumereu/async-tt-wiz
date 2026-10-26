@@ -16,4 +16,14 @@ class CubesTest {
         assertFalse(CubeValidation.name(" "))
         assertFalse(CubeValidation.provenance("../../elsewhere"))
     }
+    @Test fun definitionBatchLimitAndWireRoundTrip() {
+        val input = ReadCubeDefinitions(List(250) { digest })
+        assertTrue(CubeValidation.definitionRead(input.digests))
+        assertFalse(CubeValidation.definitionRead(input.digests + digest))
+        assertFalse(CubeValidation.definitionRead(emptyList()))
+        assertFalse(CubeValidation.definitionRead(listOf("bad-digest")))
+        assertEquals(input, DeckJson.format.decodeFromString<ReadCubeDefinitions>(DeckJson.canonical(input)))
+        val output = SubmittedDefinitions(listOf(SubmittedDefinition(digest, CardDefinition("Card", emptyList()))))
+        assertEquals(output, DeckJson.format.decodeFromString<SubmittedDefinitions>(DeckJson.canonical(output)))
+    }
 }

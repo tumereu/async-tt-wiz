@@ -201,6 +201,7 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
 
 @Composable
 internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
+    error: String? = null, dismissError: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         ScreenTheme {
@@ -211,6 +212,7 @@ internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, bu
                         verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
                     Box(Modifier.matchParentSize(), contentAlignment = Alignment.BottomCenter) {
                         FloatingBusyPill(busyMessage)
+                        FloatingTransientError(error, dismissError)
                     }
                 }
             }

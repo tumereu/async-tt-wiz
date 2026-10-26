@@ -53,6 +53,17 @@ class LobbyService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /** Unilateral and idempotent; games and invitations are independent of saved contacts. */
+    fun remove(principal: AccountService.Principal, id: String): Result {
+        if (!DeckValidation.uuid(id)) return error(400, "invalid_contact")
+        return runtime.transaction { connection ->
+            DSL.using(connection, SQLDialect.POSTGRES).deleteFrom(CONTACT)
+                .where(CONTACT.ACCOUNT_ID.eq(owner(principal)))
+                .and(CONTACT.CONTACT_ID.eq(UUID.fromString(id))).execute()
+            Result(200, "{}")
+        }
+    }
+
     fun add(principal: AccountService.Principal, input: AddContact): Result =
         business(principal, input.requestId, "addContact", DeckJson.canonical(input)) { sql, actor ->
             if (!DeckValidation.uuid(input.accountId) || input.accountId == actor.toString())

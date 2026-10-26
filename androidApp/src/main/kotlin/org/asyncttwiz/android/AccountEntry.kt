@@ -53,16 +53,13 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(state.message!!, color = MaterialTheme.colorScheme.error)
                     Button(onClick = controller::logout) { Text("Retry sign-out") }
                 }
                 state.restoring -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Async Tabletop Wizards", style = MaterialTheme.typography.headlineSmall)
                     Text("Specialized tabletop simulator for asynchronous wizardry", textAlign = TextAlign.Center)
-                    Box(Modifier.heightIn(min = 48.dp)) {
-                        if (state.restoreFailed) Text(state.message.orEmpty())
-                    }
+                    Column(Modifier.height(104.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     if (state.restoreFailed) {
                         if (state.savedLoginUnrecoverable) {
                             Button(onClick = controller::logout) { Text("Sign in") }
@@ -70,6 +67,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                             Button(onClick = controller::restore) { Text("Retry") }
                             TextButton(onClick = controller::logout) { EntryIcon(null, "login"); Spacer(Modifier.width(8.dp)); Text("Logout") }
                         }
+                    }
                     }
                 }
                 state.page == AuthPage.REGISTER && landscape -> Row(Modifier.fillMaxSize().padding(16.dp),
@@ -95,6 +93,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                     }
                 }
             }
+            if (state.account == null && reset.state == null) FloatingTransientError(
+                state.message?.takeIf { !state.busy && !state.validationMessage }, controller::dismissMessage,
+                Modifier.align(Alignment.BottomCenter))
             if (state.account == null && reset.state == null) FloatingBusyPill(when {
                 state.restoring && !state.restoreFailed -> state.message ?: "Checking saved login…"
                 state.busy -> state.message ?: if (state.page == AuthPage.REGISTER) "Creating account…" else "Signing in…"
@@ -139,12 +140,14 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
                         }
                     })
             }
-            state.message?.takeUnless { state.busy }?.let {
+            Box(Modifier.fillMaxWidth().height(64.dp)) {
+            state.message?.takeIf { !state.busy && state.validationMessage }?.let {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (state.error) Icon(screenIcon("error"), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                     Text(it, Modifier.testTag("auth-message"), color = if (state.error) MaterialTheme.colorScheme.error else Teal,
-                        style = MaterialTheme.typography.bodySmall)
+                         style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
+            }
             }
             ScreenButton(onClick = controller::submit, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
                 EntryIcon(null, if (state.page == AuthPage.REGISTER) "person" else "login")
@@ -216,15 +219,18 @@ private fun ResetEntry(controller: ResetController) {
                             Text(if (state.page == ResetPage.REQUEST) "Send reset link" else "Change password")
                         }
                     }
-                    state.message?.let {
+                    Box(Modifier.fillMaxWidth().height(88.dp)) {
+                    state.message?.takeIf { state.validationMessage }?.let {
                         Surface(color = if (state.error) Color(0xfffff3f3) else Color(0xfff1f5f9), shape = RoundedCornerShape(6.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, ScreenBorder)) {
                             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(screenIcon(if (state.error) "error" else "ready"), null, Modifier.size(18.dp), tint = if (state.error) MaterialTheme.colorScheme.error else Teal)
                                 Text(it, Modifier.testTag("reset-message"), style = MaterialTheme.typography.bodySmall,
-                                    color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                                     color = if (state.error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                     maxLines = 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
                         }
+                    }
                     }
                     HorizontalDivider()
                     TextButton(onClick = controller::dismiss, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -242,6 +248,8 @@ private fun ResetEntry(controller: ResetController) {
                 form()
             }
         }
+        FloatingTransientError(state.message?.takeUnless { state.validationMessage || state.busy }, controller::dismissMessage,
+            Modifier.align(Alignment.BottomCenter))
     }
     }
 }

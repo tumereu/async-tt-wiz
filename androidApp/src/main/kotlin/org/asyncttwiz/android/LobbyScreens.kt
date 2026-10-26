@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -25,7 +27,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -56,60 +61,78 @@ internal fun readyReason(preparation: LobbyPreparation?, accountId: String): Str
 @Composable
 internal fun ContactsContent(controller: LobbyController) {
     val state = controller.state
-    ScreenBusyOverlay(lobbyBusyMessage(state, "Loading contacts…")) {
-    BoxWithConstraints(Modifier.fillMaxSize().padding(16.dp)) {
-        val search: @Composable () -> Unit = {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Find a player", style = MaterialTheme.typography.titleMedium)
-                    Text("Search usernames", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ScreenTextField(state.query, controller::query, Modifier.weight(1f).semantics { contentDescription = "Search usernames" })
-                        ScreenOutlinedButton(onClick = controller::search, enabled = !state.searching) {
-                            EntryIcon(null, "search"); Spacer(Modifier.width(8.dp)); Text("Search")
-                        }
-                    }
-                    Text("Search results", style = MaterialTheme.typography.labelMedium)
-                    state.searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    if (state.searched && state.searchError == null && state.results.isEmpty()) Text("No players found.")
-                    for (contact in state.results) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(contact.username, Modifier.weight(1f))
-                        if (state.contacts.any { it.accountId == contact.accountId }) Text("Added")
-                        else ScreenOutlinedButton(onClick = { controller.add(contact) }, enabled = !state.mutating) {
-                            EntryIcon(null, "person"); Spacer(Modifier.width(4.dp)); Text("Add contact")
-                        }
-                    }
-                }
-            }
+    ScreenBusyOverlay(if (state.mutating) "Saving changes…" else null) {
+    Column(Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = state.contactsTab.ordinal) {
+            ContactsTab.entries.forEach { tab -> Tab(selected = state.contactsTab == tab,
+                onClick = { controller.contactsTab(tab) }, text = { Text(if (tab == ContactsTab.CONTACTS) "Contacts" else "Search") }) }
         }
-        val saved: @Composable () -> Unit = {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Saved contacts", style = MaterialTheme.typography.titleSmall)
-                    if (state.loaded && state.contacts.isEmpty()) Text("No saved contacts.")
-                    for (contact in state.contacts) Surface(color = ScreenBackground, shape = MaterialTheme.shapes.small) {
-                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("@", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(contact.username, Modifier.weight(1f).padding(start = 6.dp), fontWeight = FontWeight.SemiBold)
-                            ScreenButton(onClick = { controller.begin(contact) }, enabled = !state.mutating) {
-                                EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text("Invite")
+        InitialLoadArea(state.loaded, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
+            Column(Modifier.fillMaxSize().padding(16.dp)) {
+                if (state.contactsTab == ContactsTab.CONTACTS) {
+                    ScreenTextField(state.contactFilter, controller::filterContacts, Modifier.fillMaxWidth()
+                        .semantics { contentDescription = "Filter contacts" }, placeholder = "Filter contacts")
+                    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                        if (state.filteredContacts.isEmpty()) item { Text(if (state.contacts.isEmpty()) "No saved contacts." else "No matching contacts.", Modifier.padding(vertical = 12.dp)) }
+                        items(state.filteredContacts, key = { it.accountId }) { contact ->
+                            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                                .then(if (state.choosingOpponent) Modifier.clickable(enabled = !state.mutating) { controller.begin(contact) } else Modifier),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text(contact.username, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                                if (!state.choosingOpponent) ContactActionIcon("Remove contact", "delete", !state.mutating) { controller.requestRemoveContact(contact) }
+                                else EntryIcon(null, "chevron")
+                            }
+                        }
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ScreenTextField(state.query, controller::query, Modifier.weight(1f).semantics { contentDescription = "Search usernames" }, placeholder = "Search usernames")
+                        ScreenIconButton("Search players", "search", controller::search, enabled = !state.searching)
+                    }
+                    InitialLoadArea(!state.searching || state.searched, Modifier.weight(1f).fillMaxWidth()) {
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            if (state.searched && state.searchError == null && state.results.isEmpty()) item { Text("No players found.") }
+                            items(state.results, key = { it.accountId }) { contact ->
+                                val added = state.contacts.any { it.accountId == contact.accountId }
+                                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(contact.username, Modifier.weight(1f))
+                                    ContactActionIcon(if (added) "Added contact" else "Add contact", if (added) "ready" else "person", !state.mutating && !added) { controller.add(contact) }
+                                    if (state.choosingOpponent) ContactActionIcon("Invite", "send", !state.mutating, primary = true) { controller.invite(contact) }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        if (maxWidth >= 600.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { search() }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                saved()
-            }
-        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            search(); saved()
+    }
+    }
+    state.removingContact?.let { contact -> ScreenDialog(controller::dismissRemoveContact) {
+        Text("Remove ${contact.username}?", style = MaterialTheme.typography.titleMedium)
+        Text("Existing games and invitations will not change.")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScreenOutlinedButton(controller::dismissRemoveContact, Modifier.weight(1f)) { Text("Cancel") }
+            ScreenButton(controller::removeContact, Modifier.weight(1f)) { Text("Remove") }
         }
-    }
-    }
+    } }
     GameNameDialog(controller)
+}
+
+@Composable
+private fun ContactActionIcon(label: String, icon: String, enabled: Boolean, primary: Boolean = false, action: () -> Unit) {
+    var tooltip by remember { mutableStateOf(false) }
+    val currentAction by rememberUpdatedState(action)
+    Box(Modifier.size(48.dp).semantics {
+        contentDescription = label; role = Role.Button
+        if (!enabled) disabled()
+        onClick { if (enabled) action(); enabled }
+    }.pointerInput(enabled) {
+        detectTapGestures(onPress = { try { tryAwaitRelease() } finally { tooltip = false } },
+            onTap = { if (enabled) currentAction() }, onLongPress = { tooltip = true })
+    }, contentAlignment = Alignment.Center) {
+        Icon(screenIcon(icon), null, Modifier.size(22.dp), tint = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        if (tooltip) HoldTooltip(label)
+    }
 }
 
 private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when {
@@ -124,6 +147,7 @@ private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when
 internal fun GamesContent(controller: LobbyController, accountId: String) {
     val state = controller.state
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading games…")) {
+    InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item {
             OutlinedCard(Modifier.fillMaxWidth()) {
@@ -159,6 +183,7 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                 }
             }
         }
+    }
     }
     }
 }
@@ -218,6 +243,8 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 ScreenIconButton("Cancel game", "cancel", { controller.requestCancelSetup(game) }, danger = true)
             }
         }
+        InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
+        Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             state.detail?.let { game ->
@@ -232,12 +259,11 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
                                 game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
-                                modifier = if (ownPlayer?.deck != null) Modifier.weight(1f) else Modifier) {
+                                 modifier = Modifier.weight(1f)) {
                                 EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp))
                                 Text(if (ownPlayer?.deck == null) "Choose deck" else "Change deck")
                             }
-                            if (ownPlayer?.deck != null && game.lifecycle == GameLifecycle.LOBBY)
-                                ScreenOutlinedButton(onClick = controller::prepareDeck, Modifier.weight(1f)) {
+                                 ScreenOutlinedButton(onClick = controller::prepareDeck, Modifier.weight(1f), enabled = ownPlayer?.deck != null && game.lifecycle == GameLifecycle.LOBBY) {
                                     EntryIcon(null, "prepare"); Spacer(Modifier.width(8.dp)); Text("Prepare deck")
                                 }
                         }
@@ -248,7 +274,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                         PlayerReadiness(game.opponent(accountId).username,
                             state.preparation?.players?.find { it.accountId == game.opponent(accountId).accountId }?.ready == true)
                         if (game.invitationState == InvitationState.ACCEPTED) PreparedSummary(state.preparation, game.opponent(accountId).accountId)
-                        else Text(gameStatus(game), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                         else Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
+                             Text(gameStatus(game), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                         }
                         if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
                             ScreenOutlinedButton(onClick = { controller.reinvite(game) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames) {
                                 EntryIcon(null, "send"); Spacer(Modifier.width(8.dp)); Text("Reinvite")
@@ -283,6 +311,8 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             else ScreenButton(onClick = controller::ready,
                 enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
                     own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth(), content = readyContent)
+        }
+        }
         }
     }
     }
@@ -349,14 +379,16 @@ internal fun SetupCancellationDialogs(controller: LobbyController) {
     cancellation.confirmation?.let { game ->
         val connected = game.id in controller.state.connectedGames
         val pending = game.id in controller.state.pendingGames
-        ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null) {
+        ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null,
+            error = cancellation.error, dismissError = cancellation::clearError) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Cancel ${game.gameName}?", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 ScreenIconButton("Close cancellation", "close", cancellation::dismiss)
             }
             Text("Removes this unstarted game and its pending invitation.")
-            if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall)
-            cancellation.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Box(Modifier.fillMaxWidth().height(36.dp)) {
+                if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ScreenOutlinedButton(onClick = cancellation::dismiss, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Keep game") }
                 ScreenOutlinedButton(onClick = controller::confirmCancelSetup, enabled = connected && !pending,
@@ -387,6 +419,7 @@ private fun PlayerReadiness(name: String, ready: Boolean) {
 private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
     val player = preparation?.players?.find { it.accountId == accountId }
     val deck = player?.deck
+    Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
     if (deck == null) {
         if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
     } else {
@@ -397,11 +430,12 @@ private fun PreparedSummary(preparation: LobbyPreparation?, accountId: String) {
                     48, 68, Modifier.size(48.dp, 68.dp))
             }
             Column {
-                Text(deck.name, fontWeight = FontWeight.SemiBold)
+                Text(deck.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
     }
 }
 
@@ -411,15 +445,13 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
     val picker = controller.state.picker ?: return
     ScreenBusyOverlay(if (picker.confirming) "Loading deck…" else null) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Choose deck", hamburger) {
-            ScreenIconButton("Close deck picker", "close", controller::closePicker)
-        }
+        ScreenHeader("Choose deck", hamburger)
+        InitialLoadArea(picker.loaded || picker.decks.isNotEmpty(), Modifier.weight(1f).fillMaxWidth(), picker.error != null, controller::refreshPicker, loading = picker.loading) {
         PullToRefreshBox(isRefreshing = picker.loading,
             onRefresh = { if (!picker.loading && !picker.confirming) controller.refreshPicker() },
-            modifier = Modifier.weight(1f).fillMaxWidth()) {
+            modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                picker.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (picker.decks.isEmpty()) Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                     if (!picker.loading) Text("No saved decks yet.")
                 }
@@ -441,6 +473,7 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
             }
         }
         }
+        }
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
@@ -451,6 +484,7 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
             }
         }
     }
+    FloatingTransientError(picker.error, controller::dismissPickerError, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -460,15 +494,15 @@ private fun GameNameDialog(controller: LobbyController) {
     val draft = state.draft ?: return
     var value by remember(draft.recipient.accountId) { mutableStateOf(TextFieldValue(draft.name, TextRange(0, draft.name.length))) }
     LaunchedEffect(draft.name) { if (value.text != draft.name) value = TextFieldValue(draft.name, TextRange(0, draft.name.length)) }
-    ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null) {
+    ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null,
+        error = state.error, dismissError = controller::dismissSessionError) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("New game", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     ScreenIconButton("Cancel game creation", "close", controller::dismiss, enabled = !state.mutating)
                 }
                 Text("Invite ${draft.recipient.username}")
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value, { next -> value = next; controller.name(next.text) },
-                        Modifier.weight(1f).semantics { contentDescription = "Game name" }
+                         Modifier.fillMaxWidth().semantics { contentDescription = "Game name" }
                             .onFocusChanged { if (it.isFocused) value = value.copy(selection = TextRange(0, value.text.length)) }
                             .pointerInput(Unit) {
                                 awaitEachGesture {
@@ -485,17 +519,15 @@ private fun GameNameDialog(controller: LobbyController) {
                                     if (!moved && up != null && up.uptimeMillis - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis)
                                         value = value.copy(selection = TextRange(0, value.text.length))
                                 }
-                            }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain)
-                    ScreenIconButton("Suggest another game name", "shuffle", controller::reroll, enabled = !state.mutating && !state.uncertain)
-                }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                Box(Modifier.heightIn(min = 40.dp)) {
-                    if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall)
-                }
+                             }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain,
+                         trailingIcon = { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } })
+                 Box(Modifier.height(32.dp)) {
+                     if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.mutating, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Cancel") }
                     ScreenButton(onClick = controller::create, enabled = !state.mutating, modifier = Modifier.weight(1f)) {
-                        EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text("Create & invite")
+                         EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text("Create", maxLines = 1)
                     }
                 }
     }

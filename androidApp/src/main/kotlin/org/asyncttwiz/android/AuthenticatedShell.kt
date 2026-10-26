@@ -95,7 +95,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             }
         }
         if (!tabletop && lobby != null) FloatingTransientError(
-            lobby.state.error?.takeIf { lobby.state.draft == null } ?: lobby.state.connectionMessage,
+            lobby.state.error?.takeIf { lobby.state.draft == null } ?: lobby.state.searchError ?: lobby.state.connectionMessage,
             lobby::dismissSessionError, Modifier.align(Alignment.BottomCenter))
     }
     // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
@@ -117,12 +117,15 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
         if (close) IconButton(onClick = { controller.drawer(false) }, Modifier.align(Alignment.End)) {
             EntryIcon("Close navigation", "close")
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+        InitialLoadArea(lobby == null || lobby.state.loaded, Modifier.weight(1f).fillMaxWidth(),
+            failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
             for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
+                    if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
                     controller.navigate(destination)
                 }
             }
@@ -142,9 +145,10 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         EntryIcon(null, "games")
                         Column(Modifier.weight(1f)) {
-                            Text(game.gameName)
+                            Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                         EntryIcon(null, "chevron")
                     }
@@ -176,6 +180,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 NavigationItem("Add account", "person", false, action = controller::addAccount)
             }
         }
+        }
     }
 }
 
@@ -197,11 +202,11 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
             if (destination != ShellDestination.MENU)
-                Text(destination.title, Modifier.padding(12.dp).testTag("destination-title"), style = MaterialTheme.typography.titleLarge,
+                Text(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title, Modifier.padding(12.dp).testTag("destination-title"), style = MaterialTheme.typography.titleLarge,
                      fontWeight = FontWeight.Bold)
             if (destination == ShellDestination.GAMES) {
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { navigate(ShellDestination.CONTACTS) }) { EntryIcon(null, "add"); Spacer(Modifier.width(8.dp)); Text("New game") }
+                TextButton(onClick = { lobby?.contacts(true); navigate(ShellDestination.CONTACTS) }) { EntryIcon(null, "add"); Spacer(Modifier.width(8.dp)); Text("New game") }
             }
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -209,14 +214,16 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
             else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout)
-            else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
+            else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,
+                failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
                 verticalArrangement = if (destination == ShellDestination.MENU) Arrangement.Center else Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (destination == ShellDestination.MENU) {
                     WizardLogo()
                     Spacer(Modifier.height(24.dp))
                     for (item in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
-                         OutlinedButton(onClick = { navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
+                          OutlinedButton(onClick = { if (item == ShellDestination.CONTACTS) lobby?.contacts(false); navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),
                             colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White,
@@ -242,6 +249,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                         else -> "Contact search and invitations are not available in this build yet."
                     }, Modifier.widthIn(max = 540.dp).fillMaxWidth())
                 }
+            }
             }
         }
         if (destination == ShellDestination.DECKS && deckImport != null) {

@@ -63,6 +63,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         Log.e("HistoryExplorer", context, failure); Unit
     }) : AutoCloseable {
     var state by mutableStateOf(HistoryExplorerState()); private set
+    fun dismissError() { state = state.copy(error = null) }
     private var tree: GameplayTree? = null
     private var prepared: HistoryTree? = null
     @Volatile private var epoch = 0L

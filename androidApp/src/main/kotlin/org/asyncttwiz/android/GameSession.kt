@@ -112,6 +112,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val chatReads = mutableSetOf<String>()
     private val chatSubmissions = linkedMapOf<String, ChatSubmission>()
     fun chat(gameId: String) = messages[gameId].orEmpty()
+    fun chatLoaded(gameId: String) = gameId in chatRevisions
     fun outgoingChat(gameId: String) = chatSubmissions.values.filter { it.command.scope.gameId == gameId }
     fun sendChat(game: GameSummary, text: String): Boolean = measureLatency(game, GameAction.SendChat(text)) {
         val current = summary(game)

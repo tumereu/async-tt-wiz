@@ -60,12 +60,127 @@ class LobbyControllerTest {
         override suspend fun games(token: String, invitations: Boolean, after: String?) = GameList(if (invitations) emptyList() else games)
         override suspend fun head(token: String, id: String) = game.copy(id = id)
         override suspend fun add(token: String, input: AddContact): AccountIdentity { adds.add(input); return recipient }
+        override suspend fun remove(token: String, accountId: String) { contacts = contacts.filterNot { it.accountId == accountId } }
         override suspend fun create(token: String, input: CreateInvitation): GameSummary {
             creates.add(input); games = listOf(game)
             if (loseReply) throw LobbyFailure("network")
             return game.copy(gameName = input.gameName)
         }
         override fun close() = Unit
+    }
+
+    @Test fun tabsDefaultToLocalContactsAndFilteringDoesNotIssueRequests() {
+        val worker = Worker(); val api = Api()
+        val controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.refresh(); worker.drain()
+            controller.contacts(true)
+            assertEquals(ContactsTab.CONTACTS, controller.state.contactsTab)
+            controller.filterContacts("  cIpIe  ")
+            assertEquals(listOf(recipient), controller.state.filteredContacts)
+            controller.filterContacts("missing")
+            assertTrue(controller.state.filteredContacts.isEmpty())
+            assertTrue(worker.queue.isEmpty())
+            controller.contactsTab(ContactsTab.SEARCH)
+            controller.contacts(false)
+            assertFalse(controller.state.choosingOpponent)
+            assertEquals(ContactsTab.CONTACTS, controller.state.contactsTab)
+            assertEquals(listOf(recipient), controller.state.filteredContacts)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun inviteAddsNonContactBeforeOpeningDraftAndRemovalWaitsForServer() {
+        val worker = Worker(); val api = Api().apply { contacts = emptyList() }
+        val controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.refresh(); worker.drain()
+            controller.invite(recipient)
+            assertNull(controller.state.draft)
+            assertTrue(controller.state.contacts.isEmpty())
+            worker.drain()
+            assertEquals(1, api.adds.size)
+            assertEquals(recipient, controller.state.draft?.recipient)
+            controller.dismiss(); controller.invite(recipient)
+            assertEquals(1, api.adds.size)
+            controller.dismiss(); controller.requestRemoveContact(recipient); controller.removeContact()
+            assertEquals(listOf(recipient), controller.state.contacts)
+            worker.drain(); assertTrue(controller.state.contacts.isEmpty())
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun failedAddDoesNotOpenInviteAndLateAddCannotSurviveLogout() {
+        val worker = Worker(); var fail = true; val posts = ArrayDeque<() -> Unit>()
+        val api = object : Api() {
+            override suspend fun add(token: String, input: AddContact): AccountIdentity {
+                if (fail) throw LobbyFailure("invalid_request")
+                return recipient
+            }
+        }
+        val controller = LobbyController(api, { "token" }, worker, { posts.add(it) })
+        try {
+            controller.invite(recipient); worker.drain(); posts.removeFirst()()
+            assertNull(controller.state.draft); assertNotNull(controller.state.error)
+            fail = false; controller.invite(recipient); worker.drain(); controller.clear(); posts.removeFirst()()
+            assertNull(controller.state.draft); assertTrue(controller.state.contacts.isEmpty())
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun acceptedUpdatesAndRefreshesPreserveExistingGameOrder() {
+        val second = game.copy(id = id()); val changed = game.copy(revision = "2")
+        assertEquals(listOf(changed, second), updatedGameRows(listOf(game, second), changed, true))
+        assertEquals(listOf(second), updatedGameRows(listOf(game, second), changed, false))
+        val third = game.copy(id = id())
+        assertEquals(listOf(changed, second, third), stableGameRows(listOf(game, second), listOf(third, second, changed)))
+        val worker = Worker(); val api = Api().apply { games = listOf(game, second) }
+        val controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.refresh(); worker.drain()
+            api.games = listOf(second, changed); controller.refresh(); worker.drain()
+            assertEquals(listOf(changed, second), controller.state.games)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun failedSearchRefreshKeepsPreviouslyAcceptedResults() {
+        val worker = Worker(); var failing = false
+        val api = object : Api() {
+            override suspend fun search(token: String, query: String): UserSearch {
+                if (failing) throw LobbyFailure("invalid_request")
+                return UserSearch(listOf(recipient))
+            }
+        }
+        val controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.query("Recipient"); controller.search(); worker.drain()
+            failing = true; controller.search()
+            assertEquals(listOf(recipient), controller.state.results)
+            worker.drain()
+            assertEquals(listOf(recipient), controller.state.results)
+            assertNotNull(controller.state.searchError)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun fantasySuggestionsUseFortyDistinctWordsPerList() {
+        assertEquals(40, gameNameAdjectives.toSet().size)
+        assertEquals(40, gameNameNouns.toSet().size)
+        repeat(100) {
+            val words = gameNameSuggestion().split(' ')
+            assertEquals(2, words.size)
+            assertTrue(words[0] in gameNameAdjectives); assertTrue(words[1] in gameNameNouns)
+        }
+    }
+
+    @Test fun deletionUsesAuthenticatedDeleteRouteAndAcceptsEmptyAcknowledgement() = runBlocking {
+        val token = "A".repeat(43)
+        var calls = 0
+        val api = LobbyApi("https://example.test", HttpClient(MockEngine { request ->
+            calls++
+            assertEquals(HttpMethod.Delete, request.method)
+            assertEquals("/v1/contacts/${recipient.accountId}", request.url.encodedPath)
+            assertEquals("Bearer $token", request.headers["Authorization"])
+            respond("{}", HttpStatusCode.OK)
+        }))
+        try { api.remove(token, recipient.accountId); assertEquals(1, calls) }
+        finally { api.close() }
     }
 
     @Test fun capturedRecipientSuggestionsCancelBlankAndUncertainOriginalCreate() {
@@ -237,11 +352,11 @@ class LobbyControllerTest {
         try {
             val calls: List<suspend () -> Unit> = listOf({ api.search(token, "user") }, { api.contacts(token) },
                 { api.add(token, AddContact(id(), recipient.accountId)) }, { api.create(token, CreateInvitation(id(), recipient.accountId, "Name")) },
-                { api.games(token) }, { api.games(token, true) }, { api.head(token, game.id) })
+                 { api.games(token) }, { api.games(token, true) }, { api.head(token, game.id) }, { api.remove(token, recipient.accountId) })
             calls.forEach { assertEquals("authentication_required", assertFailsWith<LobbyFailure> { it() }.code) }
-            assertEquals(List(7) { token }, rejected)
+            assertEquals(List(8) { token }, rejected)
             status = HttpStatusCode.ServiceUnavailable
-            assertEquals("unavailable", assertFailsWith<LobbyFailure> { api.contacts(token) }.code); assertEquals(7, rejected.size)
+            assertEquals("unavailable", assertFailsWith<LobbyFailure> { api.contacts(token) }.code); assertEquals(8, rejected.size)
         } finally { api.close() }
     }
 

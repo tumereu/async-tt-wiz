@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
@@ -143,25 +144,33 @@ class PlaybackSettingsTest {
         assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
     }
 
-    @Test fun idleCatalogHasNoReservedStatusGapInPortrait() = assertCatalogGap()
+    @Test fun catalogReservesStableStatusAndActionSlotsInPortrait() = assertCatalogGeometry()
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun idleCatalogHasNoReservedStatusGapInLandscape() = assertCatalogGap()
+    fun catalogReservesStableStatusAndActionSlotsInLandscape() = assertCatalogGeometry()
 
-    private fun assertCatalogGap() {
+    private fun assertCatalogGeometry() {
         val models = ViewModelStore()
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
             models.put("catalog", it)
-            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100)))
+            it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-25", "1", records = 100), loaded = true))
         }
         try {
             compose.setContent { MaterialTheme { SettingsContent(catalog, "gap") {} } }
-            val installed = compose.onNodeWithText("Installed:", substring = true).fetchSemanticsNode().boundsInRoot
-            val check = compose.onNodeWithText("Check for updates").fetchSemanticsNode().boundsInRoot
-            assertTrue(check.top - installed.bottom < 48f, "Idle catalog must not reserve an empty 96dp status area")
-            val refresh = compose.onNodeWithText("Refresh full catalog").fetchSemanticsNode().boundsInRoot
-            val playback = compose.onNodeWithText("Playback").fetchSemanticsNode().boundsInRoot
-            assertTrue(playback.top - refresh.bottom < 60f, "Playback should follow Card records without a blank block")
+            // The reserved catalog slots can put the next section outside the viewport.
+            // Compare actual layout bounds, not rectangles clipped by the settings scroller.
+            val installed = compose.onNodeWithText("Installed:", substring = true).getUnclippedBoundsInRoot()
+            val check = compose.onNodeWithText("Check for updates").getUnclippedBoundsInRoot()
+            val refresh = compose.onNodeWithText("Refresh full catalog").getUnclippedBoundsInRoot()
+            val playback = compose.onNodeWithText("Playback").getUnclippedBoundsInRoot()
+            assertTrue(playback.top - refresh.bottom < 60.dp, "Playback should follow Card records without a blank block: $refresh -> $playback")
+            compose.runOnIdle { catalog.seed(catalog.state.copy(busy = true, status = "Checking card records…")) }
+            assertEquals(check, compose.onNodeWithText("Check for updates").getUnclippedBoundsInRoot())
+            assertEquals(playback, compose.onNodeWithText("Playback").getUnclippedBoundsInRoot())
+            compose.runOnIdle { catalog.seed(catalog.state.copy(busy = false, error = true, status = "Synthetic network failure")) }
+            assertEquals(check, compose.onNodeWithText("Retry").getUnclippedBoundsInRoot())
+            assertEquals(installed, compose.onNodeWithText("Installed:", substring = true).getUnclippedBoundsInRoot())
+            assertEquals(playback, compose.onNodeWithText("Playback").getUnclippedBoundsInRoot())
         } finally { models.clear() }
     }
 }

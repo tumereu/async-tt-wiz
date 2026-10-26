@@ -19,7 +19,7 @@ data class CatalogUiState(val installed: CatalogMetadata? = null, val available:
     val size: Long? = null, val metered: Boolean = true, val busy: Boolean = false,
     val status: String? = null, val error: Boolean = false, val progress: CatalogProgress? = null,
     val background: Boolean = false, val plan: CatalogUpdatePlan? = null,
-    val fullRefresh: CatalogUpdatePlan? = null, val fullSize: Long? = null)
+    val fullRefresh: CatalogUpdatePlan? = null, val fullSize: Long? = null, val loaded: Boolean = false)
 
 /** Volatile, process-wide consent deferral, deliberately not preferences or saved instance state. */
 internal class CatalogPromptPolicy {
@@ -142,6 +142,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun dismissFullRefresh() { state = state.copy(fullRefresh = null, fullSize = null) }
+    fun dismissError() { state = state.copy(status = null) }
     fun confirmFullRefresh() {
         val plan = state.fullRefresh ?: return
         if (working || cleared) return
@@ -178,7 +179,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             }
         }.also { AndroidTokenCatalog.refresh(getApplication()) }
     }
-    private fun publish(value: CatalogUiState) { main.post { if (!cleared) { state = value; working = false } } }
+    private fun publish(value: CatalogUiState) { main.post { if (!cleared) { state = value.copy(loaded = true); working = false } } }
     override fun onCleared() {
         cleared = true
         connectivity.unregisterNetworkCallback(callback)

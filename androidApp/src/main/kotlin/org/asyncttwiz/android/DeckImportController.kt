@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.storage.DeckImportResult
-import org.asyncttwiz.storage.ImportIssue
 import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.ExecutorService
@@ -13,7 +12,8 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val result: DeckImportResult? = null, val preview: Boolean = false, val name: String = "",
     val saving: Boolean = false, val error: String? = null, val target: String? = null,
     val mode: DeckImportMode = DeckImportMode.OVERWRITE, val editing: Boolean = false,
-    val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false)
+    val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
+    val lookupFailed: Boolean = false)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -38,7 +38,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             SubmittedDefinition(DeckJson.digest(definition), definition)
         }.distinctBy { it.digest }
     }.orEmpty()
-    val currentCover: DeckCover? get() = state.cover?.let { digest ->
+    val currentCover: DeckCover? get() = (state.cover ?: coverCards.firstOrNull()?.digest)?.let { digest ->
         val card = coverCards.find { it.digest == digest } ?: chosenCover?.takeIf { it.digest == digest }
             ?: source?.detail?.definitions?.get(digest)?.let { SubmittedDefinition(digest, it) }
         card?.let {
@@ -46,7 +46,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             DeckCover(digest, it.definition.name, face.scryfallId, face.imageUri)
         }
     }
-    fun chooseCover() { if (!state.saving) state = state.copy(choosingCover = true) }
+    fun chooseCover() { if (!state.saving && state.result?.resolved == true) state = state.copy(choosingCover = true) }
+    fun dismissError() { state = state.copy(error = null) }
     fun closeCover() { state = state.copy(choosingCover = false) }
     fun cover(digest: String) {
         if (!state.saving && coverCards.any { it.digest == digest }) {
@@ -68,7 +69,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         catalogInstalling = installing
         if (changed && state.active && !state.preview && !state.saving) {
             if (state.busy) relookupAfterCurrent = true
-            else if (state.result?.issues?.isNotEmpty() == true) lookup()
+            else if (state.lookupFailed || state.result?.issues?.isNotEmpty() == true) lookup()
         }
     }
     val inspection = CardInspectionController()
@@ -133,32 +134,31 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun edit(text: String) {
         if (!closed && state.active && !state.saving) { epoch++; retryPlan = null
             relookupAfterCurrent = false; saveAfterLookup = false
-            state = state.copy(text = text, busy = false, result = null, preview = false, error = null) }
+            state = state.copy(text = text, busy = false, result = null, preview = false, error = null, lookupFailed = false) }
     }
     fun lookup() {
         if (closed || !state.active || state.busy || state.preview || catalogInstalling) return
         val generation = ++epoch
         val text = state.text
         val retained = source
-        state = state.copy(busy = true)
+        state = state.copy(busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
-            val result = try { retained?.resolve(text, resolve) ?: resolve(text) } catch (_: Exception) {
-                DeckImportResult(text, emptyList(), listOf(ImportIssue(0,
-                    "Card records could not be read. Check storage or update card records, then retry lookup.")), null)
-            }
+            val outcome = runCatching { retained?.resolve(text, resolve) ?: resolve(text) }
+            val result = outcome.getOrNull()
             post { if (!closed && generation == epoch && state.active) {
-                state = state.copy(busy = false, result = result)
-                if (result.resolved && state.cover != null && coverCards.none { it.digest == state.cover }) {
+                state = state.copy(busy = false, result = result, lookupFailed = outcome.isFailure,
+                    error = if (outcome.isFailure) "Card records could not be read. Check storage or update card records, then retry lookup." else null)
+                if (result?.resolved == true && state.cover != null && coverCards.none { it.digest == state.cover }) {
                     retryPlan = null; state = state.copy(cover = null)
                 }
                 if (saveAfterLookup) {
                     saveAfterLookup = false
-                    if (result.resolved) save()
+                    if (result?.resolved == true) save()
                 }
                 val retry = relookupAfterCurrent
                 relookupAfterCurrent = false
-                if (retry && result.issues.isNotEmpty()) lookup()
+                if (retry && (outcome.isFailure || result?.issues?.isNotEmpty() == true)) lookup()
             } }
         }
     }
@@ -168,7 +168,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         retryPlan = null; state = state.copy(name = value, error = null)
     } }
     fun save() {
-        if (closed || !state.active || (!state.preview && !state.editing) || state.saving) return
+        if (closed || !state.active || state.saving) return
         if (state.result?.resolved != true) {
             saveAfterLookup = true
             if (!state.busy) lookup()
@@ -188,7 +188,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             var plan = previous
             try {
                  if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target, input.mode,
-                     input.cover, retained, input.editing)
+                      input.cover ?: coverCards.firstOrNull()?.digest, retained, input.editing)
                 val result = action(checkNotNull(plan))
                 post { if (!closed && generation == epoch && state.active) { exit(); saved(result) } }
             } catch (failure: Exception) {

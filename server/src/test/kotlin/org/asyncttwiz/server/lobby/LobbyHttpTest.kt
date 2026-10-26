@@ -123,6 +123,37 @@ class LobbyHttpTest {
         }
     }
 
+    @Test fun `removing a contact is authenticated unilateral idempotent and preserves invitations`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val owner = account(settings, "Owner", "owner@example.invalid")
+                val other = account(settings, "Other", "other@example.invalid")
+                val stranger = account(settings, "Stranger", "stranger@example.invalid")
+                val path = "/v1/contacts/${other.account.accountId}"
+                post(settings, "/v1/contacts", AddContact(id(), other.account.accountId), owner.token)
+                post(settings, "/v1/contacts", AddContact(id(), owner.account.accountId), other.token)
+                val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations",
+                    CreateInvitation(id(), other.account.accountId, "Retained Rune"), owner.token).body())
+                assertEquals(401, request(settings, "DELETE", path).statusCode())
+                assertEquals(200, request(settings, "DELETE", path, token = stranger.token).statusCode())
+                assertEquals(2, count(db, "contact"))
+                assertEquals(404, request(settings, "DELETE", "/v1/contacts/bad", token = owner.token).statusCode())
+                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
+                repeat(2) { assertEquals(200, request(settings, "DELETE", path, token = owner.token).statusCode()) }
+                assertTrue(json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = owner.token).body()).contacts.isEmpty())
+                assertEquals(listOf(owner.account), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = other.token).body()).contacts)
+                assertEquals(game, json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", token = owner.token).body()))
+                assertEquals(listOf(game), json.decodeFromString<GameList>(request(settings, "GET", "/v1/invitations", token = other.token).body()).games)
+                assertEquals(1, count(db, "game")); assertEquals(1, count(db, "invitation"))
+                assertEquals(400, post(settings, "/v1/invitations", CreateInvitation(id(), other.account.accountId, "New Rune"), owner.token).statusCode())
+                assertEquals(200, post(settings, "/v1/contacts", AddContact(id(), other.account.accountId), owner.token).statusCode())
+                assertEquals(2, count(db, "contact"))
+            }
+        }
+    }
+
     @Test fun `invalid inputs and failed invitation or outcome roll back all creation effects`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)

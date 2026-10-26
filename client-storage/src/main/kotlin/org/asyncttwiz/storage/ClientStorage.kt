@@ -84,6 +84,15 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         }
     }
 
+    /** Sparse derived-cache upgrade under the caller's publication CAS transaction. */
+    internal fun amendAccepted(scope: String, revision: Long, upserts: List<AcceptedRecord>) = access {
+        require(upserts.map { it.key }.distinct().size == upserts.size)
+        database.transaction {
+            check(database.replicaQueries.selectCursor(scope).executeAsOneOrNull() == revision) { "Accepted storage base changed" }
+            upserts.forEach { database.replicaQueries.putRecord(scope, it.key.kind, it.key.id, it.payload.version, it.payload.json) }
+        }
+    }
+
     /** Replace only this accepted scope, including records absent from a fresh complete baseline.
      * Equal-revision replacement permits repair of derived/corrupt local data. The tree adapter also
      * compares its publication identity, so an equal-revision writer cannot evade its local CAS.

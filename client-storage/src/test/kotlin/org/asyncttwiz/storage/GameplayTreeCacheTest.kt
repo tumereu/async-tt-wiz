@@ -12,6 +12,41 @@ import java.util.Properties
  * replay/gzip adapter fixtures execute in protocol/Android tests, not server/native acceptance.
  */
 class GameplayTreeCacheTest {
+    @Test fun derivedProjectionUpgradeIsSparseDurableRevisionPreservingAndPublicationFenced() {
+        initialize()
+        val projection = record("tree-cache-annotation-comment", "mark", "materialized-comment")
+        val endpoint = record("tree-cache-endpoint", "current", "bound-projection")
+        execute("CREATE TRIGGER no_history_rewrite BEFORE INSERT ON accepted_record WHEN NEW.record_kind = 'node' BEGIN SELECT RAISE(ABORT, 'history rewritten'); END")
+        open().use { storage ->
+            val cache = bind(storage)
+            val old = cache.version()!!
+            val next = cache.amend(old, listOf(projection, endpoint))!!
+            assertEquals(old.revision, next.revision)
+            assertNotEquals(old.publicationId, next.publicationId)
+            assertNull(cache.amend(old, listOf(projection.copy(payload = StoredPayload(1, "stale")))))
+            cache.invalidate()
+            assertNull(cache.amend(next, listOf(endpoint)))
+        }
+        open().use { storage ->
+            val cache = bind(storage)
+            assertEquals(10, cache.version()!!.revision)
+            assertEquals(setOf(root, offshoot, removed, projection, endpoint), cache.accepted()!!.records.toSet())
+        }
+    }
+
+    @Test fun failedDerivedProjectionUpgradeRollsBackEndpointAndPublicationTogether() {
+        initialize()
+        execute("CREATE TRIGGER fail_projection BEFORE INSERT ON accepted_record WHEN NEW.record_kind = 'tree-cache-annotation-comment' BEGIN SELECT RAISE(ABORT, 'injected projection failure'); END")
+        open().use { storage ->
+            val cache = bind(storage)
+            val old = cache.accepted()!!
+            assertThrows(Exception::class.java) { cache.amend(old.version, listOf(
+                record("tree-cache-endpoint", "current", "new-endpoint"),
+                record("tree-cache-annotation-comment", "mark", "materialized-comment"))) }
+            assertEquals(old, cache.accepted())
+        }
+    }
+
     @Test fun queuedReviewAfterRebindIsIgnoredAndReopenedTableReadsCurrentTree() {
         initialize()
         val worker = java.util.concurrent.Executors.newSingleThreadExecutor()

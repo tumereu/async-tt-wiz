@@ -33,8 +33,18 @@ import kotlinx.serialization.Transient
     fun restoreActive(index: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>>): EventAnnotationState =
         also { activeIndex = index }
     private fun active(): Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = activeIndex ?: run {
-        var groups: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = emptyMap()
+        // A materialized projection's maps have no ancestry/insertion order. Pick the newest
+        // ordinal per target; an Unping wins the tie with the addition it removes.
+        val latest = mutableMapOf<Pair<String, Pair<ReferencedEventContext, PingTarget>>, RecordedPingChange>()
         for (record in pingsById.values) {
+            val key = record.recording.groupId to (record.reference to record.target)
+            val old = latest[key]
+            val ordinal = (record.to ?: record.from)?.ordinal?.toLong() ?: 0L
+            val previous = (old?.to ?: old?.from)?.ordinal?.toLong() ?: -1L
+            if (ordinal > previous || (ordinal == previous && record.to == null)) latest[key] = record
+        }
+        var groups: Map<String, Map<Pair<ReferencedEventContext, PingTarget>, RecordedPingChange>> = emptyMap()
+        for (record in latest.values) {
             val group = record.recording.groupId; val key = record.reference to record.target
             val members = groups[group].orEmpty().let { if (record.to == null) it.removeShared(key) else it.putShared(key, record) }
             groups = groups.putShared(group, members)

@@ -47,6 +47,9 @@ class EventAnnotationsTest {
         val second = change(current, PlayAction.Ping(rootRef, y), 21); current = second.state!!
         current = change(current, PlayAction.Unping(rootRef, x), 22).state!!
         assertEquals(listOf("2"), EventAnnotations.activePings(current.annotations, group).map { it.to!!.ordinal })
+        val unordered = current.annotations.copy(pingsById = current.annotations.pingsById.entries.reversed().associate { it.toPair() })
+        assertEquals(listOf("2"), EventAnnotations.activePings(unordered, group).map { it.to!!.ordinal },
+            "A materialized projection has no insertion/ancestry order")
         current = change(current, PlayAction.Ping(rootRef, x), 23).state!!
         assertEquals(listOf("2", "3"), EventAnnotations.activePings(current.annotations, group).map { it.to!!.ordinal })
         assertEquals("noOp", change(current, PlayAction.Ping(rootRef, x), 23).outcome)

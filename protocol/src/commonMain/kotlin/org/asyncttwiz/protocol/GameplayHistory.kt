@@ -72,7 +72,7 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
 
 object GameplayHistory {
     /** No rule execution: all choices and exact inverse data were recorded at acceptance. */
-    fun apply(state: PlayState, mutation: GameplayMutation): PlayState? {
+    fun apply(state: PlayState, mutation: GameplayMutation, work: GameplayWork? = null): PlayState? {
         if (mutation.schemaVersion != 2 || state.currentNodeId != mutation.parentId ||
             mutation.author !in state.board.players.map { it.accountId } ||
             mutation.id != CommandIds.uuidV5(mutation.requestId, "board-node") ||
@@ -81,19 +81,19 @@ object GameplayHistory {
         if (state.currentGroup != context.fromGroup || state.currentBranchId != context.fromBranchId ||
             !GameplayConcerns.matches(state, mutation, false) ||
             !readsMatch(state, mutation)) return null
-        val next = GameplayDeltas.apply(state, mutation.transition.delta, false, mutation) ?: return null
+        val next = GameplayDeltas.apply(state, mutation.transition.delta, false, mutation, work) ?: return null
         if (!GameplayConcerns.matches(next, mutation, true)) return null
         return next.copy(currentNodeId = mutation.id, currentBranchId = mutation.branchId, currentGroup = context.toGroup)
     }
 
-    fun unapply(state: PlayState, mutation: GameplayMutation): PlayState? {
+    fun unapply(state: PlayState, mutation: GameplayMutation, work: GameplayWork? = null): PlayState? {
         if (mutation.schemaVersion != 2 || state.currentNodeId != mutation.id ||
             mutation.id != CommandIds.uuidV5(mutation.requestId, "board-node") ||
             mutation.transition.delta?.seal != GameplayDeltas.seal(mutation)) return null
         val context = mutation.bookkeeping ?: return null
         if (state.currentGroup != context.toGroup || state.currentBranchId != mutation.branchId) return null
         if (!GameplayConcerns.matches(state, mutation, true)) return null
-        val previous = GameplayDeltas.apply(state, mutation.transition.delta, true, mutation) ?: return null
+        val previous = GameplayDeltas.apply(state, mutation.transition.delta, true, mutation, work) ?: return null
         if (!GameplayConcerns.matches(previous, mutation, false)) return null
         if (!readsMatch(previous, mutation)) return null
         return previous.copy(currentNodeId = mutation.parentId, currentBranchId = context.fromBranchId, currentGroup = context.fromGroup)
@@ -252,7 +252,7 @@ object GameplayHistory {
 
     /** Recorded replay never accepts a different relevant transition, including changed numeric inputs. */
     fun replay(state: PlayState, mutation: GameplayMutation,
-        references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
+        references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE, work: GameplayWork? = null): GameplayChange {
         if (mutation.bookkeeping == null || mutation.transition.delta == null) return GameplayChange(reason = "replayBlocked")
         if (mutation.schemaVersion == 2) {
             mutation.transition.annotation?.target?.takeIf { mutation.transition.concerns != null }?.let { target ->
@@ -269,7 +269,7 @@ object GameplayHistory {
                     return GameplayChange(reason = "replayBlocked")
             }
             val rebased = recontextualize(state, mutation.copy(parentId = state.currentNodeId))
-            return apply(state, rebased)?.let { GameplayChange(it, rebased) }
+            return apply(state, rebased, work)?.let { GameplayChange(it, rebased) }
             ?: GameplayChange(reason = "replayBlocked")
         }
         return GameplayChange(reason = "replayBlocked")

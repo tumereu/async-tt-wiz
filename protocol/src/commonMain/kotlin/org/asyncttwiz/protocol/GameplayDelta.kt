@@ -198,7 +198,9 @@ internal object GameplayDeltas {
         return JsonArray(array.take(start) + added + array.drop(end))
     }
 
-    fun apply(state: PlayState, delta: GameplayDelta, reverse: Boolean, mutation: GameplayMutation? = null): PlayState? = try {
+    fun apply(state: PlayState, delta: GameplayDelta, reverse: Boolean, mutation: GameplayMutation? = null,
+        work: GameplayWork? = null): PlayState? = try {
+        work?.let { it.deltaApplications++ }
         for (pile in delta.piles) {
             val container = state.board.containers.singleOrNull { it.id == pile.containerId } ?: throw Mismatch()
             if (GameplayRules.members(state.board, container, pile.placement) != (if (reverse) pile.to else pile.from)) throw Mismatch()

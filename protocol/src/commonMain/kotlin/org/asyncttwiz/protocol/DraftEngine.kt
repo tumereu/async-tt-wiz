@@ -102,6 +102,32 @@ object DraftEngine {
             seating.associateWith { emptyList() }, seating.associateWith { emptyList() })).settle()
     }
 
+    /**
+     * Pre-generated packs, in opening-number then seat order. Card order and pack sizes are preserved;
+     * cardsPerPack and colorBalance do not change them. Copy IDs must be unique across the whole draft.
+     */
+    fun startWithPacks(players: List<String>, packs: List<List<DraftCopy>>, settings: DraftSettings, seed: String): DraftState {
+        require(settings.validate(players.size).isEmpty()) { "Invalid draft settings" }
+        require(players.all { it.isNotBlank() } && players.distinct().size == players.size) { "Invalid members" }
+        require(packs.size == settings.packsPerPlayer * players.size) { "Wrong pack count" }
+        val copies = packs.flatten()
+        require(copies.all { it.id.isNotBlank() && it.definition.isNotBlank() }) { "Invalid copies" }
+        require(copies.map { it.id }.distinct().size == copies.size) { "Duplicate copy IDs" }
+        val words = RandomV1.Words(seed)
+        val seating = players.sorted().toMutableList()
+        for (i in seating.lastIndex downTo 1) {
+            val j = RandomV1.sample(i + 1, words::next)
+            val player = seating[i]; seating[i] = seating[j]; seating[j] = player
+        }
+        val draftPacks = packs.mapIndexed { index, cards ->
+            val number = index / seating.size + 1
+            DraftPack("pack-$index", (number - 1) / settings.packsOpenAtOnce,
+                seating[index % seating.size], number, cards.map { it.id })
+        }
+        return Working(DraftState(settings, seating.toList(), copies, draftPacks, -1,
+            seating.associateWith { emptyList() }, seating.associateWith { emptyList() })).settle()
+    }
+
     fun pick(state: DraftState, pick: DraftPick): DraftPickResult {
         fun reject(reason: DraftPickRejection) = DraftPickResult(reason = reason)
         if (state.finished) return reject(DraftPickRejection.DRAFT_FINISHED)

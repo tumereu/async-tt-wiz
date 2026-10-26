@@ -152,7 +152,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                is TableIntent.Selection -> { beforeSelection = selection; selection = intent.selection }
+                is TableIntent.Selection -> if (!currentRuntime.reviewing) { beforeSelection = selection; selection = intent.selection }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
                     if (toolkit == null) actions = captured else {
@@ -338,11 +338,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             presentation = { rendered.value.scene }
             var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
                 CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
+            if (runtime.reviewing) retained = retained.copy(ids = emptySet(), mode = if (retained.mode == TableMode.SELECT) TableMode.NORMAL else retained.mode)
             if (visitedGroup != play.currentGroup?.id && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
             visitedGroup = play.currentGroup?.id
             if (retained != selection) selection = retained
             coordinator.update(scene, retained, writable || (retained.mode == TableMode.PING &&
-                runtime.ping != null && runtime.controlsConnected == true), sceneSource = { rendered.value.scene })
+                runtime.ping != null && runtime.controlsConnected == true), sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
         }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
@@ -472,7 +473,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
                         if (item.cardId != null) {
                             commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
-                            commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
+                             if (!runtime.reviewing) commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
                             if (writable && scene.canDrag(item)) {
                                 if (item.zone == PlayZone.BATTLEFIELD && !item.projection) {
                                     commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
@@ -563,8 +564,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
         }
         AnimatedCardRingAnchors(rendered, actions != null || toolkit?.capture != null) {
-        if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { selection = selection.toggle(it) }, accepted,
-             tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history)
+         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { if (!runtime.reviewing) selection = selection.toggle(it) }, accepted,
+              tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
+              selectionEnabled = !runtime.reviewing)
         actions?.let { captured ->
             val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
                 play.board.cards.singleOrNull { it.id == id }?.let { card ->
@@ -581,7 +583,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             else TableActionsScreen(game, play, accountId,
                 captured, item, selection, writable, landscape, dismiss = { actions = null },
                 inspect = { id -> coordinator.inspect(item.copy(cardId = id)) },
-                select = { id -> selection = selection.toggle(id) },
+                 select = { id -> if (!runtime.reviewing) selection = selection.toggle(id) },
                 open = { id ->
                     val scope = selection.scope(id, play.board.cards.map { it.id })
                     actions = TableIntent.Actions("card/$id", scope, BasicTableController.sources(play, scope.cardIds))

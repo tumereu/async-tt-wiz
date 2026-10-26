@@ -93,7 +93,9 @@ class HistoryPlayback(initial: HistoryTree) {
     private var removedParents: Map<String, String> = emptyMap()
     private var rollbackPlan: Pair<String, String>? = null
     private var autoPauseCursor: String? = null
+    private var finalAnimationCursor: String? = null
     var branched by mutableStateOf(false); private set
+    val transportLocked get() = branched || rollbackPlan != null && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
 
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root. */
     fun openFrom(lastSeen: String?) {
@@ -112,7 +114,7 @@ class HistoryPlayback(initial: HistoryTree) {
     }
     fun acknowledgeBranch() { branched = false }
     fun stepPauseMillis(normal: Long): Long = if (!tree.isAncestor(position.cursorId, tree.sharedHeadId))
-        minOf(100L, normal / 4).coerceAtLeast(1) else normal
+        minOf(50L, normal / 8).coerceAtLeast(1) else normal
 
     fun receive(next: HistoryTree, viewer: String? = null) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
@@ -192,25 +194,39 @@ class HistoryPlayback(initial: HistoryTree) {
         val cursor = resolveCursor(id)
         livePanelReveal = false
         autoPauseCursor = null
+        finalAnimationCursor = null
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         rollbackPlan = null; branched = false
     }
-    fun pause() { autoPauseCursor = null; position = position.copy(playing = false) }
+    fun pause() {
+        if (transportLocked) return
+        autoPauseCursor = null; position = position.copy(playing = false)
+    }
     fun play() {
         if (position.mode != HistoryMode.PLAYBACK) return
+        if (transportLocked) return
+        if (position.cursorId == tree.sharedHeadId) { continuationApplied(); return }
         livePanelReveal = false; position = position.copy(playing = true); planRollback()
     }
 
     fun previous() {
+        if (transportLocked) return
         scrub(tree.previousGroup(position.cursorId))
     }
 
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
     fun next(automatic: Boolean = false, viewer: String? = null,
-        autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults, board: BoardState? = null) {
+        autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults, board: BoardState? = null,
+        definitions: List<SubmittedDefinition> = emptyList()) {
         if (automatic && (!foreground || !position.playing)) return
+        if (branched || !automatic && transportLocked) return
         livePanelReveal = false
         val common = planRollback()
+        if (branched) {
+            // Next from a displaced paused cursor starts the same notice-first rollback as Auto.
+            position = position.copy(playing = true)
+            return
+        }
         val target: String
         if (position.cursorId != common) {
             val previous = tree.previousGroup(position.cursorId)
@@ -219,13 +235,20 @@ class HistoryPlayback(initial: HistoryTree) {
             target = tree.forwardGroup(position.cursorId)
         }
         autoPauseCursor = target.takeIf { automatic && viewer != null && position.cursorId == common &&
-            tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board) }
-        // A matching head must remain in playback too: do not hide its animation/chrome or follow
-        // newly received events before the viewer explicitly resumes Auto.
-        val live = target == tree.sharedHeadId && autoPauseCursor == null
-        position = HistoryPosition(target, if (live) HistoryMode.LIVE else HistoryMode.PLAYBACK,
-            automatic && !live, tree.version(target))
-        if (target == common || live) branched = false
+            target != tree.sharedHeadId && tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board, definitions) }
+        // Keep the historical scene mounted until its final movement has actually settled.
+        finalAnimationCursor = target.takeIf { it == tree.sharedHeadId }
+        position = HistoryPosition(target, HistoryMode.PLAYBACK, automatic, tree.version(target))
+        if (target == common) { branched = false; rollbackPlan = null }
+    }
+
+    /** Idempotent, cursor-fenced handoff: a stale animation callback cannot skip newer events. */
+    fun finishAnimation(cursor: String): Boolean {
+        if (!foreground || position.cursorId != cursor || finalAnimationCursor != cursor) return false
+        finalAnimationCursor = null
+        if (cursor != tree.sharedHeadId) return false
+        continuationApplied()
+        return true
     }
 
     /** Invoked only once the selected group's scene is on screen. Resuming cannot re-trigger it. */
@@ -238,7 +261,11 @@ class HistoryPlayback(initial: HistoryTree) {
     /** Capture on pointer down. Deletion/fallback must never silently arm a different boundary. */
     fun canContinue(capturedId: String) = position.mode == HistoryMode.PLAYBACK && !position.playing &&
         position.cursorId == capturedId && tree.contains(capturedId)
-    fun continuationApplied() { livePanelReveal = false; position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion) }
+    fun continuationApplied() {
+        livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
+        rollbackPlan = null; branched = false
+        position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
+    }
 }
 
 data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val alpha: Float)

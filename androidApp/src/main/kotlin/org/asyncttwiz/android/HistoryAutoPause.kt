@@ -3,13 +3,16 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 enum class PlaybackAutoPause(val label: String, val defaultEnabled: Boolean = true) {
-    STACK("Stack change"),
+    STACK_ADDED("Added to Stack"),
+    STACK_REMOVED("Removed from Stack", false),
     REVEAL("Reveal"),
     PINGS_COMMENTS("Pings / comments"),
     RANDOM("Die / coin results"),
     YOURS("Your life / cards hit"),
     ATTENTION("Move passes to you"),
-    ATTACKERS("Attackers declared", false);
+    ATTACKERS("Attackers declared", false),
+    LAND_FROM_HAND("Opponent plays a land", false),
+    NONLAND_FROM_HAND("Opponent puts a nonland card onto the battlefield from hand", false);
 
     companion object {
         val defaults = entries.filter { it.defaultEnabled }.toSet()
@@ -19,13 +22,15 @@ enum class PlaybackAutoPause(val label: String, val defaultEnabled: Boolean = tr
 /** Reads only the advancing delta and a nearby materialized board, never ancestors or a replay.
  * Ownership/location changes within the group are folded into this small, touched-card cache. */
 internal class HistoryAutoPause(private val viewer: String, private val board: BoardState?,
-    private val containers: List<PlayContainer> = board?.containers.orEmpty()) {
-    private data class Card(val owner: String, val container: String)
+    private val containers: List<PlayContainer> = board?.containers.orEmpty(),
+    private val definitions: List<SubmittedDefinition> = emptyList()) {
+    private data class Card(val owner: String, val container: String, val definition: String = "", val face: String = "")
+    private fun PlayCard.context() = Card(owner, containerId, definition, faceId)
     private val cards = mutableMapOf<String, Card?>()
     private val effects = mutableMapOf<String, StackEffect?>()
     private var turnPlayer = board?.turn?.accountId
     private fun card(id: String): Card? {
-        if (id !in cards) cards[id] = board?.cards?.firstOrNull { it.id == id }?.let { Card(it.owner, it.containerId) }
+        if (id !in cards) cards[id] = board?.cards?.firstOrNull { it.id == id }?.context()
         return cards[id]
     }
     private fun effect(id: String): StackEffect? = if (id in effects) effects[id] else
@@ -46,10 +51,26 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
         val result = mutableSetOf<PlaybackAutoPause>()
         if (node.author != viewer) {
             val movement = t.movement
-            if (t.combatStack?.let { it.effects.isNotEmpty() || it.order.isNotEmpty() } == true ||
-                movement != null && containers.any { it.zone == PlayZone.STACK &&
-                    it.id in listOf(movement.from.containerId, movement.to.containerId) }) result += PlaybackAutoPause.STACK
-            if (t.disclosures.any { viewer in it.viewers } || t.contents?.let { change ->
+            fun zone(id: String) = containers.firstOrNull { it.id == id }?.zone
+            val stack = t.combatStack
+            if (stack?.let { s -> s.effects.any { it.from == null && it.to != null } ||
+                    s.order.any { it.from == null && it.to != null } } == true ||
+                movement?.let { zone(it.from.containerId) != PlayZone.STACK && zone(it.to.containerId) == PlayZone.STACK } == true)
+                result += PlaybackAutoPause.STACK_ADDED
+            if (stack?.let { s -> s.effects.any { it.from != null && it.to == null } ||
+                    s.order.any { it.from != null && it.to == null } } == true ||
+                movement?.let { zone(it.from.containerId) == PlayZone.STACK && zone(it.to.containerId) != PlayZone.STACK } == true)
+                result += PlaybackAutoPause.STACK_REMOVED
+            if (movement != null && zone(movement.from.containerId) == PlayZone.HAND && zone(movement.to.containerId) == PlayZone.BATTLEFIELD) {
+                val card = card(movement.cardId)
+                val faceId = t.disclosures.firstOrNull { it.cardId == movement.cardId }?.faceId ?:
+                    t.fields.lastOrNull { it.targetId == movement.cardId && it.field == GameplayField.FACE }?.to ?: card?.face
+                val face = definitions.firstOrNull { it.digest == card?.definition }?.definition?.faces?.firstOrNull { it.faceId == faceId }
+                if (face != null) result += if ("Land" in face.typeLine.substringBefore('—').split(' '))
+                    PlaybackAutoPause.LAND_FROM_HAND else PlaybackAutoPause.NONLAND_FROM_HAND
+            }
+            val explicitDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard || action is PlayAction.InspectFace
+            if (explicitDisclosure && t.disclosures.any { viewer in it.viewers } || t.contents?.let { change ->
                     change.to?.let { display -> change.from == null && display.cardIds.any { display.faceVisibleTo(it, viewer) } } == true
                 } == true) result += PlaybackAutoPause.REVEAL
             if (action is PlayAction.Ping || action is PlayAction.EventComment) result += PlaybackAutoPause.PINGS_COMMENTS
@@ -87,7 +108,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
         // Even own actions can change the context for a later opponent action in the same delta.
         for (token in t.tokens) {
             val next = token.to?.card
-            cards[(next ?: token.from?.card)!!.id] = next?.let { Card(it.owner, it.containerId) }
+            cards[(next ?: token.from?.card)!!.id] = next?.context()
         }
         for (field in t.fields) {
             if (field.field == GameplayField.TURN_PLAYER) turnPlayer = field.to
@@ -95,6 +116,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
             when (field.field) {
                 GameplayField.OWNER -> field.to?.let { cards[field.targetId] = old.copy(owner = it) }
                 GameplayField.CONTAINER -> field.to?.let { cards[field.targetId] = old.copy(container = it) }
+                GameplayField.FACE -> field.to?.let { cards[field.targetId] = old.copy(face = it) }
                 else -> Unit
             }
         }
@@ -106,7 +128,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
 
 /** O(newly traversed group), including when starting in the middle of an open group. */
 internal fun HistoryTree.autoPauseBetween(from: String, to: String, viewer: String,
-    enabled: Set<PlaybackAutoPause>, board: BoardState?): Boolean {
+    enabled: Set<PlaybackAutoPause>, board: BoardState?, definitions: List<SubmittedDefinition> = emptyList()): Boolean {
     if (enabled.isEmpty() || from == to) return false
     val delta = mutableListOf<GameplayMutation>()
     var cursor = to
@@ -115,6 +137,6 @@ internal fun HistoryTree.autoPauseBetween(from: String, to: String, viewer: Stri
         delta += node
         cursor = node.parentId
     }
-    val classifier = HistoryAutoPause(viewer, board, containers.ifEmpty { board?.containers.orEmpty() })
+    val classifier = HistoryAutoPause(viewer, board, containers.ifEmpty { board?.containers.orEmpty() }, definitions)
     return delta.asReversed().any { classifier.triggers(it).any(enabled::contains) }
 }

@@ -13,7 +13,7 @@ class HistoryPlaybackTest {
         val gestures = TableGestureCoordinator({ if (it is TableIntent.Peek && it.cardId != null) player.pause() })
         gestures.update(scene, TableSelection(), true)
         player.openFrom(id(0))
-        while (player.position.mode == HistoryMode.PLAYBACK) player.next(true)
+        while (player.position.mode == HistoryMode.PLAYBACK) { player.next(true); player.finishAnimation(player.position.cursorId) }
         gestures.down(card.bounds.center, 0); gestures.tick(400)
         assertTrue(gestures.peeking)
         assertEquals(HistoryMode.LIVE, player.position.mode)
@@ -84,6 +84,7 @@ class HistoryPlaybackTest {
         assertEquals(id(2), playback.position.cursorId) // Rest of same open group, exact cursor retained until stepping.
         playback.play(); playback.next(automatic = true)
         assertEquals(id(4), playback.position.cursorId) // Tap plus next substantive action is one group.
+        playback.finishAnimation(id(4))
         assertEquals(HistoryMode.LIVE, playback.position.mode)
         val e = node(5,4)
         playback.receive(tree(listOf(a,b,c,d,e)))
@@ -145,11 +146,13 @@ class HistoryPlaybackTest {
         playback.scrub(id(3)); assertEquals(id(3), playback.position.cursorId)
         playback.next(); assertEquals(id(4), playback.position.cursorId)
         playback.background(); playback.receive(tree(nodes,6)); playback.foreground()
-        playback.play(); playback.next(true); assertEquals(id(2), playback.position.cursorId)
+        playback.finishAnimation(id(4))
+        playback.play(); playback.acknowledgeBranch(); playback.next(true); assertEquals(id(2), playback.position.cursorId)
         playback.next(true); assertEquals(id(1), playback.position.cursorId) // Stop at ancestor INSIDE an old group.
         playback.next(true); assertEquals(id(5), playback.position.cursorId)
         playback.pause(); playback.next(true); assertEquals(id(5), playback.position.cursorId)
         playback.next(); assertEquals(id(6), playback.position.cursorId)
+        playback.finishAnimation(id(6))
         assertEquals(HistoryMode.LIVE, playback.position.mode)
     }
 
@@ -186,6 +189,7 @@ class HistoryPlaybackTest {
         assertEquals(id(0), playback.position.cursorId)
         playback.next()
         assertEquals(id(1), playback.position.cursorId)
+        playback.finishAnimation(id(1))
         assertEquals(HistoryMode.LIVE, playback.position.mode)
     }
 
@@ -222,5 +226,28 @@ class HistoryPlaybackTest {
         assertFails { tree(listOf(node(2,1))) }
         assertFails { tree(listOf(node(1,2),node(2,1))) }
         assertFails { tree(listOf(node(1,0),node(1,0))) }
+    }
+
+    @Test fun autoAtHeadReturnsLiveSynchronouslyButArrivalWaitsForExactlyOneFinalAnimation() {
+        for (automatic in listOf(false, true)) {
+            val event = node(1, 0)
+            val player = HistoryPlayback(tree(listOf(event)))
+            player.scrub(id(1)); player.play()
+            assertEquals(HistoryMode.LIVE, player.position.mode)
+            player.openFrom(id(0))
+            val start = TableScene(listOf(TableItem("card", TableBounds(0f, 0f, 10f, 20f), "card", "")), emptyList())
+            val end = start.copy(items = start.items.map { it.copy(bounds = it.bounds.copy(x = 100f)) })
+            val animation = HistorySceneAnimation(start)
+            player.next(automatic)
+            assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+            assertTrue(animation.retarget(end, 1f))
+            assertEquals(0f, animation.frame(0f).single().bounds.x)
+            assertEquals(100f, animation.frame(1f).single().bounds.x)
+            assertFalse(player.finishAnimation(id(0))) // stale callback
+            assertTrue(player.finishAnimation(id(1)))
+            assertEquals(HistoryMode.LIVE, player.position.mode)
+            assertFalse(player.finishAnimation(id(1)))
+            assertFalse(animation.retarget(end, 1f)) // Live metadata cannot restart the final motion.
+        }
     }
 }

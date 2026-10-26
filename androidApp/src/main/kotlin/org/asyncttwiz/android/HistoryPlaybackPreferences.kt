@@ -21,6 +21,16 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
             if (preferences.getLong(key, 1_500L) == 1_500L) edit.remove(key)
             edit.apply()
         }
+        // An explicit old opt-out applies to both halves. Otherwise take the new defaults.
+        if (preferences.contains(triggerPrefix + "STACK")) {
+            val edit = preferences.edit().remove(triggerPrefix + "STACK")
+            if (!preferences.getBoolean(triggerPrefix + "STACK", true)) {
+                for (trigger in listOf(PlaybackAutoPause.STACK_ADDED, PlaybackAutoPause.STACK_REMOVED)) {
+                    if (!preferences.contains(triggerPrefix + trigger.name)) edit.putBoolean(triggerPrefix + trigger.name, false)
+                }
+            }
+            edit.apply()
+        }
     }
 
     // Separate from the accepted replica and auth cleanup: debug Logout/account switching must

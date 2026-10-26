@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.*
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
     landscape: Boolean, selection: TableSelection, select: (String) -> Unit,
     accepted: PlayState? = null, tokenCatalog: TableTokenCatalog? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
-    onTimeline: (() -> Unit)? = null) {
+    onTimeline: (() -> Unit)? = null, selectionEnabled: Boolean = true) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -39,7 +39,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
     val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
-        cardExtraTools(toolkit, play, bound, selection, select, names, enabled) else emptyList()
+        cardExtraTools(toolkit, play, bound, selection, select, names, enabled, selectionEnabled) else emptyList()
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
         submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
         previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } },
@@ -63,7 +63,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
                 MenuControl("Note", enabled) { editProjectionNote(bound.contextViewId) },
                 cardPingTool(toolkit, play, bound, enabled, LocalTableMenuAnnotations.current),
-                MenuControl("Select / deselect") { select(bound.contextViewId) }) +
+                 MenuControl("Select / deselect", selectionEnabled) { select(bound.contextViewId) }) +
                 (if (toolkit.tokens.projectionScope != null) listOf(
                     MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
                     MenuControl("Links") { toolkit.tokens.links(); toolkit.dismiss() }) else emptyList()) +
@@ -171,8 +171,9 @@ private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlaySt
 }
 
 private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
-    selection: TableSelection, select: (String) -> Unit, names: Map<String, String>, enabled: Boolean): List<MenuControl> = buildList {
-    add(MenuControl("Select / deselect", selected = bound.contextViewId in selection.ids) { select(bound.contextViewId) })
+    selection: TableSelection, select: (String) -> Unit, names: Map<String, String>, enabled: Boolean,
+    selectionEnabled: Boolean): List<MenuControl> = buildList {
+    add(MenuControl("Select / deselect", selectionEnabled, selected = bound.contextViewId in selection.ids) { select(bound.contextViewId) })
     if (selection.mode == TableMode.SELECT && play.board.cards.any { card -> card.id == bound.contextViewId &&
             play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) for (tapped in listOf(true, false))
         add(MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {

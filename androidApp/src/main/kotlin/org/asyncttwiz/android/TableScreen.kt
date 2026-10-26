@@ -239,7 +239,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                              HistoryTimeline(events, player.tree.sharedHeadId, accountId, {}, {},
                                  readOnly = true, onEnter = { history.select(player.tree.sharedHeadId) })
                          }) },
-                         onSceneSettled = { settledCursor = it }, sceneVersion = position?.displayVersion,
+                          onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                          returnCurrent = if (reviewing || history.armed != null) ({ history.requestExitReview(interactive) }) else null,
@@ -247,7 +247,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          reviewPanel = if (playback != null && reviewing && history.armed == null) ({
                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                    interactive, playbackPause, { history.requestContinuation(it) },
-                                   autoPause = playbackAutoPause, board = play.board,
+                                    autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
                                   onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
                                   onTree = {

@@ -4,7 +4,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculateCentroidSize
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,15 +19,20 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlin.math.roundToInt
+import kotlin.math.abs
 
 /** Full-screen, two-axis grouped history picker. Tap reviews the group endpoint and closes. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -34,7 +44,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
     val state = controller.state
     val graph = state.graph
     var menu by remember { mutableStateOf(false) }
-    var pan by remember { mutableStateOf(Offset.Zero) }
+    var viewport by remember(controller) { mutableStateOf(HistoryTreeViewport()) }
     var picked by remember { mutableStateOf<String?>(null) }
     val density = LocalDensity.current.density
     val activeColor = Color(0xff268849)
@@ -61,25 +71,44 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                     Spacer(Modifier.weight(1f))
                     IconButton(onDismiss) { Icon(menuIcon("Close"), "Close game tree", tint = MenuInk) }
                 }
-                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).semantics { contentDescription = "Game history group tree" }
-                    .background(Color(0xfff4f8f6)).clipToBounds().pointerInput(graph?.width, graph?.height) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            graph?.pan(HistoryPoint(pan.x, pan.y), drag.x / density, drag.y / density,
-                                size.width / density, size.height / density)?.let { pan = Offset(it.x, it.y) }
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).semantics {
+                    contentDescription = "Game history group tree"
+                    stateDescription = "Zoom ${viewport.zoom}"
+                }.background(Color(0xfff4f8f6)).clipToBounds().pointerInput(IdentityKey(graph), density) {
+                        // Observe before chips consume their downs. Only claim movement beyond
+                        // slop, preserving chip taps/holds but allowing pinch/pan over chips too.
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            var pastSlop = false
+                            var totalZoom = 1f
+                            var totalPan = Offset.Zero
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val pan = event.calculatePan()
+                                val zoom = event.calculateZoom()
+                                totalZoom *= zoom; totalPan += pan
+                                if (!pastSlop) pastSlop = totalPan.getDistance() > viewConfiguration.touchSlop ||
+                                    abs(1f - totalZoom) * event.calculateCentroidSize(useCurrent = false) > viewConfiguration.touchSlop
+                                if (pastSlop) {
+                                    val centroid = event.calculateCentroid(useCurrent = false)
+                                    graph?.let { viewport = viewport.transform(HistoryPoint(centroid.x / density, centroid.y / density),
+                                        HistoryPoint(pan.x / density, pan.y / density), zoom, it, size.width / density, size.height / density) }
+                                    event.changes.filter { it.positionChanged() }.forEach { it.consume() }
+                                }
+                            } while (event.changes.any { it.pressed })
                         }
                     }) {
                     LaunchedEffect(graph, state.busy, maxWidth, maxHeight) {
                         if (!framed && graph != null && !state.busy) {
                             val point = graph.centeredOn(requireNotNull(state.selectedNodeId), maxWidth.value, maxHeight.value)
-                            pan = Offset(point.x, point.y)
+                            viewport = HistoryTreeViewport(point)
                             framed = true
                         }
                     }
                     if (graph != null) {
-                        val visible = graph.visible(-pan.x, -pan.y, maxWidth.value, maxHeight.value)
+                        val visible = viewport.visible(graph, maxWidth.value, maxHeight.value)
                         Canvas(Modifier.fillMaxSize()) {
-                            fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
+                            fun HistoryPoint.screen() = viewport.screen(this).let { Offset(it.x * density, it.y * density) }
                             val ranges = graph.rangesById
                             for (range in visible) {
                                 ranges[range.parentRangeId]?.position?.let { parent ->
@@ -97,28 +126,39 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                         for (range in visible) {
                             val event = events.getValue(range.targetId)
                             val point = range.position
-                            val x = point.x + pan.x; val y = point.y + pan.y
-                            if (x >= -12f && x <= maxWidth.value + 12 && y >= -16 && y <= maxHeight.value + 16) {
+                            val screen = viewport.screen(point)
+                            val x = screen.x; val y = screen.y
+                            val zoom = viewport.zoom
+                            if (x >= -24f * zoom && x <= maxWidth.value + 24 * zoom && y >= -16 * zoom && y <= maxHeight.value + 32 * zoom) {
                                 val text = texts[event.id]
                                 HistoryEventChip(event.copy(description = text?.description ?: event.description),
                                     authorColors[event.author] ?: Color(0xff59656a), graph.rangeOf[state.selectedNodeId] == range.id,
                                     Modifier.offset { IntOffset(((x - 10) * density).roundToInt(), ((y - 10) * density).roundToInt()) }
+                                        .graphicsLayer { scaleX = zoom; scaleY = zoom }
                                         .background(Color(0xfff4f8f6)).combinedClickable(
                                             onClick = { picked = event.id; controller.select(event.id) },
                                             onLongClick = { picked = null; controller.select(event.id) }))
+                                range.turnStart?.let { turn ->
+                                    Text(turn.label, color = authorColors[turn.player] ?: Color(0xff59656a),
+                                        fontSize = 9.sp, lineHeight = 12.sp,
+                                        modifier = Modifier.offset { IntOffset(((x - 10) * density).roundToInt(), ((y - 28 * zoom) * density).roundToInt()) }
+                                            .graphicsLayer { scaleX = zoom; scaleY = zoom }
+                                            .background(Color.White, MaterialTheme.shapes.extraSmall).padding(horizontal = 2.dp)
+                                            .semantics { contentDescription = "Turn ${turn.number}, player ${turn.player}" })
+                                }
                             }
                         }
                         Canvas(Modifier.fillMaxSize()) {
-                            fun HistoryPoint.screen() = Offset((x + pan.x) * density, (y + pan.y) * density)
+                            fun HistoryPoint.screen() = viewport.screen(this).let { Offset(it.x * density, it.y * density) }
                             for (range in visible) if (range.id in graph.headRanges) graph.positions[range.targetId]?.let {
-                                drawCircle(activeColor, 2.5f * density, it.screen() + Offset(0f, 14 * density))
+                                drawCircle(activeColor, 2.5f * density * viewport.zoom, it.screen() + Offset(0f, 14 * density * viewport.zoom))
                             }
                             graph.positions[graph.currentNodeId]?.let {
-                                drawCircle(activeColor, 12 * density, it.screen(), style = Stroke(1.5f * density))
+                                drawCircle(activeColor, 12 * density * viewport.zoom, it.screen(), style = Stroke(1.5f * density))
                             }
                             graph.positions[state.selectedNodeId]?.let {
-                                drawRect(selectionColor, it.screen() - Offset(11 * density, 12 * density),
-                                    Size(22 * density, 24 * density), style = Stroke(1.5f * density))
+                                drawRect(selectionColor, it.screen() - Offset(11 * density * viewport.zoom, 12 * density * viewport.zoom),
+                                    Size(22 * density * viewport.zoom, 24 * density * viewport.zoom), style = Stroke(1.5f * density))
                             }
                         }
                     }

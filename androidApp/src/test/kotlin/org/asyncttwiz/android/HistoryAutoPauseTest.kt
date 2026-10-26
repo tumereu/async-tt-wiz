@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.fixtures.ScaleGames as F
 import org.junit.Test
 import kotlin.test.*
 
@@ -60,15 +61,65 @@ class HistoryAutoPauseTest {
     }
 
     @Test fun stackEntryAndProjectionChangesIncludeMovesButNotTextMarks() {
-        for ((from, to) in listOf("theirs" to "stack", "stack" to "theirs", "stack" to "stack")) {
+        for ((from, to, expected) in listOf(Triple("theirs", "stack", setOf(PlaybackAutoPause.STACK_ADDED)),
+                Triple("stack", "theirs", setOf(PlaybackAutoPause.STACK_REMOVED)), Triple("stack", "stack", emptySet()))) {
             val move = GameplayMoveChange(other.id, CardLocation(from), CardLocation(to))
-            assertTrue(PlaybackAutoPause.STACK in triggers(PlayAction.MoveCard(other.id, MoveSource(from),
+            assertEquals(expected, triggers(PlayAction.MoveCard(other.id, MoveSource(from),
                 MoveDestination(to, MoveInsertion.TOP)), GameplayTransition(movement = move)))
         }
-        assertEquals(setOf(PlaybackAutoPause.STACK), triggers(PlayAction.Stack(StackAction.AddEffect(other.id, "digest")),
+        assertEquals(setOf(PlaybackAutoPause.STACK_ADDED), triggers(PlayAction.Stack(StackAction.AddEffect(other.id, "digest")),
             GameplayTransition(combatStack = CombatStackTransition(order = listOf(StackOrderChange("effect", null, IdentityGap()))))))
-        assertFalse(PlaybackAutoPause.STACK in triggers(PlayAction.Stack(StackAction.MarkText(other.id, 0)),
-            GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(other.id, null, null))))))
+        assertEquals(setOf(PlaybackAutoPause.STACK_REMOVED), triggers(PlayAction.Stack(StackAction.RemoveEffect("effect")),
+            GameplayTransition(combatStack = CombatStackTransition(order = listOf(StackOrderChange("effect", IdentityGap(), null))))))
+        assertTrue(triggers(PlayAction.Stack(StackAction.MarkText(other.id, 0)),
+            GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(other.id, null, null))))).isEmpty())
+    }
+
+    @Test fun typicalOpponentTurnOnlyPausesOnCastAndAttentionWithDefaults() {
+        val land = CardDefinition("Forest", listOf(DefinitionFace(F.id(401), "Forest", typeLine = "Basic Land — Forest")))
+        val creature = CardDefinition("Bear", listOf(DefinitionFace(F.id(402), "Bear", typeLine = "Creature — Bear")))
+        val definitions = listOf(land, creature).map { SubmittedDefinition(DeckJson.digest(it), it) }
+        val hand = F.id(403)
+        val cards = definitions.mapIndexed { index, d -> PlayCard(F.id(404 + index), d.digest, F.b, hand, d.definition.faces.single().faceId) }
+        val base = F.root()
+        var tree = GameplayTree(base.copy(definitions = base.definitions + definitions, board = base.board.copy(
+            cards = base.board.cards + cards, containers = base.board.containers + PlayContainer(hand, PlayZone.HAND, F.b, cards.map { it.id }),
+            turn = TurnState(F.b))))
+        val classifier = HistoryAutoPause(F.a, tree.initial.board, definitions = tree.initial.definitions)
+        val results = mutableListOf<Set<PlaybackAutoPause>>()
+        fun step(action: PlayAction, n: Int) {
+            tree = F.play(tree, action, n, F.b)
+            results += classifier.triggers(tree.nodes.getValue(tree.currentNodeId))
+        }
+        step(PlayAction.MoveCard(cards[0].id, MoveSource(hand), MoveDestination(F.id(10), MoveInsertion.EMPTY, BoardPosition(0, 2))), 501)
+        assertTrue(tree.nodes.getValue(tree.currentNodeId).transition.disclosures.isNotEmpty(), "Land becoming public reproduces the original reveal bug")
+        step(PlayAction.MoveCard(cards[1].id, MoveSource(hand), MoveDestination(F.id(14), MoveInsertion.TOP),
+            expectedStackDigest = GameplayRules.stackDigest(tree.preparedState(tree.currentNodeId)!!)), 502)
+        step(PlayAction.MoveCard(cards[1].id, MoveSource(F.id(14)), MoveDestination(F.id(10), MoveInsertion.EMPTY, BoardPosition(2, 2))), 503)
+        step(PlayAction.Combat(CombatAction.Open), 504)
+        val combat = tree.preparedState(tree.currentNodeId)!!.board.combat!!.id
+        step(PlayAction.Combat(CombatAction.Declare(combat, cards[1].id)), 505)
+        step(PlayAction.PassAttention, 506)
+        assertEquals(listOf(emptySet(), setOf(PlaybackAutoPause.STACK_ADDED), emptySet(), emptySet(), emptySet(),
+            setOf(PlaybackAutoPause.ATTENTION)), results.map { it.intersect(PlaybackAutoPause.defaults) })
+        assertEquals(setOf(PlaybackAutoPause.LAND_FROM_HAND), results.first())
+        assertEquals(setOf(PlaybackAutoPause.STACK_REMOVED), results[2])
+    }
+
+    @Test fun handBattlefieldTogglesAreIndependentDefaultOffAndExplicitInspectStillReveals() {
+        assertTrue(listOf(PlaybackAutoPause.LAND_FROM_HAND, PlaybackAutoPause.NONLAND_FROM_HAND, PlaybackAutoPause.STACK_REMOVED)
+            .none { it in PlaybackAutoPause.defaults })
+        for ((type, expected) in listOf("Land — Forest" to PlaybackAutoPause.LAND_FROM_HAND, "Creature — Landshark" to PlaybackAutoPause.NONLAND_FROM_HAND)) {
+            val definitions = listOf(SubmittedDefinition(other.definition, CardDefinition("Card", listOf(DefinitionFace(other.faceId, "Card", typeLine = type)))))
+            val fromHand = board.copy(containers = board.containers + PlayContainer("hand", PlayZone.HAND, opponent))
+            val move = node(PlayAction.MoveCard(other.id, MoveSource("hand"), MoveDestination("theirs", MoveInsertion.TOP)),
+                GameplayTransition(movement = GameplayMoveChange(other.id, CardLocation("hand"), CardLocation("theirs")),
+                    disclosures = listOf(GameplayDisclosure(other.id, other.faceId, "theirs", listOf(me)))))
+            assertEquals(setOf(expected), HistoryAutoPause(me, fromHand, definitions = definitions).triggers(move))
+            assertTrue(HistoryAutoPause(me, fromHand, definitions = definitions).triggers(move.copy(author = me)).isEmpty())
+        }
+        assertEquals(setOf(PlaybackAutoPause.REVEAL), triggers(PlayAction.InspectFace(other.id, other.faceId, "theirs"),
+            GameplayTransition(disclosures = listOf(GameplayDisclosure(other.id, other.faceId, "theirs", listOf(me))))))
     }
 
     @Test fun panelResolutionsAndLibraryReordersOfYourCardsStop() {
@@ -155,9 +206,9 @@ class HistoryAutoPauseTest {
         assertFalse(player.pauseAfterAnimation())
         player.next(true, me, board = board)
         assertEquals(end.id, player.position.cursorId)
-        assertEquals(HistoryMode.PLAYBACK, player.position.mode) // Matching head cannot escape to live.
-        assertTrue(player.pauseAfterAnimation())
-        player.play(); player.next(true, me, board = board)
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode) // Final event is still animating.
+        assertFalse(player.pauseAfterAnimation()) // Terminal events never auto-pause.
+        assertTrue(player.finishAnimation(end.id))
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
@@ -171,6 +222,7 @@ class HistoryAutoPauseTest {
         val player = HistoryPlayback(tree)
         player.openFrom("root"); player.next(true, me, emptySet(), board)
         assertFalse(player.pauseAfterAnimation())
+        player.finishAnimation(second.id)
         assertEquals(HistoryMode.LIVE, player.position.mode)
         player.scrub("root"); player.next(viewer = me, board = board)
         assertFalse(player.pauseAfterAnimation())

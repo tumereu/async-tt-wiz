@@ -222,6 +222,7 @@ class TableHistoryControllerTest {
             assertTrue(h.history.playback!!.position.playing)
             h.history.playback!!.next(automatic = true)
             assertEquals(tree.currentNodeId, h.history.playback!!.position.cursorId)
+            h.history.playback!!.finishAnimation(tree.currentNodeId)
             assertEquals(HistoryMode.LIVE, h.history.playback!!.position.mode)
         }
     }

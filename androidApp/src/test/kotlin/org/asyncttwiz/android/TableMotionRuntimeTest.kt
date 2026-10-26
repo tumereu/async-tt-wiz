@@ -27,6 +27,46 @@ import kotlin.math.roundToInt
 class TableMotionRuntimeTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun finalManualStepAnimatesBeforeTheSingleLiveHandoff() = finalAnimation(false)
+    @Test fun finalAutoStepAnimatesBeforeTheSingleLiveHandoff() = finalAnimation(true)
+
+    private fun finalAnimation(automatic: Boolean) {
+        val initial = TableFixture.play(board = 1)
+        val cardId = "a/BATTLEFIELD/0"
+        val event = GameplayMutation("final", "root", "branch", java.util.UUID.nameUUIDFromBytes("final".toByteArray()).toString(), "b", null,
+            PlayAction.SetTapped(cardId, true), GameplayTransition())
+        val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
+        player.openFrom("root")
+        val target = initial.copy(currentNodeId = event.id, board = initial.board.copy(cards = initial.board.cards.map {
+            if (it.id == cardId) it.copy(tapped = true) else it
+        }))
+        var handoffs = 0
+        compose.setContent { MaterialTheme {
+            val play = if (player.position.cursorId == "root") initial else target
+            TableSurface(TableFixture.game, play, "a", false, Modifier.fillMaxSize(), runtime = TableRuntimeHooks(
+                reviewing = player.position.mode == HistoryMode.PLAYBACK,
+                sceneVersion = player.position.displayVersion,
+                onSceneSettled = { if (player.finishAnimation(it)) handoffs++ }))
+        } }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { player.next(automatic) }
+        repeat(2) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+        compose.mainClock.advanceTimeBy(32); compose.waitForIdle()
+        val item = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false).items.single { it.cardId == cardId }
+        val node = compose.onNodeWithContentDescription(item.label)
+        val during = node.fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { assertEquals(HistoryMode.PLAYBACK, player.position.mode); assertEquals(0, handoffs) }
+        assertTrue(during.height > item.bounds.height + 1f, "The last card must still be rotating, not snapped to its endpoint")
+        compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
+        compose.runOnIdle { assertEquals(HistoryMode.LIVE, player.position.mode); assertEquals(1, handoffs) }
+        val finished = node.fetchSemanticsNode().boundsInRoot
+        compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
+        assertEquals(finished, node.fetchSemanticsNode().boundsInRoot)
+        compose.runOnIdle { assertEquals(1, handoffs) }
+        compose.mainClock.autoAdvance = true
+    }
+
     private fun draw(owner: String) {
         val initial = TableFixture.play(library = 1)
         val state = mutableStateOf(initial)

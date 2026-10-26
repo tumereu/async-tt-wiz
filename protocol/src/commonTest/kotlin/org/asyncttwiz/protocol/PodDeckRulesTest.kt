@@ -29,7 +29,7 @@ class PodDeckRulesTest {
         assertEquals(updated, PodDeckRules.withAwards(updated, listOf("one", "two", "three", "four")))
     }
 
-    @Test fun basicsAreNonnegativeAndCountTowardFortyWithoutAnUpperLimit() {
+    @Test fun basicsAreNonnegativeAndCountTowardFortyWithOverflowSafeTotals() {
         assertTrue(PodDeckBasics().valid)
         assertEquals(0L, PodDeckBasics().total)
         val basics = PodDeckBasics(2, 3, 5, 7, 23)
@@ -44,10 +44,25 @@ class PodDeckRulesTest {
         }
         val huge = PodDeckBasics(Int.MAX_VALUE, Int.MAX_VALUE)
         assertEquals(4294967294L, huge.total)
-        assertTrue(PodDeckRules.validate(PodDeckBuild(basics = huge), emptyList()).isEmpty())
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(PodDeckBuild(basics = huge), emptyList()))
     }
 
-    @Test fun submissionChecksOwnershipUniquenessCompletenessMainAndSideLimitOnly() {
+    @Test fun submissionCapacityCountsMainSideAndBasicsButNotTrash() {
+        val pool = List(1100) { "copy-$it" }
+        val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
+            index < 45 -> PodDeckCategory.MAIN
+            index < 50 -> PodDeckCategory.SIDE
+            else -> PodDeckCategory.TRASH
+        }) }, PodDeckBasics(plains = 950))
+        assertTrue(PodDeckRules.validate(build, pool).isEmpty()) // Exactly 1000, ignoring Trash.
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(build.copy(basics = PodDeckBasics(plains = 951)), pool))
+        val originalProbe = PodDeckBuild(pool.take(45).map { PodDeckCopy(it) }, PodDeckBasics(plains = 956))
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(originalProbe, pool.take(45)))
+        val noBasics = build.copy(basics = PodDeckBasics(), copies = pool.map { PodDeckCopy(it) })
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(noBasics, pool))
+    }
+
+    @Test fun submissionChecksOwnershipUniquenessCompletenessMainAndSideLimit() {
         val pool = List(50) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
             index < 23 -> PodDeckCategory.MAIN

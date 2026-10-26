@@ -204,7 +204,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 advanceGrid(sql, row, null, next)
             } else {
                 val next = if (set == null) DraftEngine.start(players, cube, settings, seed) else
-                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed).map { it.cards }, settings, seed)
+                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack).map { it.cards }, settings, seed)
                 advance(sql, row, null, next)
             }
             detail(sql, row, owner)

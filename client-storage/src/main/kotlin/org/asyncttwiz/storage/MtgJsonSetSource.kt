@@ -108,10 +108,10 @@ internal class MtgJsonSetSource {
                 while (reader.hasNext()) {
                     check(entries.size < SetSourceValidation.MAX_COMPOSITIONS) { "Set composition limit" }
                     var contents: Map<String, Int> = emptyMap()
-                    var weight = 0
+                    var weight = 0L
                     fields(reader) { field -> when (field) {
                         "contents" -> contents = intMap(reader, SetSourceValidation.MAX_SHEETS, 100)
-                        "weight" -> weight = reader.nextInt()
+                        "weight" -> weight = reader.nextLong()
                         else -> reader.skipValue()
                     } }
                     entries += SetBoosterComposition(contents, weight)
@@ -142,7 +142,7 @@ internal class MtgJsonSetSource {
             }
             else -> reader.skipValue()
         } }
-        val recipe = SetBoosterRecipe(boosters, sheets, total ?: boosters.sumOf { it.weight.toLong() }, name, sources)
+        val recipe = SetBoosterRecipe(boosters, sheets, total ?: boosters.sumOf { it.weight }, name, sources)
         // Validate the provider recipe before any missing-card filtering or weight recalculation.
         val uuids = sheets.values.flatMap { it.cards.keys }.toSet()
         check(uuids.size in 1..SetSourceValidation.MAX_CARDS) { "Set recipe card limit" }
@@ -152,14 +152,19 @@ internal class MtgJsonSetSource {
     }
 
     private fun sheet(reader: JsonReader): SetBoosterSheet {
-        var cards: Map<String, Int> = emptyMap()
+        var cards: Map<String, Long> = emptyMap()
         var foil = false
         var balance = false
         var duplicates = false
         var fixed = false
         var total: Long? = null
         fields(reader) { key -> when (key) {
-            "cards" -> cards = intMap(reader, SetSourceValidation.MAX_CARDS, 36)
+            "cards" -> cards = linkedMapOf<String, Long>().apply {
+                fields(reader, SetSourceValidation.MAX_CARDS) { uuid ->
+                    check(uuid.length in 1..36)
+                    put(uuid, reader.nextLong())
+                }
+            }
             "foil" -> foil = reader.nextBoolean()
             "balanceColors" -> balance = reader.nextBoolean()
             "allowDuplicates" -> duplicates = reader.nextBoolean()
@@ -167,7 +172,7 @@ internal class MtgJsonSetSource {
             "totalWeight" -> total = reader.nextLong()
             else -> reader.skipValue()
         } }
-        return SetBoosterSheet(cards, foil, balance, duplicates, fixed, total ?: cards.values.sumOf { it.toLong() })
+        return SetBoosterSheet(cards, foil, balance, duplicates, fixed, total ?: cards.values.sum())
     }
 
     private fun intMap(reader: JsonReader, maximum: Int, keyLength: Int): Map<String, Int> =

@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
     val total: Long get() = plains.toLong() + island + swamp + mountain + forest
 }
 @Serializable data class PodDeckBuild(val copies: List<PodDeckCopy> = emptyList(), val basics: PodDeckBasics = PodDeckBasics())
-@Serializable enum class PodDeckIssue { MAIN_TOO_SMALL, UNKNOWN_COPY, DUPLICATE_COPY, MISSING_COPY, NEGATIVE_BASICS, SIDEBOARD_LIMIT }
+@Serializable enum class PodDeckIssue { MAIN_TOO_SMALL, UNKNOWN_COPY, DUPLICATE_COPY, MISSING_COPY, NEGATIVE_BASICS, SIDEBOARD_LIMIT, DECK_TOO_LARGE }
 
 object PodDeckRules {
     fun swipe(category: PodDeckCategory, direction: PodDeckSwipe): PodDeckCategory = when (category) {
@@ -41,6 +41,8 @@ object PodDeckRules {
             if (!build.basics.valid) add(PodDeckIssue.NEGATIVE_BASICS)
             if (build.copies.count { it.category == PodDeckCategory.MAIN }.toLong() + build.basics.total < 40)
                 add(PodDeckIssue.MAIN_TOO_SMALL)
+            if (build.copies.count { it.category != PodDeckCategory.TRASH }.toLong() + build.basics.total > DeckValidation.MAX_CARDS)
+                add(PodDeckIssue.DECK_TOO_LARGE)
             if (assigned.any { it !in owned }) add(PodDeckIssue.UNKNOWN_COPY)
             if (assigned.size != ids.size) add(PodDeckIssue.DUPLICATE_COPY)
             if (owned.any { it !in assigned }) add(PodDeckIssue.MISSING_COPY)

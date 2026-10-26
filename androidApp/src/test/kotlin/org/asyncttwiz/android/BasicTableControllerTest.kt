@@ -43,6 +43,7 @@ internal class BasicTableFixture {
     }
     val worker = Worker()
     val wire = Wire()
+    private var updateTree: GameplayTree? = null
     val api = object : Lobbies {
         override suspend fun contacts(token: String, after: String?) = ContactList(emptyList())
         override suspend fun games(token: String, invitations: Boolean, after: String?) = GameList(if (invitations) emptyList() else listOf(game))
@@ -59,6 +60,7 @@ internal class BasicTableFixture {
     fun commands() = wire.frames.filterIsInstance<GameCommand>()
     fun message(message: GameServerMessage) = wire.listener.message(message)
     fun connect(initial: PlayState = root) {
+        updateTree = GameplayTree(initial)
         lobby.open(game.id); worker.drain(); wire.listener.opened(); message(GameWelcome())
         val stream = wire.frames.filterIsInstance<OpenGameStream>().last().streamId
         message(GameStreamReady(game.id, stream, "1")); message(data.head(initial))
@@ -74,6 +76,15 @@ internal class BasicTableFixture {
             MoveDestination(container(PlayZone.STACK), MoveInsertion.TOP), GameplayRules.stackDigest(play)))
     }
     fun update(from: PlayState, command: GameCommand, base: Int, author: String = actor): GameRevision {
+        updateTree?.takeIf { it.currentNodeId == from.currentNodeId }?.let { before ->
+            val change = HistoryContinuation.change(before, author, command)
+            val next = assertNotNull(change.tree, change.reason)
+            updateTree = next
+            val state = next.stateAt(next.currentNodeId)!!
+            return GameRevision(game.id, base.toString(), (base + 1).toString(), command.requestId, author, command.scope,
+                game.copy(revision = (base + 1).toString()), play = state, mutation = if (command.action is GameAction.Play) next.nodes[change.targetId] else null,
+                group = state.currentGroup, treeDelta = TreeSync.delta(before, next))
+        }
         val change = GameplayRules.change(from, author, command)
         assertEquals("accepted", change.outcome)
         return GameRevision(game.id, base.toString(), (base + 1).toString(), command.requestId, author, command.scope,
@@ -120,7 +131,7 @@ class BasicTableControllerTest {
         val f = BasicTableFixture(); f.connect()
         try {
             assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val before = f.commands().size
             assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(f.id(40), listOf(f.id(40))), true, toggle = true)))
             assertNull(toolkit.error)
@@ -131,7 +142,7 @@ class BasicTableControllerTest {
     @Test fun doubleTapUsesCurrentContextNotStaleDrawingOrFirstSelectedCardAndFailedQueueIsVisible() {
         val f = BasicTableFixture(); f.connect()
         try {
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             for (n in 40..41) assertTrue(f.move(n, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), n - 40, 0)))
             assertTrue(f.lobby.gameplay(PlayAction.SetTapped(f.id(41), true)))
             val before = f.commands().size

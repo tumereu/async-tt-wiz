@@ -60,11 +60,11 @@ class IndexedEndpointScaleTest {
                 statement.setString(7, json.encodeToString(group)); statement.addBatch()
             }; statement.executeBatch()
         } }
-        sql.connection { c -> c.prepareStatement("INSERT INTO gameplay_mutation(id,game_id,play_id,parent_id,branch_id,author_id,request_id,group_id,effective_ordinal,payload) VALUES (?,?,?,?,?,?,?,?,?,?::jsonb)").use { statement ->
+        sql.connection { c -> c.prepareStatement("INSERT INTO gameplay_mutation(id,game_id,play_id,parent_id,branch_id,author_id,request_id,command_request_id,group_id,effective_ordinal,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb)").use { statement ->
             nodes.forEachIndexed { index, node ->
-                listOf(node.id, root.gameId, root.id, node.parentId, node.branchId, node.author, node.requestId, node.bookkeeping!!.toGroup!!.id)
+                listOf(node.id, root.gameId, root.id, node.parentId, node.branchId, node.author, node.requestId, node.requestId, node.bookkeeping!!.toGroup!!.id)
                     .forEachIndexed { i, value -> statement.setObject(i + 1, uuid(value)) }
-                statement.setLong(9, (index + 1).toLong()); statement.setString(10, json.encodeToString(node)); statement.addBatch()
+                statement.setLong(10, (index + 1).toLong()); statement.setString(11, json.encodeToString(node)); statement.addBatch()
             }; statement.executeBatch()
         } }
         sql.connection { c -> c.prepareStatement("INSERT INTO gameplay_tree_control(play_id,kind,id,payload) VALUES (?,?,?,?::jsonb)").use { statement ->

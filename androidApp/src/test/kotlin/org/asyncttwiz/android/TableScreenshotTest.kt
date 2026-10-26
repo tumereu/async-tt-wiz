@@ -206,7 +206,7 @@ class TableScreenshotTest {
         compose.setContent {
             MaterialTheme {
                 CompositionLocalProvider(LocalTableMenuAnnotations provides TableMenuAnnotations(EventReference(play.id, play.currentNodeId)) {
-                    sent += it.actions(); true
+                    sent += it; true
                 }) {
                 TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,

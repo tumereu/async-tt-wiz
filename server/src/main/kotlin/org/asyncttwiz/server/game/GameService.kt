@@ -140,6 +140,11 @@ class GameService(private val runtime: ServiceRuntime) {
     }
     /** Stack reordering is retired: a same-Stack card move is the legacy reorder route, so new ones are refused here. */
     private fun reordersStack(tree: GameplayTree, command: GameCommand): Boolean {
+        val batch = command.action as? GameAction.PlayBatch
+        if (batch != null) return batch.actions.any {
+            reordersStack(tree, command.copy(action = GameAction.Play(it))) ||
+                (it as? PlayAction.Stack)?.action is StackAction.ReorderEffect
+        }
         val move = (command.action as? GameAction.Play)?.action as? PlayAction.MoveCard ?: return false
         if (move.source.containerId != move.destination.containerId) return false
         return tree.stateAt(tree.currentNodeId)?.board?.containers
@@ -247,9 +252,10 @@ class GameService(private val runtime: ServiceRuntime) {
         var saved = processingStarted
         try {
         val before = game.revision!!
-        val isGameplay = command.action is GameAction.Play || command.action == GameAction.Undo || command.action == GameAction.Redo
+        val isGameplay = command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo
         var treeDelta: GameplayTreeDelta? = null
         var createdMutation: GameplayMutation? = null
+        var batchMutations: List<GameplayMutation> = emptyList()
         var insertedChat: ChatMessage? = null
         val gameplay = if (((command.action as? GameAction.Play)?.action as? PlayAction.Stack)?.action is StackAction.ReorderEffect)
             GameplayTreeChange(reason = "stackReorderingRemoved")
@@ -262,9 +268,11 @@ class GameService(private val runtime: ServiceRuntime) {
                 HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->
                     reduced = System.nanoTime()
                     change.tree?.let { next ->
-                        treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1))
+                        treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1), command.requestId)
                         committedTree = Math.addExact(before, 1) to next
                         if (command.action is GameAction.Play) createdMutation = next.nodes[change.targetId]
+                        if (command.action is GameAction.PlayBatch) batchMutations = treeDelta!!.upserts
+                            .filter { it.kind == "node" }.map { next.nodes.getValue(it.id) }
                     }
                     saved = System.nanoTime()
                 }
@@ -309,8 +317,8 @@ class GameService(private val runtime: ServiceRuntime) {
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
             // The shared reducer/store already chose the accepted group, including extensions.
             // Record within THIS execution transaction, never from a delivery timer or a retry.
-            mutation?.let { mutation ->
-                val group = requireNotNull(play?.currentGroup)
+            (listOfNotNull(mutation) + batchMutations).forEach { mutation ->
+                val group = requireNotNull(next?.stateAt(mutation.id)?.currentGroup ?: play?.currentGroup)
                 // Passing joins the preceding display group even when the other player made it.
                 // Activity still belongs to the player who performed this individual event.
                 check(group.author == mutation.author || mutation.action == PlayAction.PassAttention)
@@ -321,6 +329,10 @@ class GameService(private val runtime: ServiceRuntime) {
         }
         val created = when {
             revision == null -> emptyList()
+            command.action is GameAction.PlayBatch -> batchMutations.flatMap { member ->
+                listOf(member.id) + listOfNotNull(member.transition.movement?.to?.placement?.pileId?.takeIf {
+                    (member.action as? PlayAction.MoveCard)?.destination?.insertion == MoveInsertion.EMPTY })
+            }
             command.action is GameAction.AcceptResult -> listOf(update!!.summary.preparationRound)
             mutation != null -> listOf(mutation.id) + listOfNotNull(
                 mutation.transition.movement?.to?.placement?.pileId?.takeIf {

@@ -6,7 +6,7 @@ import kotlin.test.*
 
 class StackReworkTest {
     private fun scene(f: BasicTableFixture) = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
-    private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+    private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
     private fun actions(f: BasicTableFixture, from: Int) = f.commands().drop(from).map { (it.action as GameAction.Play).action }
 
     @Test fun exileBubbleMovesTheSourceToItsOwnerAndIsUndoableForRealCardsAndEffects() {

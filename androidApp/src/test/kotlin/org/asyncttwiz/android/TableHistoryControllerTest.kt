@@ -31,7 +31,7 @@ class TableHistoryControllerTest {
             val opened = fixture.lobby.displayTree()!!.materializedCopy()
             val panel = fixture.play.board.contentsDisplays.single()
             val card = panel.cardIds.first()
-            val toolkit = TableToolkitController(fixture.actor, { fixture.lobby.state.play }, { true }, fixture.lobby::gameplay)
+            val toolkit = TableToolkitController(fixture.actor, { fixture.lobby.state.play }, { true }, fixture.lobby::gameplay, playBatch = fixture.lobby::gameplayBatch)
             toolkit.cardPanelAction(panel, card, PlayZone.HAND, reveal = true)
             val onward = fixture.lobby.displayTree()!!.materializedCopy()
             val reveal = onward.nodes.values.single { it.action is PlayAction.RevealContentsCard }.id

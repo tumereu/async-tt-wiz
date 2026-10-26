@@ -31,7 +31,7 @@ class StackBubblePredictionTest {
         val f = BasicTableFixture()
         f.connect()
         try {
-            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val destination = if (projection) TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)
                 else TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)
             assertTrue(f.move(40, destination, true))

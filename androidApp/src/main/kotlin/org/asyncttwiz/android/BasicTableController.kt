@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 import java.util.UUID
 
-/** Request adapter, not a board store. Each constituent uses the production session's predecessor. */
+/** Invocation lowering, not a board store. The toolkit collects constituents against its batch draft. */
 class BasicTableController(private val play: () -> PlayState?, private val connected: () -> Boolean,
     private val submit: (PlayAction, String?) -> Boolean) {
     fun handle(intent: TableIntent): Boolean {
@@ -116,8 +116,8 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                     val next = play()?.takeIf { connected() && it.id == state.id } ?: break
                     val entry = CombatStackRules.stack(next.board).cards.firstOrNull { entry -> entry !in before &&
                         CombatStackRules.liveSource(next.board, entry)?.id == id } ?: continue
-                    // Exactly the manual resolver, with a separate invocation/Stack-removal group.
-                    val resolveInvocation = UUID.randomUUID().toString()
+                    // Exactly the manual resolver: separate history group, same atomic invocation.
+                    val resolveInvocation = invocation
                     for (action in StackMenuActions.destination(next, entry, PlayZone.BATTLEFIELD))
                         if (!submit(action, resolveInvocation)) break
                 }
@@ -258,7 +258,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
 
         private fun TableMoveSource.source(): MoveSource? = MoveSource(containerId, placement?.let {
             PlayPlacement(BoardPosition(it.column.toInt(), it.row.toInt()), it.pileId ?: return null)
-        }, if (libraryTop) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER, bottomSlice)
+        }, if (libraryTop) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER, bottomSlice, takeFromEdge)
 
         /** Same-source order is semantic; cross-source order is stable spatial order, not card name. */
         private fun ordered(state: PlayState, ids: List<String>): List<String> {

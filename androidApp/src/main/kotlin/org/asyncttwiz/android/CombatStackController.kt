@@ -5,7 +5,7 @@ import org.asyncttwiz.protocol.*
 /** Captured menu identity, not a freshly resolved selection on click. */
 data class CombatStackTarget(val viewId: String, val sourceId: String?)
 data class CombatStackPlan(val commands: List<GameCommand>, val prediction: PlayState) {
-    /** Queue adapter sends each original in order. It must not await acknowledgement between members. */
+    /** Exactly one original is dispatched for a nonempty plan. */
     fun dispatch(send: (GameCommand) -> Unit) { commands.forEach(send) }
 }
 
@@ -34,15 +34,18 @@ object CombatStackController {
     private class Builder(initial: PlayState, val actor: String, val command: (PlayAction) -> GameCommand) {
         var state = initial
         val commands = mutableListOf<GameCommand>()
+        var envelope: GameCommand? = null
         fun emit(action: PlayAction) {
-            val request = command(action)
-            require((request.action as? GameAction.Play)?.action == action)
+            val base = envelope ?: command(action).also { envelope = it }
+            val request = PlayBatches.member(base, commands.size, action)
             val change = GameplayRules.change(state, actor, request)
             require(change.reason == null) { change.reason.orEmpty() }
             if (change.mutation != null) commands += request
             state = requireNotNull(change.state)
         }
-        fun plan() = CombatStackPlan(commands.toList(), state)
+        fun plan() = CombatStackPlan(if (commands.isEmpty()) emptyList() else listOf(requireNotNull(envelope).copy(
+            action = GameAction.PlayBatch(commands.map { (it.action as GameAction.Play).action }),
+            invocationId = envelope!!.requestId)), state)
     }
 
     fun sourceActions(state: PlayState, actor: String, targets: List<CombatStackTarget>,

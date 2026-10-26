@@ -22,6 +22,7 @@ object HistoryContinuation {
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
         val change = when (command.action) {
             is GameAction.Play -> tree.play(actor, command)
+            is GameAction.PlayBatch -> PlayBatches.change(tree, actor, command)
             GameAction.Undo, GameAction.Redo -> SelectiveUndo.change(tree, actor, command)
             else -> GameplayTreeChange(reason = "invalidInput")
         }
@@ -29,7 +30,7 @@ object HistoryContinuation {
         if (command.action == GameAction.Undo || command.action == GameAction.Redo) {
             tree.selectiveReferenceFailure(next)?.let { return GameplayTreeChange(reason = it, targetId = change.targetId) }
         }
-        if (command.action is GameAction.Play) return change
+        if (command.action.isPlay) return change
         var heads = next.branchHeads
         val keys = next.editKeys.toMutableSet()
         // Only removed/restored events can change a branch's terminal boundary.

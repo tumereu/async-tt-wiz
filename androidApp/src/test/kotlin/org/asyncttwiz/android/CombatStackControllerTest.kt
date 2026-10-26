@@ -31,10 +31,13 @@ class CombatStackControllerTest {
         val seen = mutableListOf<String>()
         plan.dispatch { command ->
             seen += command.requestId
-            val change = GameplayRules.change(accepted, actor, command)
-            assertEquals("accepted", change.outcome)
-            assertEquals(change, GameplayHistory.replay(accepted, change.mutation!!))
-            accepted = change.state!!
+            assertIs<GameAction.PlayBatch>(command.action)
+            for (member in command.playMembers()) {
+                val change = GameplayRules.change(accepted, actor, member)
+                assertEquals("accepted", change.outcome)
+                assertEquals(change, GameplayHistory.replay(accepted, change.mutation!!))
+                accepted = change.state!!
+            }
         }
         assertEquals(plan.commands.map { it.requestId }, seen)
         assertEquals(plan.prediction, accepted)
@@ -75,8 +78,9 @@ class CombatStackControllerTest {
         val commands = CombatCommands()
         val plan = CombatStackController.declare(state, actor, targets(state, 20, 21), true, commands::command)
         // Area, two occurrences, only the source which actually needs tapping.
-        assertEquals(4, plan.commands.size)
-        assertTrue((plan.commands[0].action as GameAction.Play).action is PlayAction.Combat)
+        assertEquals(1, plan.commands.size)
+        assertEquals(4, plan.commands.single().playActions().size)
+        assertIs<PlayAction.Combat>(plan.commands.single().playActions().first())
         val accepted = replay(state, plan)
         assertEquals(2, accepted.board.combat!!.pairs.size)
         assertEquals(state.board.cards.map { it.placement }, accepted.board.cards.map { it.placement })
@@ -98,7 +102,8 @@ class CombatStackControllerTest {
         assertEquals(1, tapped.commands.size)
         state = replay(state, tapped)
         val removed = CombatStackController.remove(state, actor, targets.drop(1), commands::command)
-        assertEquals(2, removed.commands.size)
+        assertEquals(1, removed.commands.size)
+        assertEquals(2, removed.commands.single().playActions().size)
         val accepted = replay(state, removed)
         assertTrue(accepted.board.stackEffects.isEmpty())
         assertTrue(accepted.board.cards.single { it.id == combatId(20) }.tapped)
@@ -113,8 +118,8 @@ class CombatStackControllerTest {
         val state = combatState()
         val commands = CombatCommands()
         val plan = CombatStackController.addEffects(state, actor, targets(state, 20, 21, 22), commands::command)
-        assertEquals(3, plan.commands.size)
-        val expected = plan.commands.map { (((it.action as GameAction.Play).action as PlayAction.Stack).action as StackAction.AddEffect).expectedStackDigest }
+        assertEquals(1, plan.commands.size)
+        val expected = plan.commands.single().playActions().map { ((it as PlayAction.Stack).action as StackAction.AddEffect).expectedStackDigest }
         assertEquals(3, expected.distinct().size)
         replay(state, plan)
     }
@@ -132,8 +137,9 @@ class CombatStackControllerTest {
         assertEquals(listOf(combatId(20), combatId(21), combatId(24)), state.board.combat!!.pairs.last().blockers.map { it.sourceId })
         assertEquals(original.board.cards, state.board.cards)
         assertEquals(1, state.board.combat!!.pairs.size)
-        val second = (((plan.commands[1].action as GameAction.Play).action as PlayAction.Combat).action as CombatAction.Place)
-        val prefix = CommandIds.uuidV5(plan.commands[0].requestId, "combat-occurrence/0")
+        val members = plan.commands.single().playMembers()
+        val second = (((members[1].action as GameAction.Play).action as PlayAction.Combat).action as CombatAction.Place)
+        val prefix = CommandIds.uuidV5(members[0].requestId, "combat-occurrence/0")
         // First source already had an occurrence: the prefix is that original identity, not a new ID.
         assertNotEquals(prefix, second.destination.cardGap.afterId)
         assertEquals(area.pairs.first().attackers.single().id, second.destination.cardGap.afterId)
@@ -186,11 +192,14 @@ class CombatStackControllerTest {
         }
         val plan = CombatStackController.place(state, actor, listOf(combatId(21), combatId(22)),
             CombatDestination(state.board.combat!!.id, CombatRole.BLOCKER, state.board.combat!!.pairs.single().id), commands::command)
-        val first = GameplayRules.change(state, actor, plan.commands.first()).state!!
+        // Individual member guards still protect legacy/interleaved histories. New dispatch is one batch.
+        assertEquals(1, plan.commands.size)
+        val members = plan.commands.single().playMembers()
+        val first = GameplayRules.change(state, actor, members.first()).state!!
         val prefix = first.board.combat!!.pairs.single().blockers.single().id
         val remove = commands.command(PlayAction.Combat(CombatAction.Remove(first.board.combat!!.id, prefix)))
         val opponent = GameplayRules.change(first, combatId(7), remove).state!!
-        assertEquals("destinationChanged", GameplayRules.change(opponent, actor, plan.commands.last()).reason)
+        assertEquals("destinationChanged", GameplayRules.change(opponent, actor, members.last()).reason)
         assertEquals(listOf(combatId(20)), CombatStackRules.occurrences(opponent.board.combat).map { it.sourceId })
     }
 
@@ -224,6 +233,8 @@ class CombatStackControllerTest {
         }
         val outside = combatState().let { it.copy(board = it.board.copy(turn = turn.copy(phase = "ENDING", step = "CLEANUP"))) }
         val commands = CombatCommands()
-        assertEquals(3, CombatStackController.declare(outside, actor, targets(outside, 20), true, commands::command).commands.size)
+        val plan = CombatStackController.declare(outside, actor, targets(outside, 20), true, commands::command)
+        assertEquals(1, plan.commands.size)
+        assertEquals(3, plan.commands.single().playActions().size)
     }
 }

@@ -25,7 +25,7 @@ class StackProjectionJourneyTest {
         init {
             f.connect(initial)
             assertEquals(initial.board, f.play.board)
-            ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+            ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             gestures = TableGestureCoordinator({ intent -> when (intent) {
                 is TableIntent.Selection -> ui.selectionState.value = intent.selection
                 is TableIntent.Actions -> ui.openCard(gesturesCapture(intent), scene().sources)
@@ -105,7 +105,8 @@ class StackProjectionJourneyTest {
             val requests = f.commands().drop(start)
             val invocation = assertNotNull(requests.first().invocationId)
             assertTrue(requests.all { it.invocationId == invocation }, "One user operation shares one invocation")
-            val requestIds = requests.map { it.requestId }.toSet()
+            assertEquals(1, requests.size, "One user operation is one transport request")
+            val requestIds = requests.playMembers().map { it.requestId }.toSet()
             val mutations = tree.nodes.values.filter { it.requestId in requestIds }
             if (mutations.isEmpty()) {
                 // Moving a projected source to its current zone may be entirely no-op.

@@ -95,8 +95,7 @@ class TableActionController(private val state: () -> PlayState?, private val can
         val play = current(intent.scope) ?: return false
         fun send(actions: List<PlayAction>): Boolean {
             var sent = false
-            // These are ordered ordinary constituents, not an atomic batch. Do not short circuit
-            // after a no-op/rejection: the final relative Next step still has its own applicability.
+            // The toolkit stages these in one batch, omitting inapplicable/no-op members before send.
             for (action in actions) if (current(intent.scope) != null) sent = submit(action) || sent
             return sent
         }

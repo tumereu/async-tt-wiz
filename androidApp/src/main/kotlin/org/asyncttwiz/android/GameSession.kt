@@ -378,7 +378,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
-        if (action is GameAction.Play || action is GameAction.AcceptResult || action is GameAction.SendChat ||
+        if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
@@ -390,6 +390,10 @@ class GameSession(private val connection: GameConnection, private val credential
         continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): Boolean =
         gameplayCommand(game, actor, GameAction.Play(action), invocationId, continuation, captured) != null
 
+    fun gameplayBatch(game: GameSummary, actor: String, actions: List<PlayAction>, requestId: String,
+        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): Boolean =
+        gameplayCommand(game, actor, GameAction.PlayBatch(actions), requestId, continuation, captured, requestId) != null
+
     /** Explicit logged inspection on the same original queue. Callers supply a UI lifetime guard
      * and close the subscription on dismissal. Only Accepted may drive ManualActions.inspected. */
     fun inspectFace(game: GameSummary, actor: String, action: PlayAction.InspectFace, lifetimeId: String,
@@ -397,13 +401,13 @@ class GameSession(private val connection: GameConnection, private val credential
         continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): InspectionSubscription? {
         if (lifetimeId.isBlank() || lifetimeId.length > 200 || !isCurrent()) return null
         var subscription: InspectionSubscription? = null
-        gameplayCommand(game, actor, GameAction.Play(action), null, continuation) { command ->
+        gameplayCommand(game, actor, GameAction.Play(action), null, continuation, captured = { command ->
             captured(command)
             inspections.entries.removeAll { !it.value.subscription.active }
             val bound = InspectionSubscription(InspectionRequest(command.requestId, command.scope, actor, lifetimeId, action))
             subscription = bound
             inspections[command.requestId] = InspectionObserver(bound, isCurrent, observed)
-        } ?: return null
+        }) ?: return null
         return subscription
     }
 
@@ -415,7 +419,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
 
     private fun gameplayCommand(game: GameSummary, actor: String, action: GameAction, invocationId: String?,
-        continuation: Continuation?, captured: (GameCommand) -> Unit = {}): GameCommand? = measureLatency(game, action) {
+        continuation: Continuation?, captured: (GameCommand) -> Unit = {}, requestId: String = UUID.randomUUID().toString()): GameCommand? = measureLatency(game, action) {
         checkAccount()
         val current = summary(game)
         fun refused(gate: String): GameCommand? {
@@ -424,29 +428,30 @@ class GameSession(private val connection: GameConnection, private val credential
             statusChanged()
             return null
         }
-        if (closed || !activeRequest(current, captureDuringRecovery = (action as? GameAction.Play)?.action is PlayAction.SetTapped) || pending.size >= 256 ||
+        if (closed || !activeRequest(current, captureDuringRecovery = (action as? GameAction.Play)?.action is PlayAction.SetTapped ||
+                (action as? GameAction.PlayBatch)?.actions?.all { it is PlayAction.SetTapped } == true) || pending.size >= 256 ||
             current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
             (account != null && account != actor)) return refused("sessionUnavailable")
         val replica = plays[game.id] ?: return refused("replicaMissing")
         // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
         // latest-head predictions allow rapid play/control sequences on the same original FIFO.
-        if (action is GameAction.Play && resultIntents.values.any { it.command.scope.gameId == game.id &&
+        if (action.isPlay && resultIntents.values.any { it.command.scope.gameId == game.id &&
                 it.command.action !is GameAction.AcceptResult && !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return refused("predictionCapacityOrPlayChanged")
         val stream = streams.getValue(game.id)
-        val command = GameCommand(UUID.randomUUID().toString(), GameScope(game.id, playId = current.playId),
+        val command = GameCommand(requestId, GameScope(game.id, playId = current.playId),
             action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation)
         if (!GameWire.valid(command)) return refused("invalidCommand")
         // A control can become eligible after an already-inflight original. Failure to predict is
         // not authority to suppress the server's processing-time candidate.
         // Replica prediction is limited to exact terminal controls; selective suffixes stay server-only.
         // The accepted delta is prepared by the serial tree worker before publication.
-        if (action is GameAction.Play && !replica.predict(command, actor)) return refused("predictionRefused")
-        if (action !is GameAction.Play && resultIntents.values.none { it.command.scope.gameId == game.id &&
+        if (action.isPlay && !replica.predict(command, actor)) return refused("predictionRefused")
+        if (!action.isPlay && resultIntents.values.none { it.command.scope.gameId == game.id &&
                 !replica.predicted(it.command.requestId) }) replica.predict(command, actor)
         pending[command.requestId] = command
         latencySubmitted(command, replica.predicted(command.requestId))
-        if (action !is GameAction.Play) resultIntents[command.requestId] = ResultIntent(command, actor)
+        if (!action.isPlay) resultIntents[command.requestId] = ResultIntent(command, actor)
         captured(command)
         error = null; flush(); statusChanged(); return command
     }

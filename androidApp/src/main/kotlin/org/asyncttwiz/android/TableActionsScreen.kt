@@ -113,13 +113,12 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
     if (!context.token) add(MenuControl("Shuffle into library", enabled && currentZone != PlayZone.LIBRARY) {
         val invocation = java.util.UUID.randomUUID().toString()
         val library = play.board.containers.single { it.accountId == owner && it.zone == PlayZone.LIBRARY }
-        if (request(TableIntent.Move(scope, TableDestination.Container(library.id, PlayZone.LIBRARY), sources, invocation))) {
-            val libraries = scope.cardIds.mapNotNull { id -> CombatStackRules.liveSource(play.board, id)?.owner }
-                .distinct().map { account -> play.board.containers.single { it.accountId == account && it.zone == PlayZone.LIBRARY } }
-            for (target in libraries) request(TableIntent.Submit(PlayAction.ShuffleLibrary(target.id,
-                RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })), invocation))
-            dismiss()
-        }
+        val libraries = scope.cardIds.mapNotNull { id -> CombatStackRules.liveSource(play.board, id)?.owner }
+            .distinct().map { account -> play.board.containers.single { it.accountId == account && it.zone == PlayZone.LIBRARY } }
+        val intents = listOf(TableIntent.Move(scope, TableDestination.Container(library.id, PlayZone.LIBRARY), sources, invocation)) +
+            libraries.map { target -> TableIntent.Submit(PlayAction.ShuffleLibrary(target.id,
+                RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })), invocation) }
+        if (request(TableIntent.Batch(intents, invocation))) dismiss()
     })
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
     if (scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.let {

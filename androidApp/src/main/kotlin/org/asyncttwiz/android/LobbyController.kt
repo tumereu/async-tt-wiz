@@ -233,6 +233,16 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val actor = accountId() ?: return false
         return !closed && session?.historyControl(game, actor, action) == true
     }
+    fun gameplayBatch(actions: List<PlayAction>, requestId: String): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        if (closed) return false
+        val personal = historyOwner
+        if (personal != null && personal.armed == null && personal.playback?.position?.mode == HistoryMode.PLAYBACK) return false
+        fun send(continuation: Continuation?) = session?.gameplayBatch(game, actor, actions, requestId, continuation,
+            captured = { historyOwner?.captured(it) }) == true
+        return if (personal != null) personal.gameplay({ session?.play(game) }, ::send) else send(null)
+    }
     /** Annotating a viewed boundary appends to ordinary current history; it does not activate that
      * boundary or silently acquire historical continuation intent. */
     fun annotate(action: PlayAction): Boolean {
@@ -240,6 +250,13 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         return !closed && session?.gameplay(game, actor, action) == true
+    }
+    fun annotateBatch(actions: List<PlayAction>): Boolean {
+        if (actions.isEmpty() || actions.any { it !is PlayAction.EventComment && it !is PlayAction.Ping && it !is PlayAction.Unping }) return false
+        if (actions.size == 1) return annotate(actions.single())
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        return !closed && session?.gameplayBatch(game, actor, actions, java.util.UUID.randomUUID().toString()) == true
     }
     /** Accepted disclosure observer, not Boolean enqueue -> inspection. The UI supplies its exact
      * inspector lifetime and closes the returned subscription on Back/dismissal/replacement. */

@@ -14,7 +14,7 @@ class StackInteractionsTest {
             f.message(setup); f.message(f.result(setup))
             val before = f.play
             var published = before
-            val ui = TableToolkitController(f.actor, { published }, { true }, f.lobby::gameplay)
+            val ui = TableToolkitController(f.actor, { published }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             assertTrue(ui.addEffects(listOf(f.id(40))))
             assertNull(ui.stackBubbleEntry) // Main-thread publication has not run yet.
             published = f.play
@@ -40,7 +40,7 @@ class StackInteractionsTest {
     @Test fun realSessionAutomaticallyShowsNewEntriesAndBubblesUseOneInvocationWithOrdinaryRequests() {
         val f = BasicTableFixture()
         f.connect()
-        val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+        val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
         val id = f.id(40)
         val scope = TableScope(id, listOf(id))
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
@@ -88,7 +88,7 @@ class StackInteractionsTest {
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val initial = f.root.copy(definitions = listOf(submitted), board = f.root.board.copy(cards = f.root.board.cards.map { it.copy(definition = submitted.digest) }))
         f.connect(initial)
-        val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay)
+        val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
         val id = f.id(40)
         toolkit.handle(TableIntent.Move(TableScope(id, listOf(id)), TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1),
             BasicTableController.sources(f.play, listOf(id))))

@@ -10,7 +10,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         next ?: return
         val batch = TableChangeExtraction.between(from?.currentNodeId, next.currentNodeId,
             nextTree?.nodes.orEmpty(), previous?.nodes.orEmpty())
-        tableChanges(batch.copy(events = batch.events.filter { it.mutation.requestId !in skip }, cursor = display?.currentNodeId))
+        tableChanges(batch.copy(events = batch.events.filter { it.mutation.requestId !in skip && it.mutation.invocationId !in skip }, cursor = display?.currentNodeId))
     }
     private data class Prediction(val command: GameCommand, val actor: String,
         var commitRevision: String? = null, var withdrawn: Boolean = false)
@@ -40,7 +40,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         if (command.requestId in predictions) return false
         val base = display ?: return false
         val retained = displayTree
-        if (command.action !is GameAction.Play && predictions.values.any { it.withdrawn }) return false
+        if (!command.action.isPlay && predictions.values.any { it.withdrawn }) return false
         if (retained != null) {
             // A valid no-op (e.g. an already-reset corner after a move) still belongs on the
             // ordinary queue. It has no predicted node, but is not an enqueue failure.
@@ -174,7 +174,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
     }
     /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
-        if (command.action !is GameAction.Play && command.action != GameAction.Undo && command.action != GameAction.Redo)
+        if (!command.action.isPlay && command.action != GameAction.Undo && command.action != GameAction.Redo)
             return GameplayTreeChange(reason = "predictionUnavailable")
         return HistoryContinuation.change(tree, actor, command)
     }
@@ -188,7 +188,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         var controlBlocked = false
         var uncertainOriginal = false
         for (prediction in predictions.values) {
-            val control = prediction.command.action !is GameAction.Play
+            val control = !prediction.command.action.isPlay
             if (prediction.withdrawn) {
                 uncertainOriginal = true
                 if (control) controlBlocked = true

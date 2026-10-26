@@ -36,10 +36,12 @@ class CardMenuMovesTest {
             val scope = TableScope(f.id(40), listOf(f.id(40)))
             val before = f.commands().size
             var dismissed = false
+            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay,
+                playBatch = f.lobby::gameplayBatch, playTree = f.lobby::displayTree)
             basicMoveTools(f.play, emptyMap(), true, scope, BasicTableController.sources(f.play, scope.cardIds),
-                f.basic::handle, { dismissed = true }).single { it.name == "Shuffle into library" }.click()
+                toolkit::handle, { dismissed = true }).single { it.name == "Shuffle into library" }.click()
             val commands = f.commands().drop(before)
-            val actions = commands.map { (it.action as GameAction.Play).action }
+            val actions = assertIs<GameAction.PlayBatch>(commands.single().action).actions
             assertEquals(f.container(PlayZone.LIBRARY), assertIs<PlayAction.MoveCard>(actions.first()).destination.containerId)
             assertEquals(f.container(PlayZone.LIBRARY), assertIs<PlayAction.ShuffleLibrary>(actions.last()).containerId)
             assertEquals(1, commands.map { it.invocationId }.distinct().size)

@@ -139,7 +139,8 @@ internal object GameplayDeltas {
     private fun diff(path: List<String>, from: JsonElement?, to: JsonElement?, out: MutableList<GameplayValueDelta>) {
         if (from == to) return
         if (from is JsonObject && to is JsonObject) {
-            for (key in from.keys + to.keys) diff(path + key, from[key], to[key], out)
+            // Capture new events independently of map/JSONB key iteration. Never sort retained deltas.
+            for (key in (from.keys + to.keys).sorted()) diff(path + key, from[key], to[key], out)
         } else if (from is JsonArray && to is JsonArray) {
             // Stable entity IDs avoid positional reads when another independent entity is removed.
             fun keyed(array: JsonArray) = array.isNotEmpty() && array.all { it is JsonObject && it["id"] is JsonPrimitive }

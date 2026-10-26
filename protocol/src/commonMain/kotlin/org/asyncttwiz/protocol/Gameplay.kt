@@ -290,7 +290,9 @@ object GameplayRules {
                 // Only replacement tops are automatic; an explicit face change is still a Reveal.
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
-        val relevant = transition.copy(rulesVersion = 15, combatStack = CombatStackRules.transition(state, closed, action),
+        // Version 16 preserves token-adjacent pile order and canonicalizes map-derived event arrays.
+        // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
+        val relevant = transition.copy(rulesVersion = 16, combatStack = CombatStackRules.transition(state, closed, action),
             disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {
                 it.cardId == disclosure.cardId && it.containerId == disclosure.containerId } } + topDisclosures,
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)
@@ -502,7 +504,7 @@ object GameplayRules {
             GameplayFieldChange(card.id, GameplayField.CORNER, card.corner, moved.corner),
             GameplayFieldChange(card.id, GameplayField.FACE, card.faceId, moved.faceId),
             GameplayFieldChange(card.id, GameplayField.OWNER, card.owner, moved.owner)
-        ).filter { it.from != it.to } + card.counters.mapNotNull { (color, value) ->
+        ).filter { it.from != it.to } + card.counters.entries.sortedBy { it.key.name }.mapNotNull { (color, value) ->
             if (color in moved.counters) null else GameplayFieldChange(card.id, GameplayField.COUNTER, value, null, color) }
         fun viewers(board: BoardState, card: PlayCard): List<String> {
             if (coverRulesVersion >= 4) return CardVisibility.viewers(board, card)

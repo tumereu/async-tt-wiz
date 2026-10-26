@@ -66,9 +66,10 @@ object TokenLinkRules {
                     counters = read?.counters ?: emptyMap(), note = read?.note ?: "", token = true,
                     placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false)
                 val presence = TokenPresence(token, CardLocation(container.id, token.placement))
-                val next = board.copy(cards = (board.cards + token).sortedBy { it.id }, containers = board.containers.map {
-                    if (it.id == container.id) it.copy(cards = (it.cards + token.id).sorted()) else it
-                })
+                val next = GameplayRules.canonicalBoard(board.copy(cards = (board.cards + token).sortedBy { it.id },
+                    containers = board.containers.map {
+                        if (it.id == container.id) it.copy(cards = it.cards + token.id) else it
+                    }))
                 return GameplayRules.record(state.copy(definitions = (state.definitions + definition).distinctBy { it.digest }.sortedBy { it.digest }),
                     actor, command, next, GameplayTransition(tokens = listOf(TokenChange(null, presence)), cloneRead = read))
             }
@@ -204,8 +205,9 @@ object TokenLinkRules {
                 next = next.copy(cards = (next.cards + card).sortedBy { it.id }, containers = next.containers.map {
                     if (it.id != container.id) it else it.copy(cards = it.cards.toMutableList().apply {
                         add(if (ordered) index else size, card.id)
-                    }.let { ids -> if (ordered) ids else ids.sorted() })
-                })
+                    }.let { ids -> if (ordered || transition.rulesVersion >= 16 && container.zone == PlayZone.BATTLEFIELD)
+                        ids else ids.sorted() })
+                }).let { if (transition.rulesVersion >= 16) GameplayRules.canonicalBoard(it) else it }
             }
         }
         for (change in transition.links) change.from?.let { link ->

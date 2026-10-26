@@ -50,7 +50,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
-    val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null)
+    val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
+    val changes: TableChanges? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -100,7 +101,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex,
             position?.cursorId?.takeIf { playback.livePanelReveal })
-    SideEffect { endpoint.presented(play) }
+    SideEffect { endpoint.presented(play); play?.let { history.showChanges(it.currentNodeId) } }
     var loadTimedOut by remember(game.id) { mutableStateOf(false) }
     var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
     LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {
@@ -229,7 +230,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     connected = interactive && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
                      runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
-                         liveView = position?.mode == HistoryMode.LIVE,
+                          liveView = position?.mode == HistoryMode.LIVE, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,

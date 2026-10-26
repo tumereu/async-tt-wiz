@@ -3,7 +3,15 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 /** Serialized accepted generation and volatile overlays. UI consumes endpoints, never rollback/replay waypoints. */
-class GameplayReplica {
+class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {}) {
+    private val animatedPredictions = mutableSetOf<String>()
+    private fun effects(from: PlayState?, previous: GameplayTree?, skip: Set<String> = emptySet(),
+        next: PlayState? = display, nextTree: GameplayTree? = displayTree) {
+        next ?: return
+        val batch = TableChangeExtraction.between(from?.currentNodeId, next.currentNodeId,
+            nextTree?.nodes.orEmpty(), previous?.nodes.orEmpty())
+        tableChanges(batch.copy(events = batch.events.filter { it.mutation.requestId !in skip }, cursor = display?.currentNodeId))
+    }
     private data class Prediction(val command: GameCommand, val actor: String,
         var commitRevision: String? = null, var withdrawn: Boolean = false)
     private val predictions = linkedMapOf<String, Prediction>()
@@ -36,13 +44,27 @@ class GameplayReplica {
             if (predictChange(retained, actor, command).reason != null) return false
         } else if (GameplayRules.change(base, actor, command).state == null) return false
         predictions[command.requestId] = Prediction(command, actor)
-        rebase(); return true
-    }
-    fun withdraw(requestId: String) { predictions[requestId]?.withdrawn = true; rebase() }
-    fun retire(requestId: String) { predictions.remove(requestId); rebase() }
-    fun result(result: GameResult) {
-        correlateResult(result)
         rebase()
+        effects(base, retained)
+        animatedPredictions.add(command.requestId)
+        return true
+    }
+    fun withdraw(requestId: String) {
+        val before = display?.currentNodeId
+        predictions[requestId]?.withdrawn = true; rebase()
+        if (display?.currentNodeId != before) tableChanges(TableChangeBatch(jump = true))
+    }
+    fun retire(requestId: String) {
+        val before = display?.currentNodeId
+        predictions.remove(requestId); animatedPredictions.remove(requestId); rebase()
+        if (display?.currentNodeId != before) tableChanges(TableChangeBatch(jump = true))
+    }
+    fun result(result: GameResult) {
+        val before = display?.currentNodeId
+        correlateResult(result)
+        if (result.outcome != "accepted") animatedPredictions.remove(result.requestId)
+        rebase()
+        if (display?.currentNodeId != before) tableChanges(TableChangeBatch(jump = true))
     }
     private fun correlateResult(result: GameResult) {
         val prediction = predictions[result.requestId] ?: return
@@ -62,7 +84,8 @@ class GameplayReplica {
             head.summary.lifecycle == GameLifecycle.ACTIVE && head.summary.playId == play.id && head.gameId == play.gameId &&
             head.summary.preparationRound == play.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
         tree = TreeSync.generation(GameplayTree(play))
-        accepted = play; revision = head.revision; records.clear(); rebase(); return true
+        accepted = play; revision = head.revision; records.clear(); rebase()
+        animatedPredictions.clear(); tableChanges(TableChangeBatch(jump = true)); return true
     }
     /** False means a gap/new incarnation: fetch a coherent baseline, never apply on an unmatched base. */
     fun apply(update: GameRevision): Boolean {
@@ -82,9 +105,16 @@ class GameplayReplica {
             else if (update.play == null && update.mutation == null) tree else null
         val endpoint = nextTree?.tree?.let { requireNotNull(it.stateAt(it.currentNodeId)) } ?: update.play ?: current
         if (nextTree != null && update.play != null) require(endpoint == update.play)
+        val before = accepted
+        val previous = tree?.tree
+        val predicted = animatedPredictions.toSet()
+        val confirmation = update.requestId in predicted
+        animatedPredictions.remove(update.requestId)
         tree = nextTree
         accepted = endpoint; revision = update.resultRevision; records[update.resultRevision] = update.copy(chatMessage = null)
-        correlate(update); rebase(); return true
+        correlate(update); rebase()
+        if (!confirmation) effects(before, previous, predicted, accepted, tree?.tree)
+        return true
     }
     /** Build in isolation, catch up to the published generation, correlate originals, then switch once. */
     fun baseline(baseline: GameplayBaseline, tail: List<GameRevision> = emptyList(), through: String = baseline.snapshot.head.revision): Boolean {
@@ -128,7 +158,7 @@ class GameplayReplica {
         accepted = state; revision = at; records.clear(); records.putAll(staged)
         staged.values.forEach(::correlate)
         for (status in baseline.statuses) if (status.status == "final") correlateResult(status.result!!)
-        rebase(); return true
+        rebase(); animatedPredictions.retainAll(predictions.keys); tableChanges(TableChangeBatch(jump = true)); return true
     }
     private fun correlate(update: GameRevision) {
         predictions[update.requestId]?.let {
@@ -188,16 +218,28 @@ class GameplayReplica {
 
     /** Worker-prepared accepted generation: no disk/replay work is hidden in the UI publication. */
     fun published(head: GameHead, generation: DownloadedTree, at: String,
-        statuses: List<GameRequestStatus>, tail: List<GameRevision>): Boolean {
+        statuses: List<GameRequestStatus>, tail: List<GameRevision>, animate: Boolean = false): Boolean {
         val tree = generation.tree
         val endpoint = requireNotNull(tree.stateAt(tree.currentNodeId))
         if (revision?.let { GameWire.ordinal(it) > GameWire.ordinal(at) } == true) return false
         require(head.gameId == endpoint.gameId && head.play?.id == endpoint.id)
+        val before = accepted
+        val previous = this.tree?.tree
+        val predicted = animatedPredictions.toSet()
         this.tree = generation; accepted = endpoint; revision = at; records.clear()
         tail.forEach(::correlate)
         // Correlate the whole snapshot before replaying its remaining tail: status ordering must
         // not temporarily replay already-accepted originals and permanently withdraw later controls.
         for (status in statuses) if (status.status == "final") correlateResult(requireNotNull(status.result))
-        rebase(); return true
+        rebase()
+        if (animate) {
+            val confirmation = tail.isNotEmpty() && tail.all { it.requestId in predicted }
+            tail.forEach { animatedPredictions.remove(it.requestId) }
+            if (!confirmation) effects(before, previous, predicted, accepted, this.tree?.tree)
+        } else {
+            animatedPredictions.retainAll(predictions.keys)
+            tableChanges(TableChangeBatch(jump = true))
+        }
+        return true
     }
 }

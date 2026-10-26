@@ -67,7 +67,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
                 latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)
             refresh(background = true)
-        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache) }
+        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
+        tableChanges = { gameId, batch -> if (state.selected == gameId) historyOwner?.liveChanges(batch) }) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {

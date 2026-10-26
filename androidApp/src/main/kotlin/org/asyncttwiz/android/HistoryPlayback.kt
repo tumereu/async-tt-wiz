@@ -83,7 +83,9 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
 }
 
 /** Device-local transport only. No sync, request, activation, Undo or prediction ownership here. */
-class HistoryPlayback(initial: HistoryTree) {
+class HistoryPlayback(initial: HistoryTree,
+    private val onStep: (String, String, HistoryTree) -> Unit = { _, _, _ -> },
+    private val onJump: () -> Unit = {}) {
     var tree: HistoryTree by mutableStateOf(initial); private set
     var position by mutableStateOf(HistoryPosition(initial.sharedHeadId, displayVersion = initial.liveVersion)); private set
     var foreground by mutableStateOf(true); private set
@@ -126,6 +128,7 @@ class HistoryPlayback(initial: HistoryTree) {
         tree = next
         panelViewer = viewer
         val cursor = resolveCursor(position.cursorId)
+        if (cursor != position.cursorId) onJump()
         val held = livePanelReveal && tree.contains(position.cursorId) && tree.isAncestor(position.cursorId, tree.sharedHeadId)
         val reveal = if (foreground && position.mode == HistoryMode.LIVE) {
             if (held) position.cursorId else nextPanelReveal(cursor)
@@ -189,7 +192,9 @@ class HistoryPlayback(initial: HistoryTree) {
         }
         return cursor
     }
-    fun scrub(id: String) {
+    fun scrub(id: String) = scrubTo(id, true)
+    private fun scrubTo(id: String, jump: Boolean) {
+        if (jump) onJump()
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
         val cursor = resolveCursor(id)
         livePanelReveal = false
@@ -211,7 +216,9 @@ class HistoryPlayback(initial: HistoryTree) {
 
     fun previous() {
         if (transportLocked) return
-        scrub(tree.previousGroup(position.cursorId))
+        val from = position.cursorId
+        scrubTo(tree.previousGroup(position.cursorId), false)
+        onStep(from, position.cursorId, tree)
     }
 
     /** One concrete group endpoint, including rollback groups on a displaced retained path. */
@@ -238,7 +245,9 @@ class HistoryPlayback(initial: HistoryTree) {
             target != tree.sharedHeadId && tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board, definitions) }
         // Keep the historical scene mounted until its final movement has actually settled.
         finalAnimationCursor = target.takeIf { it == tree.sharedHeadId }
+        val from = position.cursorId
         position = HistoryPosition(target, HistoryMode.PLAYBACK, automatic, tree.version(target))
+        onStep(from, target, tree)
         if (target == common) { branched = false; rollbackPlan = null }
     }
 
@@ -262,6 +271,7 @@ class HistoryPlayback(initial: HistoryTree) {
     fun canContinue(capturedId: String) = position.mode == HistoryMode.PLAYBACK && !position.playing &&
         position.cursorId == capturedId && tree.contains(capturedId)
     fun continuationApplied() {
+        if (position.cursorId != tree.sharedHeadId) onJump()
         livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
         rollbackPlan = null; branched = false
         position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
@@ -294,7 +304,8 @@ internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTr
 
 /** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
-internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to Triple(it.bounds, it.tapped, it.covered) }
+internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
+    listOf(it.bounds, it.tapped, it.covered, it.faceId) }
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -304,6 +315,7 @@ class HistorySceneAnimation(initial: TableScene) {
     private var end = start
     var durationMillis: Int = 180; private set
     internal var rotatingCardIds: Set<String> = emptySet(); private set
+    private var flippingCardIds: Set<String> = emptySet()
     private var latestScene = initial
     private var latestItems = initial.items.associateBy { it.animationId }
     fun updateMetadata(target: TableScene) {
@@ -321,14 +333,15 @@ class HistorySceneAnimation(initial: TableScene) {
             // Most of a large board is stationary during a tap. Reuse its immutable drawings
             // instead of allocating transforms and copied items for every card on every frame.
             if (a.bounds == b.bounds && a.alpha == b.alpha && a.item.tapped == b.item.tapped &&
-                a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
+                a.item.cardId !in flippingCardIds && a.item.covered == b.item.covered && a.item.faceTransform(a.bounds) == b.item.faceTransform(b.bounds)) {
                 val shown = latestItems[id] ?: b.item
                 return@map if (shown === b.item) b else HistoryAnimatedItem(shown, b.bounds, b.alpha)
             }
             val t = if (b.item.kind == TableItemKind.CARD && durationMillis != 90)
                 cardMoveProgress(a.bounds, b.bounds, sceneProgress, durationMillis, cardMoveSpeedDpPerMs) else sceneProgress
             fun mix(x: Float, y: Float) = x + (y - x) * t
-            val flipping = a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
+            val flipping = b.item.cardId in flippingCardIds ||
+                a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
             val shown = if (flipping && t < .5f) a.item else latestItems[id] ?: b.item
             // A flying face cannot expose a Library top, including at the exact departure frame.
             val item = if (t < 1f && shown.kind == TableItemKind.CARD && a.bounds != b.bounds &&
@@ -361,13 +374,17 @@ class HistorySceneAnimation(initial: TableScene) {
         }.sortedBy { it.item.inTransit }
     }
     /** False means confirmation/metadata only: the caller must leave the running clock alone. */
-    fun retarget(target: TableScene, currentProgress: Float): Boolean {
+    fun retarget(target: TableScene, currentProgress: Float, faceChanges: Set<String> = emptySet()): Boolean {
         if (target.animationTargets == destination.animationTargets) {
             destination = target
             return false
         }
         start = frame(currentProgress).filter { it.alpha > 0f }.associateBy { it.item.animationId }
         end = target.items.associate { it.animationId to HistoryAnimatedItem(it, it.bounds, 1f) }
+        flippingCardIds = faceChanges.filter { id ->
+            val a = start["card/$id"]?.item; val b = end["card/$id"]?.item
+            a != null && b != null && (a.covered != b.covered || a.faceId != b.faceId)
+        }.toSet()
         for (projection in destination.stackProjections) if (!target.stackContains(projection.cardId) && projection.animationId !in start) {
             start = start + (projection.animationId to HistoryAnimatedItem(projection, projection.bounds, 1f))
         }
@@ -418,7 +435,7 @@ class HistorySceneAnimation(initial: TableScene) {
             b.item.cardId?.takeIf { b.item.kind == TableItemKind.CARD &&
                 a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation }
         }.toSet()
-        durationMillis = if ((start.keys + end.keys).all { id ->
+        durationMillis = if (flippingCardIds.isEmpty() && (start.keys + end.keys).all { id ->
             val a = start[id]; val b = end[id]
             a != null && b != null && a.alpha == b.alpha && (a.bounds == b.bounds && a.item.tapped == b.item.tapped ||
                 a.item.kind == TableItemKind.CARD && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation &&

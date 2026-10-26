@@ -44,7 +44,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private val treeWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
     reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DEBUG) DebugLatency.reconnect(it) },
-    private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor())) : AutoCloseable {
+    private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
+    private val tableChanges: (String, TableChangeBatch) -> Unit = { _, _ -> }) : AutoCloseable {
+    private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
     private val reviews = LatestReview(reviewWorker)
     private val reviewVersions = ConcurrentHashMap<String, Long>()
     // Only treeWorker touches these coordinators and their mutable materializations.
@@ -605,7 +607,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (message.play != null) {
                     if (treeHead[message.gameId]?.let { newerOrEqual(it, message.revision) } != true)
                         treeHead[message.gameId] = message.revision
-                    val replica = plays.getOrPut(message.gameId) { GameplayReplica() }
+                    val replica = replica(message.gameId)
                     if (replica.revision == message.revision) {
                         streams[message.gameId]?.head = true
                     } else if (treeCache == null && !message.retainedTreeRequired && replica.accepted == null && replica.root(message)) {
@@ -647,7 +649,7 @@ class GameSession(private val connection: GameConnection, private val credential
                         it.tail.add(message)
                         if (newerOrEqual(message.resultRevision, it.through)) it.through = message.resultRevision
                     }
-                    val replica = plays.getOrPut(message.gameId) { GameplayReplica() }
+                    val replica = replica(message.gameId)
                     if (treeCache != null && message.gameId !in recoveries) {
                         applyTree(message)
                     } else if (treeCache != null && message.gameId in recoveries) {
@@ -968,7 +970,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     requireNotNull(baseline)
                     require(baseline.snapshot.head.gameId == gameId)
                     require(baseline.statuses.map { it.requestId }.toSet() == recovery.ids.toSet())
-                    val replica = plays.getOrPut(gameId) { GameplayReplica() }
+                    val replica = replica(gameId)
                     val local = pending.values.filter { it.scope.gameId == gameId && it.requestId !in recovery.ids && it.requestId !in sent }
                     val correlated = baseline.copy(statuses = baseline.statuses.map {
                         if (it.status == "unknown" && it.requestId in recovery.notAdmitted) it.copy(status = "notAdmitted") else it } +
@@ -1020,7 +1022,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 val at = published.version.revision.toString()
                 val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
                 val head = GameHead(game.id, at, game.copy(revision = at), play = endpoint)
-                val replica = plays.getOrPut(game.id) { GameplayReplica() }
+                val replica = replica(game.id)
                 if (replica.published(head, prepared, at, emptyList(), emptyList())) {
                     install(head.summary, at, null, replica.accepted); statusChanged()
                 }
@@ -1074,7 +1076,7 @@ class GameSession(private val connection: GameConnection, private val credential
             if (published == null || GameWire.ordinal(recovery.through) > published.version.revision) {
                 recover(gameId, recovery.through, "stagedTreeBehindOrFailed"); return
             }
-            val replica = plays.getOrPut(gameId) { GameplayReplica() }
+            val replica = replica(gameId)
             if (!replica.published(requireNotNull(transfer.manifest.head), published.generation,
                 published.version.revision.toString(), transfer.manifest.statuses, appliedTail)) { connectionUnavailable("treePublicationFailed"); return }
             val summary = appliedTail.lastOrNull { it.resultRevision == replica.revision }?.summary ?: transfer.manifest.head!!.summary
@@ -1143,11 +1145,11 @@ class GameSession(private val connection: GameConnection, private val credential
             post {
                 if (!valid() || update.gameId in recoveries) return@post
                 if (published == null) { recover(update.gameId, update.resultRevision, "treeApply:$reason"); return@post }
-                val replica = plays.getOrPut(update.gameId) { GameplayReplica() }
+                val replica = replica(update.gameId)
                 if (plays[update.gameId]?.revision?.let { GameWire.ordinal(it) >= published.version.revision } == true) return@post
                 val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
                 val head = GameHead(update.gameId, update.resultRevision, update.summary, play = endpoint)
-                if (replica.published(head, prepared, published.version.revision.toString(), emptyList(), listOf(update))) {
+                if (replica.published(head, prepared, published.version.revision.toString(), emptyList(), listOf(update), animate = true)) {
                     if (treeHead[update.gameId]?.let { newerOrEqual(replica.revision!!, it) } != false)
                         streams[update.gameId]?.head = true
                     install(update.summary, replica.revision!!, null, replica.accepted); statusChanged()

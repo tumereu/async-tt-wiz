@@ -56,6 +56,7 @@ internal object StackMenuActions {
 internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
     perform: (TableIntent) -> Unit, cardActions: (String) -> Unit) {
     val order = CombatStackRules.stack(state.board).cards
+    val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
     var inspection by remember { mutableStateOf<ManualInspection?>(null) }
@@ -83,7 +84,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        Box(Modifier.size(32.dp, 44.dp).cardFrame(card?.token == true, owner, projection)
+                        Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
                             contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())

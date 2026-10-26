@@ -230,6 +230,7 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
     }
     val inspection = remember(search) { CardInspectionController() }
     val matches = search.choices
+    val cardSize = rememberCardAppearance().size(CardArea.PANELS)
     val listState = rememberLazyListState()
     LaunchedEffect(search, listState) {
         snapshotFlow { Triple(search.next, search.loading,
@@ -254,7 +255,7 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
                         onClick = { search.select(definition) }, onLongClick = { inspection.open(card) })
                         .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CardArtwork(card.artwork.first(), "—", 80, 112, Modifier.size(40.dp, 56.dp).border(1.dp, MenuBorder))
+                        CardArtwork(card.artwork.first(), "—", 80, 112, Modifier.size(40.dp * cardSize, 56.dp * cardSize).border(1.dp, MenuBorder))
                         Column(Modifier.weight(1f)) {
                             Text(definition.definition.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(TokenActions.detail(definition.definition), style = MaterialTheme.typography.bodySmall,

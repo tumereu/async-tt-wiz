@@ -21,6 +21,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "",
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (catalog != null) CatalogControls(catalog)
         PlaybackSettings(preferences, accountId)
+        CardSettings()
         TextButton(onClick = logout, modifier = Modifier.heightIn(min = 48.dp).testTag("logout"),
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
             EntryIcon(null, "logout"); Spacer(Modifier.width(8.dp)); Text("Log out")

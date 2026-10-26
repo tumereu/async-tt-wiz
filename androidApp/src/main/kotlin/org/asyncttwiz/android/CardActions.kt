@@ -116,7 +116,8 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, token = card.token)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
-        val anchor = TableBounds(maxWidth.value / 2 - 24, maxHeight.value / 2 - 50, 48f, 100f)
+        val size = rememberCardAppearance().size(CardArea.PANELS)
+        val anchor = TableBounds(maxWidth.value / 2 - 24 * size, maxHeight.value / 2 - 50 * size, 48f * size, 100f * size)
         Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
             CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, token = card.token)
@@ -131,14 +132,19 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
     val card = state.board.cards.singleOrNull { it.id == cardId } ?: return
     val faces = ManualDisclosure.permittedFaces(state, card, viewer, inspecting = false)
     val face = faces.singleOrNull()
+    val appearance = rememberCardAppearance()
+    val size = appearance.size(CardArea.PANELS)
+    val titleScale = size * appearance.text(CardTextScalePart.TITLE)
+    val noteScale = size * appearance.text(CardTextScalePart.NOTE)
+    val valueScale = size * appearance.text(CardTextScalePart.VALUES)
     val owner = if (card.owner == viewer) Color(0xff287f85) else Color(0xffa84f58)
     val tapped = card.tapped && viewId !in CombatStackRules.projectionIds(state.board) &&
         state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
-    Column(Modifier.width(48.dp).height(100.dp).cardFrame(card.token, owner, viewId in CombatStackRules.projectionIds(state.board))
+    Column(Modifier.width(48.dp * size).height(100.dp * size).cardFrame(card.token, owner, viewId in CombatStackRules.projectionIds(state.board))
         .padding(horizontal = if (card.token) 8.dp else 3.dp, vertical = 4.dp)
         .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (tapped) "tapped" else "untapped"}, $count captured targets" }) {
         Text(face?.name ?: if (card.covered) "Covered" else "Unavailable", maxLines = 1,
-            overflow = TextOverflow.Clip, fontSize = 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold)
+            overflow = TextOverflow.Clip, fontSize = 8.sp * titleScale, lineHeight = 9.sp * titleScale, fontWeight = FontWeight.Bold)
         Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { rotationZ = if (tapped) 90f else 0f }) {
             if (face != null) {
                 val definition = state.definitions.single { it.digest == card.definition }.definition
@@ -148,10 +154,12 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
                 else MenuIcon("Declare blockers", Modifier.align(Alignment.Center), tint = owner.copy(alpha = .65f))
             } else MenuIcon("Turn face down", Modifier.align(Alignment.Center))
         }
+        if (face != null && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
+            fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale, overflow = TextOverflow.Clip)
         Row { for ((color, value) in card.counters) Text(value, Modifier.background(counterColor(color)),
-            maxLines = 1, fontSize = 8.sp, lineHeight = 9.sp) }
+            maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
         Text("${if (count > 1) "×$count " else ""}${card.corner}", Modifier.align(Alignment.End), maxLines = 1,
-            fontSize = 10.sp, lineHeight = 11.sp, overflow = TextOverflow.Clip)
+            fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)
     }
 }
 

@@ -259,9 +259,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val timelineVisible = runtime.reviewing && runtime.reviewPanel != null
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible) {
+        val cardAppearance = rememberCardAppearance()
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, timelineVisible, cardAppearance) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight)
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance)
                 .let { if (timelineVisible) timelineLayout(it, accountId, maxWidth.value, maxHeight.value, landscape) else it }
         }
         var previousLayout by remember { mutableStateOf(layout) }
@@ -768,9 +769,13 @@ internal fun TableChromeIcon(kind: String) {
 private fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     val images = mutableMapOf<String, ImageBitmap>()
     val context = LocalContext.current
-    for (reference in scene.items.filter { it.visible.isNotEmpty() && !it.covered }.mapNotNull { it.artwork }.distinct()) key(reference) {
-        val width = with(LocalDensity.current) { scene.cardWidth.dp.roundToPx() }.coerceIn(1, 4096)
-        val height = with(LocalDensity.current) { scene.cardHeight.dp.roundToPx() }.coerceIn(1, 4096)
+    val extents = mutableMapOf<org.asyncttwiz.storage.ArtworkReference, Float>()
+    for (item in scene.items) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
+        extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
+    }
+    for ((reference, extent) in extents) key(reference) {
+        val width = with(LocalDensity.current) { extent.dp.roundToPx() }.coerceIn(1, 4096)
+        val height = width
         val image by produceState<ImageBitmap?>(null, reference, width, height) {
             val request = CardArtworkRequest(reference, width, height)
             val result = PublicArtwork.get(context).loader.execute(coil3.request.ImageRequest.Builder(context)
@@ -821,6 +826,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
     val paint = cache.paint
+    val titleScale = scene.appearance.text(CardTextScalePart.TITLE)
+    val noteScale = scene.appearance.text(CardTextScalePart.NOTE)
+    val valueScale = scene.appearance.text(CardTextScalePart.VALUES)
+    val titleBand = maxOf(11f, 7f * titleScale + 3f)
+    val artBottom = 40f - maxOf(10f, 7f * valueScale + 3f)
     fun text(value: String, x: Float, y: Float, max: Int = 16) {
         drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
     }
@@ -841,9 +851,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawContext.canvas.nativeCanvas.drawText(value, x, baseline, paint)
     }
     fun emptySlot(i: TableItem, color: Color) {
-        val z = 1f
+        val z = i.bounds.width / 28f
         val x = i.bounds.x; val y = i.bounds.y
-        val w = 28f; val h = 40f
+        val w = i.bounds.width; val h = i.bounds.height
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
         val cx = x + w / 2; val cy = y + h / 2
@@ -882,19 +892,22 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     fun noteChip(i: TableItem, x: Float, y: Float, z: Float) {
         if (i.covered || i.note.isEmpty()) return
         // Fixed readable type, not shrink-to-fit: clip long notes to the art width.
-        paint.textSize = 7 * z * density
-        val chipWidth = minOf(24 * z, cache.measure(i.note.take(32)) / density + 2 * z)
-        drawRoundRect(Color.White, xy(x + 2 * z, y + 10 * z), size(chipWidth, 7 * z), CornerRadius(2 * z * density))
-        clipRect((x + 3 * z) * density, (y + 10 * z) * density,
-            (x + z + chipWidth) * density, (y + 17 * z) * density) {
+        paint.textSize = 7 * noteScale * z * density
+        val top = titleBand - 1f
+        val chipHeight = minOf(7 * noteScale, artBottom - top)
+        val sharedRow = i.counters.isNotEmpty() && 7 * noteScale + 10 * valueScale > artBottom - top
+        val chipWidth = minOf((if (sharedRow) 12 else 24) * z, cache.measure(i.note.take(32)) / density + 2 * z)
+        drawRoundRect(Color.White, xy(x + 2 * z, y + top * z), size(chipWidth, chipHeight * z), CornerRadius(2 * z * density))
+        clipRect((x + 3 * z) * density, (y + top * z) * density,
+            (x + z + chipWidth) * density, (y + (top + chipHeight) * z) * density) {
             paint.color = android.graphics.Color.DKGRAY
-            text(i.note, x + 3 * z, y + 15.5f * z, 32)
+            text(i.note, x + 3 * z, y + (top + 5.5f * noteScale) * z, 32)
         }
     }
     fun cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         translate(x * density, y * density) {
         val x = 0f; val y = 0f
-        val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else 1f
+        val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else i.bounds.width / 28f
         val cardWidth = 28f * z; val cardHeight = 40f * z
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
@@ -903,10 +916,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         if (!i.covered && mode == TableArtworkMode.CUSTOM_CARD) clipPath(outline) {
             drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
             if (i.corner.isNotEmpty()) {
-                paint.textSize = 7 * z * density
+                paint.textSize = 7 * valueScale * z * density
                 val badgeWidth = (cache.measure(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
-                drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + cardHeight - 11 * z),
-                    size(badgeWidth, 10 * z), CornerRadius(z * density))
+                drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
+                    size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
                 fittedText(i.corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
             }
         }
@@ -914,17 +927,19 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return@translate
         if (mode == TableArtworkMode.CUSTOM_CARD) { noteChip(i, x, y, z); paint.textSize = 11 * density; return@translate }
-        paint.textSize = 7 * z * density; paint.isFakeBoldText = true
+        paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
-        fittedText(title, x + titleInset, y + 8 * z, cardWidth - 2 * titleInset)
+        fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
         paint.isFakeBoldText = false
         if (mode == TableArtworkMode.ART_CROP) drawTableArtwork(requireNotNull(art),
-            TableBounds(x + 2 * z, y + 11 * z, cardWidth - 4 * z, cardHeight - 21 * z))
+            TableBounds(x + 2 * z, y + titleBand * z, cardWidth - 4 * z, (artBottom - titleBand) * z))
         else {
             paint.textSize = 17 * z * density
-            text(i.typeIcon, x + (cardWidth - cache.measure(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
+            clipRect(x * density, (y + titleBand * z) * density, (x + cardWidth) * density, (y + artBottom * z) * density) {
+                text(i.typeIcon, x + (cardWidth - cache.measure(i.typeIcon) / density) / 2, y + cardHeight * .7f, i.typeIcon.length)
+            }
         }
-        paint.textSize = 7 * z * density
+        paint.textSize = 7 * valueScale * z * density
         fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         noteChip(i, x, y, z)
         paint.textSize = 11 * density
@@ -1072,8 +1087,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 } else if (i.zone != PlayZone.STACK) {
                     cardFace(i, b.x, b.y, color, i.faceTitle)
                     if (i.covered) {
-                        paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * density
-                        text("✧", b.x + 8, b.y + 26, 1)
+                         val z = b.width / 28f
+                         paint.color = android.graphics.Color.WHITE; paint.textSize = 17 * z * density
+                         text("✧", b.x + 8 * z, b.y + 26 * z, 1)
                         paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
                     }
                 }
@@ -1092,11 +1108,21 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                            drawOval(color, xy(cx - 3f * z, cy - 1.8f * z), size(6f * z, 3.6f * z), style = Stroke(.6f * z * density))
                            drawCircle(color, 1f * z * density, xy(cx, cy))
                       }
-                     paint.textSize = 7 * z * density
-                       if (!i.covered) i.counters.entries.take(6).forEachIndexed { n, entry ->
-                           drawCircle(counterColor(entry.key), 5 * z * density, xy(x + (6 + n * 7) * z, y + cardHeight - 18 * z))
-                           text(entry.value, x + (3 + n * 7) * z, y + cardHeight - 16 * z, 3)
-                       }
+                      paint.textSize = 7 * valueScale * z * density
+                        if (!i.covered && i.counters.isNotEmpty()) {
+                            val sharedRow = i.note.isNotEmpty() && 7 * noteScale + 10 * valueScale > artBottom - titleBand + 1
+                            val left = if (sharedRow) 15f else 1f
+                            val radius = minOf(5 * valueScale, (artBottom - titleBand + 1) / 2)
+                            val cy = artBottom - radius - 3f.coerceAtMost((artBottom - titleBand + 1 - 2 * radius).coerceAtLeast(0f))
+                            clipRect((x + left * z) * density, (y + (titleBand - 1) * z) * density,
+                                (x + cardWidth - z) * density, (y + artBottom * z) * density) {
+                                i.counters.entries.take(6).forEachIndexed { n, entry ->
+                                    val cx = left + radius + n * 7 * valueScale
+                                    drawCircle(counterColor(entry.key), radius * z * density, xy(x + cx * z, y + cy * z))
+                                    text(entry.value, x + (cx - 3 * valueScale) * z, y + (cy + 2 * valueScale) * z, 3)
+                                }
+                            }
+                        }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
                           paint.textSize = 11 * density
@@ -1163,5 +1189,21 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 xy(p.x - scene.cardWidth / 2, p.y - scene.cardHeight / 2), size(scene.cardWidth, scene.cardHeight), CornerRadius(3 * density))
             text("${preview.scope.cardIds.size}", p.x, p.y)
         }
+    }
+}
+
+/** Uses the production renderer: size and text are not a separately maintained approximation. */
+@Composable
+internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier: Modifier = Modifier) {
+    val bounds = TableBounds(0f, 0f, 28f * scale, 40f * scale)
+    val sample = TableItem("sample", bounds, "Sample card: Sprite, note Flying, 2/3, one blue counter", "Sprite",
+        owner = "sample", kind = TableItemKind.CARD, corner = "2/3", note = "Flying",
+        counters = mapOf(CounterColor.BLUE to "1"), typeIcon = "♙")
+    val scene = TableScene(listOf(sample), emptyList(), appearance = appearance)
+    val density = LocalDensity.current.density
+    val cache = remember(density) { TableDrawCache(density) }
+    Canvas(modifier.size(bounds.width.dp, bounds.height.dp).semantics { contentDescription = sample.label }) {
+        drawTable(scene, "sample", "sample", TableSelection(), TableGesturePreview(),
+            annotations = TableAnnotationGeometry(scene, "sample"), cache = cache)
     }
 }

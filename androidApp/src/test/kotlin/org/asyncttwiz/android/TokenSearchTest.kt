@@ -1,12 +1,16 @@
 package org.asyncttwiz.android
 
 import kotlinx.coroutines.*
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import kotlin.test.*
 
 class TokenSearchTest {
+    @get:Rule val temporary = TemporaryFolder()
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun definition(n: Int, name: String) = CardDefinition(name,
         listOf(DefinitionFace(id(n), name, rulesText = "Exact $n", sourceData = "{\"exact\":$n}")),
@@ -227,10 +231,126 @@ class TokenSearchTest {
             factoryThreads += Thread.currentThread()
             throw CatalogNotInstalledException()
         }
+        source.warm(prepare = true)
         assertFailsWith<CatalogNotInstalledException> { source.search("goblin", null) }
         assertFailsWith<CatalogNotInstalledException> { source.isCurrent("old-generation") }
         assertEquals(2, factoryThreads.size)
         assertTrue(factoryThreads.all { it !== callingThread })
+        val scope = scope()
+        val sent = mutableListOf<SubmittedDefinition>()
+        val controller = TokenSearchController(source, scope, { true }, { sent += it; true }, localSearch = true)
+        assertTrue(controller.error!!.contains("not installed"))
+        controller.search()
+        assertFalse(controller.loading)
+        assertEquals(listOf(TokenCatalog.blank), controller.choices)
+        controller.select(TokenCatalog.blank)
+        assertEquals(listOf(TokenCatalog.blank), sent)
+        controller.close(); scope.cancel()
+    }
+
+    @Test fun neverWarmedSourceResolvesMissingCatalogInsteadOfWaitingForStartupForever() = runBlocking {
+        val source = RepositoryTokenSearchSource { throw CatalogNotInstalledException() }
+        withTimeout(5_000) {
+            assertFailsWith<CatalogNotInstalledException> { source.search("", null) }
+        }
+        assertTrue(source.cachedError()!!.contains("not installed"))
+    }
+
+    @Test fun productionSourceReusesPreparedSnapshotUntilImportPublishesAnotherGeneration() = runBlocking {
+        var opens = 0
+        val repository = CatalogRepository(temporary.newFolder("catalog")) {
+            opens++
+            JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}")
+        }
+        fun install(name: String) = repository.stage { index ->
+            index.addBatch(listOf(CatalogPrinting(id(1), name, "SYN", "1", "English", "", id(2), true,
+                emptyList(), """{"type":"Token Creature","power":"1","toughness":"1"}""")))
+            CatalogMetadata("same-metadata", "5")
+        }
+        install("Goblin")
+        val source = RepositoryTokenSearchSource { repository }
+        source.warm()
+        val page = source.cached()!!
+        val reads = opens
+        repeat(3) {
+            source.warm()
+            assertSame(page, source.cached())
+            assertSame(page, source.search("", null))
+        }
+        assertEquals(reads, opens, "Cached generations never reread/decode definitions")
+        install("Spirit")
+        assertFalse(source.isCurrent(page.generation))
+        source.warm()
+        assertNotSame(page, source.cached())
+        assertEquals(listOf("Spirit"), source.cached()!!.definitions.map { it.definition.name })
+        assertEquals(listOf("Goblin"), page.definitions.map { it.definition.name })
+    }
+
+    @Test fun cachedOrderingMatchesFavoritesSemanticsAndFindsBackFaceNames() {
+        val front = definition(10, "Dawn Spirit")
+        val double = front.definition.copy(layout = "transform", faces = listOf(
+            front.definition.faces.single().copy(otherFaceIds = listOf(id(11))),
+            DefinitionFace(id(11), "Dusk Spirit", otherFaceIds = listOf(id(10)))))
+            .let { SubmittedDefinition(DeckJson.digest(it), it) }
+        val definitions = listOf(spirit, goblin, definition(12, "Food"), double)
+        val index = TokenChoiceIndex(definitions.map(CatalogTokenChoice::from))
+        for (favorites in listOf(TokenFavorites(), TokenFavorites(emptyList()), TokenFavorites(listOf(TokenIdentity.key(spirit.definition))))) {
+            val ordered = index.ordered(favorites)
+            assertEquals(TokenActions.ordered(listOf(TokenCatalog.blank) + definitions, favorites), ordered.map { it.submitted })
+            assertEquals(listOf(double), TokenChoiceIndex.filter(ordered, " DuSk "))
+            assertTrue(TokenChoiceIndex.filter(ordered, "not found").isEmpty())
+        }
+    }
+
+    @Test fun startupFailureWhileTypingCannotLeaveLoadingSpinnerRunning() {
+        val completion = CompletableDeferred<TokenSearchPage>()
+        var failure: String? = null
+        val source = object : TokenSearchSource {
+            override fun cachedError() = failure
+            override suspend fun search(query: String, cursor: CatalogTokenCursor?) = completion.await()
+            override suspend fun isCurrent(generation: String) = true
+        }
+        val scope = scope()
+        val controller = TokenSearchController(source, scope, { true }, { true }, localSearch = true)
+        controller.search()
+        assertTrue(controller.loading)
+        failure = CatalogNotInstalledException().message
+        controller.search("Blank")
+        assertFalse(controller.loading)
+        assertEquals(listOf(TokenCatalog.blank), controller.choices)
+        assertEquals(failure, controller.error)
+        controller.close(); scope.cancel()
+    }
+
+    @Test fun cachedGenerationIsImmediateAcrossOpensAndFilteringFiveThousandTokensIsCheap() {
+        val definitions = (1..5000).map { definition(it, "Token ${it.toString().padStart(4, '0')}") }
+        val page = TokenSearchPage("prepared", definitions, null, definitions.map(CatalogTokenChoice::from))
+        var searches = 0
+        val source = object : TokenSearchSource {
+            override fun cached() = page
+            override suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage { searches++; error("Not on open") }
+            override suspend fun isCurrent(generation: String) = true
+        }
+        val scope = scope()
+        repeat(2) {
+            val controller = TokenSearchController(source, scope, { true }, { true }, localSearch = true)
+            assertSame(page.definitions, controller.downloaded)
+            assertFalse(controller.loading)
+            assertEquals(5001, controller.choices.size)
+            controller.search()
+            controller.search("TOKEN 0123")
+            assertEquals(listOf(definitions[122]), controller.choices)
+            assertFalse(controller.loading)
+            controller.close()
+        }
+        assertEquals(0, searches)
+        val ordered = page.index!!.ordered(TokenFavorites())
+        repeat(30) { TokenChoiceIndex.filter(ordered, "token 01") }
+        val start = System.nanoTime()
+        repeat(100) { TokenChoiceIndex.filter(ordered, listOf("t", "TO", "token 0", "0123", "not found")[it % 5]) }
+        val averageMs = (System.nanoTime() - start) / 100.0 / 1_000_000
+        assertTrue(averageMs < 16, "5000-token per-keystroke filtering averaged $averageMs ms")
+        scope.cancel()
     }
 
     @Test fun realTokenControllerQueuesExactlyOneCreateWithoutLocalBoardMutationOrExtraConfirmation() {

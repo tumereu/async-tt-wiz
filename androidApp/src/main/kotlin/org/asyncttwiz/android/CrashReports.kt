@@ -92,6 +92,7 @@ class TabletopApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) DebugCrashes.install(this)
+        AndroidTokenCatalog.source(this)
     }
 }
 

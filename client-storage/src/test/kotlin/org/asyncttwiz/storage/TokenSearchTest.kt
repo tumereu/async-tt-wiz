@@ -86,6 +86,7 @@ class TokenSearchTest {
         val metadataBefore = rows("SELECT rowid, * FROM metadata")
         val privateFile = temporary.resolve("private-account.db").toFile().apply { writeText("private sentinel: never opened") }
         val privateBefore = privateFile.readBytes()
+        repo().prepareTokens() // Startup worker, never the first dialog/search.
         assertEquals(620, all(repo(), "goblin").size) // a new repository/process-style reopen
         assertEquals(identity, activeFile().name)
         assertEquals(printingBefore, rows("SELECT rowid, * FROM printing ORDER BY id"))

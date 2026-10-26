@@ -19,15 +19,24 @@ import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 /** Personal panel identity, not catalog/replica authority or an outgoing journal. */
 data class TableTokenCatalogIdentity(val accountId: String, val gameId: String, val playId: String?,
     val installedGeneration: String?, val lifecycleEpoch: Long)
 data class TableTokenCatalog(val identity: TableTokenCatalogIdentity, val source: TokenSearchSource?,
     val loading: Boolean = false, val error: String? = null, internal val favorites: TokenFavoritesSource? = null)
+
+/** The production table mount shares startup/import's process snapshot, including live generation changes. */
+@Composable
+internal fun rememberTableTokenCatalog(accountId: String, gameId: String, playId: String?, lifecycleEpoch: Long,
+    state: CatalogUiState? = null, favorites: TokenFavoritesSource? = null): TableTokenCatalog {
+    val context = LocalContext.current.applicationContext
+    val source = remember(context) { AndroidTokenCatalog.source(context) }
+    val snapshot by source.snapshots.collectAsState()
+    return TableTokenCatalog(TableTokenCatalogIdentity(accountId, gameId, playId, snapshot?.page?.generation, lifecycleEpoch),
+        source, error = state?.takeIf { it.error }?.status, favorites = favorites)
+}
 
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
@@ -145,13 +154,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         val auth = ViewModelProvider(it)[AuthViewModel::class.java].controller
         AccountTokenFavoritesSource(it, accountId, auth::sessionToken)
     } }
-    val catalogState = catalog?.state
-    val catalogSource = remember(catalog) { catalog?.let { model -> RepositoryTokenSearchSource { model.repository } } }
-    val catalogGeneration by produceState<String?>(null, catalog, catalogState?.installed, catalogState?.busy, catalogLifetime) {
-        value = withContext(Dispatchers.IO) { runCatching { catalog?.repository?.tokenGeneration() }.getOrNull() }
-    }
-    val catalogMount = TableTokenCatalog(TableTokenCatalogIdentity(accountId, game.id, live?.id, catalogGeneration, catalogLifetime),
-        catalogSource, catalogState?.busy == true, catalogState?.takeIf { it.error }?.status, favorites)
+    val catalogMount = rememberTableTokenCatalog(accountId, game.id, live?.id, catalogLifetime, catalog?.state, favorites)
     val toolkit = remember(controller, game.id, live?.id, accountId) {
         val playId = live?.id
         val create = { TableToolkitController(accountId, {

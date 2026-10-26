@@ -43,6 +43,8 @@ sqldelight {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":protocol"))
+    implementation(libs.serialization.json)
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.android.driver)
     implementation(libs.gson)

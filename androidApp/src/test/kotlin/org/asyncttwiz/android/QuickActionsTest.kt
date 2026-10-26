@@ -123,8 +123,12 @@ class QuickActionsTest {
         val play = TableToolFixture.play(TurnPosition.CLEANUP, "9")
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         val table = TableActionMenus.table(play, QuickContext(), controller)
-        assertEquals(listOf("Untap all", "Create combat area", "Close combat area",
+        assertEquals(listOf("Untap all", "Create combat area",
             "Create token", "Suggest game end"), table.map { it.name })
+        val area = CombatArea(TableToolFixture.id(95))
+        val open = TableActionMenus.table(play.copy(board = play.board.copy(combat = area)), QuickContext(), controller)
+        assertEquals(listOf("Close combat area"), open.filter { it.intent is TableActionIntent.Combat }.map { it.name })
+        assertEquals(area.id, (open.single { it.intent is TableActionIntent.Combat }.intent as TableActionIntent.Combat).areaId)
         val library = TableActionMenus.library(play, controller.targets(play)!!, controller)
         assertEquals(LibraryTool.entries.toSet(), library.map { (it.intent as TableActionIntent.Library).tool }.toSet())
         assertEquals(setOf(CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP),

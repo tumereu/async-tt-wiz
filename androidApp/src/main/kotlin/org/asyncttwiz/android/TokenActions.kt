@@ -21,36 +21,106 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 import java.util.Locale
 
 data class TokenSearchPage(val generation: String, val definitions: List<SubmittedDefinition>,
-    val next: CatalogTokenCursor?)
+    val next: CatalogTokenCursor?, val prepared: List<CatalogTokenChoice>? = null,
+    val index: TokenChoiceIndex? = prepared?.let(::TokenChoiceIndex))
 
-/** Injected at the panel boundary; both operations must perform disk/CPU work off the UI thread. */
+/** Snapshot access is synchronous; suspend operations must keep disk work off the UI thread. */
 interface TokenSearchSource {
+    fun cached(): TokenSearchPage? = null
+    fun cachedError(): String? = null
     suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage
     suspend fun isCurrent(generation: String): Boolean
 }
 
-/** The factory itself runs on IO: even opening/compatibility-indexing an old generation never touches main. */
+/** Warmed at startup and after import. Dialogs only read the process snapshot, never provider pages. */
 class RepositoryTokenSearchSource(private val repository: () -> CatalogRepository) : TokenSearchSource {
-    override suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage = withContext(Dispatchers.IO) {
-        val catalog = repository()
-        var page = catalog.searchTokens(query, cursor)
-        val generation = page.generation
-        val definitions = TokenActions.definitions(page).toMutableList()
-        while (page.next != null) {
-            ensureActive()
-            page = catalog.searchTokens(query, page.next)
-            if (page.generation != generation) throw CatalogGenerationChangedException()
-            definitions += TokenActions.definitions(page)
+    private val mutex = Mutex()
+    private val snapshot = MutableStateFlow<TokenCatalogSnapshot?>(null)
+    internal val snapshots = snapshot.asStateFlow()
+    override fun cached() = snapshot.value?.page
+    override fun cachedError() = snapshot.value?.failure?.message
+
+    suspend fun warm(prepare: Boolean = false) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            try {
+                val catalog = repository()
+                if (prepare) catalog.prepareTokens()
+                val list = catalog.loadTokens()
+                if (cached()?.generation != list.generation) snapshot.value = TokenCatalogSnapshot(TokenSearchPage(list.generation,
+                    list.choices.map { it.submitted }, null, list.choices))
+            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (error: Exception) { snapshot.value = TokenCatalogSnapshot(failure = error) }
         }
-        TokenSearchPage(generation, definitions, null)
+    }
+    override suspend fun search(query: String, cursor: CatalogTokenCursor?): TokenSearchPage {
+        // Also resolves when startup was skipped/cancelled. Never await an unowned deferred.
+        return withTimeoutOrNull(30_000) {
+            if (snapshot.value == null) warm()
+            cached() ?: throw (snapshot.value?.failure ?: CatalogTokensNotReadyException())
+        } ?: throw CatalogTokensNotReadyException()
     }
     override suspend fun isCurrent(generation: String): Boolean = withContext(Dispatchers.IO) {
         repository().tokenGeneration() == generation
+    }
+}
+
+internal data class TokenCatalogSnapshot(val page: TokenSearchPage? = null, val failure: Exception? = null)
+
+internal object AndroidTokenCatalog {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var application: android.content.Context? = null
+    private var instance: RepositoryTokenSearchSource? = null
+    @Synchronized fun source(context: android.content.Context): RepositoryTokenSearchSource {
+        val app = context.applicationContext
+        // One source per application/process, also when a host test recreates the application.
+        return instance?.takeIf { application === app }
+            ?: RepositoryTokenSearchSource { AndroidCatalogStorage.repository(app) }.also {
+                application = app
+                instance = it
+                scope.launch { it.warm(prepare = true) }
+            }
+    }
+
+    /** Publication notification; disk reads, decoding and indexing stay on the process IO scope. */
+    fun refresh(context: android.content.Context): Job {
+        val source = source(context)
+        return scope.launch { source.warm() }
+    }
+}
+
+/** Prepared keys and alphabetical order are reused across opens and every keystroke. */
+class TokenChoiceIndex(choices: List<CatalogTokenChoice>) {
+    private val alphabetical = (listOf(blank) + choices).distinctBy { it.identity }
+        .sortedWith(compareBy({ it.name.lowercase(Locale.ROOT) }, { it.identity }))
+    private val byDigest = alphabetical.associateBy { it.submitted.digest }
+    private val identities = alphabetical.map { it.identity }.toHashSet()
+    fun withRetained(retained: List<CatalogTokenChoice>): TokenChoiceIndex =
+        if (retained.all { it.identity in identities }) this else TokenChoiceIndex(retained + alphabetical)
+    fun choice(definition: SubmittedDefinition): CatalogTokenChoice = byDigest.getValue(definition.digest)
+    fun ordered(favorites: TokenFavorites): List<CatalogTokenChoice> {
+        val keys = favorites.keys?.toHashSet()
+        val favorite = mutableListOf<CatalogTokenChoice>()
+        val rest = mutableListOf<CatalogTokenChoice>()
+        for (choice in alphabetical) if (choice.identity != blank.identity) {
+            if (keys?.contains(choice.identity) ?: (choice.name in TokenIdentity.defaultNames)) favorite += choice else rest += choice
+        }
+        return listOf(blank) + favorite + rest
+    }
+    companion object {
+        private val blank = CatalogTokenChoice.from(TokenCatalog.blank)
+        fun filter(ordered: List<CatalogTokenChoice>, query: String): List<SubmittedDefinition> {
+            val normalized = query.trim().lowercase(Locale.ROOT)
+            return ordered.filter { choice -> choice.searchNames.any { it.contains(normalized) } }.map { it.submitted }
+        }
     }
 }
 
@@ -62,24 +132,35 @@ class TokenSearchController(private val source: TokenSearchSource, private val s
     private val retained: List<SubmittedDefinition> = emptyList(), private val localSearch: Boolean = false) {
     var query by mutableStateOf("")
         private set
-    var downloaded by mutableStateOf<List<SubmittedDefinition>>(emptyList())
+    private val initial = if (localSearch) source.cached() else null
+    var downloaded by mutableStateOf<List<SubmittedDefinition>>(initial?.definitions.orEmpty())
         private set
     var loading by mutableStateOf(false)
         private set
     var selecting by mutableStateOf(false)
         private set
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<String?>(if (localSearch) source.cachedError() else null)
         private set
     var next by mutableStateOf<CatalogTokenCursor?>(null)
         private set
     // Installed search can match a back face whose name differs from the canonical front definition.
     // Do not discard that explicit face match by filtering downloaded snapshots by front name again.
     var favorites by mutableStateOf(TokenFavorites())
-    val allChoices get() = TokenActions.ordered(TokenActions.catalog(retained, "") + downloaded, favorites)
-    val choices get() = if (localSearch) allChoices.filter { definition ->
-        definition.definition.faces.any { it.name.contains(query.trim(), ignoreCase = true) }
-    } else TokenActions.ordered(TokenActions.catalog(retained, query) + downloaded, favorites)
-    private var generation: String? = null
+    private val retainedChoices = retained.filter(TokenLinkRules::validDefinition).map(CatalogTokenChoice::from)
+    private var index by mutableStateOf((initial?.index ?: TokenChoiceIndex(initial?.definitions.orEmpty().map(CatalogTokenChoice::from)))
+        .withRetained(retainedChoices))
+    private val ordered by derivedStateOf { index.ordered(favorites) }
+    val allChoices get() = if (localSearch) ordered.map { it.submitted }
+        else TokenActions.ordered(TokenActions.catalog(retained, "") + downloaded, favorites)
+    val choices get() = if (localSearch) TokenChoiceIndex.filter(ordered, query)
+        else TokenActions.ordered(TokenActions.catalog(retained, query) + downloaded, favorites)
+    fun detail(definition: SubmittedDefinition) = if (localSearch) index.choice(definition).detail
+        else TokenActions.detail(definition.definition)
+    fun identity(definition: SubmittedDefinition) = if (localSearch) index.choice(definition).identity
+        else TokenIdentity.key(definition.definition)
+    fun favorite(definition: SubmittedDefinition) = favorites.keys?.contains(identity(definition))
+        ?: (definition.definition.name in TokenIdentity.defaultNames)
+    private var generation: String? = initial?.generation
     private var revision = 0L
     private var closed = false
     private var sent = false
@@ -90,6 +171,7 @@ class TokenSearchController(private val source: TokenSearchSource, private val s
         query = value
         revision++; job?.cancel(); selectionJob?.cancel(); selecting = false
         if (localSearch && generation != null) return
+        if (localSearch && source.cachedError() != null) { error = source.cachedError(); loading = false; return }
         downloaded = emptyList(); next = null; generation = null; error = null
         load(null)
     }
@@ -107,11 +189,13 @@ class TokenSearchController(private val source: TokenSearchSource, private val s
                 if (!active(ticket)) return@launch
                 if (cursor != null && page.generation != generation) throw CatalogGenerationChangedException()
                 downloaded = (if (cursor == null) page.definitions else downloaded + page.definitions).distinctBy { it.digest }
+                if (localSearch) index = (page.index ?: TokenChoiceIndex(downloaded.map(CatalogTokenChoice::from))).withRetained(retainedChoices)
                 generation = page.generation; next = page.next
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (failure: Exception) {
                 if (active(ticket)) {
-                    if (failure is CatalogGenerationChangedException) { downloaded = emptyList(); next = null; generation = null }
+                    if (failure is CatalogGenerationChangedException) { downloaded = emptyList(); next = null; generation = null
+                        index = TokenChoiceIndex(retainedChoices) }
                     error = failure.message ?: "Token search failed. Retry."
                 }
             } finally { if (active(ticket)) loading = false }
@@ -130,6 +214,7 @@ class TokenSearchController(private val source: TokenSearchSource, private val s
             } catch (failure: Exception) {
                 if (active(ticket)) {
                     downloaded = emptyList(); next = null; generation = null
+                    index = TokenChoiceIndex(retainedChoices)
                     error = failure.message ?: "Token selection failed. Retry."
                 }
             } finally { if (active(ticket)) selecting = false }
@@ -205,7 +290,7 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
     catalogIdentity: Any = controller, searchSource: TokenSearchSource? = null, favoritesSource: TokenFavoritesSource? = null) {
     if (!controller.showingCatalog) return
     val context = LocalContext.current.applicationContext
-    val source = remember(context, searchSource) { searchSource ?: RepositoryTokenSearchSource { AndroidCatalogStorage.repository(context) } }
+    val source = remember(context, searchSource) { searchSource ?: AndroidTokenCatalog.source(context) }
     val scope = rememberCoroutineScope()
     val currentIdentity by rememberUpdatedState(catalogIdentity)
     val currentEnabled by rememberUpdatedState(enabled)
@@ -249,7 +334,7 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp), state = listState) {
                 items(matches, key = { it.digest }) { definition ->
                     val card = remember(definition) { InspectedCard.retained(definition.digest, definition.definition) }
-                    val favorite = TokenIdentity.favorite(definition.definition, search.favorites)
+                    val favorite = search.favorite(definition)
                     Row(Modifier.fillMaxWidth().semantics { contentDescription = "Create ${definition.definition.name} token" }
                         .combinedClickable(enabled = enabled && !search.selecting, onLongClickLabel = "Inspect token",
                         onClick = { search.select(definition) }, onLongClick = { inspection.open(card) })
@@ -258,16 +343,16 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
                         CardArtwork(card.artwork.first(), "—", 80, 112, Modifier.size(40.dp * cardSize, 56.dp * cardSize).border(1.dp, MenuBorder))
                         Column(Modifier.weight(1f)) {
                             Text(definition.definition.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(TokenActions.detail(definition.definition), style = MaterialTheme.typography.bodySmall,
+                            Text(search.detail(definition), style = MaterialTheme.typography.bodySmall,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         IconToggleButton(checked = favorite,
                             enabled = enabled && favoritesReady && !search.loading && !saving &&
                                 (favorite || (search.favorites.keys?.size ?: 0) < 100), onCheckedChange = { checked ->
                             val keys = search.favorites.keys?.toMutableSet() ?: search.allChoices.filter {
-                                TokenIdentity.favorite(it.definition, search.favorites)
-                            }.map { TokenIdentity.key(it.definition) }.toMutableSet()
-                            val key = TokenIdentity.key(definition.definition)
+                                search.favorite(it)
+                            }.map { search.identity(it) }.toMutableSet()
+                            val key = search.identity(definition)
                             if (checked) keys += key else keys -= key
                             search.favorites = TokenFavorites(keys.sorted())
                             val updated = search.favorites

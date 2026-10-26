@@ -75,6 +75,38 @@ class HistoryAutoPauseTest {
             GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(other.id, null, null))))).isEmpty())
     }
 
+    @Test fun opponentTurningFaceDownCardFaceUpRevealsOnlyToNewViewers() {
+        val covered = F.play(GameplayTree(F.root()), PlayAction.SetCovered(F.id(12), true), 601, F.b)
+        val board = assertNotNull(covered.preparedState(covered.currentNodeId)).board
+        val revealed = F.play(covered, PlayAction.SetCovered(F.id(12), false), 602, F.b)
+        val event = revealed.nodes.getValue(revealed.currentNodeId)
+        assertTrue(event.transition.disclosures.any { F.a in it.viewers })
+        assertEquals(setOf(PlaybackAutoPause.REVEAL), HistoryAutoPause(F.a, board).triggers(event))
+        assertTrue(HistoryAutoPause(F.b, board).triggers(event).isEmpty(), "Own reveals do not pause")
+        assertTrue(HistoryAutoPause(F.a, covered.initial.board).triggers(covered.nodes.getValue(covered.currentNodeId)).isEmpty(),
+            "Turning a card face down does not reveal it")
+        assertTrue(HistoryAutoPause(F.a, board).triggers(event.copy(transition = event.transition.copy(
+            disclosures = event.transition.disclosures.map { it.copy(viewers = listOf(F.b)) }))).isEmpty(),
+            "Uncovering must disclose the face to the viewer")
+    }
+
+    @Test fun switchingAlreadyPublicFaceAndMovingToPublicZoneDoNotReveal() {
+        val base = F.root()
+        val definition = base.definitions.single().definition.let { it.copy(faces = it.faces +
+            DefinitionFace(F.id(603), "Other face", typeLine = "Creature")) }
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        val initial = base.copy(definitions = base.definitions + submitted, board = base.board.copy(
+            cards = base.board.cards.map { if (it.id == F.id(12)) it.copy(definition = submitted.digest) else it }))
+        val switched = F.play(GameplayTree(initial), PlayAction.SetFace(F.id(12), F.id(603)), 604, F.b)
+        val event = switched.nodes.getValue(switched.currentNodeId)
+        assertTrue(event.transition.disclosures.any { F.a in it.viewers }, "Public face changes still carry disclosures")
+        val classifier = HistoryAutoPause(F.a, initial.board)
+        assertTrue(classifier.triggers(event).isEmpty())
+        val moved = F.play(switched, PlayAction.MoveCard(F.id(12), MoveSource(F.id(10), initial.board.cards.single { it.id == F.id(12) }.placement),
+            MoveDestination(F.id(13), MoveInsertion.UNORDERED)), 605, F.b)
+        assertTrue(classifier.triggers(moved.nodes.getValue(moved.currentNodeId)).isEmpty())
+    }
+
     @Test fun typicalOpponentTurnOnlyPausesOnCastAndAttentionWithDefaults() {
         val land = CardDefinition("Forest", listOf(DefinitionFace(F.id(401), "Forest", typeLine = "Basic Land — Forest")))
         val creature = CardDefinition("Bear", listOf(DefinitionFace(F.id(402), "Bear", typeLine = "Creature — Bear")))

@@ -40,14 +40,20 @@ class HistoryModeReworkTest {
                 end0 = center + androidx.compose.ui.geometry.Offset(-80f, 0f), end1 = center + androidx.compose.ui.geometry.Offset(80f, 0f)) }
             val enlarged = zoom()
             assertTrue(enlarged > 1f, "Pinch out must zoom in (after touch slop): $enlarged")
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
             canvas.performTouchInput { pinch(
                 start0 = center + androidx.compose.ui.geometry.Offset(-80f, 0f), start1 = center + androidx.compose.ui.geometry.Offset(80f, 0f),
                 end0 = center + androidx.compose.ui.geometry.Offset(-40f, 0f), end1 = center + androidx.compose.ui.geometry.Offset(40f, 0f)) }
             assertTrue(zoom() < enlarged)
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
             val before = compose.onNodeWithText("T1").fetchSemanticsNode().boundsInRoot.center
             canvas.performTouchInput { swipe(center, center + androidx.compose.ui.geometry.Offset(50f, 40f), 200) }
             val after = compose.onNodeWithText("T1").fetchSemanticsNode().boundsInRoot.center
             assertTrue(after.x > before.x && after.y > before.y)
+            compose.onNodeWithText("T1").assertIsDisplayed()
+            compose.onNodeWithText("T2").assertIsDisplayed()
             assertEquals(tree.initial.root.id, controller.state.selectedNodeId)
             assertEquals(0, dismissed)
         } finally { controller.close() }

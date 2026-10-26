@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -84,13 +85,15 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                             var totalPan = Offset.Zero
                             do {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.none { it.pressed }) break
+                                val centroid = event.calculateCentroid(useCurrent = false)
+                                if (!centroid.isSpecified) continue
                                 val pan = event.calculatePan()
                                 val zoom = event.calculateZoom()
                                 totalZoom *= zoom; totalPan += pan
                                 if (!pastSlop) pastSlop = totalPan.getDistance() > viewConfiguration.touchSlop ||
                                     abs(1f - totalZoom) * event.calculateCentroidSize(useCurrent = false) > viewConfiguration.touchSlop
                                 if (pastSlop) {
-                                    val centroid = event.calculateCentroid(useCurrent = false)
                                     graph?.let { viewport = viewport.transform(HistoryPoint(centroid.x / density, centroid.y / density),
                                         HistoryPoint(pan.x / density, pan.y / density), zoom, it, size.width / density, size.height / density) }
                                     event.changes.filter { it.positionChanged() }.forEach { it.consume() }

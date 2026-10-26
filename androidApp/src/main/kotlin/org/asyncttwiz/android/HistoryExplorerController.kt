@@ -16,7 +16,9 @@ data class HistoryTurnStart(val number: String, val player: String) {
 internal data class HistoryTreeViewport(val pan: HistoryPoint = HistoryPoint(0f, 0f), val zoom: Float = 1f) {
     fun transform(centroid: HistoryPoint, delta: HistoryPoint, scale: Float, graph: HistoryGraph,
         width: Float, height: Float): HistoryTreeViewport {
-        if (!scale.isFinite() || scale <= 0f) return this
+        if (!centroid.x.isFinite() || !centroid.y.isFinite() || !delta.x.isFinite() || !delta.y.isFinite() ||
+            !scale.isFinite() || scale <= 0f || !width.isFinite() || !height.isFinite() ||
+            !graph.width.isFinite() || !graph.height.isFinite()) return this
         val nextZoom = (zoom * scale).coerceIn(.5f, 3f)
         val ratio = nextZoom / zoom
         return HistoryTreeViewport(HistoryPoint(

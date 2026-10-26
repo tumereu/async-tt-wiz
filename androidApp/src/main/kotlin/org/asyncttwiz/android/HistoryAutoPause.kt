@@ -69,7 +69,8 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
                 if (face != null) result += if ("Land" in face.typeLine.substringBefore('—').split(' '))
                     PlaybackAutoPause.LAND_FROM_HAND else PlaybackAutoPause.NONLAND_FROM_HAND
             }
-            val explicitDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard || action is PlayAction.InspectFace
+            val explicitDisclosure = action is PlayAction.ShowContents || action is PlayAction.RevealContentsCard ||
+                action is PlayAction.InspectFace || action is PlayAction.SetCovered && !action.covered
             if (explicitDisclosure && t.disclosures.any { viewer in it.viewers } || t.contents?.let { change ->
                     change.to?.let { display -> change.from == null && display.cardIds.any { display.faceVisibleTo(it, viewer) } } == true
                 } == true) result += PlaybackAutoPause.REVEAL

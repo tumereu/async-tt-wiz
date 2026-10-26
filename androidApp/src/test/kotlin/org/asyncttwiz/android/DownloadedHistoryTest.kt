@@ -59,7 +59,8 @@ class DownloadedHistoryTest {
             assertNull(h.view.holdFace(f.a, f.id(12)), "opponent hidden hold must not expose cached faces")
             assertTrue(h.store.threads.all { it !== h.uiThread })
             assertEquals(10L, h.store.saved!!.version.revision)
-            assertEquals(generation.tree.currentNodeId, TreeSync.decode(h.store.saved!!.records.asSequence().map(TreeDownload::decode),
+            assertEquals(generation.tree.currentNodeId, TreeSync.decode(h.store.saved!!.records.asSequence()
+                .filter { it.key.kind != "tree-cache-endpoint" }.map(TreeDownload::decode),
                 f.id(1), f.id(2)).tree.currentNodeId)
             assertNull(h.store.transfer(), "offline traversal has no fetch or inspection journal")
         }

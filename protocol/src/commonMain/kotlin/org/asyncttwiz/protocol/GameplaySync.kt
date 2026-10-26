@@ -61,7 +61,7 @@ object GameplaySync {
         require(effects.all { effect -> containers.singleOrNull { it.zone == PlayZone.STACK }?.cards?.contains(effect.id) == true })
         require(CombatStackRules.closeInvariants(play.board, play.board) == play.board)
         if (snapshot.treeRecords.isNotEmpty()) {
-            val tree = TreeSync.decode(snapshot.treeRecords.asSequence(), head.gameId, play.id).tree
+            val tree = TreeSync.restore(snapshot.treeRecords.asSequence(), head.gameId, play.id, play, head.boundedEndpoint).tree
             val endpoint = tree.stateAt(tree.currentNodeId)
             require((if (head.boundedEndpoint) endpoint?.copy(annotations = EventAnnotationState()) else endpoint) == play)
             require(snapshot.records.isEmpty())

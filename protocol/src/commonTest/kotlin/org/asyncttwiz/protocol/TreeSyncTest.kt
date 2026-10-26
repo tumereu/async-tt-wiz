@@ -27,6 +27,22 @@ class TreeSyncTest {
             redoByAccount = detached.redoByAccount, removedParents = detached.removedParents))
     }
 
+    @Test fun authoritativeRestoreChecksTopologyAndEndpointPointersWithoutReplayingBoards() {
+        val input = branched()
+        val endpoint = assertNotNull(input.tree.stateAt(input.tree.currentNodeId))
+        val records = TreeSync.records(input).toList()
+        val restored = TreeSync.restore(records.asSequence(), f.id(1), f.id(2), endpoint)
+        assertEquals(endpoint, restored.tree.stateAt(restored.tree.currentNodeId))
+        assertEquals(0, restored.tree.work.replayedNodes)
+        assertEquals(0, restored.tree.work.rootMaterializations)
+        assertFails { TreeSync.restore(records.asSequence(), f.id(1), f.id(2), endpoint.copy(currentNodeId = f.id(999))) }
+        assertFails { TreeSync.restore(records.asSequence(), f.id(1), f.id(2), endpoint.copy(currentBranchId = f.id(999))) }
+        val ancestor = input.tree.nodes.values.single { it.author == f.a }
+        assertFails { TreeSync.restore(records.filterNot { it.kind == "node" && it.id == ancestor.id }.asSequence(), f.id(1), f.id(2), endpoint) }
+        TreeSync.validate(restored)
+        assertEquals(input.tree.nodes.size, restored.tree.work.replayedNodes, "Explicit maintenance still validates every retained mutation")
+    }
+
     @Test fun acceptedDeltaKeepsWarmHeadAcross360EventsWithoutRootReplay() {
         var tree = root()
         repeat(360) { n ->

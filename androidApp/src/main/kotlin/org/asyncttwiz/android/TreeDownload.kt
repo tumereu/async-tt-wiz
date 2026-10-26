@@ -40,8 +40,8 @@ sealed interface TreePublication {
     data object RestartRequired : TreePublication
 }
 
-/** Blocking disk/decode/replay coordinator. Native callers use DownloadedHistory's serial worker.
- * Staging is always incomplete until full validation + contiguous catch-up + atomic publication.
+/** Blocking disk/decode coordinator. Native callers use DownloadedHistory's serial worker.
+ * Staging is incomplete until integrity/topology checks + contiguous catch-up + atomic publication.
  * No outgoing/request-recovery state is touched, and the previous complete tree stays readable.
  */
 class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: Thread) {
@@ -55,12 +55,31 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         worker()
         val version = cache.version() ?: return null.also { materialized = null }
         materialized?.takeIf { it.version == version }?.let { return it }
-        return cache.accepted()?.let { snapshot -> PublishedDownloadedTree(snapshot.version,
-            TreeSync.decode(snapshot.records.asSequence().map(::decode), cache.gameId, cache.playId)) }?.also { materialized = it }
+        return cache.accepted()?.let { snapshot ->
+            // Legacy caches have no revision-bound endpoint. Fetch a fresh authoritative baseline
+            // rather than making process restart an implicit exhaustive maintenance operation.
+            val saved = snapshot.records.singleOrNull { it.key == ENDPOINT } ?: return@let null
+            require(saved.payload.version == 1L)
+            val payload = GameWire.json.parseToJsonElement(saved.payload.json).jsonObject
+            val content = payload.getValue("content").jsonObject
+            require(payload.getValue("digest").jsonPrimitive.content == TreeSync.digest(DeckJson.canonicalElement(content).toByteArray()))
+            require(content.getValue("revision").jsonPrimitive.content == snapshot.version.revision.toString())
+            val state = GameWire.json.decodeFromJsonElement<PlayState>(content.getValue("state"))
+            PublishedDownloadedTree(snapshot.version, TreeSync.restore(snapshot.records.asSequence().filter { it.key != ENDPOINT }.map(::decode),
+                cache.gameId, cache.playId, state, boundedEndpoint = true))
+        }?.also { materialized = it }
     }
 
     fun stage(plan: TreeDownloadPlan, openChunk: (Int) -> InputStream?): StagedDownloadedTree? {
         worker(); validate(plan)
+        require(plan.transportManifest.version == 1L)
+        val manifest = GameWire.json.decodeFromString(GameplayManifest.serializer(), plan.transportManifest.json)
+        GameplaySync.validate(manifest)
+        require(manifest.id == plan.id && manifest.gameId == plan.gameId && manifest.playId == plan.playId &&
+            manifest.revision == plan.revision.toString() && manifest.recordCount == plan.recordCount &&
+            manifest.chunks.map { TreeDownloadChunk(it.index, it.bytes, it.digest) } == plan.chunks)
+        val head = requireNotNull(manifest.head)
+        val endpoint = requireNotNull(head.play)
         val identity = plan.identity()
         cache.begin(TreeCacheTransfer(plan.id, plan.revision, plan.chunks.size, identity))
         fun current() = cache.transfer()?.manifest == identity
@@ -100,7 +119,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
                         require(line.isNotEmpty()); count++
                         GameWire.json.decodeFromString(TreeSyncRecord.serializer(), line)
                     }
-                    val tree = TreeSync.decode(records, cache.gameId, cache.playId)
+                    val tree = TreeSync.restore(records, cache.gameId, cache.playId, endpoint, head.boundedEndpoint)
                     require(count == plan.recordCount) { "Incomplete tree record coverage" }
                     tree
                 }
@@ -138,7 +157,7 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         }
         if (revision < verifiedHead || (expected != null && revision < expected.revision)) return restart(staged.plan.id)
         // Recheck mutable adapter input before crossing the accepted boundary.
-        val records = TreeSync.records(generation).map(::encode).toList()
+        val records = TreeSync.records(generation).map(::encode).toList() + endpoint(generation, revision)
         val next = cache.publish(staged.plan.id, expected, revision, records) ?: return fail("publishCAS")
         return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
@@ -152,7 +171,8 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
         if (delta.baseRevision != current.version.revision) return fail("revisionGap:cache=${current.version.revision}:base=${delta.baseRevision}:result=${delta.revision}")
         val generation = merge(current.generation, delta)
         val history = HistoryTree.ingest(generation.tree, delta.revision.toString(), current.history)
-        val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode), delta.removals.map { RecordKey(it.first, it.second) })
+        val next = cache.apply(current.version, delta.revision, delta.upserts.map(::encode) + endpoint(generation, delta.revision),
+            delta.removals.map { RecordKey(it.first, it.second) })
             ?: return fail("applyCAS")
         return TreePublication.Published(PublishedDownloadedTree(next, generation, history).also { materialized = it })
     }
@@ -181,6 +201,20 @@ class TreeDownload(private val cache: GameplayTreeStore, private val uiThread: T
 
     companion object {
         const val MAX_CHUNK_BYTES = 4 * 1024 * 1024
+        private val ENDPOINT = RecordKey("tree-cache-endpoint", "current")
+        internal fun endpoint(generation: DownloadedTree, revision: Long): AcceptedRecord {
+            val content = buildJsonObject {
+                put("revision", revision.toString())
+                // Annotation records already live in retained nodes. Do not rewrite their entire
+                // growing collection on every tap; restore their projection when decoding records.
+                put("state", GameWire.json.encodeToJsonElement(requireNotNull(generation.tree.preparedState(generation.tree.currentNodeId))
+                    .copy(annotations = EventAnnotationState())))
+            }
+            return AcceptedRecord(ENDPOINT, StoredPayload(1, buildJsonObject {
+                put("content", content)
+                put("digest", TreeSync.digest(DeckJson.canonicalElement(content).toByteArray()))
+            }.toString()))
+        }
         fun encode(record: TreeSyncRecord) = AcceptedRecord(RecordKey(record.kind, record.id), StoredPayload(record.version.toLong(), record.payload.toString()))
         fun decode(record: AcceptedRecord): TreeSyncRecord {
             require(record.payload.version == 1L)

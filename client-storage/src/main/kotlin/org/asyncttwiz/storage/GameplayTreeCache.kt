@@ -35,8 +35,9 @@ interface GameplayTreeStore {
     fun apply(expected: TreeCacheVersion, revision: Long, upserts: List<AcceptedRecord>, removals: List<RecordKey>): TreeCacheVersion?
 }
 
-/** One accepted game scope in the existing SQLDelight replica. No boards, outgoing requests or
- * predictions are stored here. All methods except invalidate() block and belong on a worker.
+/** One accepted game scope in the existing SQLDelight replica, including the codec's revision-bound
+ * authoritative endpoint. No outgoing requests or predictions. All methods except invalidate()
+ * and guard() block and belong on a worker.
  * A newly bound game/incarnation fences old callbacks, including across separate storage handles.
  */
 class GameplayTreeCache private constructor(private val storage: ClientStorage, override val accountId: String,
@@ -139,7 +140,7 @@ class GameplayTreeCache private constructor(private val storage: ClientStorage, 
         storage.removePersonal(staging, "transfer")
     }
 
-    /** Caller has decoded/replayed the whole coherent generation, including a contiguous delta tail.
+    /** Caller has verified the coherent generation and endpoint, including a contiguous delta tail.
      * Failures (also during stage cleanup) roll back records, header, cursor and staging together.
      */
     override fun publish(id: String, expected: TreeCacheVersion?, revision: Long, records: List<AcceptedRecord>): TreeCacheVersion? = fenced {

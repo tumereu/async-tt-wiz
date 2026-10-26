@@ -196,7 +196,18 @@ object TreeSync {
     /** Stream flat records into the SAME shared immutable tree. Full coverage is a server-exporter
      * obligation; closed topology, byte hashes/counts and replay cannot prove an omitted offshoot.
      */
-    fun decode(records: Sequence<TreeSyncRecord>, gameId: String, playId: String): DownloadedTree {
+    fun decode(records: Sequence<TreeSyncRecord>, gameId: String, playId: String): DownloadedTree =
+        decode(records, gameId, playId, null, false)
+
+    /** Restore an authoritative endpoint from the SAME revision as these accepted records. The
+     * transport/persistence adapter verifies integrity and revision binding before calling this.
+     * Topology is checked, but no retained board mutations are replayed. Use decode/validate only
+     * for explicit exhaustive validation, not ordinary cache restore or baseline recovery. */
+    fun restore(records: Sequence<TreeSyncRecord>, gameId: String, playId: String, endpoint: PlayState,
+        boundedEndpoint: Boolean = false): DownloadedTree = decode(records, gameId, playId, endpoint, boundedEndpoint)
+
+    private fun decode(records: Sequence<TreeSyncRecord>, gameId: String, playId: String, endpoint: PlayState?,
+        boundedEndpoint: Boolean): DownloadedTree {
         var initial: PlayState? = null
         var current: String? = null
         var selectedBranch: String? = null
@@ -256,8 +267,28 @@ object TreeSync {
             redo.mapValues { it.value.toPersistentList() }.toPersistentMap(), removed.toPersistentMap(), lineage.toPersistentMap(),
             selectedBranch ?: nodes[current]?.branchId ?: root.root.branchId,
             (if (heads.isEmpty()) mapOf(root.root.branchId to root.root.id) else heads).toPersistentMap(), selectionControl), branches.toPersistentMap())
-        validate(result)
+        validate(result, null, endpoint)
+        if (endpoint != null) {
+            val state = if (boundedEndpoint) restoreAnnotations(result.tree, endpoint) else endpoint
+            result.tree.restoreEndpoint(state, result.tree.endpointIndex())
+        }
         return result
+    }
+
+    /** Bounded HTTP heads omit the annotation collection. Project only those recorded entities on
+     * the selected ancestry; do not re-execute gameplay or reconstruct any historical board. */
+    private fun restoreAnnotations(tree: GameplayTree, endpoint: PlayState): PlayState {
+        val path = mutableListOf<GameplayMutation>()
+        var at = tree.currentNodeId
+        while (at != tree.initial.root.id) {
+            val node = requireNotNull(tree.nodes[at]); path += node; at = node.parentId
+        }
+        var state = endpoint.copy(annotations = tree.initial.annotations)
+        for (node in path.asReversed()) {
+            val entities = requireNotNull(node.transition.delta).entities.filter { it.kind in setOf("comment", "ping", "ping-ordinal") }
+            if (entities.isNotEmpty()) state = requireNotNull(GameplayDeltas.apply(state, GameplayDelta(entities), false))
+        }
+        return state
     }
 
     /** Iterative full retained-tree validation/replay. No Undo-only ceiling, recursive ancestry or
@@ -266,7 +297,7 @@ object TreeSync {
      */
     fun validate(generation: DownloadedTree) = validate(generation, null)
 
-    private fun validate(generation: DownloadedTree, previous: GameplayTree?) {
+    private fun validate(generation: DownloadedTree, previous: GameplayTree?, endpoint: PlayState? = null) {
         val tree = generation.tree
         require(tree.index().incremental) { "Retained events require recorded deltas and inverse data" }
         val root = tree.initial
@@ -296,6 +327,13 @@ object TreeSync {
         require(tree.nodes.all { (id, node) -> id == node.id && node.author in players &&
             listOf(id, node.parentId, node.branchId, node.requestId).all(DeckValidation::uuid) &&
             node.schemaVersion == 2 && node.transition.delta != null && node.bookkeeping != null && tree.referencesMatch(node) })
+        endpoint?.let {
+            require(it.gameId == root.gameId && it.id == root.id && it.root == root.root &&
+                it.preparationRound == root.preparationRound && it.engineVersion == root.engineVersion && it.readFormat == root.readFormat &&
+                it.currentNodeId == tree.currentNodeId && it.currentBranchId == tree.currentBranchId &&
+                it.board.players.map { player -> player.accountId }.toSet() == players)
+            require(it.currentGroup == tree.nodes[tree.currentNodeId]?.bookkeeping?.toGroup)
+        }
         val children = tree.nodes.values.groupBy { it.parentId }
         val pending = ArrayDeque<Pair<GameplayMutation, PlayState?>>()
         children[root.root.id].orEmpty().forEach { pending.add(it to root) }
@@ -308,7 +346,7 @@ object TreeSync {
             require(visited.add(node.id)) { "Cyclic retained topology" }
             val same = node.parentId in unchanged && previous?.nodes?.get(node.id) == node
             if (same) unchanged.add(node.id) else changed.add(node)
-            val state = if (previous != null) null else requireNotNull(tree.replay(requireNotNull(parent), node)) { "Unreplayable retained node" }
+            val state = if (previous != null || endpoint != null) null else requireNotNull(tree.replay(requireNotNull(parent), node)) { "Unreplayable retained node" }
             if (node.id == tree.currentNodeId && state != null) tree.checkpoint(state)
             children[node.id].orEmpty().forEach { pending.add(it to state) }
         }

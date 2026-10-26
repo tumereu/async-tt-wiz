@@ -127,7 +127,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         val head = baseline.snapshot.head
         var state = head.play!!
         var retained = baseline.snapshot.treeRecords.takeIf { it.isNotEmpty() }?.let {
-            TreeSync.decode(it.asSequence(), head.gameId, state.id) }
+            TreeSync.restore(it.asSequence(), head.gameId, state.id, state, head.boundedEndpoint) }
         retained?.let { state = requireNotNull(it.tree.stateAt(it.tree.currentNodeId)) }
         var at = head.revision
         val staged = baseline.snapshot.records.map { it.copy(chatMessage = null) }.associateByTo(linkedMapOf()) { it.resultRevision }

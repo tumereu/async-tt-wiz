@@ -193,7 +193,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         // on every poll, including empty deltas, so an actor's later heartbeat can reset the timer.
         val ready = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME"))
             .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).and(SUMMARY.ACTIVITY_ID.le(high))
-            .orderBy(SUMMARY.ACTIVITY_ID).fetch().mapNotNull { row ->
+            .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row ->
                 val gameRow = sql.selectFrom(GAME).where(GAME.ID.eq(row.gameId)).fetchOne() ?: return@mapNotNull null
                 if (gameRow.lifecycle !in listOf("LOBBY", "ACTIVE")) return@mapNotNull null
                 val authorId = row.authorId ?: return@mapNotNull null
@@ -203,7 +203,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
                     authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
                         row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!))
-            }
+            }.take(50).toList()
         ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + ready)
     }
 
@@ -244,18 +244,19 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .returning(CURSOR.HIGH_WATER).fetchSingle().highWater!!
             sql.insertInto(EVENT).set(EVENT.ACCOUNT_ID, owner).set(EVENT.ACTIVITY_ID, id).set(EVENT.KIND, kind.name)
                 .set(EVENT.GAME_ID, game).set(EVENT.IDENTITY, identity).set(EVENT.AUTHOR_ID, author).set(EVENT.CREATED_AT, time).execute()
+            // Keep presence suppression atomic without another action/undo SQL statement.
+            val present = if (kind == ActivityKind.GAME) ActivityTiming.present(game, owner, time) else DSL.falseCondition()
             sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, kind.name)
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
-                .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove).set(SUMMARY.NEW_MESSAGE, newMessage)
+                .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
+                .set(SUMMARY.SEEN_THROUGH, DSL.`when`(present, id).otherwise(0L))
+                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(present, false).otherwise(newMessage))
                 .onConflict(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.KIND).doUpdate()
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
                 .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
-                .set(SUMMARY.NEW_MESSAGE, DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.`val`(newMessage))).execute()
-            if (kind == ActivityKind.GAME && ActivityTiming.present(ActivityTiming.leases(sql, game, owner), time)) {
-                sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, id).set(SUMMARY.NEW_MESSAGE, false)
-                    .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
-                return
-            }
+                .set(SUMMARY.SEEN_THROUGH, DSL.greatest(SUMMARY.SEEN_THROUGH, DSL.excluded(SUMMARY.SEEN_THROUGH)))
+                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(DSL.excluded(SUMMARY.SEEN_THROUGH).eq(id), false)
+                    .otherwise(DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE)))).execute()
             val installs = sql.select(INSTALL.GENERATION).from(INSTALL).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                 .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).where(INSTALL.ACCOUNT_ID.eq(owner))
                 .and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull).and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))

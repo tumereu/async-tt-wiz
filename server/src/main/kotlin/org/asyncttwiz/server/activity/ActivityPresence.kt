@@ -5,13 +5,22 @@ import java.util.UUID
 import org.asyncttwiz.server.generated.tables.ActivityPresence.ACTIVITY_PRESENCE as PRESENCE
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION as SESSION
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
+import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 
 internal data class PresenceLease(val heartbeat: OffsetDateTime, val input: OffsetDateTime)
 
 /** Delivery policy only: no shared game state, history, or read-progress writes. */
 internal object ActivityTiming {
     fun present(leases: List<PresenceLease>, now: OffsetDateTime) = leases.any { it.heartbeat.plusSeconds(15).isAfter(now) }
+
+    fun present(game: UUID, account: UUID, now: OffsetDateTime): Condition =
+        DSL.exists(DSL.selectOne().from(PRESENCE)
+            .join(SESSION).on(SESSION.ID.eq(PRESENCE.SESSION_ID)).join(ACCOUNT).on(ACCOUNT.ID.eq(PRESENCE.ACCOUNT_ID))
+            .where(PRESENCE.GAME_ID.eq(game)).and(PRESENCE.ACCOUNT_ID.eq(account)).and(PRESENCE.LEFT_GAME.isFalse)
+            .and(PRESENCE.HEARTBEAT_AT.gt(now.minusSeconds(15)))
+            .and(SESSION.REVOKED_AT.isNull).and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH)))
 
     fun due(actor: List<PresenceLease>, recipient: List<PresenceLease>, event: OffsetDateTime,
         yourMove: Boolean, now: OffsetDateTime): Boolean {

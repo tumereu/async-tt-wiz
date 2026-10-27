@@ -2,6 +2,7 @@ package org.asyncttwiz.server.activity
 
 import java.time.*
 import java.util.UUID
+import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -110,6 +111,59 @@ class ActivityPresenceTest {
                 f.record(game, id(), clock.time)
                 clock.time = first.plusSeconds(74); delivery.deliverDue(); assertEquals(1, sent.size)
                 clock.time = first.plusSeconds(75); delivery.deliverDue(); assertEquals(2, sent.size)
+            }
+        }
+    }
+
+    @Test fun `presence suppression is recorded on insert and update even if recipient leaves before scheduler`() {
+        ActivityFixture().use { f ->
+            val game = f.accept(f.create()); val clock = ActivityClock()
+            val service = ActivityService(f.runtime, clock)
+            service.register(f.b, RegisterInstallation(id(), id(), "push"))
+            f.sql("DELETE FROM activity_push")
+            val recipient = GamePresence(game.id, id())
+            service.heartbeat(f.b, recipient)
+            repeat(2) {
+                f.runtime.transaction { connection ->
+                    ActivityService.record(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(f.b.account.accountId),
+                        ActivityKind.GAME, UUID.fromString(game.id), UUID.randomUUID(), UUID.fromString(f.a.account.accountId),
+                        OffsetDateTime.ofInstant(clock.time, ZoneOffset.UTC), newMessage = true)
+                }
+                assertEquals(1L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND seen_through=activity_id AND NOT new_message"))
+            }
+            service.heartbeat(f.b, recipient.copy(left = true))
+            assertTrue(service.page(f.b, "0").readyNotices!!.isEmpty())
+            val sent = mutableListOf<ActivityPushHint>()
+            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use {
+                it.deliverDue()
+                assertTrue(sent.isEmpty())
+                f.record(game, id(), clock.time)
+                it.deliverDue()
+                assertEquals(1, sent.size)
+            }
+            assertFalse(service.page(f.b, "0").readyNotices!!.single().notice!!.newMessage)
+        }
+    }
+
+    @Test fun `many unseen games return only newest fifty due notices while activity cursor progresses`() {
+        ActivityFixture().use { f ->
+            val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
+            val games = (1..160).map { f.accept(f.create()).also { game -> f.record(game, id(), clock.time) } }
+            // A newer, not-yet-due summary must not consume a slot in the bounded notice list.
+            service.heartbeat(f.a, GamePresence(games.last().id, id(), true))
+            val expected = games.dropLast(1).takeLast(50).asReversed().map { it.id }
+            val first = service.page(f.b, "0")
+            val second = service.page(f.b, first.nextCursor)
+            val empty = service.page(f.b, second.nextCursor)
+            assertEquals(100, first.entries.size); assertTrue(first.hasMore)
+            assertEquals(60, second.entries.size); assertFalse(second.hasMore)
+            assertTrue(second.nextCursor.toLong() > first.nextCursor.toLong())
+            assertEquals(games.map { it.id }, (first.entries + second.entries).map { it.gameId })
+            assertTrue(empty.entries.isEmpty()); assertEquals(second.nextCursor, empty.nextCursor)
+            for (page in listOf(first, second, empty)) {
+                assertEquals(expected, page.readyNotices!!.map { it.gameId })
+                assertTrue(ActivityWire.json.encodeToString(page).toByteArray(Charsets.UTF_8).size <= 65536,
+                    "Polling must fit the Android response limit so its cursor can be saved")
             }
         }
     }

@@ -774,6 +774,9 @@ the opponent's last event. Opening by any route cancels the notice. A 1s server
 timer evaluates due notices independently of sync/poll cursors. Optional FCM uses
 high-priority data hints and cached OAuth tokens minted from the explicitly
 configured `FCM_SERVICE_ACCOUNT_FILE`; without it, polling remains the fallback.
+Poll responses include at most the newest 50 due game notices, independent of the
+bounded activity page and its advancing cursor. Presence suppression is recorded
+atomically in the existing activity summary write, without an extra action/Undo query.
 This does not add branch-switch/response alerts or a shared unread/read model.
 
 **Excluded from R1 (D-241):** additional branch-switch/response-request alerts and

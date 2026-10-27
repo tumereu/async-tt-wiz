@@ -349,14 +349,16 @@ internal fun PodDraftMemberRow(detail: PodDetail) {
     }
 }
 
-/** Who still holds packs (or grid turns), plus the round where the client knows it (grid only). */
+/** Who still holds packs (or grid turns), plus the caller's round. */
 internal fun podWaitingText(detail: PodDetail, accountId: String): String {
     val grid = detail.grid?.publicView?.takeIf { detail.settings.mode == DraftMode.GRID }
     val busy = if (grid != null) grid.grids.mapNotNull { it.currentPlayer }.toSet()
         else detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
     val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }
     val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
-    return who + (grid?.takeIf { !it.finished }?.let { " · Round ${it.round} of ${it.rounds}" } ?: "")
+    val round = grid?.takeIf { !it.finished }?.let { it.round to it.rounds }
+        ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
+    return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")
 }
 
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */

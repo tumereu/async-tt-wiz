@@ -321,6 +321,8 @@ class PodScreensTest {
             DraftSupply(90, 540), listOf(PodMember(alice), PodMember(bob, packsWaiting = 2), PodMember(carol)),
             emptyList(), updatedAt = "now")
         assertEquals("Waiting for Bob", podWaitingText(booster, alice.accountId))
+        val withRound = booster.copy(draft = org.asyncttwiz.protocol.DraftPrivateView(alice.accountId, null, 0, emptyList(), round = 3, rounds = 6))
+        assertEquals("Waiting for Bob · Round 3 of 6", podWaitingText(withRound, alice.accountId))
         val both = booster.copy(members = booster.members.map { if (it.account == carol) it.copy(packsWaiting = 1) else it })
         assertEquals("Waiting for Bob, Carol", podWaitingText(both, alice.accountId))
         val nobody = booster.copy(members = booster.members.map { it.copy(packsWaiting = 0) })

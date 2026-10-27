@@ -170,7 +170,7 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
         }
     }
     if (state.profileDialog) {
-        val nameField = rememberDialogField(account.username, account.accountId)
+        val nameField = rememberDialogField(account.username, account.accountId, focusOnOpen = false)
         val name = nameField.text
         var avatar by remember(account.accountId) { mutableStateOf(account.avatar) }
         Dialog(onDismissRequest = { controller.editProfile(false) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {

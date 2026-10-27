@@ -40,10 +40,11 @@ internal class DialogFieldState(text: String, internal val focus: FocusRequester
     val text: String get() = value.text
 }
 
-/** [text] is the initial value; later outside changes (e.g. a controller's normalization) are adopted. */
+/** [text] is the initial value; later outside changes (e.g. a controller's normalization) are adopted.
+ * [focusOnOpen] false keeps the keyboard closed for dialogs whose main content is not the field. */
 @Composable
-internal fun rememberDialogField(text: String, vararg keys: Any?): DialogFieldState {
-    val focus = rememberOpenFocus()
+internal fun rememberDialogField(text: String, vararg keys: Any?, focusOnOpen: Boolean = true): DialogFieldState {
+    val focus = if (focusOnOpen) rememberOpenFocus() else remember { FocusRequester() }
     val state = remember(*keys) { DialogFieldState(text, focus) }
     LaunchedEffect(state, text) { if (state.value.text != text) state.value = TextFieldValue(text, TextRange(text.length)) }
     return state

@@ -32,7 +32,7 @@ class DeckImportControllerTest {
         val controller = DeckImportController(::result, worker) { posts += it }
         controller.connectUrl(::resultParsed, { error("403") })
         controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
-        controller.url("https://moxfield.com/decks/aBcDeFgHiJkLmNoPqRsT_1")
+        controller.url("https://archidekt.com/decks/456")
         controller.importUrl(); worker.drain(); posts.removeFirst()()
         assertEquals("1 Retained", controller.state.text); assertEquals("Retained", controller.state.name)
         assertTrue(controller.state.error!!.contains("Paste list")); assertFalse(controller.state.busy)

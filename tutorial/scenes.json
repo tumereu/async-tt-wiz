@@ -245,8 +245,8 @@
       },
       {
        "type": "label",
-       "x": 1050,
-       "y": 1460,
+       "x": 1040,
+       "y": 1590,
        "text": "Lands",
        "at": 2.2,
        "anchor": "end"
@@ -261,8 +261,8 @@
       },
       {
        "type": "label",
-       "x": 1050,
-       "y": 1105,
+       "x": 1040,
+       "y": 1420,
        "text": "Everything else",
        "at": 3.6,
        "anchor": "end"
@@ -282,8 +282,8 @@
       },
       {
        "type": "label",
-       "x": 1050,
-       "y": 1640,
+       "x": 1040,
+       "y": 1680,
        "text": "Hand",
        "at": 0.3,
        "anchor": "end"
@@ -674,8 +674,8 @@
       },
       {
        "type": "label",
-       "x": 930,
-       "y": 960,
+       "x": 790,
+       "y": 990,
        "text": "Battlefield",
        "at": 2.6,
        "anchor": "end"
@@ -689,8 +689,8 @@
       },
       {
        "type": "label",
-       "x": 930,
-       "y": 1460,
+       "x": 790,
+       "y": 1390,
        "text": "Graveyard",
        "at": 4.0,
        "anchor": "end"
@@ -715,8 +715,8 @@
       },
       {
        "type": "label",
-       "x": 780,
-       "y": 1460,
+       "x": 790,
+       "y": 1390,
        "text": "Exile",
        "at": 0.3,
        "anchor": "end"
@@ -730,8 +730,8 @@
       },
       {
        "type": "label",
-       "x": 780,
-       "y": 900,
+       "x": 790,
+       "y": 990,
        "text": "Remove",
        "at": 2.6,
        "anchor": "end"
@@ -1323,10 +1323,26 @@
     {
      "text": "All packs open at once, so nobody waits for a pack to be passed.",
      "media": {
-      "src": "clips/c10-start.mp4",
-      "from": 2,
-      "to": 14.5
-     }
+      "src": "clips/c10-pick.mp4",
+      "from": 0.5,
+      "to": 2.9
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 79,
+       "y": 179,
+       "r": 60,
+       "at": 0.6
+      },
+      {
+       "type": "circle",
+       "x": 174,
+       "y": 179,
+       "r": 60,
+       "at": 0.6
+      }
+     ]
     },
     {
      "text": "To pick, swipe a card right to keep it or left to burn it, then confirm. Hold a card to see it big.",
@@ -1392,7 +1408,7 @@
      "text": "The game starts from the usual lobby.",
      "media": {
       "src": "clips/c10-challenge.mp4",
-      "from": 1.5,
+      "from": 5.5,
       "to": 8
      }
     }

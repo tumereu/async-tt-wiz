@@ -1,6 +1,6 @@
 # ATW tutorial video — plan + draft script
 
-Status: DRAFT 2 (2026-10-27). Controls described from project notes; verify each
+Status: PRODUCED (2026-10-27). The narration below matches scenes.json, which is what the video uses. Controls described from project notes; verify each
 shot on the emulator before capture. `[verify]` = I'm not sure the current UI
 matches.
 
@@ -50,7 +50,7 @@ main menu.
 > imports the card catalog.
 > The main menu has your games, pods for drafting, decks, and settings.
 > When there's a new version, the app asks you to update before you can play.
-> `[verify: r18-update forced-update flow]`
+(Not captured: the update gate needs a newer published version; the line plays over the main menu.)
 
 ### 2. Decks and starting a game (~60 s)
 
@@ -142,10 +142,9 @@ damage marks + life drag + loyalty corner number; Close + next.
 > Attack, and pick the card. It moves into a new lane labeled with that target.
 > You can also drag an attacker from one lane to another.
 > When the game moves to blockers, the move passes to the defender. They drag
-> their creatures below the attackers they block.
+> their creatures onto the attackers they block.
 > Damage is up to you: mark it on creatures, lower life totals, and lower a
 > planeswalker's loyalty, the number in its corner. Then close the combat.
-> `[verify: damage-mark control name; attacker tap = card menu vs. bubbles]`
 
 ### 8. Library tools and tokens (~45 s)
 
@@ -182,7 +181,6 @@ by side); game tree dialog showing both lines.
 > wanted to Shock that creature at the start of their turn, before all of that.
 > Step back in the timeline to their upkeep, choose Continue from here, and cast
 > Shock. That starts a new branch, and it becomes the game.
-> `[verify: Continue from here dialog vs. holding the play button]`
 > Nothing is lost. The old line still exists in the game tree.
 > On your opponent's phone, the game shows "Opponent branched", rewinds to where
 > you went back, and plays your Shock. Now they play their turn again.
@@ -210,11 +208,12 @@ Build columns + basics + stats; Submit; Challenge → lobby.
 > for a pack to be passed.
 > To pick, swipe a card right to keep it or left to burn it, then confirm. Hold
 > a card to see it big.
-> `[Librarian: keep-tray chip, Confirm · N Librarian]`
+> If the pod has Cogwork Librarians, tap the book to keep one extra card from
+> that pack.
 > When the draft is done, build your deck: cards are sorted into columns by mana
-> value, basic lands are added with one button, and the Stats tab shows your
-> curve and colors. Submit, then challenge another pod member. The game starts
-> from the usual lobby.
+> value, basic lands are added from the counters at the top, and the Stats tab
+> shows your curve and colors. Submit, then challenge another pod member. The
+> game starts from the usual lobby.
 
 ### 11. Ending a game and wrap-up (~30 s)
 
@@ -224,7 +223,7 @@ accept/decline element; back to lobby / rematch; chat.
 > When the game is over, suggest the result from Table actions. Your opponent
 > accepts or declines; until then, the game waits.
 
-## Capture prerequisites (things in progress that change shots)
+## Capture prerequisites (done 2026-10-27)
 
 - r18-game follow-up: game-end suggestion element (chapter 10).
 - r18-librarian: pick-screen Librarian chip (chapter 9).

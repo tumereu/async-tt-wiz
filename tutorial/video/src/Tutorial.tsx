@@ -181,7 +181,7 @@ const Marks: React.FC<{ marks: TimedMark[]; dims: { w: number; h: number }; line
             return <line key={i} x1={m.x1} y1={m.y1} x2={x2} y2={y2} {...common} markerEnd="url(#head)" />;
           }
           case 'label': {
-            const size = 90 / zoom;
+            const size = 66 / zoom;
             return (
               <text key={i} x={m.x} y={m.y} textAnchor={m.anchor ?? 'middle'} fontSize={size} fontWeight={800} fill={C.accent}
                 stroke="#000" strokeWidth={size / 5} paintOrder="stroke" opacity={fade * p} fontFamily={fontFamily}>{m.text}</text>

@@ -69,9 +69,9 @@ chap(3)
 T = shot("c3-table-a")
 S.append({"id": "c3-table", "chapter": 3, "lines": [
     L("Your side is at the bottom. Lands go in the row nearest you, everything else above them.", T,
-      [rect(15, 1475, 1050, 160, 2.2), label(1050, 1460, "Lands", 2.2, "end"), rect(15, 1120, 1050, 345, 3.6), label(1050, 1105, "Everything else", 3.6, "end")]),
+      [rect(15, 1475, 1050, 160, 2.2), label(1040, 1590, "Lands", 2.2, "end"), rect(15, 1120, 1050, 345, 3.6), label(1040, 1420, "Everything else", 3.6, "end")]),
     L("Your hand, library, graveyard and exile are along your edge.", None,
-      [rect(15, 1655, 1050, 175, 0.3), label(1050, 1640, "Hand", 0.3, "end"), rect(150, 1875, 470, 150, 1.5)]),
+      [rect(15, 1655, 1050, 175, 0.3), label(1040, 1680, "Hand", 0.3, "end"), rect(150, 1875, 470, 150, 1.5)]),
     L("The purple area is the Stack.", None, [circle(935, 1115, 140, 0.3)]),
     L("Two different things are shown: whose turn it is and whose move it is."),
     L("The turn player's battlefield is tinted.", None, [rect(15, 1110, 1050, 560, 0.3)]),
@@ -119,10 +119,10 @@ S.append({"id": "c6-stack", "chapter": 6, "lines": [
     L("The Stack holds linked copies, so the real card stays where it is. A card cast from your hand is shown to both players while it's on the Stack.",
       clip("c6-cast-b", 3, 15)),
     L("Tap the top of the Stack for its bubbles. Battlefield and Graveyard resolve it: the copy leaves the Stack and the real card moves there.", shot("c6-bubbles"),
-      [circle(994, 976, 60, 2.6), label(930, 960, "Battlefield", 2.6, "end"), circle(994, 1365, 60, 4.0), label(930, 1460, "Graveyard", 4.0, "end")],
+      [circle(994, 976, 60, 2.6), label(790, 990, "Battlefield", 2.6, "end"), circle(994, 1365, 60, 4.0), label(790, 1390, "Graveyard", 4.0, "end")],
       zoom={"x": 300, "y": 700, "w": 780, "h": 900}),
     L("Exile does the same to exile. Remove only takes the copy off the Stack, which is what you want when an ability resolves.", None,
-      [circle(844, 1365, 60, 0.3), label(780, 1460, "Exile", 0.3, "end"), circle(844, 976, 60, 2.6), label(780, 900, "Remove", 2.6, "end")]),
+      [circle(844, 1365, 60, 0.3), label(790, 1390, "Exile", 0.3, "end"), circle(844, 976, 60, 2.6), label(790, 990, "Remove", 2.6, "end")]),
     L("Drag the side handle up or down to mark which part of the text you're using: a mode, an ability, or one half of a split card. Your opponent sees the mark.",
       clip("c6-cast-a", 13.5, 23), [circle(843, 1170, 60, 0.3, 2.0)], hold=10.6),
     L("To respond, put your own card on top and pass the move.", clip("c6-cast-b", 40, 49), zoom=None, hold=7),
@@ -202,14 +202,15 @@ S.append({"id": "c10-draft", "chapter": 10, "lines": [
     L("Pods are for drafting together. Create one from a cube, for example a Cube Cobra link, or from a set's boosters.", clip("c10-cube", 2, 28, 3), hold=8.7),
     L("Choose a format: classic boosters, Glimpse, or Grid. Then invite the other players.", clip("c10-pod", 2, 58.5, 6),
       [rect(20, 560, 660, 100, 0.3, 2.0)], hold=9.4),
-    L("All packs open at once, so nobody waits for a pack to be passed.", clip("c10-start", 2, 14.5)),
+    L("All packs open at once, so nobody waits for a pack to be passed.", clip("c10-pick", 0.5, 2.9),
+      [circle(79, 179, 60, 0.6), circle(174, 179, 60, 0.6)]),
     L("To pick, swipe a card right to keep it or left to burn it, then confirm. Hold a card to see it big.", clip("c10-pick", 2, 21, 1.4), hold=13.6),
     L("If the pod has Cogwork Librarians, tap the book to keep one extra card from that pack.", clip("c10-pick2", 1.5, 15.4),
       [circle(330, 2141, 75, 0.3, 2.5)], hold=8.3),
     L("When the draft is done, build your deck: cards are sorted into columns by mana value, basic lands are added from the counters at the top, and the Stats tab shows your curve and colors.",
       clip("c10-build", 2, 31.2, 2.4), [rect(120, 370, 840, 120, 4.8, 7.5)], hold=12.2),
     L("Submit, then challenge another pod member.", clip("c10-submit", 2, 13, 1.6), hold=6.9),
-    L("The game starts from the usual lobby.", clip("c10-challenge", 1.5, 8)),
+    L("The game starts from the usual lobby.", clip("c10-challenge", 5.5, 8)),
 ]})
 
 chap(11)

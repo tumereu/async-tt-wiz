@@ -16,7 +16,8 @@ internal object CombatDamage {
         ?.definition?.faces?.find { it.faceId == card.faceId }
 
     fun hasKeyword(play: PlayState, card: PlayCard, keyword: String): Boolean {
-        val printed = runCatching {
+        // A face-down permanent has no printed abilities, and reading them would leak its identity.
+        val printed = if (card.isFaceDown) emptyList() else runCatching {
             (face(play, card)?.sourceData?.let { DeckJson.format.parseToJsonElement(it).jsonObject["keywords"] } as? JsonArray)
                 ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
         }.getOrDefault(emptyList())
@@ -55,7 +56,7 @@ internal object CombatDamage {
                 if (occurrence.id !in selected) continue
                 val source = cards[occurrence.sourceId] ?: continue
                 if (!dealsInStep(play, source, step)) continue
-                fun manual() { notes += "${face(play, source)?.name ?: "Card"}: assign manually" }
+                fun manual() { notes += "${if (source.isFaceDown) "Face-down card" else face(play, source)?.name ?: "Card"}: assign manually" }
                 val power = effectiveCorner(source).split('/').takeIf { it.size == 2 }?.first()?.let(::number)
                 if (power == null || hasKeyword(play, source, "Infect") || hasKeyword(play, source, "Wither")) {
                     manual(); continue

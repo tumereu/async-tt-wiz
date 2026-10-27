@@ -188,6 +188,15 @@ class CombatDamageTest {
         assertEquals(listOf("Combatant: assign manually"), mixed.assign().notes)
     }
 
+    @Test fun faceDownCombatantsIgnoreHiddenKeywordsAndNeverNameTheHiddenCard() {
+        val f = CombatDamageFixture(keyword = "Infect")
+        fun faceDown(corner: String) = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards.map {
+            if (it.id in f.attackerIds) it.copy(covered = true, explicitlyCovered = true, corner = corner) else it }))
+        assertEquals("-2", f.life(f.assign(state = faceDown("2/2"))))
+        assertTrue(f.assign(state = faceDown("2/2")).notes.isEmpty())
+        assertEquals(listOf("Face-down card: assign manually"), f.assign(state = faceDown("*/2")).notes)
+    }
+
     @Test fun keywordMatchingUsesWholeWordsAndOnlyCurrentFaceMetadataNotRulesText() {
         val f = CombatDamageFixture(note = "notinfect notwithered trampler", blockers = listOf("1/1"))
         assertEquals("5", f.damage(f.assign()))

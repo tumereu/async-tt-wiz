@@ -343,6 +343,42 @@ class PodHttpTest {
         assertEquals(3, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
     }
 
+    @Test fun `next round opens early once only the opponents final pick remains and notifies the opener`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 2, cardsPerPack = 3, colorBalance = false))
+        f.start(pod)
+        fun hints(who: SessionCreated) = f.count(ActivityKind.POD_YOUR_PICK, pod, who)
+        assertEquals(1, hints(f.a)); assertEquals(1, hints(f.b))
+        f.pick(f.a, pod) // A's pack 3 -> 2 queues behind B's own pack
+        val aPack = f.get(f.b, pod).draft!!.queuedPacks.single().id
+        f.pick(f.b, pod) // B's pack 3 -> 2 arrives at A's empty queue
+        assertEquals(2, hints(f.a)); assertEquals(1, hints(f.b))
+        val bPack = f.get(f.a, pod).draft!!.head!!.id
+        val early = f.pick(f.b, pod) // A's pack 2 -> 1 is awarded to A; only A's final pick of B's pack remains
+        assertEquals(0, early.draft!!.packsBehind)
+        assertEquals(3, early.draft!!.head!!.cards.size)
+        assertNotEquals(aPack, early.draft!!.head!!.id); assertNotEquals(bPack, early.draft!!.head!!.id)
+        assertEquals(2, hints(f.b))
+        assertEquals(PodPhase.DRAFTING, early.phase)
+        val waitingA = f.get(f.a, pod)
+        assertEquals(bPack, waitingA.draft!!.head!!.id); assertEquals(2, waitingA.draft!!.head!!.cards.size)
+        assertEquals(2, waitingA.draft!!.pool.size)
+        assertPrivacy(f, pod)
+        val roundTwo = early.draft!!.head!!.id
+        f.pick(f.b, pod) // B's round-two pack queues behind A's remaining round-one pack
+        val queuedA = f.get(f.a, pod).draft!!
+        assertEquals(bPack, queuedA.head!!.id); assertEquals(listOf(roundTwo), queuedA.queuedPacks.map { it.id })
+        assertEquals(2, hints(f.a))
+        f.pick(f.a, pod) // A opens round two behind the pack already waiting; no extra hint
+        assertEquals(roundTwo, f.get(f.a, pod).draft!!.head!!.id)
+        assertEquals(1, f.get(f.a, pod).draft!!.packsBehind)
+        assertEquals(2, hints(f.a))
+        f.finish(pod, listOf(f.a, f.b))
+        assertEquals(6, f.get(f.a, pod).draft!!.pool.size); assertEquals(6, f.get(f.b, pod).draft!!.pool.size)
+        assertEquals(2, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
+    }
+
     @Test fun `setup authorization supply snapshots invitation lifecycle and limits`() = fixture { f ->
         val pod = f.create().id
         assertEquals(401, f.request(null, "GET", "/v1/pods").statusCode())

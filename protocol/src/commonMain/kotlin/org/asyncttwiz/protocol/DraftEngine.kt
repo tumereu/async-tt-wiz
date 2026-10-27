@@ -11,14 +11,22 @@ data class DraftState(
     val seating: List<String>,
     val copies: List<DraftCopy>,
     val packs: List<DraftPack>,
-    /** Zero-based; equals settings.rounds after completion. */
+    /** Zero-based lowest round a member is still in (minimum of [openedRound]); equals settings.rounds after completion. */
     val round: Int,
     val queues: Map<String, List<String>>,
     val pools: Map<String, List<String>>,
     val log: List<DraftPickLog> = emptyList(),
+    /**
+     * Highest round each member has opened their own packs for. A member opens the next round early once no pack of
+     * their opened rounds can come back to them for a pick. Absent in snapshots from before per-member opening,
+     * where every member had opened exactly [round].
+     */
+    val opened: Map<String, Int> = emptyMap(),
 ) {
     val finished: Boolean get() = round == settings.rounds
-    val direction: DraftDirection get() = if (round % 2 == 0) DraftDirection.NEXT_SEAT else DraftDirection.PREVIOUS_SEAT
+    /** Direction of the lowest live round; every pack passes in its own round's direction. */
+    val direction: DraftDirection get() = DraftEngine.direction(round)
+    fun openedRound(player: String): Int = opened[player] ?: round
 }
 
 @Serializable data class DraftPack(
@@ -57,6 +65,8 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
 @Serializable data class DraftPublicStatus(val round: Int, val rounds: Int, val finished: Boolean, val members: List<DraftMemberStatus>)
 
 object DraftEngine {
+    fun direction(round: Int) = if (round % 2 == 0) DraftDirection.NEXT_SEAT else DraftDirection.PREVIOUS_SEAT
+
     /** Same canonical source/members and seed give identical seating and packs, independent of input order. */
     fun start(players: List<String>, cube: List<DraftCubeEntry>, settings: DraftSettings, seed: String): DraftState {
         require(settings.validate(players.size).isEmpty()) { "Invalid draft settings" }
@@ -184,7 +194,7 @@ object DraftEngine {
         private val queues = source.queues.mapValues { it.value.toMutableList() }
         private val pools = source.pools.mapValues { it.value.toMutableList() }
         private val log = source.log.toMutableList()
-        private var round = source.round
+        private val opened = source.seating.associateWith { source.openedRound(it) }.toMutableMap()
 
         fun applyPick(pick: DraftPick, burned: List<String>): DraftState {
             val index = packIndexes.getValue(pick.packId)
@@ -198,13 +208,42 @@ object DraftEngine {
             packs[index] = pack.copy(cards = (if (discard) emptyList() else remaining) + pick.librarians)
             pools.getValue(pick.player).removeAll(pick.librarians.toSet())
             pools.getValue(pick.player).addAll(pick.keep)
-            log.add(DraftPickLog(pick.player, pack.id, round, pick.keep.toList(), burned.toList(), discarded, librarians = pick.librarians.toList()))
-            if (packs[index].cards.isNotEmpty()) {
-                val seat = source.seating.indexOf(pick.player)
-                val step = if (round % 2 == 0) 1 else source.seating.size - 1
-                arrive(index, source.seating[(seat + step) % source.seating.size])
-            }
+            log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(), burned.toList(), discarded, librarians = pick.librarians.toList()))
+            if (packs[index].cards.isNotEmpty()) arrive(index, passTo(pick.player, pack.round))
             return settle()
+        }
+
+        private fun passTo(player: String, round: Int): String {
+            val seat = source.seating.indexOf(player)
+            val step = if (direction(round) == DraftDirection.NEXT_SEAT) 1 else source.seating.size - 1
+            return source.seating[(seat + step) % source.seating.size]
+        }
+
+        /**
+         * Whether a live or unopened pack of rounds up to [upTo] can still reach [player] for a manual pick, assuming
+         * every pick removes keep + burn cards (all of them near the end) and applies the discard threshold. Automatic
+         * awards are not picks. A near-end Cogwork Librarian spend can return cards to a pack that would have emptied;
+         * such a pack simply keeps passing and queues behind whatever the receiver already has.
+         */
+        private fun canReach(player: String, upTo: Int): Boolean {
+            val keep = source.settings.keep
+            val removed = keep + source.settings.burn
+            val holders = queues.entries.flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
+            for (pack in packs) {
+                if (pack.cards.isEmpty() || pack.round > upTo) continue
+                val queued = holders[pack.id]
+                // Unopened packs that are already small enough are awarded on arrival.
+                if (queued == null && pack.cards.size <= keep) continue
+                var holder = queued ?: pack.initialPlayer
+                var size = pack.cards.size
+                while (true) {
+                    if (holder == player) return true
+                    size = if (size <= removed) 0 else size - removed
+                    if (size <= source.settings.discardRemainingAt || size <= keep) break
+                    holder = passTo(holder, pack.round)
+                }
+            }
+            return false
         }
 
         private fun arrive(index: Int, player: String) {
@@ -212,23 +251,32 @@ object DraftEngine {
             // Automatic awards happen on arrival, even behind a pack that still needs a manual choice.
             if (pack.cards.size <= source.settings.keep) {
                 pools.getValue(player).addAll(pack.cards)
-                log.add(DraftPickLog(player, pack.id, round, pack.cards, automatic = true))
+                log.add(DraftPickLog(player, pack.id, pack.round, pack.cards, automatic = true))
                 packs[index] = pack.copy(cards = emptyList())
             } else queues.getValue(player).add(pack.id)
         }
 
         fun settle(): DraftState {
-            // Empty rounds (all automatic awards) can cascade, but never cross a live-round barrier.
-            while (queues.values.all { it.isEmpty() } && round < source.settings.rounds) {
-                round++
-                if (round < source.settings.rounds) {
+            // Each member opens their own next-round packs once nothing they opened can come back to them for a pick.
+            // An opening only adds packs that the other members' checks already counted as unopened, so seat order does
+            // not change the result. Rounds emptied by automatic awards cascade.
+            val last = source.settings.rounds - 1
+            do {
+                var changed = false
+                for (player in source.seating) {
+                    val current = opened.getValue(player)
+                    if (current >= last || canReach(player, current)) continue
+                    opened[player] = current + 1
                     for (index in packs.indices) {
-                        if (packs[index].round == round) arrive(index, packs[index].initialPlayer)
+                        if (packs[index].round == current + 1 && packs[index].initialPlayer == player) arrive(index, player)
                     }
+                    changed = true
                 }
-            }
-            return source.copy(packs = packs.toList(), round = round,
-                queues = queues.mapValues { it.value.toList() }, pools = pools.mapValues { it.value.toList() }, log = log.toList())
+            } while (changed)
+            val finished = opened.values.all { it >= last } && packs.all { it.cards.isEmpty() }
+            return source.copy(packs = packs.toList(), round = if (finished) source.settings.rounds else opened.values.min(),
+                queues = queues.mapValues { it.value.toList() }, pools = pools.mapValues { it.value.toList() }, log = log.toList(),
+                opened = opened.toMap())
         }
     }
 }

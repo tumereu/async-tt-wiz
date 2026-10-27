@@ -88,7 +88,7 @@ class TableToolkitWiringTest {
     }
 
     @Test fun turnShortcutsShareOneInvocationAndUndoTheWholeReproducibleDrawShortcut() {
-        for ((position, name) in listOf(TurnPosition.UNTAP to "Start turn", TurnPosition.UPKEEP to "Draw + go to main")) {
+        for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
             val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
             try {
                 assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))

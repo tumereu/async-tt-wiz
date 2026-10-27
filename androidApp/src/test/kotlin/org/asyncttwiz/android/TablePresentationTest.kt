@@ -32,6 +32,21 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    @Test fun specialPileCountBubblesAreSmallerAndCenteredExactlyOnTheirCornerInBothLayouts() {
+        for (landscape in listOf(false, true)) {
+            val scene = TableFixture.scene(landscape = landscape)
+            val piles = scene.items.filter { it.zone in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
+            assertEquals(6, piles.size)
+            for (pile in piles) {
+                val bubble = pile.pileCountBubble
+                assertEquals(TablePoint(pile.bounds.x, pile.bounds.y), bubble.center)
+                assertEquals(16f, bubble.width)
+                assertEquals(16f, bubble.height)
+                val port = scene.viewports.single { it.id == pile.viewport }.bounds
+                assertEquals(bubble, bubble.intersection(port), "Bubble must not be clipped in the dock")
+            }
+        }
+    }
     @Test fun handsUseMirroredMarginsWithinTheirAvailableArea() {
         for (landscape in listOf(false, true)) {
             val width = if (landscape) 900f else 412f

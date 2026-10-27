@@ -134,4 +134,43 @@ class CatalogTokenChoicesTest {
         assertSame(prepared, reopened.loadTokens())
         assertThrows(CatalogNotInstalledException::class.java) { repo("missing").loadTokens() }
     }
+
+    @Test fun realImporterIncludesPlayerDesignationsAndPreservesTheirPhysicalFacesAcrossStartupPreparation() {
+        val repository = repo()
+        val metadata = CatalogMetadata("2026-10-26", "5.2.2")
+        fun face(n: Int, name: String, face: String = name, type: String = "Card", side: String = "", other: Int? = null,
+            layout: String = "token") = """{"uuid":"${id(n)}","name":"$name","faceName":"$face","number":"$n","type":"$type","text":"{T}: Add {G}.","layout":"$layout","side":"$side","otherFaceIds":[${other?.let { "\"${id(it)}\"" }.orEmpty()}]}"""
+        val names = setOf("The Monarch", "City's Blessing", "Undercity // The Initiative", "Day // Night")
+        val records = listOf(face(1, "The Monarch"), face(2, "City's Blessing"),
+            face(3, "Undercity // The Initiative", "Undercity", "Dungeon", "a", 4, "double_faced_token"),
+            face(4, "Undercity // The Initiative", "The Initiative", "Card", "b", 3, "double_faced_token"),
+            face(5, "Day // Night", "Day", side = "a", other = 6),
+            face(6, "Day // Night", "Night", side = "b", other = 5))
+        val json = """{"meta":{"date":"${metadata.date}","version":"${metadata.version}"},"data":{"SYN":{"cards":[],"tokens":[${records.joinToString(",")}]}}}"""
+        repository.stage { index -> MtgJsonCatalog().import(json.byteInputStream(), index, metadata) }
+        fun verify() {
+            val choices = repository.loadTokens().choices
+            assertEquals(names, choices.map { it.name }.toSet())
+            assertTrue(choices.all { TokenLinkRules.validDefinition(it.submitted) })
+            assertEquals(listOf("Undercity", "The Initiative"), choices.single { it.name.startsWith("Undercity") }
+                .submitted.definition.faces.map { it.name })
+            val day = choices.single { it.name == "Day // Night" }.submitted.definition
+            assertEquals(listOf("Day", "Night"), day.faces.map { it.name })
+            assertEquals(listOf(id(6)), day.faces.first().otherFaceIds)
+            assertEquals("{T}: Add {G}.", day.faces.last().rulesText)
+        }
+        verify()
+        // An installed pre-fix prepared list must be rebuilt from retained provider records at startup.
+        val directory = temporary.resolve("catalog").toFile()
+        val file = File(directory, File(directory, "current").readText())
+        JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}").use {
+            it.execute(null, "DROP TABLE token_choice_ready", 0)
+            it.execute(null, "DELETE FROM token_choice", 0)
+        }
+        repository.prepareTokens()
+        verify()
+        val bytes = file.readBytes()
+        repository.prepareTokens()
+        assertArrayEquals(bytes, file.readBytes(), "Already upgraded choices must not be rebuilt on every startup")
+    }
 }

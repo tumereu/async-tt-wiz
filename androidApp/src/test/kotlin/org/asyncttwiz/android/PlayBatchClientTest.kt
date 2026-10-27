@@ -8,6 +8,43 @@ class PlayBatchClientTest {
     private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true },
         f.lobby::gameplay, playBatch = f.lobby::gameplayBatch, playTree = f.lobby::displayTree)
 
+    @Test fun catalogTokensUseTypeAppropriateFreeRowsInOneUndoableInvocationAndKeepFlippableDesignations() {
+        for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Token Land — Forest", "Card", "Dungeon", "")) {
+            val f = BasicTableFixture()
+            val definition = CardDefinition(if (type == "Card") "Day // Night" else "Token", listOf(
+                DefinitionFace(f.id(901), "Front", listOf(f.id(902)), typeLine = type),
+                DefinitionFace(f.id(902), "Back", listOf(f.id(901)), typeLine = type)), token = true, layout = "double_faced_token")
+            val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+            f.connect()
+            try {
+                val ui = toolkit(f)
+                val before = f.play.board
+                repeat(2) { index ->
+                    val count = f.commands().size
+                    ui.tokens.catalog(); ui.tokens.create(submitted)
+                    assertFalse(ui.tokens.showingCatalog, ui.tokens.error)
+                    val command = f.commands().drop(count).single()
+                    val actions = command.playActions()
+                    val row = if ("Land" in type) 0 else 1
+                    assertEquals(if (row == 0) 1 else 2, actions.size)
+                    assertIs<PlayAction.CreateToken>(actions.first())
+                    if (row != 0) assertIs<PlayAction.MoveCard>(actions.last())
+                    val tokens = f.play.board.cards.filter { it.token }
+                    assertEquals((0..index).map { BoardPosition(it, row) }.toSet(), tokens.map { it.placement!!.position }.toSet())
+                    assertEquals(2, f.play.definitions.single { it.digest == submitted.digest }.definition.faces.size)
+                }
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertEquals(1, f.play.board.cards.count { it.token })
+                val first = f.play.board.cards.single { it.token }
+                assertTrue(ui.submit(PlayAction.SetFace(first.id, f.id(902))))
+                assertEquals(f.id(902), f.play.board.cards.single { it.token }.faceId)
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                assertEquals(before, f.play.board)
+            } finally { f.lobby.close(); f.worker.drain() }
+        }
+    }
+
     @Test fun shuffleIntoLibrarySendsMovesAndEveryOwnersShuffleAsOneUndoableRequest() {
         for (count in listOf(1, 2)) {
             val f = BasicTableFixture()

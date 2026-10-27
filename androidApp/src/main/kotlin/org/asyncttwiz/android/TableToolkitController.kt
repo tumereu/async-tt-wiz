@@ -147,6 +147,23 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Convenience members are lowered against the current draft, then sent together. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
+        if (action is PlayAction.CreateToken) {
+            return batchResult(invocationId ?: UUID.randomUUID().toString()) {
+                val before = current() ?: return@batchResult false
+                if (!enqueue(action, invocation)) return@batchResult false
+                val after = current() ?: return@batchResult false
+                val token = after.board.cards.singleOrNull { card -> before.board.cards.none { it.id == card.id } }
+                    ?: return@batchResult false
+                val row = TokenActions.row(action.definition.definition)
+                if (token.placement?.position?.y == row) return@batchResult true
+                val occupied = after.board.cards.filter { it.containerId == token.containerId && it.id != token.id }
+                    .mapNotNull { it.placement?.position }.toSet()
+                var column = 0
+                while (BoardPosition(column, row) in occupied) column++
+                enqueue(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
+                    MoveDestination(token.containerId, MoveInsertion.EMPTY, BoardPosition(column, row))), invocation)
+            }
+        }
         if (action is PlayAction.MoveCard && action.removeStackEntryId == null && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
             return enqueue(BasicTableController.projection(play, action) ?: return false,

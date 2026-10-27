@@ -70,7 +70,7 @@ class TableChromeUiTest {
             assertEquals(tint, pixels.getRGB(2, pixels.height - 2))
             if (visible) {
                 val b = next.fetchSemanticsNode().boundsInRoot
-                assertTrue(b.width >= 76f); assertEquals(48f, b.height)
+                assertTrue(b.width in 68f..72f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 assertEquals(advanceButtonStyle(play.board, who).fill.toArgb(), pixels.getRGB(b.left.toInt() + 4, b.top.toInt() + 4))
                 val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())

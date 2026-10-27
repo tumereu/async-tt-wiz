@@ -36,9 +36,13 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
                 loyalty.isNotEmpty() -> loyalty; else -> defense }, face.scryfallId, sourceData = face.json)
     }
     val raw = DeckJson.format.parseToJsonElement(printing.json).jsonObject
-    return PhysicalCardFaces.normalize(CardDefinition(printing.name, definitions, provider = "mtgjson",
+    val definition = CardDefinition(printing.name, definitions, provider = "mtgjson",
         sourceVersion = catalog?.let { "${it.date}/${it.version}" }, printingId = printing.id,
-        layout = (raw["layout"] as? JsonPrimitive)?.contentOrNull ?: "normal", token = printing.token))
+        layout = (raw["layout"] as? JsonPrimitive)?.contentOrNull ?: "normal", token = printing.token)
+    // Linked token/designation records are physical sides, even for provider layouts such as
+    // double_faced_token or token. Do not flatten them like split/adventure spell parts.
+    return if (printing.token && definition.layout !in setOf("adventure", "split", "flip", "aftermath")) definition
+        else PhysicalCardFaces.normalize(definition)
 }
 
 /** Owner's gameplay identity, deliberately excluding printing metadata and redundant keyword tags. */

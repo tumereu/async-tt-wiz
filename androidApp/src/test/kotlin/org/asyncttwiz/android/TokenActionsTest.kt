@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TokenActionsTest {
-    @Test fun flatListDeduplicatesPrintingsAndOrdersBlankThenFavoritesThenOtherTokens() {
+    @Test fun flatListDeduplicatesPrintingsAndSortsBlankAlphabeticallyWithinFavoritesAndOthers() {
         fun token(name: String, printing: String = name, rules: String = "") = CardDefinition(name,
             listOf(DefinitionFace(id(1), name, corner = "1/1", rulesText = rules)), token = true, printingId = printing)
             .let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -15,15 +15,38 @@ class TokenActionsTest {
         val food = token("Food")
         val angel = token("Angel")
         val tokens = listOf(treasure, soldier, spirit, token("Treasure", "another"), food, angel, TokenCatalog.blank, TokenCatalog.blank)
-        assertEquals(listOf("Blank", "Food", "Treasure", "Angel", "Soldier", "Spirit"), TokenActions.ordered(tokens).map { it.definition.name })
+        assertEquals(listOf("Food", "Treasure", "Angel", "Blank", "Soldier", "Spirit"), TokenActions.ordered(tokens).map { it.definition.name })
         val favorites = TokenFavorites(listOf(TokenIdentity.key(spirit.definition), TokenIdentity.key(soldier.definition)))
-        assertEquals(listOf("Blank", "Soldier", "Spirit", "Angel", "Food", "Treasure"), TokenActions.ordered(tokens, favorites).map { it.definition.name })
+        assertEquals(listOf("Soldier", "Spirit", "Angel", "Blank", "Food", "Treasure"), TokenActions.ordered(tokens, favorites).map { it.definition.name })
+        val noFavorites = TokenFavorites(emptyList())
+        assertEquals(listOf("Angel", "Blank", "Food", "Soldier", "Spirit", "Treasure"),
+            TokenActions.ordered(tokens, noFavorites).map { it.definition.name })
+        assertEquals(TokenActions.ordered(tokens, noFavorites),
+            TokenChoiceIndex(tokens.map(org.asyncttwiz.storage.CatalogTokenChoice::from)).ordered(noFavorites).map { it.submitted })
         assertEquals("1/1 · Flying", TokenActions.detail(spirit.definition))
         val filtered = TokenActions.ordered(TokenActions.catalog(tokens, "TREASURE"), favorites)
         assertEquals(1, filtered.size)
         assertEquals(TokenIdentity.key(treasure.definition), TokenIdentity.key(filtered.single().definition))
     }
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
+
+    @Test fun tokenDescriptionsUseTheSharedCardSymbolVocabulary() {
+        val definition = CardDefinition("Treasure", listOf(DefinitionFace(id(1), "Treasure",
+            typeLine = "Token Artifact — Treasure", rulesText = "{T}, Sacrifice: Add {G} or {W/U}. Pay {X}.")), token = true)
+        assertEquals(listOf("T", "G", "W/U", "X"), parseCardText(TokenActions.detail(definition))
+            .filterIsInstance<CardTextPart.Symbol>().map { it.token })
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        assertEquals(TokenActions.detail(definition), org.asyncttwiz.storage.CatalogTokenChoice.from(submitted).detail)
+    }
+
+    @Test fun onlyLandTokensUseTheLandRowIncludingBlankAndDesignations() {
+        for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Card", "Dungeon", "", "Creature — Landshark")) {
+            assertEquals(1, TokenActions.row(CardDefinition("Token", listOf(DefinitionFace(id(1), "Token", typeLine = type)), token = true)), type)
+        }
+        for (type in listOf("Token Land — Forest", "Token Artifact Land")) {
+            assertEquals(0, TokenActions.row(CardDefinition("Token", listOf(DefinitionFace(id(1), "Token", typeLine = type)), token = true)), type)
+        }
+    }
 
     @Test fun searchIncludesBlankFiltersNonTokensAndPreservesExactPrintingIdentity() {
         fun soldier(printing: String): SubmittedDefinition = CardDefinition("Soldier", listOf(

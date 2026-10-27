@@ -1473,6 +1473,14 @@ Confirmed G-09 token creation (D-81, simplified by D-82):
 3. Clone creates token instances from either ordinary cards or tokens (D-83/D-84),
    using the field-copy/selection contract below; no card-text copy rules.
 
+Round 16: Blank sorts by displayed name within the ordinary favorite/non-favorite
+groups, without a pinned row. Descriptions use the shared card-text symbol renderer.
+Include catalog Card/Dungeon designations (Monarch, City's Blessing, Undercity /
+Initiative, Day / Night), retaining physical faces for flipping. Android lowers
+creation plus placement into one atomic, undoable invocation: Land tokens use row
+0; all others (including Blank/designations) use the free non-land row 1. Existing
+recorded creation/placement events and shared rules are unchanged.
+
 D-82 supersedes D-81 quantity selection and rejects the later placement-preview/
 picker proposal. Exact automatic location selection, initialization, missing/
 offline catalog data, custom definitions, removal details, and history
@@ -1607,7 +1615,7 @@ other mappings remain under review. Do not infer card rules from these controls.
 
 Current shortcuts (playtest r3; supersedes D-100/D-101's inventory below):
 
-- Untap: Start turn = untap + draw + Main 1, one Undo.
+- Untap: Untap, draw → main = untap + draw + Main 1, one Undo.
 - Upkeep: Draw + go to Main 1. Draw: Draw one + Main 1.
 - Main 1: Go to attacks → Declare attackers and Select mode; Skip combat → End step.
 - Declare attackers without selection: No attack → Main 2; with selection retain
@@ -1641,6 +1649,13 @@ main. Do not skip Upkeep/Draw after Untap or automatically execute another card
 operation on arrival. There is no priority/pass state under D-105.
 
 Confirmed progression controls (D-102):
+
+Round 16: picker squares share the indicator's short step vocabulary (e.g. Begin
+combat, End combat, Main 1), centered on up to two lines. The narrower advance
+arrow stacks its icon above that short destination label (End turn when passing
+the turn), preserving tap Next step / hold End turn. Multiselect uses overlapping
+checked cards; Hand destinations use a three-card fan. Library/Graveyard/Exile
+count bubbles are 16dp, centered on the pile card's top-left corner in both layouts.
 
 The picker remains a dialog, exempt from floating menus. Its title shows phase
 and step name (e.g. “Combat · Declare attackers”) plus turn player, with turn number

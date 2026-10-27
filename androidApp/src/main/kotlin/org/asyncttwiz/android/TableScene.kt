@@ -734,6 +734,10 @@ private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: P
 @Composable
 internal fun TableChromeIcon(kind: String) {
     val color = LocalContentColor.current
+    if (kind == "select") {
+        Icon(MultipleSelectionIcon, null, Modifier.size(24.dp).clearAndSetSemantics {}, tint = color)
+        return
+    }
     Canvas(Modifier.size(24.dp).clearAndSetSemantics {}) {
         val u = size.width / 24f
         fun line(x: Float, y: Float, a: Float, b: Float) = drawLine(color, Offset(x * u, y * u), Offset(a * u, b * u), 1.7f * u)
@@ -755,7 +759,6 @@ internal fun TableChromeIcon(kind: String) {
             "next" -> { line(6f, 5f, 6f, 19f); line(6f, 5f, 17f, 12f); line(6f, 19f, 17f, 12f); line(19f, 5f, 19f, 19f) }
             "current" -> { box(2f, 3f, 20f, 15f); line(8f, 21f, 16f, 21f); line(10f, 7f, 16f, 11f); line(16f, 11f, 10f, 15f); line(10f, 15f, 10f, 7f) }
             "ping" -> { drawCircle(color, 7f * u, center, style = Stroke(1.7f * u)); drawCircle(color, 2f * u, center) }
-            "select" -> box(4f, 4f, 16f, 16f)
             else -> { drawArc(color, 180f, 180f, false, Offset(4f * u, 2f * u), Size(9f * u, 10f * u), style = Stroke(1.7f * u)); line(8f, 7f, 8f, 17f); line(8f, 17f, 14f, 22f); line(14f, 22f, 19f, 18f); line(19f, 18f, 19f, 13f); line(19f, 13f, 12f, 12f); line(12f, 12f, 12f, 6f); line(20f, 22f, 22f, 24f); line(22f, 24f, 24f, 22f) }
         }
     }
@@ -1171,14 +1174,17 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
     for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {
-        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else TableBounds(i.bounds.x, i.bounds.y, 20f, 20f)
+        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
         val port = if (i.countBadge != null) TableBounds(0f, 0f, this.size.width / density, this.size.height / density)
             else scene.viewports.single { it.id == i.viewport }.bounds
         if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
-            drawCircle(Color(0xff345451), 10 * density, xy(badge.center.x, badge.center.y))
-            drawCircle(Color.White, 10 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
+            drawCircle(Color(0xff345451), badge.width / 2 * density, xy(badge.center.x, badge.center.y))
+            drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
             paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
-            text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y + 4, 5)
+            val previousSize = paint.textSize
+            paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f) * density
+            text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
+            paint.textSize = previousSize
             paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
             if (i.keepTopRevealed) {
                 // Same eye treatment as revealed panel cards, separate from the count badge.

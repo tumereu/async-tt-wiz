@@ -4,34 +4,43 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import org.asyncttwiz.protocol.*
+import kotlin.math.abs
 
 private val PodPickGreen = Color(0xFF237A38)
 private val PodPickRed = Color(0xFFB3261E)
@@ -39,30 +48,20 @@ private val PodPickRed = Color(0xFFB3261E)
 @Composable
 fun PodPickView(
     pack: DraftPrivatePack?,
-    packsBehind: Int,
     settings: DraftSettings,
     definitions: Map<String, CardDefinition>,
-    waitingOn: List<AccountIdentity>,
     busy: Boolean,
     onConfirm: (keep: List<String>, burn: List<String>) -> Unit,
     onOpenBuild: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var marks by remember(pack?.id) { mutableStateOf(PodPickMarks().forPack(pack)) }
-    val inspection = remember(pack?.id) { CardInspectionController() }
-    val inspect: (DraftCopy) -> Unit = { copy ->
-        definitions[copy.definition]?.takeIf { it.faces.isNotEmpty() }?.let {
-            inspection.open(InspectedCard.retained(copy.definition, it))
-        }
-    }
-    if (pack == null) {
-        Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                waitingOn.forEach { Avatar(it) }
-            }
-            Text(if (waitingOn.isEmpty()) "Waiting for the next round"
-                else "Waiting for ${waitingOn.joinToString { it.username }}", Modifier.padding(vertical = 12.dp))
+    var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
+    var submitted by remember(pack?.id) { mutableStateOf(false) }
+    // Hide the submitted pack immediately; a rejection restores the same local marks.
+    LaunchedEffect(pack?.id, busy) { if (!busy) submitted = false }
+    if (pack == null || submitted) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Button(onClick = onOpenBuild) { Text("Build") }
         }
         return
@@ -80,49 +79,177 @@ fun PodPickView(
     val burnIds = rules.burnIds(marks)
     val copies = remember(pack) { pack.cards.associateBy { it.id } }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
-        if (!busy) marks = marks.toggle(id, kind, rules)
+        marks = marks.toggle(id, kind, rules)
     }
-    val unmark: (String) -> Unit = { id -> if (!busy) marks = marks.unmark(id) }
+    val unmark: (String) -> Unit = { id -> marks = marks.unmark(id) }
+    val inspect: (DraftCopy?) -> Unit = { inspected = it }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Pack ${pack.number}/${settings.packsPerPlayer} · ${pack.cards.size} cards" +
-                if (packsBehind > 0) " · +${podPackCount(packsBehind)} waiting" else "",
-                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            PodColumnControl("$columns/row", "Cards per row", columns, 1..maxColumns) {
-                preferredColumns = it
-                preferences.edit().putInt(preferenceKey, preferredColumns).apply()
-            }
-        }
         key(pack.id) {
             LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
                 state = rememberLazyGridState(), horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PodPickColumnControl(columns, maxColumns) {
+                            preferredColumns = it
+                            preferences.edit().putInt(preferenceKey, preferredColumns).apply()
+                        }
+                    }
+                }
                 items(pack.cards, key = { it.id }) { copy ->
                     PodPickCard(copy, definitions[copy.definition], marks.markOf(copy.id),
                         automaticBurn = rules.automaticBurns && copy.id in burnIds,
-                        burnEnabled = rules.manualBurns > 0, enabled = !busy,
-                        onMark = { mark(copy.id, it) }, onUnmark = { unmark(copy.id) }, onInspect = { inspect(copy) })
+                        burnEnabled = rules.manualBurns > 0,
+                        onMark = { mark(copy.id, it) }, onUnmark = { unmark(copy.id) },
+                        onInspect = { inspect(if (it) copy else null) })
                 }
             }
         }
-        PodPickTray("Keep", marks.keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
-            automatic = false, enabled = !busy, onUnmark = unmark, onInspect = inspect)
-        if (settings.burn > 0) PodPickTray("Burn", burnIds, rules.requiredBurns, copies, definitions, PodPickRed,
-            automatic = rules.automaticBurns, enabled = !busy, onUnmark = unmark, onInspect = inspect)
-        Button(onClick = { if (rules.canConfirm(marks, busy)) onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList()) },
-            enabled = rules.canConfirm(marks, busy), modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(if (busy) "Confirming…" else "Confirm")
+        PodPickTrays(marks.keeps, burnIds, rules, copies, definitions, unmark, inspect)
+        Button(onClick = { if (rules.canConfirm(marks, busy)) {
+            submitted = true
+            onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
+        } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
+            Text("Confirm")
         }
     }
-    // Reuse the responsive full-size inspector, including face navigation and artwork zoom.
-    CardInspection(inspection)
+    inspected?.let { PodPickArtPreview(it, definitions[it.definition]) }
 }
 
 @Composable
 private fun rememberPodPickPreferences() = LocalContext.current.applicationContext.let { context ->
     remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
+}
+
+@Composable
+private fun PodPickColumnControl(columns: Int, maximum: Int, change: (Int) -> Unit) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        Row(Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Cards per row"
+            progressBarRangeInfo = ProgressBarRangeInfo(columns.toFloat(), 1f..maximum.toFloat(), (maximum - 2).coerceAtLeast(0))
+            setProgress { change(it.toInt().coerceIn(1, maximum)); true }
+        }, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedIconButton({ change(columns - 1) }, Modifier.size(32.dp), enabled = columns > 1) {
+                Text("−", Modifier.semantics { contentDescription = "Fewer cards per row" })
+            }
+            Text("$columns", style = MaterialTheme.typography.labelMedium)
+            OutlinedIconButton({ change(columns + 1) }, Modifier.size(32.dp), enabled = columns < maximum) {
+                Text("+", Modifier.semantics { contentDescription = "More cards per row" })
+            }
+        }
+    }
+}
+
+/** One recognizer owns tap, horizontal swipe and the short, release-to-close hold. */
+private suspend fun PointerInputScope.podPickGestures(
+    onTap: () -> Unit,
+    onInspect: (Boolean) -> Unit,
+    onDrag: ((Float) -> Unit)? = null,
+    onDragEnd: (Float, Float) -> Unit = { _, _ -> },
+    onEnd: () -> Unit = {},
+) = awaitEachGesture {
+    val down = awaitFirstDown(requireUnconsumed = false)
+    val velocity = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
+    var dragging = false
+    var held = false
+    var cancelled = false
+    var released = false
+    var delta = Offset.Zero
+    try {
+        val finishedBeforeHold = withTimeoutOrNull(150L) {
+            while (!released && !dragging && !cancelled) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id }
+                if (change == null || change.isConsumed || event.changes.size > 1) {
+                    cancelled = true
+                    break
+                }
+                delta = change.position - down.position
+                velocity.addPosition(change.uptimeMillis, change.position)
+                // Movement wins over the timer, even on a late input frame.
+                if (delta.getDistance() > viewConfiguration.touchSlop) {
+                    dragging = onDrag != null && abs(delta.x) > abs(delta.y)
+                    cancelled = !dragging
+                    if (dragging) { change.consume(); onDrag?.invoke(delta.x) }
+                }
+                if (change.changedToUpIgnoreConsumed()) {
+                    released = true
+                    if (!dragging && !cancelled) { change.consume(); onTap() }
+                }
+            }
+            true
+        }
+        if (finishedBeforeHold == null) {
+            held = true
+            onInspect(true)
+        }
+        while (!released && !cancelled) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id }
+            if (change == null || change.isConsumed || event.changes.size > 1) break
+            delta = change.position - down.position
+            velocity.addPosition(change.uptimeMillis, change.position)
+            if (held && delta.getDistance() > viewConfiguration.touchSlop) break
+            if (dragging) { change.consume(); onDrag?.invoke(delta.x) }
+            if (change.changedToUpIgnoreConsumed()) {
+                change.consume()
+                released = true
+            }
+        }
+        if (released && dragging && !held) onDragEnd(delta.x, velocity.calculateVelocity().x)
+    } finally {
+        if (held) onInspect(false)
+        onEnd()
+    }
+}
+
+@Composable
+private fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
+    val card = remember(copy.definition, definition) {
+        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
+    }
+    Popup(alignment = Alignment.Center, properties = PopupProperties(focusable = false)) {
+        BoxWithConstraints(Modifier.fillMaxSize().testTag("pod-pick-art-preview"), contentAlignment = Alignment.Center) {
+            val width = minOf(maxWidth - 16.dp, (maxHeight - 16.dp) / 1.4f)
+            val height = width * 1.4f
+            val density = LocalDensity.current
+            CardArtwork(card?.artwork?.firstOrNull()?.copy(size = "large"), "Card artwork",
+                with(density) { width.roundToPx() }.coerceIn(1, 4096),
+                with(density) { height.roundToPx() }.coerceIn(1, 4096), Modifier.size(width, height),
+                placeholder = {})
+        }
+    }
+}
+
+@Composable
+private fun PodPickTrays(
+    keeps: List<String>, burns: List<String>, rules: PodPickRules,
+    copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
+    onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
+) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val style = MaterialTheme.typography.bodySmall
+    val keepLabel = with(density) { measurer.measure(AnnotatedString("✓ ${rules.requiredKeeps}/${rules.requiredKeeps}"), style).size.width.toDp() + 4.dp }
+    val burnLabel = with(density) { measurer.measure(AnnotatedString("🔥 ${rules.requiredBurns}/${rules.requiredBurns}"), style).size.width.toDp() + 4.dp }
+    val keepWidth = podPickTrayWidth(rules.requiredKeeps, keepLabel)
+    val burnWidth = podPickTrayWidth(rules.requiredBurns, burnLabel)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        val keep: @Composable () -> Unit = {
+            PodPickTray("Keep", keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
+                false, Modifier.width(minOf(keepWidth, maxWidth)), keepLabel, onUnmark, onInspect)
+        }
+        val burn: @Composable () -> Unit = {
+            if (rules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
+                rules.automaticBurns, Modifier.width(minOf(burnWidth, maxWidth)), burnLabel, onUnmark, onInspect)
+        }
+        if (podPickTraysFit(maxWidth, rules.requiredKeeps, rules.requiredBurns, keepLabel, burnLabel)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
+        }
+    }
 }
 
 @Composable
@@ -132,19 +259,19 @@ private fun PodPickCard(
     mark: PodPickMark?,
     automaticBurn: Boolean,
     burnEnabled: Boolean,
-    enabled: Boolean,
     onMark: (PodPickMark) -> Unit,
     onUnmark: () -> Unit,
-    onInspect: () -> Unit,
+    onInspect: (Boolean) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     var offset by remember { mutableFloatStateOf(0f) }
     var width by remember { mutableIntStateOf(0) }
     val currentOnMark by rememberUpdatedState(onMark)
+    val currentOnInspect by rememberUpdatedState(onInspect)
     val flingThreshold = with(LocalDensity.current) { 800.dp.toPx() }
     val effectiveMark = mark ?: PodPickMark.BURN.takeIf { automaticBurn }
     val color = when (effectiveMark) { PodPickMark.KEEP -> PodPickGreen; PodPickMark.BURN -> PodPickRed; null -> null }
-    Box {
+    Box(Modifier.zIndex(if (offset != 0f) 1f else 0f)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { width = it.width }
             .testTag("pod-pick-card-${copy.id}").semantics {
                 contentDescription = definition?.name ?: "Card data unavailable"
@@ -153,29 +280,19 @@ private fun PodPickCard(
                     PodPickMark.BURN -> if (automaticBurn) "Automatic burn" else "Burn"
                     null -> "Unmarked"
                 }
+                onClick { menu = true; true }
             }
-            .pointerInput(enabled, burnEnabled, flingThreshold) {
-                if (!enabled) return@pointerInput
-                val velocity = VelocityTracker()
-                var drag = 0f
-                detectHorizontalDragGestures(
-                    onDragStart = { drag = 0f; velocity.resetTracking() },
-                    onHorizontalDrag = { change, amount ->
-                        change.consume()
-                        drag += amount
-                        offset = if (burnEnabled) drag else drag.coerceAtLeast(0f)
-                        velocity.addPosition(change.uptimeMillis, change.position)
-                    },
-                    onDragEnd = {
-                        podPickSwipe(drag, width, velocity.calculateVelocity().x, flingThreshold)?.let {
+            .pointerInput(burnEnabled, flingThreshold) {
+                podPickGestures(onTap = { menu = true }, onInspect = { currentOnInspect(it) },
+                    onDrag = { offset = if (burnEnabled) it else it.coerceAtLeast(0f) },
+                    onDragEnd = { drag, velocity ->
+                        podPickSwipe(drag, width, velocity, flingThreshold)?.let {
                             if (it != PodPickMark.BURN || burnEnabled) currentOnMark(it)
                         }
-                        offset = 0f
                     },
-                    onDragCancel = { offset = 0f },
+                    onEnd = { offset = 0f },
                 )
             }
-            .combinedClickable(onClick = { if (enabled) menu = true }, onLongClick = onInspect)
             .graphicsLayer { translationX = offset }
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
             .then(if (color != null) Modifier.border(3.dp, color, RoundedCornerShape(4.dp)) else Modifier)
@@ -186,7 +303,7 @@ private fun PodPickCard(
             if (effectiveMark != null) Text(if (effectiveMark == PodPickMark.KEEP) "✓" else "🔥",
                 Modifier.align(Alignment.TopEnd).background(color!!).padding(4.dp), color = Color.White)
         }
-        PodCardMenu(menu && enabled, dismiss = { menu = false }) {
+        PodCardMenu(menu, dismiss = { menu = false }) {
             if (mark != PodPickMark.KEEP) DropdownMenuItem(text = { Text("Keep") }, onClick = { menu = false; onMark(PodPickMark.KEEP) })
             if (burnEnabled && mark != PodPickMark.BURN) DropdownMenuItem(text = { Text("Burn") }, onClick = { menu = false; onMark(PodPickMark.BURN) })
             if (mark != null) DropdownMenuItem(text = { Text("Unmark") }, onClick = { menu = false; onUnmark() })
@@ -198,20 +315,28 @@ private fun PodPickCard(
 private fun PodPickTray(
     label: String, ids: List<String>, required: Int, copies: Map<String, DraftCopy>,
     definitions: Map<String, CardDefinition>, color: Color, automatic: Boolean,
-    enabled: Boolean, onUnmark: (String) -> Unit, onInspect: (DraftCopy) -> Unit,
+    modifier: Modifier, labelWidth: Dp,
+    onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth().height(60.dp).padding(top = 4.dp).background(color.copy(alpha = .16f), RoundedCornerShape(4.dp))
+    val currentOnUnmark by rememberUpdatedState(onUnmark)
+    val currentOnInspect by rememberUpdatedState(onInspect)
+    Row(modifier.height(56.dp).background(color.copy(alpha = .16f), RoundedCornerShape(4.dp))
         .padding(4.dp).testTag("pod-pick-${label.lowercase()}-tray"), verticalAlignment = Alignment.CenterVertically) {
-        Text("${if (label == "Keep") "✓" else "🔥"} $label ${ids.size}/$required${if (automatic) " · auto" else ""}",
-            Modifier.width(if (automatic) 128.dp else 96.dp), style = MaterialTheme.typography.bodySmall)
+        Text("${if (label == "Keep") "✓" else "🔥"} ${ids.size}/$required",
+            Modifier.width(labelWidth).semantics { contentDescription = "$label ${ids.size}/$required" },
+            style = MaterialTheme.typography.bodySmall, maxLines = 1)
         Row(Modifier.weight(1f).height(48.dp).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             ids.forEach { id -> copies[id]?.let { copy ->
                 key(id) {
-                    PodPickArtwork(copy, definitions[copy.definition], Modifier.width(48.dp / 1.4f).fillMaxHeight()
+                    PodPickArtwork(copy, definitions[copy.definition], Modifier.width(PodPickTrayCardWidth).fillMaxHeight()
                         .testTag("pod-pick-tray-$id").semantics {
                             contentDescription = "${definitions[copy.definition]?.name ?: "Card"}, ${if (automatic) "automatic burn" else label.lowercase()} tray"
-                        }.combinedClickable(onClick = { if (enabled && !automatic) onUnmark(id) }, onLongClick = { onInspect(copy) }))
+                            if (!automatic) onClick { currentOnUnmark(id); true }
+                        }.pointerInput(id, automatic) {
+                            podPickGestures(onTap = { if (!automatic) currentOnUnmark(id) },
+                                onInspect = { currentOnInspect(if (it) copy else null) })
+                        })
                 }
             } }
         }

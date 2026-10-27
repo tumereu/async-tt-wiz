@@ -79,8 +79,8 @@ first). **+ New pod** asks for a name (the existing random fantasy name
 suggestions) and a source: one of your cubes or an MTG set (phase 4). Quick
 continue on the home screen also lists pods where it is your pick.
 
-Inside a pod a top strip always shows members' avatars with status badges
-(picking · N packs waiting, waiting, building, submitted). Below it:
+Inside a pod, members' avatars show status badges. Draft uses the compact row
+described below; other screens show picking/waiting/building/submitted status.
 
 | Phase | Content |
 | --- | --- |
@@ -210,35 +210,41 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 
 ```
 ┌──────────────────────────────┐
-│ ◉A ◉B   avatars + badges      │
-│ Pack 4/18 · 10 · +2   ─●── 3  │  fixed
+│ Draft       Build      Stats │
+│ ◉✓ ◉2                     ⋮  │  fixed
 │ ┌────┐┌────┐┌────┐            │
 │ │▓✓▓▓││    ││░🔥░│            │  scrolls
 │ └────┘└────┘└────┘ …          │
 ├──────────────────────────────┤
-│ ✓ [■]                         │  green tray, fixed
-│ 🔥 [■][■]                     │  red tray, fixed
-│          [ Confirm ]          │
+│ ✓ 1/1 [■]  🔥 2/2 [■][■]     │  fixed, wraps only if needed
+│ [         Confirm          ] │
 └──────────────────────────────┘
 ```
 
-- Header row: pack progress, cards left, packs waiting after this one, and a
-  **cards-per-row slider** (1 to all; default 3 portrait, 5 landscape; saved per
-  device and orientation).
-- The card list scrolls vertically; everything else is fixed.
+- Draft tab: no title/hamburger bar. Below the tabs, a slim row shows 28dp avatars
+  with a green check when no packs wait (otherwise a tiny count when it fits),
+  and the pod overflow at the end. No names or status captions.
+- The card list scrolls vertically, including its compact cards-per-row control
+  (1 to all; default 3 portrait, 5 landscape; saved per device/orientation).
+  Trays and a full-width bottom Confirm stay fixed. No refresh loaders over cached data.
 - **Swipe right = keep, left = burn.** The card follows the finger, tinted green
   or red, and commits past a threshold. Swiping a marked card the same direction
   unmarks it; the opposite direction switches it. Marking more than allowed drops
   the earliest mark of that kind. With burn 0, left swipe does nothing.
 - **Tap** opens a small menu: Keep / Burn / Unmark as applicable.
-- **Hold** inspects the card full size, in the list and in the trays.
+- A stationary **150ms hold** shows large artwork only, in the list and trays;
+  release closes it. Crossing touch slop dismisses it without marking. Swiped
+  cards render above their neighbours.
 - Marked cards keep their place in the list with a green/red border and icon.
-- Keep and burn **trays** above Confirm (green/red background, small cards).
-  Tapping a tray card unmarks it. The burn tray is hidden when burn is 0 and is
-  pre-filled when the rest of the pack burns automatically.
+- Keep and burn **trays** show just their icon and x/y, sized for the required
+  slots: one row if both fit, otherwise two compact rows, with horizontal overflow.
+  Tapping a tray card unmarks it. Hide burn when none are required. Automatic burns
+  appear only after all required keeps are marked; unmarking a keep hides them again.
 - **Confirm** is enabled when the counts are exactly right. After Confirm the next
   queued pack appears immediately.
-- No pack waiting: "Waiting for B's pick" with B's avatar and a shortcut to Build.
+- No pack waiting: Build shortcut; the avatar badges already show who has work.
+- Confirm hides the submitted pack immediately while sending in the background;
+  rejection restores its marks with a short error, without disabling the screen.
 - No double-tap shortcut.
 
 ### Grid screen

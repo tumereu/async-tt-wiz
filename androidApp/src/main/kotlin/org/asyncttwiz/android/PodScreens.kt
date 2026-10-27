@@ -2,6 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +16,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +36,14 @@ import org.asyncttwiz.protocol.*
 internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
     lobby: LobbyController?, manageCubes: () -> Unit) {
     val state = controller.state
+    val pickTab = state.detail?.phase == PodPhase.DRAFTING && state.tab == PodTab.DRAFT
+    val pickMessages = remember { SnackbarHostState() }
+    LaunchedEffect(pickTab, state.error, state.notice, state.uncertain) {
+        if (pickTab) (state.error ?: state.notice ?: "Request not confirmed".takeIf { state.uncertain })?.let {
+            val result = pickMessages.showSnackbar(it, actionLabel = "Retry".takeIf { state.uncertain })
+            if (result == SnackbarResult.ActionPerformed) controller.retry()
+        }
+    }
     val owner = LocalLifecycleOwner.current
     DisposableEffect(controller) { onDispose { controller.flushSetup() } }
     LaunchedEffect(controller, state.selected) {
@@ -42,41 +57,46 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         if (state.setup != null) { delay(600); controller.flushSetup() }
     }
     BackHandler(state.selected != null || state.creating != null) { controller.back() }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
-            if (state.selected == null && state.creating == null) {
-                TextButton(onClick = { controller.newPod() }, enabled = state.pending == 0) { Text("+ New pod") }
-            } else {
-                TextButton(onClick = controller::back) { Text("Back") }
-                state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            if (!pickTab) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
+                if (state.selected == null && state.creating == null) {
+                    TextButton(onClick = { controller.newPod() }, enabled = state.pending == 0) { Text("+ New pod") }
+                } else {
+                    TextButton(onClick = controller::back) { Text("Back") }
+                    state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
+                }
             }
-        }
-        lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
-        state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
-        if (state.error != null || state.uncertain) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(state.error ?: "An earlier request needs to be checked.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = controller::retry, enabled = !state.loading) { Text("Retry") }
-        }
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (state.loading && state.pending > 0 && (state.creating?.setSource != null || state.setup?.setSource != null))
-            Text("Uploading set source and saving pod…", Modifier.padding(12.dp))
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when {
-                state.creating != null -> NewPodScreen(controller, manageCubes)
-                state.selected != null -> InitialLoadArea(state.detail != null, failed = state.error != null,
-                    retry = controller::refresh, loading = state.loading) {
-                    state.detail?.let { detail ->
-                        Column(Modifier.fillMaxSize()) {
-                            PodMemberStrip(detail)
-                            if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
-                            else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
-                            else PodDraftScreen(controller, detail, accountId, lobby)
+            if (!pickTab) {
+                lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
+                state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
+                if (state.error != null || state.uncertain) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.error ?: "An earlier request needs to be checked.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = controller::retry, enabled = !state.loading) { Text("Retry") }
+                }
+                if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (state.loading && state.pending > 0 && (state.creating?.setSource != null || state.setup?.setSource != null))
+                    Text("Uploading set source and saving pod…", Modifier.padding(12.dp))
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    state.creating != null -> NewPodScreen(controller, manageCubes)
+                    state.selected != null -> InitialLoadArea(state.detail != null, failed = state.error != null,
+                        retry = controller::refresh, loading = state.loading) {
+                        state.detail?.let { detail ->
+                            Column(Modifier.fillMaxSize()) {
+                                if (!pickTab) PodMemberStrip(detail)
+                                if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
+                                else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
+                                else PodDraftScreen(controller, detail, accountId, lobby)
+                            }
                         }
                     }
+                    else -> PodsList(state, controller::open, controller::respond, controller::refresh)
                 }
-                else -> PodsList(state, controller::open, controller::respond, controller::refresh)
             }
         }
+        if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
     }
     if (controller.setPicker.state.open) PodSetPickerDialog(controller.setPicker)
     if (state.confirmation != null && state.detail != null) ScreenDialog(controller::dismissConfirmation) {
@@ -390,13 +410,15 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         TabRow(tabs.indexOf(selected)) {
             tabs.forEach { tab -> Tab(selected == tab, { controller.tab(tab) }, text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
         }
+        if (selected == PodTab.DRAFT) PodDraftMemberRow(detail) {
+            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase)
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
-                else PodPickView(detail.draft?.head, detail.draft?.packsBehind ?: 0, detail.settings,
-                    definitions, detail.members.filter { it.packsWaiting > 0 && it.account.accountId != detail.draft?.player }.map { it.account },
+                else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.picking || state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
@@ -405,6 +427,32 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
         }
+    }
+}
+
+@Composable
+internal fun PodDraftMemberRow(detail: PodDetail, overflow: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 8.dp).testTag("pod-draft-members"),
+        verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            detail.members.forEach { member ->
+                val waiting = if (detail.settings.mode == DraftMode.GRID)
+                    detail.grid?.publicView?.grids.orEmpty().count { it.currentPlayer == member.account.accountId }
+                else member.packsWaiting
+                Box(Modifier.size(28.dp).semantics {
+                    stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
+                }) {
+                    Avatar(member.account, size = 28.dp)
+                    if (waiting <= 9) Box(Modifier.align(Alignment.BottomEnd).size(12.dp)
+                        .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Text(if (waiting == 0) "✓" else "$waiting", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp)
+                    }
+                }
+            }
+        }
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }
     }
 }
 

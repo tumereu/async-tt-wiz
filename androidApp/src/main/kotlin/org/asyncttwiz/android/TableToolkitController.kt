@@ -452,6 +452,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
     }
     fun perform(intent: TableActionIntent): Boolean {
+        // Experimental damage shortcuts return their whole-batch success, not the void route receipt.
+        if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
+            if (!table.enabled(intent.scope)) return false
+            return performCombatDamage(intent)
+        }
         val multiple = when (intent) {
             is TableActionIntent.Bundle, is TableActionIntent.Combat -> true
             is TableActionIntent.Untap -> intent.cardIds.size + (if (intent.advance) 1 else 0) > 1
@@ -493,7 +498,36 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN))
             }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
+            CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
+            CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
         }
+    }
+    // Experimental combat damage: calculate once, publish existing edits in one batch.
+    private val combatDamageTools = setOf(CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE,
+        CombatTool.REGULAR_DAMAGE, CombatTool.DAMAGE_CLOSE_AND_NEXT)
+    private fun performCombatDamage(intent: TableActionIntent.Combat): Boolean {
+        val play = current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
+        if (intent.tool == CombatTool.DAMAGE_CLOSE_AND_NEXT) return batchResult {
+            submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN)) &&
+                (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId))))
+        }
+        val step = when (intent.tool) {
+            CombatTool.FIRST_STRIKE_DAMAGE -> CombatDamageStep.FIRST_STRIKE
+            CombatTool.REGULAR_DAMAGE -> CombatDamageStep.REGULAR
+            else -> CombatDamageStep.ALL
+        }
+        val sent = dealCombatDamage(CombatStackRules.occurrences(play.board.combat).map { it.id },
+            step = step, areaId = intent.areaId)
+        if (sent) selectionState.value = TableSelection()
+        return sent
+    }
+    internal fun dealCombatDamage(ids: List<String>, targetOnly: Boolean = false,
+        step: CombatDamageStep = CombatDamageStep.ALL, areaId: String?): Boolean {
+        val play = current()?.takeIf { enabled() && it.board.combat?.id == areaId } ?: return false
+        val assignment = CombatDamage.assign(play, ids, targetOnly, step)
+        val sent = batchResult { assignment.actions.all { submit(it) } }
+        if (sent && assignment.notes.isNotEmpty()) error = assignment.notes.joinToString("\n")
+        return sent
     }
     fun declare(ids: List<String>, tap: Boolean): Boolean = batchResult {
         val play = current()?.takeIf { enabled() } ?: return@batchResult false

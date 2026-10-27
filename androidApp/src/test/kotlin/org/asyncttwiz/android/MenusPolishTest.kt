@@ -62,7 +62,7 @@ class MenusPolishTest {
         assertEquals(1, logouts)
     }
 
-    @Test fun menuIncludesIncomingInvitationsFromTheirSeparateListAndOpensGamesDestination() {
+    @Test fun incomingInvitationRowOpensGamesListWithoutSelectingUnacceptedLobby() {
         val fixtures = ScreenFixtures()
         val invitation = fixtures.lobby.state.games.first().copy(lifecycle = GameLifecycle.LOBBY,
             inviter = ScreenFixtures.riley, recipient = ScreenFixtures.alex, invitationState = InvitationState.PENDING)
@@ -71,7 +71,23 @@ class MenusPolishTest {
         compose.setContent { ScreenTheme {
             ShellContent(ShellDestination.MENU, true, {}, { destination = it }, null, null, null, fixtures.lobby, "a")
         } }
-        compose.onNodeWithTag("quick-continue-${invitation.id}").assert(hasText("Invitation")).performScrollTo().performClick()
+        compose.onNodeWithTag("quick-continue-${invitation.id}").assert(hasText("Invitation pending", substring = true)).performScrollTo().performClick()
+        assertEquals(ShellDestination.GAMES, destination)
+        assertNull(fixtures.lobby.state.selected)
+    }
+
+    @Test fun outgoingInvitationRowStillOpensWaitingLobbyWithoutResponseButtons() {
+        val fixtures = ScreenFixtures()
+        val invitation = fixtures.lobby.state.games.first().copy(lifecycle = GameLifecycle.LOBBY,
+            invitationState = InvitationState.PENDING)
+        fixtures.lobby.seed(LobbyState(games = listOf(invitation), loaded = true))
+        var destination = ShellDestination.MENU
+        compose.setContent { ScreenTheme {
+            ShellContent(ShellDestination.MENU, true, {}, { destination = it }, null, null, null, fixtures.lobby, "a")
+        } }
+        compose.onNodeWithContentDescription("Accept invitation").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Decline invitation").assertDoesNotExist()
+        compose.onNodeWithTag("quick-continue-${invitation.id}").performScrollTo().performClick()
         assertEquals(ShellDestination.GAMES, destination)
         assertEquals(invitation.id, fixtures.lobby.state.selected)
     }

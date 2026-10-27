@@ -268,8 +268,17 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              if (games.isNotEmpty()) MenuActivityPanel {
                                  games.forEachIndexed { index, game ->
                                      if (index > 0) HorizontalDivider(color = ScreenBorder)
+                                     val incoming = game.lifecycle == org.asyncttwiz.protocol.GameLifecycle.LOBBY &&
+                                         game.invitationState == org.asyncttwiz.protocol.InvitationState.PENDING && game.recipient.accountId == accountId
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
-                                         .gameRowActions(lobby, game) { navigate(ShellDestination.GAMES); lobby.open(game.id) })
+                                         .gameRowActions(lobby, game) {
+                                             navigate(ShellDestination.GAMES)
+                                             if (!incoming) lobby.open(game.id)
+                                         }, trailing = if (incoming) ({
+                                             MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames) {
+                                                 lobby.respond(game, it)
+                                             }
+                                         }) else null)
                                  }
                              }
                          }
@@ -278,7 +287,10 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              if (entries.isNotEmpty()) MenuActivityPanel {
                                  entries.forEachIndexed { index, entry ->
                                      if (index > 0) HorizontalDivider(color = ScreenBorder)
-                                     MenuPodRow(entry) {
+                                     MenuPodRow(entry, { accept ->
+                                         if (accept) navigate(ShellDestination.PODS)
+                                         pods.respond(entry.id, accept)
+                                     }, pods.state.pending == 0 && !pods.state.uncertain) {
                                          navigate(ShellDestination.PODS)
                                          entry.pod?.let { pods.open(it.id) }
                                      }

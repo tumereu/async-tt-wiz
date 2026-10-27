@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
@@ -14,7 +12,11 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -61,13 +63,10 @@ internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scr
 }
 
 @Composable
-internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState(),
-    onDismiss: (() -> Unit)? = null) {
-    Popup(alignment = Alignment.Center, onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = onDismiss != null)) {
-        // The dismissable preview covers nearly the whole screen, so a tap on it closes it too.
-        val dismiss = onDismiss?.let { Modifier.pointerInput(it) { detectTapGestures { _ -> it() } } } ?: Modifier
-        Box(dismiss) { PodArtPreviewContent(card, fallback, scroll) }
+internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
+    // Shown only while a finger holds a card; that finger's release closes it.
+    Popup(alignment = Alignment.Center, properties = PopupProperties(focusable = false)) {
+        PodArtPreviewContent(card, fallback, scroll)
     }
 }
 
@@ -94,6 +93,12 @@ internal fun PodArtPreviewContent(card: InspectedCard?, fallback: String, scroll
             }
         }
     }
+}
+
+/** Screen-wide owner of the single open card menu: simultaneous taps leave only the latest open. */
+@Stable
+internal class PodCardMenuOwner {
+    var open by mutableStateOf<Any?>(null)
 }
 
 /** Keep a card action menu at the card's top edge, rather than below its full height. */

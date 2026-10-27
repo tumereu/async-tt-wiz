@@ -26,11 +26,13 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     }
     private val lock = Any()
     private var owner: ActivityOwner? = null
-    private var activeGame: String? = null
+    private var screen = ActivityScreen.NONE
     private var foreground = false
     fun bind(next: ActivityOwner?) = synchronized(lock) { owner = next }
-    fun display(game: String?, foreground: Boolean) = synchronized(lock) {
-        activeGame = game; this.foreground = foreground
+    fun display(game: String?, foreground: Boolean) = display(ActivityScreen(game = game), foreground)
+    fun display(screen: ActivityScreen, foreground: Boolean) = synchronized(lock) {
+        this.screen = screen; this.foreground = foreground
+        val game = screen.game
         // Opening cancels the old notice, not its dedup watermark. A later new turn
         // must be allowed to alert even if the last dismissed notice said Your move.
         if (owner != null && foreground && game != null) {
@@ -65,8 +67,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             if (previous != null && previous.activity >= id) continue
             marks[key] = ActivityWatermark(id, hint.identity)
             notices.removeAll { it.key == key }
-            if (!page.summaryReset && allowed(hint.kind) &&
-                !(hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId)) {
+            if (!page.summaryReset && allowed(hint.kind) && !displaying(hint)) {
                 notices += ActivityNotice(key, hint, !hint.kind.isPodActivity() && store.watermark(key)?.identity == hint.identity)
             }
         }
@@ -75,6 +76,9 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         notices.forEach(post)
         true
     }
+
+    /** The resumed app is showing this notification's game, pod or pod list. */
+    private fun displaying(hint: ActivityHint) = foreground && screen.shows(hint.notificationKey())
 
     private fun applyReady(page: ActivityPage, allowed: (ActivityKind) -> Boolean): Boolean {
         val marks = linkedMapOf<String, ActivityWatermark>()
@@ -85,9 +89,9 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             val key = hint.notificationKey()
             val previous = marks[key] ?: store.watermark(key)
             if (id <= (previous?.activity ?: -1)) continue
-            val displaying = hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId
-            marks[key] = ActivityWatermark(id, hint.identity, if (displaying) false else hint.notice?.yourMove)
-            if (!page.summaryReset && allowed(hint.kind) && !(hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId)) {
+            val shown = displaying(hint)
+            marks[key] = ActivityWatermark(id, hint.identity, if (shown) false else hint.notice?.yourMove)
+            if (!page.summaryReset && allowed(hint.kind) && !shown) {
                 val silent = hint.kind == ActivityKind.GAME && previous != null &&
                     !(hint.notice?.yourMove == true && previous.yourMove != true)
                 notices[key] = ActivityNotice(key, hint, silent)
@@ -105,8 +109,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         val pending = windows.pending().toMutableMap()
         val marks = linkedMapOf<String, ActivityWatermark>()
         val notices = mutableListOf<ActivityNotice>()
-        fun suppressed(hint: ActivityHint) = !allowed(hint.kind) ||
-            (hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId)
+        fun suppressed(hint: ActivityHint) = !allowed(hint.kind) || displaying(hint)
         fun consume(key: String, hint: ActivityHint, notify: Boolean) {
             val old = marks[key] ?: store.watermark(key)
             marks[key] = ActivityWatermark(requireNotNull(ActivityWire.ordinal(hint.activityId)), hint.identity)

@@ -192,6 +192,7 @@ trips by three. Synergy example with k = 3: 6 rounds, 9 picks each per round.
 - The keep tray ends with a hold-preview Librarian chip and remaining count. Tap
   reserves a dashed, badged extra slot; tapping that slot refunds it. Extra slots
   pan inside the original tray without changing its row/width or the burn tray.
+  In a pod with Librarians the keep tray is always at least two cards wide.
   Confirm includes the spent count and predicts both awards and removed copies.
 
 ### Grid (phase 3)
@@ -285,10 +286,13 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   Swiping a marked card the same direction
   unmarks it; the opposite direction switches it. Marking more than allowed drops
   the earliest mark of that kind. With burn 0, left swipe does nothing.
-- **Tap** opens a small menu: Keep / Burn / Unmark as applicable.
+- **Tap** opens a small menu: Keep / Burn / Unmark as applicable. Pick, Grid and
+  Build show at most one card menu/preview at a time; the latest tap or hold wins.
 - A stationary **150ms hold** shows large artwork only, in the list and trays;
-  release closes it. Horizontal movement past touch slop dismisses without marking;
-  vertical movement pans tall inspection content like gameplay inspection. Swiped
+  release closes it. Movement past touch slop within 300ms of the preview appearing
+  closes it and continues as the gesture underneath (keep/burn swipe, list or tray
+  scroll). After 300ms still, vertical movement pans tall inspection content (stacked
+  double faces) and horizontal movement dismisses without marking. Swiped
   cards render above their neighbours. Show cached normal artwork immediately,
   replacing it with large artwork when available, without blanking or a spinner.
   Pick, Grid and Build share the artwork content: physical double faces (including
@@ -298,9 +302,13 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   keep named card placeholders and retry indefinitely at 1s exponential backoff
   capped at 30s, with bounded parallelism and immediate retry on reconnect. A 404
   tries available alternate image sources; provider Retry-After is respected.
+  When a pack is shown, tile-size artwork for all its cards (and the next queued
+  pack) starts downloading at once, not only for composed tiles; large artwork
+  still loads on hold.
 - Marked cards keep their place in the list with a green/red border and icon;
   the border hugs the artwork equally on all four sides.
-- Keep and burn **trays** show just their icon and x/y, sized for the required
+- Keep and burn **trays** show their icon and x/y as a small chip overlaid in the
+  tray corner (it may cover part of a card), sized for the required
   slots: one row if both fit, sharing spare width in proportion to required widths,
   otherwise two compact rows as before. Both trays pan horizontally on overflow,
   independently of grid swipes and holds.
@@ -372,7 +380,8 @@ each with a sticky header and count. Trash starts expanded (it is last).
   | Trash | Main | Side |
 
   While dragging, the destination shows ("→ Side"); section counts update immediately.
-- **Tap** opens a menu with the two destinations. **Hold** inspects.
+- **Tap** opens a menu with the two destinations. **Hold** inspects exactly like the
+  pick screen: release closes the preview, including for double-faced cards.
 - **Basics**: one compact W/U/B/R/G count row opens one dialog with all five
   steppers, scrollable in short windows with Done always visible. Edits predict immediately and revert on rejection. Basics count toward Main but are not tiles. They are unlimited and do not
   come from the cube. Snow and other special basics are not supplied.
@@ -449,7 +458,10 @@ members can have any number of games, including parallel games with each other.
 | Draft cancelled / pod destroyed | yes, naming who did it | notice on next open |
 
 Draft notifications use a new **Draft activity** channel. There are no recaps:
-opening a pod shows its current state.
+opening a pod shows its current state. Like games, a pod's notification is cleared
+when its pod screen is shown in the resumed app and is not posted while it stays
+shown; pod invitation notifications clear (and are not posted) while the pods list
+is shown.
 Round 18: `Your pick — <pod name>` remains immediate. When every member has
 submitted a deck, send `Decks ready — <pod name>` immediately to all members except
 the last submitter, through the same optional push/poll pipeline.

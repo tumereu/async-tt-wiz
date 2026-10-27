@@ -71,6 +71,15 @@ class ActivityNotifications(private val context: Context, private val podName: (
             .setVisibility(Notification.VISIBILITY_PRIVATE).build()
         manager.notify("activity:${owner.binding}:${notice.key}", 1, notification)
     }
-    fun cancelGame(owner: ActivityOwner, game: String) { manager.cancel("activity:${owner.binding}:game:$game", 1) }
+    /** Clears notifications for what the app now shows; pod invitations are found among active ones. */
+    fun cancelShown(owner: ActivityOwner, screen: ActivityScreen) {
+        val prefix = "activity:${owner.binding}:"
+        screen.game?.let { manager.cancel("${prefix}game:$it", 1) }
+        screen.pod?.let { manager.cancel("${prefix}pod:$it", 1) }
+        if (screen.podList) runCatching { manager.activeNotifications }.getOrNull().orEmpty().forEach {
+            val tag = it.tag ?: return@forEach
+            if (tag.startsWith(prefix) && screen.shows(tag.removePrefix(prefix))) manager.cancel(tag, it.id)
+        }
+    }
     fun cancelAll() { manager.cancelAll() }
 }

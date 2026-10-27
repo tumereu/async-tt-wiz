@@ -97,9 +97,9 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         notifications.cancelAll(); jobs.cancelAllWorkByTag(TAG)
         check(preferences.edit().clear().commit())
     }
-    fun display(game: String?, foreground: Boolean) = synchronized(lock) {
-        delivery.display(game, foreground)
-        if (foreground && game != null) owner?.let { notifications.cancelGame(it, game) }
+    fun display(screen: ActivityScreen, foreground: Boolean) = synchronized(lock) {
+        delivery.display(screen, foreground)
+        if (foreground) owner?.let { notifications.cancelShown(it, screen) }
     }
     fun foreground() = synchronized(lock) { owner?.let { enqueue(it.binding) } }
     fun accepts(account: String?, binding: String?) = synchronized(lock) { account != null && binding != null && owner == ActivityOwner(account, binding) }

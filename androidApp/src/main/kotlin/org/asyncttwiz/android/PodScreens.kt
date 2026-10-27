@@ -271,7 +271,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(), chrome = { control ->
                         PodDraftMemberRow(detail, control)
-                    }, librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick)
+                    }, librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
+                    nextPack = detail.draft?.queuedPacks?.firstOrNull())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),

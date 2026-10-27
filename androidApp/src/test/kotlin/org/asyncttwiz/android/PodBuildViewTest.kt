@@ -54,7 +54,7 @@ class PodBuildViewTest {
         var inspections = 0
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, true,
-                { id, destination -> moves += id to destination }, { inspections++ }) }
+                { id, destination -> moves += id to destination }, { if (it) inspections++ }) }
         } }
         compose.onNodeWithText("×2").assertExists()
         compose.onNodeWithTag("pod-build-card-first").performClick()
@@ -69,7 +69,7 @@ class PodBuildViewTest {
         var inspections = 0
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, false,
-                { id, destination -> moves += id to destination }, { inspections++ }) }
+                { id, destination -> moves += id to destination }, { if (it) inspections++ }) }
         } }
         val node = compose.onNodeWithTag("pod-build-card-first")
         node.performClick()
@@ -91,6 +91,28 @@ class PodBuildViewTest {
         } }
         compose.onNodeWithTag("pod-build-card-first").performTouchInput { swipeUp() }
         compose.runOnIdle { assertTrue(scroll.value > 0); assertTrue(moves.isEmpty()) }
+    }
+
+    @Test fun doubleFacedPreviewClosesOnReleaseAndSimultaneousTapsOpenOneMenu() {
+        val dfc = CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"), DefinitionFace("b", "Back")),
+            layout = "modal_dfc")
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"))),
+                mapOf("first" to DraftCopy("first", "dfc"), "second" to DraftCopy("second", "digest")),
+                mapOf("dfc" to dfc, "digest" to card), null, true, false, { _, _ -> }, { _, _ -> }, {})
+        } }
+        val first = compose.onNodeWithTag("pod-build-card-first")
+        first.performTouchInput { down(center); advanceEventTime(160) }
+        compose.mainClock.advanceTimeBy(160)
+        compose.onNodeWithTag("pod-preview-face-1").assertExists()
+        first.performTouchInput { advanceEventTime(PodHoldSettleMillis + 20) }
+        compose.mainClock.advanceTimeBy(PodHoldSettleMillis + 20)
+        first.performTouchInput { up() }
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        val a = first.fetchSemanticsNode().boundsInRoot.center
+        val b = compose.onNodeWithTag("pod-build-card-second").fetchSemanticsNode().boundsInRoot.center
+        compose.onRoot().performTouchInput { down(0, a); down(1, b); up(0); up(1) }
+        compose.onAllNodesWithText("→ Side").assertCountEquals(1)
     }
 
     @Test fun buildShowsCountsValidatesSubmitAndReportsBasicsWithoutMutatingServerData() {

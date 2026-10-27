@@ -10,6 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.test.assertEquals
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -32,6 +33,15 @@ class PodStatsViewTest {
         compose.onNodeWithContentDescription("W: pip demand 25%, mana sources 100%").assertIsDisplayed()
         compose.onNodeWithContentDescription("U: pip demand 25%, mana sources 0%").assertIsDisplayed()
         compose.onNodeWithContentDescription("B: pip demand 50%, mana sources 0%").assertIsDisplayed()
+        val bars = compose.onAllNodesWithTag("pod-color-bar", useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+        assertEquals(10, bars.size)
+        for (column in listOf(0, 1)) {
+            val first = bars[column]
+            bars.filterIndexed { index, _ -> index % 2 == column }.forEach {
+                assertEquals(first.left, it.left)
+                assertEquals(first.right, it.right)
+            }
+        }
         compose.onNodeWithText("Mana sources · approximate").assertDoesNotExist()
     }
 

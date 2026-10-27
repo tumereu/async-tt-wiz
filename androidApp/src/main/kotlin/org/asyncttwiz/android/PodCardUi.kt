@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -61,9 +64,18 @@ internal fun PodColumnControl(label: String, description: String, value: Int, ra
             (range.last - range.first - 1).coerceAtLeast(0))
         setProgress { change(it.toInt().coerceIn(range)); true }
     }) {
-        PodSmallButton("Fewer $description", "−", value > range.first) { change(value - 1) }
+        PodColumnButton("Fewer ${description.replaceFirstChar(Char::lowercase)}", false, value > range.first) { change(value - 1) }
         Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-        PodSmallButton("More $description", "+", value < range.last) { change(value + 1) }
+        PodColumnButton("More ${description.replaceFirstChar(Char::lowercase)}", true, value < range.last) { change(value + 1) }
+    }
+}
+
+@Composable
+private fun PodColumnButton(description: String, add: Boolean, enabled: Boolean, action: () -> Unit) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        IconButton(action, Modifier.size(32.dp), enabled = enabled) {
+            Icon(if (add) Icons.Default.Add else Icons.Default.Remove, description, Modifier.size(20.dp))
+        }
     }
 }
 

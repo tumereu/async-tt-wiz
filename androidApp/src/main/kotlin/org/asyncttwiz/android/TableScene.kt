@@ -1028,8 +1028,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
     }
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
-        drawRect(Color.White, xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height))
-        drawRect(Color(0xffb9cbc5), xy(6f, b.y), size((b.width - 6).coerceAtLeast(0f), b.height), style = Stroke(density * .7f))
+        drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
     }
     for (f in scene.fields) {
         val b = f.gridBounds

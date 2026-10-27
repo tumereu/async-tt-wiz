@@ -42,7 +42,10 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (state.destination == ShellDestination.DECKS && decks?.state?.selected == null) decks?.refresh()
         if (state.destination != ShellDestination.GAMES) lobby?.closePicker()
         lobby?.refresh()
-        if (state.destination == ShellDestination.MENU) pods?.refresh()
+        pods?.refresh()
+    }
+    LaunchedEffect(state.drawerOpen) {
+        if (state.drawerOpen) pods?.refresh()
     }
     val catalogBusy = !tabletop && state.destination != ShellDestination.MENU && state.destination != ShellDestination.SETTINGS &&
         catalog?.state?.background == false && catalog.state.progress != null
@@ -180,9 +183,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 pods?.showList()
                 controller.navigate(ShellDestination.PODS)
             }
-            val podsLoaded = pods == null || pods.state.loaded || pods.state.pods.isNotEmpty()
-            InitialLoadArea(podsLoaded, Modifier.fillMaxWidth().heightIn(min = if (podsLoaded) 0.dp else 80.dp),
-                failed = pods?.state?.error != null, retry = { pods?.refresh() }, loading = pods?.state?.loading == true) {
+            if (!pods?.state?.pods.isNullOrEmpty()) {
                 Column {
                     for (pod in pods?.state?.pods.orEmpty()) {
                         val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id

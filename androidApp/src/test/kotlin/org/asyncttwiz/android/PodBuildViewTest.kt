@@ -19,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import kotlin.test.*
 
 @RunWith(RobolectricTestRunner::class)
@@ -135,8 +136,8 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Done").performClick()
         val bounds = compose.onNodeWithTag("pod-build-card-first").fetchSemanticsNode().boundsInRoot
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
-        compose.onNodeWithContentDescription("More Columns").performClick()
-        compose.onNodeWithText("Columns 8").assertIsDisplayed()
+        compose.onNodeWithContentDescription("More columns").performClick()
+        compose.onNodeWithContentDescription("Columns").assert(hasText("8"))
     }
 
     @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
@@ -188,13 +189,32 @@ class PodBuildViewTest {
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {})
         } }
-        compose.onNodeWithText("Columns 10").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Columns").assert(hasText("10"))
         compose.onAllNodesWithText("8+").onFirst().assertIsDisplayed()
         compose.onNodeWithContentDescription("Columns").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(4f) }
-        compose.onNodeWithText("Columns 4").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Columns").assert(hasText("4"))
         compose.runOnIdle {
             assertEquals(4, preferences.getInt("columns-2", 0))
             assertEquals(3, preferences.getInt("columns-1", 0))
         }
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun columnControlSharesMainBarAndLongDeckNamesAreNotTruncated() {
+        val name = "A wonderfully long deck name that needs more than one line to show in full"
+        compose.setContent { ScreenTheme {
+            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {}, deckName = name)
+        } }
+        val nameLayouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNodeWithText(name).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(nameLayouts) }
+        assertTrue(nameLayouts.single().lineCount > 1)
+        assertFalse(nameLayouts.single().hasVisualOverflow)
+        val main = compose.onNodeWithText("Main 0 + 0 = 0").getUnclippedBoundsInRoot()
+        val control = compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()
+        val pen = compose.onNodeWithContentDescription("Name deck").getUnclippedBoundsInRoot()
+        assertEquals((main.top.value + main.bottom.value) / 2, (control.top.value + control.bottom.value) / 2, 1f)
+        assertTrue(main.right <= control.left)
+        assertTrue(pen.bottom <= main.top)
     }
 }

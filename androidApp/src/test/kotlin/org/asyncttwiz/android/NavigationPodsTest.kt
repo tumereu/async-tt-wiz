@@ -6,6 +6,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import org.junit.After
 import org.junit.Rule
@@ -23,8 +24,9 @@ import kotlin.test.*
 class NavigationPodsTest {
     @get:Rule val compose = createComposeRule()
     private val fixtures = ScreenFixtures()
+    private val requests = mutableListOf<Runnable>()
     private val worker = object : AbstractExecutorService() {
-        override fun execute(command: Runnable) = Unit // Leave network work pending.
+        override fun execute(command: Runnable) { requests += command } // Leave network work pending.
         override fun shutdown() = Unit
         override fun shutdownNow() = mutableListOf<Runnable>()
         override fun isShutdown() = false
@@ -110,10 +112,10 @@ class NavigationPodsTest {
         assertFalse(fixtures.auth.state.drawerOpen)
     }
 
-    @Test fun onlyFirstLoadHasSpinnerAndCachedRowsStayInPlaceDuringRefreshAndFailure() {
+    @Test fun unloadedPodsHaveNoSpinnerAndCachedRowsStayInPlaceDuringRefreshAndFailure() {
         pods.seed(PodState(loading = true))
         showNavigation()
-        compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertExists()
+        compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertDoesNotExist()
         compose.onNodeWithText("Pods").assertIsEnabled()
         val pod = pod()
         compose.runOnIdle { pods.seed(PodState(loaded = true, pods = listOf(pod))) }
@@ -130,5 +132,45 @@ class NavigationPodsTest {
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
         assertEquals(row, compose.onNodeWithTag("navigation-pod-${pod.id}").getUnclippedBoundsInRoot())
         compose.onNodeWithTag("navigation-pod-${pod.id}").assertIsEnabled()
+    }
+
+    @Test fun gamesStartupAndReopeningDrawerBothRefreshPodsInBackground() {
+        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.GAMES))
+        compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, lobby = fixtures.lobby, pods = pods) } }
+        compose.runOnIdle {
+            assertTrue(pods.state.loading)
+            assertEquals(1, requests.size)
+            requests.removeAt(0).run() // Complete the failed first load; opening the drawer must retry it.
+            assertFalse(pods.state.loading)
+            fixtures.auth.drawer(true)
+        }
+        compose.onNodeWithText("Pods").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(pods.state.loading); assertEquals(1, requests.size) }
+        compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertDoesNotExist()
+    }
+
+    @Test fun newPodCreateStaysAtTheBottomWhileSettingsScroll() {
+        pods.seed(PodState(creating = NewPodDraft("Draft", "cube")))
+        compose.setContent { ScreenTheme { PodsDestination(pods, "a", null, null, {}) } }
+        val create = compose.onNodeWithText("Create").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        assertTrue(create.right - create.left > (root.right - root.left) * .9f)
+        assertTrue(root.bottom - create.bottom <= 8.dp)
+        compose.onNodeWithText("Color balancing").performScrollTo().assertIsDisplayed()
+        assertEquals(create, compose.onNodeWithText("Create").getUnclippedBoundsInRoot())
+    }
+
+    @Test fun postDraftTabsHaveNoMemberStripAboveThemButSetupKeepsIt() {
+        val detail = PodDetail("pod", "Pod", PodPhase.DRAFTED, ScreenFixtures.alex, DraftSettings(),
+            PodSource("Cube", 540), DraftSupply(90, 540),
+            listOf(PodMember(ScreenFixtures.alex), PodMember(ScreenFixtures.riley)), emptyList(), updatedAt = "now")
+        pods.seed(PodState(selected = detail.id, detail = detail, tab = PodTab.BUILD))
+        compose.setContent { ScreenTheme { PodsDestination(pods, "a", null, null, {}) } }
+        for (tab in listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)) {
+            compose.runOnIdle { pods.tab(tab) }
+            compose.onNodeWithTag("pod-member-strip").assertDoesNotExist()
+        }
+        compose.runOnIdle { pods.seed(pods.state.copy(detail = detail.copy(phase = PodPhase.SETUP))) }
+        compose.onNodeWithTag("pod-member-strip").assertIsDisplayed()
     }
 }

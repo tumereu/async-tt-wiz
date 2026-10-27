@@ -9,13 +9,28 @@ import kotlinx.coroutines.runInterruptible
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.storage.ArtworkReference
+import org.asyncttwiz.protocol.DeckJson
+import kotlinx.serialization.json.*
 
 internal fun ArtworkReference.forTable() = copy(size = if (customUrl != null) "normal" else "art_crop")
 
 /** Server definitions support more faces than the artwork provider. Keep the ordinary fallback. */
 internal fun DefinitionFace.tableArtwork(index: Int, digest: String): ArtworkReference? =
-    if (index !in 0..15 || scryfallId == null && imageUri == null) null
-    else ArtworkReference(scryfallId, index, digest, customUrl = imageUri)
+    if (scryfallId == null && imageUri == null) null else artwork(index, digest)
+
+/** MTGJSON side letters describe provider rows, not necessarily physical image sides. Retain
+ * the exact provider face name as well, notably for meld and separately printed token sides. */
+internal fun DefinitionFace.artwork(index: Int, digest: String, size: String = "normal"): ArtworkReference? {
+    if (index !in 0..15) return null
+    val source = sourceData?.let { runCatching { DeckJson.format.parseToJsonElement(it).jsonObject }.getOrNull() }
+    val side = (source?.get("side") as? JsonPrimitive)?.contentOrNull
+    val providerIndex = if (side.isNullOrEmpty()) index else side.singleOrNull()?.let { it - 'a' }
+    val providerName = (source?.get("faceName") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        ?: (source?.get("name") as? JsonPrimitive)?.contentOrNull
+    return providerIndex?.takeIf { it in 0..15 }?.let {
+        ArtworkReference(scryfallId, it, digest, size, imageUri, providerName)
+    }
+}
 
 internal enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
 

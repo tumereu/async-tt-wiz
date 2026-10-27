@@ -155,7 +155,7 @@ fun PodBuildView(
             dismissButton = { OutlinedIconButton({ naming = false }) { EntryIcon("Cancel", "close") } })
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
-    DeckCardInspection(inspector)
+    inspector.state?.card?.let { PodCardArtPreview(it, it.definition.name, onDismiss = inspector::close) }
 }
 
 @Composable

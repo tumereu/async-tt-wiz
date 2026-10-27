@@ -49,6 +49,7 @@ fun PodGridView(
     val rules = if (head != null) PodGridRules(head, view.mine) else null
     val waiting = view?.publicView?.grids.orEmpty().count { it.currentPlayer == view?.mine?.player } - if (head != null) 1 else 0
     var inspected by remember { mutableStateOf<DraftCopy?>(null) }
+    val previewScroll = rememberScrollState()
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
         if (head == null && boards.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -64,7 +65,8 @@ fun PodGridView(
                     Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
                 PodGridLog(log.filter { it.gridId == board.id }, definitions, members)
                 PodGridBoard(board, boardRules, selected.takeIf { head?.id == board.id }, !busy,
-                    onSelect = { selected = it }, definitions = definitions, inspect = { inspected = it })
+                    onSelect = { selected = it }, definitions = definitions, inspect = { inspected = it; previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()) },
+                    inspectScroll = { previewScroll.dispatchRawDelta(it) })
             } }
         }
         if (head != null) Button(onClick = {
@@ -74,7 +76,7 @@ fun PodGridView(
             Text("Confirm")
         }
     }
-    inspected?.let { PodPickArtPreview(it, definitions[it.definition]) }
+    inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
 }
 
 @Composable
@@ -96,7 +98,8 @@ private fun PodGridLog(log: List<GridPublicPickLog>, definitions: Map<String, Ca
 
 @Composable
 private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
-    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy?) -> Unit) {
+    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy?) -> Unit,
+    inspectScroll: (Float) -> Unit = {}) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Spacer(Modifier.width(40.dp))
@@ -122,8 +125,10 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
                             MaterialTheme.shapes.extraSmall).padding(3.dp)) {
                         if (copy != null) {
                             val currentInspect by rememberUpdatedState(inspect)
+                            val currentInspectScroll by rememberUpdatedState(inspectScroll)
                             PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize().pointerInput(copy) {
-                                podPickGestures(onTap = {}, onInspect = { currentInspect(if (it) copy else null) })
+                                podPickGestures(onTap = {}, onInspect = { currentInspect(if (it) copy else null) },
+                                    onInspectScroll = { currentInspectScroll(it) })
                             })
                         }
                     }

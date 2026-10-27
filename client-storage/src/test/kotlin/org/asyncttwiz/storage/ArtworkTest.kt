@@ -145,15 +145,15 @@ class ArtworkTest {
         var response = ArtworkResponse(404)
         val art = repository(ArtworkTransport { _, _, _, _ -> calls++; response })
         val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/missing")
-        assertNull(art.load(reference)); clock += HttpArtworkRepository.DAY - 1
+        assertNull(art.load(reference)); clock += 999
         assertNull(art.load(reference)); assertEquals(1, calls)
         clock++; response = ArtworkResponse(503)
         assertNull(art.load(reference)); assertEquals(2, calls)
-        clock += 59_999; art.load(reference); assertEquals(2, calls)
+        clock += 1_999; art.load(reference); assertEquals(2, calls)
         clock++; art.load(reference); assertEquals(3, calls)
-        clock += 299_999; art.load(reference); assertEquals(3, calls)
+        clock += 3_999; art.load(reference); assertEquals(3, calls)
         clock++; art.load(reference); assertEquals(4, calls)
-        clock += 3_599_999; art.load(reference); assertEquals(4, calls)
+        clock += 7_999; art.load(reference); assertEquals(4, calls)
         clock++; response = ArtworkResponse(429, retryAt = clock + 7_200_000)
         art.load(reference); assertEquals(5, calls)
         clock += 7_199_999; art.load(reference); assertEquals(5, calls)
@@ -167,7 +167,6 @@ class ArtworkTest {
         assertArrayEquals(png(), conditional.load(reference))
         clock += HttpArtworkRepository.DAY
         assertArrayEquals(png(), repository(ArtworkTransport { _, _, _, _ -> error("offline") }).load(reference))
-        println("PASS persisted 24h 404, 1m/5m/1h transient retry, Retry-After, ETag/Last-Modified and outage stale reuse")
     }
 
     @Test fun perKeyConcurrentCoalescing() {
@@ -190,7 +189,7 @@ class ArtworkTest {
         val transport = ArtworkTransport { _, _, _, _ -> ArtworkResponse(200, png(), "image/png") }
         val reference = ArtworkReference(null, 0, "decode", customUrl = "$origin/image")
         var art = repository(transport)
-        for (delay in listOf(60_000L, 5 * 60_000L, 60 * 60_000L)) {
+        for (delay in listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L, 30_000L)) {
             assertNotNull(art.load(reference)); art.rejectDecoded(reference)
             art = repository(transport) // real persisted failure state, not a same-process counter
             clock += delay - 1; assertNull(art.load(reference))
@@ -198,7 +197,7 @@ class ArtworkTest {
         }
         art.decoded(reference)
         art.rejectDecoded(reference)
-        clock += 60_000
+        clock += 1_000
         assertNotNull(art.load(reference), "successful bitmap decode resets failure escalation")
     }
 

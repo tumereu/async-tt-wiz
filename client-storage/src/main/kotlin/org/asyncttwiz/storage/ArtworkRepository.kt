@@ -7,18 +7,21 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /** Retained definition consumers can construct this without consulting a newer local catalog.
  * Face is an explicit provider face index, not a name search or first-face guess. */
 data class ArtworkReference(val printing: String?, val face: Int, val version: String,
-    val size: String = "normal", val customUrl: String? = null) {
+    val size: String = "normal", val customUrl: String? = null, val faceName: String? = null) {
     init { require(face in 0..15 && version.length <= 256 && size in listOf("small", "normal", "large", "png", "art_crop")) }
-    val key: String get() = "$printing|$face|$size|$version|$customUrl"
+    val key: String get() = "$printing|$face|$size|$version|$customUrl|$faceName"
     companion object {
         fun from(record: CatalogPrinting, version: String, size: String = "normal"): ArtworkReference? {
             val face = if (record.side.isEmpty()) 0 else record.side.singleOrNull()?.let { it - 'a' } ?: return null
             if (face !in 0..15) return null
-            return ArtworkReference(record.scryfallId, face, version, size)
+            val name = runCatching { JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString }
+                .getOrNull()?.takeIf { it.isNotBlank() } ?: record.name
+            return ArtworkReference(record.scryfallId, face, version, size, faceName = name)
         }
     }
 }
@@ -94,25 +97,43 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
     private val now: () -> Long = System::currentTimeMillis,
     private val imageCheck: (ByteArray, String) -> Boolean = Companion::raster) {
     private val pending = ConcurrentHashMap<String, CompletableFuture<ArtworkEntry?>>()
+    private val connection = AtomicLong()
+    private val failedConnections = ConcurrentHashMap<String, Long>()
+    private val loadedUrls = ConcurrentHashMap<String, String>()
     init { policy.validate(apiBase); require(apiBase.endsWith('/')) }
 
     fun load(reference: ArtworkReference): ByteArray? {
         return try {
-            val url = reference.customUrl ?: resolve(reference) ?: return null
-            policy.validate(url)
-            val entry = fetch("image|${reference.key}|$url", url, MAX_IMAGE, image = true)
-            entry?.takeIf { it.status == 200 }?.bytes
+            val urls = sequence {
+                reference.customUrl?.let { yield(it) }
+                yieldAll(resolve(reference))
+            }.distinct()
+            for (url in urls) {
+                policy.validate(url)
+                val entry = fetch("image|${reference.key}|$url", url, MAX_IMAGE, image = true)
+                if (entry?.status == 200) {
+                    loadedUrls[reference.key] = url
+                    return entry.bytes
+                }
+                // A missing source can use another retained/provider image immediately.
+                if (entry?.status != 404) break
+            }
+            null
         } catch (_: Exception) { null }
     }
 
+    /** Called once per offline -> online transition; successful public cache entries stay intact. */
+    fun connectivityRestored() { connection.incrementAndGet() }
+
     fun rejectDecoded(reference: ArtworkReference) {
         runCatching {
-            val url = reference.customUrl ?: resolve(reference) ?: return
+            val url = loadedUrls.remove(reference.key) ?: return
             val key = "image|${reference.key}|$url"
             val marker = cache.read("decode|$key")?.takeIf { it.expires > now() }
-            val failures = ((marker?.failures ?: 0) + 1).coerceAtMost(3)
-            val delay = listOf(60_000L, 5 * 60_000L, 60 * 60_000L)[failures - 1]
+            val failures = ((marker?.failures ?: 0) + 1).coerceAtMost(6)
+            val delay = ArtworkRetrySchedule.backoff(failures)
             cache.write(key, ArtworkEntry(503, now() + delay, failures, "", "", "", byteArrayOf()))
+            failedConnections[key] = connection.get()
             cache.write("decode|$key", ArtworkEntry(503, now() + DAY, failures, "", "", "", byteArrayOf()))
         }
     }
@@ -121,24 +142,40 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
      * only after Android has actually produced a valid bounded bitmap. */
     fun decoded(reference: ArtworkReference) {
         runCatching {
-            val url = reference.customUrl ?: resolve(reference) ?: return
+            val url = loadedUrls.remove(reference.key) ?: return
             cache.remove("decode|image|${reference.key}|$url")
         }
     }
 
-    private fun resolve(reference: ArtworkReference): String? {
-        val id = reference.printing ?: return null
-        if (runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false).not()) return null
-        val entry = fetch("metadata|$apiBase|$id|${reference.version}", "$apiBase$id", 1024 * 1024, image = false)
-            ?.takeIf { it.status == 200 } ?: return null
+    private fun resolve(reference: ArtworkReference, visited: Set<String> = emptySet()): List<String> {
+        val id = reference.printing ?: return emptyList()
+        if (id in visited || visited.size >= 3 || runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false).not()) return emptyList()
+        val entry = fetch("metadata-v2|$apiBase|$id|${reference.version}", "$apiBase$id", 1024 * 1024, image = false)
+            ?.takeIf { it.status == 200 } ?: return emptyList()
         val card = JsonParser.parseString(entry.bytes.toString(Charsets.UTF_8)).asJsonObject
         check(card.get("object")?.asString == "card" && card.get("id")?.asString == id)
         val top = card.getAsJsonObject("image_uris")
-        // Split/adventure faces share one physical printing image. Back face is NEVER top-level fallback.
-        val images = if (top != null && reference.face == 0) top else
-            card.getAsJsonArray("card_faces")?.let { if (reference.face < it.size()) it[reference.face] else null }
-                ?.asJsonObject?.getAsJsonObject("image_uris")
-        return images?.get(reference.size)?.asString
+        val faces = card.getAsJsonArray("card_faces")?.map { it.asJsonObject }.orEmpty()
+        val named = reference.faceName?.let { name -> faces.firstOrNull { it.get("name")?.asString == name } }
+        val layout = card.get("layout")?.asString
+        // Spell parts share a physical image, even when MTGJSON labels the row b/c.
+        // A named top-level printing (meld parts and separately printed token sides) is also exact.
+        val shared = layout in setOf("split", "aftermath", "adventure", "flip", "room")
+        val topMatches = reference.faceName != null && card.get("name")?.asString == reference.faceName
+        val images = if (top != null && (shared || topMatches || reference.face == 0)) top else
+            (named ?: faces.getOrNull(reference.face))?.getAsJsonObject("image_uris")
+        if (layout == "meld" && reference.faceName != null && !topMatches) {
+            val result = card.getAsJsonArray("all_parts")?.firstOrNull {
+                it.asJsonObject.get("component")?.asString == "meld_result" &&
+                    it.asJsonObject.get("name")?.asString == reference.faceName
+            }?.asJsonObject?.get("id")?.asString
+            if (result != null) return resolve(reference.copy(printing = result, face = 0), visited + id)
+        }
+        if (images == null) return emptyList()
+        // Never replace an art crop with a full card, or a physical back with a front.
+        val sizes = if (reference.size == "art_crop") listOf("art_crop") else
+            listOf(reference.size, "normal", "large", "png", "small").distinct()
+        return sizes.mapNotNull { images.get(it)?.asString }.distinct()
     }
     private fun fetch(key: String, url: String, maximum: Long, image: Boolean): ArtworkEntry? {
         val future = CompletableFuture<ArtworkEntry?>()
@@ -146,17 +183,18 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
         if (existing != null) return existing.get()
         try {
             val old = cache.read(key)
-            if (old != null && old.expires > now()) return old.also { future.complete(it) }
+            val generation = connection.get()
+            val sameConnection = (failedConnections[key] ?: 0L) == generation
+            if (old != null && old.expires > now() && (old.status == 200 || sameConnection))
+                return old.also { future.complete(it) }
             val response = try { transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) }
                 catch (_: Exception) { ArtworkResponse(503) }
             val valid = response.status == 200 && response.bytes.size <= maximum &&
                 if (image) raster(response.bytes, response.type) && imageCheck(response.bytes, response.type) else validMetadata(response.bytes)
-            val failures = if (valid || response.status == 304 || response.status == 404) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(3)
+            val failures = if (valid || response.status == 304) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(6)
             val expiry = now() + when {
-                valid || response.status == 304 || response.status == 404 -> DAY
-                failures == 1 -> 60_000L
-                failures == 2 -> 5 * 60_000L
-                else -> 60 * 60_000L
+                valid || response.status == 304 -> DAY
+                else -> ArtworkRetrySchedule.backoff(failures)
             }
             val entry = when {
                 valid -> ArtworkEntry(200, expiry, 0, response.type, response.etag, response.modified, response.bytes)
@@ -167,6 +205,7 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
                     failures, "", "", "", byteArrayOf())
             }
             cache.write(key, entry)
+            if (entry.status != 200) failedConnections[key] = generation else failedConnections.remove(key)
             future.complete(entry)
             return entry
         } catch (error: Exception) {

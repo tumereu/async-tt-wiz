@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
-import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 
@@ -10,15 +9,7 @@ data class InspectedCard(val definition: CardDefinition, val artwork: List<Artwo
     init { require(definition.faces.isNotEmpty() && artwork.size == definition.faces.size) }
     companion object {
         fun retained(identity: String, definition: CardDefinition) = InspectedCard(definition,
-            definition.faces.mapIndexed { index, face ->
-                val side = face.sourceData?.let { runCatching {
-                    (DeckJson.format.parseToJsonElement(it).jsonObject["side"] as? JsonPrimitive)?.contentOrNull
-                }.getOrNull() }
-                val providerIndex = if (side.isNullOrEmpty()) index else side.singleOrNull()?.let { it - 'a' }
-                providerIndex?.takeIf { it in 0..15 }?.let {
-                    ArtworkReference(face.scryfallId, it, identity, "large", face.imageUri)
-                }
-            })
+            definition.faces.mapIndexed { index, face -> face.artwork(index, identity, "large") })
         fun preview(entry: ResolvedDeckEntry, catalog: CatalogMetadata?) = InspectedCard(entry.definition(catalog),
             entry.faces.map { ArtworkReference.from(it, catalog?.checksum.orEmpty(), "large") })
     }

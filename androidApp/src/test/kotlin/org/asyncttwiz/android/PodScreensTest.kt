@@ -5,7 +5,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.AnnotatedString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
 import org.junit.Rule
@@ -178,9 +180,25 @@ class PodScreensTest {
         compose.onNodeWithText("Submit your deck to challenge other members.").assertIsDisplayed()
     }
 
+    @Test fun retainedChallengeRetryIsReachableEvenWithNoPodsAndDisabledWhileSending() {
+        var state by mutableStateOf(LobbyState(retryPodChallengeName = "Original game"))
+        var retries = 0
+        compose.setContent { ScreenTheme { Column {
+            PodChallengeRetry(state) { retries++ }
+            PodsList(PodState(loaded = true), {}, { _, _ -> }, {})
+        } } }
+        compose.onNodeWithText("MY PODS (0)").assertIsDisplayed()
+        compose.onNodeWithText("Challenge not confirmed: Original game").assertIsDisplayed()
+        compose.onNodeWithText("Retry challenge").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(1, retries); state = state.copy(mutating = true) }
+        compose.onNodeWithText("Retry challenge").assertIsNotEnabled()
+        compose.runOnIdle { state = state.copy(mutating = false, retryPodChallengeName = null) }
+        compose.onNodeWithText("Retry challenge").assertDoesNotExist()
+    }
+
     @Test fun modeChipsSwitchToGridDefaultsAndHideBoosterSettingsIncludingAdvanced() {
         var settings by mutableStateOf(DraftSettings())
-        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it } } } }
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
         compose.onNodeWithText("Booster").assertIsSelected()
         compose.onNodeWithText("Glimpse").assertExists()
         compose.onNodeWithText("Grid").assertExists().performClick().assertIsSelected()
@@ -214,5 +232,22 @@ class PodScreensTest {
         compose.runOnIdle { enabled = false }
         compose.onNode(isToggleable()).assertIsNotEnabled()
         compose.onNodeWithText("Grid").assertIsNotEnabled()
+    }
+
+    @Test fun twoSetupFieldCallbacksBeforeRecompositionPreserveBothEdits() {
+        var settings by mutableStateOf(DraftSettings())
+        compose.setContent { ScreenTheme { Column {
+            PodSettingsFields(settings, 2, true) { settings = it(settings) }
+        } } }
+        val packs = compose.onNodeWithText("Packs per player").fetchSemanticsNode().config[SemanticsActions.SetText].action!!
+        val size = compose.onNodeWithText("Cards per pack").fetchSemanticsNode().config[SemanticsActions.SetText].action!!
+        compose.runOnIdle {
+            packs(AnnotatedString("4"))
+            size(AnnotatedString("12"))
+            assertEquals(4, settings.packsPerPlayer)
+            assertEquals(12, settings.cardsPerPack)
+        }
+        compose.onNodeWithText("Packs per player").assertTextEquals("Packs per player", "4")
+        compose.onNodeWithText("Cards per pack").assertTextEquals("Cards per pack", "12")
     }
 }

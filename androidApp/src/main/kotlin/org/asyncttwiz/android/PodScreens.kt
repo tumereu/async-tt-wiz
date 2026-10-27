@@ -51,6 +51,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
             }
         }
+        lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
         state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
         if (state.error != null || state.uncertain) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(state.error ?: "An earlier request needs to be checked.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
@@ -92,6 +93,17 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             ScreenOutlinedButton(controller::dismissConfirmation, enabled = !state.uncertain && state.pending == 0) { Text("Back") }
             ScreenButton(if (state.uncertain) controller::retry else controller::confirm,
                 enabled = !state.loading && (state.pending == 0 || state.uncertain)) { Text(if (state.uncertain) "Retry" else "Confirm") }
+        }
+    }
+}
+
+/** Available even when the original pod or opponent can no longer be opened. */
+@Composable
+internal fun PodChallengeRetry(state: LobbyState, retry: () -> Unit) {
+    state.retryPodChallengeName?.let { name ->
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Challenge not confirmed: $name", Modifier.weight(1f))
+            TextButton(retry, enabled = !state.mutating) { Text("Retry challenge") }
         }
     }
 }
@@ -244,13 +256,13 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             FilterChip(source.kind == PodSourceKind.SET, controller::chooseSet, enabled = enabled, label = { Text("MTG set") })
         }
         PodSourceSummary(source)
-        PodSettingsFields(settings, detail.members.size, enabled, source) { controller.editSetup(settings = it) }
+        PodSettingsFields(settings, detail.members.size, enabled, source, controller::editSettings)
         Text("Sideboard limit", style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(settings.sideboardLimit == null, { unlimited -> controller.editSetup(settings = settings.copy(sideboardLimit = if (unlimited) null else 0)) }, enabled = enabled)
+            Switch(settings.sideboardLimit == null, { unlimited -> controller.editSettings { it.copy(sideboardLimit = if (unlimited) null else 0) } }, enabled = enabled)
             Spacer(Modifier.width(8.dp)); Text("Unlimited")
         }
-        settings.sideboardLimit?.let { limit -> PodNumber("Maximum sideboard cards", limit, enabled) { controller.editSetup(settings = settings.copy(sideboardLimit = it)) } }
+        settings.sideboardLimit?.let { limit -> PodNumber("Maximum sideboard cards", limit, enabled) { value -> controller.editSettings { it.copy(sideboardLimit = value) } } }
         PodSourceSupply(source, needed)
         if (settings.mode == DraftMode.GRID && detail.members.size !in 2..4)
             Text("Grid requires 2–4 accepted members to start.", color = MaterialTheme.colorScheme.error)
@@ -269,36 +281,36 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean, source: PodSource = PodSource(), change: (DraftSettings) -> Unit) {
+internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean, source: PodSource = PodSource(), change: ((DraftSettings) -> DraftSettings) -> Unit) {
     var advanced by remember { mutableStateOf(false) }
-    PodModeButtons(settings.mode, enabled) { mode -> change(when (mode) {
+    PodModeButtons(settings.mode, enabled) { mode -> change { current -> when (mode) {
         DraftMode.BOOSTER -> DraftSettings.booster()
         DraftMode.GLIMPSE -> DraftSettings.glimpse()
         DraftMode.GRID -> DraftSettings.grid()
-    }.copy(sideboardLimit = settings.sideboardLimit)) }
+    }.copy(sideboardLimit = current.sideboardLimit) } }
     if (settings.mode == DraftMode.GRID) {
-        PodNumber("Grids", settings.grids, enabled) { change(settings.copy(grids = it)) }
+        PodNumber("Grids", settings.grids, enabled) { value -> change { it.copy(grids = value) } }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(settings.twoPicks, { change(settings.copy(twoPicks = it)) }, enabled = enabled && members == 2)
+            Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members == 2)
             Text("Two picks each")
         }
         if (members != 2) Text("Two picks each requires exactly 2 members.", style = MaterialTheme.typography.bodySmall)
     } else {
-        PodNumber("Packs per player", settings.packsPerPlayer, enabled) { change(settings.copy(packsPerPlayer = it)) }
+        PodNumber("Packs per player", settings.packsPerPlayer, enabled) { value -> change { it.copy(packsPerPlayer = value) } }
         if (source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE)
-            PodNumber("Cards per pack", settings.cardsPerPack, enabled) { change(settings.copy(cardsPerPack = it)) }
+            PodNumber("Cards per pack", settings.cardsPerPack, enabled) { value -> change { it.copy(cardsPerPack = value) } }
     }
     TextButton({ advanced = !advanced }) { Text(if (advanced) "Advanced ▴" else "Advanced ▾") }
     if (advanced) {
         if (settings.mode == DraftMode.GRID) {
-            PodNumber("Grids open at once", settings.gridsOpenAtOnce, enabled) { change(settings.copy(gridsOpenAtOnce = it)) }
+            PodNumber("Grids open at once", settings.gridsOpenAtOnce, enabled) { value -> change { it.copy(gridsOpenAtOnce = value) } }
         } else {
-            PodNumber("Keep per pick", settings.keep, enabled) { change(settings.copy(keep = it)) }
-            PodNumber("Burn per pick", settings.burn, enabled) { change(settings.copy(burn = it)) }
-            PodNumber("Discard remaining at", settings.discardRemainingAt, enabled) { change(settings.copy(discardRemainingAt = it)) }
-            PodNumber("Packs open at once", settings.packsOpenAtOnce, enabled) { change(settings.copy(packsOpenAtOnce = it)) }
+            PodNumber("Keep per pick", settings.keep, enabled) { value -> change { it.copy(keep = value) } }
+            PodNumber("Burn per pick", settings.burn, enabled) { value -> change { it.copy(burn = value) } }
+            PodNumber("Discard remaining at", settings.discardRemainingAt, enabled) { value -> change { it.copy(discardRemainingAt = value) } }
+            PodNumber("Packs open at once", settings.packsOpenAtOnce, enabled) { value -> change { it.copy(packsOpenAtOnce = value) } }
             if (source.kind == PodSourceKind.CUBE) Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(settings.colorBalance, { change(settings.copy(colorBalance = it)) }, enabled = enabled)
+                Checkbox(settings.colorBalance, { value -> change { it.copy(colorBalance = value) } }, enabled = enabled)
                 Text("Color balancing")
             }
         }

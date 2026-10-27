@@ -56,7 +56,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             notices.removeAll { it.key == key }
             if (!page.summaryReset && allowed(hint.kind) &&
                 !(hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId)) {
-                notices += ActivityNotice(key, hint, store.watermark(key)?.identity == hint.identity)
+                notices += ActivityNotice(key, hint, !hint.kind.isPodActivity() && store.watermark(key)?.identity == hint.identity)
             }
         }
         if (!store.save(page.nextCursor, marks)) return false
@@ -77,7 +77,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         fun consume(key: String, hint: ActivityHint, notify: Boolean) {
             val old = marks[key] ?: store.watermark(key)
             marks[key] = ActivityWatermark(requireNotNull(ActivityWire.ordinal(hint.activityId)), hint.identity)
-            if (notify) notices += ActivityNotice(key, hint, old?.identity == hint.identity)
+            if (notify) notices += ActivityNotice(key, hint, !hint.kind.isPodActivity() && old?.identity == hint.identity)
             pending.remove(key)
         }
         if (page.summaryReset) pending.toMap().forEach { (key, item) -> consume(key, item.hint, false) }

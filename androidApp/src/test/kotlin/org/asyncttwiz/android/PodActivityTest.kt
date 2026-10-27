@@ -42,8 +42,10 @@ class PodActivityTest {
                 number.toString(), "0", false, false)) { true })
         }
         apply(1, ActivityKind.POD_YOUR_PICK)
-        apply(2, ActivityKind.POD_YOUR_PICK, UUID.randomUUID().toString())
+        apply(2, ActivityKind.POD_YOUR_PICK)
+        apply(2, ActivityKind.POD_YOUR_PICK) // Same event delivered by both push and polling.
         assertEquals(listOf("pod:$id", "pod:$id"), notices.map { it.key })
+        assertTrue(notices.none { it.silent })
         apply(3, ActivityKind.POD_INVITATION)
         apply(4, ActivityKind.INVITATION)
         assertEquals("pod-invite:$id", notices[2].key)
@@ -52,5 +54,6 @@ class PodActivityTest {
         delivery.display(id, true)
         apply(6, ActivityKind.POD_DRAFT_COMPLETE)
         assertEquals(ActivityKind.POD_DRAFT_COMPLETE, notices.last().hint.kind) // not a game-screen hint
+        assertFalse(notices.last().silent)
     }
 }

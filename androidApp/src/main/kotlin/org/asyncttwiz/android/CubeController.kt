@@ -16,7 +16,7 @@ data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boo
     val name: String = "", val text: String = "", val includeSideboard: Boolean = false,
     val cobraInput: String = "", val provenance: String? = null, val result: DeckImportResult? = null,
     val dialog: CubeDialog? = null, val cobraTab: Boolean = true, val clipboardRead: Boolean = false,
-    val saving: Boolean = false)
+    val saving: Boolean = false, val imported: Boolean = false)
 
 /** Only accepted server data is collection state; editor, lookup and retry intent are volatile. */
 class CubeController(private val api: Cubes, private val credential: () -> String?,
@@ -79,7 +79,8 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (state.busy) return
         source = null; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
-            provenance = null, includeSideboard = false, result = null, error = null, cobraTab = true, clipboardRead = false)
+            provenance = null, includeSideboard = false, result = null, error = null, cobraTab = true, clipboardRead = false,
+            imported = false)
     }
     fun edit() {
         if (state.busy) return
@@ -87,7 +88,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
             text = retained.text, includeSideboard = false, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
-            result = null, error = null, cobraTab = false, clipboardRead = false)
+            result = null, error = null, cobraTab = false, clipboardRead = false, imported = false)
         lookup()
     }
     private fun editInput() {
@@ -104,6 +105,16 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val match = ImportClipboard.cube(read())
         state = state.copy(clipboardRead = true, cobraInput = if (state.cobraInput.isBlank()) match.orEmpty() else state.cobraInput)
     }
+    /** The Link field's paste icon: paste the clipboard and import it at once (typed text waits for Import). */
+    fun pasteCobra(clip: String?) {
+        if (!state.editing || state.saving) return
+        val text = clip?.trim().orEmpty()
+        if (text.isEmpty()) { state = state.copy(error = "Clipboard is empty."); return }
+        cobraInput(ImportClipboard.cube(text) ?: text)
+        importCobra()
+    }
+    /** Something valid to save: a resolved list with a valid name, and no lookup, fetch or save in progress. */
+    val canSave: Boolean get() = state.editing && state.result?.resolved == true && CubeValidation.name(state.name) && !state.busy
     fun lookup() {
         if (!state.editing || state.busy) return
         val input = state; val retained = source; val cobra = cobraSource
@@ -134,7 +145,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             return@work {
                 source = null; cobraSource = parsed; pendingSave = null
                 state = state.copy(text = parsed.text, name = state.name.ifBlank { id }, provenance = id,
-                    includeSideboard = false, result = result, cobraTab = false)
+                    includeSideboard = false, result = result, imported = true)
             }
         }
     }

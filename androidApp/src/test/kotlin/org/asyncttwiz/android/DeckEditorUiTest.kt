@@ -37,7 +37,7 @@ class DeckEditorUiTest {
         }
         compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText("Edit").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Save deck").assertIsDisplayed()
+        compose.onNodeWithTag("save-deck").assertIsDisplayed()
         compose.onNodeWithTag("deck-list").assertTextContains("Deck\n4 Meadow Sentinel", substring = true)
         compose.onNodeWithContentDescription("Choose deck cover").performClick()
         compose.onNodeWithText("Aegis Ward").performClick()

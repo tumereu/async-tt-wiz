@@ -15,8 +15,9 @@ import org.asyncttwiz.storage.ArtworkReference
 
 @Composable
 internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((String) -> Unit)? = null,
-    chooseCover: (() -> Unit)? = null, enabled: Boolean = true) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    chooseCover: (() -> Unit)? = null, enabled: Boolean = true,
+    padding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+    Row(Modifier.fillMaxWidth().padding(padding),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(48.dp).then(if (chooseCover != null) Modifier.clickable(enabled = enabled,
             onClickLabel = "Choose deck cover", onClick = chooseCover).semantics { contentDescription = "Choose deck cover" }

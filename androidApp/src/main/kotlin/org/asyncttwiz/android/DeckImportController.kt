@@ -15,7 +15,7 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val mode: DeckImportMode = DeckImportMode.OVERWRITE, val editing: Boolean = false,
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
     val lookupFailed: Boolean = false, val fromUrl: Boolean = false, val url: String = "",
-    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false)
+    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val imported: Boolean = false)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -53,6 +53,17 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         cancelUrlFetch()
         state = state.copy(url = value, error = null)
     }
+    /** The Link field's paste icon: paste the clipboard and import it at once (typed text waits for Import). */
+    fun pasteUrl(clip: String?) {
+        if (closed || !state.active || state.saving) return
+        val text = clip?.trim().orEmpty()
+        if (text.isEmpty()) { state = state.copy(error = "Clipboard is empty."); return }
+        url(ImportClipboard.deck(text) ?: text)
+        importUrl()
+    }
+    /** Something valid to save: a resolved list with a name, and no lookup, fetch or save in progress. */
+    val canSave: Boolean get() = state.active && state.result?.resolved == true && state.name.isNotBlank() &&
+        !state.busy && !state.saving
     private fun cancelUrlFetch() {
         if (state.fetchingUrl) { epoch++; state = state.copy(busy = false, fetchingUrl = false) }
     }
@@ -74,7 +85,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                 else {
                     source = null; retryPlan = null; chosenCover = null
                     state = state.copy(text = imported.parsed.text, name = imported.name, result = resolved?.getOrNull(),
-                        busy = false, fetchingUrl = false, fromUrl = false, cover = null, preview = false,
+                        busy = false, fetchingUrl = false, imported = true, cover = null, preview = false,
                         lookupFailed = resolved?.isFailure == true,
                         error = if (resolved?.isFailure == true) "Card records could not be read. Retry lookup." else null)
                 }

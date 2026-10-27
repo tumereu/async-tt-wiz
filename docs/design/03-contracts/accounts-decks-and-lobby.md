@@ -412,7 +412,7 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
 **text lists**, not a claim to support every tool's proprietary export.
 
 - Paste one `quantity Card Name` entry per line, such as `4 Lightning Bolt`.
-- Import has **From URL | Paste list** tabs. On the phone, From URL fetches
+- Import has **Link | Paste list** tabs. On the phone, Link fetches
   Archidekt public JSON only, then uses the same resolution/errors/save pipeline
   as pasted text. MTGGoldfish and Moxfield block non-browser clients with
   Cloudflare challenges (HTTP 403); use **Paste list** for those sites.
@@ -420,12 +420,20 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
   maybeboard is omitted. Provider failures suggest **Paste list**.
   Copied Archidekt deck URLs (including share queries/fragments) and `archidekt:ID`
   work; bare numeric IDs require the `archidekt:` prefix.
-  Read clipboard once when the URL tab first opens in an import session, prefill
-  only a matching supported URL/ID, and never fetch without pressing Import.
-  Drop pending URL results when the name, list, URL or tab changes; a newer import
-  supersedes an older pending response without overwriting newer input.
-- Use a paste area plus **Save**, with import errors inline in a fixed reserved
-  area. There is no separate review step; after save, the deck view is the review.
+  Read clipboard once when the Link tab first opens in an import session, prefill
+  only a matching supported URL/ID, and never fetch typed or prefilled text without
+  pressing **Import**. The paste icon inside the link field pastes the clipboard
+  and imports at once. Drop pending URL results when the name, list, URL or tab
+  changes; a newer import supersedes an older pending response without
+  overwriting newer input. A fetched deck stays on Link with a preview (cover,
+  name, main/side counts, problems); its list is also the Paste list draft.
+- Round 20 layout (shared with cubes): Paste list has cover + name on one row and
+  a text area filling the free height, with a paste icon in its corner that only
+  fills the text. Both tabs end in one full-width **Save**, enabled for a named,
+  fully resolved list; there are no top-bar actions and no card-record controls
+  (those live in Settings; unresolved cards say so in the problem list). Errors
+  and problems are inline in a fixed area. There is no separate review step;
+  after save, the deck view is the review.
 - Accept the common optional printing suffix `(SET) collector-number`, such as
   `3 Verdant Catacombs (MH2) 260`; users need not strip exported printing details.
 - Preserve mainboard/sideboard separation: support `Deck`/`Sideboard` sections,

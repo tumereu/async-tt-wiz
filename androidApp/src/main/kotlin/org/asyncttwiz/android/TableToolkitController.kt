@@ -325,7 +325,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun closeCardPanel(display: ContentsDisplay) {
         if (display.author != viewer || !enabled()) return
-        if (display.reveal) {
+        // Hand reveals return their cards in place with Done; Library reveals keep the rest chooser.
+        if (display.reveal && current()?.board?.containers?.any { it.id == display.containerId && it.zone == PlayZone.HAND } == true) {
             if (submit(PlayAction.DismissContents(display.id))) dismiss()
             return
         }

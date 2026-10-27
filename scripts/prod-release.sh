@@ -41,6 +41,14 @@ source "$ROOT/scripts/lib/device-adb.sh"
 
 install_phone() {
     if atw_find_phone "${ATW_ADB_SERIAL:-94d4fd56}"; then
+        local log
+        log=$(atw_install_apk "$1" release 2>&1) && { echo "$log"; return; }
+        echo "$log"
+        # A debug/test-signed app with the production package id cannot be upgraded in place.
+        [[ $log == *INSTALL_FAILED_UPDATE_INCOMPATIBLE* ]] || return 1
+        read -r -p "The installed org.asyncttwiz.android has a different signature. Uninstall it (deletes its local data and catalog)? [y/N] " answer
+        [[ $answer == [yY] ]] || { echo "Left the existing app installed."; return 1; }
+        "${adb_command[@]}" -s "$serial" uninstall org.asyncttwiz.android
         atw_install_apk "$1" release
     else
         echo "Phone not connected/authorized; installation skipped. Run scripts/prod-release.sh install later."
@@ -87,7 +95,7 @@ for file in release.p12 store-password key-password; do
 done
 command -v direnv >/dev/null || die "direnv is required for the existing Pi SSH/deployment environment."
 [[ -f $PI_SETUP/async-tt-wiz.yml ]] || die "Pi setup checkout not found at $PI_SETUP."
-scratch=$(mktemp -d "${TMPDIR:-/tmp/opencode}/atw-prod-release-XXXXXX")
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/atw-prod-release-XXXXXX")
 worktree=$scratch/source
 cleanup() {
     # Remove only the disposable worktree this invocation created, including its build output.
@@ -102,8 +110,7 @@ import json, sys
 print(json.load(open(sys.argv[1]))["allocations"][-1]["versionCode"])
 PY
 )
-status=$(curl --silent --show-error --max-time 20 -o "$scratch/published.json" -w '%{http_code}' "$ORIGIN/app/latest") ||
-    die "Cannot read published production version; release refused."
+status=$(curl --silent --max-time 20 -o "$scratch/published.json" -w '%{http_code}' "$ORIGIN/app/latest") || true
 case "$status" in
 200) published=$(python3 - "$scratch/published.json" <<'PY'
 import json, sys
@@ -113,6 +120,14 @@ print(code)
 PY
 ) ;;
 404) published=0 ;;
+000) # Backend down (e.g. first release after a wipe): never go below a code this machine already built.
+    published=$(python3 - "$STATE/releases" <<'PY'
+import json, pathlib, sys
+codes = [json.loads(p.read_text())["versionCode"] for p in pathlib.Path(sys.argv[1]).glob("*/latest.json")]
+print(max(codes, default=0))
+PY
+)
+    echo "Production backend unreachable; assuming published versionCode $published." ;;
 *) die "Production update check returned HTTP $status; release refused." ;;
 esac
 (( code > published )) || die "VersionCode $code must be greater than published $published. Allocate a new code in release/version.json and approve that commit."
@@ -145,36 +160,11 @@ PY
 printf '%s\n' "$commit" > "$STATE/last-built.new"
 mv "$STATE/last-built.new" "$STATE/last-built"
 # ATW_VERSION and controller source both pin the server build to the approved commit.
+# The playbook publishes the APK only after the backend and public ingress checks succeed.
 (
     cd "$PI_SETUP"
-    ATW_VERSION=$commit direnv exec . ansible-playbook async-tt-wiz.yml -e "atw_controller_source=$worktree"
+    ATW_VERSION=$commit direnv exec . ansible-playbook async-tt-wiz.yml \
+        -e "atw_controller_source=$worktree" -e "atw_app_release_artifact=$artifact"
 )
-# No publication before the entire playbook (including public health checks) succeeds.
-direnv exec "$PI_SETUP" bash -s -- "$artifact/app.apk" "$artifact/latest.json" <<'SH'
-set -euo pipefail
-[[ ${PI_HOST:-} =~ ^[A-Za-z0-9._:-]+$ && ${PI_USER:-} =~ ^[A-Za-z0-9_-]+$ ]] || {
-    echo 'PI_HOST/PI_USER must match the existing inventory SSH environment.' >&2; exit 1;
-}
-target=$PI_USER@$PI_HOST
-hash=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$2")
-[[ $hash =~ ^[0-9a-f]{64}$ ]]
-remote=$(ssh -o BatchMode=yes "$target" mktemp -d /tmp/atw-release.XXXXXXXX)
-[[ $remote =~ ^/tmp/atw-release\.[A-Za-z0-9]+$ ]]
-scp -o BatchMode=yes "$1" "$target:$remote/$hash.apk"
-scp -o BatchMode=yes "$2" "$target:$remote/latest.json"
-ssh -o BatchMode=yes "$target" bash -s -- "$remote" "$hash" <<'REMOTE'
-set -euo pipefail
-source=$1
-hash=$2
-destination=/srv/async-tt-wiz/app-release
-sudo -n test -d "$destination"
-sudo -n install -m 0644 "$source/$hash.apk" "$destination/$hash.apk.new"
-sudo -n mv "$destination/$hash.apk.new" "$destination/$hash.apk"
-sudo -n install -m 0644 "$source/latest.json" "$destination/latest.json.new"
-sudo -n mv "$destination/latest.json.new" "$destination/latest.json"
-rm -f -- "$source/$hash.apk" "$source/latest.json"
-rmdir "$source"
-REMOTE
-SH
 echo "Published production $commit (versionCode $code)."
 install_phone "$artifact/app.apk"

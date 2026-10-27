@@ -36,12 +36,11 @@ class PodPickViewTest {
         settings: DraftSettings = DraftSettings.glimpse(),
         busy: () -> Boolean = { false },
         cardDefinitions: Map<String, CardDefinition> = definitions,
-        onBuild: () -> Unit = {},
         onConfirm: (List<String>, List<String>) -> Unit = { _, _ -> },
     ) {
         compose.setContent {
             ScreenTheme { Surface {
-                PodPickView(currentPack(), settings, cardDefinitions, busy(), onConfirm, onBuild)
+                PodPickView(currentPack(), settings, cardDefinitions, busy(), onConfirm)
             } }
         }
     }
@@ -184,7 +183,7 @@ class PodPickViewTest {
         swipe("next-2", true)
         compose.onNodeWithText("Confirm").assertIsEnabled().performClick()
         assertEquals(listOf(listOf("1"), listOf("next-2")), picks)
-        compose.onNodeWithText("Build").assertIsEnabled()
+        compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
         // Rejection of the first request restores that pack, not the later selection.
         compose.runOnIdle { current = pack }
         assertMark("1", "Keep")
@@ -195,15 +194,14 @@ class PodPickViewTest {
 
     @Test fun lastQueuedPackShowsNormalWaitingImmediatelyAndRejectionRestoresMarks() {
         var current by mutableStateOf<DraftPrivatePack?>(pack)
-        var builds = 0
-        show(currentPack = { current }, settings = DraftSettings(), onBuild = { builds++ },
+        show(currentPack = { current }, settings = DraftSettings(),
             onConfirm = { _, _ -> current = null })
         swipe("1", true)
         compose.onNodeWithText("Confirm").performClick()
         card("1").assertDoesNotExist()
         compose.onNodeWithTag("pod-pick-keep-tray").assertDoesNotExist()
-        compose.onNodeWithText("Build").assertIsEnabled().performClick()
-        assertEquals(1, builds)
+        compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
+        compose.onNodeWithText("Build").assertDoesNotExist()
         compose.runOnIdle { current = pack }
         assertMark("1", "Keep")
         compose.onNodeWithText("Confirm").assertIsEnabled()
@@ -262,8 +260,31 @@ class PodPickViewTest {
         assertTrue(with(compose.onNodeWithTag("pod-pick-keep-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
         assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
         compose.onNodeWithTag("pod-pick-tray-1").assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("pod-pick-burn-cards").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("pod-pick-swipe-copy-2").assertDoesNotExist()
+        assertMark("1", "Keep")
         compose.onNodeWithTag("pod-pick-tray-15").performScrollTo().assertIsDisplayed()
         assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
+    }
+
+    @Test fun overflowingKeepTrayPansWithoutUnmarkingHoldingOrSwipingGridCards() {
+        show(settings = DraftSettings(keep = 14))
+        for (id in 1..14) {
+            compose.onNodeWithTag("pod-pick-list").performScrollToNode(hasTestTag("pod-pick-card-$id"))
+            card("$id").performClick()
+            compose.onNodeWithText("Keep").performClick()
+        }
+        val tray = compose.onNodeWithTag("pod-pick-keep-cards")
+        compose.onNodeWithTag("pod-pick-tray-1").assertIsDisplayed()
+        val firstPosition = compose.onNodeWithTag("pod-pick-tray-1").getUnclippedBoundsInRoot().left
+        tray.performTouchInput { swipeLeft() }
+        assertTrue(compose.onNodeWithTag("pod-pick-tray-1").getUnclippedBoundsInRoot().left < firstPosition)
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onAllNodes(hasTestTag("pod-pick-swipe-copy-1")).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Keep 14/14").assertExists()
+        compose.onNodeWithText("Confirm").assertIsEnabled()
+        compose.onNodeWithTag("pod-pick-tray-14").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun portraitColumnChoiceIsSavedAndClampedToCurrentPackSize() {
@@ -290,18 +311,28 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsDisplayed()
     }
 
-    @Test fun waitingStateShowsBuildWithoutRepeatingMemberStripOrStatusText() {
-        var builds = 0
-        show(currentPack = { null }, onBuild = { builds++ })
-        compose.onNodeWithText("Waiting", substring = true).assertDoesNotExist()
+    @Test fun emptyQueueShowsCentredWaitingWithoutBuildButtonOrPickControls() {
+        show(currentPack = { null })
+        val waiting = compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
+        compose.onNodeWithText("Build").assertDoesNotExist()
+        compose.onNodeWithText("Confirm").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Cards per row").assertDoesNotExist()
         compose.onNodeWithContentDescription("Bea's avatar").assertDoesNotExist()
-        compose.onNodeWithText("Build").performClick()
-        assertEquals(1, builds)
+        val bounds = waiting.fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(root.center.x, bounds.center.x, 1f)
+        assertEquals((root.height + 40f) / 2f, bounds.center.y, 1f)
     }
 
-    @Test fun noPackAndNobodyHoldingPacksWaitsForNextRound() {
-        show(currentPack = { null })
-        compose.onNodeWithText("Waiting for the next round").assertDoesNotExist()
-        compose.onNodeWithText("Build").assertIsDisplayed()
+    @Test fun waitingDecisionDependsOnQueueNotPendingConfirmation() {
+        var current by mutableStateOf<DraftPrivatePack?>(null)
+        var busy by mutableStateOf(true)
+        show(currentPack = { current }, busy = { busy })
+        compose.onNodeWithText("Waiting for other players").assertIsDisplayed()
+        compose.runOnIdle { busy = false }
+        compose.onNodeWithText("Waiting for other players").assertIsDisplayed()
+        compose.runOnIdle { current = pack; busy = true }
+        compose.onNodeWithText("Waiting for other players").assertDoesNotExist()
+        card("1").assertIsDisplayed()
     }
 }

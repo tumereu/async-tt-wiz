@@ -30,7 +30,7 @@ class PodPickSwipeViewTest {
             .edit().clear().commit()
         val pack = DraftPrivatePack("pack", 1, (1..15).map { DraftCopy("$it", "definition") })
         compose.setContent {
-            ScreenTheme { Surface { PodPickView(pack, DraftSettings.glimpse(), emptyMap(), false, { _, _ -> }, {}) } }
+            ScreenTheme { Surface { PodPickView(pack, DraftSettings.glimpse(), emptyMap(), false, { _, _ -> }) } }
         }
         compose.mainClock.autoAdvance = false
     }

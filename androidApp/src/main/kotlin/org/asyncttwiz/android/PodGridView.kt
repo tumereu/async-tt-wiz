@@ -3,7 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
@@ -40,7 +40,6 @@ fun PodGridView(
     members: List<AccountIdentity>,
     busy: Boolean,
     onConfirm: (gridId: String, line: GridLineType, index: Int) -> Unit,
-    onOpenBuild: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val head = view?.publicView?.grids?.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
@@ -49,29 +48,23 @@ fun PodGridView(
     var selected by remember(head, log.count { it.gridId == head?.id }) { mutableStateOf<GridLine?>(null) }
     val rules = if (head != null) PodGridRules(head, view.mine) else null
     val waiting = view?.publicView?.grids.orEmpty().count { it.currentPlayer == view?.mine?.player } - if (head != null) 1 else 0
-    val inspection = remember { CardInspectionController() }
-    val inspect: (DraftCopy) -> Unit = { copy ->
-        definitions[copy.definition]?.takeIf { it.faces.isNotEmpty() }?.let {
-            inspection.open(InspectedCard.retained(copy.definition, it))
-        }
-    }
+    var inspected by remember { mutableStateOf<DraftCopy?>(null) }
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        if (head == null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Waiting for ${view?.publicView?.grids.orEmpty().mapNotNull { it.currentPlayer }.distinct()
-                .joinToString { player -> members.find { it.accountId == player }?.username ?: player }
-                .ifEmpty { "the next grid" }}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            TextButton(onOpenBuild) { Text("Build") }
-        }
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+        val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
+        if (head == null && boards.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            PodPickWaiting()
+        } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
+            if (head == null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                PodPickWaiting()
+            }
             boards.forEach { board -> key(board.id) {
                 val boardRules = view?.let { PodGridRules(board, it.mine) }
                 Text("Grid ${board.number}/$totalGrids" + if (waiting > 0) " · +$waiting waiting" else "",
                     Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
                 PodGridLog(log.filter { it.gridId == board.id }, definitions, members)
                 PodGridBoard(board, boardRules, selected.takeIf { head?.id == board.id }, !busy,
-                    onSelect = { selected = it }, definitions = definitions, inspect = inspect)
+                    onSelect = { selected = it }, definitions = definitions, inspect = { inspected = it })
             } }
         }
         if (head != null) Button(onClick = {
@@ -81,7 +74,7 @@ fun PodGridView(
             Text("Confirm")
         }
     }
-    CardInspection(inspection)
+    inspected?.let { PodPickArtPreview(it, definitions[it.definition]) }
 }
 
 @Composable
@@ -103,7 +96,7 @@ private fun PodGridLog(log: List<GridPublicPickLog>, definitions: Map<String, Ca
 
 @Composable
 private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
-    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy) -> Unit) {
+    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy?) -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Spacer(Modifier.width(40.dp))
@@ -127,8 +120,12 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
                         .border(if (highlighted) 3.dp else 1.dp,
                             if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                             MaterialTheme.shapes.extraSmall).padding(3.dp)) {
-                        if (copy != null) PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize()
-                            .combinedClickable(onClick = {}, onLongClick = { inspect(copy) }))
+                        if (copy != null) {
+                            val currentInspect by rememberUpdatedState(inspect)
+                            PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize().pointerInput(copy) {
+                                podPickGestures(onTap = {}, onInspect = { currentInspect(if (it) copy else null) })
+                            })
+                        }
                     }
                 }
             }

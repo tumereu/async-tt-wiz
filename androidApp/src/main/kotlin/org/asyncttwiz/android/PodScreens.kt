@@ -35,6 +35,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
     lobby: LobbyController?, manageCubes: () -> Unit) {
     val state = controller.state
     val pickTab = state.detail?.phase == PodPhase.DRAFTING && state.tab == PodTab.DRAFT
+    val playScreen = state.detail?.phase?.let { it != PodPhase.SETUP } == true
     val pickMessages = remember { SnackbarHostState() }
     LaunchedEffect(pickTab, state.error, state.notice, state.uncertain) {
         if (pickTab) (state.error ?: state.notice ?: "Request not confirmed".takeIf { state.uncertain })?.let {
@@ -57,7 +58,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
     BackHandler(state.selected != null || state.creating != null) { controller.back() }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            if (!pickTab) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
+            if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
                     ScreenIconButton("New pod", "add", { controller.newPod() })
                 } else {
@@ -258,22 +259,18 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
     Column(Modifier.fillMaxSize()) {
-        TabRow(tabs.indexOf(selected)) {
-            tabs.forEach { tab -> Tab(selected == tab, { controller.tab(tab) }, text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
-        }
-        if (selected == PodTab.DRAFT && detail.settings.mode == DraftMode.GRID) PodDraftMemberRow(detail) {
+        PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
         }
+        if (selected == PodTab.DRAFT && detail.settings.mode == DraftMode.GRID) PodDraftMemberRow(detail)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
-                    controller::gridSelect, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
+                    controller::gridSelect, Modifier.fillMaxSize())
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
-                    state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize(), chrome = { control ->
-                        PodDraftMemberRow(detail, control) {
-                            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
-                        }
+                    state.uncertain, controller::pick, Modifier.fillMaxSize(), chrome = { control ->
+                        PodDraftMemberRow(detail, control)
                     })
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
@@ -287,7 +284,23 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-internal fun PodDraftMemberRow(detail: PodDetail, controls: @Composable () -> Unit = {}, overflow: @Composable () -> Unit) {
+internal fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit, overflow: @Composable () -> Unit) {
+    Surface {
+        Row(Modifier.fillMaxWidth().testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
+            TabRow(tabs.indexOf(selected), Modifier.weight(1f)) {
+                tabs.forEach { tab -> Tab(selected == tab, { select(tab) },
+                    text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
+            }
+            Box(Modifier.width(40.dp).height(48.dp), contentAlignment = Alignment.Center) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }
+                HorizontalDivider(Modifier.align(Alignment.BottomCenter))
+            }
+        }
+    }
+}
+
+@Composable
+internal fun PodDraftMemberRow(detail: PodDetail, controls: @Composable () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 8.dp).testTag("pod-draft-members"),
         verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -309,7 +322,6 @@ internal fun PodDraftMemberRow(detail: PodDetail, controls: @Composable () -> Un
             }
         }
         controls()
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }
     }
 }
 

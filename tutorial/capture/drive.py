@@ -1,8 +1,8 @@
 """Drive an Android emulator for tutorial capture.
 
 Coordinates are screen pixels of the 1080x2340 override display. Touches go
-through raw/inject (static binary, see inject.c) for exact timing, so double taps,
-holds, drags and pinches behave like a real finger.
+through Inject.java (run with app_process) for exact timing, so double taps,
+holds, drags and pinches behave like a real finger. Build it with build-inject.sh.
 """
 import math
 import re
@@ -16,21 +16,19 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RAW = HERE / "raw"
 W, H = 1080, 2340
-TOUCH = "/dev/input/event1"
 REMOTE = "/data/local/tmp"
 FRAME_MS = 12
 
 
 def _raw(x, y):
-    return round(x * 32767 / W), round(y * 32767 / H)
+    return round(x, 1), round(y, 1)
 
 
 class Device:
     def __init__(self, serial):
         self.serial = serial
         self._recorder = None
-        self.adb("push", str(RAW / "inject"), f"{REMOTE}/inject", quiet=True)
-        self.sh(f"chmod 755 {REMOTE}/inject")
+        self.adb("push", str(RAW / "inject.jar"), f"{REMOTE}/inject.jar", quiet=True)
 
     # --- plumbing -------------------------------------------------------
     def adb(self, *args, quiet=False, check=True):
@@ -47,7 +45,7 @@ class Device:
             f.write("\n".join(ops) + "\n")
         self.adb("push", f.name, f"{REMOTE}/g.txt", quiet=True)
         Path(f.name).unlink()
-        self.sh(f"{REMOTE}/inject {TOUCH} {REMOTE}/g.txt")
+        self.sh(f"CLASSPATH={REMOTE}/inject.jar app_process / Inject {REMOTE}/g.txt")
 
     # --- gestures -------------------------------------------------------
     @staticmethod
@@ -133,21 +131,23 @@ class Device:
         return small
 
     def record_start(self, name):
-        self.sh("rm -f /sdcard/rec.mp4", check=False)
-        self._recorder = subprocess.Popen(["adb", "-s", self.serial, "shell", "screenrecord", "--bit-rate", "20000000",
-                                           "/sdcard/rec.mp4"])
-        self._record_name = name
-        time.sleep(1.0)
+        """Start screenrecord detached on the device (survives this Python process; max 180 s)."""
+        self.sh("pkill -INT screenrecord; rm -f /sdcard/rec.mp4", check=False)
+        self.sh(f"echo {name} > /sdcard/rec.name; nohup screenrecord --bit-rate 20000000 /sdcard/rec.mp4 "
+                ">/dev/null 2>&1 &")
+        time.sleep(1.2)
 
     def record_stop(self, out_dir):
         time.sleep(0.6)
         self.sh("pkill -INT screenrecord", check=False)
-        self._recorder.wait(timeout=20)
-        time.sleep(1.0)
-        out = Path(out_dir) / f"{self._record_name}.mp4"
+        for _ in range(40):
+            if not self.sh("pidof screenrecord", check=False).strip():
+                break
+            time.sleep(0.25)
+        name = self.sh("cat /sdcard/rec.name").strip()
+        out = Path(out_dir) / f"{name}.mp4"
         out.parent.mkdir(parents=True, exist_ok=True)
         self.adb("pull", "/sdcard/rec.mp4", str(out))
-        self._recorder = None
         return out
 
     @contextmanager

@@ -30,6 +30,25 @@ import org.asyncttwiz.storage.StorageOpenFailure
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    private val updates get() = ViewModelProvider(this)[AppUpdateViewModel::class.java]
+    private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        updates.permissionReturned(packageManager.canRequestPackageInstalls())
+    }
+    private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    private fun installUpdate(apk: java.io.File) {
+        try {
+            if (!packageManager.canRequestPackageInstalls()) {
+                updates.awaitingPermission(true)
+                installPermission.launch(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    android.net.Uri.parse("package:$packageName")))
+            } else {
+                val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.updates", apk)
+                installer.launch(android.content.Intent(android.content.Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            }
+        } catch (_: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed() }
+    }
     private var resumed by mutableStateOf(false)
     private var notificationRoute by mutableStateOf<ActivityRoute?>(null)
     private fun consumeActivityIntent(intent: android.content.Intent?) {
@@ -72,6 +91,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         resumed = true
         fullscreen()
+        updates.foreground()
+        updates.resumePermission(packageManager.canRequestPackageInstalls())
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         auth.controller.foreground()
@@ -99,6 +120,13 @@ class MainActivity : ComponentActivity() {
         fullscreen()
         setContent {
             MaterialTheme {
+                LaunchedEffect(auth.lobby.state.connectionMessage) {
+                    if (auth.lobby.state.connectionMessage == "Update the app to continue this game") updates.requireForRules()
+                }
+                if (updates.required || updates.initialCheck) {
+                    AppUpdateScreen(updates, ::installUpdate)
+                    return@MaterialTheme
+                }
                 val state = auth.controller.state
                 val token = auth.controller.sessionToken()
                 SideEffect {

@@ -7,7 +7,7 @@ non-gameplay pilot plus a live/history gameplay extension, in portrait and
 landscape with compiled review documents. Its layouts remain reviewable;
 full gameplay visual-state coverage/final design and the UI gate remain incomplete.
 D-273 selects Android
-10+ (API 29), signed APK distribution and manual updates as specified below.
+10+ (API 29), signed APK distribution and forced in-app updates as specified below.
 
 Confirmed card gestures and proposed drag/pile/intent details are defined in
 [Game board and controls](board-and-controls.md), the primary tabletop-input
@@ -76,10 +76,18 @@ origin (`https://desktop-b2kalvm.tail27cccc.ts.net:10443`); catalog/art retain
 their normal public providers. App-private storage and Keystore remain isolated
 by Android UID; reset links use the test host and validate the full origin.
 
-**Confirmed:** initially distribute versioned **signed APK downloads**, without
-requiring Google Play. Users install updates through Android's normal installer;
-there is no custom in-app updater requirement. GitHub Releases is an example host,
-not a separately selected release-hosting service or production deployment task.
+**Round 18:** install the signed production APK manually once, without Google Play.
+On startup and each foreground return, check the API origin's public `/app/latest`
+(`versionCode`, `versionName`, `sha256`, `size`). A newer code blocks all main UI
+behind “Update required”; offline/404 checks do not block unless persisted metadata
+already requires an update. A newer-rules handshake enters the same gate. Update
+downloads `/app/apk` into private cache, verifies exact size and SHA-256, requests
+per-package unknown-source permission if needed, then opens Android's installer.
+Cancellation never dismisses the gate. Background checks have no loading UI.
+The server reads `APP_RELEASE_DIR/latest.json` and `<sha256>.apk`; missing/unset
+releases return 404. Publish immutable APK first and replace metadata atomically.
+Production releases use an explicitly approved commit and a strictly increasing
+allocated code; the side-by-side test variant alone uses a local monotonic override.
 Keep a stable package name/signing identity so compatible updates preserve app
 data; keep signing keys out of Git and the distributed APK's embedded secrets.
 
@@ -101,12 +109,13 @@ data; keep signing keys out of Git and the distributed APK's embedded secrets.
   requests before mutation, not erase pending work, fabricate rejection of an
   unknown-outcome request or silently reinterpret it. After a compatible upgrade,
   recover original outcomes/identities under the existing rules. Preserve already
-  supported downloaded read-only access rather than forcing a destructive reset.
+   stored data rather than forcing a destructive reset; the update gate takes priority
+   over main UI access.
 
 Define supported upgrade/compatibility paths and verify migrations. Exact wire
 negotiation/error fields, compatibility windows and update-message presentation
-remain technical/UI work, not indefinite support for every old protocol or a new
-automatic updater. See [release/compatibility design](../04-technical/android-distribution-and-compatibility.md).
+remain technical/UI work, not indefinite support for every old protocol.
+See [release/compatibility design](../04-technical/android-distribution-and-compatibility.md).
 
 ## 5.1 Navigation and screens
 

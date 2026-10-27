@@ -60,7 +60,7 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/{submit,cancel}. The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */
-@Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList())
+@Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList(), val librarians: List<String> = emptyList())
 /** POST /v1/pods/{id}/grid/select; index is zero-based (0..2). */
 @Serializable data class SelectPodGrid(val requestId: String, val draftAttemptId: String, val gridId: String,
     val line: GridLineType, val index: Int)

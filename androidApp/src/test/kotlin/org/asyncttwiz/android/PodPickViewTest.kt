@@ -108,6 +108,33 @@ class PodPickViewTest {
         compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
     }
 
+    @Test fun librarianChipHoldSlotsRefundAndConfirmKeepTrayGeometryStable() {
+        val librarian = DraftCopy("l1", "librarian", librarian = true)
+        var confirmed: List<String>? = null
+        compose.setContent { ScreenTheme { Surface {
+            PodPickView(pack, DraftSettings(keep = 1, burn = 2), definitions, false, { _, _ -> },
+                librarians = listOf(librarian), onConfirmLibrarians = { _, _, spent -> confirmed = spent })
+        } } }
+        val keep = compose.onNodeWithTag("pod-pick-keep-tray")
+        val burn = compose.onNodeWithTag("pod-pick-burn-tray")
+        val beforeKeep = keep.fetchSemanticsNode().boundsInRoot
+        val beforeBurn = burn.fetchSemanticsNode().boundsInRoot
+        val chip = compose.onNodeWithContentDescription("Librarian, 1 left")
+        assertHoldPreview(chip)
+        chip.performClick()
+        compose.onNodeWithText("Confirm · 1 Librarian").assertIsNotEnabled()
+        assertEquals(beforeKeep, keep.fetchSemanticsNode().boundsInRoot)
+        assertEquals(beforeBurn, burn.fetchSemanticsNode().boundsInRoot)
+        compose.onNodeWithTag("pod-librarian-slot-l1").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Librarian, 1 left").assertExists().performScrollTo().performClick()
+        for (id in listOf("1", "2")) { card(id).performClick(); compose.onNodeWithText("Keep").performClick() }
+        for (id in listOf("3", "4")) { card(id).performClick(); compose.onNodeWithText("Burn").performClick() }
+        compose.onNodeWithText("Confirm · 1 Librarian").assertIsEnabled().performClick()
+        assertEquals(listOf("l1"), confirmed)
+        assertEquals(beforeKeep, keep.fetchSemanticsNode().boundsInRoot)
+        assertEquals(beforeBurn, burn.fetchSemanticsNode().boundsInRoot)
+    }
+
     @Test fun movingPastSlopAfterHoldDismissesWithoutMarkingOrOpeningMenu() {
         show()
         card("1").performTouchInput { down(center); advanceEventTime(160) }

@@ -75,6 +75,25 @@ class PodService(private val runtime: ServiceRuntime) {
     }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 
+    private fun validateLibrarian(settings: DraftSettings): Result? {
+        val card = settings.librarianDefinition
+        if (settings.librarians > 0 && card == null) return error(400, "librarian_definition_unavailable")
+        if (card != null && (card.definition.name != "Cogwork Librarian" || !DeckValidation.digest(card.digest) ||
+                !DeckValidation.definition(card.definition) || DeckJson.digest(card.definition) != card.digest))
+            return error(400, "invalid_definition")
+        return null
+    }
+
+    private fun storeLibrarian(sql: DSLContext, settings: DraftSettings) {
+        settings.librarianDefinition?.let { card ->
+            sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, card.digest).set(DEFINITION.SCHEMA_VERSION, card.definition.schemaVersion)
+                .set(DEFINITION.PAYLOAD, DeckJson.canonical(card.definition)).onConflictDoNothing().execute()
+        }
+    }
+
+    private fun librarianDigests(sql: DSLContext, digests: Set<String>) =
+        PreparationStore.definitions(sql, digests).filter { it.definition.name == "Cogwork Librarian" }.map { it.digest }.toSet()
+
     private fun validateSet(input: PodSetSource): Result? {
         if (input.snapshot.validate().isNotEmpty()) return error(400, "invalid_set_snapshot")
         val definitions = input.definitions
@@ -124,6 +143,8 @@ class PodService(private val runtime: ServiceRuntime) {
                 DraftMode.GRID -> DraftSettings.grid()
                 DraftMode.BOOSTER -> DraftSettings.booster()
             }
+            validateLibrarian(settings)?.let { return@business it }
+            storeLibrarian(sql, settings)
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
                 .set(POD.SOURCE_NAME, snapshot?.first ?: input.setSource!!.snapshot.setName)
@@ -145,6 +166,8 @@ class PodService(private val runtime: ServiceRuntime) {
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@mutate error(404, "cube_not_found") }
             input.name?.let { row.name = it }
             input.settings?.let { row.settings = encoded(it) }
+            validateLibrarian(settings(row))?.let { return@mutate it }
+            storeLibrarian(sql, settings(row))
             snapshot?.let { row.sourceName = it.first; row.sourceSnapshot = encoded(it.second) }
             input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot) }
             save(sql, row)
@@ -190,6 +213,7 @@ class PodService(private val runtime: ServiceRuntime) {
             if (players.size < 2) return@mutate error(409, "not_enough_members")
             val settings = settings(row); val cube = source(row)
             if (settings.validate(players.size).isNotEmpty()) return@mutate error(400, "invalid_settings")
+            validateLibrarian(settings)?.let { return@mutate it }
             if (!supply(row, players.size).sufficient) return@mutate error(409, "insufficient_supply")
             val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
             row.draftAttemptId = UUID.randomUUID()
@@ -205,8 +229,10 @@ class PodService(private val runtime: ServiceRuntime) {
                 }
                 advanceGrid(sql, row, null, next)
             } else {
-                val next = if (set == null) DraftEngine.start(players, cube, settings, seed) else
-                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack).map { it.cards }, settings, seed)
+                val digests = librarianDigests(sql, (cube.map { it.definition } + set?.cards.orEmpty().map { it.definition }).toSet())
+                val next = if (set == null) DraftEngine.start(players, cube.map { it.copy(librarian = it.definition in digests) }, settings, seed) else
+                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack)
+                        .map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
                 advance(sql, row, null, next)
             }
             detail(sql, row, owner)
@@ -218,7 +244,7 @@ class PodService(private val runtime: ServiceRuntime) {
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
             if (settings(row).mode == DraftMode.GRID) return@mutate error(409, "wrong_draft_mode")
             val previous = state(row)!!
-            val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn))
+            val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn, input.librarians))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
             advance(sql, row, previous, result.state!!)
             detail(sql, row, owner)
@@ -422,7 +448,8 @@ class PodService(private val runtime: ServiceRuntime) {
         for (member in members(sql, row.id!!)) {
             val owner = member.accountId!!; val player = owner.toString()
             val build = json.decodeFromString<PodDeckBuild>(member.build!!.data())
-            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
+            val initialSide = if (previous == null) next.copies.filter { it.librarian && it.id.startsWith("librarian:") }.map { it.id }.toSet() else emptySet()
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withDraftPool(build, next.pools.getValue(player), initialSide)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             val hadPacks = previous?.queues?.get(player).orEmpty().isNotEmpty()
             if ((!hadPacks || previous?.round != next.round) && next.queues.getValue(player).isNotEmpty())

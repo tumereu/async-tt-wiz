@@ -19,9 +19,13 @@ data class DraftSettings(
     val grids: Int = 18,
     val twoPicks: Boolean = false,
     val gridsOpenAtOnce: Int = 1,
+    val librarians: Int = 0,
+    /** Catalog snapshot supplied by the creator; not part of pack supply. */
+    val librarianDefinition: SubmittedDefinition? = null,
 ) {
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
         if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
+        if (librarians !in 0..10 || mode == DraftMode.GRID && librarians != 0) add(DraftSettingsIssue.LIBRARIANS)
         if (mode == DraftMode.GRID) {
             if (players !in 2..4) add(DraftSettingsIssue.PLAYERS)
             if (grids !in 1..60) add(DraftSettingsIssue.GRIDS)
@@ -54,11 +58,11 @@ data class DraftSettings(
 @Serializable enum class DraftSettingsIssue {
     PLAYERS, PACKS_PER_PLAYER, CARDS_PER_PACK, KEEP, BURN, KEEP_AND_BURN,
     DISCARD_REMAINING_AT, PACKS_OPEN_AT_ONCE, SIDEBOARD_LIMIT,
-    GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE,
+    GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS,
 }
 
-@Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet())
-@Serializable data class DraftCopy(val id: String, val definition: String, val colors: Set<DraftColor> = emptySet())
+@Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)
+@Serializable data class DraftCopy(val id: String, val definition: String, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)
 @Serializable data class DraftSupply(val needed: Long, val available: Long) {
     val sufficient: Boolean get() = needed <= available
 }

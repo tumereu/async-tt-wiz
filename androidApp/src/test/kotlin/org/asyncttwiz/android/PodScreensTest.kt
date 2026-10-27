@@ -32,7 +32,7 @@ class PodScreensTest {
         } }
         val field = compose.onNode(hasSetTextAction())
         compose.onNodeWithText("1–3").assertExists()
-        compose.onNodeWithText("Pack size − burn: 3").assertExists()
+        compose.onNodeWithText("Pack size − burn: 3").assertDoesNotExist()
         for (invalid in listOf("", "0", "4", "999999999999999999999999")) {
             field.performTextReplacement(invalid)
             compose.onNodeWithText("Save").assertIsNotEnabled()

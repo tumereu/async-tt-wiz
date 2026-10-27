@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -20,12 +22,16 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -67,6 +73,8 @@ fun PodPickView(
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically) { control() }
     },
+    librarians: List<DraftCopy> = emptyList(),
+    onConfirmLibrarians: ((List<String>, List<String>, List<String>) -> Unit)? = null,
 ) {
     val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
@@ -82,7 +90,8 @@ fun PodPickView(
         return
     }
 
-    val rules = remember(pack, settings) { PodPickRules(pack, settings) }
+    val rules = remember(pack, settings, marks.librarians.size) { PodPickRules(pack, settings, marks.librarians.size) }
+    val baseRules = remember(pack, settings) { PodPickRules(pack, settings) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val preferences = rememberPodPickPreferences()
     val preferenceKey = if (landscape) "columns-landscape" else "columns-portrait"
@@ -123,12 +132,17 @@ fun PodPickView(
                 }
             }
         }
-        PodPickTrays(marks.keeps, burnIds, rules, copies, definitions, unmark, inspect,
-            onInspectScroll = { previewScroll.dispatchRawDelta(it) })
+        PodPickTrays(marks.keeps, burnIds, rules, baseRules, copies, definitions, unmark, inspect,
+            onInspectScroll = { previewScroll.dispatchRawDelta(it) },
+            spent = marks.librarians, librarians = librarians,
+            spend = { packMarks[pack] = marks.spendLibrarian(librarians.map { it.id }, pack, settings) },
+            refund = { packMarks[pack] = marks.refundLibrarian(it, pack, settings) })
         Button(onClick = { if (rules.canConfirm(marks, busy)) {
-            onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
+            if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
+            else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
         } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
-            Text("Confirm")
+            Text(if (marks.librarians.isEmpty()) "Confirm" else
+                "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
@@ -208,30 +222,82 @@ internal fun PodPickWaiting() {
 
 @Composable
 private fun PodPickTrays(
-    keeps: List<String>, burns: List<String>, rules: PodPickRules,
+    keeps: List<String>, burns: List<String>, rules: PodPickRules, baseRules: PodPickRules,
     copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
     onInspectScroll: (Float) -> Unit,
+    spent: List<String>, librarians: List<DraftCopy>, spend: () -> Unit, refund: (String) -> Unit,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val style = MaterialTheme.typography.bodySmall
-    val keepLabel = with(density) { measurer.measure(AnnotatedString("✓ ${rules.requiredKeeps}/${rules.requiredKeeps}"), style).size.width.toDp() + 4.dp }
-    val burnLabel = with(density) { measurer.measure(AnnotatedString("🔥 ${rules.requiredBurns}/${rules.requiredBurns}"), style).size.width.toDp() + 4.dp }
+    // Freeze geometry for the pack. Extra slots and the chip pan within the original keep tray.
+    val keepLabel = with(density) { measurer.measure(AnnotatedString("✓ ${baseRules.requiredKeeps + librarians.size}/${baseRules.requiredKeeps + librarians.size}"), style).size.width.toDp() + 4.dp }
+    val burnLabel = with(density) { measurer.measure(AnnotatedString("🔥 ${baseRules.requiredBurns}/${baseRules.requiredBurns}"), style).size.width.toDp() + 4.dp }
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-        val layout = podPickTrayLayout(maxWidth, rules.requiredKeeps, rules.requiredBurns, keepLabel, burnLabel)
+        val layout = podPickTrayLayout(maxWidth, baseRules.requiredKeeps, baseRules.requiredBurns, keepLabel, burnLabel)
         val keep: @Composable () -> Unit = {
             PodPickTray("Keep", keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
-                false, Modifier.width(layout.keepWidth), keepLabel, onUnmark, onInspect, onInspectScroll)
+                false, Modifier.width(layout.keepWidth), keepLabel, onUnmark, onInspect, onInspectScroll,
+                visibleIds = keeps.take(baseRules.requiredKeeps)) {
+                spent.forEachIndexed { index, id ->
+                    val copy = keeps.getOrNull(baseRules.requiredKeeps + index)?.let(copies::get)
+                    PodLibrarianSlot(id, copy, copy?.let { definitions[it.definition] }, { refund(id) }, onInspect)
+                }
+                librarians.firstOrNull()?.let { librarian ->
+                    val left = librarians.size - spent.size
+                    val currentSpend by rememberUpdatedState(spend)
+                    val currentInspect by rememberUpdatedState(onInspect)
+                    Surface(shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, PodPickGreen), modifier = Modifier.height(48.dp)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = "Librarian, $left left"
+                                onClick { if (left > 0) currentSpend(); true }
+                            }
+                            .pointerInput(left) { podPickGestures(onTap = { if (left > 0) currentSpend() },
+                                onInspect = { currentInspect(if (it) librarian else null) }, onInspectScroll = onInspectScroll) }) {
+                        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(Icons.Default.MenuBook, null, Modifier.size(16.dp))
+                            Text("$left")
+                        }
+                    }
+                }
+            }
         }
         val burn: @Composable () -> Unit = {
-            if (rules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
+            if (baseRules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
                 rules.automaticBurns, Modifier.width(layout.burnWidth), burnLabel, onUnmark, onInspect, onInspectScroll)
         }
         if (layout.singleRow) {
             Row(horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
+        }
+    }
+}
+
+@Composable
+private fun PodLibrarianSlot(id: String, copy: DraftCopy?, definition: CardDefinition?, refund: () -> Unit,
+    inspect: (DraftCopy?) -> Unit) {
+    val color = PodPickGreen
+    val currentRefund by rememberUpdatedState(refund)
+    val currentInspect by rememberUpdatedState(inspect)
+    Surface(modifier = Modifier.width(PodPickTrayCardWidth).height(48.dp)
+        .testTag("pod-librarian-slot-$id").semantics {
+            role = Role.Button
+            contentDescription = "Refund Librarian"
+            onClick { currentRefund(); true }
+        }
+        .pointerInput(copy) { podPickGestures(onTap = { currentRefund() },
+            onInspect = { currentInspect(if (it) copy else null) }) }) {
+        Box {
+            if (copy != null) PodPickArtwork(copy, definition, Modifier.fillMaxSize())
+            Canvas(Modifier.matchParentSize()) {
+                drawRoundRect(color, style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))))
+            }
+            Icon(Icons.Default.MenuBook, "Librarian", Modifier.align(Alignment.TopEnd).background(color).size(14.dp), tint = Color.White)
         }
     }
 }
@@ -396,6 +462,8 @@ private fun PodPickTray(
     modifier: Modifier, labelWidth: Dp,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
     onInspectScroll: (Float) -> Unit,
+    visibleIds: List<String> = ids,
+    trailing: @Composable RowScope.() -> Unit = {},
 ) {
     val currentOnUnmark by rememberUpdatedState(onUnmark)
     val currentOnInspect by rememberUpdatedState(onInspect)
@@ -407,7 +475,7 @@ private fun PodPickTray(
         Row(Modifier.weight(1f).height(48.dp).testTag("pod-pick-${label.lowercase()}-cards")
             .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ids.forEach { id -> copies[id]?.let { copy ->
+            visibleIds.forEach { id -> copies[id]?.let { copy ->
                 key(id) {
                     PodPickArtwork(copy, definitions[copy.definition], Modifier.width(PodPickTrayCardWidth).fillMaxHeight()
                         .testTag("pod-pick-tray-$id").semantics {
@@ -419,6 +487,7 @@ private fun PodPickTray(
                         })
                 }
             } }
+            trailing()
         }
     }
 }

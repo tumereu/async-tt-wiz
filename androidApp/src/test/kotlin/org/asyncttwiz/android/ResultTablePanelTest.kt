@@ -9,6 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ExposureNeg1
+import androidx.compose.material.icons.outlined.ExposurePlus1
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,9 +30,18 @@ class ResultTablePanelTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun outcomeDrawUsesHandshakeWithoutChangingDrawCardIcon() {
-        assertEquals(Icons.Outlined.Handshake, menuIcon("Draw"))
+        assertEquals(Icons.Outlined.Handshake, menuIcon("Draw game"))
         assertEquals(Icons.Outlined.Handshake, menuIcon("Suggest draw"))
+        // The draw step and library Draw keep the draw-card icon.
+        assertEquals(Icons.Outlined.Download, menuIcon("Draw"))
         assertEquals(Icons.Outlined.Download, menuIcon("Draw N"))
+    }
+
+    @Test fun singleValuePowerToughnessStepsUseSignedIcons() {
+        assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("+1/+0"))
+        assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("EOT +0/+1"))
+        assertEquals(Icons.Outlined.ExposureNeg1, menuIcon("−1/−0"))
+        assertEquals(Icons.Outlined.ExposureNeg1, menuIcon("EOT +0/−1"))
     }
 
     @Test fun onTablePanelHasRoleSpecificButtonsWithoutModalBackOrOutsideTapHandling() {

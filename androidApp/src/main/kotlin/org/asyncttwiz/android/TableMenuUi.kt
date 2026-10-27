@@ -40,6 +40,9 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
+        // Single-value P/T steps ("+1/+0", "EOT −1/−0", ...): the sign of the changed value picks the icon.
+        Regex("""(eot )?[+−-][01]/[+−-][01]""").matches(n) ->
+            if (n.removePrefix("eot ").split("/").any { it == "+1" }) Icons.Outlined.ExposurePlus1 else Icons.Outlined.ExposureNeg1
         n == "draw + go to main" -> Icons.Outlined.Download
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward
@@ -79,7 +82,7 @@ internal fun menuIcon(name: String): ImageVector {
         "select" in n -> MultipleSelectionIcon
         "battlefield" in n -> Icons.Outlined.TableRows
         "shuffle" in n || "return hand" in n || n.startsWith("mull") -> Icons.Outlined.Shuffle
-        "suggest draw" in n || n == "draw" -> Icons.Outlined.Handshake
+        "suggest draw" in n || n == "draw game" -> Icons.Outlined.Handshake
         n.startsWith("draw") -> Icons.Outlined.Download
         "hand" in n -> HandCardsIcon
         "choose" in n || "beginning of combat" in n || "suggest my loss" in n || n == "suggest game end" || n == "my loss" -> Icons.Outlined.Flag

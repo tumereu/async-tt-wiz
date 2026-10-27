@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
@@ -63,7 +65,9 @@ internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: S
     onDismiss: (() -> Unit)? = null) {
     Popup(alignment = Alignment.Center, onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = onDismiss != null)) {
-        PodArtPreviewContent(card, fallback, scroll)
+        // The dismissable preview covers nearly the whole screen, so a tap on it closes it too.
+        val dismiss = onDismiss?.let { Modifier.pointerInput(it) { detectTapGestures { _ -> it() } } } ?: Modifier
+        Box(dismiss) { PodArtPreviewContent(card, fallback, scroll) }
     }
 }
 

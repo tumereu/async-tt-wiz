@@ -95,11 +95,11 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
         }
     }
     if (ending && outcome == null) TableMenuPanel({ ending = false }, title = "Suggest game end") {
-        for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "My loss" to EndingTool.SUGGEST_LOSS, "Draw" to EndingTool.SUGGEST_DRAW))
+        for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "My loss" to EndingTool.SUGGEST_LOSS, "Draw game" to EndingTool.SUGGEST_DRAW))
             MenuButton(choice.first, Modifier.fillMaxWidth(), enabled) { outcome = choice }
     }
     outcome?.let { chosen ->
-        AlertDialog(onDismissRequest = { outcome = null }, title = { Text("Suggest ${chosen.first.lowercase()}?") },
+        AlertDialog(onDismissRequest = { outcome = null }, title = { Text("Suggest ${chosen.first.lowercase().removeSuffix(" game")}?") },
             confirmButton = { TextButton(enabled = enabled, onClick = {
                 if (perform(TableActionIntent.Ending(scope, chosen.second))) onDismiss()
             }) { Text("Confirm") } },

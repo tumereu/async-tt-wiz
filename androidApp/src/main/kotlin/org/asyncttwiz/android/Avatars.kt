@@ -95,7 +95,7 @@ internal fun avatarCatalogStatus(state: CatalogUiState): String {
 
 @Composable
 private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
-    choose: (org.asyncttwiz.protocol.Avatar) -> Unit, modifier: Modifier = Modifier) {
+    choose: (org.asyncttwiz.protocol.Avatar) -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
     var query by remember { mutableStateOf("") }
     var reroll by remember { mutableIntStateOf(0) }
     var choices by remember { mutableStateOf(emptyList<CatalogAvatar>()) }
@@ -115,15 +115,20 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Avatar(account, size = 80.dp)
+            Avatar(account, size = if (compact) 48.dp else 80.dp)
             FilledTonalIconButton(onClick = { query = ""; reroll++ }, enabled = ready) {
                 Icon(Icons.Outlined.Casino, "Reroll avatars")
             }
         }
+        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search by card name") }, singleLine = true)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (!ready) {
                 val state = catalog?.state ?: CatalogUiState()
-                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                if (compact) {
+                    if (state.error && catalog != null) FilledTonalIconButton(onClick = catalog::consent) {
+                        EntryIcon("Retry catalog download", "refresh")
+                    } else CircularProgressIndicator()
+                } else Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(avatarCatalogStatus(state))
                         state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
@@ -135,11 +140,11 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
                 }
             } else {
                 LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 12.dp)) {
                     items(choices, key = { it.name }) { choice ->
                         Box(Modifier.selectable(account.avatar == choice.avatar, role = Role.Button, onClick = { choose(choice.avatar) })
                             .padding(4.dp), contentAlignment = Alignment.Center) {
-                            Avatar(AccountIdentity(choice.avatar.scryfallId, choice.name, choice.avatar), size = 72.dp,
+                            Avatar(AccountIdentity(choice.avatar.scryfallId, choice.name, choice.avatar), size = if (compact) 48.dp else 72.dp,
                                 modifier = if (account.avatar == choice.avatar) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
                         }
                     }
@@ -149,7 +154,6 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
                 else if (!loading && choices.isEmpty()) Text("No avatars found")
             }
         }
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search by card name") }, singleLine = true)
     }
 }
 
@@ -174,11 +178,11 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
                     shape = MaterialTheme.shapes.extraLarge) {
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Edit profile", style = MaterialTheme.typography.headlineSmall)
-                        AvatarPicker(account.copy(username = name, avatar = avatar), catalog, { avatar = it }, Modifier.height(320.dp))
+                        AvatarPicker(account.copy(username = name, avatar = avatar), catalog, { avatar = it }, Modifier.height(256.dp), compact = true)
                         OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Username") }, singleLine = true)
                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = { controller.editProfile(false) }) { Text("Cancel") }
-                            Button(onClick = { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy) { Text("Save") }
+                            OutlinedIconButton(onClick = { controller.editProfile(false) }) { Icon(menuIcon("Close"), "Cancel profile") }
+                            FilledIconButton(onClick = { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy) { Icon(menuIcon("Set"), "Save profile") }
                         }
                     }
                 }

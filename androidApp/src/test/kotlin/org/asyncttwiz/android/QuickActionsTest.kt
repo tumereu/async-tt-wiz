@@ -68,7 +68,7 @@ class QuickActionsTest {
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Mulligan N", "Mulligan −1"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Mull N", "Mull −1"),
             TurnPosition.UPKEEP to listOf("Draw + go to main"),
             TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
@@ -123,7 +123,7 @@ class QuickActionsTest {
             val defender = QuickContext(viewer = TableToolFixture.id(8))
             val actions = QuickActions.contextual(play, defender, controller)
             assertEquals(when (position) {
-                TurnPosition.UNTAP -> listOf("Mulligan N", "Mulligan −1")
+                TurnPosition.UNTAP -> listOf("Mull N", "Mull −1")
                 TurnPosition.DECLARE_BLOCKERS -> listOf("No blocks + next")
                 else -> emptyList()
             }, actions.map { it.name })

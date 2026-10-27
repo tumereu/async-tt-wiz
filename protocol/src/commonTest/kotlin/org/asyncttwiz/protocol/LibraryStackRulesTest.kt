@@ -18,7 +18,7 @@ class LibraryStackRulesTest {
         val change = GameplayRules.change(original, f.a, command(original))
         val next = assertNotNull(change.state, change.reason)
         val event = assertNotNull(change.mutation)
-        assertEquals(21, event.transition.rulesVersion)
+        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, event.transition.rulesVersion)
         assertEquals(original.board.cards, next.board.cards)
         assertEquals(f.id(9), next.board.stackEffects.single().sourceId)
         assertTrue(next.board.stackEffects.single().revealsLibrarySource)
@@ -34,10 +34,10 @@ class LibraryStackRulesTest {
         assertNull(GameplayHistory.apply(movedSource, decoded))
     }
 
-    @Test fun retainedV20GraveyardAndExileEventsDoNotUpgradeOnReplay() {
-        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+    @Test fun retainedV20AndV21EventsDoNotUpgradeOnReplay() {
+        for ((zone, version) in listOf(PlayZone.GRAVEYARD to 20, PlayZone.EXILE to 20, PlayZone.LIBRARY to 21)) {
             val original = state(zone)
-            val change = CombatStackRules.change(original, f.a, command(original), rulesVersion = 20)
+            val change = CombatStackRules.change(original, f.a, command(original), rulesVersion = version)
             val next = assertNotNull(change.state, change.reason)
             val raw = change.mutation!!
             val delta = GameplayDeltas.capture(original, next, raw.id)
@@ -46,9 +46,9 @@ class LibraryStackRulesTest {
                 bookkeeping = GameplayBookkeeping(original.currentGroup, original.currentBranchId, next.currentGroup)))
             val sealed = recorded.copy(transition = recorded.transition.copy(delta = delta.copy(seal = GameplayDeltas.seal(recorded))))
             val event = GameWire.json.decodeFromString<GameplayMutation>(GameWire.json.encodeToString(sealed))
-            assertEquals(20, event.transition.rulesVersion)
-            assertFalse(next.board.stackEffects.single().revealsLibrarySource)
-            assertFalse("revealsLibrarySource" in GameWire.json.encodeToString(event))
+            assertEquals(version, event.transition.rulesVersion)
+            assertEquals(version >= 21, next.board.stackEffects.single().revealsLibrarySource)
+            assertEquals(version >= 21, "revealsLibrarySource" in GameWire.json.encodeToString(event))
             assertEquals(next, GameplayHistory.apply(original, event))
             assertEquals(original, GameplayHistory.unapply(next, event))
             assertEquals(event.transition, GameplayHistory.replay(original, event).mutation!!.transition)

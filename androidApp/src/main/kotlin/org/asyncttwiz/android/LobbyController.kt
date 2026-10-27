@@ -222,6 +222,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val actor = accountId() ?: return false
         return !closed && session?.acceptResult(game, actor, target) == true
     }
+    fun rejectResult(target: ResultAcceptanceTarget): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        return !closed && session?.rejectResult(game, actor, target) == true
+    }
     fun ready() = readiness(GameAction.Ready)
     fun withdrawReady() = readiness(GameAction.WithdrawReady)
     fun changePodBasic(land: BasicLand, delta: Int): Boolean {

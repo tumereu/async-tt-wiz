@@ -15,6 +15,36 @@ class GameResultLifecycleTest {
     private fun suggest(outcome: SuggestedResult = SuggestedResult.WIN, actor: String = a.accountId, n: Int = 10) =
         GameplayRules.change(play(), actor, command(GameAction.Play(PlayAction.SuggestResult(outcome)), n))
 
+    @Test fun declineIsExactOpponentOnlyVersion22StateAndItsUndoProtectsTheSuggestionTuple() {
+        val proposalCommand = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))
+        val proposedTree = GameplayTree(play()).play(a.accountId, proposalCommand).tree!!
+        val proposed = proposedTree.stateAt(proposedTree.currentNodeId)!!
+        val suggestion = proposed.board.resultSuggestion!!
+        val decline = command(GameAction.Play(PlayAction.DeclineResult(suggestion.id)), 12)
+        assertEquals(decline, GameWire.decodeClient(GameWire.json.encodeToString(GameClientMessage.serializer(), decline)))
+        assertEquals("otherPlayerRequired", GameplayRules.change(proposed, a.accountId, decline).reason)
+        assertEquals("inapplicable", GameplayRules.change(proposed, b.accountId,
+            decline.copy(action = GameAction.Play(PlayAction.DeclineResult(id(99))))).reason)
+        val change = GameplayRules.change(proposed, b.accountId, decline)
+        val event = change.mutation!!
+        assertEquals(22, event.transition.rulesVersion)
+        assertEquals(ResultSuggestionChange(suggestion, null), event.transition.resultSuggestion)
+        assertNotNull(event.transition.concerns)
+        assertEquals(proposed.board.copy(resultSuggestion = null), change.state!!.board)
+        assertEquals(change.state, GameplayHistory.apply(proposed, event))
+        assertEquals(proposed, GameplayHistory.unapply(change.state!!, event))
+        assertEquals(change, GameplayHistory.replay(proposed, event))
+        val old = event.copy(transition = event.transition.copy(rulesVersion = 21))
+        val sealedOld = old.copy(transition = old.transition.copy(delta = old.transition.delta!!.copy(seal = GameplayDeltas.seal(old))))
+        assertNull(GameplayHistory.apply(proposed, sealedOld))
+        val declinedTree = proposedTree.play(b.accountId, decline).tree!!
+        assertNotNull(SelectiveUndo.change(declinedTree, a.accountId, command(GameAction.Undo, 13)).reason)
+        val restored = SelectiveUndo.change(declinedTree, b.accountId, command(GameAction.Undo, 14)).tree!!
+        assertEquals(proposed.board, restored.stateAt(restored.currentNodeId)!!.board)
+        assertNull(SelectiveUndo.change(restored, a.accountId, command(GameAction.Undo, 15)).tree!!
+            .stateAt(play().root.id)!!.board.resultSuggestion)
+    }
+
     @Test fun allOutcomesHaveSharedExactHistoryTuplesAndReplayNotUnilateralEnd() {
         for (outcome in SuggestedResult.entries) {
             val change = suggest(outcome)
@@ -30,6 +60,70 @@ class GameResultLifecycleTest {
             assertEquals("inapplicable", GameplayRules.change(state, b.accountId,
                 command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)), 12)).reason)
         }
+    }
+
+    @Test fun withdrawIsExactSuggesterOnlyVersion22EventWithRecordedReplayAndInverse() {
+        for (outcome in SuggestedResult.entries) {
+            val proposed = suggest(outcome).state!!
+            val suggestion = proposed.board.resultSuggestion!!
+            val withdraw = command(GameAction.Play(PlayAction.WithdrawResult(suggestion.id)), 12)
+            assertEquals(withdraw, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(withdraw)))
+            assertFalse(GameWire.valid(withdraw.copy(action = GameAction.Play(PlayAction.WithdrawResult("invalid")))))
+            assertEquals("accessDenied", GameplayRules.change(proposed, b.accountId, withdraw).reason)
+            assertEquals("accessDenied", GameplayRules.change(proposed, id(99), withdraw).reason)
+            assertEquals("inapplicable", GameplayRules.change(play(), a.accountId, withdraw).reason)
+            assertEquals("inapplicable", GameplayRules.change(proposed, a.accountId,
+                withdraw.copy(action = GameAction.Play(PlayAction.WithdrawResult(id(99))))).reason)
+            val change = GameplayRules.change(proposed, a.accountId, withdraw)
+            val event = change.mutation!!
+            assertEquals(22, event.transition.rulesVersion)
+            assertEquals(ResultSuggestionChange(suggestion, null), event.transition.resultSuggestion)
+            assertTrue(event.transition.concerns!!.fields.any { tuple ->
+                val field = tuple.field as? ConcernField.Written ?: return@any false
+                event.transition.delta!!.entities[field.entity].kind == "result"
+            })
+            assertEquals(proposed.board.copy(resultSuggestion = null), change.state!!.board)
+            assertEquals(HistoryCategory.S.key, change.state.currentGroup!!.category)
+            assertEquals("1", change.state.currentGroup!!.count)
+            assertNotEquals(proposed.currentGroup!!.id, change.state.currentGroup!!.id)
+            assertEquals(change.state, GameplayHistory.apply(proposed, event))
+            assertEquals(proposed, GameplayHistory.unapply(change.state, event))
+            assertEquals(change, GameplayHistory.replay(proposed, event))
+            assertEquals("inapplicable", GameplayRules.change(change.state, a.accountId, withdraw).reason)
+            assertEquals("replayBlocked", GameplayHistory.replay(play(), event).reason)
+            for (different in listOf(suggestion.copy(id = id(99)), suggestion.copy(author = b.accountId),
+                suggestion.copy(outcome = SuggestedResult.entries.first { it != outcome }))) {
+                assertEquals("replayBlocked", GameplayHistory.replay(proposed.copy(board = proposed.board.copy(
+                    resultSuggestion = different)), event).reason)
+            }
+            val old = event.copy(transition = event.transition.copy(rulesVersion = 21))
+            val sealedOld = old.copy(transition = old.transition.copy(delta = old.transition.delta!!.copy(seal = GameplayDeltas.seal(old))))
+            assertNull(GameplayHistory.apply(proposed, sealedOld))
+        }
+    }
+
+    @Test fun restoredDeclineCanBeWithdrawnAfterAuthorsLaterLifeEditAndWithdrawHasOrdinarySelectiveUndo() {
+        val proposed = GameplayTree(play()).play(a.accountId,
+            command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))).tree!!
+        val suggestion = proposed.stateAt(proposed.currentNodeId)!!.board.resultSuggestion!!
+        val declined = proposed.play(b.accountId, command(GameAction.Play(PlayAction.DeclineResult(suggestion.id)), 12)).tree!!
+        val adjusted = declined.play(a.accountId, command(GameAction.Play(PlayAction.AdjustLife(a.accountId, "-1")), 13)).tree!!
+        val restored = SelectiveUndo.change(adjusted, b.accountId, command(GameAction.Undo, 14)).tree!!
+        val pending = restored.stateAt(restored.currentNodeId)!!
+        assertEquals(suggestion, pending.board.resultSuggestion)
+        assertEquals("19", pending.board.players[0].life)
+        // Undo would target the life edit, not the suggestion. Withdraw is independent of that target.
+        val withdrawn = restored.play(a.accountId, command(GameAction.Play(PlayAction.WithdrawResult(suggestion.id)), 15)).tree!!
+        assertEquals(pending.board.copy(resultSuggestion = null), withdrawn.stateAt(withdrawn.currentNodeId)!!.board)
+        val later = withdrawn.play(b.accountId, command(GameAction.Play(PlayAction.AdjustLife(b.accountId, "-2")), 16)).tree!!
+        val undone = SelectiveUndo.change(later, a.accountId, command(GameAction.Undo, 17)).tree!!
+        val undoneBoard = undone.stateAt(undone.currentNodeId)!!.board
+        assertEquals(suggestion, undoneBoard.resultSuggestion)
+        assertEquals(listOf("19", "18"), undoneBoard.players.map { it.life })
+        val redone = SelectiveUndo.change(undone, a.accountId, command(GameAction.Redo, 18)).tree!!
+        assertEquals(undoneBoard.copy(resultSuggestion = null), redone.stateAt(redone.currentNodeId)!!.board)
+        // The resolution protects its proposal's exact before tuple if that proposal is removed.
+        assertEquals("replayBlocked", GameplayHistory.replay(play(), withdrawn.nodes[withdrawn.currentNodeId]!!).reason)
     }
 
     @Test fun strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit() {

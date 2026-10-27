@@ -52,7 +52,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
     val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
-    val changes: TableChanges? = null, val ownPodDeckName: String? = null)
+    val changes: TableChanges? = null, val ownPodDeckName: String? = null,
+    val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -63,6 +64,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val game = state.detail ?: return
     val interactive = game.id !in state.reconnectingGames
     val live = state.play
+    val resultLocked = ResultActions.blocksGameActions(game, state.acceptedPlay, live)
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val tree = controller.retainedTree()
@@ -152,7 +154,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             else if (endpoint == null || !playback.tree.isAncestor(position.cursorId, endpoint)) timelineEnd = position.cursorId
         }
     }
-    var dismissedResult by remember(history) { mutableStateOf<String?>(null) }
     LaunchedEffect(play?.currentNodeId, IdentityKey(state.acceptedPlay), position?.mode, history.armed) {
         if (play != null) {
             withFrameNanos { }
@@ -174,7 +175,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             val personal = controller.history
             (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.state.play)
                 ?.takeIf { it.id == playId && it.gameId == game.id }
-        }, { history.foreground && game.id !in controller.state.reconnectingGames && (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
+        }, { history.foreground && game.id !in controller.state.reconnectingGames &&
+            !ResultActions.blocksGameActions(controller.state.detail ?: game, controller.state.acceptedPlay, controller.state.play) &&
+            (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
             controller::gameplay, ending = { intent ->
                 val target = controller.captureResult()
                 if (target == null) false else when (intent.tool) {
@@ -190,6 +193,12 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
+    LaunchedEffect(resultLocked) {
+        if (resultLocked) {
+            toolkit.dismiss(); toolkit.closeInspection(); toolkit.tokens.close(); toolkit.showStackBubbles(null)
+            toolkit.selectionState.value = TableSelection()
+        }
+    }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
@@ -231,15 +240,28 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     if (!history.foreground || controller.state.detail?.id != game.id ||
                         controller.state.detail?.playId != play.id ||
                         game.id in controller.state.reconnectingGames) false else {
-                        if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
+                        if (ResultActions.blocksGameActions(controller.state.detail ?: game, controller.state.acceptedPlay, controller.state.play)) false
+                        else if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
                         else controller.annotateBatch(actions)
                     }
                 }
                 CompositionLocalProvider(LocalTableMenuAnnotations provides menuAnnotations) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
-                    connected = interactive && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
+                    connected = interactive && editable && !resultLocked, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
-                      runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
+                       runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
+                           gameActionsBlocked = resultLocked,
+                           resultControls = TableResultControls(interactive && history.foreground &&
+                               ResultActions.canResolve(game, play, live, position),
+                               reject = {
+                                    if (!ResultActions.canResolve(game, play, controller.state.play, history.playback?.position) ||
+                                        !controller.rejectResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
+                                    else history.cancelContinuation()
+                               }, accept = {
+                                    if (!ResultActions.canResolve(game, play, controller.state.play, history.playback?.position) ||
+                                        !controller.acceptResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
+                                    else history.cancelContinuation()
+                               }),
                           ownPodDeckName = state.ownPodDeckName,
                           liveView = position?.mode == HistoryMode.LIVE, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
@@ -248,7 +270,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         navigation = hamburger, chatUnread = state.chat.unread,
                          history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
                           onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
-                         continueHere = if (reviewing && history.armed == null && interactive &&
+                          continueHere = if (!resultLocked && reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                           returnCurrent = if (reviewing || history.armed != null) history::current else null,
                          cancelContinuation = history::cancelContinuation,
@@ -258,8 +280,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                              val stripCursor = if (history.armed != null)
                                  play.currentNodeId.takeIf(playback.tree::contains) ?: playback.position.cursorId
                                  else playback.tree.sharedHeadId
-                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                   interactive, playbackPause, { history.requestContinuation(it) },
+                              HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
+                                     interactive, playbackPause, { if (!resultLocked) history.requestContinuation(it) },
                                     autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
                                   onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
@@ -271,7 +293,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                           explorerOpen = true
                                       }
                                   },
-                                 continuationReady = position?.cursorId?.let(history::canRequestContinuation) == true,
+                                  continuationReady = !resultLocked && position?.cursorId?.let(history::canRequestContinuation) == true,
                                  overlay = true, landscape = landscape,
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                    readOnly = editable, playCursorId = stripCursor,
@@ -280,7 +302,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         continuationArmed = history.armed != null,
-                         controlsConnected = interactive && history.foreground,
+                          controlsConnected = interactive && history.foreground && !resultLocked,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
                 }
             }
@@ -296,16 +318,13 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
         showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
         texts = playback?.tree?.texts.orEmpty())
-    if (history.gate?.suggestionId != dismissedResult) ResultAcceptanceDialog(game, state.acceptedPlay, accountId,
-        history.gate, interactive,
-        dismiss = { dismissedResult = history.gate?.suggestionId }, accept = { controller.acceptResult(it) })
     if (state.chatOpen) {
         // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.
         Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(
             usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Box(Modifier.fillMaxSize()) {
-                ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd)
-                    .fillMaxWidth(if (landscape) .5f else 1f))
+                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd)
+                     .fillMaxWidth(if (landscape) .5f else 1f))
             }
         }
     }

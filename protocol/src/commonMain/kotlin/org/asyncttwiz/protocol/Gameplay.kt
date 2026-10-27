@@ -29,6 +29,8 @@ import kotlinx.serialization.json.*
 
 @Serializable sealed interface PlayAction {
     @Serializable @SerialName("suggestResult") data class SuggestResult(val outcome: SuggestedResult) : PlayAction
+    @Serializable @SerialName("declineResult") data class DeclineResult(val suggestionId: String) : PlayAction
+    @Serializable @SerialName("withdrawResult") data class WithdrawResult(val suggestionId: String) : PlayAction
     @Serializable @SerialName("setTapped") data class SetTapped(val cardId: String, val tapped: Boolean) : PlayAction
     @Serializable @SerialName("setLife") data class SetLife(val accountId: String, val value: String) : PlayAction
     @Serializable @SerialName("adjustLife") data class AdjustLife(val accountId: String, val delta: String) : PlayAction
@@ -121,6 +123,8 @@ data class GameplayChange(val state: PlayState? = null, val mutation: GameplayMu
 object GameplayRules {
     fun valid(action: PlayAction): Boolean = when (action) {
         is PlayAction.SuggestResult -> true
+        is PlayAction.DeclineResult -> DeckValidation.uuid(action.suggestionId)
+        is PlayAction.WithdrawResult -> DeckValidation.uuid(action.suggestionId)
         is PlayAction.SetTapped -> DeckValidation.uuid(action.cardId)
         is PlayAction.ClearCardCounter -> DeckValidation.uuid(action.cardId)
         is PlayAction.SetLife -> DeckValidation.uuid(action.accountId) && DeckValidation.text(action.value)
@@ -224,6 +228,20 @@ object GameplayRules {
                 val suggestion = ResultSuggestion(CommandIds.uuidV5(command.requestId, "result-suggestion"), actor, action.outcome)
                 next = board.copy(resultSuggestion = suggestion)
                 transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(null, suggestion))
+            }
+            is PlayAction.DeclineResult -> {
+                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId }
+                    ?: return reject("inapplicable")
+                if (suggestion.author == actor) return reject("otherPlayerRequired")
+                next = board.copy(resultSuggestion = null)
+                transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(suggestion, null))
+            }
+            is PlayAction.WithdrawResult -> {
+                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId }
+                    ?: return reject("inapplicable")
+                if (suggestion.author != actor) return reject("accessDenied")
+                next = board.copy(resultSuggestion = null)
+                transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(suggestion, null))
             }
             is PlayAction.SetTapped -> {
                 val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")

@@ -56,7 +56,7 @@ class TableInteractionsScreenshotTest {
         }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         capture("menu-${width.toInt()}x${height.toInt()}-font$font")
-        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Move to Stack")) {
+        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 4 to "Move to Stack")) {
             compose.ringPage(page)
             compose.onNodeWithContentDescription(label).assertIsDisplayed()
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot

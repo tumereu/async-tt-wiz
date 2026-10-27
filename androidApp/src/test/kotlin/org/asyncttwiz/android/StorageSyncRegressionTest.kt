@@ -73,7 +73,8 @@ class StorageSyncRegressionTest {
         val reads = mutableListOf<(GameplayTreeTransfer?) -> Unit>()
         override fun connect(token: String, listener: GameConnection.Listener) { this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames += message; return true }
-        override fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean {
+        override fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayTreeTransfer?) -> Unit): Boolean {
             reads += complete; return true
         }
         override fun disconnect() = Unit

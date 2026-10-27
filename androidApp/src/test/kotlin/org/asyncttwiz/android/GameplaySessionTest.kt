@@ -40,7 +40,8 @@ class GameplaySessionTest {
         val reads = mutableListOf<Read>()
         override fun connect(token: String, listener: GameConnection.Listener) { this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
-        override fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean {
+        override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayBaseline?) -> Unit): Boolean {
             reads.add(Read(gameId, requestIds, complete)); return true
         }
         override fun disconnect() = Unit
@@ -253,6 +254,40 @@ class GameplaySessionTest {
                 }
                 assertEquals(snapshot, download()!!.snapshot)
                 corrupt = true; assertNull(download())
+            }
+        } finally { server.stop(0) }
+    }
+    @Test fun productionHttpReaderReportsNoCurrentPlayRefusalSeparatelyFromServerFailure() {
+        val f = GameplayFixture()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        var status = 400; var code = "inapplicable"
+        server.createContext("/") { exchange ->
+            val response = GameWire.json.encodeToString(LobbyError(code)).toByteArray()
+            exchange.requestBody.close(); exchange.sendResponseHeaders(status, response.size.toLong())
+            exchange.responseBody.use { it.write(response) }
+        }
+        server.start()
+        try {
+            SocketGameConnection("http://127.0.0.1:${server.address.port}").use { connection ->
+                connection.connect("A".repeat(43), object : GameConnection.Listener {
+                    override fun opened() = Unit
+                    override fun message(message: GameServerMessage) = Unit
+                    override fun disconnected(unauthorized: Boolean) = Unit
+                })
+                fun read(tree: Boolean): Pair<String?, Boolean> {
+                    val latch = CountDownLatch(1); var rejected: String? = null; var failed = false
+                    val started = if (tree) connection.treeTransfer(f.game.id, emptyList(), { rejected = it; latch.countDown() }) {
+                        failed = it == null; latch.countDown() }
+                    else connection.baseline(f.game.id, emptyList(), { rejected = it; latch.countDown() }) {
+                        failed = it == null; latch.countDown() }
+                    assertTrue(started); assertTrue(latch.await(10, TimeUnit.SECONDS)); return rejected to failed
+                }
+                for (tree in listOf(true, false)) {
+                    status = 400; code = "inapplicable"; assertEquals("inapplicable" to false, read(tree))
+                    status = 410; code = "baselineExpired"; assertEquals("baselineExpired" to false, read(tree))
+                    status = 400; code = "invalidInput"; assertEquals(null to true, read(tree))
+                    status = 503; code = "inapplicable"; assertEquals(null to true, read(tree), "Server unavailability stays a failure")
+                }
             }
         } finally { server.stop(0) }
     }

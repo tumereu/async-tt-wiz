@@ -167,18 +167,112 @@ class HistoryRuntimeIntegrationTest {
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
         }
     }
+    /** Offline in the LOBBY at revision 1; meanwhile a play ran (2..4) and ended back to the LOBBY (5).
+     * Resuming replays those historical ACTIVE revisions before the LOBBY head. */
+    private fun ReconnectEpisode.mentions(stage: String) = cause == stage || steps.any { it.stage == stage }
+    private inner class EndedPlayResume(val x: Fixture) {
+        val lobby = x.game.copy(lifecycle = GameLifecycle.LOBBY, playId = null)
+        val other = lobby.copy(id = f.id(7777), gameName = "Other")
+        val play = x.tree.initial.id
+        fun active(n: Int) = GameRevision(lobby.id, (n - 1).toString(), n.toString(), f.id(7000 + n), f.b,
+            GameScope(lobby.id, playId = play), x.game.copy(revision = n.toString()), treeDelta = GameplayTreeDelta(emptyList()))
+        val ended = GameRevision(lobby.id, "4", "5", f.id(7005), f.b, GameScope(lobby.id, playId = play), lobby.copy(revision = "5"))
+        fun head(game: GameSummary, revision: String) = GameHead(game.id, revision, game.copy(revision = revision))
+        fun streams() = x.wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.gameId to it.streamId
+            is ResumeGameStream -> it.gameId to it.streamId; else -> null } }.toMap()
+        fun open(generation: String) {
+            x.wire.listener.opened(); x.drain(); x.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            for ((game, stream) in streams()) x.message(GameStreamReady(game, stream, generation, emptyList()))
+        }
+        fun resume() {
+            x.session.watch(listOf(lobby, other)); open("1")
+            x.message(head(lobby, "1")); x.message(head(other, "1"))
+            assertTrue(x.session.ready(lobby.id) && x.session.ready(other.id))
+            x.wire.listener.disconnected(); x.drain() // Offline while the play runs and ends.
+            x.wire.frames.clear(); x.session.tick(); open("2")
+            x.message(head(other, "1")); assertTrue(x.session.ready(other.id))
+            assertEquals(2, x.wire.connects)
+            // Resubscribes from the old accepted base; the server replays the missed revisions first.
+            assertTrue(x.wire.frames.filterIsInstance<SubscribeGame>().single { it.gameId == lobby.id }.revision.toLong() < 2)
+        }
+        fun finish(connects: Int = 2) {
+            x.message(ended); x.message(head(lobby, "5")); x.message(head(other, "1"))
+            assertTrue(x.session.ready(lobby.id), "The ended play's game must settle in the lobby")
+            assertTrue(x.session.ready(other.id))
+            assertEquals(GameLifecycle.LOBBY, x.session.summary(lobby).lifecycle)
+            assertNull(x.session.acceptedPlay(lobby))
+            assertEquals(connects, x.wire.connects, "A refused catch-up must never reconnect the shared socket")
+            assertTrue(x.reconnects.none { it.mentions("treeManifestFailed") })
+        }
+    }
+    @Test fun resumeThroughEndedPlayDropsRefusedCatchUpWithoutReconnectingOtherGames() {
+        Fixture().use { x -> with(EndedPlayResume(x)) {
+            resume()
+            x.message(active(2)) // No local play replica: the historical delta starts a catch-up.
+            assertEquals(1, x.wire.reads.size)
+            assertFalse(x.session.ready(lobby.id))
+            x.wire.rejections.single()("inapplicable"); x.drain() // Server: the game has no current play.
+            assertEquals(2, x.wire.connects)
+            assertTrue(x.session.ready(other.id), "Other games stay connected")
+            assertEquals("2", x.wire.frames.filterIsInstance<SubscribeGame>().last { it.gameId == lobby.id }.revision,
+                "Refusal re-reads the head from the newest known revision, not the old base")
+            x.message(active(3)); x.message(active(4))
+            assertEquals(1, x.wire.reads.size, "Later revisions of the refused play must not restart catch-up")
+            finish()
+            x.message(active(3)) // A duplicate resubscription delivery after the head is equally inert.
+            assertEquals(1, x.wire.reads.size)
+            assertTrue(x.session.ready(lobby.id))
+        } }
+    }
+    @Test fun resumeWithNewerLobbySummaryNeverStartsCatchUpForHistoricalPlayRevisions() {
+        Fixture().use { x -> with(EndedPlayResume(x)) {
+            resume()
+            x.session.watch(listOf(lobby.copy(revision = "5"))) // Lobby list refresh already knows the end.
+            for (n in 2..4) x.message(active(n))
+            assertTrue(x.wire.reads.isEmpty(), "Superseded play history must not trigger a tree transfer")
+            finish()
+        } }
+    }
+    @Test fun freshClientSubscribingFromZeroSkipsEndedPlayHistoryKnownFromLobbyList() {
+        Fixture().use { x -> with(EndedPlayResume(x)) {
+            // No cache/accepted state (e.g. after clearing app data): the list read precedes streams.
+            x.session.watch(listOf(lobby.copy(revision = "5"), other)); open("1")
+            x.message(head(other, "1"))
+            assertEquals("0", x.wire.frames.filterIsInstance<SubscribeGame>().single { it.gameId == lobby.id }.revision)
+            x.message(GameRevision(lobby.id, "0", "1", f.id(7001), f.a, GameScope(lobby.id, lobby.preparationRound),
+                lobby.copy(revision = "1")))
+            for (n in 2..4) x.message(active(n))
+            assertTrue(x.wire.reads.isEmpty(), "Replayed ACTIVE history of an ended play must not trigger a tree transfer")
+            assertTrue(x.session.ready(other.id))
+            finish(connects = 1)
+        } }
+    }
+    @Test fun genuineCatchUpTransportFailureStillReconnects() {
+        Fixture().use { x -> with(EndedPlayResume(x)) {
+            resume()
+            x.message(active(2))
+            x.wire.reads.single().second(null); x.drain()
+            assertTrue(x.reconnects.any { it.mentions("treeManifestFailed") })
+            assertFalse(x.session.ready(other.id))
+            x.session.tick(); assertEquals(3, x.wire.connects)
+        } }
+    }
     private val f = DownloadedTreeFixture
     private class Wire : GameConnection {
         lateinit var listener: GameConnection.Listener
         val frames = mutableListOf<GameClientMessage>()
         val reads = mutableListOf<Pair<List<String>, (GameplayTreeTransfer?) -> Unit>>()
+        val rejections = mutableListOf<(String) -> Unit>()
         val baselines = mutableListOf<(GameplayBaseline?) -> Unit>()
-        override fun connect(token: String, listener: GameConnection.Listener) { this.listener = listener }
+        var connects = 0
+        override fun connect(token: String, listener: GameConnection.Listener) { connects++; this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
-        override fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean {
-            reads.add(requestIds to complete); return true
+        override fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayTreeTransfer?) -> Unit): Boolean {
+            reads.add(requestIds to complete); rejections.add(rejected); return true
         }
-        override fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean {
+        override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayBaseline?) -> Unit): Boolean {
             baselines.add(complete); return true
         }
         override fun disconnect() = Unit

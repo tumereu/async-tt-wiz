@@ -104,6 +104,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String, val playId: String?,
         val tail: MutableList<GameRevision> = mutableListOf())
     private val recoveries = mutableMapOf<String, Recovery>()
+    // The server refused to transfer this play: it is no longer current. Its remaining historical
+    // deliveries (e.g. a resume from an old cursor) must not restart catch-up. One entry per game.
+    private val supersededPlays = mutableMapOf<String, String>()
     // Main-thread receipt cursor, distinct from the worker's published cursor. Heartbeats may
     // observe a committed head while its contiguous deltas are still waiting for disk work.
     private val treeThrough = mutableMapOf<String, String>()
@@ -231,7 +234,7 @@ class GameSession(private val connection: GameConnection, private val credential
             (observer.subscription.request.scope.gameId == gameId).also { if (it) observer.subscription.close() }
         }
         preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId); treeThrough.remove(gameId); treeHead.remove(gameId)
-        recoveries.remove(gameId)
+        recoveries.remove(gameId); supersededPlays.remove(gameId)
         headGaps.remove(gameId)
         messages.remove(gameId); chatRevisions.remove(gameId); chatCursors.remove(gameId); olderChat.remove(gameId); chatReads.remove(gameId)
         personalChat.remove(gameId); chatReadRequests.remove(gameId); chatReadRefresh.remove(gameId); chatReadRetry.remove(gameId)
@@ -670,6 +673,8 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
+                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId == supersededPlays[message.gameId])
+                    supersededPlays.remove(message.gameId)
                 installChatHead(message)
                 observePlay(message.summary)
                 recoveries[message.gameId]?.let { if (newerOrEqual(message.revision, it.through)) it.through = message.revision }
@@ -712,6 +717,10 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.chatMessage?.let { installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
+                if (superseded(message)) {
+                    // History of a play that is no longer current: nothing to catch up or observe.
+                    correlateSelections(message); flush(); statusChanged(); return
+                }
                 observePlay(message.summary)
                 if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) {
                     recoveries[message.gameId]?.let {
@@ -1045,13 +1054,17 @@ class GameSession(private val connection: GameConnection, private val credential
         val recovery = Recovery(ids, ids.filter { it !in sent }.toSet(), through, observedPlays[gameId])
         recoveries[gameId] = recovery
         val generation = epoch; val current = token
-        if (treeCache != null && connection.treeTransfer(gameId, recovery.ids) { transfer -> post {
+        fun rejected(code: String) = post {
+            if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery)
+                recoveryRejected(gameId, recovery, code)
+        }
+        if (treeCache != null && connection.treeTransfer(gameId, recovery.ids, ::rejected) { transfer -> post {
             if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery) {
                 if (transfer == null) { recoveries.remove(gameId); connectionUnavailable("treeManifestFailed") }
                 else { reconnectTrace.step(gameId, "treeManifestReceived"); stageTree(gameId, recovery, transfer, generation, current) }
             }
         } }) return
-        if (!connection.baseline(gameId, recovery.ids) { baseline -> post {
+        if (!connection.baseline(gameId, recovery.ids, ::rejected) { baseline -> post {
             if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery) {
                 recoveries.remove(gameId)
                 val installed = runCatching {
@@ -1078,6 +1091,30 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (installed) { stream.head = true; error = null; flush(); recoveryReady(); statusChanged() } else connectionUnavailable("baselineFailed")
             }
         } }) { recoveries.remove(gameId); connectionUnavailable("baselineNotStarted") }
+    }
+
+    /** The server has no transferable current play (ended, back in the lobby, replaced or no longer
+     * accessible). That is game state, not connectivity: retire only this catch-up, never the shared
+     * connection, and re-read the authoritative head from the newest known revision. */
+    private fun recoveryRejected(gameId: String, recovery: Recovery, code: String) {
+        recoveries.remove(gameId)
+        recovery.playId?.let { supersededPlays[gameId] = it }
+        treeThrough.remove(gameId); headGaps.remove(gameId)
+        reconnectTrace.step(gameId, "catchUpRejected:$code")
+        DebugJank.catchUp(gameId, false)
+        val cursor = listOfNotNull(recovery.through, summaries[gameId]?.revision).maxBy(GameWire::ordinal)
+        send(SubscribeGame(gameId, cursor))
+        statusChanged()
+    }
+
+    /** O(1): a delivery for a play that newer knowledge (a later summary of another lifecycle/play,
+     * or a refused transfer) already retired. Catching it up could only fail against the server. */
+    private fun superseded(message: GameRevision): Boolean {
+        val play = message.summary.playId?.takeIf { message.summary.lifecycle == GameLifecycle.ACTIVE } ?: return false
+        if (supersededPlays[message.gameId] == play) return true
+        val known = summaries[message.gameId] ?: return false
+        return GameWire.ordinal(known.revision) > GameWire.ordinal(message.resultRevision) &&
+            (known.lifecycle != GameLifecycle.ACTIVE || known.playId != play)
     }
 
     private fun observePlay(game: GameSummary) {
@@ -1270,7 +1307,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        ownPodDeckNames.clear(); messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
+        ownPodDeckNames.clear(); messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); supersededPlays.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

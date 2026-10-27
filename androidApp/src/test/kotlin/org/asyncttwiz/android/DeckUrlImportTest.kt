@@ -49,6 +49,8 @@ class DeckUrlImportTest {
     @Test fun clipboardOnlyMatchesTheCorrectImportKind() {
         assertEquals("runes", ImportClipboard.cube(" runes \n"))
         assertEquals("https://cubecobra.com/cube/list/runes", ImportClipboard.cube("https://cubecobra.com/cube/list/runes"))
+        assertEquals("https://cubecobra.com/cube/list/runes?view=table",
+            ImportClipboard.cube("Rune Cube - Cube Cobra\nhttps://cubecobra.com/cube/list/runes?view=table"))
         assertNull(ImportClipboard.cube("https://archidekt.com/decks/123"))
         assertNull(ImportClipboard.cube("a pasted card list\n1 Rune Bear"))
         assertNull(ImportClipboard.cube(null))

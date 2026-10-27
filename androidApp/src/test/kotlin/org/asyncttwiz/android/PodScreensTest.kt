@@ -133,7 +133,8 @@ class PodScreensTest {
 
     @Test fun recipeSetsHidePackSizeAndAllSetsHideColorBalancing() {
         var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
-        compose.setContent { ScreenTheme { Column { PodSettingsFields(DraftSettings(), 2, true, source) {} } } }
+        var settings by mutableStateOf(DraftSettings())
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true, source) { settings = it(settings) } } } }
         compose.onNodeWithText("Pack size").assertDoesNotExist()
         compose.onNodeWithText("Advanced ▾").assertDoesNotExist()
         compose.onNodeWithText("Color balancing").assertDoesNotExist()
@@ -142,6 +143,11 @@ class PodScreensTest {
         compose.onNodeWithText("Color balancing").assertDoesNotExist()
         compose.runOnIdle { source = PodSource("Cube", 540) }
         compose.onNodeWithText("Color balancing").assertExists()
+        // A square tile like the numeric settings: a tap toggles it.
+        compose.onNode(isToggleable()).assertIsOn().performClick()
+        compose.runOnIdle { assertEquals(false, settings.colorBalance) }
+        compose.onNode(isToggleable()).assertIsOff()
+        compose.onNodeWithText("Off").assertExists()
     }
 
     @Test fun pickRowShowsMemberNamesThroughAvatarsAndOpensPod() {

@@ -104,8 +104,11 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                     if (deleting) {
                         Text(state.detail?.saved?.deck?.name.orEmpty(), Modifier.padding(vertical = 12.dp), fontWeight = FontWeight.Bold)
                         Text("Deletion cannot be undone.")
-                    } else OutlinedTextField(state.draftName, controller::name, label = { Text("Deck name") },
-                        modifier = Modifier.fillMaxWidth(), enabled = !state.mutating, singleLine = true)
+                    } else {
+                        val name = rememberDialogField(state.draftName)
+                        OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, label = { Text("Deck name") },
+                            modifier = Modifier.fillMaxWidth().dialogField(name), enabled = !state.mutating, singleLine = true)
+                    }
                     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text(if (deleting) "Keep deck" else "Cancel") }
                         ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating,

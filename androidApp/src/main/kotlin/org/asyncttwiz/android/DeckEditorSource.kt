@@ -50,8 +50,7 @@ internal class DeckEditorSource(val detail: DeckDetail) {
                 }
                 listOf(ResolvedDeckEntry(DeckSection.valueOf(line.section.name), line.quantity, faces, listOf(line.line)))
             } else {
-                val result = lookup("${line.section.title}\n${line.quantity} ${line.name}" +
-                    (line.set?.let { " ($it) ${line.number}" } ?: ""))
+                val result = lookup("${line.section.title}\n${line.quantity} ${line.name}${line.printingSuffix}")
                 catalog = result.catalog ?: catalog
                 issues += result.issues.map { it.copy(line = if (it.line > 0) line.line else 0) }
                 result.entries.map { it.copy(sourceLines = listOf(line.line)) }

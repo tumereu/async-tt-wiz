@@ -28,6 +28,24 @@ class CubeControllerTest {
         controller.close(); worker.drain()
     }
 
+    @Test fun sharedCobraTextImportsItsCubeAndFetchFailuresKeepTheirReason() {
+        val worker = Worker(); val api = Api(); val requested = mutableListOf<String>()
+        var failure: Exception? = null
+        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+            fetchCobra = { id -> requested += id; failure?.let { throw it }; DeckTextParser.parse("1 Retained card") })
+        controller.newCube()
+        controller.cobraInput("Caleb Gannon's Powered Synergy Cube - Cube Cobra\nhttps://cubecobra.com/cube/list/synergy?view=table")
+        controller.importCobra(); worker.drain()
+        assertEquals(listOf("synergy"), requested)
+        assertEquals("synergy", controller.state.provenance)
+        controller.back(); controller.newCube()
+        failure = CubeCobraFailure("Cube Cobra cube missing was not found.")
+        controller.cobraInput("cubecobra.com/cube/overview/missing"); controller.importCobra(); worker.drain()
+        assertEquals("Cube Cobra cube missing was not found.", controller.state.error)
+        assertTrue(controller.state.editing)
+        controller.close(); worker.drain()
+    }
+
     @Test fun cubeEditorRemainsEditableDuringSaveAndRetainsNewerInput() {
         val worker = Worker(); val api = Api(); val controller = controller(api, worker)
         controller.newCube(); controller.name("First"); controller.text("2 Retained card"); controller.lookup(); worker.drain()

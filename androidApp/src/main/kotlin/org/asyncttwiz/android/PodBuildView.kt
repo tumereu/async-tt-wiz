@@ -155,10 +155,11 @@ fun PodBuildView(
         dismissButton = { OutlinedButton(onClick = { confirmSubmit = false }) { Text("Cancel") } },
     )
     if (naming) {
-        var name by remember { mutableStateOf(deckName) }
+        val name = rememberDialogField(deckName)
         AlertDialog(onDismissRequest = { naming = false }, title = { Text("Deck name") },
-            text = { OutlinedTextField(name, { name = it.take(120) }, singleLine = true, label = { Text("Name") }) },
-            confirmButton = { FilledIconButton({ onRename(name.trim()); naming = false }, enabled = name.isNotBlank()) { EntryIcon("Save name", "ready") } },
+            text = { OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.dialogField(name),
+                singleLine = true, label = { Text("Name") }) },
+            confirmButton = { FilledIconButton({ onRename(name.text.trim()); naming = false }, enabled = name.text.isNotBlank()) { EntryIcon("Save name", "ready") } },
             dismissButton = { OutlinedIconButton({ naming = false }) { EntryIcon("Cancel", "close") } })
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }

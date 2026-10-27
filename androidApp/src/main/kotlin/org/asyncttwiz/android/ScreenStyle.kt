@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -185,18 +186,33 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
     BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
         keyboardOptions = keyboardOptions, visualTransformation = visualTransformation,
         maxLines = maxLines, textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-        decorationBox = { field ->
-            Surface(shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, ScreenBorder), color = Color.White) {
-                Row(Modifier.heightIn(min = 48.dp).padding(start = 12.dp, end = if (trailingIcon == null) 12.dp else 0.dp),
-                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top) {
-                    Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
-                        if (value.isEmpty() && placeholder != null) Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        field()
-                    }
-                    trailingIcon?.invoke()
-                }
+        decorationBox = { field -> ScreenTextFieldDecoration(value.isEmpty(), singleLine, placeholder, trailingIcon, field) })
+}
+
+/** [ScreenTextField] with selection control, e.g. for a dialog field that opens with its text selected. */
+@Composable
+internal fun ScreenTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier,
+    enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge) {
+    BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
+        keyboardOptions = keyboardOptions, maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+        decorationBox = { field -> ScreenTextFieldDecoration(value.text.isEmpty(), singleLine, null, null, field) })
+}
+
+@Composable
+private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, placeholder: String?,
+    trailingIcon: (@Composable () -> Unit)?, field: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, ScreenBorder), color = Color.White) {
+        Row(Modifier.heightIn(min = 48.dp).padding(start = 12.dp, end = if (trailingIcon == null) 12.dp else 0.dp),
+            verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top) {
+            Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                if (empty && placeholder != null) Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                field()
             }
-        })
+            trailingIcon?.invoke()
+        }
+    }
 }
 
 @Composable

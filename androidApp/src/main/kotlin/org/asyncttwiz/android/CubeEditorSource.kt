@@ -16,13 +16,13 @@ internal class CubeEditorSource(private val detail: CubeDetail) {
     val text = "Deck\n" + detail.saved.entries.joinToString("\n") { "${it.quantity} ${cardText(definitions.getValue(it.definition))}" }
     private val retained = detail.saved.entries.groupBy { cardText(definitions.getValue(it.definition)) }
     fun resolve(text: String, includeSideboard: Boolean, lookup: (String, Boolean) -> DeckImportResult): DeckImportResult {
-        val parsed = DeckTextParser.parse(text, CubeValidation.MAX_CARDS, includeSideboard)
+        val parsed = CubeImportResolver.parse(text, includeSideboard)
         val issues = parsed.issues.toMutableList()
         val substitutions = mutableListOf<ImportIssue>()
         val occurrences = mutableMapOf<String, Int>()
         var metadata: CatalogMetadata? = null
         val entries = parsed.lines.flatMap { line ->
-            val key = line.name + (line.set?.let { " ($it) ${line.number}" } ?: "")
+            val key = line.name + line.printingSuffix
             val candidates = retained.entries.firstOrNull { it.key.equals(key, true) }?.value.orEmpty()
             val occurrence = occurrences.getOrDefault(key, 0)
             occurrences[key] = occurrence + 1

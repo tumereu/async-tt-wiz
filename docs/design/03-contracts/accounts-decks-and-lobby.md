@@ -430,8 +430,19 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
   `3 Verdant Catacombs (MH2) 260`; users need not strip exported printing details.
 - Preserve mainboard/sideboard separation: support `Deck`/`Sideboard` sections,
   `SB:` sideboard entries, and the conventional blank-line sideboard separator in
-  headerless MTGO-style text. Blank spacing in an explicitly sectioned list does
-  not replace its section labels. A plain mainboard-only list also works.
+  headerless MTGO-style text (only when the list has exactly two blank-separated
+  blocks). Blank spacing in an explicitly sectioned list does not replace its
+  section labels. A plain mainboard-only list also works.
+- Round 19 dialects: section headers may be prefixed by `#` or `//` and carry a
+  count (`Sideboard (15)`); `Deck`/`Main`/`Mainboard`/`Commander`/`Companion` go to
+  the main deck, `Maybeboard`/`Considering` (and Arena `About`) are skipped; other
+  `#`/`//` lines are comments. Trailing `*F*`/`*E*`, `[tags]`, `^tags^` and
+  `<variant>` markers are ignored; `A/B` means `A // B`. Forge (`[Main]`,
+  `Name|SET`), XMage (`[SET:number] Name`) and CSV exports with a name column
+  (optional count/set/collector-number/board/maybeboard columns) are accepted too.
+- Several printings of one card are never ambiguous: the default printing is used
+  (an explicit set/collector number narrows it). Only different cards (oracle
+  identities) sharing a name are ambiguous.
 - This is **syntax compatibility**, not an Arena-only card pool or format-legality
   restriction. Do not filter out otherwise supported paper cards merely because
   they are absent from Arena.

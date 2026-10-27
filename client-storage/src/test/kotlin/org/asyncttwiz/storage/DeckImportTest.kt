@@ -121,7 +121,7 @@ class DeckImportTest {
         val resolver = DeckImportResolver(repository("prism"))
         val cases = listOf("1 No Such Card", "1 Coppercloud Echo", "1 Coppercloud Surveyor (UNKNOWN) 1", "1 Velvet Prism Engine (ZPA) 999",
             "0 Velvet Prism Engine", "-1 Velvet Prism Engine", "1.5 Velvet Prism Engine", "999999999999 Velvet Prism Engine",
-            "Commander\n1 Velvet Prism Engine", "Companion\n1 Velvet Prism Engine", "1 Velvet Prism Engine\n2147483647 Velvet Prism Engine")
+            "1 Velvet Prism Engine\n2147483647 Velvet Prism Engine")
         cases.forEach { bad ->
             val text = "Deck\n2 Quiet Lattice Bolt\n$bad"
             val result = resolver.resolve(text)
@@ -281,5 +281,87 @@ class DeckImportTest {
         assertEquals(2, result.entries.last().faces.size)
         assertEquals("", result.entries.first().printing.releaseDate)
         assertEquals(metadata, repository.metadata())
+    }
+
+    /** Small catalog of real card records (see cubecobra-synergy test resources). */
+    private fun realSample(): DeckImportResolver {
+        val repository = CatalogRepository(temporary.resolve("real-sample").toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
+        repository.stage { index -> javaClass.getResourceAsStream("/cubecobra-synergy/AllPrintings.json")!!.use {
+            MtgJsonCatalog().import(it, index, CatalogMetadata("2026-10-23", "5.2.2"))
+        } }
+        return DeckImportResolver(repository)
+    }
+
+    @Test fun commonSiteExportsResolveWithTheirSections() {
+        val resolver = realSample()
+        val moxfield = """
+            Commander
+            1 Thalia, Guardian of Thraben (SLD) 38 *F*
+
+            Deck
+            4 Swords to Plowshares (SLD) 110
+            1 Brazen Borrower // Petty Theft (ELD) 39 *E*
+            20 Island (M21) 264
+
+            SIDEBOARD:
+            2 Path to Exile (MD1) 3
+        """.trimIndent()
+        val archidekt = """
+            // Commander
+            1x Thalia, Guardian of Thraben (sld) 38 [Commander{top}]
+            // Mainboard
+            4x Swords to Plowshares (sld) 110 [Removal] ^Have,#37d67a^
+            1x Expansion // Explosion (grn) 224 *F* [Spells]
+            20x Island (m21) 264 [Land]
+            // Sideboard
+            2x Path to Exile (md1) 3 [Sideboard]
+            // Maybeboard
+            1x Not A Real Card (zzz) 1 [Maybeboard]
+        """.trimIndent()
+        val goldfish = "4 Swords to Plowshares [SLD]\n1 Solitude <borderless> [MH2]\n20 Island\n1 Thalia, Guardian of Thraben\n\n2 Path to Exile\n"
+        val arena = """
+            About
+            Name Synergy sample
+
+            Companion
+            1 Joraga Treespeaker (ROE) 190
+
+            Deck
+            4 Swords to Plowshares (SLD) 110
+            20 Island (M21) 264
+            1 Birgi, God of Storytelling (KHM) 123
+
+            Sideboard
+            2 Path to Exile (MD1) 3
+        """.trimIndent()
+        val mtgo = "4 Swords to Plowshares\r\n20 Island\r\n1 Expansion/Explosion\r\n\r\n2 Path to Exile\r\n\r\n"
+        val commented = "# Deck\n// built for a test\n4 Swords to Plowshares\n20 Island\n1 Wasteland\n# Sideboard (2)\n2 Path to Exile\n# Considering\n1 Not A Real Card\n"
+        for ((label, text, main) in listOf(Triple("moxfield", moxfield, 26L), Triple("archidekt", archidekt, 26L),
+            Triple("goldfish", goldfish, 26L), Triple("arena", arena, 26L), Triple("mtgo", mtgo, 25L), Triple("commented", commented, 25L))) {
+            val result = resolver.resolve(text)
+            assertTrue(result.resolved, label + result.issues)
+            assertEquals(main, result.count(DeckSection.MAINBOARD), label)
+            assertEquals(2L, result.count(DeckSection.SIDEBOARD), label)
+            assertEquals("Path to Exile", result.entries.single { it.section == DeckSection.SIDEBOARD }.printing.name, label)
+        }
+        assertEquals("ELD 39", resolver.resolve(moxfield).entries.single { it.printing.name.startsWith("Brazen") }.printing.let { "${it.set} ${it.number}" })
+        assertEquals("Expansion // Explosion", resolver.resolve(mtgo).entries[2].printing.name)
+    }
+
+    @Test fun sectionHeadersCommentsAndTagsAreParsedWithoutResolution() {
+        val parsed = DeckTextParser.parse("Sideboard (15)\n1 A\n// Main\n2 B *F*\n#Commander\n3 C [Ramp]\n#Companion:\n4 D <extended> [M11]\n## a note\nMaybeboard\n5 E\n")
+        assertEquals(emptyList<ImportIssue>(), parsed.issues)
+        assertEquals(listOf("A", "B", "C", "D"), parsed.lines.map { it.name })
+        assertEquals(listOf(DeckSection.SIDEBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD), parsed.lines.map { it.section })
+        assertTrue(parsed.lines.all { it.set == null })
+        // Blank lines split main and sideboard only in a header-less list of exactly two blocks.
+        assertEquals(List(3) { DeckSection.MAINBOARD }, DeckTextParser.parse("4 A\n\n2 B\n\n1 C").lines.map { it.section })
+        assertEquals(List(2) { DeckSection.MAINBOARD }, DeckTextParser.parse("Deck\n4 A\n\n2 B").lines.map { it.section })
+        val printings = DeckTextParser.parse("1 [MH2:32] Solitude\n1 Thalia, Guardian of Thraben|SLD\n1 Wasteland (TMP)\n1 Fire/Ice").lines
+        assertEquals(listOf("Solitude", "Thalia, Guardian of Thraben", "Wasteland", "Fire // Ice"), printings.map { it.name })
+        assertEquals(listOf("MH2", "SLD", "TMP", null), printings.map { it.set })
+        assertEquals(listOf("32", null, null, null), printings.map { it.number })
+        assertFalse(DeckTextParser.parse("Solitude").issues.isEmpty())
+        assertEquals("Solitude", DeckTextParser.parse("Solitude", bareNames = true).lines.single().name)
     }
 }

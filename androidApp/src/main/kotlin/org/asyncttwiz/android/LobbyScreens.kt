@@ -18,6 +18,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -448,6 +449,7 @@ private fun GameNameDialog(controller: LobbyController) {
     val draft = state.draft ?: return
     var value by remember(draft.recipient.accountId) { mutableStateOf(TextFieldValue(draft.name, TextRange(0, draft.name.length))) }
     LaunchedEffect(draft.name) { if (value.text != draft.name) value = TextFieldValue(draft.name, TextRange(0, draft.name.length)) }
+    val focus = rememberOpenFocus(draft.recipient.accountId)
     ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null,
         error = state.error, dismissError = controller::dismissSessionError) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -456,7 +458,7 @@ private fun GameNameDialog(controller: LobbyController) {
                 }
                 Text("Invite ${draft.recipient.username}")
                     OutlinedTextField(value, { next -> value = next; controller.name(next.text) },
-                         Modifier.fillMaxWidth().semantics { contentDescription = "Game name" }
+                         Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Game name" }
                             .onFocusChanged { if (it.isFocused) value = value.copy(selection = TextRange(0, value.text.length)) }
                             .pointerInput(Unit) {
                                 awaitEachGesture {

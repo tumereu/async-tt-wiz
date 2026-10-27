@@ -138,10 +138,9 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
-            for (destination in listOf(ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
                     if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
-                    if (destination == ShellDestination.PODS) pods?.showList()
                     controller.navigate(destination)
                 }
             }
@@ -175,6 +174,38 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 }
             }
             }
+            }
+            NavigationItem("Pods", null, controller.state.destination == ShellDestination.PODS) {
+                pods?.showList()
+                controller.navigate(ShellDestination.PODS)
+            }
+            val podsLoaded = pods == null || pods.state.loaded || pods.state.pods.isNotEmpty()
+            InitialLoadArea(podsLoaded, Modifier.fillMaxWidth().heightIn(min = if (podsLoaded) 0.dp else 80.dp),
+                failed = pods?.state?.error != null, retry = { pods?.refresh() }, loading = pods?.state?.loading == true) {
+                Column {
+                    for (pod in pods?.state?.pods.orEmpty()) {
+                        val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
+                        Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
+                            .testTag("navigation-pod-${pod.id}")
+                            .clickable { pods!!.open(pod.id); controller.navigate(ShellDestination.PODS) }
+                            .semantics { selected = selectedPod }, shape = MaterialTheme.shapes.extraLarge,
+                            color = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
+                            Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    pod.members.take(3).forEach { Avatar(it) }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(pod.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    Text(podStatus(pod), style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2, maxLines = 2,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                                EntryIcon(null, "chevron")
+                            }
+                        }
+                    }
+                }
             }
             if (controller.accountSwitcher) {
                 Spacer(Modifier.height(16.dp))

@@ -31,9 +31,12 @@ import org.asyncttwiz.storage.StorageOpenFailure
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
     private val updates get() = ViewModelProvider(this)[AppUpdateViewModel::class.java]
+    // ComponentActivity result APIs; the old Fragment that Firebase pulls in transitively is never used here.
+    @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
     private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         updates.permissionReturned(packageManager.canRequestPackageInstalls())
     }
+    @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
     private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     private fun installUpdate(apk: java.io.File) {
         try {

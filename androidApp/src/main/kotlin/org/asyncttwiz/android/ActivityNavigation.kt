@@ -30,7 +30,8 @@ internal fun ActivityHint.notificationKey(): String = when {
 
 internal fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {
     ActivityKind.POD_INVITATION -> "New pod invitation"
-    ActivityKind.POD_YOUR_PICK -> name?.let { "Your pick in $it" } ?: "Your pick"
+    ActivityKind.POD_YOUR_PICK -> name?.let { "Your pick — $it" } ?: "Your pick"
+    ActivityKind.POD_DECKS_READY -> name?.let { "Decks ready — $it" } ?: "Decks ready"
     ActivityKind.POD_DRAFT_COMPLETE -> "Draft complete: build your deck"
     ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
     ActivityKind.POD_DESTROYED -> "Pod destroyed"

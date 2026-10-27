@@ -280,6 +280,10 @@ class PodService(private val runtime: ServiceRuntime) {
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             val deck = build.copy(copies = build.copies.filter { it.category != PodDeckCategory.TRASH })
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(deck)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            if (members(sql, row.id!!).all { it.submittedDeck != null }) {
+                for (recipient in members(sql, row.id!!)) ActivityService.record(sql, recipient.accountId!!,
+                    ActivityKind.POD_DECKS_READY, row.id!!, row.draftAttemptId!!, owner)
+            }
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -456,7 +460,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun clearDraftHints(sql: DSLContext, id: UUID) {
         val summary = org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
         val push = org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH
-        val kinds = listOf("POD_YOUR_PICK", "POD_DRAFT_COMPLETE", "POD_INVITATION")
+        val kinds = listOf("POD_YOUR_PICK", "POD_DRAFT_COMPLETE", "POD_DECKS_READY", "POD_INVITATION")
         sql.deleteFrom(summary).where(summary.GAME_ID.eq(id)).and(summary.KIND.`in`(kinds)).execute()
         sql.deleteFrom(push).where(push.GAME_ID.eq(id)).and(push.KIND.`in`(kinds)).execute()
     }

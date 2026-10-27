@@ -412,6 +412,9 @@ members can have any number of games, including parallel games with each other.
 
 Draft notifications use a new **Draft activity** channel. There are no recaps:
 opening a pod shows its current state.
+Round 18: `Your pick — <pod name>` remains immediate. When every member has
+submitted a deck, send `Decks ready — <pod name>` immediately to all members except
+the last submitter, through the same optional push/poll pipeline.
 
 ## 9. Privacy and server authority
 

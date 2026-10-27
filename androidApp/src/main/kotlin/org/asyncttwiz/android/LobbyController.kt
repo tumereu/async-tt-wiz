@@ -85,7 +85,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
     fun closeChat() { state = state.copy(chatOpen = false) }
-    fun composeChat(text: String) { state.detail?.let { personalChat.compose(it, text); connectionState() } }
+    var gameInput: (() -> Unit)? = null
+    fun composeChat(text: String) { gameInput?.invoke(); state.detail?.let { personalChat.compose(it, text); connectionState() } }
     fun sendChat() {
         val game = state.detail ?: return
         val draft = state.chat.draft ?: return
@@ -627,6 +628,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
         else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { resetHistory(); routeVersion++; state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
+    fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (inForeground && !state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) {
         if (closed || !inForeground || state.busy || state.mutating) return

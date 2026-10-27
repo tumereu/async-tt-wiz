@@ -188,7 +188,7 @@ class ActivityServiceTest {
         }
     }
 
-    @Test fun `opponent group quiet window max ten seconds retry after ttl and invalid token fallback`() {
+    @Test fun `absent opponent immediate delivery retry after ttl and invalid token fallback`() {
         ActivityFixture().use { f ->
             val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
             val install = RegisterInstallation(id(), id(), "synthetic-push")
@@ -201,10 +201,7 @@ class ActivityServiceTest {
             val delivered = mutableListOf<ActivityPushHint>()
             var result = PushResult(PushStatus.DELIVERED)
             ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> delivered += hint; result }, clock).use { delivery ->
-                clock.time = start.plusSeconds(1); delivery.deliverDue(); assertTrue(delivered.isEmpty())
-                for (second in 1..9) { clock.time = start.plusSeconds(second.toLong()); f.record(game, group, clock.time); delivery.deliverDue() }
-                assertTrue(delivered.isEmpty())
-                clock.time = start.plusSeconds(10); delivery.deliverDue(); assertEquals(1, delivered.size)
+                delivery.deliverDue(); assertEquals(1, delivered.size)
                 assertEquals(group, delivered.single().identity)
                 // Same group may extend after an alert; client updates its per-game identity silently.
                 f.record(game, group, clock.time); clock.time = clock.time.plusSeconds(2)
@@ -226,7 +223,6 @@ class ActivityServiceTest {
             f.record(game, id(), clock.time, author = f.b)
             assertEquals(before, f.number("SELECT high_water FROM activity_cursor WHERE account_id='${f.b.account.accountId}'"))
             assertEquals(listOf(60L, 300L, 900L, 3600L, 3600L), (0..4).map(ActivityDelivery::retrySeconds))
-            println("PASS synthetic opponent-group adapter with real durable 2s quiet/max10s queue, post-alert extension, Retry-After, bounded TTL/permanent invalid registration fallback and own-activity exclusion; not final gameplay group integration")
         }
     }
 }

@@ -46,7 +46,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 21
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
     val invocationId: String? = null, val continuation: Continuation? = null,
     val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
-@Serializable @SerialName("ping") data class GamePing(val correlationId: String) : GameClientMessage
+@Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
 @Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = 0,

@@ -50,11 +50,11 @@ class ActivityRuntimeIntegrationTest {
                 val extension = activity.page(f.b, first.activityId).entries.single()
                 assertEquals(first.identity, extension.identity)
                 assertNotEquals(first.activityId, extension.activityId)
-                // Immediate accepted revisions/outbox are available while notification rows are not due.
+                // Accepted revisions/outbox and notices are immediate when the actor is absent.
                 assertEquals(1, f.games.revisions(f.b, f.game.id, accepted.revision).revisions.size)
                 assertTrue(f.games.publications().any { it.gameId == f.game.id && it.revision != null })
                 assertEquals(2L, number(db, "SELECT count(*) FROM activity_push WHERE kind='GAME'"))
-                assertEquals(2L, number(db, "SELECT count(*) FROM activity_push WHERE kind='GAME' AND due_at>=first_at+interval '2 seconds' AND due_at<=first_at+interval '10 seconds'"))
+                assertEquals(2L, number(db, "SELECT count(*) FROM activity_push WHERE kind='GAME' AND due_at>=first_at"))
                 val sent = mutableListOf<ActivityPushHint>(); val clock = ActivityClock(Instant.now().plusSeconds(3))
                 ActivityDelivery(runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use { it.deliverDue() }
                 assertEquals(setOf(r1.generation, r2.generation), sent.map { it.generation }.toSet())
@@ -68,6 +68,15 @@ class ActivityRuntimeIntegrationTest {
                 val next = activity.page(f.b, extension.activityId).entries.single()
                 assertNotEquals(group.id, next.identity)
                 assertEquals(2L, number(db, "SELECT count(*) FROM activity_push WHERE kind='GAME' AND game_id='${f.game.id}'"))
+                val chat = f.owner.command(PlayAction.AdjustLife(f.a.account.accountId, "1")).copy(action = GameAction.SendChat("private chat not in push"))
+                f.owner.execute(chat)
+                val chatPage = activity.page(f.b, next.activityId)
+                assertEquals(chat.requestId, chatPage.entries.single().identity)
+                assertTrue(chatPage.readyNotices!!.single().notice!!.newMessage)
+                assertTrue(activity.page(f.a, "0").entries.none { it.identity == chat.requestId })
+                f.owner.admit(chat)
+                assertFalse(f.games.executeOne())
+                assertEquals(chatPage, activity.page(f.b, next.activityId))
                 println("PASS real accepted FIFO groups/extensions, original/noOp/new-request distinctions, immediate revisions/outbox, every registered push installation and independent polling, exact authorized first-group boundary")
             }
         }

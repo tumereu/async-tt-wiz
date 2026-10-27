@@ -146,6 +146,22 @@ class PodChallengeTest {
         assertEquals(own, f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck)
     }
 
+    @Test fun `decks ready goes immediately to every member except last submitter once`() = fixture { f ->
+        val pod = f.pod(three = true)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        fun ready(who: AccountService.Principal) = activity.page(who, "0").entries.filter { it.kind == ActivityKind.POD_DECKS_READY }
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        assertTrue(ready(f.a).isEmpty()); assertTrue(ready(f.b).isEmpty()); assertTrue(ready(f.c).isEmpty())
+        f.submit(f.c, pod)
+        assertEquals(pod, ready(f.a).single().gameId)
+        assertEquals("Surviving pod name", ready(f.a).single().resourceName)
+        assertEquals(f.c.account.accountId, ready(f.b).single().authorId)
+        assertTrue(ready(f.c).isEmpty())
+        val detail = f.detail(f.c, pod)
+        assertEquals(409, f.pods.submit(f.c, pod, PodDraftRequest(id(), detail.draftAttemptId!!)).status)
+        assertEquals(1, ready(f.a).size); assertEquals(1, ready(f.b).size)
+    }
+
     @Test fun `pod deck names are private head metadata never shared preparation or replay`() = fixture { f ->
         val pod = f.pod()
         val attempt = f.detail(f.a, pod).draftAttemptId!!

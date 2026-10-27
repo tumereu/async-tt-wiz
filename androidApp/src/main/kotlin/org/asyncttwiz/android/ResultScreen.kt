@@ -24,7 +24,7 @@ internal fun ResultAcceptanceDialog(game: GameSummary, play: PlayState?, viewer:
     gate: ResultPlaybackGate?, enabled: Boolean, dismiss: () -> Unit,
     accept: (ResultAcceptanceTarget) -> Unit) {
     val model = ResultActions.presentation(game, play, viewer, gate) ?: return
-    AlertDialog(onDismissRequest = dismiss, title = { Text("Proposed result") },
+    AlertDialog(onDismissRequest = dismiss, title = { TrackGameDialogInput(); Text("Proposed result") },
         text = { Text(model.text + if (model.canAccept) " Accept to return both players to the lobby." else " Waiting for the other player to accept.") },
         confirmButton = {
             if (model.canAccept) TextButton(onClick = { accept(model.target) }, enabled = enabled) { Text("Accept and return to lobby") }

@@ -303,6 +303,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.
         Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(
             usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            TrackGameDialogInput()
             Box(Modifier.fillMaxSize()) {
                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd)
                     .fillMaxWidth(if (landscape) .5f else 1f))

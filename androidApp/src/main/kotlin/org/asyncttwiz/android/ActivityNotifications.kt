@@ -10,6 +10,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import org.asyncttwiz.protocol.ActivityKind
+import org.asyncttwiz.protocol.GameNoticeContent
+
+internal data class GameNotificationText(val title: String, val text: String, val whenMillis: Long)
+internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
+    "${content.gameName} · vs ${content.opponentName}",
+    (if (content.yourMove) "Your move" else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
+    java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())
 
 object ActivityChannels {
     const val INVITATIONS = "invitations"
@@ -49,12 +56,13 @@ class ActivityNotifications(private val context: Context, private val podName: (
             .putExtra("game", notice.hint.gameId).putExtra("identity", notice.hint.identity)
             .putExtra("kind", notice.hint.kind.name)
         val pending = PendingIntent.getActivity(context, 0, route, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val gameText = notice.hint.notice?.let(::gameNotificationText)
         val notification = Notification.Builder(context, ActivityChannels.channel(notice.hint.kind))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, podName(notice.hint.gameId))
-                else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else "Game activity")
-            .setContentText(if (notice.hint.kind.isPodActivity()) "Open Pods to view current activity."
-                else if (notice.hint.kind == ActivityKind.INVITATION) "Open Games to view the invitation." else "Open the game to catch up.")
+            .setContentTitle(if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, notice.hint.resourceName ?: podName(notice.hint.gameId))
+                else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else gameText?.title ?: "Game activity")
+            .setContentText(gameText?.text)
+            .apply { gameText?.let { setWhen(it.whenMillis); setShowWhen(true) } }
             .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(notice.silent)
             // Platform Notification.Builder has no setSilent. A child-only group
             // with summary-only alerts also silences an extension after dismissal.

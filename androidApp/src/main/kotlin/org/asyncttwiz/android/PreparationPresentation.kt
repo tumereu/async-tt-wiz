@@ -4,6 +4,10 @@ import org.asyncttwiz.protocol.*
 
 data class TransferFeedback(val serial: Long, val text: String)
 
+/** Names are trusted-client presentation only; never expose another player's game deck title. */
+internal fun gameDeckName(owner: String, viewer: String?, name: String): String =
+    if (owner == viewer) name else "Deck"
+
 /** Compare displayed membership, not submitted quantity or receipt counts. Includes reconciliation. */
 internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, actor: String?,
     previous: TransferFeedback?): TransferFeedback? {

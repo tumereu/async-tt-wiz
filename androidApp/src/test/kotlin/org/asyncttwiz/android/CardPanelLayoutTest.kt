@@ -142,8 +142,8 @@ class CardPanelLayoutTest {
     @Test fun fixedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {
         val display = manyCards().board.contentsDisplays.single()
         val id = display.cardIds.first()
-        assertEquals(9, panelCardActions.size)
-        assertEquals(listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom"), panelCardActions.map { it.label })
+        assertEquals(10, panelCardActions.size)
+        assertEquals(listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom", "Stack"), panelCardActions.map { it.label })
         assertTrue(panelCardActions.all { panelCardActionEnabled(it, display, id, null) })
         for (revealed in listOf(display.copy(reveal = true), display.copy(revealedIds = setOf(id)))) {
             assertEquals(listOf("Reveal+Hand", "Reveal+Top"), panelCardActions.filterNot { panelCardActionEnabled(it, revealed, id, null) }.map { it.label })

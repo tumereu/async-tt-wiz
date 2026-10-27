@@ -23,7 +23,7 @@ class TableChromeTest {
         val play = TableFixture.play()
         for (viewer in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
             val current = play.copy(board = play.board.copy(turn = play.board.turn.copy(accountId = turn), attentionHolder = move))
-            assertEquals(viewer == turn || viewer == move, QuickActions.visible(current, viewer))
+            assertEquals(viewer == turn || viewer == move || QuickActions.openingMulligan(current, viewer), QuickActions.visible(current, viewer))
             val style = advanceButtonStyle(current.board, viewer)
             when {
                 viewer != move -> assertEquals(AdvanceButtonStyle(Color.White, Color.Gray, Color.Gray), style)

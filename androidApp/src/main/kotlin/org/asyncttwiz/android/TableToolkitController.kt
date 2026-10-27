@@ -314,7 +314,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         dismiss()
         val controller = libraryController(source.id, hand.id) ?: return
         library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
-        panel = "library"
+        panel = if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
     }
     /** Shared panels render directly from the board, including after reconnect and during review. */
     fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {

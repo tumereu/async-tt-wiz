@@ -48,6 +48,30 @@ class CardPanelUiTest {
     private fun panel() = f.play.board.contentsDisplays.single()
     @After fun close() { f.lobby.close(); f.worker.drain() }
 
+    @Test fun lookPanelOffersExistingStackAction() = stackFromPanel(PlayZone.LIBRARY, ContentsSelection.TOP)
+    @Test fun searchPanelOffersExistingStackAction() = stackFromPanel(PlayZone.LIBRARY, ContentsSelection.ALL)
+    @Test fun graveyardPanelOffersExistingStackAction() = stackFromPanel(PlayZone.GRAVEYARD)
+    @Test fun exilePanelOffersExistingStackAction() = stackFromPanel(PlayZone.EXILE)
+
+    private fun stackFromPanel(zone: PlayZone, selection: ContentsSelection = ContentsSelection.TOP) {
+        setup()
+        if (zone == PlayZone.LIBRARY) show(selection, count = 1)
+        else {
+            assertTrue(f.move(40, TableDestination.Container(f.container(zone), zone)))
+            ui.openPublicPile(f.container(zone))
+        }
+        mount()
+        val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
+        compose.onAllNodesWithContentDescription(item.label)[0].performClick()
+        val before = f.commands().size
+        click("Stack")
+        val action = assertIs<PlayAction.Stack>((f.commands().drop(before).single().action as GameAction.Play).action)
+        assertEquals(item.cardId, assertIs<StackAction.AddEffect>(action.action).sourceId)
+        assertEquals(f.container(zone), f.card(40).containerId)
+        assertEquals(item.cardId, f.play.board.stackEffects.single().sourceId)
+        assertTrue(CardVisibility.isVisibleFaceUp(f.play.board, f.card(40), f.other))
+    }
+
     @Test fun libraryPanelAutoClosesOnLastMenuMoveAndAnotherCanOpenImmediately() {
         setup(); ui.openLibrary(f.container(PlayZone.LIBRARY)); mount()
         click("Look 1")
@@ -264,7 +288,7 @@ class CardPanelUiTest {
         compose.onNodeWithContentDescription(item.label).assertIsSelected()
         for (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
-        assertEquals(9, panelCardActions.size)
+        assertEquals(10, panelCardActions.size)
         val menu = compose.onNodeWithContentDescription("Hand").fetchSemanticsNode().boundsInRoot
         assertEquals(s.cardPanels.maxOf { it.bounds.right } + 4, menu.left, .1f)
         assertEquals(local.viewport.bounds.y + 2, menu.top, .1f)

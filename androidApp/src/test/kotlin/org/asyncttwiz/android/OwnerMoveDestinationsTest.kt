@@ -130,8 +130,9 @@ class OwnerMoveDestinationsTest {
             val library = toolkit.libraryController(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND))!!
             val choices = libraryDestinations(f.play.board, mapOf(f.actor to "Alice", f.other to "Bob"),
                 sourceIds = listOf(f.id(40), f.id(41)))
-            assertEquals(setOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile"), choices.map { it.first }.toSet())
-            assertTrue(choices.all { (_, destination) -> f.play.board.containers.single { it.id == destination.containerId }.accountId == f.actor })
+            assertEquals(setOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile", "Stack"), choices.map { it.first }.toSet())
+            assertTrue(choices.all { (_, destination) -> f.play.board.containers.single { it.id == destination.containerId }.let {
+                it.accountId == f.actor || it.zone == PlayZone.STACK && it.accountId == null } })
             assertEquals(0, library.move(ContentsSelection.TOP, 4, choices.single { it.first == "Exile" }.second).refused)
             for (card in f.play.board.cards) assertEquals(f.container(PlayZone.EXILE, card.owner), card.containerId)
             assertIs<GameAction.PlayBatch>(f.commands().single().action)

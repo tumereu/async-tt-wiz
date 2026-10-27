@@ -33,8 +33,11 @@ data class QuickAction(val name: String, val glyph: String, val intent: TableAct
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
     const val contextualPositions = 3
+    fun openingMulligan(play: PlayState, viewer: String?) = play.board.turn.number == "1" &&
+        TurnPosition.of(play.board.turn) == TurnPosition.UNTAP && play.board.players.any { it.accountId == viewer }
+    fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) && play.board.turn.accountId != viewer
     fun visible(play: PlayState, viewer: String?) = viewer != null &&
-        (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer)
+        (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer || openingMulligan(play, viewer))
     fun contextual(play: PlayState, context: QuickContext, controller: TableActionController): List<QuickAction> {
         if (!context.playable) return emptyList()
         val scope = TableActionScope(play.gameId, play.id)
@@ -52,11 +55,6 @@ object QuickActions {
                 add("Untap all + next", "↶", controller.untap(play, true), "↦")
                 add("Untap, draw → main", "", bundle(controller.untap(play, false), controller.draw(play, false),
                     choose(TurnPosition.PRECOMBAT_MAIN)))
-                if (play.board.turn.number == "1") {
-                    add("Return Hand → Shuffle → Draw N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N), "↓")
-                    add("Return Hand → Shuffle → Draw previous Hand size −1", "⇄",
-                        controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE), "−1")
-                }
             }
             TurnPosition.UPKEEP -> add("Draw + go to main", "", bundle(controller.draw(play, false), choose(TurnPosition.PRECOMBAT_MAIN)))
             TurnPosition.DRAW -> {
@@ -83,6 +81,12 @@ object QuickActions {
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
             else -> Unit
+        }
+        if (openingMulligan(play, context.viewer)) {
+            val targets = context.viewer?.let { controller.targets(play, it) }
+            add("Mulligan N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
+            add("Mulligan −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
+            if (!turnPlayer) return result
         }
         if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&
             TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_BLOCKERS)
@@ -142,7 +146,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
+            if (!QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
                 .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
                 fill = style.fill, ink = style.ink, compactContent = true,
                 holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },

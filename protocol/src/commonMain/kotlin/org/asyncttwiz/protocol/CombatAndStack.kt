@@ -23,7 +23,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class StackEffect(val id: String, val sourceId: String, val frozen: PlayCard? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val controller: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isCopy: Boolean = false,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "",
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealsLibrarySource: Boolean = false)
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
 @Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)
@@ -106,9 +107,10 @@ object CombatStackRules {
     fun exists(board: BoardState, endpoint: ProjectionEndpoint) = endpoint.occurrenceId in projectionIds(board)
     fun projectionPair(first: String, second: String) = if (first <= second) first to second else second to first
     fun stack(board: BoardState) = board.containers.single { it.zone == PlayZone.STACK }
-    fun canProject(board: BoardState, card: PlayCard): Boolean {
+    fun canProject(board: BoardState, card: PlayCard, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
         val source = board.containers.singleOrNull { it.id == card.containerId } ?: return false
         return source.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE) ||
+            rulesVersion >= 21 && source.zone == PlayZone.LIBRARY ||
             source.zone == PlayZone.HAND && source.accountId == card.owner
     }
     /** Top first; the Stack container holds real card IDs AND independent effect occurrence IDs. */
@@ -174,7 +176,8 @@ object CombatStackRules {
     /** Same indivisible compare/construct function for server execution and provisional prediction.
      * The server's existing transaction/arrival-order processor must call this on its selected state.
      */
-    internal fun change(state: PlayState, actor: String, command: GameCommand): GameplayChange {
+    internal fun change(state: PlayState, actor: String, command: GameCommand,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
         val playAction = (command.action as GameAction.Play).action
@@ -260,8 +263,10 @@ object CombatStackRules {
                 is StackAction.AddEffect -> {
                     if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
                     val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
-                    if (!canProject(board, source)) return reject("inapplicable")
-                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id)
+                    if (!canProject(board, source, rulesVersion)) return reject("inapplicable")
+                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
+                        revealsLibrarySource = rulesVersion >= 21 && board.containers.any {
+                            it.id == source.containerId && it.zone == PlayZone.LIBRARY })
                     if (effect.id in stack(board).cards || board.cards.any { it.id == effect.id }) return reject("invalidStructure")
                     board.copy(stackEffects = board.stackEffects + effect,
                         containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
@@ -278,7 +283,8 @@ object CombatStackRules {
                     val source = inspection(board, action.entryId) ?: return reject("missingReference")
                     val original = board.stackEffects.singleOrNull { it.id == action.entryId }
                     val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
-                        original?.frozen, controller(board, action.entryId), isCopy = true)
+                        original?.frozen, controller(board, action.entryId), isCopy = true,
+                        revealsLibrarySource = rulesVersion >= 21 && original?.revealsLibrarySource == true)
                     board.copy(stackEffects = board.stackEffects + effect,
                         containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
                 }
@@ -306,7 +312,7 @@ object CombatStackRules {
         val viewers = source?.let { CardVisibility.viewers(next, it) - CardVisibility.viewers(board, it).toSet() }.orEmpty()
         return GameplayRules.record(state, actor, command, next, GameplayTransition(disclosures =
             if (source != null && viewers.isNotEmpty()) listOf(GameplayDisclosure(source.id, source.faceId, source.containerId, viewers))
-            else emptyList()))
+            else emptyList()), rulesVersion = rulesVersion)
     }
 
     private fun empty(pair: CombatPair) = pair.attackers.isEmpty() && pair.blockers.isEmpty()

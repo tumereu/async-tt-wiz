@@ -54,6 +54,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
+        "mulligan" -> toolkit.library?.let { library ->
+            val owner = play.board.containers.single { it.id == library.controller.libraryId }.accountId.orEmpty()
+            MulliganDialog(library.controller, library.handIds, owner, toolkit::dismiss, toolkit::dismiss)
+        }
         "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {
             LibraryActions(library.controller, play.board, library.handIds,
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)

@@ -85,7 +85,7 @@ class CastingGroupingTest {
             val before = state
             val result = gameplayChange(before, action, request++)
             val mutation = assertNotNull(result.mutation, "${result.outcome}: ${result.reason}")
-            assertEquals(20, mutation.transition.rulesVersion)
+            assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, mutation.transition.rulesVersion)
             assertEquals(3, mutation.grouping?.rulesVersion)
             state = assertNotNull(result.state)
             assertEquals(state, GameplayHistory.apply(before, mutation))

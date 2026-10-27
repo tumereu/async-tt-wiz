@@ -56,7 +56,11 @@ class TableChromeUiTest {
             val next = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn))
             if (visible) next.assertIsDisplayed() else {
                 next.assertDoesNotExist()
-                compose.onNodeWithText("Opponent's turn").assertIsDisplayed()
+                if (QuickActions.openingMulligan(play, who)) {
+                    compose.onNodeWithContentDescription("Mulligan N").assertIsDisplayed()
+                    compose.onNodeWithContentDescription("Mulligan −1").assertIsDisplayed()
+                    compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
+                } else compose.onNodeWithText("Opponent's turn").assertIsDisplayed()
                 compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
             }
             if (who != turn && who == move) compose.onNodeWithContentDescription("No blocks + next").assertIsDisplayed()

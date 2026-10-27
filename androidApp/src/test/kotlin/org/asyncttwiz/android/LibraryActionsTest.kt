@@ -86,18 +86,18 @@ class LibraryActionsTest {
         assertEquals(listOf(false, false, true), entries.map { it.bottommost })
     }
 
-    @Test fun destinationInventoryHasLibraryOrderAndBattlefieldButNoStackOrSideboard() {
+    @Test fun destinationInventoryHasLibraryOrderBattlefieldAndStackButNoSideboard() {
         val choices = libraryDestinations(state().board, sourceIds = listOf(id(20))).map { it.second }
         assertEquals(listOf(MoveInsertion.TOP, MoveInsertion.BOTTOM, MoveInsertion.UNORDERED,
-            MoveInsertion.UNORDERED, MoveInsertion.EMPTY), choices.map { it.insertion })
-        assertEquals(setOf(id(10), id(11), id(13), id(14)), choices.map { it.containerId }.toSet())
+            MoveInsertion.UNORDERED, MoveInsertion.EMPTY, MoveInsertion.TOP), choices.map { it.insertion })
+        assertEquals(setOf(id(10), id(11), id(13), id(14), id(15)), choices.map { it.containerId }.toSet())
         assertEquals(BoardPosition(0, 0), choices.single { it.containerId == id(14) }.position)
     }
 
     @Test fun destinationsAreOwnerOnlyAndLabelsNeverNamePlayers() {
         val names = mapOf(id(7) to "alex", id(8) to "riley")
         val labels = libraryDestinations(state().board, names, sourceIds = listOf(id(20))).map { it.first }
-        assertEquals(listOf("Library top", "Library bottom", "Hand", "Exile", "Battlefield"), labels)
+        assertEquals(listOf("Library top", "Library bottom", "Hand", "Exile", "Battlefield", "Stack"), labels)
         assertTrue(libraryDestinations(state().board).isEmpty())
         for (label in labels) {
             assertFalse(label.contains("alex")); assertFalse(label.contains("riley"))

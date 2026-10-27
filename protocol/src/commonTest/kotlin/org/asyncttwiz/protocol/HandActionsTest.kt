@@ -24,7 +24,7 @@ class HandActionsTest {
         assertEquals("accepted", changed.outcome, changed.reason)
         val next = assertNotNull(changed.state)
         val event = assertNotNull(changed.mutation)
-        assertEquals(20, event.transition.rulesVersion)
+        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, event.transition.rulesVersion)
         val wire = GameWire.json.decodeFromString(GameplayMutation.serializer(), GameWire.json.encodeToString(GameplayMutation.serializer(), event))
         assertEquals(next, GameplayHistory.apply(state, wire))
         assertEquals(state, GameplayHistory.unapply(next, wire))

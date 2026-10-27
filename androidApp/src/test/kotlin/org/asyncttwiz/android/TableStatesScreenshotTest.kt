@@ -26,6 +26,17 @@ import kotlin.test.*
 class TableStatesScreenshotTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
+    private val combatTargetsState = f.combat().let { play ->
+        val target = f.source(f.b, "2/3")
+        val original = play.definitions.single { it.digest == target.definition }
+        val definition = original.definition.copy(faces = original.definition.faces.map {
+            it.copy(name = "Jace Beleren", typeLine = "Planeswalker — Jace") })
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        play.copy(definitions = play.definitions + submitted, board = play.board.copy(
+            cards = play.board.cards.map { if (it.id == target.id) it.copy(definition = submitted.digest) else it },
+            combat = play.board.combat!!.let { area -> area.copy(pairs = area.pairs.mapIndexed { index, pair ->
+                if (index == 0) pair.copy(attackTarget = target.id) else pair }) }))
+    }
     private val graveyardState = f.initial.let { play ->
         val graveyard = f.id("a/GRAVEYARD")
         val river = play.board.cards.single { it.containerId == f.id("a/HAND") && it.corner == "1/2" }
@@ -74,6 +85,7 @@ class TableStatesScreenshotTest {
                 stackEffects = state.board.stackEffects.map { it.copy(sourceId = f.source(f.a, "1/3").id) }))
         }
         val current = { if (kind in listOf("stack-bubbles", "stack-preview")) stackSample
+            else if (kind == "combat-targets") combatTargetsState
             else if (kind.startsWith("tokens")) tokenState
             else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") graveyardState else f.combat() }
@@ -193,10 +205,15 @@ class TableStatesScreenshotTest {
         val image = ImageIO.read(file)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
-        if (kind == "combat") {
+        if (kind.startsWith("combat")) {
             compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
-            assertRenderedLandsBands(image, TablePresentation.scene(f.game, current(), f.a,
-                image.width.toFloat(), image.height.toFloat(), landscape), f.a, turnPlayer = current().board.turn.accountId)
+            val scene = TablePresentation.scene(f.game, current(), f.a, image.width.toFloat(), image.height.toFloat(), landscape)
+            if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
+            assertTrue(scene.combatLabels.all { it.fontSize in 11f..12f })
+            val cards = scene.items.filter { it.projection && it.viewport == "combat" }
+            assertTrue(cards.isNotEmpty())
+            assertTrue(scene.combatLabels.all { label -> cards.all { label.bounds.bottom < it.bounds.y } })
+            if (kind == "combat-targets") assertEquals(1, scene.combatLaneDividers.size)
         }
         if (kind == "stack-preview") {
             compose.onRoot().performTouchInput { cancel() }
@@ -207,6 +224,8 @@ class TableStatesScreenshotTest {
     }
 
     @Test fun combatPortrait() { render("combat", false) }
+    @Test fun combatCardTargetPortrait() { render("combat-targets", false) }
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
     @Test fun stackBubblesPortrait() { render("stack-bubbles", false) }
     @Test fun stackDoubleTapWithBubblesOpenShowsManageStackWithoutTappingSource() {
         val sent = render("stack-bubbles", false)

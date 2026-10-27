@@ -257,7 +257,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val cardAppearance = rememberCardAppearance()
         val fieldScale = cardScale(cardAppearance.cardSize)
         val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale,
-            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), accountId).height + 4f)
+            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), accountId,
+            cardAppearance.text(CardTextScalePart.TITLE)).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
@@ -1041,17 +1042,17 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = .7f), xy(from.x, from.y), xy(to.x, to.y), 3 * density)
             for (label in scene.combatLabels) {
                 val bounds = label.bounds
-                val font = scene.cardWidth * .22f
-                val inset = if (label.cardId != null) scene.cardWidth * .3f else 0f
+                val font = label.fontSize
                 if (label.cardId != null) {
-                    val thumb = TableBounds(bounds.x + 1f, bounds.y + 1f, inset, inset * 1.4f)
+                    val thumb = TableBounds(bounds.x + label.padding, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
                     val image = label.artwork?.key?.let(artwork::get)
                     if (image != null) drawTableArtwork(image, thumb)
                     else drawRect(Color(0xffb5b0a0), xy(thumb.x, thumb.y), size(thumb.width, thumb.height))
                 }
                 paint.textSize = font * density; paint.isFakeBoldText = true
                 label.lines.forEachIndexed { index, line ->
-                    fittedText(line, bounds.x + inset + 2f, bounds.y + font * (1 + index * 1.2f), bounds.width - inset - 4f)
+                    fittedText(line, bounds.x + label.textInset, bounds.y + label.padding + font + index * label.lineHeight,
+                        bounds.width - label.textInset - label.padding)
                 }
                 paint.isFakeBoldText = false; paint.textSize = 11 * density
             }

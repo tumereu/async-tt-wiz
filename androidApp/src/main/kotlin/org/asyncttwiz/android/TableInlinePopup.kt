@@ -77,6 +77,8 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     val pages = CardRingPages.resolve(entries.map { it.id }, token = token, inHand = inHand)
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
+    // Reserve the tallest page, including empty rows, so placement and the header never jump.
+    val gridRows = pages.maxOf { inlinePopupGridRows(CardRingPages.layout(it.actions)) }
     val anchor = LocalCardRingAnchors.current[viewId]
     val selectPage: (Int) -> Unit = { page = it; store.write(it) }
     val switchPage: (Int) -> Unit = { delta -> selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
@@ -97,7 +99,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 Column(Modifier.heightIn(max = (contentHeight - 52f).coerceAtLeast(48f).dp)
                     .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
-                    repeat(inlinePopupGridRows(slots)) { row ->
+                    repeat(gridRows) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
                             while (column < CardRingPages.columns) {

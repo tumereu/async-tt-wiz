@@ -17,7 +17,11 @@
   their original values and replay unchanged.
 - Equal targets form contiguous lanes in the same single blocker/attacker rows,
   separated by bold dividers. A reserved top label row shows `→ name` or tiny art
-  plus card name; empty combat shows only its default player label, not guidance.
+   plus card name; empty combat shows only its default player label, not guidance.
+   Labels use approximately 11–12sp at default scale, follow card/title text sizing,
+   and reserve their full wrapped height above cards. Target art is text-height;
+   card-target lanes may widen for readable name wrapping, keeping cards centered.
+   Lane boundaries remain visibly thicker than ordinary pair dividers.
   Cross-lane drags onto attacker rows retarget whole pairs, keeping blockers
   attached; blocker-row drops still move the occurrence into the blocker role
   (D-135/D-136). Within-lane placement/reordering is unchanged.

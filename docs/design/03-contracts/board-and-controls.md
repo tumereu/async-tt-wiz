@@ -6,6 +6,9 @@ Card menus omit Move: non-Everyday moves join More, overflowing into More 2,
 More 3, etc. The header shows only the current title, previous/next arrows
 (wrapping), and a scrollable jump list on title tap; swipes and per-game memory remain.
 On tight screens only the grid scrolls, keeping the header fixed and the card unobscured.
+Paging the same card reserves the tallest page's rows, leaving unused rows empty;
+neither the header nor the grid's top edge moves. Discard (including random) uses
+the Graveyard icon; Play has a distinct card-onto-table icon.
 Own Hand cards instead have Hand (Inspect, Play, Reveal, Discard, Exile, Library
 top/bottom, Shuffle into library) and Random (discard/reveal/exile/library bottom)
 pages. Play uses the hand double-tap behavior, atomically for multiselection.

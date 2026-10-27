@@ -23,6 +23,26 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
+    @Test fun readableLabelsReserveTheirWrappedHeightAndFollowCardAndTitleSettings() {
+        val initial = TableFixture.play(board = 1, library = 0)
+        val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
+            CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")),
+                attackTarget = "b/BATTLEFIELD/0")))))
+        for (landscape in listOf(false, true)) for (cardScale in listOf(.65f, 1f, 2f)) for (textScale in listOf(.5f, 1f, 2f)) {
+            val appearance = CardAppearance(cardSize = cardScale, customizeText = true,
+                text = mapOf(CardTextScalePart.TITLE to textScale))
+            val scene = TablePresentation.scene(TableFixture.game, state, "a",
+                if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, appearance = appearance)
+            val lane = scene.combatLabels.single()
+            assertEquals(11.5f * cardScale * textScale, lane.fontSize, .001f)
+            assertEquals(lane.lineHeight, lane.artworkHeight)
+            assertTrue(lane.lines.size <= 2, "A single-card target lane must allow readable name wrapping")
+            assertTrue(lane.bounds.height >= lane.lines.size * lane.lineHeight)
+            val card = scene.items.single { it.cardId == "attacker" }
+            assertTrue(lane.bounds.bottom < card.bounds.y)
+        }
+    }
+
     @Test fun groupingKeepsOneRowPerRoleAndReservedLabelsAndBoldLaneBoundaries() {
         val original = attackTargetState()
         val area = original.board.combat!!

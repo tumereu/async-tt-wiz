@@ -113,11 +113,12 @@ class PodService(private val runtime: ServiceRuntime) {
     fun create(principal: AccountService.Principal, input: CreatePod): Result =
         business(principal, input.requestId, "createPod", DeckJson.canonicalElement(sourceIntent(json.encodeToJsonElement(input), input.setSource))) { sql, owner, _ ->
             if (!validName(input.name)) return@business error(400, "invalid_name")
+            if (input.settings?.validate(2)?.isNotEmpty() == true) return@business error(400, "invalid_settings")
             if ((input.cubeId == null) == (input.setSource == null)) return@business error(400, "invalid_source")
             input.setSource?.let { validateSet(it)?.let { failure -> return@business failure } }
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
             input.setSource?.let { storeSet(sql, it) }
-            val settings = when (input.mode) {
+            val settings = input.settings ?: when (input.mode) {
                 DraftMode.GLIMPSE -> DraftSettings.glimpse()
                 DraftMode.GRID -> DraftSettings.grid()
                 DraftMode.BOOSTER -> DraftSettings.booster()

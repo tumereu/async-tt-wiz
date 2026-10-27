@@ -19,6 +19,15 @@ class PodApiTest {
     private val detail = PodDetail(id, "Pod", PodPhase.SETUP, account, DraftSettings(), PodSource("Cube", 540),
         DraftSupply(45, 540), listOf(PodMember(account)), emptyList(), updatedAt = "2026-10-26T00:00:00Z")
 
+    @Test fun optionalCreationSettingsPreserveLegacyWireAndRetryIntentWhenAbsent() {
+        val input = CreatePod(request, "Pod", id)
+        val legacy = """{"requestId":"$request","name":"Pod","cubeId":"$id","mode":"BOOSTER","setSource":null}"""
+        assertEquals(legacy, DeckJson.format.encodeToString(input))
+        assertEquals(input, DeckJson.format.decodeFromString<CreatePod>(legacy))
+        val configured = input.copy(settings = DraftSettings.glimpse().copy(sideboardLimit = 7))
+        assertEquals(configured, DeckJson.format.decodeFromString<CreatePod>(DeckJson.format.encodeToString(configured)))
+    }
+
     @Test fun allRoutesSendAuthenticatedOriginalPayloadAndCorrectVerb() = runBlocking {
         data class Expected(val path: String, val method: HttpMethod, val body: String? = null, val ack: Boolean = false)
         val expected = ArrayDeque<Expected>()

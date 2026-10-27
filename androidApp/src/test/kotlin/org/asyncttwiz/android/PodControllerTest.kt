@@ -49,6 +49,7 @@ class PodControllerTest {
         var missing = false
         var failMoves = false
         var failSourceWrites = false
+        var updateFailure: String? = null
         var gridFailure: String? = null
         var pickFailure: String? = null
         var afterRead: () -> Unit = {}
@@ -60,11 +61,13 @@ class PodControllerTest {
         override suspend fun create(token: String, input: CreatePod): PodDetail {
             calls += "create" to input
             if (failSourceWrites) throw PodFailure("network")
-            saved = detail(PodPhase.SETUP).copy(name = input.name, source = input.setSource?.podSource() ?: PodSource("Cube", 540))
+            saved = detail(PodPhase.SETUP).copy(name = input.name, settings = input.settings ?: podModeSettings(input.mode, DraftSettings()),
+                source = input.setSource?.podSource() ?: PodSource("Cube", 540))
             return saved
         }
         override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail {
             calls += "update" to input
+            updateFailure?.let { throw PodFailure(it) }
             if (failSourceWrites) throw PodFailure("network")
             saved = saved.copy(name = input.name ?: saved.name, settings = input.settings ?: saved.settings,
                 source = input.setSource?.podSource() ?: saved.source)
@@ -139,7 +142,7 @@ class PodControllerTest {
         var fail = false
         var upload = SetSourceUpload(SetSourceSnapshot("TST", "Test set",
             listOf(SetSourceCard(definition.digest, UUID.randomUUID().toString()))), SubmittedDefinitions(listOf(definition)), emptyList(), emptyList())
-        override fun sets(): List<DraftableSet> { calls += "sets"; return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1)) }
+        override fun sets(): List<DraftableSet> { calls += "sets"; return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, "expansion")) }
         override fun isCached(code: String) = true
         override fun load(code: String): SetSourceUpload { calls += "load:$code"; if (fail) error("offline"); return upload }
         override fun redownload(code: String): SetSourceUpload { calls += "redownload:$code"; if (fail) error("offline"); return upload }
@@ -156,6 +159,137 @@ class PodControllerTest {
         assertEquals(saved, f.controller.state.detail!!.settings)
     }
 
+    @Test fun setupPredictsImmediatelyAndAcknowledgementsDoNotReplaceNewerEdits() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.editSetup(name = "Renamed")
+        f.controller.editSettings { it.copy(keep = 2) }
+        assertEquals("Renamed", f.controller.state.detail!!.name)
+        assertEquals(2, f.controller.state.detail!!.settings.keep)
+        assertTrue(f.api.calls.isEmpty())
+        f.controller.flushSetup()
+        f.controller.editSettings { it.copy(burn = 3) }
+        assertEquals(3, f.controller.state.detail!!.settings.burn)
+        f.deliver()
+        assertEquals(3, f.controller.state.detail!!.settings.burn)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(f.api.saved.settings, f.controller.state.detail!!.settings)
+        assertNull(f.controller.state.setup)
+    }
+
+    @Test fun rejectedSetupRevertsDependentEditsAndReleasesControlsForNextSave() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        val original = f.controller.state.detail!!
+        f.api.updateFailure = "invalid_settings"
+        f.controller.editSettings { it.copy(keep = 2) }; f.controller.flushSetup()
+        f.controller.editSetup(name = "Later edit"); f.controller.flushSetup()
+        assertEquals(2, f.controller.state.pending)
+        assertEquals("Later edit", f.controller.state.detail!!.name)
+        f.deliver()
+        assertEquals(original, f.controller.state.detail)
+        assertNull(f.controller.state.setup)
+        assertEquals(0, f.controller.state.pending)
+        assertEquals("Settings not saved.", f.controller.state.error)
+        assertEquals(1, f.api.calls.size)
+        f.api.updateFailure = null
+        f.controller.editSettings { it.copy(sideboardLimit = 0) }; f.controller.flushSetup(); f.deliver()
+        assertEquals(0, f.controller.state.detail!!.settings.sideboardLimit)
+    }
+
+    @Test fun ambiguousSettingsSaveStillAllowsLocalEditsAndRetriesOriginalRequest() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.api.failSourceWrites = true
+        f.controller.editSettings { it.copy(keep = 2) }; f.controller.flushSetup(); f.deliver()
+        val original = f.api.calls.first().second
+        assertTrue(f.controller.state.uncertain)
+        f.controller.editSettings { it.copy(burn = 3) }
+        assertEquals(3, f.controller.state.detail!!.settings.burn)
+        f.api.failSourceWrites = false; f.controller.retry(); f.deliver()
+        assertEquals(original, f.api.calls.last().second)
+        assertEquals(3, f.controller.state.detail!!.settings.burn)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(3, f.api.saved.settings.burn)
+    }
+
+    @Test fun creationSendsEverySettingInOneRequest() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        val settings = DraftSettings.glimpse().copy(cardsPerPack = 12, keep = 2, burn = 3,
+            discardRemainingAt = 1, packsOpenAtOnce = 3, colorBalance = false, sideboardLimit = 7)
+        f.controller.newSettings { settings }
+        assertEquals(settings, f.controller.state.creating!!.settings)
+        f.controller.create(); f.deliver()
+        assertEquals(settings, (f.api.calls.single().second as CreatePod).settings)
+        assertEquals(settings, f.controller.state.detail!!.settings)
+    }
+
+    @Test fun creationPreservesEditsMadeWhileTheRequestIsPending() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.create()
+        f.controller.newName("Changed during creation")
+        f.controller.newSettings { it.copy(keep = 2, sideboardLimit = 7) }
+        f.deliver()
+        assertEquals("Changed during creation", f.controller.state.detail!!.name)
+        assertEquals(2, f.controller.state.detail!!.settings.keep)
+        assertEquals(7, f.controller.state.detail!!.settings.sideboardLimit)
+        assertNotNull(f.controller.state.setup)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(listOf("create", "update"), f.api.calls.map { it.first })
+        assertEquals("Changed during creation", f.api.saved.name)
+        assertEquals(2, f.api.saved.settings.keep)
+    }
+
+    @Test fun reopeningSourcePickerCancelsPreparationAndRestoresThePreviousSelection() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()
+        f.controller.setPicker.choose("TST")
+        assertNotNull(f.controller.state.sourcePreview)
+        f.controller.chooseSet()
+        assertNull(f.controller.state.sourcePreview)
+        f.controller.setPicker.dismiss(); f.deliver()
+        assertNull(f.controller.state.creating!!.setSource)
+        assertEquals(cube.id, f.controller.state.creating!!.cubeId)
+    }
+
+    @Test fun cachedSetSelectionDuringPendingSaveClosesImmediatelyAndSurvivesQueuedRefresh() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
+        f.controller.editSetup(name = "Renamed"); f.controller.flushSetup()
+        f.controller.chooseSet()
+        assertTrue(f.controller.state.loading)
+        assertEquals(1, f.controller.state.pending)
+        assertTrue(f.controller.setPicker.state.busy)
+        assertTrue(f.controller.setPicker.state.rows.single().cached)
+        f.controller.setPicker.choose("TST")
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        assertEquals(listOf("sets"), f.sets.calls) // Save, refresh and preparation are still queued.
+        f.deliver()
+        assertFalse(f.controller.setPicker.state.open)
+        assertFalse(f.controller.setPicker.state.busy)
+        assertNull(f.controller.state.sourcePreview)
+        assertEquals("Renamed", f.controller.state.detail!!.name)
+        assertEquals("Test set", f.controller.state.detail!!.source.setName)
+        assertEquals(f.sets.upload.snapshot, f.controller.state.setup!!.setSource!!.snapshot)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals("Test set", f.api.saved.source.setName)
+        assertNull(f.controller.state.setup)
+        assertEquals(listOf("sets", "sets", "load:TST"), f.sets.calls)
+    }
+
+    @Test fun cachedSetSelectionDuringRefreshRevertsPreviewOnPreparationFailure() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
+        val original = f.controller.state.detail!!.source
+        f.controller.editSettings { it.copy(keep = 2) }; f.controller.flushSetup()
+        f.controller.chooseSet()
+        f.sets.fail = true
+        f.controller.setPicker.choose("TST")
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        f.deliver()
+        assertNull(f.controller.state.sourcePreview)
+        assertEquals(original, f.controller.state.detail!!.source)
+        assertEquals(2, f.controller.state.detail!!.settings.keep)
+        assertEquals("Could not load source.", f.controller.state.error)
+        assertFalse(f.controller.setPicker.state.open)
+        assertFalse(f.controller.setPicker.state.busy)
+    }
+
     @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.chooseSet()
@@ -163,6 +297,8 @@ class PodControllerTest {
         assertTrue(f.controller.setPicker.state.busy)
         f.deliver()
         f.controller.setPicker.choose("TST")
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
         assertEquals(listOf("sets"), f.sets.calls)
         f.deliver()
         assertNull(f.controller.state.creating!!.cubeId)
@@ -216,7 +352,10 @@ class PodControllerTest {
         assertNull(f.controller.state.creating!!.setSource)
         f.sets.fail = true; f.controller.setPicker.choose("TST"); f.deliver()
         assertNotNull(f.controller.setPicker.state.error)
-        f.sets.fail = false; f.controller.setPicker.retry(); f.deliver()
+        assertNull(f.controller.state.sourcePreview)
+        assertNull(f.controller.state.creating!!.setSource)
+        assertNotNull(f.controller.state.error)
+        f.sets.fail = false; f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.deliver()
         assertNotNull(f.controller.state.creating!!.setSource)
         assertTrue(f.api.calls.isEmpty())
         f.controller.newCube(cube.id)
@@ -228,8 +367,8 @@ class PodControllerTest {
         f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
         f.controller.setPicker.choose("TST"); f.worker.drain()
         f.controller.back(); f.deliver()
-        assertNull(f.controller.state.creating!!.setSource)
-        f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.worker.drain()
+        assertNull(f.controller.state.creating)
+        f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.choose("TST"); f.worker.drain()
         f.controller.clear(); f.deliver()
         assertNull(f.controller.state.creating)
         assertFalse(f.controller.setPicker.state.open)
@@ -489,7 +628,8 @@ class PodControllerTest {
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
         assertEquals(listOf(cube), f.controller.state.cubes)
         f.controller.newMode(DraftMode.GLIMPSE); f.controller.create(); f.deliver()
-        assertEquals(CreatePod((f.api.calls.single().second as CreatePod).requestId, "Fantasy name", cube.id, DraftMode.GLIMPSE), f.api.calls.single().second)
+        assertEquals(CreatePod((f.api.calls.single().second as CreatePod).requestId, "Fantasy name", cube.id, DraftMode.GLIMPSE,
+            settings = DraftSettings.glimpse()), f.api.calls.single().second)
         assertEquals(id, f.controller.state.selected)
         f.controller.back(); f.deliver()
         f.controller.respond(id, false); f.deliver()

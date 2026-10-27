@@ -79,6 +79,7 @@ class SetSourceRepositoryTest {
     }
     private fun set(code: String = "OLD", date: String = "2000-01-01", cards: List<JsonObject> = listOf(card(1))) = JsonObject().apply {
         addProperty("code", code); addProperty("name", "Set $code"); addProperty("releaseDate", date)
+        addProperty("type", "expansion")
         add("cards", JsonArray().apply { cards.forEach { add(it) } })
     }
     private fun recipe(ids: List<Int>, sources: List<String> = emptyList(), count: Int = 1) = JsonObject().apply {
@@ -135,8 +136,8 @@ class SetSourceRepositoryTest {
         val catalog = catalog(old, recent, tokens)
         val source = FixtureSource()
         val sets = repository(catalog, source).sets()
-        assertEquals(listOf(DraftableSet("NEW", "Set NEW", today.toString(), 1),
-            DraftableSet("OLD", "Set OLD", "2000-01-01", 2)), sets)
+        assertEquals(listOf(DraftableSet("NEW", "Set NEW", today.toString(), 1, "expansion"),
+            DraftableSet("OLD", "Set OLD", "2000-01-01", 2, "expansion")), sets)
         assertEquals(0, source.listRequests)
         val pointer = temporary.resolve("catalog/current").toFile().readText()
         DriverManager.getConnection("jdbc:sqlite:${temporary.resolve("catalog/$pointer")}").use {
@@ -145,7 +146,7 @@ class SetSourceRepositoryTest {
         assertEquals(listOf("NEW", "OLD"), catalog.draftableSets().map { it.name })
         val offline = repository(catalog, source)
         repeat(2) { assertEquals(listOf("NEW", "OLD"), offline.sets().map { it.name }) }
-        assertEquals(1, source.listRequests)
+        assertEquals(2, source.listRequests)
         assertTrue(source.downloads.isEmpty())
     }
 
@@ -162,6 +163,49 @@ class SetSourceRepositoryTest {
             assertEquals(mapOf("OLD" to "Old set name", "NEW" to "Set NEW", "NONAME" to "NONAME"), names)
         }
         assertEquals(1, source.listRequests)
+        assertTrue(source.requests.isEmpty())
+        assertTrue(source.downloads.isEmpty())
+    }
+
+    @Test fun draftableTypesExcludeCommanderPromoAndUnknownAndLegacyTypesArePersistedFromSmallSetList() {
+        val types = listOf("expansion", "core", "masters", "draft_innovation", "commander", "promo", "token", "unknown")
+        val catalog = catalog(*types.mapIndexed { n, type -> set("S$n", "2026-10-${(n + 1).toString().padStart(2, '0')}", listOf(card(n)))
+            .apply { addProperty("type", type) } }.toTypedArray())
+        val source = FixtureSource()
+        assertEquals(listOf("S3", "S2", "S1", "S0"), repository(catalog, source).sets().map { it.code })
+        assertEquals(0, source.listRequests)
+        val pointer = temporary.resolve("catalog/current").toFile().readText()
+        DriverManager.getConnection("jdbc:sqlite:${temporary.resolve("catalog/$pointer")}").use {
+            it.createStatement().use { statement -> statement.execute("DROP TABLE catalog_set_type") }
+        }
+        source.listed = CatalogSetList(metadata, types.mapIndexed { n, type -> CatalogSet("S$n", "2026-10-01", type = type) })
+        val legacy = repository(catalog, source)
+        repeat(2) { assertEquals(listOf("S3", "S2", "S1", "S0"), legacy.sets().map { it.code }) }
+        assertEquals(1, source.listRequests)
+        assertEquals(listOf("S3", "S2", "S1", "S0"), repository(catalog, FixtureSource()).sets().map { it.code })
+        assertEquals(pointer, temporary.resolve("catalog/current").toFile().readText())
+        assertTrue(source.downloads.isEmpty())
+    }
+
+    @Test fun failedTypeBackfillShowsInstalledSetsAndRetriesOnNextOpenWithoutRecreatingRepository() {
+        val catalog = catalog(set("OLD").apply { remove("type") },
+            set("CMD", cards = listOf(card(2))).apply { remove("type") },
+            set("PROMO", cards = listOf(card(3))).apply { addProperty("type", "promo") })
+        val source = FixtureSource()
+        val repository = repository(catalog, source)
+        repeat(2) {
+            val sets = repository.sets()
+            assertEquals(listOf("CMD", "OLD"), sets.map { it.code })
+            assertTrue(sets.all { it.type == null && it.draftable })
+        }
+        assertEquals(2, source.listRequests)
+        source.listed = CatalogSetList(metadata, listOf(CatalogSet("OLD", "2000-01-01", type = "expansion"),
+            CatalogSet("CMD", "2000-01-01", type = "commander")))
+        repeat(2) {
+            assertEquals(listOf(DraftableSet("OLD", "Set OLD", "2000-01-01", 1, "expansion")), repository.sets())
+        }
+        assertEquals(3, source.listRequests)
+        assertEquals(repository.sets(), repository(catalog, FixtureSource()).sets())
         assertTrue(source.requests.isEmpty())
         assertTrue(source.downloads.isEmpty())
     }

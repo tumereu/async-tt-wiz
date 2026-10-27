@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -27,10 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -63,53 +58,19 @@ internal fun readyReason(preparation: LobbyPreparation?, accountId: String): Str
 @Composable
 internal fun ContactsContent(controller: LobbyController) {
     val state = controller.state
-    ScreenBusyOverlay(if (state.mutating) "Saving changes…" else null) {
-    Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = state.contactsTab.ordinal) {
-            ContactsTab.entries.forEach { tab -> Tab(selected = state.contactsTab == tab,
-                onClick = { controller.contactsTab(tab) }, text = { Text(if (tab == ContactsTab.CONTACTS) "Contacts" else "Search") }) }
-        }
-        InitialLoadArea(state.loaded, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
-            Column(Modifier.fillMaxSize().padding(16.dp)) {
-                if (state.contactsTab == ContactsTab.CONTACTS) {
-                    ScreenTextField(state.contactFilter, controller::filterContacts, Modifier.fillMaxWidth()
-                        .semantics { contentDescription = "Filter contacts" }, placeholder = "Filter contacts")
-                    LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                        if (state.filteredContacts.isEmpty()) item { Text(if (state.contacts.isEmpty()) "No saved contacts." else "No matching contacts.", Modifier.padding(vertical = 12.dp)) }
-                        items(state.filteredContacts, key = { it.accountId }) { contact ->
-                            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                                .then(if (state.choosingOpponent) Modifier.clickable(enabled = !state.mutating) { controller.begin(contact) } else Modifier),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Avatar(contact); Spacer(Modifier.width(8.dp))
-                                Text(contact.username, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                                if (!state.choosingOpponent) ContactActionIcon("Remove contact", "delete", !state.mutating) { controller.requestRemoveContact(contact) }
-                                else EntryIcon(null, "chevron")
-                            }
-                        }
-                    }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ScreenTextField(state.query, controller::query, Modifier.weight(1f).semantics { contentDescription = "Search usernames" }, placeholder = "Search usernames")
-                        ScreenIconButton("Search players", "search", controller::search, enabled = !state.searching)
-                    }
-                    InitialLoadArea(!state.searching || state.searched, Modifier.weight(1f).fillMaxWidth()) {
-                        LazyColumn(Modifier.fillMaxSize()) {
-                            if (state.searched && state.searchError == null && state.results.isEmpty()) item { Text("No players found.") }
-                            items(state.results, key = { it.accountId }) { contact ->
-                                val added = state.contacts.any { it.accountId == contact.accountId }
-                                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Avatar(contact); Spacer(Modifier.width(8.dp))
-                                    Text(contact.username, Modifier.weight(1f))
-                                    ContactActionIcon(if (added) "Added contact" else "Add contact", if (added) "ready" else "person", !state.mutating && !added) { controller.add(contact) }
-                                    if (state.choosingOpponent) ContactActionIcon("Invite", "send", !state.mutating, primary = true) { controller.invite(contact) }
-                                }
-                            }
-                        }
-                    }
-                }
+    Box(Modifier.fillMaxSize()) {
+        PlayerPicker(controller, select = if (state.choosingOpponent) ({ controller.invite(it) }) else null) { contact ->
+            val added = state.contacts.any { it.accountId == contact.accountId }
+            if (state.contactsTab == ContactsTab.CONTACTS) {
+                if (state.choosingOpponent) ScreenIconButton("Invite", "send", { controller.begin(contact) }, enabled = !state.mutating)
+                else ScreenIconButton("Remove contact", "delete", { controller.requestRemoveContact(contact) }, enabled = !state.mutating)
+            } else {
+                ScreenIconButton(if (added) "Added contact" else "Add contact", if (added) "ready" else "person",
+                    { controller.add(contact) }, enabled = !state.mutating && !added)
+                if (state.choosingOpponent) ScreenIconButton("Invite", "send", { controller.invite(contact) }, enabled = !state.mutating)
             }
         }
-    }
+        FloatingTransientError(state.error, controller::dismissSessionError, Modifier.align(Alignment.BottomCenter))
     }
     state.removingContact?.let { contact -> ScreenDialog(controller::dismissRemoveContact) {
         Text("Remove ${contact.username}?", style = MaterialTheme.typography.titleMedium)
@@ -120,23 +81,6 @@ internal fun ContactsContent(controller: LobbyController) {
         }
     } }
     GameNameDialog(controller)
-}
-
-@Composable
-private fun ContactActionIcon(label: String, icon: String, enabled: Boolean, primary: Boolean = false, action: () -> Unit) {
-    var tooltip by remember { mutableStateOf(false) }
-    val currentAction by rememberUpdatedState(action)
-    Box(Modifier.size(48.dp).semantics {
-        contentDescription = label; role = Role.Button
-        if (!enabled) disabled()
-        onClick { if (enabled) action(); enabled }
-    }.pointerInput(enabled) {
-        detectTapGestures(onPress = { try { tryAwaitRelease() } finally { tooltip = false } },
-            onTap = { if (enabled) currentAction() }, onLongPress = { tooltip = true })
-    }, contentAlignment = Alignment.Center) {
-        Icon(screenIcon(icon), null, Modifier.size(22.dp), tint = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-        if (tooltip) HoldTooltip(label)
-    }
 }
 
 private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when {

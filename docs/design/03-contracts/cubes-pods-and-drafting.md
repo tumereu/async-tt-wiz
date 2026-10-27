@@ -84,7 +84,7 @@ described below; other screens show picking/waiting/building/submitted status.
 
 | Phase | Content |
 | --- | --- |
-| Setup | One page: source, mode, settings (Advanced collapsed), sideboard limit, members and invitations. Creator: **Start** (enabled at ≥2 accepted members). Overflow: Destroy (creator) / Leave (others). |
+| Setup | One page: source, mode, all settings, sideboard limit, members and invitations. Creator: **Start** (enabled at ≥2 accepted members). Overflow: Destroy (creator) / Leave (others). |
 | Drafting | Tabs **Draft · Build · Stats**. Overflow: Cancel draft and Destroy (creator) / Leave (others). |
 | After the draft | Tabs **Build · Stats · Games**. |
 
@@ -93,6 +93,20 @@ described below; other screens show picking/waiting/building/submitted status.
 - Up to **8 members** including the creator. The creator invites contacts or any
   user by username. Accepting an invitation does not add a contact.
 - Only the creator edits source and settings. Members see them read-only.
+- Creation and setup share the complete settings form; creation submits settings
+  atomically with the source and name. Numeric settings are square value tiles
+  opening range-validated editors (dependent bounds include keep + burn ≤ pack
+  size and open packs/grids ≤ totals). Sideboard uses the same editor with a square
+  ∞ toggle. All applicable settings remain visible, without an Advanced toggle.
+- Setup edits predict immediately without disabling controls; rejection restores
+  accepted settings with a short floating error. Background refresh/save has no
+  loader or layout shift; only an uncached first load has a centred spinner.
+- Source is its name (or No source) plus an edit icon. The dialog has searchable
+  Cubes / Sets tabs and cube-management access; selection closes it and previews
+  the source immediately, including during background refresh/save. Preparation
+  finishes in the background; failure restores the previous source.
+  Pod invitations and game opponents share the contacts/search player picker,
+  with system back, a search spinner and centred empty-list state.
 - **Start** needs at least 2 accepted members; there is no Ready step. Start
   freezes members and settings; invitations still pending lapse.
 - Start shuffles seating randomly and generates the draft on the server. Nobody
@@ -121,15 +135,15 @@ challenges from a destroyed pod or a departed member are withdrawn.
 
 Glimpse is a preset of the same pack-passing mode.
 
-| Setting | Booster | Glimpse | Where |
+| Setting | Booster | Glimpse | Control |
 | --- | --- | --- | --- |
-| Packs per player | 3 | 9 | Main |
-| Cards per pack | 15 | 15 | Main (cubes and synthetic set packs; set recipes fix their own size) |
-| Keep per pick | 1 | 1 | Advanced |
-| Burn per pick | 0 | 2 | Advanced |
-| Discard remaining at | 0 | 0 | Advanced |
-| Packs open at once | 1 | 1 | Advanced |
-| Color balancing | On | On | Advanced (cubes) |
+| Packs per player | 3 | 9 | Tile |
+| Cards per pack | 15 | 15 | Tile (cubes and synthetic set packs; set recipes fix their own size) |
+| Keep per pick | 1 | 1 | Tile |
+| Burn per pick | 0 | 2 | Tile |
+| Discard remaining at | 0 | 0 | Tile |
+| Packs open at once | 1 | 1 | Tile |
+| Color balancing | On | On | Checkbox (cubes) |
 
 Rules:
 
@@ -165,7 +179,7 @@ Draftmancer's Grid, unchanged in geometry:
 - Option for 2 players: **two picks each** per grid (order ABAB, next grid BABA),
   which also refills after the first selection.
 - After all selections, leftovers are discarded and the next grid is dealt.
-- **Grids open at once** (default 1, Advanced): several grids run in parallel,
+- **Grids open at once** (default 1, tile): several grids run in parallel,
   each with its own rotating starter. You act in the oldest grid where it is your
   turn.
 - The board and everyone's selections are public to pod members.
@@ -180,8 +194,8 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 
 - Copies are drawn **without replacement** from the whole cube for the entire
   draft. Burned, discarded, and leftover cards do not return.
-- Setup shows the supply check ("540 / 540 cards used") and blocks Start when the
-  cube is too small. Using exactly every card is valid. Grid needs at most
+- Start checks supply and is blocked when the cube is too small. Using exactly
+  every card is valid. Grid needs at most
   9 + refills per grid.
 - **Color balancing** (default on for Booster/Glimpse): when supply allows, each
   pack gets at least one card of each color, then fills randomly. A heuristic,
@@ -189,7 +203,12 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 
 ### MTG sets (phase 4)
 
-- The source picker lists sets from the local catalog that have non-token cards.
+- The source picker lists installed sets with non-token cards whose MTGJSON type
+  is expansion, core, masters or draft_innovation, newest first. Set type is stored
+  in catalog metadata. Legacy installations backfill and persist it by fetching
+  the small SetList.json once successfully, not deleting/redownloading card records.
+  Failed backfills retry on the next picker open; sets with missing types remain
+  selectable without error text until metadata is available.
 - Choosing a set downloads **that set's MTGJSON file** (and the files of any
   sets its booster recipe pulls from). Files are cached on the device permanently.
   Sets released in the last ~60 days are refreshed automatically, like the
@@ -198,7 +217,7 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   cheaply.)
 - The creator's phone uploads the set's cards and booster recipe as the pod's
   source snapshot, like deck definitions today. The server generates packs from it
-  and needs no catalog of its own. No catalog format change or re-download.
+  and needs no catalog of its own. No card-record redownload is needed for set metadata.
 - Recipe preference: Play Booster, then Draft Booster, then the set's default
   booster. Without a recipe, packs are labeled **approximate**: 10 commons,
   3 uncommons, 1 rare (mythic 1 in 8), 1 random card; if rarities are missing,

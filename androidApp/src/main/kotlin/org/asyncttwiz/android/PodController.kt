@@ -9,7 +9,7 @@ import java.util.concurrent.ExecutorService
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
 enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT }
 data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
-    val setSource: PodSetSource? = null)
+    val setSource: PodSetSource? = null, val settings: DraftSettings = DraftSettings())
 data class PodSetupEdit(val name: String, val settings: DraftSettings, val cubeId: String? = null, val revision: Long = 0,
     val setSource: PodSetSource? = null)
 data class PodState(
@@ -21,9 +21,10 @@ data class PodState(
     val confirmation: PodConfirmation? = null, val loading: Boolean = false,
     val pending: Int = 0, val picking: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val notice: String? = null,
+    val sourcePreview: PodSource? = null,
 )
 
-/** All operations are serialized, including a read after each write. Build edits and queued picks predict.
+/** All operations are serialized, including a read after each write. Setup edits, build edits and queued picks predict.
  * An ambiguous write remains at the head with its original request id until retried. */
 class PodController(private val api: Pods, private val cubes: Cubes, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
@@ -45,10 +46,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val draftPick: PickPod? = null,
         val predict: ((PodDeckBuild) -> PodDeckBuild)? = null, val exit: Boolean = false,
         val select: Boolean = false, val setupRevision: Long? = null,
+        val createdFrom: NewPodDraft? = null,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
-    internal val setPicker = PodSetPickerController(setRepository, worker, post) { upload ->
+    internal val setPicker = PodSetPickerController(setRepository, worker, post,
+        choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
+        failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
         val source = PodSetSource(upload.snapshot, upload.definitions.definitions)
+        state = state.copy(sourcePreview = null)
         if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, setSource = source))
         else editSetup(setSource = source)
         state = state.copy(notice = upload.warnings.takeIf { it.isNotEmpty() }?.joinToString("\n"))
@@ -67,7 +72,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         setPicker.dismiss()
         accepted = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id))
+            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null)
         refresh()
     }
     fun back() {
@@ -82,7 +87,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null)
+            confirmation = null, choosingMember = false, error = null, sourcePreview = null)
         refresh()
     }
     fun refresh() { if (!closed) { refreshPending = true; pump() } }
@@ -102,16 +107,31 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         setPicker.dismiss()
         state = state.copy(selected = null, detail = null, creating = NewPodDraft(suggest(), cubeId), setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = null)
+            confirmation = null, choosingMember = false, error = null, notice = null, sourcePreview = null)
         loadCubes()
     }
-    fun newName(name: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(name = name)) }
+    fun newName(name: String) { state = state.copy(creating = state.creating?.copy(name = name)) }
     fun reroll() = newName(suggest())
-    fun newCube(id: String) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(cubeId = id, setSource = null)) }
-    fun chooseSet() {
-        if (!state.uncertain && state.pending == 0 && (state.creating != null || state.detail?.phase == PodPhase.SETUP)) setPicker.open()
+    fun newCube(id: String) {
+        setPicker.dismiss()
+        state = state.copy(sourcePreview = null, creating = state.creating?.copy(cubeId = id, setSource = null))
     }
-    fun newMode(mode: DraftMode) { if (!state.uncertain && state.pending == 0) state = state.copy(creating = state.creating?.copy(mode = mode)) }
+    fun chooseSet() {
+        if (state.creating != null || state.detail?.phase == PodPhase.SETUP) {
+            state = state.copy(sourcePreview = null)
+            loadCubes(); setPicker.open()
+        }
+    }
+    fun newMode(mode: DraftMode) = newSettings { podModeSettings(mode, it) }
+    fun newSettings(change: (DraftSettings) -> DraftSettings) {
+        state.creating?.let { draft -> val settings = change(draft.settings)
+            state = state.copy(creating = draft.copy(settings = settings, mode = settings.mode)) }
+    }
+    fun chooseCube(id: String) {
+        if (state.creating != null) newCube(id) else {
+            setPicker.dismiss(); state = state.copy(sourcePreview = null); editSetup(cubeId = id)
+        }
+    }
     fun loadCubes() { cubesPending = true; pump() }
     /** Called whenever this destination returns to composition, including after managing cubes. */
     fun shown() {
@@ -120,13 +140,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun create() {
         val draft = state.creating ?: return
-        if (state.pending > 0 || state.uncertain) return
+        if (state.pending > 0 || state.uncertain || state.sourcePreview != null) return
         if (draft.name.isBlank() || !DeckValidation.text(draft.name) || draft.name.length > 120 ||
             draft.name.any { it.isISOControl() } || (draft.cubeId == null && draft.setSource == null)) {
             state = state.copy(error = "Enter a name and select a cube or MTG set."); return
         }
-        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.setSource)
-        enqueue(Write(null, select = true, send = { api.create(it, input) }))
+        if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
+        val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.setSource, draft.settings)
+        enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, input) }))
     }
     fun respond(id: String, accept: Boolean) {
         if (state.pending > 0) return
@@ -137,11 +158,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun editSetup(name: String? = null, settings: DraftSettings? = null, cubeId: String? = null, setSource: PodSetSource? = null) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
-        if (state.uncertain) return
-        val old = state.setup ?: PodSetupEdit(detail.name, detail.settings)
+        val base = accepted ?: detail
+        val old = state.setup ?: PodSetupEdit(base.name, base.settings)
         state = state.copy(setup = old.copy(name = name ?: old.name, settings = settings ?: old.settings,
             cubeId = if (setSource != null) null else cubeId ?: old.cubeId,
             setSource = if (cubeId != null) null else setSource ?: old.setSource, revision = ++editRevision), error = null)
+        render()
     }
     /** Apply field edits to the latest pending settings, not a UI snapshot awaiting recomposition. */
     fun editSettings(change: (DraftSettings) -> DraftSettings) {
@@ -158,14 +180,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }
     fun invite(account: AccountIdentity) {
         val detail = state.detail ?: return
-        if (state.pending > 0) return
+        if (state.uncertain) return
         val input = InviteToPod(requestId(), account.accountId)
         state = state.copy(choosingMember = false)
         enqueue(Write(detail.id, send = { api.invite(it, detail.id, input) }))
     }
     fun start() {
         val detail = state.detail ?: return
-        if (state.pending > 0 || state.setup != null || !podCanStart(detail)) return
+        if (state.pending > 0 || state.setup != null || state.sourcePreview != null || !podCanStart(detail)) return
         val input = PodRequest(requestId())
         enqueue(Write(detail.id, send = { api.start(it, detail.id, input) }))
     }
@@ -257,6 +279,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 .fold(base.build!!) { build, write -> write.predict?.invoke(build) ?: build }
             detail = base.copy(build = predicted)
         }
+        val edit = state.setup
+        if (detail?.phase == PodPhase.SETUP && edit != null) {
+            val source = edit.setSource?.podSource() ?: state.cubes.find { it.id == edit.cubeId }
+                ?.let { PodSource(it.name, it.totalCopies) } ?: detail.source
+            val needed = edit.settings.supply(detail.members.size, emptyList()).needed
+            detail = detail.copy(name = edit.name, settings = edit.settings, source = source,
+                supply = DraftSupply(needed, if (source.kind == PodSourceKind.SET) Long.MAX_VALUE else source.totalCopies))
+        }
         state = state.copy(detail = detail, pending = writes.size, picking = writes.any { it.pick })
     }
     private fun applyDetail(detail: PodDetail) {
@@ -293,6 +323,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (read) refreshPending = false
         cubesPending = false
         val generation = epoch; val selected = state.selected
+        val previousError = state.error
         state = state.copy(loading = true)
         worker.execute {
             fun current() = !closed && generation == epoch && credential() == token
@@ -331,13 +362,23 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     Triple(detail, list, sources)
                 }
                 post { if (complete()) {
-                    state = state.copy(loading = false, error = null)
+                    // A queued refresh must not erase a newer source-preparation failure.
+                    state = state.copy(loading = false, error = state.error.takeUnless { it == previousError })
                     if (write != null) {
                         writes.removeAt(0)
                         if (write.setupRevision == state.setup?.revision) state = state.copy(setup = null)
                         state = state.copy(confirmation = null)
                         if (write.exit) { accepted = null; state = state.copy(selected = null, detail = null, setup = null) }
-                        if (write.select && result.first != null) state = state.copy(selected = result.first!!.id, creating = null)
+                        if (write.select && result.first != null) {
+                            // Creation leaves the form live too. Carry edits made in flight into setup.
+                            val newer = write.createdFrom?.let { sent -> state.creating?.takeIf { it != sent } }
+                            state = state.copy(selected = result.first!!.id, creating = null, setup = newer?.let {
+                                PodSetupEdit(it.name, it.settings,
+                                    cubeId = it.cubeId.takeIf { id -> id != write.createdFrom?.cubeId },
+                                    setSource = it.setSource.takeIf { source -> source != write.createdFrom?.setSource },
+                                    revision = ++editRevision)
+                            })
+                        }
                     }
                     result.second?.let { state = state.copy(pods = it.pods, invitations = it.invitations, loaded = true) }
                     result.third?.let { state = state.copy(cubes = it, cubesLoaded = true) }
@@ -350,17 +391,25 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             } catch (failure: Exception) {
                 post { if (complete()) {
                     val uncertain = write != null && (transientServiceFailure(failure) || (failure as? PodFailure)?.code == "invalid_response")
-                    if (write != null && !uncertain) writes.removeAt(0)
-                    // Later queued picks depend on this head having been accepted. Restore the
-                    // authoritative queue instead of sending them out of order after a rejection.
-                    if (write?.draftPick != null && !uncertain) writes.removeAll {
-                        it.draftPick != null && it.pod == write.pod && it.attempt == write.attempt
+                    if (write != null && !uncertain) {
+                        writes.removeAt(0)
+                        // Later queued picks depend on this head having been accepted. Restore the
+                        // authoritative queue instead of sending them out of order after a rejection.
+                        if (write.draftPick != null) writes.removeAll {
+                            it.draftPick != null && it.pod == write.pod && it.attempt == write.attempt
+                        }
+                        if (write.setupRevision != null) {
+                            // Later full-settings snapshots depend on this rejected edit; drop them too.
+                            writes.removeAll { it.pod == write.pod && it.setupRevision != null }
+                            if (state.selected == write.pod) state = state.copy(setup = null)
+                        }
                     }
                     if ((failure as? PodFailure)?.code in listOf("draft_attempt_expired", "not_drafting", "not_found", "deck_submitted")) {
                         writes.clear(); refreshPending = true
                     }
                     state = state.copy(loading = false, uncertain = uncertain,
-                        error = if (write?.draftPick != null && !uncertain) "Pick rejected." else podError(failure))
+                        error = if (write?.draftPick != null && !uncertain) "Pick rejected."
+                            else if (write?.setupRevision != null && !uncertain) "Settings not saved." else podError(failure))
                     if (readCubes) cubesPending = true
                     render()
                     // Do not spin on failing reads. Explicit retry or the next visibility tick retries.
@@ -397,7 +446,7 @@ internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): St
     PodConfirmation.SUBMIT -> "Submit and lock your deck? Main, Side and basics cannot be changed afterwards."
 }
 private fun podError(failure: Exception): String = when ((failure as? PodFailure)?.code) {
-    "invalid_settings" -> "Invalid settings. Check the pack sizes, keep/burn counts and Advanced settings."
+    "invalid_settings" -> "Invalid settings."
     "insufficient_supply" -> "The source cube does not have enough cards."
     "main_too_small" -> "Main must contain at least 40 cards including basics."
     "sideboard_limit" -> "Move surplus sideboard cards to Trash before submitting."

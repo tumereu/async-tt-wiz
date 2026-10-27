@@ -42,8 +42,10 @@ import kotlinx.serialization.Serializable
 )
 /** POST /v1/pods: exactly one of cubeId/setSource is required.
  * GET /v1/pods returns PodList, GET /v1/pods/{id} returns PodDetail. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class CreatePod(val requestId: String, val name: String, val cubeId: String? = null,
-    val mode: DraftMode = DraftMode.BOOSTER, val setSource: PodSetSource? = null)
+    val mode: DraftMode = DraftMode.BOOSTER, val setSource: PodSetSource? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val settings: DraftSettings? = null)
 /** PUT /v1/pods/{id}. Omitted fields are unchanged; settings replace the complete settings object.
  * At most one of cubeId/setSource may be supplied, replacing the entire source snapshot in setup. */
 @Serializable data class UpdatePod(val requestId: String, val name: String? = null, val cubeId: String? = null,

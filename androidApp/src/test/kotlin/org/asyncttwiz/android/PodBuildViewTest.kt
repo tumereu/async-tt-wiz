@@ -154,6 +154,25 @@ class PodBuildViewTest {
         compose.onNodeWithText("Trash 1").assertIsDisplayed()
     }
 
+    @Test fun buildContentSharesWideSideInsetsAcrossHeadersBasicsAndAllCardSections() {
+        val copies = PodDeckCategory.entries.associate { it.name to DraftCopy(it.name, "land") }
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(PodDeckCategory.entries.map { PodDeckCopy(it.name, it) }), copies,
+                mapOf("land" to card.copy(faces = listOf(card.faces.single().copy(typeLine = "Land")))), null,
+                true, false, { _, _ -> }, { _, _ -> }, {})
+        } }
+        val bounds = compose.onNodeWithTag("pod-build").getUnclippedBoundsInRoot()
+        val basics = compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()
+        assertEquals(bounds.left + 48.dp, basics.left)
+        assertEquals(bounds.right - 48.dp, basics.right)
+        assertEquals(basics.left, compose.onNodeWithText("Deck").getUnclippedBoundsInRoot().left)
+        assertEquals(basics.left, compose.onNodeWithText("Main 1 + 0 = 1").getUnclippedBoundsInRoot().left)
+        for (category in PodDeckCategory.entries) {
+            compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-${category.name}"))
+            assertEquals(basics.left, compose.onNodeWithTag("pod-build-card-${category.name}").getUnclippedBoundsInRoot().left)
+        }
+    }
+
     @Test
     @Config(qualifiers = "w800dp-h360dp-land-mdpi")
     fun allBasicLandSteppersAreReachableInShortLandscapeDialog() {

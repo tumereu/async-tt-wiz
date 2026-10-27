@@ -6,15 +6,25 @@ import kotlin.test.*
 
 class PodStatsModelsTest {
     @Test fun compactChartGroupsSevenPlusAndNormalizesDemandAndSourcesIndependently() {
-        val stats = podStats(PodDeckBuild(), emptyMap(), emptyMap()).copy(curve = mapOf(0.0 to 1, 1.5 to 2, 7.0 to 3, 9.0 to 4),
+        val stats = podStats(PodDeckBuild(), emptyMap(), emptyMap()).copy(curve = mapOf(
+            0.0 to PodStatsCurveBucket(creatures = 1), 1.5 to PodStatsCurveBucket(noncreatures = 2),
+            7.0 to PodStatsCurveBucket(2, 1), 9.0 to PodStatsCurveBucket(1, 3)),
             pips = DraftColor.entries.associateWith { if (it == DraftColor.W) 3.0 else if (it == DraftColor.U) 1.0 else 0.0 },
             sources = DraftColor.entries.associateWith { if (it == DraftColor.W || it == DraftColor.U) 2L else 0L })
         assertEquals(listOf("0", "1", "2", "3", "4", "5", "6", "7+"), stats.curveBuckets().keys.toList())
-        assertEquals(7.0, stats.curveBuckets()["7+"])
-        assertEquals(2.0, stats.curveBuckets()["1"])
-        assertEquals(75.0 to 50.0, stats.colorPercentages(DraftColor.W))
-        assertEquals(25.0 to 50.0, stats.colorPercentages(DraftColor.U))
-        assertEquals(0.0 to 0.0, podStats(PodDeckBuild(), emptyMap(), emptyMap()).colorPercentages(DraftColor.W))
+        assertEquals(PodStatsCurveBucket(3, 4), stats.curveBuckets()["7+"])
+        assertEquals(PodStatsCurveBucket(noncreatures = 2), stats.curveBuckets()["1"])
+        assertEquals(PodStatsCurveBucket(), stats.curveBuckets()["6"])
+        assertEquals(.75, podStatsShares(stats.pips)[DraftColor.W])
+        assertEquals(.25, podStatsShares(stats.pips)[DraftColor.U])
+        assertEquals(.5, podStatsShares(stats.sources)[DraftColor.W])
+        assertEquals(.5, podStatsShares(stats.sources)[DraftColor.U])
+        assertEquals(1.0, podStatsShares(stats.pips).values.sum())
+        assertEquals(1.0, podStatsShares(stats.sources).values.sum())
+        val empty = podStats(PodDeckBuild(), emptyMap(), emptyMap())
+        assertTrue(podStatsShares(empty.pips).values.all { it == 0.0 })
+        assertTrue(podStatsShares(empty.sources).values.all { it == 0.0 })
+        assertTrue(podStatsShares(empty.colors).values.all { it == 0.0 })
     }
     private fun card(name: String, type: String, cost: String = "", text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
@@ -44,7 +54,7 @@ class PodStatsModelsTest {
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 3, island = 2, swamp = 1, mountain = 4, forest = 5))
         val stats = podStats(build, copies, definitions)
-        assertEquals(mapOf(1.0 to 2, 4.0 to 1), stats.curve)
+        assertEquals(mapOf(1.0 to PodStatsCurveBucket(creatures = 2), 4.0 to PodStatsCurveBucket(noncreatures = 1)), stats.curve)
         assertEquals(2, stats.creatures)
         assertEquals(1, stats.noncreatures)
         assertEquals(18L, stats.lands)
@@ -59,7 +69,7 @@ class PodStatsModelsTest {
             DefinitionFace("back", "Back", typeLine = "Land — Mountain", manaCost = "{R}{R}{R}"),
         ))
         val stats = podStats(PodDeckBuild(listOf(PodDeckCopy("copy"))), mapOf("copy" to DraftCopy("copy", "digest")), mapOf("digest" to card))
-        assertEquals(mapOf(5.0 to 1), stats.curve)
+        assertEquals(mapOf(5.0 to PodStatsCurveBucket(noncreatures = 1)), stats.curve)
         assertEquals(0L, stats.lands)
         assertEquals(1.5, stats.pips[DraftColor.U])
         assertEquals(0.5, stats.pips[DraftColor.W])
@@ -84,5 +94,42 @@ class PodStatsModelsTest {
         assertEquals(1, stats.missingDefinitions)
         assertTrue(stats.curve.isEmpty())
         assertTrue(stats.pips.values.all { it == 0.0 })
+        assertTrue(stats.colors.values.all { it == 0 })
+    }
+
+    @Test fun colorsCountEveryMainNonlandCopyByIdentityAndExcludeLandsBasicsSideAndTrash() {
+        val definitions = DraftColor.entries.associate { color -> color.name to card(color.name, "Creature", "{${color.name}}") } + mapOf(
+            "gold" to card("Gold", "Instant", "{W/U}"),
+            "colorless" to card("Rock", "Artifact", "{3}"),
+            "land" to card("Dryad", "Land Creature — Forest"),
+        )
+        val copies = (definitions.keys + listOf("duplicate", "side", "trash", "missing")).associateWith { id ->
+            DraftCopy(id, if (id in listOf("duplicate", "side", "trash")) "gold" else id)
+        }
+        val build = PodDeckBuild(copies.keys.map { id -> PodDeckCopy(id, when (id) {
+            "side" -> PodDeckCategory.SIDE
+            "trash" -> PodDeckCategory.TRASH
+            else -> PodDeckCategory.MAIN
+        }) }, PodDeckBasics(plains = 20))
+        val stats = podStats(build, copies, definitions)
+        assertEquals(PodStatsColor.entries.associateWith { if (it == PodStatsColor.MULTICOLOR) 2 else 1 }, stats.colors)
+        assertEquals(8, stats.colors.values.sum())
+        assertEquals(.25, podStatsShares(stats.colors)[PodStatsColor.MULTICOLOR])
+        assertEquals(.125, podStatsShares(stats.colors)[PodStatsColor.COLORLESS])
+        assertEquals(1, stats.missingDefinitions)
+    }
+
+    @Test fun colorIdentityUsesCatalogIdentityIncludingExplicitColorlessInsteadOfOnlyManaCost() {
+        val artifact = card("Artifact", "Artifact", "{2}", "{T}: Add {G}.")
+        val recorded = artifact.copy(faces = listOf(artifact.faces.single().copy(sourceData = """{"colorIdentity":["U","R"]}""")))
+        assertEquals(PodStatsColor.MULTICOLOR, podStatsColorIdentity(recorded, setOf(DraftColor.G)))
+        val colorless = recorded.copy(faces = listOf(recorded.faces.single().copy(sourceData = """{"colorIdentity":[]}""")))
+        assertEquals(PodStatsColor.COLORLESS, podStatsColorIdentity(colorless, setOf(DraftColor.G)))
+        assertEquals(PodStatsColor.G, podStatsColorIdentity(artifact, emptySet()))
+        assertEquals(PodStatsColor.B, podStatsColorIdentity(card("Indicator", "Creature"), setOf(DraftColor.B)))
+        val twoFaces = card("Front", "Creature", "{U}").copy(faces = listOf(
+            card("Front", "Creature", "{U}").faces.single(), card("Back", "Creature", "{R}").faces.single()))
+        assertEquals(PodStatsColor.MULTICOLOR, podStatsColorIdentity(twoFaces, emptySet()))
+        assertEquals(PodStatsColor.W, podStatsColorIdentity(card("Extort", "Creature", "{W}", "Extort (You may pay {W/B}.)"), emptySet()))
     }
 }

@@ -4,14 +4,21 @@ import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 
 internal data class PodStats(
-    val curve: Map<Double, Int>,
+    val curve: Map<Double, PodStatsCurveBucket>,
     val creatures: Int,
     val noncreatures: Int,
     val lands: Long,
     val pips: Map<DraftColor, Double>,
     val sources: Map<DraftColor, Long>,
+    val colors: Map<PodStatsColor, Int>,
     val missingDefinitions: Int,
 )
+
+internal data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
+    val total: Int get() = creatures + noncreatures
+}
+
+internal enum class PodStatsColor { W, U, B, R, G, MULTICOLOR, COLORLESS }
 
 private val podStatsSymbols = Regex("\\{([^{}]+)\\}")
 private val podStatsLand = Regex("\\bLand\\b", RegexOption.IGNORE_CASE)
@@ -68,40 +75,73 @@ internal fun podStatsLandColors(card: CardDefinition): Set<DraftColor> {
     return result
 }
 
+/** Prefer catalog identity, which includes rules symbols and both faces, not just the cost. */
+internal fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor {
+    val recorded = card.faces.mapNotNull { face ->
+        face.sourceData?.let { data -> runCatching {
+            val record = Json.parseToJsonElement(data).jsonObject
+            (record["colorIdentity"] ?: record["color_identity"])?.jsonArray?.mapNotNull { color ->
+                DraftColor.entries.firstOrNull { it.name == color.jsonPrimitive.content }
+            }?.toSet()
+        }.getOrNull() }
+    }
+    val identity = if (recorded.isNotEmpty()) recorded.flatten().toSet() else buildSet {
+        addAll(copyColors)
+        addAll(PodDeckManaCost.catalogColors(card).orEmpty())
+        for (face in card.faces) {
+            addAll(PodDeckManaCost.parse(podStatsFrontCost(card.copy(faces = listOf(face)))).colors)
+            // Reminder text doesn't contribute to color identity (e.g. extort).
+            val rules = face.rulesText.replace(Regex("\\([^()]*\\)"), "")
+            addAll(PodDeckManaCost.parse(rules).colors)
+        }
+    }
+    return when (identity.size) {
+        0 -> PodStatsColor.COLORLESS
+        1 -> PodStatsColor.valueOf(identity.single().name)
+        else -> PodStatsColor.MULTICOLOR
+    }
+}
+
 internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): PodStats {
-    val curve = sortedMapOf<Double, Int>()
+    val curve = sortedMapOf<Double, PodStatsCurveBucket>()
     val pips = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
     val sources = DraftColor.entries.mapIndexed { index, color -> color to build.basics.podBuildValues()[index].toLong() }.toMap().toMutableMap()
+    val colors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
     var creatures = 0
     var noncreatures = 0
     var lands = build.basics.total
     var missing = 0
     for (entry in build.copies.filter { it.category == PodDeckCategory.MAIN }) {
-        val card = copies[entry.copyId]?.definition?.let(definitions::get)
+        val copy = copies[entry.copyId]
+        val card = copy?.definition?.let(definitions::get)
         val face = card?.faces?.firstOrNull()
         if (card == null || face == null) { missing++; continue }
         if (podStatsLand.containsMatchIn(face.typeLine)) {
             lands++
             for (color in podStatsLandColors(card)) sources[color] = sources.getValue(color) + 1
         } else {
-            if (podStatsCreature.containsMatchIn(face.typeLine)) creatures++ else noncreatures++
+            val creature = podStatsCreature.containsMatchIn(face.typeLine)
+            if (creature) creatures++ else noncreatures++
             val mv = PodDeckManaCost.front(card).value
-            curve[mv] = (curve[mv] ?: 0) + 1
+            val bucket = curve[mv] ?: PodStatsCurveBucket()
+            curve[mv] = if (creature) bucket.copy(creatures = bucket.creatures + 1)
+                else bucket.copy(noncreatures = bucket.noncreatures + 1)
+            val color = podStatsColorIdentity(card, copy?.colors.orEmpty())
+            colors[color] = colors.getValue(color) + 1
         }
         for ((color, count) in podStatsPips(podStatsFrontCost(card))) pips[color] = pips.getValue(color) + count
     }
-    return PodStats(curve, creatures, noncreatures, lands, pips, sources, missing)
+    return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing)
 }
 
-internal fun podStatsNumber(value: Double): String = if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
-
-internal fun PodStats.curveBuckets(): Map<String, Double> = (0..7).associate { bucket ->
-    (if (bucket == 7) "7+" else "$bucket") to curve.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }.sumOf { it.value }.toDouble()
+internal fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->
+    val entries = curve.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
+    (if (bucket == 7) "7+" else "$bucket") to PodStatsCurveBucket(
+        entries.sumOf { it.value.creatures }, entries.sumOf { it.value.noncreatures })
 }
 
-internal fun PodStats.colorPercentages(color: DraftColor): Pair<Double, Double> {
-    val demand = pips.values.sum()
-    val supply = sources.values.sum()
-    return (if (demand == 0.0) 0.0 else pips.getValue(color) / demand * 100) to
-        (if (supply == 0L) 0.0 else sources.getValue(color).toDouble() / supply * 100)
+/** Empty donuts have zero shares, never NaN; each chart normalizes independently. */
+internal fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {
+    val total = values.values.sumOf { it.toDouble() }
+    return values.mapValues { (_, count) -> if (total == 0.0) 0.0 else count.toDouble() / total }
 }

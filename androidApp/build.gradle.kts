@@ -174,6 +174,23 @@ android {
         // The release manifest also forbids cleartext, even if misconfigured.
         buildConfigField("String", "ACCOUNT_ORIGIN", "\"${origin.takeIf { it.startsWith("https://") }.orEmpty()}\"")
     }
+    // Separate install identity without renaming the existing debug/release tasks.
+    buildTypes.create("personalTest") {
+        initWith(buildTypes.getByName("debug"))
+        matchingFallbacks += "debug"
+        applicationIdSuffix = ".test"
+        versionNameSuffix = "-test"
+        signingConfig = signingConfigs.getByName("debug")
+        val testOrigin = "https://desktop-b2kalvm.tail27cccc.ts.net:10443"
+        buildConfigField("String", "ACCOUNT_ORIGIN", "\"$testOrigin\"")
+        buildConfigField("String", "RESET_ORIGIN", "\"$testOrigin\"")
+        buildConfigField("boolean", "ACCOUNT_SWITCHER", "true")
+        buildConfigField("String", "CATALOG_TEST_ORIGIN", "\"\"")
+        buildConfigField("String", "CATALOG_BASE", "\"https://mtgjson.com/api/v5/\"")
+        buildConfigField("String", "ART_TEST_ORIGIN", "\"\"")
+        buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
+        manifestPlaceholders["resetHost"] = "desktop-b2kalvm.tail27cccc.ts.net"
+    }
     // One retained fixture shared with host migration verification; never packaged in the app.
     sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
 }

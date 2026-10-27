@@ -170,3 +170,29 @@ stacks. To run beside the development stack, use a distinct project and host por
 for example `API_PORT=18180 docker compose -p atw-selfhost-test -f deploy/compose.yml
 --env-file deploy/.env up -d --wait`. Use that same project, port and files for
 inspection/teardown. Never stop or remove the `atw-dev-*` resources.
+
+## Personal WSL test environment
+
+Run `scripts/test-env.sh` to build the current working tree, replace the detached
+test server, and install **ATW Test** alongside production on the connected phone.
+Requires the build tools above, `curl`, `flock`, Tailscale, and Windows PowerShell/WSL.
+`ATW_ADB_SERIAL=94d4fd56`, `ATW_ADB_PORT`, and `ATW_ADB` override phone discovery.
+Without an authorized phone the server still starts and the APK path is printed;
+install later with `adb install -r androidApp/build/outputs/apk/personalTest/androidApp-personalTest.apk`.
+
+- `scripts/test-env.sh status` / `logs`: inspect readiness and follow server logs.
+- `scripts/test-env.sh down`: stop only test processes/containers and the hidden
+  Windows WSL keep-alive; retain data, secrets and the Tailscale listener.
+- API: `https://desktop-b2kalvm.tail27cccc.ts.net:10443` (tailnet only).
+  Only Serve port 10443 is updated; existing 443/8443 listeners are untouched.
+- Local readiness: `http://127.0.0.1:18091/health/ready`; Mailpit:
+  `http://127.0.0.1:18026`; PostgreSQL: `127.0.0.1:55433/atw_test`.
+- State/secrets/logs: `${XDG_DATA_HOME:-~/.local/share}/atw-test` (secrets mode 600).
+  Named volumes `atw-test-db-data` and `atw-test-mail-data` persist across runs.
+  Each start migrates before serving from an independent install snapshot (last
+  two retained), so rebuilding the repo cannot break the live JVM.
+
+The hidden Windows `wsl.exe` session prevents WSL idle shutdown after all terminals
+close; shutdown/reboot still stops it. Run the script again afterward.
+For local verification without changing Serve or installing on a phone:
+`ATW_TEST_SKIP_TAILSCALE=1 ATW_TEST_SKIP_INSTALL=1 scripts/test-env.sh`.

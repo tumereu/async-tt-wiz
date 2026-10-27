@@ -5,6 +5,46 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    @Test fun drawnCardsStayAirborneWhenAnotherDrawOrBattlefieldChangeRetargetsTheirFlight() {
+        for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) for (drawAgain in listOf(false, true)) {
+            val initial = TableFixture.play(hand = 2, board = 1)
+            val id = "$owner/LIBRARY/0"
+            val drawn = moved(initial, listOf(id), "$owner/HAND")
+            val animation = HistorySceneAnimation(TableFixture.scene(initial, landscape))
+            assertTrue(animation.retarget(TableFixture.scene(drawn, landscape), 1f))
+            val flying = animation.frame(.1f).single { it.item.cardId == id }
+            assertTrue(flying.item.inTransit)
+            assertEquals(PlayZone.HAND, flying.item.zone, "Flight samples already carry destination metadata")
+            val changed = if (drawAgain) moved(drawn, listOf("$owner/LIBRARY/1"), "$owner/HAND")
+                else drawn.copy(board = drawn.board.copy(cards = drawn.board.cards.map {
+                    if (it.id == "$owner/BATTLEFIELD/0") it.copy(tapped = true) else it
+                }))
+            val target = TableFixture.scene(changed, landscape)
+            assertTrue(animation.retarget(target, .1f))
+            assertEquals(flying.bounds, animation.frame(0f).single { it.item.cardId == id }.bounds)
+            for (progress in listOf(0f, .1f, .25f, .5f)) {
+                val frame = animation.frame(progress)
+                val card = frame.single { it.item.cardId == id }
+                val landed = target.items.single { it.cardId == id }.bounds
+                if (card.bounds != landed) assertTrue(card.item.inTransit, "Retargeted draws must not become hand reflow")
+                // Isolate viewport clipping: two simultaneous draws can legitimately cover one another.
+                val rendered = TablePresentation.clip(target.copy(items = listOf(card.item.copy(bounds = card.bounds))),
+                    if (landscape) 900f else 412f, if (landscape) 412f else 820f)
+                assertEquals(listOf(card.bounds), rendered.items.single { it.cardId == id }.visible,
+                    "The hand rail must not clip the flying card")
+                assertEquals(card.item.id, rendered.hit(card.bounds.center)?.id)
+            }
+            val landed = animation.frame(1f).single { it.item.cardId == id }
+            assertFalse(landed.item.inTransit)
+            assertEquals(target.items.single { it.cardId == id }.bounds, landed.bounds)
+
+            val next = TableFixture.scene(moved(changed, listOf("$owner/HAND/0"), "$owner/GRAVEYARD"), landscape)
+            assertTrue(animation.retarget(next, 1f))
+            assertFalse(animation.frame(.1f).single { it.item.cardId == id }.item.inTransit,
+                "After landing the drawn card participates in ordinary hand reflow")
+        }
+    }
+
     @Test fun handSurvivorsSlideForDrawPlayDiscardAndUndoForBothPlayersAndOrientations() {
         for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) {
             val initial = TableFixture.play(hand = 3)

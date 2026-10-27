@@ -657,10 +657,14 @@ staging. An in-progress animation retargets from current visible geometry. See t
 
 Hand additions/removals slide the remaining cards in either player's hand over
 220 ms at default move speed, scaled by the existing move-speed preference.
+Cards still flying into a hand stay outside its clipped reflow until they land,
+including when another change retargets their flight.
 History jumps and catch-up fast paths skip this motion with the other scene animations.
 Landscape uses a compact side lane with 48 dp minimum pile targets and tightly
 spaced piles; the Stack is centred between the two pile rows, with counters facing
-the outer edges. Portrait geometry is unchanged.
+the outer edges. The lane expands with the effective Piles size (including the
+global card-size fallback), keeping all three piles and their touch targets inside.
+Portrait geometry is unchanged.
 
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain

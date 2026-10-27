@@ -347,8 +347,10 @@ class HistorySceneAnimation(initial: TableScene) {
             a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to -> from.width == to.width && from.height == to.height } }
     private fun flipping(a: HistoryAnimatedItem, b: HistoryAnimatedItem) = b.item.cardId in flippingCardIds ||
         a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
+    // Retargeted flights already carry destination metadata, but have not joined the hand yet.
     private fun handReflow(a: HistoryAnimatedItem, b: HistoryAnimatedItem) =
         a.item.kind == TableItemKind.CARD && b.item.kind == TableItemKind.CARD &&
+            !a.item.inTransit &&
             a.item.zone == PlayZone.HAND && b.item.zone == PlayZone.HAND && a.item.viewport == b.item.viewport
     private fun handReflowDuration() = kotlin.math.round(HAND_REFLOW_DURATION_MILLIS * DEFAULT_CARD_MOVE_SPEED / sceneMoveSpeed)
         .toInt().coerceAtLeast(1)

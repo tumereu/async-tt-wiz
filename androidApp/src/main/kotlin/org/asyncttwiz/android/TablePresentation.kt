@@ -203,7 +203,12 @@ object TablePresentation {
     const val HEADER = 48f
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
     const val TOOLBAR = 212f
-    fun sidebarWidth(width: Float) = minOf(224f, width * .366f)
+    private const val PILE_START = 76f
+    private fun landscapePileSpacing(pileWidth: Float) = maxOf(52f, pileWidth + 12f)
+    private fun landscapeDockWidth(pileWidth: Float) = PILE_START + 2 * landscapePileSpacing(pileWidth) +
+        pileWidth + (48f - pileWidth).coerceAtLeast(0f) / 2 + 6f
+    fun sidebarWidth(width: Float, appearance: CardAppearance = CardAppearance()) =
+        maxOf(minOf(224f, width * .366f), landscapeDockWidth(28f * appearance.size(CardArea.PILES)))
 
     fun stackBubbles(scene: TableScene, play: PlayState, entryId: String?, width: Float, height: Float): StackBubbleGeometry? {
         if (entryId != CombatStackRules.stack(play.board).cards.firstOrNull()) return null
@@ -236,7 +241,7 @@ object TablePresentation {
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
             return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f), card.definition)?.forTable()
         }
-        val sidebar = if (landscape) sidebarWidth(width) else 0f
+        val sidebar = if (landscape) sidebarWidth(width, appearance) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
         val battlefieldScale = cardScale(appearance.cardSize)
         val columnPitch = COLUMN_PITCH * battlefieldScale
@@ -377,11 +382,9 @@ object TablePresentation {
                 else if (index == 0) HEADER else ownDockY
             val gridWidth = minOf(132f, width * .34f)
             val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - gridWidth, dockRow)
-            val spacing = if (landscape) maxOf(52f, pileWidth + 12f) else pileWidth + 12f
-            val pileStart = 76f
-            val dp = port("dock/${player.accountId}", dock, if (landscape)
-                pileStart + 2 * spacing + pileWidth + (48f - pileWidth).coerceAtLeast(0f) / 2 + 6f
-                else pileStart + 2 * spacing + pileWidth + 8f)
+            val spacing = if (landscape) landscapePileSpacing(pileWidth) else pileWidth + 12f
+            val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth)
+                else PILE_START + 2 * spacing + pileWidth + 8f)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
@@ -389,7 +392,7 @@ object TablePresentation {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(pileStart + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
+                val b = TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),

@@ -77,8 +77,8 @@ fun PodGridView(
         if (head != null) Button(onClick = {
             selected?.takeIf { !busy && rules?.canSelect(it) == true }?.let { onConfirm(head.id, it.type, it.index) }
         }, enabled = !busy && selected?.let { rules?.canSelect(it) } == true,
-            modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(if (busy) "Confirming…" else "Confirm")
+            modifier = Modifier.fillMaxWidth()) {
+            Text("Confirm")
         }
     }
     CardInspection(inspection)

@@ -23,7 +23,7 @@ data class PodState(
     val error: String? = null, val notice: String? = null,
 )
 
-/** All operations are serialized, including a read after each write. Only build edits predict.
+/** All operations are serialized, including a read after each write. Build edits and queued picks predict.
  * An ambiguous write remains at the head with its original request id until retried. */
 class PodController(private val api: Pods, private val cubes: Cubes, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
@@ -42,6 +42,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var editRevision = 0L
     private val notices = mutableMapOf<String, String>()
     private data class Write(val pod: String?, val attempt: String? = null, val pick: Boolean = false,
+        val draftPick: PickPod? = null,
         val predict: ((PodDeckBuild) -> PodDeckBuild)? = null, val exit: Boolean = false,
         val select: Boolean = false, val setupRevision: Long? = null,
         val send: suspend (String) -> PodDetail?)
@@ -172,9 +173,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING } ?: return
         val pack = detail.draft?.head ?: return
         val attempt = detail.draftAttemptId ?: return
-        if (state.picking || state.uncertain) return
+        if (state.uncertain || !PodPickRules(pack, detail.settings).canConfirm(PodPickMarks(keeps = keep, burns = burn), false)) return
         val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList())
-        enqueue(Write(detail.id, attempt, pick = true, send = { api.pick(it, detail.id, input) }))
+        enqueue(Write(detail.id, attempt, pick = true, draftPick = input, send = { api.pick(it, detail.id, input) }))
     }
     fun gridSelect(gridId: String, line: GridLineType, index: Int) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.GRID } ?: return
@@ -237,6 +238,19 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     private fun render() {
         var detail = accepted?.takeIf { it.id == state.selected }
+        for (write in writes) {
+            val input = write.draftPick ?: continue
+            val base = detail?.takeIf { it.id == write.pod && it.draftAttemptId == write.attempt } ?: continue
+            val draft = base.draft ?: continue
+            val pack = draft.head?.takeIf { it.id == input.packId } ?: continue
+            val kept = pack.cards.filter { it.id in input.keep }
+            detail = base.copy(
+                draft = draft.copy(head = draft.queuedPacks.firstOrNull(), queuedPacks = draft.queuedPacks.drop(1),
+                    packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = draft.pool + kept),
+                build = base.build?.let { PodDeckRules.withAwards(it, kept.map { copy -> copy.id }) },
+                members = base.members.map { if (it.account.accountId == draft.player)
+                    it.copy(packsWaiting = (it.packsWaiting - 1).coerceAtLeast(0), picksMade = it.picksMade + 1) else it })
+        }
         if (detail != null && detail.build != null && !detail.submitted) {
             val base = detail
             val predicted = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
@@ -337,10 +351,16 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 post { if (complete()) {
                     val uncertain = write != null && (transientServiceFailure(failure) || (failure as? PodFailure)?.code == "invalid_response")
                     if (write != null && !uncertain) writes.removeAt(0)
+                    // Later queued picks depend on this head having been accepted. Restore the
+                    // authoritative queue instead of sending them out of order after a rejection.
+                    if (write?.draftPick != null && !uncertain) writes.removeAll {
+                        it.draftPick != null && it.pod == write.pod && it.attempt == write.attempt
+                    }
                     if ((failure as? PodFailure)?.code in listOf("draft_attempt_expired", "not_drafting", "not_found", "deck_submitted")) {
                         writes.clear(); refreshPending = true
                     }
-                    state = state.copy(loading = false, uncertain = uncertain, error = podError(failure))
+                    state = state.copy(loading = false, uncertain = uncertain,
+                        error = if (write?.draftPick != null && !uncertain) "Pick rejected." else podError(failure))
                     if (readCubes) cubesPending = true
                     render()
                     // Do not spin on failing reads. Explicit retry or the next visibility tick retries.

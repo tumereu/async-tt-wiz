@@ -138,11 +138,15 @@ class PodHttpTest {
         val started = f.send(f.a, "POST", "/v1/pods/$pod/start", start)
         assertEquals(started, f.send(f.a, "POST", "/v1/pods/$pod/start", start))
         assertEquals(2, f.get(f.a, pod).members.first { it.account == f.a.account }.packsWaiting)
+        val mine = f.get(f.a, pod)
+        val queued = mine.draft!!.queuedPacks.single()
+        assertTrue(queued.cards.all { card -> mine.definitions.any { it.digest == card.definition } })
         assertEquals(PodAttention.YOUR_PICK, f.list(f.a).pods.single().attention)
         // Definitions and copy identities held by A must never reach B (even though A is the creator).
         assertPrivacy(f, pod)
         val pick = f.selection(f.a, pod)
         val picked = f.send(f.a, "POST", "/v1/pods/$pod/pick", pick)
+        assertEquals(queued, json.decodeFromString<PodDetail>(picked).draft!!.head)
         assertEquals(picked, f.send(f.a, "POST", "/v1/pods/$pod/pick", pick))
         assertEquals(1, f.get(f.a, pod).draft!!.pool.size)
         assertEquals(2, f.count(ActivityKind.POD_YOUR_PICK, pod)) // B already had two packs; no extra hint.
@@ -187,8 +191,8 @@ class PodHttpTest {
     }
 
     private fun checkPrivacy(a: PodDetail, b: PodDetail) {
-        val aCards = a.draft!!.head?.cards.orEmpty() + a.draft!!.pool
-        val bCards = b.draft!!.head?.cards.orEmpty() + b.draft!!.pool
+        val aCards = a.draft!!.head?.cards.orEmpty() + a.draft!!.queuedPacks.flatMap { it.cards } + a.draft!!.pool
+        val bCards = b.draft!!.head?.cards.orEmpty() + b.draft!!.queuedPacks.flatMap { it.cards } + b.draft!!.pool
         val payload = json.encodeToString(b)
         // Match a complete JSON string: set copy :1 must not be confused with :10 through :14.
         for (copy in aCards.filter { aCard -> bCards.none { it.id == aCard.id } }) assertFalse(payload.contains(json.encodeToString(copy.id)), copy.id)

@@ -504,7 +504,8 @@ class PodService(private val runtime: ServiceRuntime) {
         val gridView = grid?.let { PodGridView(GridEngine.publicView(it), GridEngine.privateView(it, owner.toString())) }
         val members = members(sql, row.id!!)
         val mine = members.first { it.accountId == owner }
-        val visible = view?.head?.cards.orEmpty() + view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
+        val visible = view?.head?.cards.orEmpty() + view?.queuedPacks.orEmpty().flatMap { it.cards } +
+            view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
             gridView?.publicView?.grids.orEmpty().flatMap { it.positions.filterNotNull() } +
             gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded }
         val definitions = visible.map { it.definition }.toSet()

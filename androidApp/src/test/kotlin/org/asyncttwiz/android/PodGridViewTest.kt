@@ -88,7 +88,7 @@ class PodGridViewTest {
         compose.onNodeWithTag("pod-grid-later-slot-0").assertDoesNotExist()
         compose.onNodeWithContentDescription("Select row 1").performClick()
         compose.runOnIdle { busy = true }
-        compose.onNodeWithText("Confirming…").assertIsNotEnabled()
+        compose.onNodeWithText("Confirm").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Select row 2").assertIsNotEnabled()
         assertHighlighted(3, false)
     }

@@ -49,6 +49,7 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
     val head: DraftPrivatePack?,
     val packsBehind: Int,
     val pool: List<DraftCopy>,
+    val queuedPacks: List<DraftPrivatePack> = emptyList(),
 )
 /** No card/pack identities or log. Picks include automatic awards; waiting is not finished until the draft ends. */
 @Serializable data class DraftMemberStatus(val player: String, val packsWaiting: Int, val picksMade: Int, val finished: Boolean)
@@ -152,9 +153,10 @@ object DraftEngine {
         require(player in state.seating) { "Not a draft member" }
         val copies = state.copies.associateBy { it.id }
         val queue = state.queues.getValue(player)
-        val head = queue.firstOrNull()?.let { id -> state.packs.first { it.id == id } }
-        return DraftPrivateView(player, head?.let { DraftPrivatePack(it.id, it.number, it.cards.map(copies::getValue)) },
-            (queue.size - 1).coerceAtLeast(0), state.pools.getValue(player).map(copies::getValue))
+        val packs = state.packs.associateBy { it.id }
+        val visible = queue.map { id -> packs.getValue(id).let { DraftPrivatePack(it.id, it.number, it.cards.map(copies::getValue)) } }
+        return DraftPrivateView(player, visible.firstOrNull(),
+            (queue.size - 1).coerceAtLeast(0), state.pools.getValue(player).map(copies::getValue), visible.drop(1))
     }
 
     fun publicStatus(state: DraftState) = DraftPublicStatus(

@@ -65,12 +65,17 @@ class PodPickMarksTest {
             val endRules = PodPickRules(end, settings)
             assertTrue(endRules.automaticBurns)
             assertEquals(0, endRules.manualBurns)
-            assertEquals(end.cards.map { it.id }, endRules.burnIds(empty))
+            assertEquals(emptyList(), endRules.burnIds(empty))
             assertEquals(empty, empty.toggle("3", PodPickMark.BURN, endRules))
-            val marks = empty.toggle("2", PodPickMark.KEEP, endRules).toggle("1", PodPickMark.KEEP, endRules)
+            val partial = empty.toggle("2", PodPickMark.KEEP, endRules)
+            assertEquals(emptyList(), endRules.burnIds(partial))
+            val marks = partial.toggle("1", PodPickMark.KEEP, endRules)
             assertTrue(endRules.canConfirm(marks, false))
             assertEquals(end.cards.drop(2).map { it.id }, endRules.burnIds(marks))
             assertFalse(endRules.canConfirm(marks.unmark("1"), false))
+            assertEquals(emptyList(), endRules.burnIds(marks.unmark("1")))
+            assertEquals(end.cards.filterNot { it.id in listOf("1", "3") }.map { it.id },
+                endRules.burnIds(marks.toggle("3", PodPickMark.KEEP, endRules)))
         }
         assertFalse(PodPickRules(pack.copy(cards = pack.cards.take(5)), settings).automaticBurns)
     }

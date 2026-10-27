@@ -254,7 +254,7 @@ class TableHistoryControllerTest {
                 AccountIdentity(f.b, "bob"), tree.initial.preparationRound, f.id(500), InvitationState.ACCEPTED)
             h.history.update(tree, "v1", game, f.a); h.publish()
             val timeline = HistoryTimelineLayout.events(h.history.playback!!.tree, tree.currentNodeId)
-            assertEquals("alice tapped a card", timeline.last().description)
+            assertEquals("A card tapped", timeline.last().description)
             assertEquals("Tap", timeline.last().label)
             assertEquals(mapOf(f.a to "alice", f.b to "bob"), h.history.usernames)
             assertTrue(timeline.none { it.description.contains("00000000-") })
@@ -263,14 +263,16 @@ class TableHistoryControllerTest {
 
     @Test fun workerIndexIncludesUsernamesAndRefreshesWhenDisplayContextChanges() {
         Harness().use { h ->
-            val tree = f.tap(f.root())
+            val root = f.root()
+            val tree = assertNotNull(root.play(f.b, GameCommand(f.id(100), GameScope(root.initial.gameId, playId = root.initial.id),
+                GameAction.Play(PlayAction.SetLife(f.a, "17")), root.initial.id, "0")).tree)
             val game = GameSummary(tree.initial.gameId, "Table", "2026-10-23T00:00:00Z",
                 AccountIdentity(f.a, "alice"), AccountIdentity(f.b, "bob"), tree.initial.preparationRound,
                 f.id(90), InvitationState.ACCEPTED)
             h.history.update(tree, "v1", game, f.a); h.publish()
-            assertEquals("alice tapped a card", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
+            assertEquals("alice's life 20 → 17", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
             h.history.update(tree, "v1", game.copy(inviter = AccountIdentity(f.a, "alicia")), f.a); h.publish()
-            assertEquals("alicia tapped a card", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
+            assertEquals("alicia's life 20 → 17", h.history.playback!!.tree.texts.getValue(tree.currentNodeId).description)
         }
     }
 

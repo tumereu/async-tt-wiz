@@ -99,7 +99,7 @@ class StackInteractionsTest {
         assertEquals(mapOf(entry to setOf(1)), f.play.board.stackTextMarks)
         val change = GameplayRules.change(before, f.actor, f.commands().last())
         val text = historyText(change.mutation!!, before, f.actor, mapOf(f.actor to "bob"))
-        assertTrue(text.description.startsWith("bob marked")); assertTrue(text.description.endsWith("2 — Second paragraph"))
+        assertEquals("${definition.faces.single().name} marked: 2 — Second paragraph", text.description)
         toolkit.inspect(entry)
         assertEquals(entry, toolkit.inspection!!.cardId)
         assertEquals(entry, toolkit.inspection!!.stackEntryId)

@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         resumed = false
         ViewModelProvider(this)[AuthViewModel::class.java].lobby.background()
-        AndroidActivityDelivery.get(this).display(null, false)
+        AndroidActivityDelivery.get(this).display(ActivityScreen.NONE, false)
         ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.display(null, null)
         super.onPause()
     }
@@ -146,15 +146,22 @@ class MainActivity : ComponentActivity() {
                 }
                 val state = auth.controller.state
                 val token = auth.controller.sessionToken()
+                // Read in composition, not inside SideEffect, so opening a game/pod or resuming
+                // reruns the effect below and clears that screen's notifications.
+                val shown by remember { derivedStateOf {
+                    ActivityScreen.of(auth.controller.state.destination, auth.lobby.state.selected, auth.pods.state)
+                } }
+                val activityScreen = shown
+                val foreground = resumed
                 SideEffect {
                     if (auth.lobby.state.detail == null) DebugJank.state("screen" to state.destination.name.lowercase())
                     if (!state.restoring && !state.busy) {
                         DebugCrashes.authenticated(if (state.account != null) token else null)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                     }
-                    val gameScreen = auth.lobby.state.selected?.takeIf { state.destination == ShellDestination.GAMES }
-                    auth.activity.display(gameScreen, resumed)
-                    auth.heartbeat.display(gameScreen?.takeIf { resumed }, token)
+                    val gameScreen = activityScreen.game
+                    auth.activity.display(activityScreen, foreground)
+                    auth.heartbeat.display(gameScreen?.takeIf { foreground }, token)
                     if (state.account != null) auth.activity.rememberPods(auth.pods.state.pods)
                     val route = notificationRoute
                     if (route != null && !state.restoring && !state.busy) {

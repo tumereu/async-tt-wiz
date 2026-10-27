@@ -8,8 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -64,7 +63,10 @@ fun PodBuildView(
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
     var confirmSubmit by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
-    val inspector = remember { CardInspectionController() }
+    // One card popup at a time: a menu or the hold preview, whichever came last.
+    val menus = remember { PodCardMenuOwner() }
+    var inspected by remember { mutableStateOf<Pair<String, InspectedCard>?>(null) }
+    val previewScroll = rememberScrollState()
     var feedback by remember { mutableStateOf<Pair<Int, PodDeckCategory>?>(null) }
     var feedbackId by remember { mutableIntStateOf(0) }
     LaunchedEffect(feedback) { if (feedback != null) { delay(850); feedback = null } }
@@ -113,11 +115,16 @@ fun PodBuildView(
                                     AnimatedContent(bucket, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "column-cards") { tiles ->
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             tiles.forEach { tile -> key(tile.digest, tile.copyIds.first()) {
-                                                PodBuildCard(tile, category, editable, move) {
-                                                    tile.definition?.takeIf { it.faces.isNotEmpty() }?.let {
-                                                        inspector.open(InspectedCard.retained(tile.digest, it))
-                                                    }
-                                                }
+                                                val tileKey = tile.copyIds.first()
+                                                PodBuildCard(tile, category, editable, move, onInspect = { open ->
+                                                    val card = tile.definition?.takeIf { it.faces.isNotEmpty() }
+                                                        ?.let { InspectedCard.retained(tile.digest, it) }
+                                                    if (open && card != null) {
+                                                        menus.open = null
+                                                        previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                                        inspected = tileKey to card
+                                                    } else if (!open && inspected?.first == tileKey) inspected = null
+                                                }, onInspectScroll = { previewScroll.dispatchRawDelta(it) }, menus = menus)
                                             } }
                                         }
                                     }
@@ -155,7 +162,7 @@ fun PodBuildView(
             dismissButton = { OutlinedIconButton({ naming = false }) { EntryIcon("Cancel", "close") } })
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
-    inspector.state?.card?.let { PodCardArtPreview(it, it.definition.name, onDismiss = inspector::close) }
+    inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
 }
 
 @Composable
@@ -187,47 +194,47 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 internal fun PodBuildCard(
     tile: PodBuildTile,
     category: PodDeckCategory,
     editable: Boolean,
     onMove: (String, PodDeckCategory) -> Unit,
-    onInspect: () -> Unit,
+    onInspect: (Boolean) -> Unit,
+    onInspectScroll: (Float) -> Unit = {},
+    menus: PodCardMenuOwner = remember { PodCardMenuOwner() },
 ) {
-    var menu by remember { mutableStateOf(false) }
+    val key = tile.copyIds.first()
     var drag by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(editable) { if (!editable) { menu = false; drag = 0f } }
+    LaunchedEffect(editable) { if (!editable) { if (menus.open == key) menus.open = null; drag = 0f } }
     val latestMove by rememberUpdatedState(onMove)
+    val latestInspect by rememberUpdatedState(onInspect)
+    val latestInspectScroll by rememberUpdatedState(onInspectScroll)
     val threshold = with(LocalDensity.current) { 20.dp.toPx() }
     val right = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
     val left = PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
     val name = tile.definition?.name ?: "Card details unavailable"
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("pod-build-card-${tile.copyIds.first()}")) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("pod-build-card-$key")) {
         val density = LocalDensity.current
         val width = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
-        val reference = remember(tile.digest, tile.definition, width) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it).artwork.firstOrNull() }
-                ?.takeIf { it.printing != null || it.customUrl != null }
-                ?.copy(size = "normal")
-        }
-        val gesture = if (!editable) Modifier else Modifier.pointerInput(tile.copyIds.first(), category, threshold) {
-            detectHorizontalDragGestures(
-                onHorizontalDrag = { change, amount -> change.consume(); drag += amount },
-                onDragCancel = { drag = 0f },
-                onDragEnd = {
-                    if (abs(drag) >= threshold) latestMove(tile.copyIds.first(), if (drag > 0) right else left)
-                    drag = 0f
-                },
-            )
-        }
+        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .offset { IntOffset(drag.coerceIn(-threshold, threshold).roundToInt(), 0) }
-            .then(gesture)
-            .combinedClickable(onClick = { if (editable) menu = true }, onLongClick = onInspect,
-                onLongClickLabel = "Inspect $name", onClickLabel = if (editable) "Move $name" else "${name} (read-only)")
-            .semantics { contentDescription = "$name, ${tile.copyIds.size} copies, ${category.podBuildLabel()}" }) {
+            // Same recognizer as the pick screen: tap menu, horizontal swipe, release-to-close hold.
+            .pointerInput(key, category, threshold, editable) {
+                podPickGestures(onTap = { if (editable) menus.open = key },
+                    onInspect = { latestInspect(it) }, onInspectScroll = { latestInspectScroll(it) },
+                    onDrag = if (editable) { x -> drag = x } else null,
+                    onDragEnd = { x ->
+                        if (abs(x) >= threshold) latestMove(key, if (x > 0) right else left)
+                        drag = 0f
+                    },
+                    onEnd = { drag = 0f })
+            }
+            .semantics {
+                contentDescription = "$name, ${tile.copyIds.size} copies, ${category.podBuildLabel()}"
+                if (editable) onClick("Move $name") { menus.open = key; true }
+            }) {
             CardArtwork(reference, name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) })
             if (tile.copyIds.size > 1) Surface(Modifier.align(Alignment.TopEnd), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("×${tile.copyIds.size}", Modifier.padding(2.dp), fontSize = 11.sp)
@@ -236,11 +243,11 @@ internal fun PodBuildCard(
                 Text("→ ${(if (drag > 0) right else left).podBuildLabel()}", Modifier.padding(2.dp), fontSize = 11.sp)
             }
         }
-        PodCardMenu(expanded = menu && editable, dismiss = { menu = false }) {
+        PodCardMenu(expanded = menus.open == key && editable, dismiss = { if (menus.open == key) menus.open = null }) {
             listOf(right, left).forEach { destination ->
                 DropdownMenuItem(text = { Text("→ ${destination.podBuildLabel()}") }, onClick = {
-                    menu = false
-                    latestMove(tile.copyIds.first(), destination)
+                    menus.open = null
+                    latestMove(key, destination)
                 })
             }
         }

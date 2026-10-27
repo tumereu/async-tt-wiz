@@ -65,7 +65,11 @@ fun PodGridView(
                     Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
                 PodGridLog(log.filter { it.gridId == board.id }, definitions, members)
                 PodGridBoard(board, boardRules, selected.takeIf { head?.id == board.id }, !busy,
-                    onSelect = { selected = it }, definitions = definitions, inspect = { inspected = it; previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()) },
+                    onSelect = { selected = it }, definitions = definitions, inspect = { copy, open ->
+                        // Several fingers may hold cards: the latest hold shows, and only its release closes.
+                        if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
+                        else if (inspected == copy) inspected = null
+                    },
                     inspectScroll = { previewScroll.dispatchRawDelta(it) })
             } }
         }
@@ -98,7 +102,7 @@ private fun PodGridLog(log: List<GridPublicPickLog>, definitions: Map<String, Ca
 
 @Composable
 private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
-    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy?) -> Unit,
+    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy, Boolean) -> Unit,
     inspectScroll: (Float) -> Unit = {}) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -127,7 +131,7 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
                             val currentInspect by rememberUpdatedState(inspect)
                             val currentInspectScroll by rememberUpdatedState(inspectScroll)
                             PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize().pointerInput(copy) {
-                                podPickGestures(onTap = {}, onInspect = { currentInspect(if (it) copy else null) },
+                                podPickGestures(onTap = {}, onInspect = { currentInspect(copy, it) },
                                     onInspectScroll = { currentInspectScroll(it) })
                             })
                         }

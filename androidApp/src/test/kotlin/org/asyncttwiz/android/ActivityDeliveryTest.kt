@@ -83,6 +83,33 @@ class ActivityDeliveryTest {
         delivery.apply(alice, page(hint(4, "next-group"))) { true }
         assertEquals("game", posted.last().hint.gameId)
     }
+    @Test fun openPodAndPodListSuppressTheirNotificationsOnlyWhileResumed() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        delivery.display(ActivityScreen(pod = "pod"), true)
+        delivery.apply(alice, page(hint(1, "a", ActivityKind.POD_YOUR_PICK, "pod"),
+            hint(2, "b", ActivityKind.POD_YOUR_PICK, "other"), hint(3, "c", ActivityKind.POD_INVITATION, "invited"))) { true }
+        assertEquals(listOf("pod:other", "pod-invite:invited"), posted.map { it.key })
+        assertEquals(1L, store.marks["pod:pod"]?.activity)
+        delivery.display(ActivityScreen(podList = true), true)
+        delivery.apply(alice, page(hint(4, "d", ActivityKind.POD_INVITATION, "another"),
+            hint(5, "e", ActivityKind.POD_DRAFT_COMPLETE, "pod"))) { true }
+        assertEquals(listOf("pod:other", "pod-invite:invited", "pod:pod"), posted.map { it.key })
+        assertEquals(4L, store.marks["pod-invite:another"]?.activity)
+        delivery.display(ActivityScreen(pod = "pod"), false)
+        delivery.apply(alice, page(hint(6, "f", ActivityKind.POD_YOUR_PICK, "pod"))) { true }
+        assertEquals("pod:pod", posted.last().key); assertEquals(4, posted.size)
+    }
+    @Test fun displayedScreenFollowsDestinationAndSelection() {
+        assertEquals(ActivityScreen(game = "g"), ActivityScreen.of(ShellDestination.GAMES, "g", PodState(selected = "p")))
+        assertEquals(ActivityScreen(pod = "p"), ActivityScreen.of(ShellDestination.PODS, "g", PodState(selected = "p")))
+        assertEquals(ActivityScreen(podList = true), ActivityScreen.of(ShellDestination.PODS, null, PodState()))
+        assertEquals(ActivityScreen.NONE, ActivityScreen.of(ShellDestination.MENU, "g", PodState(selected = "p")))
+        assertTrue(ActivityScreen(game = "g").shows("game:g")); assertFalse(ActivityScreen(game = "g").shows("pod:g"))
+        assertTrue(ActivityScreen(pod = "p").shows("pod:p")); assertFalse(ActivityScreen(pod = "p").shows("pod-invite:p"))
+        assertTrue(ActivityScreen(podList = true).shows("pod-invite:any")); assertFalse(ActivityScreen(podList = true).shows("pod:any"))
+        assertFalse(ActivityScreen.NONE.shows("invite:any"))
+    }
     @Test fun permissionChannelAndResetSuppressionAdvanceDeliveryOnly() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }

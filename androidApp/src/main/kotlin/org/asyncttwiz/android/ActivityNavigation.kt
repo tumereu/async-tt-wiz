@@ -20,6 +20,22 @@ object ActivityDisplay {
         detail?.takeIf { inGames && selected == it.id && it.lifecycle == GameLifecycle.ACTIVE }?.id
 }
 
+/** What the resumed app shows. Its notifications are cleared on open and not posted while shown. */
+data class ActivityScreen(val game: String? = null, val pod: String? = null, val podList: Boolean = false) {
+    fun shows(key: String): Boolean = game != null && key == "game:$game" ||
+        pod != null && key == "pod:$pod" || podList && key.startsWith("pod-invite:")
+
+    companion object {
+        val NONE = ActivityScreen()
+        fun of(destination: ShellDestination, selectedGame: String?, pods: PodState) = when (destination) {
+            ShellDestination.GAMES -> ActivityScreen(game = selectedGame)
+            ShellDestination.PODS -> if (pods.selected != null) ActivityScreen(pod = pods.selected)
+                else ActivityScreen(podList = pods.creating == null)
+            else -> NONE
+        }
+    }
+}
+
 internal fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
 internal fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.GAME -> "game:$gameId"

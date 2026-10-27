@@ -135,16 +135,74 @@ class PodPickViewTest {
         assertEquals(beforeBurn, burn.fetchSemanticsNode().boundsInRoot)
     }
 
-    @Test fun movingPastSlopAfterHoldDismissesWithoutMarkingOrOpeningMenu() {
-        show()
-        card("1").performTouchInput { down(center); advanceEventTime(160) }
+    private fun hold(target: SemanticsNodeInteraction, settle: Boolean = false) {
+        target.performTouchInput { down(center); advanceEventTime(160) }
         compose.mainClock.advanceTimeBy(160)
         compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
-        card("1").performTouchInput { moveBy(Offset(width * .6f, 0f)) }
+        if (settle) {
+            target.performTouchInput { advanceEventTime(PodHoldSettleMillis + 20) }
+            compose.mainClock.advanceTimeBy(PodHoldSettleMillis + 20)
+        }
+    }
+
+    @Test fun horizontalMoveEarlyInAHoldClosesThePreviewAndSwipes() {
+        show()
+        hold(card("1"))
+        card("1").performTouchInput { moveBy(Offset(width * .3f, 0f)); moveBy(Offset(width * .3f, 0f)) }
         compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("pod-pick-swipe-copy-1").assertExists()
         card("1").performTouchInput { up() }
-        assertMark("1", "Unmarked")
+        assertMark("1", "Keep")
         compose.onNodeWithText("Keep").assertDoesNotExist()
+    }
+
+    @Test fun verticalMoveEarlyInAHoldClosesThePreviewAndScrollsTheList() {
+        show()
+        val before = card("1").getUnclippedBoundsInRoot().top
+        hold(card("4"))
+        card("4").performTouchInput { repeat(6) { moveBy(Offset(0f, -height * .2f)) } }
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        card("4").performTouchInput { up() }
+        assertTrue(card("1").getUnclippedBoundsInRoot().top < before)
+        assertMark("4", "Unmarked")
+        compose.onNodeWithText("Keep").assertDoesNotExist()
+    }
+
+    @Test fun settledHoldOwnsVerticalMotionAndHorizontalMoveDismissesWithoutMarking() {
+        show()
+        val before = card("1").getUnclippedBoundsInRoot().top
+        hold(card("4"), settle = true)
+        card("4").performTouchInput { repeat(3) { moveBy(Offset(0f, -height * .2f)) }; repeat(3) { moveBy(Offset(0f, height * .2f)) } }
+        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        assertEquals(before, card("1").getUnclippedBoundsInRoot().top)
+        card("4").performTouchInput { moveBy(Offset(width * .6f, 0f)) }
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        card("4").performTouchInput { up() }
+        assertMark("4", "Unmarked")
+        compose.onNodeWithText("Keep").assertDoesNotExist()
+    }
+
+    @Test fun simultaneousTapsOpenOnlyTheLatestCardMenu() {
+        show()
+        val first = card("1").fetchSemanticsNode().boundsInRoot.center
+        val second = card("2").fetchSemanticsNode().boundsInRoot.center
+        compose.onRoot().performTouchInput { down(0, first); down(1, second); up(0); up(1) }
+        compose.onAllNodesWithText("Keep").assertCountEquals(1)
+        compose.onNodeWithText("Keep").performClick()
+        assertMark("2", "Keep")
+        assertMark("1", "Unmarked")
+    }
+
+    @Test fun trayCountIsACornerChipOverTheCards() {
+        show()
+        swipe("1", true)
+        val chip = compose.onNodeWithContentDescription("Keep 1/1").fetchSemanticsNode().boundsInRoot
+        val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
+        val trayCard = compose.onNodeWithTag("pod-pick-tray-1").fetchSemanticsNode().boundsInRoot
+        assertTrue(tray.contains(chip.topLeft) && tray.contains(chip.bottomRight - Offset(1f, 1f)))
+        assertTrue(chip.overlaps(trayCard))
+        compose.onNodeWithTag("pod-pick-tray-1").performClick()
+        assertMark("1", "Unmarked")
     }
 
     @Test fun automaticBurnTrayWaitsForKeepAndIsNotSelectableAndSendsRest() {

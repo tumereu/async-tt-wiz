@@ -70,7 +70,7 @@ class GameSessionTest {
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun message(message: GameServerMessage) { wire.message(message); drain() }
         fun connect(games: List<GameSummary>, statuses: Map<String, List<GameRequestStatus>> = emptyMap(), generation: String = "1") {
-            session.watch(games); wire.listener.opened(); drain(); message(GameWelcome())
+            session.watch(games); wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             for (game in games) {
                 val streamId = wire.frames.mapNotNull { when (it) {
                     is ResumeGameStream -> if (it.gameId == game.id) it.streamId else null
@@ -80,6 +80,50 @@ class GameSessionTest {
                 message(GameStreamReady(game.id, streamId, generation, statuses[game.id].orEmpty()))
                 message(GameHead(game.id, game.revision, game))
             }
+        }
+    }
+    @Test fun olderClientIsPersistentlyBlockedWithoutReconnectOrCommandSubmission() {
+        val f = Fixture(); val game = game()
+        try {
+            f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain()
+            assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, f.wire.frames.filterIsInstance<GameHello>().single().gameplayRulesVersion)
+            val old = f.wire.listener
+            f.message(GameAdmissionError("gameplayRulesUpgradeRequired", false))
+            assertEquals("Update the app to continue this game", f.session.error)
+            old.disconnected(false, "socketClosed"); f.drain()
+            repeat(10) { f.now += 60_000; f.session.dismissError(); f.session.foreground() }
+            assertEquals(1, f.wire.tokens.size)
+            assertFalse(f.session.ready)
+            assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+            assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+            assertEquals("Update the app to continue this game", f.session.error)
+            assertFalse(f.session.reconnecting(game.id))
+        } finally { f.session.close() }
+    }
+    @Test fun newerClientWaitsForServerUpdateBeforeOpeningStreamsAndRetriesOnlyHandshake() {
+        for (response in listOf(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION - 1),
+            GameWelcome(), GameAdmissionError("invalidInput", false))) {
+            val f = Fixture(); val game = game()
+            try {
+                f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain(); f.message(response)
+                assertEquals("Server update pending", f.session.error)
+                f.session.dismissError(); f.now = 29_999; f.session.tick()
+                assertEquals(1, f.wire.tokens.size)
+                assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+                assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+                f.now = 30_000; f.session.tick()
+                assertEquals(2, f.wire.tokens.size)
+                assertEquals("Server update pending", f.session.error)
+                f.wire.listener.disconnected(); f.drain()
+                f.now = 59_999; f.session.tick()
+                assertEquals(2, f.wire.tokens.size, "A failed update probe must not start a reconnect loop")
+                f.now = 60_000; f.session.tick()
+                assertEquals(3, f.wire.tokens.size)
+                f.wire.listener.opened(); f.drain()
+                f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+                assertNull(f.session.error)
+                assertEquals(1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
+            } finally { f.session.close() }
         }
     }
     @Test fun socketReasonAndSilentLifecycleRecoveryAreRecordedThroughTheAcceptedHead() {
@@ -93,7 +137,7 @@ class GameSessionTest {
         f.session.foreground()
         assertFalse(f.session.reconnecting(game.id))
         f.now += 10
-        f.wire.listener.opened(); f.drain(); f.message(GameWelcome())
+        f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
         val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().single()
         f.now += 20; f.message(GameStreamReady(game.id, resume.streamId, "2"))
         assertFalse(f.reconnects.last().complete)

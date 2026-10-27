@@ -21,7 +21,7 @@ class LifecycleVerificationTest {
                 val settled = mutableListOf<GameResult>()
                 GameSession(wire, { "token" }, { it() }, {}, {}, { _, result -> settled.add(result) }, {}).use { session ->
                     fun receive(message: GameServerMessage) = wire.listener.message(message)
-                    session.watch(listOf(game)); wire.listener.opened(); receive(GameWelcome())
+                    session.watch(listOf(game)); wire.listener.opened(); receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                     val stream = wire.frames.filterIsInstance<OpenGameStream>().single()
                     receive(GameStreamReady(game.id, stream.streamId, "1"))
                     receive(GameHead(game.id, "0", game,
@@ -29,7 +29,7 @@ class LifecycleVerificationTest {
                     assertTrue(if (active) session.sendChat(game, "original text") else session.submit(game, GameAction.CancelSetup))
                     val original = wire.frames.filterIsInstance<GameCommand>().single()
                     val subscriptions = wire.frames.filterIsInstance<SubscribeGame>().size
-                    wire.listener.disconnected(); session.tick(); wire.listener.opened(); receive(GameWelcome())
+                    wire.listener.disconnected(); session.tick(); wire.listener.opened(); receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                     assertEquals(listOf(original.requestId), wire.frames.filterIsInstance<ResumeGameStream>().single().requestIds)
                     val result = GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = "1")
                     val removed = game.copy(lifecycle = terminal, revision = "2")

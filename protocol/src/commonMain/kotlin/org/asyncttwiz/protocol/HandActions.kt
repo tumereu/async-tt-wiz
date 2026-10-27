@@ -16,7 +16,7 @@ object HandActions {
 
 internal object HandRules {
     fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
-        rulesVersion: Int = 20): GameplayChange {
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         val board = state.board
         val handId = when (action) {
             is PlayAction.RevealHand -> action.handId

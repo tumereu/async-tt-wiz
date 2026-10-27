@@ -10,6 +10,15 @@ optimistic updates and animation remain. D-187 applies ordinary actions at the
 current head unless impossible; optimistic guards are limited to movement and
 Stack additions, not previous-value checks for ordinary fields.
 
+Game connection Hello/Welcome also exchange `gameplayRulesVersion`, independently
+of engine/read format 1; an absent field means rules version 1. The shared current
+rules constant defaults new recorded transitions and the client Hello. A server
+refuses older clients with non-retryable `gameplayRulesUpgradeRequired` before any
+stream/event delivery; the client persistently shows “Update the app to continue
+this game” without reconnecting. A newer client shows “Server update pending”,
+submits no commands, and only retries negotiation every 30 seconds. Existing
+recorded transition versions and replay semantics remain unchanged.
+
 **R1 scope gate — D-241:** remaining proposed authoring/coordination extras in
 this broad catalog are excluded from R1, not approved by being listed. See the
 [product boundary](product.md#13-proposed-first-release-boundaries). Preserve

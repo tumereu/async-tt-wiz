@@ -29,7 +29,7 @@ class GameplayMergeVerificationTest {
         private fun display() = session.play(f.game)?.board
         fun receive(message: GameServerMessage) = wire.listener.message(message)
         fun connect() {
-            session.watch(listOf(f.game)); wire.listener.opened(); receive(GameWelcome())
+            session.watch(listOf(f.game)); wire.listener.opened(); receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             receive(GameStreamReady(f.game.id, wire.sent.filterIsInstance<OpenGameStream>().single().streamId, "1"))
             receive(f.head(root)); assertTrue(session.ready(f.game.id))
         }

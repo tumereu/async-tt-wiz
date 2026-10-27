@@ -41,7 +41,8 @@ class GameDeletionTest {
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
-        val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString())
+        val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+            gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
         val connection = UUID.randomUUID()
         val stream = games.open(actor, hello, connection, game.id, UUID.randomUUID().toString())
         fun command(action: GameAction, playId: String? = null) = GameCommand(UUID.randomUUID().toString(),
@@ -298,7 +299,8 @@ class GameDeletionTest {
     private fun request(settings: ServiceSettings, path: String, token: String): HttpResponse<String> = client.send(
         HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path")).timeout(Duration.ofSeconds(5))
             .header("Authorization", "Bearer $token").build(), HttpResponse.BodyHandlers.ofString())
-    private inner class Socket(settings: ServiceSettings, token: String, val hello: GameHello = GameHello(id(), id())) : WebSocket.Listener, AutoCloseable {
+    private inner class Socket(settings: ServiceSettings, token: String,
+        val hello: GameHello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)) : WebSocket.Listener, AutoCloseable {
         private val queue = LinkedBlockingQueue<GameServerMessage>(); private val text = StringBuilder()
         private val socket = client.newWebSocketBuilder().header("Authorization", "Bearer $token").connectTimeout(Duration.ofSeconds(5))
             .buildAsync(URI("ws://127.0.0.1:${settings.publicPort()}/v1/socket"), this).get(10, TimeUnit.SECONDS)
@@ -346,7 +348,7 @@ class GameDeletionTest {
                         HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                     assertTrue(System.nanoTime() < end); Thread.sleep(20)
                 }
-                val hello = GameHello(id(), id()); val streamId = id(); lateinit var command: GameCommand
+                val hello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION); val streamId = id(); lateinit var command: GameCommand
                 Socket(settings, aToken, hello).use { actor ->
                     actor.negotiate(); actor.send(OpenGameStream(active.gameId, streamId))
                     val stream = actor.next { it is GameStreamReady } as GameStreamReady

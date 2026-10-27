@@ -280,7 +280,7 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 20): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action

@@ -80,7 +80,7 @@ class PodChallengeLobbyTest {
             accountId = { a.accountId }, deckApi = decks, basicLandDefinitions = { resolve() })
         fun challenge() { controller.challengeFromPod(pod, b.accountId, game.gameName); worker.drain() }
         fun head(preparation: LobbyPreparation) {
-            wire.listener.opened(); wire.listener.message(GameWelcome())
+            wire.listener.opened(); wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val open = wire.frames.filterIsInstance<OpenGameStream>().last()
             wire.listener.message(GameStreamReady(game.id, open.streamId, "1"))
             wire.listener.message(GameHead(game.id, "0", game, preparation = preparation))

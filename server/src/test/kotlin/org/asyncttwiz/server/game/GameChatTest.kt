@@ -293,7 +293,7 @@ class GameChatTest {
         private val queue = LinkedBlockingQueue<GameServerMessage>()
         private val saved = mutableListOf<GameServerMessage>()
         private val text = StringBuilder()
-        val hello = GameHello(id(), id())
+        val hello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
         private val socket = client.newWebSocketBuilder().header("Authorization", "Bearer $token")
             .buildAsync(URI("ws://127.0.0.1:${settings.publicPort()}/v1/socket"), this).get(10, TimeUnit.SECONDS)
         override fun onOpen(webSocket: WebSocket) { webSocket.request(1) }

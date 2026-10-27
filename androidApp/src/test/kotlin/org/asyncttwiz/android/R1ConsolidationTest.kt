@@ -17,7 +17,7 @@ class R1ConsolidationTest {
     @Test fun basicCallbacksAndResultSuggestionUseOneReplicaAndPreserveAcceptedTuples() {
         val f = GameplayFixture(); val wire = Wire()
         GameSession(wire, { "synthetic" }, { it() }, {}, {}, { _, _ -> }, {}, accountId = { f.actor }).use { session ->
-            session.watch(listOf(f.game)); wire.listener.opened(); wire.listener.message(GameWelcome())
+            session.watch(listOf(f.game)); wire.listener.opened(); wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.sent.filterIsInstance<OpenGameStream>().single().streamId
             wire.listener.message(GameStreamReady(f.game.id, stream, "1")); wire.listener.message(f.head())
             val basic = BasicTableController({ session.play(f.game) }, { session.ready(f.game.id) },

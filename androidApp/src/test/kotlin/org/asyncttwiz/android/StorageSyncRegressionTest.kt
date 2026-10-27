@@ -102,7 +102,7 @@ class StorageSyncRegressionTest {
         fun messageDisconnect() { wire.listener.disconnected(); drain(); session.tick() }
         fun connect(generation: String = "1") { session.watch(listOf(game)); drain(); authorize(generation); message(head()) }
         fun authorize(generation: String) {
-            wire.listener.opened(); drain(); message(GameWelcome())
+            wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, emptyList()))
         }

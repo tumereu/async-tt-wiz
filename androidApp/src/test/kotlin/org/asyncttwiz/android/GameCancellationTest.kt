@@ -23,7 +23,7 @@ class GameCancellationTest {
         val settled = mutableListOf<GameResult>(); val changed = mutableListOf<GameSummary>()
         val session = GameSession(wire, { token }, { it() }, {}, changed::add, { _, result -> settled.add(result) }, {})
         fun connect(statuses: List<GameRequestStatus> = emptyList(), ended: GameSummary? = null, generation: String = "1") {
-            session.watch(listOf(game)); wire.listener.opened(); message(GameWelcome())
+            session.watch(listOf(game)); wire.listener.opened(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, statuses, ended))
             if (ended == null) message(GameHead(game.id, game.revision, game))

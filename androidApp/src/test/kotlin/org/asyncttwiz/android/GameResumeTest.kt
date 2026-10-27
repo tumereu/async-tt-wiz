@@ -28,7 +28,7 @@ class GameResumeTest {
             accountId = { account }, now = { time })
         init { session.watch(listOf(data.game)); accept() }
         fun accept(generation: String = "1", statuses: List<GameRequestStatus> = emptyList()) {
-            listener.opened(); listener.message(GameWelcome())
+            listener.opened(); listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = frames.mapNotNull { when (it) {
                 is OpenGameStream -> it.streamId
                 is ResumeGameStream -> it.streamId

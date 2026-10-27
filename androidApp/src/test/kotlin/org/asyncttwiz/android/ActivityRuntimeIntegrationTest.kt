@@ -227,7 +227,7 @@ class ActivityRuntimeIntegrationTest {
                 live.id, target.groupId ?: target.invitationId!!)
             try {
                 lobby.open(live.id); drain(); wire.listener.opened(); drain()
-                wire.listener.message(GameWelcome()); drain()
+                wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); drain()
                 val stream = wire.frames.filterIsInstance<OpenGameStream>().single()
                 wire.listener.message(GameStreamReady(live.id, stream.streamId, "1")); drain()
                 wire.listener.message(GameHead(live.id, live.revision, live,

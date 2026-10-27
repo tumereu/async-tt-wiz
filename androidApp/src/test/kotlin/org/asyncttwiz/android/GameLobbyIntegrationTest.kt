@@ -69,7 +69,7 @@ class GameLobbyIntegrationTest {
         }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun ready(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1") {
-            wire.listener.opened(); drain(); message(GameWelcome())
+            wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, statuses)); message(GameHead(game.id, httpGame.revision, httpGame))
         }
@@ -136,7 +136,7 @@ class GameLobbyIntegrationTest {
                 if (switch) assertTrue(f.lobby.state.pendingGames.isEmpty())
                 else {
                     f.visible = false; f.lobby.sync(); f.drain()
-                    f.wire.listener.opened(); f.drain(); f.message(GameWelcome())
+                    f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                     val resume = f.wire.frames.filterIsInstance<ResumeGameStream>().last()
                     assertEquals(listOf(original.requestId), resume.requestIds)
                     val result = GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = "1")

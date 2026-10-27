@@ -49,7 +49,7 @@ class LobbyDeletionTest {
         } }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect() {
-            wire.listener.opened(); drain(); message(GameWelcome())
+            wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.filterIsInstance<OpenGameStream>().last()
             message(GameStreamReady(game.id, stream.streamId, "1")); head(game)
         }

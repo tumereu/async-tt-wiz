@@ -209,7 +209,7 @@ class GameplaySyncTest {
             }
         }
         try {
-            send(GameHello(id(), id())); await(GameWelcome::class.java)
+            send(GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); await(GameWelcome::class.java)
             send(OpenGameStream(head.gameId, id())); val stream = await(GameStreamReady::class.java)
             send(SubscribeGame(head.gameId)); await(GameHead::class.java)
             send(GameCommand(id(), GameScope(head.gameId, playId = play.id),

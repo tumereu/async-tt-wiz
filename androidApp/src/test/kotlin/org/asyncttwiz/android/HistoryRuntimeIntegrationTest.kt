@@ -215,7 +215,7 @@ class HistoryRuntimeIntegrationTest {
         }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect(generation: String = "1", statuses: List<GameRequestStatus> = emptyList(), required: Boolean = false) {
-            session.watch(listOf(game)); wire.listener.opened(); drain(); message(GameWelcome())
+            session.watch(listOf(game)); wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, statuses)); message(head().copy(retainedTreeRequired = required))
         }
@@ -764,7 +764,7 @@ class HistoryRuntimeIntegrationTest {
         fun drain() { repeat(3) { worker.submit {}.get(10, TimeUnit.SECONDS); while (true) (posts.poll() ?: break).invoke() } }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         try {
-            lobby.open(game.id); drain(); wire.listener.opened(); drain(); message(GameWelcome())
+            lobby.open(game.id); drain(); wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.filterIsInstance<OpenGameStream>().last()
             message(GameStreamReady(game.id, stream.streamId, "1")); message(GameHead(game.id, "1", game, play = root.initial))
             val events = mutableListOf<InspectionEvent>()

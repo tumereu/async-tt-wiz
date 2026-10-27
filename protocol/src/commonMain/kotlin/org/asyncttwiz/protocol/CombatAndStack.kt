@@ -11,7 +11,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class CombatPair(val id: String, val attackers: List<CombatOccurrence> = emptyList(),
     val blockers: List<CombatOccurrence> = emptyList(),
     /** Absent/null targets the defending player, including all retained pre-v18 pairs. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val attackTarget: String? = null) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val attackTarget: String? = null,
+    /** Rules v20: remains true after the last blocker leaves this pair. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val blocked: Boolean = false) {
     fun side(role: CombatRole) = if (role == CombatRole.ATTACKER) attackers else blockers
     fun withSide(role: CombatRole, cards: List<CombatOccurrence>) =
         if (role == CombatRole.ATTACKER) copy(attackers = cards) else copy(blockers = cards)
@@ -64,6 +66,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class CombatPairPosition(val areaId: String, val gap: IdentityGap)
 @Serializable data class CombatPairChange(val id: String, val from: CombatPairPosition?, val to: CombatPairPosition?)
 @Serializable data class CombatAttackTargetChange(val pairId: String, val from: String?, val to: String?)
+@Serializable data class CombatBlockedChange(val pairId: String, val from: Boolean, val to: Boolean)
 @Serializable data class CombatAreaChange(val from: String?, val to: String?)
 @Serializable data class StackEffectChange(val id: String, val from: StackEffect?, val to: StackEffect?)
 @Serializable data class StackOrderChange(val id: String, val from: IdentityGap?, val to: IdentityGap?)
@@ -77,7 +80,9 @@ import kotlinx.serialization.Serializable
     val addedLinks: List<ProjectionLink> = emptyList(),
     val textMarks: List<StackTextMarkChange> = emptyList(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val attackTargets: List<CombatAttackTargetChange> = emptyList())
+    val attackTargets: List<CombatAttackTargetChange> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val blocked: List<CombatBlockedChange> = emptyList())
 
 @Serializable data class StackIdentity(val kind: String, val id: String, val sourceId: String)
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
@@ -331,6 +336,8 @@ object CombatStackRules {
         val combat = candidate.combat?.let { area -> area.copy(pairs = area.pairs.map { pair ->
             fun keep(cards: List<CombatOccurrence>) = cards.filter { live[it.sourceId]?.containerId in battlefield }
             pair.copy(attackers = keep(pair.attackers), blockers = keep(pair.blockers),
+                blocked = pair.blocked || rulesVersion >= 20 && (pair.blockers.isNotEmpty() ||
+                    before.combat?.takeIf { it.id == area.id }?.pairs?.any { it.id == pair.id && it.blockers.isNotEmpty() } == true),
                 attackTarget = if (rulesVersion >= 18 && pair.attackTarget != null &&
                     live[pair.attackTarget]?.containerId !in battlefield) null else pair.attackTarget)
         }.filterNot(::empty)) }
@@ -410,11 +417,16 @@ object CombatStackRules {
             val to = next.combat?.pairs?.find { it.id == id }?.attackTarget
             if (from == to) null else CombatAttackTargetChange(id, from, to)
         }
+        val blocked = (oldPairs + newPairs).distinct().mapNotNull { id ->
+            val from = before.combat?.pairs?.find { it.id == id }?.blocked ?: false
+            val to = next.combat?.pairs?.find { it.id == id }?.blocked ?: false
+            if (from == to) null else CombatBlockedChange(id, from, to)
+        }
         val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect })
             StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
         return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
-            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && attackTargets.isEmpty() && guard == null) null else
+            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && attackTargets.isEmpty() && blocked.isEmpty() && guard == null) null else
             CombatStackTransition(area, occurrenceChanges, pairChanges, effectChanges, orderChanges, links.sortedBy { it.id }, guard,
-                addedLinks.sortedBy { it.id }, marks, attackTargets)
+                addedLinks.sortedBy { it.id }, marks, attackTargets, blocked)
     }
 }

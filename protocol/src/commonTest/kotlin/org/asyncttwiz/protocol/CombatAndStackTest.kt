@@ -43,6 +43,39 @@ class CombatAndStackTest {
     private fun effect(state: PlayState, source: Int, request: Int) = apply(state,
         PlayAction.Stack(StackAction.AddEffect(id(source), CombatStackRules.stackDigest(state))), request)
 
+    @Test fun blockingIsStickyAcrossRemovalMovementAndRoleChangeAndUndoRestoresExactFlag() {
+        val initial = declare(open(), 20)
+        val area = initial.board.combat!!
+        val pairId = area.pairs.single().id
+        assertFalse(area.pairs.single().blocked)
+        assertFalse("blocked" in GameWire.json.encodeToString(area.pairs.single()))
+        val placed = change(initial, PlayAction.Combat(CombatAction.Place(id(21),
+            CombatDestination(area.id, CombatRole.BLOCKER, pairId))), 8200)
+        val blocked = placed.state!!
+        val pair = blocked.board.combat!!.pairs.single()
+        assertTrue(pair.blocked)
+        assertEquals(listOf(CombatBlockedChange(pairId, false, true)), placed.mutation!!.transition.combatStack!!.blocked)
+        assertEquals(initial, GameplayHistory.unapply(blocked, placed.mutation))
+        val withoutFlag = initial.copy(board = initial.board.copy(combat = area.copy(pairs = area.pairs.map { it.copy(blocked = true) })))
+        assertNull(GameplayHistory.apply(withoutFlag, placed.mutation))
+        val blocker = blocked.board.cards.single { it.id == id(21) }
+        for (action in listOf(
+            PlayAction.Combat(CombatAction.Remove(area.id, pair.blockers.single().id)),
+            PlayAction.MoveCard(blocker.id, MoveSource(blocker.containerId, blocker.placement), MoveDestination(id(13), MoveInsertion.UNORDERED)),
+            PlayAction.Combat(CombatAction.Declare(area.id, blocker.id)))) {
+            val result = change(blocked, action, 8201)
+            val next = assertNotNull(result.state, result.reason)
+            val kept = next.board.combat!!.pairs.single { it.id == pairId }
+            assertTrue(kept.blocked, action.toString())
+            assertTrue(kept.blockers.isEmpty())
+            assertEquals(blocked, GameplayHistory.unapply(next, result.mutation!!))
+            assertEquals(result, GameplayHistory.replay(blocked, result.mutation))
+        }
+        val closed = apply(blocked, PlayAction.Combat(CombatAction.Close(area.id)), 8202)
+        val reopened = apply(closed, PlayAction.Combat(CombatAction.Open), 8203)
+        assertFalse(declare(reopened, 20).board.combat!!.pairs.single().blocked)
+    }
+
     @Test fun copyingAndControllerChangesAreProjectionOnlyExactDeltas() {
         val initial = effect(state(), 20, 8000)
         val original = initial.board.stackEffects.single()

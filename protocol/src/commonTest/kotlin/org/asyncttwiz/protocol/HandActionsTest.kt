@@ -24,7 +24,7 @@ class HandActionsTest {
         assertEquals("accepted", changed.outcome, changed.reason)
         val next = assertNotNull(changed.state)
         val event = assertNotNull(changed.mutation)
-        assertEquals(19, event.transition.rulesVersion)
+        assertEquals(20, event.transition.rulesVersion)
         val wire = GameWire.json.decodeFromString(GameplayMutation.serializer(), GameWire.json.encodeToString(GameplayMutation.serializer(), event))
         assertEquals(next, GameplayHistory.apply(state, wire))
         assertEquals(state, GameplayHistory.unapply(next, wire))
@@ -79,6 +79,26 @@ class HandActionsTest {
         assertEquals("movementConflict", GameplayRules.change(state, a, command(state, action.copy(selectedIds = listOf(id(99))))).reason)
         val empty = state.copy(board = state.board.copy(cards = emptyList(), containers = state.board.containers.map { it.copy(cards = emptyList()) }))
         assertEquals("movementConflict", GameplayRules.change(empty, a, command(empty, action.copy(selectedIds = emptyList()))).reason)
+    }
+    @Test fun randomMovesUseChosenCardsOwnerZonesAndRecordOwnerDependency() {
+        val original = root().let { s -> s.copy(board = s.board.copy(
+            cards = s.board.cards.map { if (it.id == id(20)) it.copy(owner = b) else it },
+            containers = s.board.containers + listOf(PlayContainer(id(30), PlayZone.GRAVEYARD, b),
+                PlayContainer(id(31), PlayZone.EXILE, b), PlayContainer(id(32), PlayZone.LIBRARY, b)))) }
+        for ((result, destination) in listOf(HandRandomResult.DISCARD to id(30), HandRandomResult.EXILE to id(31),
+            HandRandomResult.LIBRARY_BOTTOM to id(32))) {
+            val action = HandActions.random(original.board, id(11), listOf(id(20)), seed, result)
+            val changed = exact(original, action)
+            assertEquals(destination, changed.state!!.board.cards.single { it.id == action.cardId }.containerId)
+            assertEquals(destination, changed.mutation!!.transition.movement!!.to.containerId)
+            if (result == HandRandomResult.LIBRARY_BOTTOM)
+                assertEquals(listOf(id(20)), changed.state.board.containers.single { it.id == destination }.knownBottom)
+            val differentOwner = original.copy(board = original.board.copy(cards = original.board.cards.map {
+                if (it.id == action.cardId) it.copy(owner = a) else it }))
+            assertNull(GameplayHistory.apply(differentOwner, changed.mutation))
+        }
+        val reveal = exact(original, HandActions.random(original.board, id(11), listOf(id(20)), seed, HandRandomResult.REVEAL))
+        assertEquals(id(11), reveal.state!!.board.cards.single { it.id == id(20) }.containerId)
     }
     @Test fun revealDonePreservesHandOrderHidesAllRemainingCardsAndIsOneUndoableEvent() {
         val state = root()

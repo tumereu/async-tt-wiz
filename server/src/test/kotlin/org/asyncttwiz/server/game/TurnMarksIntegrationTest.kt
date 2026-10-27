@@ -29,7 +29,7 @@ class TurnMarksIntegrationTest {
                 val end = f.owner.execute(endCommand)
                 assertEquals("accepted", end.outcome)
                 val transition = end.mutation!!.transition
-                assertEquals(19, transition.rulesVersion)
+                assertEquals(20, transition.rulesVersion)
                 assertEquals(3, transition.fields.count { it.targetId == card })
                 val cleared = f.games.head(f.b, f.game.id).play!!
                 val after = cleared.board.cards.single { it.id == card }

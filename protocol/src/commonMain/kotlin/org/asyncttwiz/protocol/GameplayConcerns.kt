@@ -33,6 +33,7 @@ import kotlinx.serialization.json.*
     @Serializable data class DefinitionAvailable(val digest: String) : ConcernField
     @Serializable data class AttackTargetEligible(val id: String) : ConcernField
     @Serializable data class AttackTargetIncident(val id: String) : ConcernField
+    @Serializable data object DefendingPlayer : ConcernField
     @Serializable data object PanelSlot : ConcernField
     @Serializable data object Attention : ConcernField
     @Serializable data object TemporaryMarks : ConcernField
@@ -145,6 +146,7 @@ internal object GameplayConcerns {
             is ConcernField.DefinitionAvailable -> encoded(state.definitions.any { it.digest == field.digest })
             is ConcernField.AttackTargetEligible -> encoded(CombatStackRules.canAttack(state, field.id))
             is ConcernField.AttackTargetIncident -> encoded(b.combat?.pairs.orEmpty().filter { it.attackTarget == field.id }.map { it.id }.sorted())
+            ConcernField.DefendingPlayer -> encoded(CombatStackRules.defendingPlayer(b))
             ConcernField.PanelSlot -> encoded(b.contentsDisplays.map { it.id }.sorted())
             ConcernField.Attention -> encoded(listOf(b.attentionHolder, b.effectiveAttentionHolder))
             ConcernField.TemporaryMarks -> encoded(b.cards.filter {
@@ -268,6 +270,7 @@ internal object GameplayConcerns {
                     entity("card", a.cardId, "faceId"); entity("card", a.cardId, "knownToAll")
                 } else {
                     fields += ConcernField.Incident(a.cardId)
+                    if (mutation.transition.rulesVersion >= 20) entity("card", a.cardId, "owner")
                     for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped", "note")) entity("card", a.cardId, key)
                 }
             }
@@ -315,6 +318,13 @@ internal object GameplayConcerns {
                 } else {
                     entity("combat", "")
                     (a.action as? CombatAction.Place)?.destination?.attackTarget?.let { fields += ConcernField.AttackTargetEligible(it) }
+                }
+                if (mutation.transition.rulesVersion >= 20) {
+                    val playerTarget = if (retarget != null) retarget.cardId == null else source?.let { id ->
+                        to.board.combat?.pairs?.any { pair -> pair.attackTarget == null &&
+                            (pair.attackers + pair.blockers).any { it.sourceId == id } }
+                    } == true
+                    if (playerTarget) fields += ConcernField.DefendingPlayer
                 }
             }
             is PlayAction.Stack -> when (val stack = a.action) {
@@ -372,6 +382,9 @@ internal object GameplayConcerns {
                 else -> Unit
             }
         }
+        if (mutation.transition.rulesVersion >= 20 && mutation.transition.combatStack?.attackTargets.orEmpty().any { change ->
+                change.to == null && to.board.combat?.pairs?.any { it.id == change.pairId } == true })
+            fields += ConcernField.DefendingPlayer
         if (mutation.transition.rulesVersion >= 13) {
             val edit = when (val a = mutation.action) {
                 is PlayAction.SetDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)

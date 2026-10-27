@@ -44,6 +44,41 @@ class AttackTargetsTest {
     private fun retarget(s: PlayState, card: String?) = PlayAction.Combat(CombatAction.SetAttackTarget(
         s.board.combat!!.id, s.board.combat.pairs.single().id, card))
 
+    @Test fun playerRetargetPreventsUndoFromChangingTheResolvedDefender() {
+        val declared = declared()
+        val initial = exact(declared, retarget(declared, id(21))).state!!
+        var tree = GameplayTree(initial.copy(root = PlayRoot(initial.currentNodeId, initial.currentBranchId)))
+        fun command(action: GameAction) = GameCommand(id(request++), GameScope(initial.gameId, playId = initial.id), action, id(9), "1")
+        tree = assertNotNull(tree.play(id(7), command(GameAction.Play(PlayAction.EndTurn))).tree)
+        val afterTurn = tree.stateAt(tree.currentNodeId)!!
+        assertEquals(id(7), CombatStackRules.defendingPlayer(afterTurn.board))
+        tree = assertNotNull(tree.play(id(8), command(GameAction.Play(retarget(afterTurn, null)))).tree)
+        val event = tree.nodes.getValue(tree.currentNodeId)
+        val dependency = event.transition.concerns!!.fields.single { it.field == ConcernField.DefendingPlayer }
+        assertEquals("\"${id(7)}\"", dependency.before.toString())
+        assertEquals(dependency.before, dependency.after)
+        assertEquals("replayBlocked", SelectiveUndo.change(tree, id(7), command(GameAction.Undo)).reason)
+        assertNull(GameplayHistory.apply(initial, event))
+        // The dependency is the resolved identity, not unrelated turn counters/steps.
+        val otherStep = afterTurn.copy(board = afterTurn.board.copy(turn = afterTurn.board.turn.copy(number = "99", step = "UPKEEP")))
+        assertNotNull(GameplayHistory.apply(otherStep, event))
+    }
+
+    @Test fun placementKeepingAPlayerTargetAndDepartureFallbackConcernTheDefender() {
+        val initial = declared()
+        val area = initial.board.combat!!
+        val place = exact(initial, PlayAction.Combat(CombatAction.Place(id(22),
+            CombatDestination(area.id, CombatRole.ATTACKER, area.pairs.single().id)))).mutation!!
+        assertTrue(place.transition.concerns!!.fields.any { it.field == ConcernField.DefendingPlayer })
+        val otherTurn = initial.copy(board = initial.board.copy(turn = initial.board.turn.copy(accountId = id(8))))
+        assertNull(GameplayHistory.apply(otherTurn, place))
+        val targeted = exact(initial, retarget(initial, id(21))).state!!
+        val target = targeted.board.cards.single { it.id == id(21) }
+        val fallback = exact(targeted, PlayAction.MoveCard(target.id, MoveSource(target.containerId, target.placement),
+            MoveDestination(id(13), MoveInsertion.UNORDERED))).mutation!!
+        assertTrue(fallback.transition.concerns!!.fields.any { it.field == ConcernField.DefendingPlayer })
+    }
+
     @Test fun setClearValidateAndReplayTargets() {
         val original = declared()
         assertNull(original.board.combat!!.pairs.single().attackTarget)

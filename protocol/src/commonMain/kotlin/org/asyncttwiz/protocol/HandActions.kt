@@ -15,7 +15,8 @@ object HandActions {
 }
 
 internal object HandRules {
-    fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction): GameplayChange {
+    fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
+        rulesVersion: Int = 20): GameplayChange {
         val board = state.board
         val handId = when (action) {
             is PlayAction.RevealHand -> action.handId
@@ -37,7 +38,8 @@ internal object HandRules {
                     HandRandomResult.LIBRARY_BOTTOM -> PlayZone.LIBRARY
                     HandRandomResult.REVEAL -> error("unreachable")
                 }
-                val target = board.containers.singleOrNull { it.accountId == actor && it.zone == zone }
+                val owner = if (rulesVersion >= 20) board.cards.single { it.id == action.cardId }.owner else actor
+                val target = board.containers.singleOrNull { it.accountId == owner && it.zone == zone }
                     ?: return GameplayChange(reason = "missingReference")
                 PlayAction.MoveCard(action.cardId, MoveSource(hand.id), MoveDestination(target.id,
                     if (zone == PlayZone.LIBRARY) MoveInsertion.BOTTOM else MoveInsertion.UNORDERED))
@@ -45,7 +47,7 @@ internal object HandRules {
             val changed = GameplayRules.change(state, actor, command.copy(action = GameAction.Play(lowered)))
             val transition = changed.mutation?.transition ?: return changed
             return GameplayRules.record(state, actor, command, changed.state!!.board,
-                transition.copy(delta = null, concerns = null))
+                transition.copy(delta = null, concerns = null), rulesVersion = rulesVersion)
         }
         action as PlayAction.RevealHand
         if (action.cardIds.any { it !in hand.cards }) return GameplayChange(reason = "movementConflict")
@@ -56,6 +58,6 @@ internal object HandRules {
             cards = board.cards.map { if (it.id in action.cardIds) it.copy(knownToAll = false) else it }),
             GameplayTransition(contents = ContentsDisplayChange(to = display), disclosures = display.cardIds.map { id ->
                 GameplayDisclosure(id, board.cards.single { it.id == id }.faceId, hand.id, board.players.map { it.accountId }.sorted())
-            }))
+            }), rulesVersion = rulesVersion)
     }
 }

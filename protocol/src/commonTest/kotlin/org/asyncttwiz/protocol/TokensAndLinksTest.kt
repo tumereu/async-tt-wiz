@@ -30,6 +30,32 @@ class TokensAndLinksTest {
         assertEquals(change.mutation, GameWire.json.decodeFromString(GameplayMutation.serializer(), encoded))
     }
 
+    @Test fun removeRevealedTokenPrunesTrayAndClosesItAtomicallyWhenEmpty() {
+        val created = apply(state(), PlayAction.CreateToken(TokenCatalog.blank)).state!!
+        val token = created.board.cards.single { it.token }
+        val inHand = apply(created, PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
+            MoveDestination(id(17), MoveInsertion.UNORDERED)), 21).state!!
+        val revealed = apply(inHand, PlayAction.RevealHand(id(17), listOf(token.id)), 22, id(8)).state!!
+        val removed = apply(revealed, PlayAction.RemoveToken(token.id), 23, id(8))
+        assertTrue(removed.state!!.board.contentsDisplays.isEmpty())
+        assertTrue(removed.state.board.cards.none { it.id == token.id })
+        assertEquals(revealed.board.contentsDisplays.single(), removed.mutation!!.transition.contents!!.from)
+        assertNull(removed.mutation.transition.contents!!.to)
+        val wire = GameWire.json.decodeFromString<GameplayMutation>(GameWire.json.encodeToString(removed.mutation))
+        assertEquals(removed.state, GameplayHistory.apply(revealed, wire))
+        assertEquals(revealed, GameplayHistory.unapply(removed.state, wire))
+        assertEquals("accessDenied", apply(revealed, PlayAction.RemoveToken(token.id), 24).reason)
+
+        val other = inHand.board.cards.single { !it.token }
+        val bothInHand = apply(inHand, PlayAction.MoveCard(other.id, MoveSource(other.containerId, other.placement),
+            MoveDestination(id(17), MoveInsertion.UNORDERED)), 25).state!!
+        val bothRevealed = apply(bothInHand, PlayAction.RevealHand(id(17), listOf(token.id, other.id)), 26, id(8)).state!!
+        val partial = apply(bothRevealed, PlayAction.RemoveToken(token.id), 27, id(8))
+        assertEquals(listOf(other.id), partial.state!!.board.contentsDisplays.single().cardIds)
+        assertTrue(partial.state.board.contentsDisplays.single().revealedIds.none { it == token.id })
+        assertEquals(bothRevealed, GameplayHistory.unapply(partial.state, partial.mutation!!))
+    }
+
     @Test fun catalogAndBlankRetainDefinitionsAndUseRequestIdentity() {
         val original = state()
         val catalog = definition.copy(token = true, name = "Soldier")

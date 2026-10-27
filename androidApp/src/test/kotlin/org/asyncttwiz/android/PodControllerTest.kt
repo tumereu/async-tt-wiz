@@ -18,10 +18,11 @@ class PodControllerTest {
     private val definition = SubmittedDefinition(DeckJson.digest(card), card)
     private val copy = DraftCopy("copy", definition.digest)
     private val head = DraftPrivatePack("pack", 1, listOf(copy, copy.copy(id = "burn")))
+    private val nextPack = head.copy(id = "next", cards = head.cards.map { it.copy(id = "next-${it.id}") })
     private fun detail(phase: PodPhase = PodPhase.DRAFTING) = PodDetail(id, "Pod", phase, self,
         DraftSettings(), PodSource("Cube", 540), DraftSupply(90, 540), listOf(PodMember(self, 2), PodMember(other)), emptyList(),
         if (phase == PodPhase.SETUP) null else attempt,
-        if (phase == PodPhase.SETUP) null else DraftPrivateView(self.accountId, head, 1, listOf(copy)),
+        if (phase == PodPhase.SETUP) null else DraftPrivateView(self.accountId, head, 1, listOf(copy), listOf(nextPack)),
         if (phase == PodPhase.SETUP) null else PodDeckBuild(listOf(PodDeckCopy(copy.id))),
         definitions = listOf(definition), updatedAt = "2026-10-26T00:00:00Z")
     private fun summary(detail: PodDetail, attention: PodAttention = PodAttention.YOUR_PICK) = PodSummary(detail.id,
@@ -49,6 +50,7 @@ class PodControllerTest {
         var failMoves = false
         var failSourceWrites = false
         var gridFailure: String? = null
+        var pickFailure: String? = null
         var afterRead: () -> Unit = {}
         override suspend fun list(token: String) = listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
         override suspend fun detail(token: String, id: String): PodDetail {
@@ -74,7 +76,13 @@ class PodControllerTest {
         override suspend fun start(token: String, id: String, input: PodRequest): PodDetail { calls += "start" to input; saved = detail(); return saved }
         override suspend fun pick(token: String, id: String, input: PickPod): PodDetail {
             calls += "pick" to input
-            saved = saved.copy(draft = saved.draft!!.copy(head = head.copy(id = "next"), packsBehind = 0))
+            pickFailure?.let { throw PodFailure(it) }
+            val draft = saved.draft!!
+            check(input.packId == draft.head!!.id)
+            val kept = draft.head!!.cards.filter { it.id in input.keep }
+            saved = saved.copy(draft = draft.copy(head = draft.queuedPacks.firstOrNull(),
+                queuedPacks = draft.queuedPacks.drop(1), packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = draft.pool + kept),
+                build = PodDeckRules.withAwards(saved.build!!, kept.map { it.id }))
             return saved
         }
         override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail {
@@ -284,19 +292,81 @@ class PodControllerTest {
         assertEquals(f.api.saved.build, f.controller.state.detail!!.build)
     }
 
-    @Test fun pickDoesNotPredictAndOnlyAdvancesAfterAcceptance() = Fixture().use { f ->
+    @Test fun queuedPicksAdvanceImmediatelyAndSendInOrderWithoutResponseFlicker() = Fixture().use { f ->
         f.open()
-        f.controller.pick(listOf("copy"), emptyList()); f.controller.pick(listOf("copy"), emptyList())
-        assertEquals("pack", f.controller.state.detail!!.draft!!.head!!.id)
+        f.controller.pick(listOf("copy"), emptyList())
+        assertEquals(nextPack, f.controller.state.detail!!.draft!!.head)
+        assertEquals(0, f.controller.state.detail!!.draft!!.packsBehind)
+        assertEquals(1, f.controller.state.detail!!.members.first().packsWaiting)
+        f.controller.pick(listOf("next-copy"), emptyList())
+        f.controller.pick(listOf("next-copy"), emptyList()) // No pack: no duplicate write.
+        assertNull(f.controller.state.detail!!.draft!!.head)
+        assertTrue(f.controller.state.detail!!.draft!!.queuedPacks.isEmpty())
+        assertEquals(0, f.controller.state.detail!!.members.first().packsWaiting)
+        assertTrue(f.controller.state.detail!!.build!!.copies.any { it.copyId == "next-copy" })
+        assertEquals(2, f.controller.state.pending)
+        assertTrue(f.api.calls.isEmpty())
         assertTrue(f.controller.state.picking)
         f.worker.one()
-        assertEquals("pack", f.controller.state.detail!!.draft!!.head!!.id)
+        assertNull(f.controller.state.detail!!.draft!!.head)
         f.posts.removeFirst()()
-        assertEquals("next", f.controller.state.detail!!.draft!!.head!!.id)
+        assertNull(f.controller.state.detail!!.draft!!.head) // The second prediction survives the first ack.
         val request = f.api.calls.single().second as PickPod
         assertEquals(attempt, request.draftAttemptId); assertEquals("pack", request.packId)
         assertEquals(listOf("copy"), request.keep)
+        f.deliver()
+        assertEquals(listOf("pack", "next"), f.api.calls.map { (it.second as PickPod).packId })
+        assertEquals(f.api.saved.draft, f.controller.state.detail!!.draft)
         assertFalse(f.controller.state.picking)
+    }
+
+    @Test fun rejectedPickRestoresItsPackAndDropsDependentUnsentPicks() = Fixture().use { f ->
+        f.open(); f.api.pickFailure = "wrong_counts"
+        val original = f.controller.state.detail
+        f.controller.pick(listOf("copy"), emptyList())
+        f.controller.pick(listOf("next-copy"), emptyList())
+        assertNull(f.controller.state.detail!!.draft!!.head)
+        f.deliver()
+        assertEquals(original, f.controller.state.detail)
+        assertEquals(1, f.api.calls.size)
+        assertEquals("Pick rejected.", f.controller.state.error)
+        assertFalse(f.controller.state.uncertain)
+        assertFalse(f.controller.state.picking)
+        assertEquals(0, f.controller.state.pending)
+        f.api.pickFailure = null
+        f.controller.pick(listOf("copy"), emptyList())
+        assertEquals(nextPack, f.controller.state.detail!!.draft!!.head)
+        f.deliver()
+        assertNull(f.controller.state.error)
+    }
+
+    @Test fun laterPickRejectionRestoresOnlyTheRejectedPack() = Fixture().use { f ->
+        f.open()
+        f.controller.pick(listOf("copy"), emptyList())
+        f.controller.pick(listOf("next-copy"), emptyList())
+        f.worker.one(); f.posts.removeFirst()()
+        val accepted = f.api.saved
+        f.api.pickFailure = "not_head_of_queue"; f.deliver()
+        assertEquals(accepted.draft, f.controller.state.detail!!.draft)
+        assertEquals(accepted.build, f.controller.state.detail!!.build)
+        assertEquals(nextPack, f.controller.state.detail!!.draft!!.head)
+        assertEquals("Pick rejected.", f.controller.state.error)
+    }
+
+    @Test fun ambiguousQueuedPickKeepsPredictionsAndRetriesOriginalIdentityBeforeLaterPicks() = Fixture().use { f ->
+        f.open(); f.api.pickFailure = "network"
+        f.controller.pick(listOf("copy"), emptyList())
+        f.controller.pick(listOf("next-copy"), emptyList())
+        f.deliver()
+        assertTrue(f.controller.state.uncertain)
+        assertNull(f.controller.state.detail!!.draft!!.head)
+        val original = f.api.calls.first().second
+        assertTrue(f.api.calls.all { it.second == original })
+        f.api.pickFailure = null; f.controller.retry(); f.deliver()
+        assertEquals(original, f.api.calls[f.api.calls.lastIndex - 1].second)
+        assertEquals("next", (f.api.calls.last().second as PickPod).packId)
+        assertFalse(f.controller.state.uncertain)
+        assertEquals(0, f.controller.state.pending)
     }
 
     @Test fun navigationRefreshIsNotLostBehindQueuedWritesToPreviousPod() = Fixture().use { f ->

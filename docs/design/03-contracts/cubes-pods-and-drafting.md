@@ -234,7 +234,8 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 - **Tap** opens a small menu: Keep / Burn / Unmark as applicable.
 - A stationary **150ms hold** shows large artwork only, in the list and trays;
   release closes it. Crossing touch slop dismisses it without marking. Swiped
-  cards render above their neighbours.
+  cards render above their neighbours. Show cached normal artwork immediately,
+  replacing it with large artwork when available, without blanking or a spinner.
 - Marked cards keep their place in the list with a green/red border and icon.
 - Keep and burn **trays** show just their icon and x/y, sized for the required
   slots: one row if both fit, otherwise two compact rows, with horizontal overflow.
@@ -243,8 +244,11 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 - **Confirm** is enabled when the counts are exactly right. After Confirm the next
   queued pack appears immediately.
 - No pack waiting: Build shortcut; the avatar badges already show who has work.
-- Confirm hides the submitted pack immediately while sending in the background;
-  rejection restores its marks with a short error, without disabling the screen.
+- The private response includes the caller's queued packs and their definitions.
+  Confirm predicts the pick and advances to the next pack (or normal waiting state)
+  while sending in the background; subsequent picks remain usable and send in order.
+  Rejection restores that pack and its marks with a short error and drops dependent
+  unsent picks. Other players' packs and unopened rounds remain hidden.
 - No double-tap shortcut.
 
 ### Grid screen

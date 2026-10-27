@@ -314,7 +314,7 @@ class DraftEngineTest {
             DraftEngine.pick(nearEnd, nearChoice.copy(burn = rest.take(1))).reason)
     }
 
-    @Test fun projectionsRevealOnlyHeadAndOwnAwardsAndNoCardsInPublicStatus() {
+    @Test fun projectionsRevealOnlyOwnQueueAndAwardsAndNoCardsInPublicStatus() {
         var state = start(settings(packs = 3, cards = 5, burn = 1, open = 3), extra = 5)
         state = pick(state, state.seating.first())
         val copies = state.copies.associateBy { it.id }
@@ -336,17 +336,21 @@ class DraftEngineTest {
             val expected = state.packs.first { it.id == queue.first() }
             assertEquals(expected.cards.map(copies::getValue), view.head?.cards)
             assertEquals(queue.size - 1, view.packsBehind)
+            assertEquals(queue.drop(1), view.queuedPacks.map { it.id })
+            assertEquals(queue.drop(1).flatMap { id -> state.packs.first { it.id == id }.cards }.map(copies::getValue),
+                view.queuedPacks.flatMap { it.cards })
             assertEquals(state.pools.getValue(player).map(copies::getValue), view.pool)
-            val exposed = expected.cards.toSet() + state.pools.getValue(player)
+            val exposed = (view.head?.cards.orEmpty() + view.queuedPacks.flatMap { it.cards } + view.pool).map { it.id }.toSet()
             val privateJson = Json.encodeToString(view)
             for (copy in state.copies.filter { it.id !in exposed }) assertFalse("\"${copy.id}\"" in privateJson)
-            for (pack in state.packs.filter { it.id != expected.id }) assertFalse("\"${pack.id}\"" in privateJson)
+            for (pack in state.packs.filter { it.id !in queue }) assertFalse("\"${pack.id}\"" in privateJson)
         }
         assertFailsWith<IllegalArgumentException> { DraftEngine.privateView(state, "outsider") }
         val final = finish(state)
         assertTrue(DraftEngine.publicStatus(final).members.all { it.finished && it.packsWaiting == 0 })
         assertNull(DraftEngine.privateView(final, final.seating.first()).head)
         assertEquals(0, DraftEngine.privateView(final, final.seating.first()).packsBehind)
+        assertTrue(DraftEngine.privateView(final, final.seating.first()).queuedPacks.isEmpty())
     }
 
     @Test fun serializationRoundTripCanResumeWithoutSeedOrCatalog() {

@@ -419,7 +419,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
-                    state.picking || state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
+                    state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize())

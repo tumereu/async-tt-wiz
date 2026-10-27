@@ -55,12 +55,10 @@ fun PodPickView(
     onOpenBuild: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var marks by remember(pack?.id) { mutableStateOf(PodPickMarks().forPack(pack)) }
+    val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
+    val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
-    var submitted by remember(pack?.id) { mutableStateOf(false) }
-    // Hide the submitted pack immediately; a rejection restores the same local marks.
-    LaunchedEffect(pack?.id, busy) { if (!busy) submitted = false }
-    if (pack == null || submitted) {
+    if (pack == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Button(onClick = onOpenBuild) { Text("Build") }
         }
@@ -79,9 +77,9 @@ fun PodPickView(
     val burnIds = rules.burnIds(marks)
     val copies = remember(pack) { pack.cards.associateBy { it.id } }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
-        marks = marks.toggle(id, kind, rules)
+        packMarks[pack] = marks.toggle(id, kind, rules)
     }
-    val unmark: (String) -> Unit = { id -> marks = marks.unmark(id) }
+    val unmark: (String) -> Unit = { id -> packMarks[pack] = marks.unmark(id) }
     val inspect: (DraftCopy?) -> Unit = { inspected = it }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
@@ -108,7 +106,6 @@ fun PodPickView(
         }
         PodPickTrays(marks.keeps, burnIds, rules, copies, definitions, unmark, inspect)
         Button(onClick = { if (rules.canConfirm(marks, busy)) {
-            submitted = true
             onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
         } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
             Text("Confirm")
@@ -217,7 +214,7 @@ private fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
             CardArtwork(card?.artwork?.firstOrNull()?.copy(size = "large"), "Card artwork",
                 with(density) { width.roundToPx() }.coerceIn(1, 4096),
                 with(density) { height.roundToPx() }.coerceIn(1, 4096), Modifier.size(width, height),
-                placeholder = {})
+                placeholder = {}, previewReference = card?.artwork?.firstOrNull()?.copy(size = "normal"))
         }
     }
 }

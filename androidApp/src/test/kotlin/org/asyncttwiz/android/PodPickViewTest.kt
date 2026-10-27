@@ -167,17 +167,44 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
     }
 
-    @Test fun confirmHidesPackWhileSendingAndRejectionRestoresMarks() {
-        var busy by mutableStateOf(false)
-        var builds = 0
-        show(settings = DraftSettings(), busy = { busy }, onBuild = { builds++ },
-            onConfirm = { _, _ -> busy = true })
+    @Test fun queuedPackIsPickableBeforeResponseAndRejectionRestoresOriginalMarks() {
+        val next = pack.copy(id = "next", cards = pack.cards.map { it.copy(id = "next-${it.id}") })
+        var current by mutableStateOf<DraftPrivatePack?>(pack)
+        val picks = mutableListOf<List<String>>()
+        show(currentPack = { current }, settings = DraftSettings(), onConfirm = { keep, _ ->
+            picks += keep
+            current = if (current == pack) next else null
+        })
         swipe("1", true)
         compose.onNodeWithText("Confirm").performClick()
         card("1").assertDoesNotExist()
+        card("next-1").assertIsDisplayed()
+        compose.onNodeWithTag("pod-pick-keep-tray").assertIsDisplayed()
+        compose.onNodeWithText("Build").assertDoesNotExist()
+        swipe("next-2", true)
+        compose.onNodeWithText("Confirm").assertIsEnabled().performClick()
+        assertEquals(listOf(listOf("1"), listOf("next-2")), picks)
+        compose.onNodeWithText("Build").assertIsEnabled()
+        // Rejection of the first request restores that pack, not the later selection.
+        compose.runOnIdle { current = pack }
+        assertMark("1", "Keep")
+        assertMark("2", "Unmarked")
+        compose.onNodeWithTag("pod-pick-tray-1").assertIsDisplayed()
+        compose.onNodeWithText("Confirm").assertIsEnabled()
+    }
+
+    @Test fun lastQueuedPackShowsNormalWaitingImmediatelyAndRejectionRestoresMarks() {
+        var current by mutableStateOf<DraftPrivatePack?>(pack)
+        var builds = 0
+        show(currentPack = { current }, settings = DraftSettings(), onBuild = { builds++ },
+            onConfirm = { _, _ -> current = null })
+        swipe("1", true)
+        compose.onNodeWithText("Confirm").performClick()
+        card("1").assertDoesNotExist()
+        compose.onNodeWithTag("pod-pick-keep-tray").assertDoesNotExist()
         compose.onNodeWithText("Build").assertIsEnabled().performClick()
         assertEquals(1, builds)
-        compose.runOnIdle { busy = false }
+        compose.runOnIdle { current = pack }
         assertMark("1", "Keep")
         compose.onNodeWithText("Confirm").assertIsEnabled()
     }

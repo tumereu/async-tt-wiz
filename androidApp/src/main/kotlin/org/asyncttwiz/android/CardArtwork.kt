@@ -101,6 +101,7 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
 
 internal class ArtworkServiceProvider {
     @Volatile private var service: CardArtworkService? = null
+    fun current(): CardArtworkService? = service
     // Construction scans, repairs and trims the disk cache. Publish only the fully ready service;
     // even a caller waiting for the first request must never acquire this lock on the UI thread.
     suspend fun get(context: Context): CardArtworkService = service ?: withContext(Dispatchers.IO) {
@@ -113,6 +114,7 @@ internal class ArtworkServiceProvider {
 object PublicArtwork {
     private val provider = ArtworkServiceProvider()
     suspend fun get(context: Context): CardArtworkService = provider.get(context)
+    internal fun current(): CardArtworkService? = provider.current()
 }
 
 /** Reusable ordinary native presentation, not a catalog browser or a new inspector.
@@ -121,9 +123,27 @@ object PublicArtwork {
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
     modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false,
-    placeholder: (@Composable () -> Unit)? = null) {
+    placeholder: (@Composable () -> Unit)? = null, previewReference: ArtworkReference? = null) {
     val context = LocalContext.current
     val request = reference?.let { CardArtworkRequest(it, width, height) }
+    val previewRequest = previewReference?.let { CardArtworkRequest(it, width, height) }
+    val availableService = service ?: PublicArtwork.current()
+    // Inspection can reuse the displayed thumbnail on its very first frame, even
+    // though the thumbnail's decode target differs from the full-size request.
+    val cachedPreview = remember(previewReference, availableService) {
+        val cache = availableService?.loader?.memoryCache
+        val key = previewReference?.let { ref -> cache?.keys?.firstOrNull { it.key.startsWith("${ref.key}|") } }
+        key?.let { cache?.get(it)?.image }
+    }
+    val preview by produceState<Pair<CardArtworkRequest, coil3.Image?>?>(null, previewRequest, service) {
+        value = null
+        if (previewRequest != null && cachedPreview == null) {
+            val artwork = service ?: PublicArtwork.get(context)
+            val result = artwork.loader.execute(ImageRequest.Builder(context).data(previewRequest).size(width, height).build())
+            currentCoroutineContext().ensureActive()
+            value = previewRequest to (result as? SuccessResult)?.image
+        }
+    }
     val result by produceState<Pair<CardArtworkRequest, coil3.Image?>?>(null, request, service) {
         value = null
         if (request != null) {
@@ -134,7 +154,8 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
         }
     }
     Box(modifier, contentAlignment = Alignment.Center) {
-        val loaded = result?.takeIf { it.first == request }?.second
+        val loaded = result?.takeIf { it.first == request }?.second ?: cachedPreview ?:
+            preview?.takeIf { it.first == previewRequest }?.second
         if (loaded == null) { if (placeholder != null) placeholder() else Text(fallback) }
         else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
     }

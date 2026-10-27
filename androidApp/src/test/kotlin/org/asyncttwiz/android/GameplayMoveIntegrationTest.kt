@@ -12,7 +12,8 @@ class GameplayMoveIntegrationTest {
         val reads = mutableListOf<(GameplayBaseline?) -> Unit>()
         override fun connect(token: String, listener: GameConnection.Listener) { this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
-        override fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean {
+        override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayBaseline?) -> Unit): Boolean {
             reads.add(complete); return true
         }
         override fun disconnect() = Unit

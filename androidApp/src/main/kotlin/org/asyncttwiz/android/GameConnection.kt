@@ -30,11 +30,26 @@ interface GameConnection : AutoCloseable {
     fun connect(token: String, listener: Listener)
     fun send(message: GameClientMessage): Boolean
     fun disconnect()
-    /** Read-only accepted transfer. No original is retried or rejected by an HTTP absence. */
-    fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean = false
-    fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
+    /** Read-only accepted transfer. No original is retried or rejected by an HTTP absence.
+     * [rejected] reports a definitive server refusal in [NO_CURRENT_PLAY] (the game has no
+     * transferable current play); [complete] with null is a transport/server failure. */
+    fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
+        complete: (GameplayBaseline?) -> Unit): Boolean = false
+    fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
+        complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
     fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
+    companion object {
+        /** Baseline refusals that are game-state facts, not connectivity: nothing current to transfer. */
+        val NO_CURRENT_PLAY = setOf("inapplicable", "lifecycleEnded", "baselineExpired", "accessDenied")
+    }
+}
+
+private class BaselineRejected(val code: String) : Exception(code)
+private fun baselineRejection(response: Response): String? {
+    if (response.code !in listOf(400, 404, 410)) return null
+    return runCatching { GameWire.json.decodeFromString<LobbyError>(requireNotNull(response.body).byteStream()
+        .bounded(4096).toString(Charsets.UTF_8)).code }.getOrNull()?.takeIf { it in GameConnection.NO_CURRENT_PLAY }
 }
 
 class SocketGameConnection(private val origin: String) : GameConnection {
@@ -117,7 +132,8 @@ class SocketGameConnection(private val origin: String) : GameConnection {
         }
         return true
     }
-    override fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean {
+    override fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+        complete: (GameplayTreeTransfer?) -> Unit): Boolean {
         val credential = token ?: return false
         if (!DeckValidation.uuid(gameId)) return false
         reads.execute {
@@ -126,7 +142,10 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     check(token == credential)
                     val builder = Request.Builder().url(origin + path).header("Authorization", "Bearer $credential")
                     if (body != null) builder.post(body)
-                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) { it.close(); error("Baseline unavailable") } }
+                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) {
+                        val rejection = if (body != null) baselineRejection(it) else null
+                        it.close(); if (rejection != null) throw BaselineRejected(rejection); error("Baseline unavailable")
+                    } }
                 }
                 val manifest = request("/v1/games/$gameId/baselines", GameWire.json.encodeToString(LookupGameResults(requestIds))
                     .toRequestBody("application/json".toMediaType())).use {
@@ -142,13 +161,15 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     request("/v1/baselines/${manifest.id}/chunks/$index").use {
                         requireNotNull(it.body).byteStream().bounded(GameplaySync.MAX_CHUNK_BYTES).inputStream() }
                 }
-            }.getOrNull()
-            complete(result)
+            }
+            val rejection = result.exceptionOrNull() as? BaselineRejected
+            if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
         }
         return true
     }
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    override fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean {
+    override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+        complete: (GameplayBaseline?) -> Unit): Boolean {
         val credential = token ?: return false
         if (!DeckValidation.uuid(gameId)) return false
         reads.execute {
@@ -157,7 +178,10 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     check(token == credential)
                     val builder = Request.Builder().url(origin + path).header("Authorization", "Bearer $credential")
                     if (body != null) builder.post(body)
-                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) { it.close(); error("Baseline unavailable") } }
+                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) {
+                        val rejection = if (body != null) baselineRejection(it) else null
+                        it.close(); if (rejection != null) throw BaselineRejected(rejection); error("Baseline unavailable")
+                    } }
                 }
                 val manifest = request("/v1/games/$gameId/baselines", GameWire.json.encodeToString(LookupGameResults(requestIds))
                     .toRequestBody("application/json".toMediaType())).use { response ->
@@ -188,8 +212,9 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     GameplaySync.validate(snapshot)
                     GameplayBaseline(snapshot, manifest.statuses)
                 } finally { Files.deleteIfExists(file) }
-            }.getOrNull()
-            complete(result)
+            }
+            val rejection = result.exceptionOrNull() as? BaselineRejected
+            if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
         }
         return true
     }

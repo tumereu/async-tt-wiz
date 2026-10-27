@@ -17,7 +17,8 @@ class GameResumeTest {
         val wire = object : GameConnection {
             override fun connect(token: String, listener: GameConnection.Listener) { opens++; this@Fixture.listener = listener }
             override fun send(message: GameClientMessage): Boolean { frames.add(message); traffic = time; return true }
-            override fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean {
+            override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
+            complete: (GameplayBaseline?) -> Unit): Boolean {
                 complete(GameplayBaseline(data.snapshot(), requestIds.map { GameRequestStatus(it, "notAdmitted") }))
                 return true
             }

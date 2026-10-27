@@ -252,7 +252,7 @@ object TablePresentation {
             c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
         } ?: 4f
         val combat = CombatStackPresentation.combat(play.board, hudWidth * battlefieldScale, hudHeight * battlefieldScale,
-            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
+            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer)
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // Both modes reserve the very same timeline and controls; review never reframes the camera.
         val controlsHeight = tableBottomHeight(landscape)
@@ -464,7 +464,8 @@ object TablePresentation {
         val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
         val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds),
-            artwork = play.board.cards.find { it.id == lane.cardId }?.let { art(it, false) }) }
+            artwork = play.board.cards.find { it.id == lane.cardId }
+                ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
         val clippedPorts = if (landscape) ports.map { p ->
             if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id == stack.id)
                 p.copy(bounds = p.bounds.intersection(sidebarBounds) ?: p.bounds.copy(height = 0f)) else p

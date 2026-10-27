@@ -48,7 +48,7 @@ object CombatStackPresentation {
         maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
 
     fun combat(board: BoardState, cardWidth: Float, cardHeight: Float,
-        definitions: List<SubmittedDefinition> = emptyList(), names: Map<String, String> = emptyMap()): CombatGeometry {
+        definitions: List<SubmittedDefinition> = emptyList(), names: Map<String, String> = emptyMap(), viewer: String = ""): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
         val margin = cardGap(cardWidth)
@@ -67,8 +67,13 @@ object CombatStackPresentation {
             val width = members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat()
                 .coerceAtLeast(cardWidth + 2 * padding)
             val targetCard = board.cards.find { it.id == target }
-            val label = if (target == null) "→ ${names[CombatStackRules.defendingPlayer(board)] ?: "Player"}" else
-                definitions.find { it.digest == targetCard?.definition }?.definition?.faces?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
+            val hidden = targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
+            val label = when {
+                target == null -> "→ ${names[CombatStackRules.defendingPlayer(board)] ?: "Player"}"
+                hidden -> "→ Face-down card"
+                else -> definitions.find { it.digest == targetCard?.definition }?.definition?.faces
+                    ?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
+            }
             val textWidth = width - 4 * margin - if (target != null) cardWidth * .3f else 0f
             val columns = (textWidth / (font * .6f)).toInt().coerceAtLeast(1)
             val lines = label.chunked(columns)
@@ -185,7 +190,7 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
     selected: Set<String>, related: Set<String>, onCard: (String) -> Unit,
     placementEnabled: Boolean, onDestination: (CombatDestination) -> Unit,
     face: @Composable (PlayCard, Modifier) -> Unit, modifier: Modifier = Modifier) {
-    val scene = CombatStackPresentation.combat(state.board, cardWidth, cardHeight, state.definitions)
+    val scene = CombatStackPresentation.combat(state.board, cardWidth, cardHeight, state.definitions, viewer = viewer)
     if (state.board.combat == null) return
     BoxWithConstraints(modifier) {
         val laneWidth = maxWidth

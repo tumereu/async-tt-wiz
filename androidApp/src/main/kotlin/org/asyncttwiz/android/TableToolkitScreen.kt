@@ -37,7 +37,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
 
     when (val panel = toolkit.panel) {
         "attackTarget" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Attack →") {
-            for ((id, label) in attackTargetChoices(play, names)) MenuButton(label, enabled = enabled) {
+            for ((id, label) in attackTargetChoices(play, names, toolkit.viewer)) MenuButton(label, enabled = enabled) {
                 if (toolkit.setAttackTarget(bound, id)) toolkit.dismiss()
             }
         }
@@ -198,9 +198,10 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
         add(MenuControl(destination.label, enabled) { if (toolkit.place(bound, destination.destination)) toolkit.dismiss() })
 }
 
-internal fun attackTargetChoices(play: PlayState, names: Map<String, String>): List<Pair<String?, String>> =
+internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
     listOf(null to "→ ${names[CombatStackRules.defendingPlayer(play.board)] ?: "Player"}") +
-        play.board.cards.filter { CombatStackRules.canAttack(play, it.id) }.map { card ->
+        play.board.cards.filter { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) &&
+            CombatStackRules.canAttack(play, it.id) }.map { card ->
             card.id to (play.definitions.find { it.digest == card.definition }?.definition?.faces
                 ?.find { it.faceId == card.faceId }?.name ?: "Card")
         }

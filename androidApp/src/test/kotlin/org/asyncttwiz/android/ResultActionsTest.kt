@@ -183,4 +183,65 @@ class ResultActionsTest {
         }
         // This is gate-validation coverage, not execution of final-board playback (owned by I22/I28b).
     }
+
+    @Test fun panelFollowsDisplayedBeforeAtAfterAndRemovedSuggestionWithButtonsOnlyAtLiveEnd() {
+        fun advance(tree: GameplayTree, action: PlayAction, actor: String = a.accountId): GameplayTree =
+            assertNotNull(tree.play(actor, GameCommand(id(), GameScope(game.id, playId = initial.id),
+                GameAction.Play(action), id(), "1")).tree)
+        val before = advance(GameplayTree(initial), PlayAction.AdjustLife(a.accountId, "1"))
+        val suggestion = advance(before, PlayAction.SuggestResult(SuggestedResult.DRAW))
+        // The server deliberately permits recorded actions after the suggestion (older clients too).
+        val after = advance(suggestion, PlayAction.AdjustLife(b.accountId, "1"), b.accountId)
+        val live = after.stateAt(after.currentNodeId)!!
+        for (viewer in listOf(a.accountId, b.accountId)) {
+            for (cursor in listOf(initial.currentNodeId, before.currentNodeId, suggestion.currentNodeId, after.currentNodeId)) {
+                val displayed = after.stateAt(cursor)!!
+                val includesSuggestion = cursor in listOf(suggestion.currentNodeId, after.currentNodeId)
+                assertEquals(includesSuggestion, ResultActions.pendingPresentation(active, displayed, viewer) != null)
+                for (mode in HistoryMode.entries) {
+                    val position = HistoryPosition(cursor, mode, displayVersion = "v")
+                    assertEquals(cursor == live.currentNodeId, ResultActions.canResolve(active, displayed, live, position))
+                    assertFalse(ResultActions.canResolve(active, displayed, live, position.copy(playing = true)))
+                }
+                assertTrue(ResultActions.blocksGameActions(active, live))
+            }
+        }
+        val removed = advance(after, PlayAction.DeclineResult(live.board.resultSuggestion!!.id), b.accountId)
+            .let { it.stateAt(it.currentNodeId)!! }
+        assertNull(ResultActions.pendingPresentation(active, removed, a.accountId))
+        assertFalse(ResultActions.canResolve(active, live, removed,
+            HistoryPosition(live.currentNodeId, displayVersion = "v")))
+        assertFalse(ResultActions.canResolve(active, live, live.copy(id = id()),
+            HistoryPosition(live.currentNodeId, displayVersion = "v")))
+    }
+
+    @Test fun catchupAndLiveRevealShowFinalBoardBeforePanelAndEnableButtonsOnlyAfterArrival() {
+        fun advance(tree: GameplayTree, action: PlayAction): GameplayTree = assertNotNull(tree.play(a.accountId,
+            GameCommand(id(), GameScope(game.id, playId = initial.id), GameAction.Play(action), id(), "1")).tree)
+        val root = GameplayTree(initial)
+        val finalBoard = advance(root, PlayAction.AdjustLife(a.accountId, "1"))
+        val suggested = advance(finalBoard, PlayAction.SuggestResult(SuggestedResult.LOSS))
+        val live = suggested.stateAt(suggested.currentNodeId)!!
+        val index = HistoryTree.ingest(suggested, "live")
+        val playback = HistoryPlayback(index).apply { openFrom(initial.currentNodeId) }
+        fun displayed() = suggested.stateAt(playback.position.cursorId)!!
+        assertNull(ResultActions.pendingPresentation(active, displayed(), b.accountId))
+        playback.next(automatic = true)
+        assertEquals(finalBoard.currentNodeId, playback.position.cursorId)
+        assertNull(ResultActions.pendingPresentation(active, displayed(), b.accountId))
+        playback.next(automatic = true)
+        assertNotNull(ResultActions.pendingPresentation(active, displayed(), b.accountId))
+        assertFalse(ResultActions.canResolve(active, displayed(), live, playback.position))
+        playback.finishAnimation(playback.position.cursorId)
+        assertTrue(ResultActions.canResolve(active, displayed(), live, playback.position))
+
+        val livePlayback = HistoryPlayback(HistoryTree.ingest(root, "root"))
+        livePlayback.receive(index, b.accountId)
+        assertTrue(livePlayback.livePanelReveal)
+        assertEquals(finalBoard.currentNodeId, livePlayback.position.cursorId)
+        assertNull(ResultActions.pendingPresentation(active, suggested.stateAt(livePlayback.position.cursorId), b.accountId))
+        livePlayback.finishPanelReveal()
+        assertNotNull(ResultActions.pendingPresentation(active, live, b.accountId))
+        assertTrue(ResultActions.canResolve(active, live, live, livePlayback.position))
+    }
 }

@@ -16,10 +16,19 @@ object ResultActions {
     fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
         listOf(accepted, predicted).any { capture(game, it) != null && it?.board?.resultSuggestion != null }
 
-    fun pendingPresentation(game: GameSummary, accepted: PlayState?, viewer: String): ResultPresentation? {
-        val target = capture(game, accepted) ?: return null
-        val suggestion = accepted?.board?.resultSuggestion ?: return null
-        return presentation(game, accepted, viewer, ResultPlaybackGate(target, suggestion.id))
+    /** Visibility belongs to the displayed replayed board, not the live action lock. */
+    fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? {
+        val target = capture(game, displayed) ?: return null
+        val suggestion = displayed?.board?.resultSuggestion ?: return null
+        return presentation(game, displayed, viewer, ResultPlaybackGate(target, suggestion.id))
+    }
+
+    /** A paused timeline at the live end is actionable too; earlier/catch-up frames are not. */
+    fun canResolve(game: GameSummary, displayed: PlayState?, live: PlayState?, position: HistoryPosition?): Boolean {
+        val target = capture(game, displayed) ?: return false
+        if (target != capture(game, live) || displayed == null || live == null || position == null) return false
+        return !position.playing && position.cursorId == live.currentNodeId && displayed.currentNodeId == live.currentNodeId &&
+            displayed.board.resultSuggestion != null && displayed.board.resultSuggestion == live.board.resultSuggestion
     }
 
     fun capture(game: GameSummary, play: PlayState?): ResultTarget? = play?.takeIf {

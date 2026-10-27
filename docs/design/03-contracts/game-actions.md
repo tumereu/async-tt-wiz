@@ -108,9 +108,11 @@ These supersede conflicting matrix/older capability paragraphs below; see
 | A-030 | Suggest ending / accept | Suggest your win/loss or a draw as shared, undoable board state. The other player must accept, then both return to lobby (D-211 superseding D-210). Acceptance is not undoable (D-212), unlike pending suggestions. Restore last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game (D-213). No win-history/scorekeeping feature is required. Finished-session action-history review is optional future work, not R1 (D-214); current-game history is unchanged. Concurrent incompatible result actions use ordinary server ordering/applicability: the first applicable action takes effect and the later incompatible request is discarded (D-239), not replacement or multiple pending suggestions. Cross-game starter-option retention remains separate; D-274 resolves Random once at actual start when selected. |
 
 Round 18: a pending live suggestion locks gameplay on both clients, including during
-history review; chat and personal history navigation remain available. The modal
-cannot be dismissed, only minimized for chat/history, with a persistent outcome
-banner. The author Withdraws through Undo; the opponent Accepts or Declines.
+history review; chat and personal history navigation (including the timeline toggle)
+remain available. A compact on-table outcome panel follows the displayed board,
+including catch-up and timeline scrubbing; it is not a modal or minimizing banner.
+Its buttons work only at the live endpoint. The author Withdraws through Undo;
+the opponent Accepts or Declines.
 Rules v22 adds an exact-ID, opponent-only DeclineResult event clearing the shared
 suggestion; this does not add a server-side gameplay freeze. Its recorded result
 tuple participates in ordinary replay/Undo. Older recorded events are unchanged.

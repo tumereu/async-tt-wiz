@@ -41,7 +41,7 @@ import kotlin.math.abs
 fun HistoryExplorer(controller: HistoryExplorerController,
     authorColors: Map<String, Color>, showHidden: Boolean, onShowHidden: (Boolean) -> Unit,
     onDismiss: () -> Unit, onReview: (org.asyncttwiz.protocol.PlayState) -> Unit,
-    texts: Map<String, HistoryText> = emptyMap(), overlay: (@Composable BoxScope.() -> Unit)? = null) {
+    texts: Map<String, HistoryText> = emptyMap()) {
     val state = controller.state
     val graph = state.graph
     var menu by remember { mutableStateOf(false) }
@@ -60,7 +60,6 @@ fun HistoryExplorer(controller: HistoryExplorerController,
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize(), color = Color.White) {
-            Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().padding(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box {
@@ -170,8 +169,6 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                 }
                 Text(state.selectedNodeId?.let { id -> texts[id]?.description ?: graph?.eventsById?.get(id)?.description }.orEmpty(),
                     style = MaterialTheme.typography.labelSmall, minLines = 2, maxLines = 2)
-            }
-            overlay?.invoke(this)
             }
         }
     }

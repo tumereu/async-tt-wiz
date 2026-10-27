@@ -612,12 +612,15 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   tracking or ordinary edits. This is stronger isolation than a Stack anchor,
   which can still have companions. The server creates the suggestion event and
   deterministic grouping applies this rule; the UI does not define the group.
-- **Show the final board before the acceptance dialog (D-257).** While catching
+- **Show the final board before the outcome panel (D-257).** While catching
   up by groups, present the preceding board-state group before advancing to the
-  singleton suggestion and its acceptance dialog. Round 18 locks game actions
-  immediately from the live pending suggestion; during personal playback/chat a
-  non-dismissable outcome banner replaces the modal. Returning to the table
-  restores the modal. Synchronization is not held for playback.
+  singleton suggestion. Its compact on-table panel belongs to the displayed board:
+  hidden before the suggestion, shown at/after it while still pending there.
+  Withdraw/Accept/Decline work only at the live endpoint, not earlier playback.
+  Resolving there returns the personal view to live so local prediction is visible.
+  Live pending state locks game actions immediately, but chat and timeline remain
+  usable. No modal, minimizing banner or special Back/outside-tap behavior.
+  Synchronization is not held for playback.
   A historical/removed suggestion is not a new actionable acceptance prompt;
   ordinary current-suggestion/incarnation validation still applies. This is the
   existing acceptance interaction, not an additional confirmation or review vote.

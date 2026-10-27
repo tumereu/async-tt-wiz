@@ -126,6 +126,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         lateinit var owner: TableGestureCoordinator
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
+            if (currentRuntime.gameActionsBlocked && intent !is TableIntent.Camera && intent !is TableIntent.Scroll &&
+                intent != TableIntent.DismissTapUi) return@TableGestureCoordinator
             if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll)
                 DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {
@@ -558,6 +560,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         TableEventFeedbackOverlay(runtime.changes?.feedback, accountId, game.inviter.accountId, scene,
             renderedScene = { rendered.value.scene },
             usernames = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
+        ResultActions.pendingPresentation(game, play, accountId)?.let { result ->
+            val board = scene.world?.visibleViewport
+            Box(if (board == null) Modifier.fillMaxSize() else
+                Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp),
+                contentAlignment = Alignment.Center) {
+                ResultTablePanel(result, runtime.resultControls, Modifier.padding(8.dp))
+            }
+        }
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, writable, toolkit)
         val playControls: @Composable () -> Unit = {
@@ -588,7 +598,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         if (!runtime.reviewing) Box(Modifier.offset(
             ((scene.world?.viewport?.right ?: maxWidth.value) - 56f).dp,
             ((scene.world?.viewport?.bottom ?: (maxHeight.value - 56f)) - 56f).dp)) {
-            ActionSquare("Interaction mode", "", true,
+            ActionSquare("Interaction mode", "", !runtime.gameActionsBlocked,
                 modifier = Modifier.size(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                     contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
                 }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
@@ -716,7 +726,7 @@ private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: P
         val buttonWidth = 48f
         val turnPlayer = if (play.board.turn.accountId == game.inviter.accountId) game.inviter else game.recipient
         ActionSquare("Turn ${play.board.turn.number}, ${turnPlayer.username}'s turn, ${turnStepName(play.board.turn)}. Choose phase/step",
-            "", toolkit != null && !runtime.reviewing,
+            "", toolkit != null && !runtime.reviewing && !runtime.gameActionsBlocked,
              Modifier.width(buttonWidth.dp).tableChangeFlash(runtime.changes, TableChangeKey("turn", TableChangeKind.STEP)),
              fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
             icon = { TurnStepIcon(play.board.turn) },
@@ -734,7 +744,7 @@ private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: P
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
-        if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null,
+        if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null && !runtime.gameActionsBlocked,
             Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })
     }

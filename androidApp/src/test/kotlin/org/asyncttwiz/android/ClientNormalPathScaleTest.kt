@@ -150,7 +150,7 @@ class ClientNormalPathScaleTest {
         assertEquals(3, personal.presentation(game, F.a, edited, emptyList()).unread)
         personal.presented(edited, setOf(message(2).id))
         personal.presented(edited, setOf(message(2).id))
-        assertEquals(2, personal.presentation(game, F.a, edited, emptyList()).unread)
+        assertEquals(1, personal.presentation(game, F.a, edited, emptyList()).unread) // cursor through position 2
         assertNull(IndexedChatMessages().changedSince(edited))
     }
 
@@ -233,18 +233,20 @@ class ClientNormalPathScaleTest {
         var sequence = messages.size
         val count = messages.size
         assertEquals(count, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread)
+        personal.accept(ChatReadState(tree.initial.gameId, sequence.toString(), sequence.toString(), 0))
+        assertEquals(0, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread)
         val operation: () -> Unit = {
             val before = personal.inspectedMessages
             val added = message(++sequence)
             messages = messages.upsert(listOf(added))
             assertEquals(1, messages.writes)
             assertTrue(messages.nodeVisits < 128)
-            assertEquals(count + 1, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread)
-            repeat(4) { assertEquals(count + 1, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread) }
+            assertEquals(1, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread)
+            repeat(4) { assertEquals(1, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread) }
             val visible = presentedChatIds(messages, listOf(added.id, "pending", 1), true)
             assertEquals(setOf(added.id), visible)
             personal.presented(messages, visible)
-            assertEquals(count, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread)
+            assertEquals(0, personal.presentation(tree.initial.gameId, F.a, messages, emptyList()).unread) // latest visible reads through it
             assertTrue(personal.inspectedMessages - before <= 4)
         }
         operation

@@ -77,7 +77,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
-        tableChanges = { gameId, batch -> if (state.selected == gameId) historyOwner?.liveChanges(batch) }) }
+        tableChanges = { gameId, batch -> if (state.selected == gameId) historyOwner?.liveChanges(batch) }, personalChat = personalChat) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
@@ -96,7 +96,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun presentedChat(gameId: String, viewEpoch: Long, ids: Set<String>) {
         // Fence stale layout callbacks after navigation/Logout or a changed account's panel.
         if (!closed && viewEpoch == epoch && state.chatOpen && state.selected == gameId) {
-            personalChat.presented(state.chat.messages, ids); connectionState()
+            session?.presentedChat(gameId, ids); connectionState()
         }
     }
     private fun connectionState() {

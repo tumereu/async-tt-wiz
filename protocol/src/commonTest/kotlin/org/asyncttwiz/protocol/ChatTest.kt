@@ -4,6 +4,15 @@ import kotlinx.serialization.encodeToString
 import kotlin.test.*
 
 class ChatTest {
+    @Test fun privateReadCursorAndPagedUnreadStateRoundTrip() {
+        val state = ChatReadState("game", "12", "20", 3)
+        assertEquals(state, GameWire.json.decodeFromString<ChatReadState>(GameWire.json.encodeToString(state)))
+        val input = ReadChat("message")
+        assertEquals(input, GameWire.json.decodeFromString<ReadChat>(GameWire.json.encodeToString(input)))
+        val page = ChatPage("game", emptyList(), ChatSync("20"), readState = state)
+        assertEquals(page, GameWire.json.decodeFromString<ChatPage>(GameWire.json.encodeToString(page)))
+        assertNull(GameWire.json.decodeFromString<ChatPage>("""{"gameId":"game","messages":[],"sync":{}}""").readState)
+    }
     private val game = "10000000-0000-4000-8000-000000000001"
     private val play = "10000000-0000-4000-8000-000000000002"
     private val command = GameCommand("10000000-0000-4000-8000-000000000003", GameScope(game, playId = play),

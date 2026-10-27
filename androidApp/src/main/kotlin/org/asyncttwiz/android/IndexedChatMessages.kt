@@ -23,6 +23,11 @@ internal class IndexedChatMessages private constructor(private val root: Node?,
     }
     private data class Node(val message: ChatMessage, val left: Node? = null, val right: Node? = null) {
         val size: Int = 1 + (left?.size ?: 0) + (right?.size ?: 0)
+        val authors: Map<String, Int> = buildMap {
+            left?.authors?.forEach { (author, count) -> put(author, count) }
+            right?.authors?.forEach { (author, count) -> put(author, (get(author) ?: 0) + count) }
+            put(message.author, (get(message.author) ?: 0) + 1)
+        }
         val priority: Int = message.id.hashCode().let { var x = it; x = x xor (x ushr 16); x *= -2048144789; x xor (x ushr 13) }
     }
     override val size get() = root?.size ?: 0
@@ -37,6 +42,16 @@ internal class IndexedChatMessages private constructor(private val root: Node?,
     }
     fun byId(id: String) = ids[id]
     fun authoredBy(author: String?) = authors[author] ?: 0
+    /** Incoming suffix count without enumerating a retained transcript on UI refresh. */
+    fun incomingAfter(revision: Long, account: String?): Int {
+        fun count(node: Node?): Int {
+            node ?: return 0
+            if (GameWire.ordinal(node.message.revision) <= revision) return count(node.right)
+            return count(node.left) + (if (node.message.author != account) 1 else 0) +
+                (node.right?.let { it.size - (it.authors[account] ?: 0) } ?: 0)
+        }
+        return count(root)
+    }
     var writes = 0; private set
     var nodeVisits = 0; private set
     fun upsert(incoming: List<ChatMessage>): IndexedChatMessages {

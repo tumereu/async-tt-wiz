@@ -215,6 +215,14 @@ class GameService(private val runtime: ServiceRuntime) {
         val game = locked(sql, uuid(gameId), actor(principal))
         if (before != null && after != null) throw GameProtocolFailure("invalidInput")
         ChatStore.page(sql, game.id!!, before?.let(GameWire::ordinal), after?.let(GameWire::ordinal))
+            .copy(readState = ChatStore.readState(sql, game.id!!, actor(principal)))
+    }
+
+    fun chatRead(principal: AccountService.Principal, gameId: String, input: ReadChat? = null): ChatReadState = transaction { sql ->
+        val account = actor(principal)
+        val game = locked(sql, uuid(gameId), account)
+        if (input == null) ChatStore.readState(sql, game.id!!, account)
+        else ChatStore.read(sql, game.id!!, account, uuid(input.messageId))
     }
 
     private fun canReadPreparation(summary: GameSummary, accountId: String) = accountId == summary.inviter.accountId ||

@@ -34,6 +34,7 @@ interface GameConnection : AutoCloseable {
     fun baseline(gameId: String, requestIds: List<String>, complete: (GameplayBaseline?) -> Unit): Boolean = false
     fun treeTransfer(gameId: String, requestIds: List<String>, complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
+    fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
 }
 
 class SocketGameConnection(private val origin: String) : GameConnection {
@@ -72,6 +73,28 @@ class SocketGameConnection(private val origin: String) : GameConnection {
         })
     }
     override fun send(message: GameClientMessage) = socket?.send(GameWire.json.encodeToString(message)) == true
+    override fun chatRead(gameId: String, input: ReadChat?, complete: (ChatReadState?) -> Unit): Boolean {
+        val credential = token ?: return false
+        if (!DeckValidation.uuid(gameId) || input?.let { !DeckValidation.uuid(it.messageId) } == true) return false
+        reads.execute {
+            val state = runCatching {
+                check(token == credential)
+                val builder = Request.Builder().url("$origin/v1/games/$gameId/chat/read")
+                    .header("Authorization", "Bearer $credential")
+                if (input != null) builder.put(GameWire.json.encodeToString(input).toRequestBody("application/json".toMediaType()))
+                client.newCall(builder.build()).execute().use { response ->
+                    require(response.isSuccessful)
+                    GameWire.json.decodeFromString<ChatReadState>(requireNotNull(response.body).byteStream()
+                        .bounded(4096).toString(Charsets.UTF_8)).also {
+                        require(it.gameId == gameId && it.unread >= 0)
+                        require(GameWire.ordinal(it.readThrough) <= GameWire.ordinal(it.throughRevision))
+                    }
+                }
+            }.getOrNull()
+            complete(state)
+        }
+        return true
+    }
     override fun chatPage(gameId: String, before: String?, after: String?, complete: (ChatPage?) -> Unit): Boolean {
         val credential = token ?: return false
         if (!DeckValidation.uuid(gameId) || (before != null && after != null)) return false

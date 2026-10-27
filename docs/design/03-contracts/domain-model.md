@@ -122,10 +122,12 @@ Counter-row visibility, shared card drawing scale and static dock anchors are
 also personal presentation, never an implicit counter edit or pile move.
 
 D-297 Hand panning, combat insertion affordances, timeline centering, open Chat
-panel/local unread indication and card-action preview/scroll/dismissal are also
+panel and card-action preview/scroll/dismissal are also
 personal UI. Empty combat targets are not stored pairs; only a valid completed
-drop issues occurrence edits. Opening/viewing chat sends no read receipt or game
-mutation. Actual chat posts, owner/corner/counter edits and combat drops still go
+drop issues occurrence edits. Chat unread state uses a private, monotonic server
+cursor per game/account (newest presented message), not process-memory viewed IDs.
+Viewing reports that cursor without a public read receipt or gameplay mutation;
+it is outside gameplay history/Undo. Actual chat posts, owner/corner/counter edits and combat drops still go
 through their ordinary server requests; a preview remains a view of predicted/
 accepted state, not an independently authoritative card or hidden-face grant.
 D-298 source/projection relationship highlighting, centered Hand framing,

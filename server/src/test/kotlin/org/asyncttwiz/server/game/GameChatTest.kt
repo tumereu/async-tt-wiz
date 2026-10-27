@@ -77,6 +77,53 @@ class GameChatTest {
             assertNotNull(games.head(a, game.id).play)
         }
     }
+    @Test fun `private read cursor is monotonic durable and counts only incoming messages including beyond page window`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            lateinit var actor: AccountService.Principal; lateinit var game: String; lateinit var expected: ChatReadState
+            ServiceRuntime(db.settings).use { runtime ->
+                ready(runtime); val f = Fixture(runtime); actor = f.a; game = f.game.id
+                val own = f.owner.command(GameAction.SendChat("own")); f.owner.execute(own)
+                val first = f.recipient.command(GameAction.SendChat("first incoming")); f.recipient.execute(first)
+                val last = f.recipient.command(GameAction.SendChat("latest incoming")); f.recipient.execute(last)
+                val head = f.games.head(f.a, game)
+                assertEquals(2, f.games.chatRead(f.a, game).unread)
+                assertEquals(1, f.games.chatRead(f.b, game).unread)
+                val read = f.games.chatRead(f.a, game, ReadChat(first.requestId))
+                assertEquals(1, read.unread)
+                assertEquals(f.games.chat(f.a, game).messages[1].revision, read.readThrough)
+                assertEquals(read, f.games.chatRead(f.a, game, ReadChat(own.requestId)))
+                assertEquals(read, f.games.chatRead(f.a, game, ReadChat(first.requestId)))
+                assertEquals(read, f.games.chat(f.a, game).readState)
+                assertEquals(1, f.games.chatRead(f.b, game).unread) // other member's cursor is unchanged
+                assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { f.games.chatRead(f.other, game) }.code)
+                assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) {
+                    f.games.chatRead(f.other, game, ReadChat(last.requestId)) }.code)
+                assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) {
+                    f.games.chatRead(f.a, game, ReadChat(id())) }.code)
+                val differentGame = json.decodeFromString<GameSummary>(LobbyService(runtime).create(f.a,
+                    CreateInvitation(id(), f.b.account.accountId, "Separate chat cursor")).body)
+                assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) {
+                    f.games.chatRead(f.a, differentGame.id, ReadChat(first.requestId)) }.code)
+                assertEquals(head, f.games.head(f.a, game)) // no gameplay revision/history changes
+                expected = f.games.chatRead(f.a, game, ReadChat(last.requestId))
+                assertEquals(0, expected.unread)
+                assertEquals(1, count(db, "game_chat_read_cursor"))
+                // An independently installed client only downloads the latest 100 rows; unread
+                // must still include older incoming rows outside that window.
+                repeat(ChatPaging.SIZE + 1) { f.recipient.execute(GameAction.SendChat("incoming $it")) }
+                expected = f.games.chatRead(f.a, game)
+                assertEquals(ChatPaging.SIZE + 1, expected.unread)
+                val page = f.games.chat(f.a, game)
+                assertEquals(ChatPaging.SIZE, page.messages.size); assertNotNull(page.older)
+                assertEquals(expected, page.readState)
+            }
+            ServiceRuntime(db.settings).use { runtime ->
+                ready(runtime)
+                assertEquals(expected, GameService(runtime).chatRead(actor, game))
+            }
+        }
+    }
     @Test fun `chat shares durable FIFO and original outcome identity without mutating board or leaking private results`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -235,9 +282,10 @@ class GameChatTest {
     }
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun http(settings: ServiceSettings, path: String, token: String? = null, method: String = "GET"): HttpResponse<String> {
+    private fun http(settings: ServiceSettings, path: String, token: String? = null, method: String = "GET", body: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
-            .timeout(Duration.ofSeconds(10)).method(method, HttpRequest.BodyPublishers.noBody())
+            .timeout(Duration.ofSeconds(10)).method(method, body?.let(HttpRequest.BodyPublishers::ofString) ?: HttpRequest.BodyPublishers.noBody())
+        if (body != null) builder.header("Content-Type", "application/json")
         token?.let { builder.header("Authorization", "Bearer $it") }
         return client.send(builder.build(), HttpResponse.BodyHandlers.ofString())
     }
@@ -315,7 +363,24 @@ class GameChatTest {
                     val reads = http(settings, "/v1/games/${game.id}/revisions?after=${game.revision}", b.token)
                     assertEquals(200, reads.statusCode())
                     assertEquals(listOf(first.requestId, reply.requestId), json.decodeFromString<GameRevisions>(reads.body()).revisions.map { it.chatMessage!!.id })
+                    val readPath = "/v1/games/${game.id}/chat/read"
+                    fun state(token: String) = json.decodeFromString<ChatReadState>(http(settings, readPath, token).body())
+                    assertEquals(401, http(settings, readPath).statusCode())
+                    assertEquals(404, http(settings, readPath, other.token).statusCode())
+                    assertEquals(1, state(a.token).unread); assertEquals(1, state(b.token).unread)
+                    val seen = json.encodeToString(ReadChat(reply.requestId))
+                    assertEquals(404, http(settings, readPath, other.token, "PUT", seen).statusCode())
+                    val marked = http(settings, readPath, a.token, "PUT", seen)
+                    assertEquals(200, marked.statusCode())
+                    val cursor = json.decodeFromString<ChatReadState>(marked.body())
+                    assertEquals(returned.resultRevision, cursor.readThrough); assertEquals(0, cursor.unread)
+                    assertEquals(cursor, state(a.token)); assertEquals(1, state(b.token).unread)
+                    assertEquals(cursor, json.decodeFromString<ChatReadState>(http(settings, readPath, a.token, "PUT",
+                        json.encodeToString(ReadChat(first.requestId))).body()))
+                    assertEquals(400, http(settings, readPath, a.token, "PUT", json.encodeToString(ReadChat(id()))).statusCode())
+                    assertEquals(405, http(settings, readPath, a.token, "POST", seen).statusCode())
                     assertEquals(204, http(settings, "/session", a.token, "DELETE").statusCode())
+                    assertEquals(401, http(settings, readPath, a.token, "PUT", seen).statusCode())
                     owner.send(first.copy(requestId = id(), action = GameAction.SendChat("revoked")))
                     assertEquals("unauthorized", owner.next<GameAdmissionError>().code)
                     assertEquals(2, count(db, "game_chat"))

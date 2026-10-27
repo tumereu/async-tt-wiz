@@ -146,7 +146,7 @@ class SetSourceRepositoryTest {
         assertEquals(listOf("NEW", "OLD"), catalog.draftableSets().map { it.name })
         val offline = repository(catalog, source)
         repeat(2) { assertEquals(listOf("NEW", "OLD"), offline.sets().map { it.name }) }
-        assertEquals(1, source.listRequests)
+        assertEquals(2, source.listRequests)
         assertTrue(source.downloads.isEmpty())
     }
 
@@ -184,6 +184,29 @@ class SetSourceRepositoryTest {
         assertEquals(1, source.listRequests)
         assertEquals(listOf("S3", "S2", "S1", "S0"), repository(catalog, FixtureSource()).sets().map { it.code })
         assertEquals(pointer, temporary.resolve("catalog/current").toFile().readText())
+        assertTrue(source.downloads.isEmpty())
+    }
+
+    @Test fun failedTypeBackfillShowsInstalledSetsAndRetriesOnNextOpenWithoutRecreatingRepository() {
+        val catalog = catalog(set("OLD").apply { remove("type") },
+            set("CMD", cards = listOf(card(2))).apply { remove("type") },
+            set("PROMO", cards = listOf(card(3))).apply { addProperty("type", "promo") })
+        val source = FixtureSource()
+        val repository = repository(catalog, source)
+        repeat(2) {
+            val sets = repository.sets()
+            assertEquals(listOf("CMD", "OLD"), sets.map { it.code })
+            assertTrue(sets.all { it.type == null && it.draftable })
+        }
+        assertEquals(2, source.listRequests)
+        source.listed = CatalogSetList(metadata, listOf(CatalogSet("OLD", "2000-01-01", type = "expansion"),
+            CatalogSet("CMD", "2000-01-01", type = "commander")))
+        repeat(2) {
+            assertEquals(listOf(DraftableSet("OLD", "Set OLD", "2000-01-01", 1, "expansion")), repository.sets())
+        }
+        assertEquals(3, source.listRequests)
+        assertEquals(repository.sets(), repository(catalog, FixtureSource()).sets())
+        assertTrue(source.requests.isEmpty())
         assertTrue(source.downloads.isEmpty())
     }
 

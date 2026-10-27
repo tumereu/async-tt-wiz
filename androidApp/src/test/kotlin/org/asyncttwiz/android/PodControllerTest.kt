@@ -239,6 +239,49 @@ class PodControllerTest {
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
     }
 
+    @Test fun cachedSetSelectionDuringPendingSaveClosesImmediatelyAndSurvivesQueuedRefresh() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
+        f.controller.editSetup(name = "Renamed"); f.controller.flushSetup()
+        f.controller.chooseSet()
+        assertTrue(f.controller.state.loading)
+        assertEquals(1, f.controller.state.pending)
+        assertTrue(f.controller.setPicker.state.busy)
+        assertTrue(f.controller.setPicker.state.rows.single().cached)
+        f.controller.setPicker.choose("TST")
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        assertEquals(listOf("sets"), f.sets.calls) // Save, refresh and preparation are still queued.
+        f.deliver()
+        assertFalse(f.controller.setPicker.state.open)
+        assertFalse(f.controller.setPicker.state.busy)
+        assertNull(f.controller.state.sourcePreview)
+        assertEquals("Renamed", f.controller.state.detail!!.name)
+        assertEquals("Test set", f.controller.state.detail!!.source.setName)
+        assertEquals(f.sets.upload.snapshot, f.controller.state.setup!!.setSource!!.snapshot)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals("Test set", f.api.saved.source.setName)
+        assertNull(f.controller.state.setup)
+        assertEquals(listOf("sets", "sets", "load:TST"), f.sets.calls)
+    }
+
+    @Test fun cachedSetSelectionDuringRefreshRevertsPreviewOnPreparationFailure() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
+        val original = f.controller.state.detail!!.source
+        f.controller.editSettings { it.copy(keep = 2) }; f.controller.flushSetup()
+        f.controller.chooseSet()
+        f.sets.fail = true
+        f.controller.setPicker.choose("TST")
+        assertFalse(f.controller.setPicker.state.open)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        f.deliver()
+        assertNull(f.controller.state.sourcePreview)
+        assertEquals(original, f.controller.state.detail!!.source)
+        assertEquals(2, f.controller.state.detail!!.settings.keep)
+        assertEquals("Could not load source.", f.controller.state.error)
+        assertFalse(f.controller.setPicker.state.open)
+        assertFalse(f.controller.setPicker.state.busy)
+    }
+
     @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.chooseSet()

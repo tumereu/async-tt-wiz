@@ -92,6 +92,20 @@ class PodScreensTest {
         compose.onNodeWithContentDescription("Retry source").assertExists()
     }
 
+    @Test fun setWithMissingTypeStaysVisibleAndSelectableDuringBackgroundRefresh() {
+        val state = PodSetPickerState(open = true, loaded = true, busy = true, rows = listOf(
+            PodSetRow(DraftableSet("OLD", "Legacy set", "2000-01-01", 100), true)))
+        var chosen: String? = null
+        compose.setContent { ScreenTheme { Column {
+            PodSetPickerContent(state, {}, { chosen = it }, {}, {})
+        } } }
+        compose.onNodeWithText("No sets found").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Retry source").assertDoesNotExist()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertCountEquals(0)
+        compose.onNodeWithText("Legacy set").assertIsEnabled().performClick()
+        assertEquals("OLD", chosen)
+    }
+
     @Test fun sourceRowShowsOnlyTheNameWhenBoosterOrSupplyChanges() {
         var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test set",
             boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play"))

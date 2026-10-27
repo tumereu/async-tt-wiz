@@ -102,7 +102,9 @@ Inside a pod a top strip always shows members' avatars with status badges
   accepted settings with a short floating error. Background refresh/save has no
   loader or layout shift; only an uncached first load has a centred spinner.
 - Source is its name (or No source) plus an edit icon. The dialog has searchable
-  Cubes / Sets tabs and cube-management access; selection closes it immediately.
+  Cubes / Sets tabs and cube-management access; selection closes it and previews
+  the source immediately, including during background refresh/save. Preparation
+  finishes in the background; failure restores the previous source.
   Pod invitations and game opponents share the contacts/search player picker,
   with system back, a search spinner and centred empty-list state.
 - **Start** needs at least 2 accepted members; there is no Ready step. Start
@@ -204,8 +206,9 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 - The source picker lists installed sets with non-token cards whose MTGJSON type
   is expansion, core, masters or draft_innovation, newest first. Set type is stored
   in catalog metadata. Legacy installations backfill and persist it by fetching
-  the small SetList.json once, not deleting/redownloading card records; unknown
-  types remain excluded until metadata is available.
+  the small SetList.json once successfully, not deleting/redownloading card records.
+  Failed backfills retry on the next picker open; sets with missing types remain
+  selectable without error text until metadata is available.
 - Choosing a set downloads **that set's MTGJSON file** (and the files of any
   sets its booster recipe pulls from). Files are cached on the device permanently.
   Sets released in the last ~60 days are refreshed automatically, like the

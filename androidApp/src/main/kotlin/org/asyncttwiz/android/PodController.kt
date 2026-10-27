@@ -309,6 +309,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (read) refreshPending = false
         cubesPending = false
         val generation = epoch; val selected = state.selected
+        val previousError = state.error
         state = state.copy(loading = true)
         worker.execute {
             fun current() = !closed && generation == epoch && credential() == token
@@ -347,7 +348,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     Triple(detail, list, sources)
                 }
                 post { if (complete()) {
-                    state = state.copy(loading = false, error = null)
+                    // A queued refresh must not erase a newer source-preparation failure.
+                    state = state.copy(loading = false, error = state.error.takeUnless { it == previousError })
                     if (write != null) {
                         writes.removeAt(0)
                         if (write.setupRevision == state.setup?.revision) state = state.copy(setup = null)

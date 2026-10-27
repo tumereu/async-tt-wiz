@@ -15,7 +15,7 @@ import java.util.zip.GZIPInputStream
 
 data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
     val type: String? = null) {
-    val draftable: Boolean get() = type in setOf("expansion", "core", "masters", "draft_innovation")
+    val draftable: Boolean get() = type == null || type in setOf("expansion", "core", "masters", "draft_innovation")
 }
 enum class MissingSetCardReason { CATALOG, SOURCE_FILE }
 data class MissingSetCard(val uuid: String, val setCode: String?, val reason: MissingSetCardReason)
@@ -38,14 +38,14 @@ class SetSourceRepository(
         require(decodedLimit in 1..HttpCatalogSource.MAX_DECODED_SET_BYTES)
     }
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
-    // Backfill legacy metadata once, without downloading card records. Persist for offline use.
+    // Cache only a successful backfill; lazy retries a failed initializer on the next picker open.
     private val enrichMetadata by lazy {
-        runCatching { catalog.enrichSets(source.setList().sets) }
+        catalog.enrichSets(source.setList().sets)
     }
 
     fun sets(): List<DraftableSet> {
         val installed = catalog.draftableSets()
-        if (installed.any { it.type == null || it.name == it.code }) enrichMetadata
+        if (installed.any { it.type == null || it.name == it.code }) runCatching { enrichMetadata }
         return catalog.draftableSets().filter { it.draftable }
     }
     fun isCached(code: String): Boolean = File(directory, "${catalogSetFilename(code)}.json.gz").isFile

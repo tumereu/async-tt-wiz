@@ -60,7 +60,12 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
     fun redownload(code: String) = acquire(code, true)
     private fun acquire(code: String, force: Boolean) {
         val set = state.rows.firstOrNull { it.set.code == code && it.set.draftable }?.set ?: return
-        if (state.busy) return
+        if (!state.open || force && state.busy) return
+        if (!force) {
+            // Displayed rows remain selectable during refresh. Fence its queued result before choosing.
+            generation++
+            state = state.copy(busy = false)
+        }
         work(if (force) "Redownloading $code and preparing card definitions…" else "Loading $code: downloading if needed and preparing card definitions…",
             { acquire(code, force) }, detached = !force, action = {
                 val source = checkNotNull(repository)

@@ -658,7 +658,9 @@ class TableToolkitWiringTest {
         val key = listOf(f.game.id, f.play.id, f.actor)
         val ui = holder.obtain(f.lobby, key) { toolkit(f) }
         ui.openCard(TableScope(f.id(40), listOf(f.id(40))))
-        ui.manual.edit(ManualValue(ManualValueKind.NOTE), f.play, f.actor)
+        // Card 40 is a hidden Library card, whose values are not editable; use a visible player value.
+        ui.manual.player(f.play, f.actor)
+        ui.manual.edit(ManualValue(ManualValueKind.LIFE), f.play, f.actor)
         ui.manual.editor!!.text = "unsubmitted retained draft"
         ui.layoutState.value = TableLayoutState(TableCamera(84f, 42f, 1.2f))
         ui.selectionState.value = TableSelection(setOf(f.id(40)))

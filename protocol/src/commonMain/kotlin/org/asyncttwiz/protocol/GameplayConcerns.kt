@@ -190,7 +190,9 @@ internal object GameplayConcerns {
                 for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped")) entity("card", c.id, key)
                 val source = from.board.containers.single { it.id == a.source.containerId }
                 if (mutation.transition.rulesVersion >= 13 && to.board.cards.any { it.id == c.id }) {
-                    val target = from.board.containers.single { it.id == a.destination.containerId }
+                    // A first move into a Temp pile creates its target in this same mutation.
+                    val target = from.board.containers.singleOrNull { it.id == a.destination.containerId }
+                        ?: to.board.containers.single { it.id == a.destination.containerId }
                     if (source.id != target.id && (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD))
                         entity("card", c.id, "note")
                     if (source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD) {
@@ -210,6 +212,14 @@ internal object GameplayConcerns {
                     if (a.source.bottomSlice.isNotEmpty()) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, a.source.bottomSlice.size)
                     if (a.source.edge == MoveSourceEdge.BOTTOM) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, 1)
                 }
+                if (mutation.transition.rulesVersion >= 23 && source.zone == PlayZone.BATTLEFIELD &&
+                    to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD }) {
+                    // The public face-down corner is assigned (even unchanged) from cover state and the shown face.
+                    entity("card", c.id, "corner"); entity("card", c.id, "faceId"); definition(c.definition)
+                } else if (mutation.transition.rulesVersion >= 23 &&
+                    to.board.cards.singleOrNull { it.id == c.id }?.let { it.isFaceDown && it.containerId == a.destination.containerId } == true &&
+                    to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD })
+                    entity("card", c.id, "corner")
                 if (a.destination.insertion == MoveInsertion.EMPTY) fields += ConcernField.Cell(a.destination.containerId, a.destination.position!!)
                 a.removeStackEntryId?.let { projection(it); fields += ConcernField.Live(it) }
             }
@@ -347,6 +357,11 @@ internal object GameplayConcerns {
             is PlayAction.InspectFace -> definition(card(a.cardId).definition)
             is PlayAction.SetCovered -> {
                 entity("card", a.cardId, "covered"); entity("card", a.cardId, "explicitlyCovered")
+                if (mutation.transition.rulesVersion >= 23) {
+                    // v23 assigns the public face-down corner on the Battlefield only.
+                    entity("card", a.cardId, "containerId"); entity("card", a.cardId, "corner")
+                    entity("card", a.cardId, "faceId"); definition(card(a.cardId).definition)
+                }
             }
             is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
             is PlayAction.SetEotNote, is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,

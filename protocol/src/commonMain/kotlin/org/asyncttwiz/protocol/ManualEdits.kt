@@ -163,11 +163,18 @@ object ManualEditRules {
                     disclosures = CardVisibility.viewers(board, card).takeIf { card.faceId != action.faceId && it.isNotEmpty() }
                         ?.let { listOf(exposure(action.faceId, it)) }.orEmpty())
             is PlayAction.SetCovered -> {
-                val changed = card.copy(covered = action.covered, explicitlyCovered = action.covered)
+                val flipped = card.copy(covered = action.covered, explicitlyCovered = action.covered)
+                val battlefield = zone == PlayZone.BATTLEFIELD
+                val changed = when (FaceDownCorner.transition(battlefield && card.isFaceDown, battlefield && flipped.isFaceDown)) {
+                    FaceDownCorner.Change.COVER -> flipped.copy(corner = FaceDownCorner.VALUE)
+                    FaceDownCorner.Change.UNCOVER -> flipped.copy(corner = FaceDownCorner.printed(state, card))
+                    null -> flipped
+                }
                 val viewers = CardVisibility.viewers(board, changed) - CardVisibility.viewers(board, card).toSet()
                 GameplayTransition(fields = listOf(
                     GameplayFieldChange(id, GameplayField.COVERED, card.covered.toString(), changed.covered.toString()),
-                    GameplayFieldChange(id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), changed.explicitlyCovered.toString())
+                    GameplayFieldChange(id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString(), changed.explicitlyCovered.toString()),
+                    GameplayFieldChange(id, GameplayField.CORNER, card.corner, changed.corner)
                 ).filter { it.from != it.to },
                     reads = if (viewers.isNotEmpty()) listOf(GameplayRead(id, GameplayField.FACE, card.faceId)) else emptyList(),
                     disclosures = if (viewers.isNotEmpty()) listOf(exposure(card.faceId, viewers)) else emptyList())

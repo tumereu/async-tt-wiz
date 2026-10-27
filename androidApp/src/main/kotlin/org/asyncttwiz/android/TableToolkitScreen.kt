@@ -62,6 +62,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             LibraryActions(library.controller, play.board, library.handIds,
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
+        "temp" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Temp", width = 264.dp, height = 128.dp) {
+            TempPileActions(library.controller, play.board, onShow = toolkit::showLibraryContents,
+                toLibrary = { bottom -> toolkit.tempToLibrary(library.controller.libraryId, bottom) }, onComplete = toolkit::dismiss)
+        } }
         "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
                 MenuControl("Note", enabled) { editProjectionNote(bound.contextViewId) },
@@ -203,6 +207,9 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
         add(MenuControl("Attack →", enabled) { toolkit.openAttackTargets() })
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),
         bound.sources, toolkit::handle, toolkit::dismiss))
+    if (bound.sourceIds.any { id -> play.board.cards.any { card -> card.id == id && !card.token &&
+            play.board.containers.none { it.id == card.containerId && it.temp } } })
+        add(MenuControl("Temp pile", enabled) { toolkit.toTemp(bound.sourceIds) })
     if (play.board.combat != null) for (destination in CombatStackPresentation.combat(play.board, 48f, 68f).destinations)
         add(MenuControl(destination.label, enabled) { if (toolkit.place(bound, destination.destination)) toolkit.dismiss() })
 }

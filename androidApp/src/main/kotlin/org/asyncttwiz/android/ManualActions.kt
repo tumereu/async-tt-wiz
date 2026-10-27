@@ -29,6 +29,9 @@ class ManualActions {
     fun edit(field: ManualValue, state: PlayState, viewer: String) {
         val bound = scope ?: return
         if (!bound.usable(state)) return
+        // A hidden card's stored values (often printed defaults) are neither shown nor editable.
+        if (!bound.player && !(field.kind == ManualValueKind.NOTE && bound.noteViewId != null) &&
+            state.board.cards.singleOrNull { it.id == bound.contextId }?.let { cardValuesHidden(state.board, it, viewer) } != false) return
         editor = ValueDraft(bound, field, bound.value(state, field, viewer).orEmpty())
     }
     fun cancelEditor() { editor = null }
@@ -90,6 +93,7 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
             return if (field.kind == ManualValueKind.LIFE) target.life else target.counters[field.color]
         }
         val card = state.board.cards.single { it.id == contextId }
+        if (cardValuesHidden(state.board, card, viewer)) return null
         return when (field.kind) {
             ManualValueKind.DAMAGE -> card.damage
             ManualValueKind.EOT_CORNER -> card.eotCorner
@@ -116,7 +120,8 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
                 else if (field.kind == ManualValueKind.LIFE) PlayAction.SetLife(id, text)
                 else PlayAction.SetCounter(CounterTarget.PLAYER, id, field.color!!, text)
             } else {
-                if (state.board.cards.none { it.id == id }) null else when (field.kind) {
+                val card = state.board.cards.singleOrNull { it.id == id }
+                if (card == null || cardValuesHidden(state.board, card, viewer)) null else when (field.kind) {
                     ManualValueKind.DAMAGE -> PlayAction.SetDamage(id, text)
                     ManualValueKind.EOT_CORNER -> PlayAction.SetEotCorner(id, text)
                     ManualValueKind.EOT_NOTE -> PlayAction.SetEotNote(id, text)

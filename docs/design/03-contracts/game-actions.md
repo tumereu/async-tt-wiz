@@ -377,6 +377,21 @@ Hands, library order, and face-down cards are covered by default in ordinary
 table presentation. Either participant can explicitly inspect them. Show a clear
 trust-model explanation during setup and on first hidden-zone inspection.
 
+A card whose face the viewer cannot see shows no values anywhere (P/T, EOT P/T,
+damage, notes, counters; menus show "—") and offers no value edits: its stored
+values may be printed defaults. Exception (rules v23): a face-down Battlefield card
+(morph/manifest/disguise/cloak) has a PUBLIC 2/2 corner, and its P/T, counters,
+damage and notes are visible to and editable by both players. Turning it face up
+resets the corner to the shown face's printed default; other marks stay.
+
+Temp pile (rules v23): each player has one hidden "Temp" pile (a LIBRARY-zone
+container flagged `temp`, never that player's Library) for effects such as "put
+your graveyard on the bottom of your library in random order". It is created by
+the first move into its deterministic ID, so older games gain it without
+migration. Entering cards reset like any card entering a hidden zone. Controls:
+Shuffle, Look (logged like a Library look), All to library top/bottom (one batch,
+owner-routed), and moving cards out as from a Library top.
+
 Covering a card does not remove its identity from synchronized data. No tooltip,
 notification, default log summary, or background preview should unnecessarily
 spoil a covered card. Explicit inspection can expose it.

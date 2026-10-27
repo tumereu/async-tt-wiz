@@ -1,7 +1,10 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.BoardState
+import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PlayCard
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TableActions
 import java.math.BigInteger
 
@@ -29,3 +32,15 @@ internal fun damageIsLethal(damage: String, corner: String): Boolean {
 
 internal fun inspectedCorner(card: PlayCard): String = effectiveCorner(card) +
     if (card.eotCorner.isEmpty()) "" else " (${card.eotCorner} until end of turn)"
+
+/** Rules v23: a face-down Battlefield card (morph, manifest, disguise, cloak) has public values. */
+internal fun publicFaceDown(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
+    board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
+
+/** A card whose face the viewer cannot see shows no P/T, marks, notes or counters anywhere and offers
+ * no value edits, except a public face-down Battlefield card. Stored values may be printed defaults. */
+internal fun cardValuesHidden(board: BoardState, card: PlayCard, viewer: String): Boolean =
+    !CardVisibility.isVisibleFaceUp(board, card, viewer) && !publicFaceDown(board, card)
+
+/** A face-down card is compared with its public 2/2, never with its hidden printed face. */
+internal fun changedFaceDownPowerToughness(displayed: String): Boolean = displayed != "2/2"

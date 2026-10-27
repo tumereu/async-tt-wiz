@@ -910,7 +910,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
     }
     fun cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
-        if (i.covered || i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty()) return
+        // Hidden cards carry no values; a public face-down card's values are drawn on its back.
+        if (i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
         val noteMetrics = paint.fontMetrics
@@ -992,27 +993,33 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             fittedText(i.damage, left + z, cardHeight - 3 * z, width - 2 * z)
             paint.color = previousColor
         }
+        fun cornerBadge() {
+            if (i.corner.isEmpty()) return
+            paint.textSize = 7 * valueScale * z * density
+            val badgeWidth = (cache.measure(corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
+            drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
+                size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
+            val previousColor = paint.color
+            if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
+            else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
+            fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
+            paint.color = previousColor
+        }
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
         val mode = tableArtworkMode(i.artwork, art != null)
         if (!i.covered && mode == TableArtworkMode.CUSTOM_CARD) clipPath(outline) {
             drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
-            if (i.corner.isNotEmpty()) {
-                paint.textSize = 7 * valueScale * z * density
-                val badgeWidth = (cache.measure(corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
-                drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
-                    size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
-                val previousColor = paint.color
-                if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
-                else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
-                fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
-                paint.color = previousColor
-            }
+            cornerBadge()
         }
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
-        if (i.covered) return@translate
+        if (i.covered) {
+            // Only a public face-down Battlefield card carries values while covered (rules v23).
+            cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density
+            return@translate
+        }
         if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z

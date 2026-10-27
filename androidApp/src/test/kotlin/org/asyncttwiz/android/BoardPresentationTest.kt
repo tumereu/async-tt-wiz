@@ -78,6 +78,8 @@ class BoardPresentationTest {
         val hidden = TablePresentation.scene(LiveTableFixture.game, concealed, "a", 412f, 892f, false)
             .items.single { it.cardId == source }
         assertTrue(hidden.covered)
-        assertEquals("", hidden.note)
+        // Rules v23: a face-down Battlefield card's note is public; its face stays covered.
+        assertEquals("Shield until end of turn", hidden.note)
+        assertEquals("", hidden.value)
     }
 }

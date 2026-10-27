@@ -156,7 +156,13 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                 Surface { Text(if (definition == null) "Card data unavailable" else "Covered card", Modifier.padding(24.dp)) }
             }
         } else AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
-            text = { Text("Owner ${names[card.owner] ?: "Player"}") },
+            text = { Text(listOfNotNull("Owner ${names[card.owner] ?: "Player"}",
+                // A face-down Battlefield card's values are public (rules v23); its face stays hidden.
+                *(if (publicFaceDown(state.board, card)) arrayOf(inspectedCorner(card).takeIf(String::isNotBlank),
+                    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
+                    card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
+                    card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
+                    card.note.takeIf(String::isNotBlank)) else emptyArray())).joinToString("\n")) },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
         val filtered = definition!!.copy(name = faces.first().name, faces = faces)

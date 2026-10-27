@@ -39,7 +39,7 @@ internal object HandRules {
                     HandRandomResult.REVEAL -> error("unreachable")
                 }
                 val owner = if (rulesVersion >= 20) board.cards.single { it.id == action.cardId }.owner else actor
-                val target = board.containers.singleOrNull { it.accountId == owner && it.zone == zone }
+                val target = board.zoneContainer(owner, zone)
                     ?: return GameplayChange(reason = "missingReference")
                 PlayAction.MoveCard(action.cardId, MoveSource(hand.id), MoveDestination(target.id,
                     if (zone == PlayZone.LIBRARY) MoveInsertion.BOTTOM else MoveInsertion.UNORDERED))

@@ -81,6 +81,15 @@ either resolution restores that exact suggestion; it blocks removing its proposa
 until the resolution itself is undone. Counter reset batches retain each existing
 per-color counter tuple and undo atomically, without concerning P/T.
 
+Rules v23 face-down Battlefield cards get a public 2/2 corner when covered (SetCovered
+or a face-down move onto the Battlefield) and the shown face's printed corner when
+uncovered. Those events concern the card's corner, faceId, definition and (for
+SetCovered) its container, even when the assigned corner happens not to change.
+The first move into a player's Temp pile creates that pile in the same event: its
+delta adds the container and the exact inverse removes it, so a later event that
+used the pile blocks undoing the creating move. Temp shuffles/looks/moves reuse the
+Library concerns.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

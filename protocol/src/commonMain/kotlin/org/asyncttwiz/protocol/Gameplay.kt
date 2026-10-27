@@ -186,8 +186,10 @@ object GameplayRules {
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
         if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
-        val resolved = LibraryKnowledge.resolveEdge(state, command)
-        val change = execute(state, actor, resolved, references)
+        // A first move into a Temp pile creates it inside this same mutation (rules v23).
+        val prepared = TempPiles.prepare(state, command)
+        val resolved = LibraryKnowledge.resolveEdge(prepared, command)
+        val change = execute(prepared, actor, resolved, references)
         var mutation = change.mutation ?: return change
         val next = change.state ?: return change
         if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep)
@@ -513,10 +515,16 @@ object GameplayRules {
         val faceDown = !hiddenZone && if (leaving) target.zone == PlayZone.EXILE && card.isFaceDown
             else (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD && target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val front = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.firstOrNull()
+        val publicFaceDown = FaceDownCorner.transition(source.zone == PlayZone.BATTLEFIELD && card.isFaceDown,
+            target.zone == PlayZone.BATTLEFIELD && faceDown)
         val moved = card.copy(containerId = target.id, placement = placement,
             note = if (coverRulesVersion >= 7 && source.id != target.id &&
                 (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD)) "" else card.note,
-            corner = if (leaving) front?.defaultCorner().orEmpty() else card.corner,
+            corner = if (leaving) front?.defaultCorner().orEmpty() else when (publicFaceDown) {
+                FaceDownCorner.Change.COVER -> FaceDownCorner.VALUE
+                FaceDownCorner.Change.UNCOVER -> FaceDownCorner.printed(state, card)
+                null -> card.corner
+            },
             counters = if (leaving) emptyMap() else card.counters,
             faceId = if (leaving) front?.faceId ?: card.faceId else card.faceId,
             owner = if (leaving) originalOwner(state, card) else card.owner,
@@ -594,6 +602,21 @@ object GameplayRules {
         return CardLocation(container.id, card.placement, if (ordered) members.getOrNull(index - 1) else null,
             if (ordered) members.getOrNull(index + 1) else null)
     }
+}
+
+/** Rules v23: a face-down Battlefield card (morph, manifest, disguise, cloak) has a PUBLIC 2/2 corner.
+ * Turning it face up resets the corner to the shown face's printed default. */
+internal object FaceDownCorner {
+    const val VALUE = "2/2"
+    enum class Change { COVER, UNCOVER }
+    fun transition(wasFaceDownOnBattlefield: Boolean, faceDownOnBattlefield: Boolean): Change? = when {
+        CURRENT_GAMEPLAY_RULES_VERSION < 23 -> null
+        faceDownOnBattlefield && !wasFaceDownOnBattlefield -> Change.COVER
+        wasFaceDownOnBattlefield && !faceDownOnBattlefield -> Change.UNCOVER
+        else -> null
+    }
+    fun printed(state: PlayState, card: PlayCard): String = state.definitions.singleOrNull { it.digest == card.definition }
+        ?.definition?.faces?.singleOrNull { it.faceId == card.faceId }?.defaultCorner().orEmpty()
 }
 
 /** Text-first signed decimal arithmetic without platform BigInteger or a machine-integer gameplay cap. */

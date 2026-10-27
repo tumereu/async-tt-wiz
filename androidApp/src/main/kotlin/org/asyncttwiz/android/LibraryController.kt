@@ -37,7 +37,7 @@ class LibraryController(
             if (action is PlayAction.MoveCard) current()?.let {
                 action.copy(source = action.source.copy(takeFromEdge =
                     (action.source.edge != MoveSourceEdge.MEMBER || action.source.bottomSlice.isNotEmpty())),
-                    destination = ownerMoveDestination(it.board, action.cardId, action.destination))
+                    destination = ownerMoveDestination(it.board, action.cardId, action.destination, playId))
             } ?: action else action
         }
         val sent = available() && routed.size <= 100 && (batchRequest?.invoke(routed, invocation)
@@ -88,7 +88,7 @@ class LibraryController(
         return send(ownerMoves(current.board, capturedIds, destination))
     }
     private fun ownerMoves(board: BoardState, ids: List<String>, destination: MoveDestination): List<PlayAction.MoveCard> =
-        ids.groupBy { ownerMoveDestination(board, it, destination) }.flatMap { (target, members) ->
+        ids.groupBy { ownerMoveDestination(board, it, destination, playId) }.flatMap { (target, members) ->
             SharedLibraryActions.moveCaptured(board, members, target)
         }
     private fun moveAcross(current: PlayState, ids: List<String>, sources: Map<String, TableMoveSource>, destination: MoveDestination): LibrarySubmission {

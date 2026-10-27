@@ -46,8 +46,9 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         }
     }
 
-    private fun move(state: PlayState, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
-        val destinations = intent.scope.cardIds.groupBy { ownerMoveDestination(state.board, it, intent.destination) }
+    private fun move(current: PlayState, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
+        val state = current.withTempTarget(intent.destination)
+        val destinations = intent.scope.cardIds.groupBy { ownerMoveDestination(state.board, it, intent.destination, state.id) }
         if (destinations.size > 1 || destinations.keys.singleOrNull()?.let { it != intent.destination } == true) {
             // Splitting by owner must not repair stale captures or bypass the single Stack-entry rule.
             if (intent.scope.cardIds.size > 1 && intent.scope.cardIds.any { it in CombatStackRules.stack(state.board).cards }) return false
@@ -152,7 +153,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         var any = false
         for ((index, id) in ids.withIndex()) {
             if (!connected()) break
-            val predecessor = play()?.takeIf { it.id == state.id && it.gameId == state.gameId } ?: break
+            val predecessor = play()?.takeIf { it.id == state.id && it.gameId == state.gameId }?.withTempTarget(intent.destination) ?: break
             val currentTarget = predecessor.board.containers.singleOrNull { it.id == target.id } ?: break
             val destination = when {
                 target.zone == PlayZone.HAND && (intent.destination as? TableDestination.Container)?.handGap != null -> {
@@ -244,6 +245,15 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
     }
 
     companion object {
+        /** A drop onto a player's not-yet-created Temp pile plans against that empty pile; the first
+         * accepted move creates it. Never invents any other container. */
+        internal fun PlayState.withTempTarget(destination: TableDestination): PlayState {
+            val id = (destination as? TableDestination.Container)?.id ?: return this
+            if (board.containers.any { it.id == id }) return this
+            val owner = TempPiles.containerIds(this).entries.firstOrNull { it.value == id }?.key ?: return this
+            return copy(board = TempPiles.ensure(board, this.id, owner))
+        }
+
         fun projection(state: PlayState, action: PlayAction.MoveCard): PlayAction.Stack? {
             if (action.removeStackEntryId != null) return null
             val card = state.board.cards.singleOrNull { it.id == action.cardId } ?: return null

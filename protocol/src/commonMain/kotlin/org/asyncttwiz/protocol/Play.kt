@@ -29,9 +29,51 @@ import kotlinx.serialization.Serializable
      * Old snapshots have no knowledge metadata and therefore start entirely unknown. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownTop: List<String> = emptyList(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownBottom: List<String> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val keepTopRevealed: Boolean = false) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val keepTopRevealed: Boolean = false,
+    /** Rules v23: a player's lazily-created Temp pile. It is a LIBRARY-zone container (hidden faces,
+     * unknown order after shuffle) but never "the" Library: owner lookups must exclude it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val temp: Boolean = false) {
     val unknownMiddle: List<String> get() = cards.subList(knownTop.size, cards.size - knownBottom.size)
 }
+
+/** The player's single Temp pile. Created lazily by the first move into its deterministic ID, so old
+ * games gain it without any board migration and retained events keep replaying unchanged. */
+object TempPiles {
+    fun containerId(playId: String, accountId: String): String = CommandIds.uuidV5(playId, "container/$accountId/TEMP")
+    /** Owner -> deterministic Temp pile ID, whether created yet or not. */
+    fun containerIds(state: PlayState): Map<String, String> = if (!DeckValidation.uuid(state.id)) emptyMap()
+        else state.board.players.associate { it.accountId to containerId(state.id, it.accountId) }
+    fun container(board: BoardState, accountId: String?): PlayContainer? =
+        board.containers.firstOrNull { it.temp && it.accountId == accountId }
+
+    /** The board with the player's (possibly not yet created) empty Temp pile, for planning moves. */
+    fun ensure(board: BoardState, playId: String, accountId: String): BoardState =
+        if (container(board, accountId) != null) board
+        else board.copy(containers = board.containers + PlayContainer(containerId(playId, accountId), PlayZone.LIBRARY, accountId, temp = true))
+
+    /** The state a move into a missing Temp pile executes against. The recorded delta is still taken
+     * from the original state, so it creates the container and its exact inverse removes it. */
+    internal fun prepare(state: PlayState, command: GameCommand): PlayState {
+        val move = (command.action as? GameAction.Play)?.action as? PlayAction.MoveCard ?: return state
+        val target = move.destination.containerId
+        if (state.board.containers.any { it.id == target }) return state
+        if (state.board.cards.singleOrNull { it.id == move.cardId }?.token != false) return state
+        val owner = containerIds(state).entries.firstOrNull { it.value == target }?.key ?: return state
+        return state.copy(board = ensure(state.board, state.id, owner))
+    }
+
+    /** ONE batch moving the whole pile, in its current order, onto the owner's Library top or bottom. */
+    fun allToLibrary(board: BoardState, tempId: String, bottom: Boolean): List<PlayAction.MoveCard> {
+        val temp = board.containers.single { it.id == tempId && it.temp }
+        val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
+        return LibraryActions.moveCaptured(board, temp.cards,
+            MoveDestination(library.id, if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP))
+    }
+}
+
+/** A player's ordinary zone container; never the Temp pile, which shares the LIBRARY zone. */
+fun BoardState.zoneContainer(accountId: String?, zone: PlayZone): PlayContainer? =
+    containers.firstOrNull { it.accountId == accountId && it.zone == zone && !it.temp }
 
 /** Ordinary presentation only; explicit logged inspections/contents displays are separate grants. */
 object CardVisibility {

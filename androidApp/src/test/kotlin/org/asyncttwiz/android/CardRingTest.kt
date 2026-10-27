@@ -75,7 +75,7 @@ class CardRingTest {
         assertEquals((0..14).toList(), more.map { it.cell })
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink", "eotNote"), more.take(5).map { it.id })
         assertEquals(listOf("corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner"), more.drop(5).take(5).map { it.id })
-        assertEquals(listOf("eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "empty/More"), more.drop(10).map { it.id })
+        assertEquals(listOf("eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile"), more.drop(10).map { it.id })
         assertEquals(listOf("Counters", "More"), pages.filter { "eotNote" in it.actions }.map { it.name })
         assertEquals(listOf("extra"), pages[3].actions)
         val saved = CardRingPages.defaults.map { it.copy(actions = listOf("eotNote", "eotNote")) }

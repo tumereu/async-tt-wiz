@@ -27,7 +27,7 @@ class GameResultLifecycleTest {
             decline.copy(action = GameAction.Play(PlayAction.DeclineResult(id(99))))).reason)
         val change = GameplayRules.change(proposed, b.accountId, decline)
         val event = change.mutation!!
-        assertEquals(22, event.transition.rulesVersion)
+        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, event.transition.rulesVersion)
         assertEquals(ResultSuggestionChange(suggestion, null), event.transition.resultSuggestion)
         assertNotNull(event.transition.concerns)
         assertEquals(proposed.board.copy(resultSuggestion = null), change.state!!.board)
@@ -76,7 +76,7 @@ class GameResultLifecycleTest {
                 withdraw.copy(action = GameAction.Play(PlayAction.WithdrawResult(id(99))))).reason)
             val change = GameplayRules.change(proposed, a.accountId, withdraw)
             val event = change.mutation!!
-            assertEquals(22, event.transition.rulesVersion)
+            assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, event.transition.rulesVersion)
             assertEquals(ResultSuggestionChange(suggestion, null), event.transition.resultSuggestion)
             assertTrue(event.transition.concerns!!.fields.any { tuple ->
                 val field = tuple.field as? ConcernField.Written ?: return@any false

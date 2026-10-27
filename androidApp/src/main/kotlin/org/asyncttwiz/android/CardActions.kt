@@ -53,7 +53,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     inspect: (() -> Unit)? = null, editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     val zone = state.board.containers.single { it.id == card.containerId }.zone
-    val battlefield = enabled && cardModificationEnabled(zone)
+    // Values of a card whose face this viewer cannot see never show, nor can they be edited.
+    val hidden = cardValuesHidden(state.board, state.board.cards.single { it.id == scope.contextId }, viewer)
+    fun shown(target: PlayCard) = !cardValuesHidden(state.board, target, viewer)
+    val battlefield = enabled && !hidden && cardModificationEnabled(zone)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
     val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
@@ -69,7 +72,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield) { send { PlayAction.ResetCorner(it.id) } })
     add("resetCounters", "Reset", MenuControl("Reset counters", battlefield) { emit(resetCardCounters(state, scope)) })
     val projection = previewViewId in CombatStackRules.projectionIds(state.board)
-    add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true, projection = projection)) {
+    add("note", "Note", MenuControl("Edit card note", enabled && (projection || !hidden) && cardModificationEnabled(zone, note = true, projection = projection)) {
         if (projection && editProjectionNote != null) editProjectionNote()
         else actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer)
     })
@@ -82,16 +85,17 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         send { target -> nextPrintedFace(state, target) }
     })
     fun corner(part: CornerPart, delta: Int) = scope.cardActions(state) {
-        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
+        if (shown(it) && ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
     fun whole(delta: Int) = scope.cardActions(state) {
+        if (!shown(it)) return@cardActions null
         val part = if ('/' in it.corner) CornerPart.BOTH else CornerPart.WHOLE
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
     fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, battlefield && requests.isNotEmpty()) { emit(requests) }
-    val marksEnabled = enabled && !projection && zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
+    val marksEnabled = enabled && !hidden && !projection && zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
     fun markActions(factory: (PlayCard) -> PlayAction?) = scope.cardActions(state) { target ->
-        if (state.board.containers.any { it.id == target.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }) factory(target) else null
+        if (shown(target) && state.board.containers.any { it.id == target.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }) factory(target) else null
     }
     fun markAdjustment(name: String, requests: List<PlayAction>) = MenuControl(name, marksEnabled && requests.isNotEmpty()) { emit(requests) }
     fun damage(delta: Long) = markActions {
@@ -99,14 +103,14 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     entries += RingEntry("damage", "Damage", MenuControl("Set damage", marksEnabled, color = Color(0xffb3261e)) {
         actions.edit(ManualValue(ManualValueKind.DAMAGE), state, viewer)
-    }, RingCompound(card.damage.ifEmpty { "0" }, markAdjustment("Decrease damage", damage(-1)), markAdjustment("Increase damage", damage(1)),
+    }, RingCompound(if (hidden) "—" else card.damage.ifEmpty { "0" }, markAdjustment("Decrease damage", damage(-1)), markAdjustment("Increase damage", damage(1)),
         drag = { if (marksEnabled) emit(damage(it)) }, dragValue = card.damage.ifEmpty { "0" }))
     fun eot(part: CornerPart, delta: Int) = markActions {
         if (ManualText.adjustEotCorner(it.eotCorner, part, delta) != null) PlayAction.AdjustEotCorner(it.id, part, delta) else null
     }
     entries += RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", marksEnabled, color = Color(EotPowerToughnessColor)) {
         actions.edit(ManualValue(ManualValueKind.EOT_CORNER), state, viewer)
-    }, RingCompound("⌛${card.eotCorner.ifEmpty { "0/0" }}", markAdjustment("Decrease EOT P/T", eot(CornerPart.BOTH, -1)),
+    }, RingCompound(if (hidden) "—" else "⌛${card.eotCorner.ifEmpty { "0/0" }}", markAdjustment("Decrease EOT P/T", eot(CornerPart.BOTH, -1)),
         markAdjustment("Increase EOT P/T", eot(CornerPart.BOTH, 1)), drag = { delta ->
             if (marksEnabled) emit(markActions { target -> cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
         }, dragValue = card.eotCorner.ifEmpty { "0/0" }, corner = true))
@@ -119,12 +123,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
             markAdjustment("Adjust corner EOT ${part.name.lowercase()} $delta", eot(part, delta)))
     }
     entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
-        RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
+        RingCompound(if (hidden) "—" else card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
             if (battlefield) emit(scope.cardActions(state) { target ->
-                cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
+                if (shown(target)) cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) } else null
             })
-        }, dragValue = card.corner, corner = true))
-    if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
+        }, dragValue = if (hidden) "" else card.corner, corner = true))
+    if (scope.cardActions(state) { if (shown(it) && '/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
         for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
             Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {
             add("corner/${part.name}/$delta", symbol,
@@ -133,14 +137,14 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     for (color in CounterColor.entries) {
         fun adjust(delta: Int) = adjustment("${if (delta > 0) "Increase" else "Decrease"} ${color.name.lowercase()} counter", scope.cardActions(state) {
-            if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
+            if (shown(it) && ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
                 PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
         })
         entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", battlefield,
             color = counterOutline(color)) { actions.edit(ManualValue(ManualValueKind.COUNTER, color), state, viewer) },
-            RingCompound(ManualText.cardCounterText(card.counters[color]), adjust(-1), adjust(1), drag = { delta ->
+            RingCompound(ManualText.cardCounterText(card.counters[color]?.takeUnless { hidden }), adjust(-1), adjust(1), drag = { delta ->
                 if (battlefield) emit(scope.cardActions(state) {
-                    if (ManualText.add(it.counters[color] ?: "0", delta) != null)
+                    if (shown(it) && ManualText.add(it.counters[color] ?: "0", delta) != null)
                         PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
                 })
             }, dragValue = card.counters[color]?.takeIf { it.isNotEmpty() } ?: "0"), counterColor(color))
@@ -170,6 +174,8 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
     val card = state.board.cards.singleOrNull { it.id == cardId } ?: return
     val faces = ManualDisclosure.permittedFaces(state, card, viewer, inspecting = false)
     val face = faces.singleOrNull()
+    val values = !cardValuesHidden(state.board, card, viewer)
+    val faceDown = publicFaceDown(state.board, card)
     val appearance = rememberCardAppearance()
     val size = appearance.size(CardArea.PANELS)
     val titleScale = size * appearance.text(CardTextScalePart.TITLE)
@@ -192,20 +198,21 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
                 else MenuIcon("Declare blockers", Modifier.align(Alignment.Center), tint = owner.copy(alpha = .65f))
             } else MenuIcon("Turn face down", Modifier.align(Alignment.Center))
         }
-        if (face != null && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
+        if (values && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
             fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale, overflow = TextOverflow.Clip)
-        if (face != null && card.eotNote.isNotEmpty()) Text("⌛ ${card.eotNote}", maxLines = 1,
+        if (values && card.eotNote.isNotEmpty()) Text("⌛ ${card.eotNote}", maxLines = 1,
             color = Color(EotPowerToughnessColor), fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale)
-        Row { for ((color, value) in card.counters.filterValues(TablePresentation::nonzero)) Text(value, Modifier.background(counterColor(color)),
+        if (values) Row { for ((color, value) in card.counters.filterValues(TablePresentation::nonzero)) Text(value, Modifier.background(counterColor(color)),
             maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
         Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-        if (face != null && TablePresentation.nonzero(card.damage)) Text(card.damage, Modifier
+        if (values && TablePresentation.nonzero(card.damage)) Text(card.damage, Modifier
             .background(if (damageIsLethal(card.damage, effectiveCorner(card))) Color(0xffb3261e) else Color.White, CircleShape)
             .border(1.dp, Color(0xffb3261e), CircleShape).padding(horizontal = 3.dp),
             color = if (damageIsLethal(card.damage, effectiveCorner(card))) Color.White else Color(0xffb3261e), fontSize = 9.sp * valueScale)
-        Text("${if (count > 1) "×$count " else ""}${if (card.eotCorner.isNotEmpty()) "⌛" else ""}${effectiveCorner(card)}", maxLines = 1,
-            color = if (card.eotCorner.isNotEmpty()) Color(EotPowerToughnessColor)
-                else if (changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor) else LocalContentColor.current,
+        Text("${if (count > 1) "×$count " else ""}${if (values && card.eotCorner.isNotEmpty()) "⌛" else ""}${if (values) effectiveCorner(card) else ""}", maxLines = 1,
+            color = if (values && card.eotCorner.isNotEmpty()) Color(EotPowerToughnessColor)
+                else if (if (faceDown) changedFaceDownPowerToughness(card.corner) else changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor)
+                else LocalContentColor.current,
             fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)
         }
     }

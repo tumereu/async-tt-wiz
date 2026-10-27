@@ -97,6 +97,22 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     }
 }
 
+/** A player's Temp pile: hidden like a Library, resolved back into the Library in one step. */
+@Composable
+internal fun TempPileActions(controller: LibraryController, board: BoardState, onShow: (ContentsSelection, Int, Boolean) -> Unit,
+    toLibrary: (Boolean) -> Unit, onComplete: () -> Unit) {
+    val size = board.containers.singleOrNull { it.id == controller.libraryId }?.cards?.size ?: 0
+    val enabled = controller.available() && size > 0
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        InlinePopupCell(MenuControl("Shuffle", enabled) {
+            if (controller.shuffle().let { it.refused == 0 && it.submitted > 0 }) onComplete()
+        })
+        InlinePopupCell(MenuControl("Look", enabled && board.contentsDisplays.isEmpty()) { onShow(ContentsSelection.TOP, size, false) })
+        InlinePopupCell(MenuControl("All to library top", enabled) { toLibrary(false) }, label = "All top")
+        InlinePopupCell(MenuControl("All to library bottom", enabled) { toLibrary(true) }, label = "All bottom")
+    }
+}
+
 internal fun selectedLibraryQuantity(text: String) = TextFieldValue(text, TextRange(0, text.length))
 internal fun stepLibraryQuantity(text: String, delta: Int): Int =
     stepValueInput(text, delta)
@@ -112,7 +128,7 @@ internal fun libraryDestinations(board: BoardState, names: Map<String, String> =
     sourceIds: List<String> = emptyList(), sourceContainerId: String? = null): List<Pair<String, MoveDestination>> {
     val owner = sourceIds.firstOrNull()?.let { CombatStackRules.liveSource(board, it)?.owner }
         ?: board.containers.singleOrNull { it.id == sourceContainerId }?.accountId ?: return emptyList()
-    return board.containers.filter { it.accountId == owner || it.zone == PlayZone.STACK }.flatMap { container ->
+    return board.containers.filter { (it.accountId == owner || it.zone == PlayZone.STACK) && !it.temp }.flatMap { container ->
         val label = moveZoneLabel(container.zone)
         when (container.zone) {
             PlayZone.LIBRARY -> listOf("Library top" to MoveDestination(container.id, MoveInsertion.TOP),

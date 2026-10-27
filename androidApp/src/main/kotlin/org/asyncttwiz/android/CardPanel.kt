@@ -154,6 +154,13 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
                 Icon(if (display.search && panel.localZone == null && !display.reveal) Icons.Outlined.Search else menuIcon(panel.title),
                     null, Modifier.size(14.dp))
                 Text(display.cardIds.size.toString(), Modifier.weight(1f), fontSize = 10.sp, maxLines = 1)
+                if (display.author == viewer && toolkit != null && display.cardIds.size > 1) {
+                    val all = toolkit.selectionState.value.ids.containsAll(display.cardIds)
+                    IconButton({ toolkit.selectAll(display.cardIds, !all) }, modifier = Modifier.width(20.dp).height(24.dp)) {
+                        Icon(menuIcon("Select all"), "${if (all) "Deselect" else "Select"} all in ${panel.title} panel", Modifier.size(14.dp),
+                            tint = if (all) LocalContentColor.current else LocalContentColor.current.copy(alpha = .6f))
+                    }
+                }
                 if (display.author == viewer) IconButton({
                     if (panel.localZone != null) toolkit?.closeLocalPile() else toolkit?.closeCardPanel(display)
                 }, enabled = toolkit != null && (panel.localZone != null || writable), modifier = Modifier.width(panel.closeBounds.width.dp).height(24.dp)) {

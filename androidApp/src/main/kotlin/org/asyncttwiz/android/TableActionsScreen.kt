@@ -94,10 +94,12 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
     sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false): List<MenuControl> = buildList {
     val context = CombatStackRules.liveSource(play.board, scope.contextId) ?: return@buildList
     val owner = context.owner
-    val currentZone = play.board.containers.single { it.id == context.containerId }.zone
+    val current = play.board.containers.single { it.id == context.containerId }
+    // A Temp pile is LIBRARY-zoned, but every ordinary zone is a real destination from it.
+    val currentZone = current.zone.takeUnless { current.temp }
     for (zone in listOf(PlayZone.HAND, PlayZone.BATTLEFIELD, PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
         if (context.token && zone in setOf(PlayZone.HAND, PlayZone.LIBRARY)) continue
-        val target = play.board.containers.single { it.accountId == owner && it.zone == zone }
+        val target = play.board.zoneContainer(owner, zone) ?: continue
         val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
         for (bottom in choices) {
             val label = moveZoneLabel(zone, bottom)
@@ -112,9 +114,9 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
     }
     if (!context.token) add(MenuControl("Shuffle into library", enabled && currentZone != PlayZone.LIBRARY) {
         val invocation = java.util.UUID.randomUUID().toString()
-        val library = play.board.containers.single { it.accountId == owner && it.zone == PlayZone.LIBRARY }
+        val library = play.board.zoneContainer(owner, PlayZone.LIBRARY) ?: return@MenuControl
         val libraries = scope.cardIds.mapNotNull { id -> CombatStackRules.liveSource(play.board, id)?.owner }
-            .distinct().map { account -> play.board.containers.single { it.accountId == account && it.zone == PlayZone.LIBRARY } }
+            .distinct().mapNotNull { account -> play.board.zoneContainer(account, PlayZone.LIBRARY) }
         val intents = listOf(TableIntent.Move(scope, TableDestination.Container(library.id, PlayZone.LIBRARY), sources, invocation)) +
             libraries.map { target -> TableIntent.Submit(PlayAction.ShuffleLibrary(target.id,
                 RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })), invocation) }

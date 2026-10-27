@@ -51,7 +51,20 @@ class TurnMarksPresentationTest {
         val covered = state.copy(board = state.board.copy(cards = state.board.cards.map {
             if (it.id == source.id) it.copy(covered = true, explicitlyCovered = true) else it
         }))
-        val hidden = TablePresentation.scene(f.game, covered, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
+        // Rules v23: a face-down Battlefield card's marks are public; only its face is covered.
+        val faceDown = TablePresentation.scene(f.game, covered, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
+        assertTrue(faceDown.covered)
+        assertEquals("2", faceDown.damage); assertEquals("+2/+2", faceDown.eotCorner); assertEquals("can't block", faceDown.eotNote)
+        // A card whose face is truly hidden (here: in the opponent's Hand) still leaks no marks.
+        val stack = covered.board.containers.single { it.zone == PlayZone.HAND && it.accountId != f.a }
+        val onStack = covered.copy(board = covered.board.copy(cards = covered.board.cards.map {
+            if (it.id == source.id) it.copy(containerId = stack.id, placement = null) else it },
+            containers = covered.board.containers.map { when {
+                it.id == stack.id -> it.copy(cards = it.cards + source.id)
+                source.id in it.cards -> it.copy(cards = it.cards - source.id)
+                else -> it } }))
+        assertTrue(cardValuesHidden(onStack.board, onStack.board.cards.single { it.id == source.id }, f.a))
+        val hidden = TablePresentation.scene(f.game, onStack, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertEquals("", hidden.damage); assertEquals("", hidden.eotCorner); assertEquals("", hidden.eotNote)
     }
 }

@@ -172,7 +172,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
         val group = invocationId ?: UUID.randomUUID().toString()
         val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play,
-            action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination))) else listOf(action)
+            action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination, play.id))) else listOf(action)
         if (!enqueue(actions.first(), group)) return false
         actions.drop(1).forEach { if (enabled()) enqueue(it, group) }
         // This is ordinary provisional disclosure, NOT an accepted result inferred from Boolean receipt.
@@ -234,6 +234,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (container.zone == PlayZone.STACK) { stackContents(); return }
         dismiss(); showStackBubbles(null)
         layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { it == layoutState.value.localPileId })
+    }
+    /** Personal selection only: a whole card panel joins (or leaves) the current selection. */
+    fun selectAll(ids: List<String>, selected: Boolean) {
+        val current = selectionState.value
+        selectionState.value = current.copy(ids = if (selected) current.ids + ids else current.ids - ids.toSet())
     }
     fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null); dismiss() }
     fun publicContents(): PileContents? {
@@ -314,7 +319,27 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         dismiss()
         val controller = libraryController(source.id, hand.id) ?: return
         library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
-        panel = if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
+        panel = if (source.temp) "temp" else if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
+    }
+    /** The captured cards into each owner's Temp pile (created by the first move) as ONE invocation. */
+    fun toTemp(sourceIds: List<String>): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val cards = sourceIds.distinct().mapNotNull { id -> play.board.cards.singleOrNull { it.id == id } }
+            .filter { card -> !card.token && play.board.containers.none { it.id == card.containerId && it.temp } }
+        if (cards.isEmpty()) return false
+        val actions = cards.groupBy { it.owner }.flatMap { (owner, members) ->
+            val board = TempPiles.ensure(play.board, play.id, owner)
+            org.asyncttwiz.protocol.LibraryActions.moveCaptured(board, members.map { it.id },
+                MoveDestination(TempPiles.container(board, owner)!!.id, MoveInsertion.TOP))
+        }
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** The whole Temp pile, in its current order, onto its owners' Library top or bottom as ONE invocation. */
+    fun tempToLibrary(tempId: String, bottom: Boolean): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val actions = TempPiles.allToLibrary(play.board, tempId, bottom)
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
     }
     /** Shared panels render directly from the board, including after reconnect and during review. */
     fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {
@@ -602,7 +627,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             val play = current() ?: return
             val owner = CombatStackRules.liveSource(play.board, intent.target.id)?.owner ?: return
             val zone = if (intent.target.kind == StackTargetKind.PERMANENT) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD
-            stackChoices = play.board.containers.filter { it.zone == zone && it.accountId == owner }.map { container ->
+            stackChoices = listOfNotNull(play.board.zoneContainer(owner, zone)).map { container ->
                 val occupied = play.board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position }.toSet()
                 val destination = if (zone == PlayZone.BATTLEFIELD) MoveDestination(container.id, MoveInsertion.EMPTY,
                     BoardPosition(generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }, 0))

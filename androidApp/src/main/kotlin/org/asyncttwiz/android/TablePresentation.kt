@@ -125,7 +125,9 @@ data class TableItem(
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
     val damage: String = "", val eotCorner: String = "", val eotNote: String = "",
-    val touchBounds: TableBounds? = null
+    val touchBounds: TableBounds? = null,
+    /** A player's Temp pile: a LIBRARY-zone pile that is never that player's Library. */
+    val temp: Boolean = false
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -151,7 +153,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     internal val cardPanels: List<CardPanelGeometry> = emptyList(),
     val appearance: CardAppearance = CardAppearance(),
     val combatLabels: List<CombatLaneLabel> = emptyList(),
-    val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList()) {
+    val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
+    /** Owner -> deterministic Temp pile ID, including piles not created yet (drag owner redirects). */
+    val tempPiles: Map<String, String> = emptyMap()) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
@@ -234,7 +238,7 @@ object TablePresentation {
         val byId = play.board.cards.associateBy { it.id }
         val definitions = play.definitions.associate { it.digest to it.definition }
         fun name(id: String?) = if (game.inviter.accountId == id) game.inviter.username else game.recipient.username
-        fun container(player: String?, zone: PlayZone) = play.board.containers.single { it.accountId == player && it.zone == zone }
+        fun container(player: String?, zone: PlayZone) = play.board.containers.single { it.accountId == player && it.zone == zone && !it.temp }
         fun face(card: PlayCard?) = card?.let { definitions[it.definition]?.faces?.firstOrNull { f -> f.faceId == it.faceId } }
         fun art(card: PlayCard?, hidden: Boolean): ArtworkReference? {
             val f = face(card) ?: return null
@@ -323,22 +327,25 @@ object TablePresentation {
             val hidden = if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
+            // A face-down Battlefield card hides its face, but its values are public (rules v23).
+            val faceDown = hidden && publicFaceDown(play.board, card)
+            val values = !hidden || faceDown
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else effectiveCorner(card),
-                damage = if (hidden) "" else card.damage, eotCorner = if (hidden) "" else card.eotCorner,
-                eotNote = if (hidden) "" else card.eotNote,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else effectiveCorner(card),
+                damage = if (!values) "" else card.damage, eotCorner = if (!values) "" else card.eotCorner,
+                eotNote = if (!values) "" else card.eotNote,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
-                token = card.token, note = if (hidden) "" else if (projection)
+                token = card.token, note = if (!values) "" else if (projection)
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
-                counters = if (hidden) emptyMap() else card.counters.filterValues(::nonzero),
+                counters = if (!values) emptyMap() else card.counters.filterValues(::nonzero),
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
-                    changedPowerToughness = !hidden && changedPowerToughness(card.corner, f),
+                    changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty()).also { if (draw) items += it }
         }
         for ((index, player) in players.withIndex()) {
@@ -381,26 +388,41 @@ object TablePresentation {
             val rowY = if (landscape) boardTop + (if (index == 0) counterHeight else sidebarContent - sidebarRow) - sidebarScroll
                 else if (index == 0) HEADER else ownDockY
             val gridWidth = minOf(132f, width * .34f)
-            val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - gridWidth, dockRow)
             val spacing = if (landscape) landscapePileSpacing(pileWidth) else pileWidth + 12f
-            val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth)
-                else PILE_START + 2 * spacing + pileWidth + 8f)
+            // The Temp pile appears only while it holds cards. Portrait puts it after Exile and lets the
+            // counter grid give up width (then scroll); landscape puts it beside Exile in the counter row.
+            val temp = TempPiles.container(play.board, player.accountId)?.takeIf { it.cards.isNotEmpty() }
+            val portraitDock = PILE_START + (if (temp != null) 3 else 2) * spacing + pileWidth + 8f
+            val dockWidth = if (landscape) sidebar else if (temp == null) width - gridWidth
+                else maxOf(width - gridWidth, minOf(portraitDock, width))
+            val dock = TableBounds(0f, rowY, dockWidth, dockRow)
+            val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth) else portraitDock)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
-            for ((n, zone) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).withIndex()) {
-                val c = container(player.accountId, zone)
+            val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
+            val landscapeTempHeight = minOf(pileHeight, counterHeight - 4f)
+            val landscapeTempWidth = pileWidth * landscapeTempHeight / pileHeight
+            val landscapeCounters = if (temp != null) PILE_START + 2 * spacing - 4f else sidebar
+            val tempPort = if (landscape && temp != null) port("temp/${player.accountId}",
+                TableBounds(landscapeCounters, counterRowY, (sidebar - landscapeCounters).coerceAtLeast(0f), counterHeight), 0f) else dp
+            for ((n, c) in (listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) } +
+                    listOfNotNull(temp)).withIndex()) {
+                val zone = c.zone
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
-                items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
-                    top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
+                val b = if (c.temp && landscape) TableBounds(PILE_START + 2 * spacing + (pileWidth - landscapeTempWidth) / 2,
+                    counterRowY + (counterHeight - landscapeTempHeight) / 2, landscapeTempWidth, landscapeTempHeight)
+                    else TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
+                val title = if (c.temp) "temp" else zone.name.lowercase()
+                items += TableItem(c.id, b, "${name(player.accountId)} $title, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
+                    top?.owner ?: player.accountId, zone, c.cards, viewport = if (c.temp) tempPort.id else dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
                     touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
                         b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null,
                     token = top?.token == true,
                     keepTopRevealed = c.keepTopRevealed,
-                    drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
+                    drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY && !c.temp }, temp = c.temp,
                     note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
                     counters = if (hidden) emptyMap() else top?.counters.orEmpty().filterValues(::nonzero),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
@@ -408,15 +430,16 @@ object TablePresentation {
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
             run {
+                // A visible Temp pile takes the counters' room; the counters keep their size and scroll.
                 val cp = if (landscape) port("counters/${player.accountId}", TableBounds(0f,
-                    if (ownSide) rowY + dockRow else rowY - counterHeight, dock.width, counterHeight),
+                    counterRowY, landscapeCounters, counterHeight),
                     max(dock.width, 288f)) else port("counters/${player.accountId}",
-                    TableBounds(dock.right, rowY, gridWidth, dockRow), gridWidth)
+                    TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow), gridWidth)
                 for ((n, color) in CounterColor.entries.withIndex()) {
                     val v = player.counters[color].orEmpty().takeIf(::nonzero).orEmpty()
                     if (landscape && v.isEmpty()) continue
                     val b = if (landscape) TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
-                        else TableBounds(cp.bounds.x + n % 3 * gridWidth / 3, rowY + n / 3 * dockRow / 2, gridWidth / 3, dockRow / 2)
+                        else TableBounds(cp.bounds.x + n % 3 * gridWidth / 3 - cp.scroll, rowY + n / 3 * dockRow / 2, gridWidth / 3, dockRow / 2)
                     items += TableItem("counter/${player.accountId}/$color", b, "${name(player.accountId)}, ${color.name.lowercase()}, ${v.ifEmpty { "no value" }}",
                         v, player.accountId, kind = TableItemKind.COUNTER, viewport = cp.id, counter = color,
                         valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
@@ -486,7 +509,7 @@ object TablePresentation {
             artwork = play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
         val clippedPorts = if (landscape) ports.map { p ->
-            if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id == stack.id)
+            if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id.startsWith("temp/") || p.id == stack.id)
                 p.copy(bounds = p.bounds.intersection(sidebarBounds) ?: p.bounds.copy(height = 0f)) else p
         } + TableViewport("sidebar", sidebarBounds, sidebar, 0f, contentHeight = sidebarContent, scrollY = sidebarScroll) else ports
         val realSources = play.board.cards.associate { c -> c.id to TableMoveSource(c.containerId, positions[c.id],
@@ -496,6 +519,7 @@ object TablePresentation {
         return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
             combatLabels = labels, combatLaneDividers = laneDividers,
+            tempPiles = TempPiles.containerIds(play),
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, panels), width, height)
     }

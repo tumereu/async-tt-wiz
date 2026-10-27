@@ -839,6 +839,13 @@ card. It operates on multiple cards only after ordinary explicit selection.
 
 ## 10.6 Special piles: library, graveyard, exile
 
+**Temp pile (r19).** A player's Temp pile appears after Exile only while it holds
+cards (portrait dock; in landscape beside Exile in the sidebar counter row). The
+counters give way (narrower, scrollable) so Library/Graveyard/Exile never move.
+Card menu More page: "Temp pile" (single card or selection, one batch). Tapping the
+pile: Shuffle, Look, All to library top, All to library bottom. Card panels
+(Look/Reveal/Search/local Graveyard/Exile) have a header "Select all" toggle.
+
 **Current panel/Library contract — playtests r8–r11.** The older D-41–D-51
 inventory, trays, dismissal and category-column UI below are superseded in full
 by this section's current contract. Unordered Graveyard/Exile membership and

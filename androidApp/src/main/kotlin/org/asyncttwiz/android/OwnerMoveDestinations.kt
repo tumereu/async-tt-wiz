@@ -14,12 +14,15 @@ internal fun moveZoneLabel(zone: PlayZone, bottom: Boolean = false): String = wh
 }
 
 /** Client input policy only; historical moves remain valid in the shared processor. */
-internal fun ownerMoveDestination(board: BoardState, id: String, destination: TableDestination): TableDestination {
+internal fun ownerMoveDestination(board: BoardState, id: String, destination: TableDestination, playId: String? = null): TableDestination {
     val owner = CombatStackRules.liveSource(board, id)?.owner ?: return destination
     return when (destination) {
         is TableDestination.Container -> if (destination.zone in ownerOnlyZones) {
-            val target = board.containers.singleOrNull { it.zone == destination.zone && it.accountId == owner } ?: return destination
-            if (target.id == destination.id) destination else destination.copy(id = target.id, handGap = null)
+            // A Temp pile redirects to the owner's Temp pile, which may not have been created yet.
+            val temp = board.containers.any { it.id == destination.id && it.temp }
+            val target = if (temp) TempPiles.container(board, owner)?.id ?: playId?.takeIf(DeckValidation::uuid)?.let { TempPiles.containerId(it, owner) } ?: return destination
+                else board.zoneContainer(owner, destination.zone)?.id ?: return destination
+            if (target == destination.id) destination else destination.copy(id = target, handGap = null)
         } else destination
         is TableDestination.Grid -> if (destination.ownerOnly) {
             val target = board.containers.singleOrNull { it.zone == PlayZone.BATTLEFIELD && it.accountId == owner } ?: return destination
@@ -32,10 +35,10 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Ta
     }
 }
 
-internal fun ownerMoveDestination(board: BoardState, id: String, destination: MoveDestination): MoveDestination {
+internal fun ownerMoveDestination(board: BoardState, id: String, destination: MoveDestination, playId: String? = null): MoveDestination {
     val zone = board.containers.singleOrNull { it.id == destination.containerId }?.zone ?: return destination
     if (zone !in ownerOnlyZones) return destination
-    val redirected = ownerMoveDestination(board, id, TableDestination.Container(destination.containerId, zone)) as TableDestination.Container
+    val redirected = ownerMoveDestination(board, id, TableDestination.Container(destination.containerId, zone), playId) as TableDestination.Container
     return if (redirected.id == destination.containerId) destination else MoveDestination(redirected.id,
         if (zone == PlayZone.LIBRARY) {
             if (destination.insertion == MoveInsertion.BOTTOM) MoveInsertion.BOTTOM else MoveInsertion.TOP
@@ -46,7 +49,11 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Mo
 internal fun TableScene.ownerMoveDestination(id: String, destination: TableDestination): TableDestination {
     if (destination !is TableDestination.Container || destination.zone !in ownerOnlyZones) return destination
     val owner = cardOwners[id] ?: items.firstOrNull { it.cardId == id }?.owner ?: return destination
-    val target = items.firstOrNull { it.zone == destination.zone && it.owner == owner &&
+    if (destination.id in tempPiles.values) {
+        val target = tempPiles[owner] ?: return destination
+        return if (target == destination.id) destination else destination.copy(id = target, handGap = null)
+    }
+    val target = items.firstOrNull { it.zone == destination.zone && it.owner == owner && !it.temp &&
         it.kind in listOf(TableItemKind.HAND, TableItemKind.PILE) } ?: return destination
     return if (target.id == destination.id) destination else destination.copy(id = target.id, handGap = null)
 }

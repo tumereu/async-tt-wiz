@@ -39,7 +39,9 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun text(description: String, label: String) = HistoryText(historyPlainText(description), label)
     fun playerPrefix(id: String) = if (id == event.author) "" else "${historyPlayerName(id, usernames)}'s "
     fun container(id: String) = before?.board?.containers?.find { it.id == id }
-    fun zone(id: String) = container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
+    // A Temp pile may be created by this very event, so it is recognized by its deterministic ID too.
+    fun temp(id: String) = container(id)?.temp ?: before?.let { id in TempPiles.containerIds(it).values } ?: false
+    fun zone(id: String) = if (temp(id)) "Temp" else container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
         return card.knownToAll || before?.board?.contentsDisplays?.any {
@@ -122,7 +124,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.RollDie -> text("d${historyPlainText(action.sides)} → ${action.value}", "Roll d${historyPlainText(action.sides)}")
         is PlayAction.FlipCoin -> text(action.value.name.lowercase().replaceFirstChar { it.uppercase() }, "Flip coin")
         is PlayAction.MoveCard -> {
-            if (container(action.source.containerId)?.zone == PlayZone.LIBRARY &&
+            if (container(action.source.containerId)?.zone == PlayZone.LIBRARY && !temp(action.source.containerId) &&
                 container(action.destination.containerId)?.zone == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
                 text("Drew $count", if (count > 1) "Draw ×$count" else "Draw")
             else if (action.source.containerId == action.destination.containerId && container(action.source.containerId)?.zone == PlayZone.HAND)
@@ -130,7 +132,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             else {
                 val destination = zone(action.destination.containerId)
                 val insertion = action.destination.libraryInsertion ?: action.destination.insertion
-                val edge = if (container(action.destination.containerId)?.zone == PlayZone.LIBRARY) when (insertion) {
+                val edge = if (container(action.destination.containerId)?.zone == PlayZone.LIBRARY && !temp(action.destination.containerId)) when (insertion) {
                     MoveInsertion.TOP -> " top"
                     MoveInsertion.BOTTOM -> " bottom"
                     else -> ""
@@ -138,7 +140,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 text("${card(action.cardId)} → $destination$edge", "Move")
             }
         }
-        is PlayAction.ShuffleLibrary -> text("Library shuffled", "Shuffle")
+        is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) "Temp" else "Library"} shuffled", "Shuffle")
         is PlayAction.SetKeepTopRevealed -> text("Library top reveal → ${if (action.enabled) "on" else "off"}", "Top reveal ${if (action.enabled) "on" else "off"}")
         is PlayAction.Mulligan -> text("Mulligan to ${action.drawCount}", "Mulligan")
         is PlayAction.RevealHand -> text("Hand revealed → ${action.cardIds.size} cards", "Reveal hand")

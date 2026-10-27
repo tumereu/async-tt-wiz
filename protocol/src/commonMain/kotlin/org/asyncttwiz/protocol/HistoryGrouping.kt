@@ -121,16 +121,20 @@ object HistoryGrouping {
             is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
         }
         is PlayAction.MoveCard -> {
-            val from = containers.single { it.id == action.source.containerId }.zone
-            val to = containers.single { it.id == action.destination.containerId }.zone
+            val fromContainer = containers.single { it.id == action.source.containerId }
+            val toContainer = containers.single { it.id == action.destination.containerId }
+            val from = fromContainer.zone
+            val to = toContainer.zone
+            // A Temp pile shares the LIBRARY zone, but moving into or out of it is a cross-zone move.
+            val sameZone = from == to && fromContainer.temp == toContainer.temp
             when {
                 action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
                 from == PlayZone.STACK && to == PlayZone.STACK ->
                     HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
                 from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers")
                 to == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
-                else -> HistorySemantic(if (from == to) HistorySignificance.SAME_ZONE_PLACEMENT else HistorySignificance.CROSS_ZONE_MOVE,
-                    if (from == PlayZone.LIBRARY && to == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
+                else -> HistorySemantic(if (sameZone) HistorySignificance.SAME_ZONE_PLACEMENT else HistorySignificance.CROSS_ZONE_MOVE,
+                    if (from == PlayZone.LIBRARY && !fromContainer.temp && to == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
                         "download" else "open_with", "${action.source.containerId}/${action.destination.containerId}")
             }
         }

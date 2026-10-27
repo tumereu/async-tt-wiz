@@ -17,7 +17,7 @@ internal object CardRingPages {
         }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "eotNote",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
-            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "empty/More")))
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile")))
 
     val hand = listOf(
         CardRingPage("Hand", listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),

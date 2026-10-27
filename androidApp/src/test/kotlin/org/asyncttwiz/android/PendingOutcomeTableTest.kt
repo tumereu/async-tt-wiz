@@ -89,7 +89,7 @@ class PendingOutcomeTableTest {
             compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
             val action = f.commands().single().action
             if (opponent) assertIs<PlayAction.DeclineResult>(assertIs<GameAction.Play>(action).action)
-            else assertEquals(GameAction.Undo, action)
+            else assertIs<PlayAction.WithdrawResult>(assertIs<GameAction.Play>(action).action)
         } finally { f.lobby.close(); f.worker.drain() }
     }
 

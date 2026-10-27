@@ -166,6 +166,42 @@ class GameResultLifecycleTest {
         }
     }
 
+    @Test fun `suggester withdraws restored decline after life edit as an ordinary undoable event`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.DRAW)).outcome)
+                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                val withdrawal = GameAction.Play(PlayAction.WithdrawResult(suggestion.id))
+                assertEquals("accessDenied", f.other.execute(withdrawal).reason)
+                assertEquals("inapplicable", f.owner.execute(GameAction.Play(PlayAction.WithdrawResult(id()))).reason)
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.DeclineResult(suggestion.id))).outcome)
+                assertEquals("inapplicable", f.owner.execute(withdrawal).reason)
+                assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.AdjustLife(f.a.account.accountId, "-1"))).outcome)
+                val scope = GameScope(f.game.id, playId = f.initial.id)
+                assertEquals("accepted", f.other.execute(f.other.command(GameAction.Undo, scope)).outcome)
+                val restored = f.games.head(f.a, f.game.id).play!!
+                assertEquals(suggestion, restored.board.resultSuggestion)
+                assertEquals("19", restored.board.players.single { it.accountId == f.a.account.accountId }.life)
+                val command = f.owner.command(withdrawal)
+                val result = f.owner.execute(command)
+                assertEquals("accepted", result.outcome)
+                assertEquals(result, f.owner.admit(command))
+                val head = f.games.head(f.a, f.game.id)
+                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
+                assertEquals(restored.board.copy(resultSuggestion = null), head.play!!.board)
+                assertEquals(HistoryCategory.S.key, head.play!!.currentGroup!!.category)
+                assertEquals(head, f.games.head(f.b, f.game.id))
+                assertEquals(1, count(db, "SELECT count(*) FROM gameplay_mutation WHERE request_id='${command.requestId}'"))
+                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Undo, scope)).outcome)
+                assertEquals(restored.board, f.games.head(f.a, f.game.id).play!!.board)
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Redo, scope)).outcome)
+                assertEquals(head.play!!.board, f.games.head(f.a, f.game.id).play!!.board)
+            }
+        }
+    }
+
     @Test fun `failed return rolls back atomically and admitted acceptance recovers after restart without duplicate effect`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

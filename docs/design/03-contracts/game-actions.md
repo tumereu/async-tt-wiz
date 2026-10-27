@@ -111,11 +111,12 @@ Round 18: a pending live suggestion locks gameplay on both clients, including du
 history review; chat and personal history navigation (including the timeline toggle)
 remain available. A compact on-table outcome panel follows the displayed board,
 including catch-up and timeline scrubbing; it is not a modal or minimizing banner.
-Its buttons work only at the live endpoint. The author Withdraws through Undo;
-the opponent Accepts or Declines.
-Rules v22 adds an exact-ID, opponent-only DeclineResult event clearing the shared
-suggestion; this does not add a server-side gameplay freeze. Its recorded result
-tuple participates in ordinary replay/Undo. Older recorded events are unchanged.
+Its buttons work only at the live endpoint. The author Withdraws with an ordinary
+event, not Undo; the opponent Accepts or Declines.
+Rules v22 adds exact-ID DeclineResult (opponent-only) and WithdrawResult
+(suggester-only) events clearing the pending shared suggestion, even after other
+edits; this does not add a server-side gameplay freeze. Their recorded result
+tuples participate in ordinary replay/Undo. Older recorded events are unchanged.
 
 Card-menu defaults: Everyday omits EOT note; Counters places Note, EOT note and
 Reset counters in column five beside three pairs of counter widgets. Reset counters

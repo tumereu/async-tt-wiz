@@ -352,7 +352,8 @@ internal object GameplayConcerns {
             is PlayAction.SetEotNote, is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,
             is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
             is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
-            is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult -> Unit
+            is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult,
+            is PlayAction.WithdrawResult -> Unit
         }
         if (mutation.transition.rulesVersion >= 14) {
             // Retained library edits must not lose their continuous-disclosure semantics when

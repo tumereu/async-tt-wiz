@@ -92,14 +92,14 @@ class ResultActionsTest {
                 assertFalse(f.session.gameplay(active, viewer, PlayAction.SetLife(viewer, "19")))
                 assertFalse(f.session.gameplayBatch(active, viewer, listOf(PlayAction.NextStep), id()))
                 assertFalse(f.session.historyControl(active, viewer, GameAction.Redo))
-                if (viewer == b.accountId) assertFalse(f.session.historyControl(active, viewer, GameAction.Undo))
+                assertFalse(f.session.historyControl(active, viewer, GameAction.Undo))
                 assertTrue(f.commands().isEmpty())
                 val target = ResultAcceptanceTarget(target, proposed.board.resultSuggestion!!.id)
                 assertTrue(f.session.rejectResult(active, viewer, target), "Reject result for $viewer: ${f.session.error}")
                 assertNull(f.session.play(active)!!.board.resultSuggestion)
                 val action = f.commands().single().action
                 if (viewer == a.accountId) {
-                    assertEquals(GameAction.Undo, action)
+                    assertEquals(GameAction.Play(PlayAction.WithdrawResult(target.suggestionId)), action)
                     assertFalse(f.session.rejectResult(active, viewer, target))
                     assertEquals(1, f.commands().size)
                 } else assertEquals(GameAction.Play(PlayAction.DeclineResult(target.suggestionId)), action)
@@ -107,6 +107,52 @@ class ResultActionsTest {
                 assertFalse(f.session.gameplay(active, viewer, PlayAction.NextStep))
             }
         }
+    }
+
+    @Test fun authorWithdrawsRestoredSuggestionAfterLifeEditAndRejectionRestoresOnlySuggestion() = Fixture().use { f ->
+        fun command(action: GameAction) = GameCommand(id(), GameScope(game.id, playId = initial.id), action, id(), "1")
+        var tree = GameplayTree(initial)
+        var revision = 1
+        fun publish(next: GameplayTree, command: GameCommand, actor: String) {
+            val state = next.stateAt(next.currentNodeId)!!
+            val previousRevision = revision++.toString()
+            f.message(GameRevision(game.id, previousRevision, revision.toString(), command.requestId, actor, command.scope,
+                active.copy(revision = revision.toString()), play = state,
+                mutation = next.nodes[state.currentNodeId]?.takeIf { it.requestId == command.requestId },
+                group = state.currentGroup, treeDelta = TreeSync.delta(tree, next)))
+            tree = next
+        }
+        fun advance(action: PlayAction, actor: String) {
+            val command = command(GameAction.Play(action))
+            publish(assertNotNull(tree.play(actor, command).tree), command, actor)
+        }
+        advance(PlayAction.SuggestResult(SuggestedResult.DRAW), a.accountId)
+        val suggestion = f.session.acceptedPlay(active)!!.board.resultSuggestion!!
+        advance(PlayAction.DeclineResult(suggestion.id), b.accountId)
+        advance(PlayAction.AdjustLife(a.accountId, "-1"), a.accountId)
+        val undo = command(GameAction.Undo)
+        publish(assertNotNull(SelectiveUndo.change(tree, b.accountId, undo).tree), undo, b.accountId)
+        val pending = f.session.acceptedPlay(active)!!
+        assertEquals(suggestion, pending.board.resultSuggestion)
+        assertEquals("19", pending.board.players[0].life)
+        val captured = ResultAcceptanceTarget(target, suggestion.id)
+        assertTrue(f.session.rejectResult(active, a.accountId, captured), f.session.error)
+        val withdrawal = f.commands().single()
+        assertEquals(GameAction.Play(PlayAction.WithdrawResult(suggestion.id)), withdrawal.action)
+        assertEquals(pending.board.copy(resultSuggestion = null), f.session.play(active)!!.board)
+        assertEquals(pending, f.session.acceptedPlay(active))
+        assertFalse(f.session.rejectResult(active, a.accountId, captured))
+        f.result(withdrawal, outcome = "rejected")
+        assertEquals(pending, f.session.play(active))
+        assertNotNull(f.session.error)
+        assertTrue(f.session.rejectResult(active, a.accountId, captured))
+        val retry = f.commands().last()
+        val next = assertNotNull(tree.play(a.accountId, retry).tree)
+        val event = next.nodes[next.currentNodeId]!!
+        assertEquals(HistoryText("Result withdrawn", "Withdraw result"), historyText(event, before = pending))
+        publish(next, retry, a.accountId)
+        assertNull(f.session.acceptedPlay(active)!!.board.resultSuggestion)
+        assertTrue(f.session.gameplay(active, a.accountId, PlayAction.NextStep))
     }
 
     @Test fun rejectionRemovesOnlySuggestionOverlayAndGraceWaitNeverRetargetsOldPlay() = Fixture().use { f ->

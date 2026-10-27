@@ -479,7 +479,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val replica = plays[game.id] ?: return refused("replicaMissing")
         if (ResultActions.blocksGameActions(current, replica.accepted, play(current)) &&
             (action as? GameAction.Play)?.action !is PlayAction.DeclineResult &&
-            !(action == GameAction.Undo && resultWithdrawalAllowed(current, actor))) return refused("pendingResult")
+            (action as? GameAction.Play)?.action !is PlayAction.WithdrawResult) return refused("pendingResult")
         // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
         // latest-head predictions allow rapid play/control sequences on the same original FIFO.
         if (action.isPlay && resultIntents.values.any { it.command.scope.gameId == game.id &&
@@ -519,26 +519,13 @@ class GameSession(private val connection: GameConnection, private val credential
         val command = resultCommand(target.play, GameAction.AcceptResult(target.suggestionId)) ?: return false
         return enqueueResult(command, actor)
     }
-    private fun resultWithdrawalAllowed(game: GameSummary, actor: String): Boolean {
-        val accepted = acceptedPlay(game) ?: return false
-        val suggestion = accepted.board.resultSuggestion?.takeIf { it.author == actor } ?: return false
-        if (play(game)?.board?.resultSuggestion?.id != suggestion.id) return false
-        val tree = retainedTree(game.id) ?: return false
-        var node = tree.nodes[accepted.currentNodeId]
-        repeat(51) {
-            val current = node ?: return false
-            if (current.author == actor) return current.transition.resultSuggestion?.to?.id == suggestion.id
-            node = tree.nodes[current.parentId]
-        }
-        return false
-    }
     fun rejectResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean {
         val current = summary(game)
         val accepted = acceptedPlay(current) ?: return false
         val suggestion = accepted.board.resultSuggestion ?: return false
         if (ResultActions.capture(current, accepted) != target.play || suggestion.id != target.suggestionId) return false
         return if (suggestion.author == actor) {
-            if (!resultWithdrawalAllowed(current, actor)) false else historyControl(current, actor, GameAction.Undo)
+            gameplay(current, actor, PlayAction.WithdrawResult(target.suggestionId))
         } else gameplay(current, actor, PlayAction.DeclineResult(target.suggestionId))
     }
     private fun resultCommand(target: ResultTarget, action: GameAction): GameCommand? {

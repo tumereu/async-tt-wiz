@@ -74,10 +74,11 @@ part of the exact Stack-effect delta/concerns (also retained by copies); removin
 the last revealing entry hides the Library source again. Pre-v21 events retain
 their original eligibility and disclosure behavior on replay.
 
-Rules v22 DeclineResult concerns the complete pending result suggestion's
-`(suggestion, null)` tuple, including its ID, author and outcome. Undoing the
-decline restores that exact suggestion; the decline blocks removing its proposal
-until the decline itself is undone. Counter reset batches retain each existing
+Rules v22 DeclineResult and WithdrawResult concern the complete pending result
+suggestion's `(suggestion, null)` tuple, including its ID, author and outcome.
+Withdraw is an ordinary suggester-only event, not Undo of the proposal. Undoing
+either resolution restores that exact suggestion; it blocks removing its proposal
+until the resolution itself is undone. Counter reset batches retain each existing
 per-color counter tuple and undo atomically, without concerning P/T.
 
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>

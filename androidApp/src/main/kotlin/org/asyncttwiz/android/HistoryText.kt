@@ -226,6 +226,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is StackAction.ReorderEffect -> text("${card(stack.occurrenceId)} effect reordered on Stack", "Reorder effect")
         }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
+        is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")
         is PlayAction.SuggestResult -> text(when (action.outcome) {
             SuggestedResult.WIN -> "Result suggested → Win"
             SuggestedResult.LOSS -> "Result suggested → Loss"

@@ -68,7 +68,9 @@ internal fun KeywordToggles(state: PlayState, scope: ManualScope, eot: Boolean, 
                         submitAll(CardKeywords.toggle(scope.keywordCards(state), keyword, eot))
                     }, Modifier.size(86.dp, 44.dp), if (selected) tint else color,
                         fill = if (selected) tint.copy(alpha = .22f) else Color.White) {
-                        Text(keyword, Modifier.padding(horizontal = 4.dp), fontSize = 12.sp, lineHeight = 13.sp,
+                        // One long word (Indestructible) must shrink rather than break mid-word.
+                        Text(keyword, Modifier.padding(horizontal = 4.dp), fontSize = if (' ' !in keyword && keyword.length > 12) 10.sp else 12.sp,
+                            lineHeight = 13.sp,
                             maxLines = 2, textAlign = TextAlign.Center,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = MenuInk.copy(alpha = if (enabled && on != null) 1f else .38f))

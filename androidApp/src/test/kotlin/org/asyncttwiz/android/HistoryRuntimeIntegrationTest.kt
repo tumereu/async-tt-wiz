@@ -728,14 +728,19 @@ class HistoryRuntimeIntegrationTest {
             assertFalse(x.session.reviewTarget(target.copy(playId = f.id(961)), { true }, received::add))
             assertFalse(x.session.reviewTarget(target.copy(gameId = f.id(962)), { true }, received::add))
             assertFalse(x.session.reviewTarget(target, { false }, received::add), "expired authorized route/access guard")
+            assertNull(x.cache.reviewCursor())
             val frames = x.wire.frames.size
             val entered = java.util.concurrent.CountDownLatch(1)
             val release = java.util.concurrent.CountDownLatch(1)
-            x.worker.execute { entered.countDown(); assertTrue(release.await(10, TimeUnit.SECONDS)) }
-            assertTrue(entered.await(10, TimeUnit.SECONDS))
-            var current = true
-            assertTrue(x.session.reviewTarget(target, { current }, received::add))
-            current = false; release.countDown(); x.drain()
+            // Reviews run independently of tree publication; block their executor before expiry.
+            x.reviewWorker.execute { entered.countDown(); assertTrue(release.await(10, TimeUnit.SECONDS)) }
+            try {
+                assertTrue(entered.await(10, TimeUnit.SECONDS))
+                var current = true
+                assertTrue(x.session.reviewTarget(target, { current }, received::add))
+                current = false
+            } finally { release.countDown() }
+            x.drain()
             assertTrue(received.isEmpty()); assertNull(x.cache.reviewCursor())
             assertTrue(x.session.reviewTarget(target.copy(boundaryNodeId = f.id(963)), { true }, received::add)); x.drain()
             assertNull(received.single().view.state); assertNull(received.single().view.cursor)

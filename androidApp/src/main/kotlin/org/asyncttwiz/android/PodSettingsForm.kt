@@ -16,12 +16,13 @@ import org.asyncttwiz.protocol.*
 
 internal enum class PodSetting(val label: String) {
     PACKS("Packs"), PACK_SIZE("Pack size"), KEEP("Keep"), BURN("Burn"), DISCARD("Discard"),
-    OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard");
+    OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard"), LIBRARIANS("Librarians");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
         DISCARD -> s.discardRemainingAt; OPEN_PACKS -> s.packsOpenAtOnce; GRIDS -> s.grids
         OPEN_GRIDS -> s.gridsOpenAtOnce; SIDEBOARD -> s.sideboardLimit
+        LIBRARIANS -> s.librarians
     }
     fun range(s: DraftSettings): IntRange = when (this) {
         PACKS -> s.packsOpenAtOnce..30
@@ -33,6 +34,7 @@ internal enum class PodSetting(val label: String) {
         GRIDS -> s.gridsOpenAtOnce..60
         OPEN_GRIDS -> 1..s.grids
         SIDEBOARD -> 0..Int.MAX_VALUE
+        LIBRARIANS -> 0..10
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -44,6 +46,7 @@ internal enum class PodSetting(val label: String) {
         GRIDS -> "Open grids: ${s.gridsOpenAtOnce}; maximum 60"
         OPEN_GRIDS -> "Grids: ${s.grids}"
         SIDEBOARD -> "Minimum 0"
+        LIBRARIANS -> "0–10"
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     fun apply(s: DraftSettings, value: Int?): DraftSettings = when (this) {
@@ -52,6 +55,7 @@ internal enum class PodSetting(val label: String) {
         DISCARD -> s.copy(discardRemainingAt = value!!); OPEN_PACKS -> s.copy(packsOpenAtOnce = value!!)
         GRIDS -> s.copy(grids = value!!); OPEN_GRIDS -> s.copy(gridsOpenAtOnce = value!!)
         SIDEBOARD -> s.copy(sideboardLimit = value)
+        LIBRARIANS -> s.copy(librarians = value!!)
     }
 }
 
@@ -59,7 +63,9 @@ internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = when (mo
     DraftMode.BOOSTER -> DraftSettings.booster()
     DraftMode.GLIMPSE -> DraftSettings.glimpse()
     DraftMode.GRID -> DraftSettings.grid()
-}.copy(sideboardLimit = current.sideboardLimit)
+}.copy(sideboardLimit = current.sideboardLimit,
+    librarians = if (mode == DraftMode.GRID) 0 else current.librarians,
+    librarianDefinition = if (mode == DraftMode.GRID) null else current.librarianDefinition)
 
 /** The same complete form is used before and after creation. */
 @Composable
@@ -89,7 +95,7 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
         else buildList {
             add(PodSetting.PACKS)
             if (source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE) add(PodSetting.PACK_SIZE)
-            addAll(listOf(PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS))
+            addAll(listOf(PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS))
         }
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -142,7 +148,6 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
                 Text(if (unlimited) "∞ ✓" else "∞")
             }
         }
-        Text(field.limit(settings), style = MaterialTheme.typography.bodySmall)
         ScreenButton({ save(if (unlimited) null else text.toInt()) }, enabled = unlimited || field.valid(text, settings)) { Text("Save") }
     }
 }

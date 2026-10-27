@@ -84,8 +84,8 @@ object QuickActions {
         }
         if (openingMulligan(play, context.viewer)) {
             val targets = context.viewer?.let { controller.targets(play, it) }
-            add("Mulligan N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
-            add("Mulligan −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
+            add("Mull N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
+            add("Mull −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
             if (!turnPlayer) return result
         }
         if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&

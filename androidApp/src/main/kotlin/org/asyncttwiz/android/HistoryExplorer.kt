@@ -59,6 +59,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
         }
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        TrackGameDialogInput()
         Surface(Modifier.fillMaxSize(), color = Color.White) {
             Column(Modifier.fillMaxSize().padding(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

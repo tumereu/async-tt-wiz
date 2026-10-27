@@ -103,4 +103,36 @@ class PodPickMarksTest {
         assertFalse(rules.canConfirm(empty.copy(keeps = listOf("1", "2"), burns = listOf("2", "3")), false))
         assertFalse(rules.canConfirm(empty.copy(keeps = listOf("1", "2"), burns = listOf("3", "unknown")), false))
     }
+
+    @Test fun librarianSlotsIncreaseOverflowLimitAndRefundKeepsLatestMarks() {
+        val available = listOf("l1", "l2", "l3")
+        var marks = empty.spendLibrarian(available, pack, settings).spendLibrarian(available, pack, settings)
+        val enlarged = PodPickRules(pack, settings, marks.librarians.size)
+        assertEquals(4, enlarged.requiredKeeps)
+        for (id in listOf("1", "2", "3", "4", "5")) marks = marks.toggle(id, PodPickMark.KEEP, enlarged)
+        assertEquals(listOf("2", "3", "4", "5"), marks.keeps)
+        assertEquals(listOf("l1", "l2"), marks.librarians)
+        marks = marks.refundLibrarian("l1", pack, settings)
+        assertEquals(listOf("3", "4", "5"), marks.keeps)
+        assertEquals(listOf("l2"), marks.librarians)
+        assertEquals(listOf("l2", "l1"), marks.spendLibrarian(available, pack, settings).librarians)
+        assertTrue(marks.forPack(pack.copy(id = "next")).librarians.isEmpty())
+    }
+
+    @Test fun librarianKeepsShrinkBurnsFirstAndCannotExceedPackOrOwnership() {
+        val small = pack.copy(cards = pack.cards.take(4))
+        val s = DraftSettings(keep = 1, burn = 2)
+        var marks = empty.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
+        assertEquals(2, PodPickRules(small, s, 1).requiredBurns)
+        marks = marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
+        val rules = PodPickRules(small, s, 2)
+        assertEquals(1, rules.requiredBurns)
+        for (id in listOf("1", "2", "3")) marks = marks.toggle(id, PodPickMark.KEEP, rules)
+        assertEquals(listOf("4"), rules.burnIds(marks))
+        assertTrue(rules.canConfirm(marks, false))
+        assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2"), small, s))
+        marks = marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
+        assertEquals(0, PodPickRules(small, s, 3).requiredBurns)
+        assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s))
+    }
 }

@@ -57,8 +57,8 @@ class TableChromeUiTest {
             if (visible) next.assertIsDisplayed() else {
                 next.assertDoesNotExist()
                 if (QuickActions.openingMulligan(play, who)) {
-                    compose.onNodeWithContentDescription("Mulligan N").assertIsDisplayed()
-                    compose.onNodeWithContentDescription("Mulligan −1").assertIsDisplayed()
+                    compose.onNodeWithContentDescription("Mull N").assertIsDisplayed()
+                    compose.onNodeWithContentDescription("Mull −1").assertIsDisplayed()
                     compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
                 } else compose.onNodeWithText("Opponent's turn").assertIsDisplayed()
                 compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()

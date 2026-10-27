@@ -11,11 +11,13 @@ internal object CardRingPages {
     val defaults = listOf(
         CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
-            "damage", "eotCorner", "eotNote")),
-        CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
-        CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "resetCorner",
-            "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1",
-            "eotCorner/LEFT/1", "eotCorner/RIGHT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/-1")))
+            "damage", "eotCorner")),
+        CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.chunked(2).flatMapIndexed { row, colors ->
+            colors.map { "counter/${it.name}" } + listOf("note", "eotNote", "resetCounters")[row]
+        }),
+        CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "eotNote",
+            "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "empty/More")))
 
     val hand = listOf(
         CardRingPage("Hand", listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
@@ -32,6 +34,7 @@ internal object CardRingPages {
                     else -> id
                 }
             })
+            2 -> page.copy(actions = page.actions.map { if (it in available || it.startsWith("empty/")) it else "empty/$it" })
             else -> page
         }
     }
@@ -53,18 +56,23 @@ internal object CardRingPages {
         if (inHand) return hand.map { page -> page.copy(actions = page.actions.filter { it in available }) }
         val requested = pages ?: defaultLayout(available, token)
         val remaining = available.toMutableSet()
-        val assigned = requested.map { page -> page.actions.filter { remaining.remove(it) || pages == null && it.startsWith("empty/") } }.toMutableList()
-        assigned[2] = assigned[2] + remaining
+        val assigned = requested.map { page -> page.actions.distinct().filter {
+            remaining.remove(it)
+            it in available || pages == null && it.startsWith("empty/")
+        } }.toMutableList()
+        // Saved layouts retain their original capacity; the new default More is exactly three rows.
+        if (pages != null) assigned[2] = assigned[2] + remaining
         val result = requested.map { it.copy(actions = emptyList()) }.toMutableList()
         val overflow = mutableListOf<String>()
         for ((index, actions) in assigned.withIndex()) for (action in actions) {
             if (fits(result[index].actions + action)) result[index] = result[index].copy(actions = result[index].actions + action)
             else overflow += action
         }
+        if (pages == null) overflow += remaining
         for (action in overflow) {
             // Overflow never fills unrelated Everyday/Counter cells or creates Move pages.
             var index = result.lastIndex
-            if (index < 2 || !fits(result[index].actions + action)) {
+            if (index < 2 || pages == null && index == 2 || !fits(result[index].actions + action)) {
                 result += CardRingPage("More ${result.size - 1}", emptyList())
                 index = result.lastIndex
             }

@@ -27,6 +27,7 @@ internal fun MulliganDialog(controller: LibraryController, handIds: List<String>
     var input by remember(controller) { mutableStateOf(selectedLibraryQuantity(quantity.read().toString())) }
     val count = input.text.toIntOrNull()?.takeIf { it >= 0 }
     Dialog(onDismissRequest = dismiss) {
+        TrackGameDialogInput()
         Surface(shape = MaterialTheme.shapes.medium) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -37,7 +38,6 @@ internal fun MulliganDialog(controller: LibraryController, handIds: List<String>
                         if (result.refused == 0 && result.submitted > 0) { quantity.write(count); complete() }
                     }
                 }, enabled = count != null && controller.available()) { Icon(menuIcon("Mulligan"), "Mulligan") }
-                OutlinedIconButton(onClick = dismiss) { Icon(menuIcon("Close"), "Cancel mulligan") }
             }
         }
     }

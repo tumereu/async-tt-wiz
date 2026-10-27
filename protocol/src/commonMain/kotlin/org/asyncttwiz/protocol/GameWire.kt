@@ -6,7 +6,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
-const val CURRENT_GAMEPLAY_RULES_VERSION = 21
+const val CURRENT_GAMEPLAY_RULES_VERSION = 22
 
 @Serializable data class GameScope(val gameId: String, val preparationId: String? = null,
     val invitationId: String? = null, val playId: String? = null)
@@ -46,7 +46,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 21
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
     val invocationId: String? = null, val continuation: Continuation? = null,
     val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
-@Serializable @SerialName("ping") data class GamePing(val correlationId: String) : GameClientMessage
+@Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
 @Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = 0,

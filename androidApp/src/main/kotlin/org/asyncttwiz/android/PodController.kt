@@ -37,7 +37,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val suggest: () -> String = ::gameNameSuggestion,
     private val wait: (suspend (Long) -> Unit)? = null,
-    setRepository: PodSetRepository? = null) : AutoCloseable {
+    setRepository: PodSetRepository? = null,
+    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") }) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -155,7 +156,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         }
         if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
         val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.setSource, draft.settings)
-        enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, input) }))
+        val upload by lazy { input.copy(settings = withLibrarian(draft.settings)) }
+        enqueue(Write(null, select = true, createdFrom = draft, send = { api.create(it, upload) }))
     }
     fun respond(id: String, accept: Boolean) {
         if (state.pending > 0) return
@@ -183,7 +185,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val edit = state.setup ?: return
         if (state.uncertain || writes.any { it.setupRevision == edit.revision }) return
         val input = UpdatePod(requestId(), edit.name, edit.cubeId, edit.settings, edit.setSource)
-        enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, input) }))
+        val upload by lazy { input.copy(settings = withLibrarian(edit.settings)) }
+        enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, upload) }))
     }
     fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }
     fun invite(account: AccountIdentity) {
@@ -199,12 +202,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PodRequest(requestId())
         enqueue(Write(detail.id, send = { api.start(it, detail.id, input) }))
     }
-    fun pick(keep: List<String>, burn: List<String>) {
+    fun pick(keep: List<String>, burn: List<String>, librarians: List<String> = emptyList()) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING } ?: return
         val pack = detail.draft?.head ?: return
         val attempt = detail.draftAttemptId ?: return
-        if (state.uncertain || !PodPickRules(pack, detail.settings).canConfirm(PodPickMarks(keeps = keep, burns = burn), false)) return
-        val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList())
+        val owned = detail.draft!!.pool.filter { it.librarian }.map { it.id }
+        if (librarians.distinct().size != librarians.size || librarians.any { it !in owned }) return
+        if (state.uncertain || !PodPickRules(pack, detail.settings, librarians.size)
+                .canConfirm(PodPickMarks(keeps = keep, burns = burn, librarians = librarians), false)) return
+        val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList(), librarians.toList())
         enqueue(Write(detail.id, attempt, pick = true, draftPick = input, send = { api.pick(it, detail.id, input) }))
     }
     fun gridSelect(gridId: String, line: GridLineType, index: Int) {
@@ -269,6 +275,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (action == PodConfirmation.SUBMIT) state = state.copy(tab = PodTab.GAMES)
     }
     private fun requestId() = UUID.randomUUID().toString()
+
+    private fun withLibrarian(settings: DraftSettings): DraftSettings =
+        if (settings.librarians == 0 || settings.librarianDefinition != null) settings
+        else settings.copy(librarianDefinition = librarianDefinition())
     private fun enqueue(write: Write) {
         syncCredential()
         if (closed || state.uncertain || credential() == null) return
@@ -282,10 +292,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val draft = base.draft ?: continue
             val pack = draft.head?.takeIf { it.id == input.packId } ?: continue
             val kept = pack.cards.filter { it.id in input.keep }
+            val pool = draft.pool.filterNot { it.id in input.librarians } + kept
             detail = base.copy(
                 draft = draft.copy(head = draft.queuedPacks.firstOrNull(), queuedPacks = draft.queuedPacks.drop(1),
-                    packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = draft.pool + kept),
-                build = base.build?.let { PodDeckRules.withAwards(it, kept.map { copy -> copy.id }) },
+                    packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = pool),
+                build = base.build?.let { PodDeckRules.withDraftPool(it, pool.map { copy -> copy.id }) },
                 members = base.members.map { if (it.account.accountId == draft.player)
                     it.copy(packsWaiting = (it.packsWaiting - 1).coerceAtLeast(0), picksMade = it.picksMade + 1) else it })
         }
@@ -468,6 +479,7 @@ internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): St
 }
 private fun podError(failure: Exception): String = when ((failure as? PodFailure)?.code) {
     "invalid_settings" -> "Invalid settings."
+    "librarian_definition_unavailable" -> "Librarian unavailable."
     "insufficient_supply" -> "The source cube does not have enough cards."
     "main_too_small" -> "Main must contain at least 40 cards including basics."
     "sideboard_limit" -> "Move surplus sideboard cards to Trash before submitting."

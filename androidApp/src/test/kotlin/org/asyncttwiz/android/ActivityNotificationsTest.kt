@@ -6,6 +6,14 @@ import org.asyncttwiz.protocol.ActivityKind
 import java.time.Instant
 
 class ActivityNotificationsTest {
+    @Test fun gameTextUsesAuthenticatedNamesMoveFlagChatAndOpponentEventTimestamp() {
+        val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", true)
+        val text = gameNotificationText(content)
+        assertEquals("Friday · vs Alex", text.title)
+        assertEquals("Your move", text.text)
+        assertEquals(Instant.parse("2026-10-27T10:34:56Z").toEpochMilli(), text.whenMillis)
+        assertEquals("Alex's move · new message", gameNotificationText(content.copy(yourMove = false, newMessage = true)).text)
+    }
     @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
         for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {
             fun prompt(sdk: Int = 33, signedIn: Boolean = true, asked: Boolean = false,

@@ -6,6 +6,38 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    @Test fun resetColoredCountersIsOneAtomicBatchPreservesCornerAndUndoRestoresEveryColor() {
+        val f = BasicTableFixture()
+        val id = f.id(40)
+        val root = f.root.copy(board = f.root.board.copy(cards = f.root.board.cards.map { card ->
+            if (card.id != id) card else card.copy(containerId = f.container(PlayZone.BATTLEFIELD), covered = false,
+                placement = PlayPlacement(BoardPosition(0, 0), f.id(600)), corner = "8/9", eotCorner = "+1/+0",
+                counters = CounterColor.entries.associateWith { if (it == CounterColor.GRAY) "0" else "marked" })
+        }, containers = f.root.board.containers.map { container -> when (container.id) {
+            f.container(PlayZone.LIBRARY) -> container.copy(cards = container.cards - id)
+            f.container(PlayZone.BATTLEFIELD) -> container.copy(cards = listOf(id))
+            else -> container
+        } }))
+        f.connect(root)
+        try {
+            val ui = toolkit(f)
+            ui.openCard(TableScope(id, listOf(id)))
+            val actions = resetCardCounters(f.play, ui.manual.scope!!)
+            assertEquals(CounterColor.entries.map { PlayAction.ClearCardCounter(id, it) }, actions)
+            ui.submitAll(actions)
+            val command = f.commands().single()
+            assertEquals(actions, assertIs<GameAction.PlayBatch>(command.action).actions)
+            val changed = f.play.board.cards.single { it.id == id }
+            assertTrue(changed.counters.isEmpty())
+            assertEquals("8/9", changed.corner)
+            assertEquals("+1/+0", changed.eotCorner)
+            val server = assertNotNull(HistoryContinuation.change(GameplayTree(root), f.actor, command).tree)
+            assertEquals(f.play.board, server.stateAt(server.currentNodeId)!!.board)
+            assertTrue(f.lobby.historyControl(GameAction.Undo))
+            assertEquals(root.board, f.play.board)
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun drawUndoSearchCloseVariesTheNextDrawThroughTheSessionAndMatchesServer() {
         for (keepTop in listOf(false, true)) {
             val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)

@@ -56,7 +56,8 @@ class AvatarTest {
         assertFalse(AvatarPromptMemory(context).shouldShow(ScreenFixtures.alex))
     }
 
-    @Test fun editProfileHasOneDialogAndCatalogProgressWithoutSkipAndCancelKeepsName() {
+    @Test @Config(qualifiers = "w412dp-h892dp-port-mdpi")
+    fun compactProfileFitsWithoutScrollingAndCancelKeepsName() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also { viewModels.put("catalog", it) }
@@ -66,13 +67,15 @@ class AvatarTest {
         compose.onNodeWithText("Change username").assertDoesNotExist()
         compose.onNodeWithText("Change avatar").assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit profile").performClick()
-        compose.onNodeWithText("Avatars need the card catalog. Downloading… 43%").assertIsDisplayed()
+        compose.onNodeWithText("Avatars need the card catalog. Downloading… 43%").assertDoesNotExist()
+        compose.onNodeWithText("Search by card name").assertIsDisplayed()
         compose.onNodeWithContentDescription("Reroll avatars").assertIsNotEnabled()
         compose.onNodeWithText("Skip").assertDoesNotExist()
-        compose.onNodeWithText("Username").performScrollTo().performTextReplacement("Unsaved")
-        compose.onNodeWithText("Cancel").performScrollTo().performClick()
+        compose.onNodeWithText("Username").assertIsDisplayed().performTextReplacement("Unsaved")
+        compose.onNodeWithContentDescription("Save profile").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Cancel profile").assertIsDisplayed().performClick()
         assertEquals(ScreenFixtures.alex.username, fixture.auth.state.account!!.username)
-        compose.onNodeWithText("Save").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Save profile").assertDoesNotExist()
     }
 
     @Test fun waitingChooserBecomesAvailableInPlaceWhenCatalogIsInstalled() {

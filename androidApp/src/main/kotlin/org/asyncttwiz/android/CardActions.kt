@@ -39,6 +39,12 @@ internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, proj
     if (note) projection || zone == PlayZone.BATTLEFIELD || zone == PlayZone.STACK
     else !projection && zone == PlayZone.BATTLEFIELD
 
+internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayAction> =
+    CounterColor.entries.flatMap { color -> scope.cardActions(state) { card ->
+        if (color in card.counters && state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD })
+            PlayAction.ClearCardCounter(card.id, color) else null
+    } }
+
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
@@ -61,6 +67,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("flip", if (card.covered) "Face up" else "Face down",
         MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
     add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield) { send { PlayAction.ResetCorner(it.id) } })
+    add("resetCounters", "Reset", MenuControl("Reset counters", battlefield) { emit(resetCardCounters(state, scope)) })
     val projection = previewViewId in CombatStackRules.projectionIds(state.board)
     add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true, projection = projection)) {
         if (projection && editProjectionNote != null) editProjectionNote()
@@ -103,11 +110,11 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         markAdjustment("Increase EOT P/T", eot(CornerPart.BOTH, 1)), drag = { delta ->
             if (marksEnabled) emit(markActions { target -> cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
         }, dragValue = card.eotCorner.ifEmpty { "0/0" }, corner = true))
-    add("eotNote", "⌛ Note", MenuControl("Edit EOT note", marksEnabled) {
+    add("eotNote", "EOT note", MenuControl("Edit EOT note", marksEnabled) {
         actions.edit(ManualValue(ManualValueKind.EOT_NOTE), state, viewer)
     })
-    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "⌛ +/•"), Triple(CornerPart.RIGHT, 1, "⌛ •/+"),
-        Triple(CornerPart.LEFT, -1, "⌛ −/•"), Triple(CornerPart.RIGHT, -1, "⌛ •/−"))) {
+    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "EOT +1/+0"), Triple(CornerPart.RIGHT, 1, "EOT +0/+1"),
+        Triple(CornerPart.LEFT, -1, "EOT −1/−0"), Triple(CornerPart.RIGHT, -1, "EOT +0/−1"))) {
         add("eotCorner/${part.name}/$delta", symbol,
             markAdjustment("Adjust corner EOT ${part.name.lowercase()} $delta", eot(part, delta)))
     }
@@ -118,8 +125,8 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
             })
         }, dragValue = card.corner, corner = true))
     if (scope.cardActions(state) { if ('/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
-        for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+/•"), Triple(CornerPart.RIGHT, 1, "•/+"),
-            Triple(CornerPart.LEFT, -1, "−/•"), Triple(CornerPart.RIGHT, -1, "•/−"))) {
+        for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
+            Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {
             add("corner/${part.name}/$delta", symbol,
                 adjustment("Adjust corner ${part.name.lowercase()} ${if (delta > 0) "+1" else "−1"}", corner(part, delta)))
         }

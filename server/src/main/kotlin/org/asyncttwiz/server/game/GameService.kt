@@ -336,7 +336,17 @@ class GameService(private val runtime: ServiceRuntime) {
                 check(group.author == mutation.author || mutation.action == PlayAction.PassAttention)
                 val opponent = if (mutation.author == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(group.id), uuid(mutation.author))
+                    game.id!!, uuid(group.id), uuid(mutation.author), yourMove = summary.attentionHolder == opponent.toString())
+            }
+            insertedChat?.let { message ->
+                val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(message.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), newMessage = true)
+            }
+            if (isGameplay && mutation == null && batchMutations.isEmpty()) {
+                val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
             }
         }
         val created = when {

@@ -40,6 +40,9 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
+        // Single-value P/T steps ("+1/+0", "EOT −1/−0", ...): the sign of the changed value picks the icon.
+        Regex("""(eot )?[+−-][01]/[+−-][01]""").matches(n) ->
+            if (n.removePrefix("eot ").split("/").any { it == "+1" }) Icons.Outlined.ExposurePlus1 else Icons.Outlined.ExposureNeg1
         n == "draw + go to main" -> Icons.Outlined.Download
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward
@@ -57,7 +60,7 @@ internal fun menuIcon(name: String): ImageVector {
         "face down" in n -> Icons.Outlined.Flip
         "face up" in n -> Icons.Outlined.FlipToFront
         "printed face" in n || n == "switch face" -> Icons.Outlined.FlipCameraAndroid
-        "reset corner" in n -> Icons.Outlined.SettingsBackupRestore
+        "reset corner" in n || n == "reset counters" -> Icons.Outlined.SettingsBackupRestore
         "note" in n -> Icons.AutoMirrored.Outlined.StickyNote2
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
@@ -78,7 +81,8 @@ internal fun menuIcon(name: String): ImageVector {
         "tap" == n || "tap selected" in n -> Icons.Outlined.Rotate90DegreesCw
         "select" in n -> MultipleSelectionIcon
         "battlefield" in n -> Icons.Outlined.TableRows
-        "shuffle" in n || "return hand" in n || "mulligan" in n -> Icons.Outlined.Shuffle
+        "shuffle" in n || "return hand" in n || n.startsWith("mull") -> Icons.Outlined.Shuffle
+        "suggest draw" in n || n == "draw game" -> Icons.Outlined.Handshake
         n.startsWith("draw") -> Icons.Outlined.Download
         "hand" in n -> HandCardsIcon
         "choose" in n || "beginning of combat" in n || "suggest my loss" in n || n == "suggest game end" || n == "my loss" -> Icons.Outlined.Flag
@@ -101,7 +105,6 @@ internal fun menuIcon(name: String): ImageVector {
         "die" in n -> Icons.Outlined.Casino
         "coin" in n -> Icons.Outlined.Paid
         "win" in n -> Icons.Outlined.EmojiEvents
-        "suggest draw" in n -> Icons.Outlined.Handshake
         "accept" in n || n == "set" -> Icons.Outlined.Check
         "more" in n -> Icons.Outlined.MoreHoriz
         "source" in n -> Icons.AutoMirrored.Outlined.OpenInNew
@@ -167,6 +170,7 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
 
 @Composable
 internal fun MenuWindowDimming() {
+    TrackGameDialogInput()
     val window = (LocalView.current.parent as? DialogWindowProvider)?.window
     SideEffect { window?.setDimAmount(.28f) }
 }

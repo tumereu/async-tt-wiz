@@ -4,7 +4,7 @@ import org.asyncttwiz.protocol.*
 
 /** Pure delivery policy used by both polling and push. All callbacks share the owner's lock. */
 data class ActivityOwner(val accountId: String, val binding: String)
-data class ActivityWatermark(val activity: Long, val identity: String)
+data class ActivityWatermark(val activity: Long, val identity: String, val yourMove: Boolean? = null)
 interface ActivityDeliveryStore {
     fun cursor(): String?
     fun watermark(key: String): ActivityWatermark?
@@ -31,6 +31,16 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     fun bind(next: ActivityOwner?) = synchronized(lock) { owner = next }
     fun display(game: String?, foreground: Boolean) = synchronized(lock) {
         activeGame = game; this.foreground = foreground
+        // Opening cancels the old notice, not its dedup watermark. A later new turn
+        // must be allowed to alert even if the last dismissed notice said Your move.
+        if (owner != null && foreground && game != null) {
+            val key = "game:$game"; val previous = store.watermark(key); val cursor = store.cursor()
+            if (previous?.yourMove == true && cursor != null) {
+                val marks = mapOf(key to previous.copy(yourMove = false))
+                (store as? ActivityWindowStore)?.let { it.saveWindow(cursor, marks, it.pending() - key) } ?: store.save(cursor, marks)
+            }
+        }
+        Unit
     }
     fun cursor(expected: ActivityOwner): String? = synchronized(lock) { if (expected == owner) store.cursor() else null }
     fun current(expected: ActivityOwner) = synchronized(lock) { owner == expected }
@@ -43,6 +53,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     }
     fun apply(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityKind) -> Boolean): Boolean = synchronized(lock) {
         if (owner != expected) return false
+        if (page.readyNotices != null) return applyReady(page, allowed)
         (store as? ActivityWindowStore)?.let { return applyWindow(expected, page, allowed, it) }
         val marks = linkedMapOf<String, ActivityWatermark>()
         val notices = mutableListOf<ActivityNotice>()
@@ -63,6 +74,28 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         // Logout cannot pass the shared lock between watermark and display.
         notices.forEach(post)
         true
+    }
+
+    private fun applyReady(page: ActivityPage, allowed: (ActivityKind) -> Boolean): Boolean {
+        val marks = linkedMapOf<String, ActivityWatermark>()
+        val notices = linkedMapOf<String, ActivityNotice>()
+        val hints = if (page.summaryReset) page.entries + page.readyNotices.orEmpty() else page.readyNotices.orEmpty()
+        for (hint in hints.sortedBy { ActivityWire.ordinal(it.activityId) }) {
+            val id = ActivityWire.ordinal(hint.activityId) ?: return false
+            val key = hint.notificationKey()
+            val previous = marks[key] ?: store.watermark(key)
+            if (id <= (previous?.activity ?: -1)) continue
+            val displaying = hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId
+            marks[key] = ActivityWatermark(id, hint.identity, if (displaying) false else hint.notice?.yourMove)
+            if (!page.summaryReset && allowed(hint.kind) && !(hint.kind == ActivityKind.GAME && foreground && activeGame == hint.gameId)) {
+                val silent = hint.kind == ActivityKind.GAME && previous != null &&
+                    !(hint.notice?.yourMove == true && previous.yourMove != true)
+                notices[key] = ActivityNotice(key, hint, silent)
+            }
+        }
+        val saved = (store as? ActivityWindowStore)?.saveWindow(page.nextCursor, marks, emptyMap()) ?: store.save(page.nextCursor, marks)
+        if (saved) notices.values.forEach(post)
+        return saved
     }
 
     private fun applyWindow(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityKind) -> Boolean,

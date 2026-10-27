@@ -9,7 +9,8 @@ class PodActivityTest {
     private val id = UUID.randomUUID().toString()
     private val identity = UUID.randomUUID().toString()
     @Test fun textAndRoutesArePodSpecificAndUnknownKindsAreIgnored() {
-        assertEquals("Your pick in Synergy", podActivityText(ActivityKind.POD_YOUR_PICK, "Synergy"))
+        assertEquals("Your pick — Synergy", podActivityText(ActivityKind.POD_YOUR_PICK, "Synergy"))
+        assertEquals("Decks ready — Synergy", podActivityText(ActivityKind.POD_DECKS_READY, "Synergy"))
         assertEquals("Your pick", podActivityText(ActivityKind.POD_YOUR_PICK))
         assertEquals("New pod invitation", podActivityText(ActivityKind.POD_INVITATION))
         assertEquals("Draft complete: build your deck", podActivityText(ActivityKind.POD_DRAFT_COMPLETE))

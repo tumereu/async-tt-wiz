@@ -107,7 +107,14 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 hello = message; send(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
             }
             val negotiated = hello ?: run { send(GameAdmissionError("upgradeRequired", false)); return }
-            if (message is GamePing) { send(GamePong(message.correlationId)); return }
+            if (message is GamePing) {
+                message.presence?.let { presence ->
+                    dispatcher.submit(presence.gameId, text.encodeToByteArray().size) {
+                        org.asyncttwiz.server.activity.ActivityService(runtime).heartbeat(principal(), presence)
+                    }
+                }
+                send(GamePong(message.correlationId)); return
+            }
             if (negotiated.gameplayRulesVersion != CURRENT_GAMEPLAY_RULES_VERSION) {
                 send(GameAdmissionError("serverUpdatePending", false)); return
             }

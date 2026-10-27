@@ -19,7 +19,7 @@ class ActivityHttp(private val runtime: ServiceRuntime) {
     private val limits = AccountRateLimits()
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path !in listOf("/activity", "/activity/installations", "/activity/target")) return false
+        if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         fun reply(status: Int, body: String = "") {
@@ -42,7 +42,7 @@ class ActivityHttp(private val runtime: ServiceRuntime) {
                         request.getParameter("game").orEmpty(), request.getParameter("identity").orEmpty())))
                 }
                 "GET" to "/activity" -> reply(200, ActivityWire.json.encodeToString(activity.page(principal, request.getParameter("after"))))
-                "PUT" to "/activity/installations" -> {
+                "PUT" to "/activity/presence", "PUT" to "/activity/installations" -> {
                     val media = request.contentType.orEmpty().split(';').map(String::trim)
                     if (!media.first().equals("application/json", true) || media.drop(1).any {
                             !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
@@ -51,10 +51,12 @@ class ActivityHttp(private val runtime: ServiceRuntime) {
                     if (bytes.size > 8192) { error(413, "request_too_large"); return true }
                     val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                         .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
-                    reply(200, ActivityWire.json.encodeToString(activity.register(principal, ActivityWire.json.decodeFromString(text))))
+                    if (path == "/activity/presence") {
+                        activity.heartbeat(principal, ActivityWire.json.decodeFromString(text)); reply(204)
+                    } else reply(200, ActivityWire.json.encodeToString(activity.register(principal, ActivityWire.json.decodeFromString(text))))
                 }
                 "DELETE" to "/activity/installations" -> { activity.unregister(principal, request.getParameter("id").orEmpty()); reply(204) }
-                else -> { response.setHeader("Allow", if (path != "/activity/installations") "GET" else "PUT, DELETE"); error(405, "method_not_allowed") }
+                else -> { response.setHeader("Allow", when (path) { "/activity/presence" -> "PUT"; "/activity/installations" -> "PUT, DELETE"; else -> "GET" }); error(405, "method_not_allowed") }
             }
         } catch (failure: ActivityFailure) { error(failure.status, failure.code)
         } catch (_: SerializationException) { error(400, "invalid_request")

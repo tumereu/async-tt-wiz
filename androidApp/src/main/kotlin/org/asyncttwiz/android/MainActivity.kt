@@ -30,6 +30,38 @@ import org.asyncttwiz.storage.StorageOpenFailure
 
 /** The only normal application entry point. Storage failure still gates account entry. */
 class MainActivity : ComponentActivity() {
+    private val updates get() = ViewModelProvider(this)[AppUpdateViewModel::class.java]
+    private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        updates.permissionReturned(packageManager.canRequestPackageInstalls())
+    }
+    private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    private fun installUpdate(apk: java.io.File) {
+        try {
+            if (!packageManager.canRequestPackageInstalls()) {
+                updates.awaitingPermission(true)
+                installPermission.launch(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    android.net.Uri.parse("package:$packageName")))
+            } else {
+                val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.updates", apk)
+                installer.launch(android.content.Intent(android.content.Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            }
+        } catch (_: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed() }
+    }
+    internal fun gameInput() = ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.input()
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        gameInput()
+        return super.dispatchTouchEvent(event)
+    }
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        gameInput()
+        return super.dispatchKeyEvent(event)
+    }
+    override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+        gameInput()
+        return super.dispatchGenericMotionEvent(event)
+    }
     private var resumed by mutableStateOf(false)
     private var notificationRoute by mutableStateOf<ActivityRoute?>(null)
     private fun consumeActivityIntent(intent: android.content.Intent?) {
@@ -72,6 +104,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         resumed = true
         fullscreen()
+        updates.foreground()
+        updates.resumePermission(packageManager.canRequestPackageInstalls())
         ViewModelProvider(this)[AuthViewModel::class.java].catalog.foreground()
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         auth.controller.foreground()
@@ -85,6 +119,7 @@ class MainActivity : ComponentActivity() {
         resumed = false
         ViewModelProvider(this)[AuthViewModel::class.java].lobby.background()
         AndroidActivityDelivery.get(this).display(null, false)
+        ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.display(null, null)
         super.onPause()
     }
 
@@ -99,6 +134,13 @@ class MainActivity : ComponentActivity() {
         fullscreen()
         setContent {
             MaterialTheme {
+                LaunchedEffect(auth.lobby.state.connectionMessage) {
+                    if (auth.lobby.state.connectionMessage == "Update the app to continue this game") updates.requireForRules()
+                }
+                if (updates.required || updates.initialCheck) {
+                    AppUpdateScreen(updates, ::installUpdate)
+                    return@MaterialTheme
+                }
                 val state = auth.controller.state
                 val token = auth.controller.sessionToken()
                 SideEffect {
@@ -107,9 +149,9 @@ class MainActivity : ComponentActivity() {
                         DebugCrashes.authenticated(if (state.account != null) token else null)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                     }
-                    val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,
-                        auth.lobby.state.selected, auth.lobby.state.detail)
-                    auth.activity.display(displayed, resumed)
+                    val gameScreen = auth.lobby.state.selected?.takeIf { state.destination == ShellDestination.GAMES }
+                    auth.activity.display(gameScreen, resumed)
+                    auth.heartbeat.display(gameScreen?.takeIf { resumed }, token)
                     if (state.account != null) auth.activity.rememberPods(auth.pods.state.pods)
                     val route = notificationRoute
                     if (route != null && !state.restoring && !state.busy) {

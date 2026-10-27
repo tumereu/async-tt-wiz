@@ -18,6 +18,7 @@ import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION as SESSION
 import org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION as INSTALL
 import org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH as PUSH
+import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY as SUMMARY
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.jooq.SQLDialect
@@ -27,8 +28,7 @@ enum class PushStatus { DELIVERED, TRANSIENT, INVALID_REGISTRATION, FAILED }
 data class PushResult(val status: PushStatus, val retryAfterSeconds: Long = 0)
 fun interface ActivityPushAdapter { fun send(token: String, hint: ActivityPushHint): PushResult }
 
-/** Optional FCM HTTP-v1 adapter. Caller supplies a short-lived access token from operator configuration.
- * No credential discovery, Firebase startup, required provider, names or notification payload. */
+/** Optional FCM HTTP-v1 adapter. No names or notification payload. */
 class FcmActivityAdapter @JvmOverloads constructor(private val project: String, private val accessToken: () -> String,
     private val client: HttpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8))
         .followRedirects(HttpClient.Redirect.NEVER).build()) : ActivityPushAdapter {
@@ -59,7 +59,7 @@ class FcmActivityAdapter @JvmOverloads constructor(private val project: String, 
                 put("token", token)
                 putJsonObject("data") { put("generation", hint.generation); put("gameId", hint.gameId)
                     put("activityId", hint.activityId); put("identity", hint.identity) }
-                putJsonObject("android") { put("ttl", "86400s"); put("collapse_key", hint.gameId); put("priority", "normal") }
+                putJsonObject("android") { put("ttl", "86400s"); put("collapse_key", hint.gameId); put("priority", "high") }
             }
         }.toString()
         fun retryAfter(value: String?, now: java.time.Instant = java.time.Instant.now()): Long =
@@ -78,8 +78,24 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
     fun deliverDue() {
         ActivityService(runtime, clock).pruneExpired()
         runtime.transaction { connection ->
-            DSL.using(connection, SQLDialect.POSTGRES).deleteFrom(PUSH)
-                .where(PUSH.EXPIRES_AT.le(OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))).execute()
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val time = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
+            sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
+            val pending = sql.select(PUSH.fields().toList() + INSTALL.ACCOUNT_ID).from(PUSH)
+                .join(INSTALL).on(INSTALL.GENERATION.eq(PUSH.GENERATION)).where(PUSH.KIND.eq("GAME")).fetch()
+            for (row in pending) {
+                val owner = row[INSTALL.ACCOUNT_ID]!!; val game = row[PUSH.GAME_ID]!!
+                val exact = PUSH.GENERATION.eq(row[PUSH.GENERATION]).and(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
+                val summary = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game))
+                    .and(SUMMARY.KIND.eq("GAME")).fetchOne() ?: continue
+                val recipient = ActivityTiming.leases(sql, game, owner)
+                if (summary.seenThrough!! >= summary.activityId!! || ActivityTiming.present(recipient, time)) {
+                    sql.deleteFrom(PUSH).where(exact).execute()
+                } else if (summary.authorId != null && !ActivityTiming.due(ActivityTiming.leases(sql, game, summary.authorId!!),
+                        recipient, summary.lastEventAt!!, summary.yourMove!!, time)) {
+                    sql.update(PUSH).set(PUSH.DUE_AT, maxOf(row[PUSH.DUE_AT]!!, time.plusSeconds(1))).where(exact).execute()
+                }
+            }
         }
         val adapter = adapter ?: return // Non-FCM maintenance is a normal supported service configuration.
         repeat(32) {

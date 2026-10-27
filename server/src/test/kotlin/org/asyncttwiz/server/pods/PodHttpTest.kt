@@ -142,6 +142,63 @@ class PodHttpTest {
         assertEquals(1, f.list(f.a).pods.size)
     }
 
+    @Test fun `Librarian settings snapshot privacy spending ownership and build synchronization over HTTP`() = fixture { f ->
+        val card = CardDefinition("Cogwork Librarian", listOf(DefinitionFace(id(), "Cogwork Librarian", manaCost = "{4}")))
+        val definition = SubmittedDefinition(DeckJson.digest(card), card)
+        for (invalid in listOf(DraftSettings(librarians = -1), DraftSettings(librarians = 11), DraftSettings.grid().copy(librarians = 1)))
+            f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Bad", f.cube.cube.id, settings = invalid), 400)
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Missing", f.cube.cube.id, settings = DraftSettings(librarians = 1)), 400)
+        val impostor = definition.copy(definition = card.copy(name = "Not a Librarian"))
+        f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Wrong", f.cube.cube.id,
+            settings = DraftSettings(librarians = 1, librarianDefinition = impostor)), 400)
+        for (mode in listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE)) {
+            val settings = DraftSettings(mode = mode, packsPerPlayer = 1, cardsPerPack = 8, burn = 2,
+                librarians = 2, librarianDefinition = definition)
+            val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+                CreatePod(id(), "Librarians", f.cube.cube.id, settings = settings), 201))
+            val pod = created.id
+            f.join(pod); f.start(pod)
+            val a = f.get(f.a, pod); val b = f.get(f.b, pod)
+            val owned = a.draft!!.pool.map { it.id }
+            assertEquals(2, owned.size)
+            assertTrue(a.draft!!.pool.all { it.librarian })
+            assertTrue(a.build!!.copies.all { it.category == PodDeckCategory.SIDE })
+            assertEquals(definition, b.definitions.single { it.digest == definition.digest })
+            assertTrue(b.draft!!.pool.none { it.id in owned })
+            val pack = a.draft!!.head!!
+            assertTrue(pack.cards.none { it.librarian })
+            val input = PickPod(id(), a.draftAttemptId!!, pack.id, pack.cards.take(3).map { it.id },
+                pack.cards.drop(3).take(2).map { it.id }, owned)
+            for (bad in listOf(input.copy(librarians = owned + owned.first()),
+                input.copy(librarians = b.draft!!.pool.map { it.id }), input.copy(keep = input.keep.take(1))))
+                f.send(f.a, "POST", "/v1/pods/$pod/pick", bad.copy(requestId = id()), 409)
+            val response = f.send(f.a, "POST", "/v1/pods/$pod/pick", input)
+            assertEquals(response, f.send(f.a, "POST", "/v1/pods/$pod/pick", input))
+            val picked = f.get(f.a, pod)
+            assertEquals(input.keep.toSet(), picked.build!!.copies.map { it.copyId }.toSet())
+            assertTrue(picked.build!!.copies.all { it.category == PodDeckCategory.MAIN })
+            assertTrue(picked.draft!!.pool.none { it.id in owned })
+            val passed = f.get(f.b, pod).draft!!.queuedPacks.single { it.id == pack.id }
+            assertEquals(pack.cards.drop(5).map { it.id } + owned, passed.cards.map { it.id })
+        }
+        // A Librarian already in the source is ordinary supply, but becomes spendable once picked.
+        f.send(f.a, "POST", "/v1/definitions", SubmitDefinitions(id(), listOf(definition)))
+        val nativeCube = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes",
+            CreateCube(id(), "Native Librarians", listOf(SavedCubeEntry(definition.digest, 16))), 201))
+        val nativePod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods",
+            CreatePod(id(), "Native", nativeCube.cube.id, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 8)), 201))
+        f.join(nativePod.id); f.start(nativePod.id)
+        assertTrue(f.get(f.a, nativePod.id).draft!!.pool.isEmpty())
+        val pickedNative = f.pick(f.a, nativePod.id).draft!!.pool.single()
+        assertTrue(pickedNative.librarian)
+        f.pick(f.b, nativePod.id)
+        val next = f.get(f.a, nativePod.id)
+        val head = next.draft!!.head!!
+        val exchange = PickPod(id(), next.draftAttemptId!!, head.id, head.cards.take(2).map { it.id }, librarians = listOf(pickedNative.id))
+        f.send(f.a, "POST", "/v1/pods/${nativePod.id}/pick", exchange)
+        assertFalse(f.get(f.a, nativePod.id).draft!!.pool.any { it.id == pickedNative.id })
+    }
+
     @Test fun `Glimpse HTTP completion private builds locked submission and retained retries`() = fixture { f ->
         val create = CreatePod(id(), "Glimpse pod", f.cube.cube.id, DraftMode.GLIMPSE)
         val created = f.send(f.a, "POST", "/v1/pods", create, 201)

@@ -6,12 +6,31 @@ import org.asyncttwiz.protocol.*
 data class ResultTarget(val gameId: String, val playId: String)
 data class ResultAcceptanceTarget(val play: ResultTarget, val suggestionId: String)
 
-/** I22 supplies this only after playback presents the preceding board then the singleton S group.
- * Receipt of a server suggestion is intentionally insufficient to produce a prompt. */
+/** Group-playback presentation marker. The pending-outcome lock instead uses the live endpoint. */
 data class ResultPlaybackGate(val play: ResultTarget, val suggestionId: String)
 data class ResultPresentation(val target: ResultAcceptanceTarget, val text: String, val canAccept: Boolean)
 
 object ResultActions {
+    /** The live accepted endpoint, never the board at the personal review cursor, owns the lock.
+     * A local proposal also locks immediately while its ordinary prediction is in flight. */
+    fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
+        listOf(accepted, predicted).any { capture(game, it) != null && it?.board?.resultSuggestion != null }
+
+    /** Visibility belongs to the displayed replayed board, not the live action lock. */
+    fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? {
+        val target = capture(game, displayed) ?: return null
+        val suggestion = displayed?.board?.resultSuggestion ?: return null
+        return presentation(game, displayed, viewer, ResultPlaybackGate(target, suggestion.id))
+    }
+
+    /** A paused timeline at the live end is actionable too; earlier/catch-up frames are not. */
+    fun canResolve(game: GameSummary, displayed: PlayState?, live: PlayState?, position: HistoryPosition?): Boolean {
+        val target = capture(game, displayed) ?: return false
+        if (target != capture(game, live) || displayed == null || live == null || position == null) return false
+        return !position.playing && position.cursorId == live.currentNodeId && displayed.currentNodeId == live.currentNodeId &&
+            displayed.board.resultSuggestion != null && displayed.board.resultSuggestion == live.board.resultSuggestion
+    }
+
     fun capture(game: GameSummary, play: PlayState?): ResultTarget? = play?.takeIf {
         game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.id
     }?.let { ResultTarget(it.gameId, it.id) }

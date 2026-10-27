@@ -362,9 +362,9 @@ class TableScreenshotTest {
         compose.onNodeWithContentDescription("Mulligan −1").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun morePageKeepsStackDestinationReachable() {
+    @Test fun moreOverflowKeepsStackDestinationReachable() {
         val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(3)
+        compose.ringPage(4)
         compose.onNodeWithContentDescription("Move to Stack").performClick()
         assertEquals(null, toolkit.manual.scope)
         assertTrue(sent.any { it is PlayAction.Stack && it.action is StackAction.AddEffect })

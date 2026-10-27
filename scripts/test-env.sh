@@ -72,8 +72,26 @@ fi
 
 # Build before interrupting the existing server. The live JVM uses only its own
 # immutable install copy, never Gradle's mutable server/build/install directory.
-./scripts/gradle.sh :server:installDist :androidApp:assemblePersonalTest
-APK=$ROOT/androidApp/build/outputs/apk/personalTest/androidApp-personalTest.apk
+mkdir -p "$STATE/app-release"
+# Reserve before building, so even rapid runs or a backwards clock never reuse a code.
+test_code=$(python3 - "$STATE/test-version-code" "$STATE/app-release/latest.json" <<'PY'
+import json, pathlib, sys, time
+counter, latest = map(pathlib.Path, sys.argv[1:])
+previous = int(counter.read_text()) if counter.exists() else 0
+published = json.loads(latest.read_text())["versionCode"] if latest.exists() else 0
+code = max(int(time.time()) - 1577836800, previous + 1, published + 1)
+assert 0 < code <= 2100000000
+counter.write_text(str(code) + "\n")
+print(code)
+PY
+)
+source "$ROOT/scripts/lib/fcm.sh"
+atw_fcm_args "$ATW_FIREBASE/google-services-test.json" org.asyncttwiz.android.test
+# Firebase identifiers add the "fcm" flavor, which renames the task and output directory.
+variant=personalTest apk_dir=personalTest
+if (( ${#fcm_args[@]} )); then variant=fcmPersonalTest apk_dir=fcm/personalTest; fi
+./scripts/gradle.sh :server:installDist ":androidApp:assemble${variant^}" "-PatwTestVersionCode=$test_code" "${fcm_args[@]}"
+APK=$(echo "$ROOT/androidApp/build/outputs/apk/$apk_dir/"*.apk)
 [[ -f $APK ]]
 version=$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short=12 HEAD)
 snapshot=$(mktemp -d "$STATE/server/$version-XXXXXX")
@@ -86,6 +104,12 @@ export DB_URL=jdbc:postgresql://127.0.0.1:55433/atw_test DB_USER=atw_test
 export DB_PASSWORD_FILE="$STATE/db-password" RESET_MAIL_KEY_FILE="$STATE/reset-mail-key"
 export PUBLIC_BASE_URL=$ORIGIN RESET_BASE_URL=$ORIGIN
 export SERVER_ADDRESS=127.0.0.1 SERVER_PORT=18090 HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=18091
+export APP_RELEASE_DIR="$STATE/app-release"
+if [[ -f $ATW_FIREBASE/fcm-service-account.json ]]; then
+    export FCM_SERVICE_ACCOUNT_FILE=$ATW_FIREBASE/fcm-service-account.json
+else
+    unset FCM_SERVICE_ACCOUNT_FILE
+fi
 export SMTP_HOST=127.0.0.1 SMTP_PORT=11026 SMTP_TLS=local-plaintext SMTP_FROM=test@atw.invalid
 unset SMTP_USERNAME_FILE SMTP_PASSWORD_FILE
 if grep -qi microsoft /proc/sys/kernel/osrelease; then
@@ -135,6 +159,22 @@ if [[ $ready != true ]]; then
     stop_server
     exit 1
 fi
+
+# Immutable APK first, atomic metadata last; a running client never sees a partial release.
+python3 - "$APK" "$ROOT/androidApp/build/outputs/apk/$apk_dir/output-metadata.json" "$APP_RELEASE_DIR" "$test_code" <<'PY'
+import hashlib, json, os, pathlib, shutil, sys
+apk, output, root = map(pathlib.Path, sys.argv[1:4])
+entry, = json.loads(output.read_text())["elements"]
+assert entry["versionCode"] == int(sys.argv[4])
+with apk.open("rb") as stream:
+    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+target = root / (digest + ".apk")
+shutil.copyfile(apk, root / "apk.part")
+os.replace(root / "apk.part", target)
+metadata = dict(versionCode=entry["versionCode"], versionName=entry["versionName"], sha256=digest, size=target.stat().st_size)
+(root / "latest.json.new").write_text(json.dumps(metadata) + "\n")
+os.replace(root / "latest.json.new", root / "latest.json")
+PY
 
 # Prune only our timestamped install snapshots, after the new server is healthy.
 mapfile -t versions < <(find "$STATE/server" -mindepth 1 -maxdepth 1 -type d -name '20*-*' ! -path "$snapshot" | sort -r)

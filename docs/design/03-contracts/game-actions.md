@@ -106,6 +106,24 @@ These supersede conflicting matrix/older capability paragraphs below; see
 | A-028 | Communication | Game chat is the only comment channel, with no event-comments UI or Event details dialog. D-94 game-wide Chat is not undoable; D-240 keeps chat simple with no sent-message Edit/Delete or planned expansions. Corrections use another message. Unsent-chat handling needs contract completion; card notes/pings stay distinct. |
 | A-029 | Correction | R1 uses existing supported field/move/token/Undo controls. No separate general correction/authoring tool or mandatory preview (D-241). Non-token deletion is forbidden (D-174). |
 | A-030 | Suggest ending / accept | Suggest your win/loss or a draw as shared, undoable board state. The other player must accept, then both return to lobby (D-211 superseding D-210). Acceptance is not undoable (D-212), unlike pending suggestions. Restore last lobby-prepared decks/mainboard/sideboard, clear both Ready and require both to ready again for a fresh game (D-213). No win-history/scorekeeping feature is required. Finished-session action-history review is optional future work, not R1 (D-214); current-game history is unchanged. Concurrent incompatible result actions use ordinary server ordering/applicability: the first applicable action takes effect and the later incompatible request is discarded (D-239), not replacement or multiple pending suggestions. Cross-game starter-option retention remains separate; D-274 resolves Random once at actual start when selected. |
+
+Round 18: a pending live suggestion locks gameplay on both clients, including during
+history review; chat and personal history navigation (including the timeline toggle)
+remain available. A compact on-table outcome panel follows the displayed board,
+including catch-up and timeline scrubbing; it is not a modal or minimizing banner.
+Its buttons work only at the live endpoint. The author Withdraws with an ordinary
+event, not Undo; the opponent Accepts or Declines.
+Rules v22 adds exact-ID DeclineResult (opponent-only) and WithdrawResult
+(suggester-only) events clearing the pending shared suggestion, even after other
+edits; this does not add a server-side gameplay freeze. Their recorded result
+tuples participate in ordinary replay/Undo. Older recorded events are unchanged.
+
+Card-menu defaults: Everyday omits EOT note; Counters places Note, EOT note and
+Reset counters in column five beside three pairs of counter widgets. Reset counters
+is one atomic batch of existing ClearCardCounter actions, preserving P/T and other
+marks. More has three fixed rows (owner/other side/links/EOT note; four single-axis
+P/T adjustments/reset; four EOT adjustments/empty). Extras use More 2 onward;
+saved layouts remain supported, including actions intentionally repeated across pages.
 | A-031 | History controls | Latest-own removal and last-undone-first recorded-transition reinsertion edit the existing tree, not an original-path copy. The authoritative owner rule (2026-10-25) allows Undo/Redo iff every later game-tree event can apply with identical concerned-field before/after tuples, including reads/dependencies; information gained or seen never decides eligibility. No skipping blocked targets. Ordinary own successful play clears own Redo; ordinary opponent play does not. D-258 deliberate shared-history switches clear both players' queues atomically; normal Undo/Redo and personal UI review do not trigger a blanket reset. D-259 makes controls/stacks server-owned request-driven game state, not per-device history. Validate all retained successors, including beyond activated internal nodes; personal viewing and forks do not independently restrict eligibility. Resource/anchor/version mechanics remain technical. Graphical activation/filtering applies to genuine alternatives. |
 | A-032 | Export | Not an R1 deliverable: deck export is excluded (D-241); finished-game history archives/review are deferred optional work (D-214). No export roadmap is implied. |
 | A-033 | Table layout | Drag and snap individual cards or selected sets, form/split/reorder visual piles, and recover previous placements. |

@@ -220,6 +220,14 @@ object GameplayHistory {
                 !CombatStackRules.exists(board, ProjectionEndpoint(link.second))) return false
         }
         when (val action = mutation.action) {
+            is PlayAction.DeclineResult -> {
+                if (mutation.transition.rulesVersion < 22 || board.resultSuggestion?.id != action.suggestionId ||
+                    board.resultSuggestion?.author == mutation.author) return false
+            }
+            is PlayAction.WithdrawResult -> {
+                if (mutation.transition.rulesVersion < 22 || board.resultSuggestion?.id != action.suggestionId ||
+                    board.resultSuggestion?.author != mutation.author) return false
+            }
             is PlayAction.Stack -> when (val stack = action.action) {
                 is StackAction.AddEffect -> {
                     val source = board.cards.singleOrNull { it.id == stack.sourceId } ?: return false

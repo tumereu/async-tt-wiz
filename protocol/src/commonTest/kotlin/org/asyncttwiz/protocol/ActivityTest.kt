@@ -20,4 +20,9 @@ class ActivityTest {
         val page = ActivityPage(listOf(ActivityHint("1", ActivityKind.INVITATION, id, id)), "r:101:1", "0", true, true)
         assertEquals(page, ActivityWire.json.decodeFromString<ActivityPage>(ActivityWire.json.encodeToString(page)))
     }
+    @Test fun presenceRidesExistingPingAndOldPingStillDecodes() {
+        val ping = GamePing(id, GamePresence(id, id, true))
+        assertEquals(ping, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(ping)))
+        assertEquals(GamePing(id), GameWire.decodeClient("""{"type":"ping","correlationId":"$id"}"""))
+    }
 }

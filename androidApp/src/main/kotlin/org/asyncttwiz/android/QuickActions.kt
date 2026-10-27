@@ -64,7 +64,7 @@ object QuickActions {
                 add("Draw one + next", "↓", controller.draw(play, true), "↦")
             }
             TurnPosition.PRECOMBAT_MAIN -> {
-                add("Go to attacks", "", TableActionIntent.SelectAttackers(scope, advance = true))
+                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
                 add("Skip combat", "", choose(TurnPosition.END_STEP))
             }
             TurnPosition.DECLARE_ATTACKERS -> if (context.selectedSourceIds.isNotEmpty()) {

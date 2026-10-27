@@ -256,7 +256,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val toolbarWidth = if (compactHeader) 192f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
         val fieldScale = cardScale(cardAppearance.cardSize)
-        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale).height + 4f)
+        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale,
+            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)).height + 4f)
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
@@ -770,8 +771,9 @@ private fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     val context = LocalContext.current
     val extents = mutableMapOf<org.asyncttwiz.storage.ArtworkReference, Float>()
     for (item in scene.items) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
-        extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
-    }
+         extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
+     }
+    for (label in scene.combatLabels) label.artwork?.let { extents[it] = maxOf(extents[it] ?: 0f, label.bounds.height) }
     for ((reference, extent) in extents) key(reference) {
         val width = with(LocalDensity.current) { extent.dp.roundToPx() }.coerceIn(1, 4096)
         val height = width
@@ -1005,10 +1007,22 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
             drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
             for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .22f), xy(from.x, from.y), xy(to.x, to.y), density)
-            if (scene.combatDrops.isNotEmpty() && scene.items.none { it.viewport == "combat" }) {
-                paint.alpha = 110
-                fittedText("Drag cards here for combat", b.x + 8f, b.center.y + 4f, b.width - 16f)
-                paint.alpha = 255
+            for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = .7f), xy(from.x, from.y), xy(to.x, to.y), 3 * density)
+            for (label in scene.combatLabels) {
+                val bounds = label.bounds
+                val font = scene.cardWidth * .22f
+                val inset = if (label.cardId != null) scene.cardWidth * .3f else 0f
+                if (label.cardId != null) {
+                    val thumb = TableBounds(bounds.x + 1f, bounds.y + 1f, inset, inset * 1.4f)
+                    val image = label.artwork?.key?.let(artwork::get)
+                    if (image != null) drawTableArtwork(image, thumb)
+                    else drawRect(Color(0xffb5b0a0), xy(thumb.x, thumb.y), size(thumb.width, thumb.height))
+                }
+                paint.textSize = font * density; paint.isFakeBoldText = true
+                label.lines.forEachIndexed { index, line ->
+                    fittedText(line, bounds.x + inset + 2f, bounds.y + font * (1 + index * 1.2f), bounds.width - inset - 4f)
+                }
+                paint.isFakeBoldText = false; paint.textSize = 11 * density
             }
         }
     }

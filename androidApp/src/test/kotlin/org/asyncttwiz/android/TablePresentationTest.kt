@@ -416,7 +416,9 @@ class TablePresentationTest {
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
         val scene = TableFixture.scene(play)
         val lane = scene.viewports.single { it.id == "combat" }.bounds
-        assertEquals(CombatStackPresentation.combat(play.board, scene.cardWidth, scene.cardHeight).height, lane.height)
+        assertEquals(CombatStackPresentation.combat(play.board, scene.cardWidth, scene.cardHeight, play.definitions,
+            mapOf(TableFixture.game.inviter.accountId to TableFixture.game.inviter.username,
+                TableFixture.game.recipient.accountId to TableFixture.game.recipient.username)).height, lane.height)
         val closed = TableFixture.scene(initial)
         assertEquals(closed.fields.first().gridBounds.height, scene.fields.first().gridBounds.height)
         assertEquals(closed.fields.first().rowHeight, scene.fields.first().rowHeight)

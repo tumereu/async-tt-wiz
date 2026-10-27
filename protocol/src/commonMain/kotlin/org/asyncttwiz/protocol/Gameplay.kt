@@ -277,7 +277,8 @@ object GameplayRules {
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
         }), action)
-        val closed = CombatStackRules.closeInvariants(state.board, resolved)
+        val rulesVersion = 18
+        val closed = CombatStackRules.closeInvariants(state.board, resolved, rulesVersion)
             ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.
         val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
@@ -290,9 +291,9 @@ object GameplayRules {
                 // Only replacement tops are automatic; an explicit face change is still a Reveal.
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
-        // Version 16 preserves token-adjacent pile order and canonicalizes map-derived event arrays.
+        // Version 18 adds pair targets/cleanup and printed loyalty/defense/lore defaults.
         // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
-        val relevant = transition.copy(rulesVersion = 16, combatStack = CombatStackRules.transition(state, closed, action),
+        val relevant = transition.copy(rulesVersion = rulesVersion, combatStack = CombatStackRules.transition(state, closed, action),
             disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {
                 it.cardId == disclosure.cardId && it.containerId == disclosure.containerId } } + topDisclosures,
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)
@@ -472,7 +473,7 @@ object GameplayRules {
         val moved = card.copy(containerId = target.id, placement = placement,
             note = if (coverRulesVersion >= 7 && source.id != target.id &&
                 (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD)) "" else card.note,
-            corner = if (leaving) front?.corner.orEmpty() else card.corner,
+            corner = if (leaving) front?.defaultCorner().orEmpty() else card.corner,
             counters = if (leaving) emptyMap() else card.counters,
             faceId = if (leaving) front?.faceId ?: card.faceId else card.faceId,
             owner = if (leaving) originalOwner(state, card) else card.owner,

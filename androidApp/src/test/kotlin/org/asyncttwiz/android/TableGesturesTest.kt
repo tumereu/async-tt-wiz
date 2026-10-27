@@ -463,7 +463,7 @@ class TableGesturesTest {
         }
     }
 
-    @Test fun combatTapBubblesDoubleTapDoesNothingHoldInspectsAndOutsideTapPassesThrough() {
+    @Test fun combatTapOpensNormalCardActionsDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
@@ -473,7 +473,9 @@ class TableGesturesTest {
         gesture.update(scene, TableSelection(), true)
         val p = card.visible.first().center
         gesture.down(p, 0); gesture.up(p, 20)
-        assertEquals(listOf<TableIntent>(TableIntent.CombatBubbles(card.cardId)), events)
+        assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
+        assertTrue(events.none { it is TableIntent.CombatBubbles })
+        events.clear()
         gesture.down(p, 60); gesture.up(p, 80); gesture.tick(400)
         assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
         events.clear()

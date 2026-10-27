@@ -147,7 +147,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
     val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap(),
     internal val cardPanels: List<CardPanelGeometry> = emptyList(),
-    val appearance: CardAppearance = CardAppearance()) {
+    val appearance: CardAppearance = CardAppearance(),
+    val combatLabels: List<CombatLaneLabel> = emptyList(),
+    val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList()) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
@@ -249,7 +251,8 @@ object TablePresentation {
         val logicalRight = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.maxOfOrNull { c ->
             c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
         } ?: 4f
-        val combat = CombatStackPresentation.combat(play.board, hudWidth * battlefieldScale, hudHeight * battlefieldScale)
+        val combat = CombatStackPresentation.combat(play.board, hudWidth * battlefieldScale, hudHeight * battlefieldScale,
+            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // Both modes reserve the very same timeline and controls; review never reframes the camera.
         val controlsHeight = tableBottomHeight(landscape)
@@ -444,8 +447,10 @@ object TablePresentation {
         val drops = combat.destinations.map { region ->
             val bounds = translated(region.bounds)
             val top = world.screen(TablePoint(0f, bandY), camera).y
-            val half = bandHeight * zoom / 2
-            val row = bounds.copy(y = top + if (region.destination.role == CombatRole.BLOCKER) 0f else half, height = half)
+            val labelBottom = world.screen(TablePoint(0f, combatY + combat.labelHeight), camera).y
+            val rowTop = maxOf(top, labelBottom)
+            val half = ((bandHeight * zoom - (rowTop - top)) / 2).coerceAtLeast(0f)
+            val row = bounds.copy(y = rowTop + if (region.destination.role == CombatRole.BLOCKER) 0f else half, height = half)
             // Screen-dp tolerance, capped just short of neighboring slot midpoints at small zoom.
             val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
             val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
@@ -455,7 +460,11 @@ object TablePresentation {
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
         val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
+             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
+        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
+        val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds),
+            artwork = play.board.cards.find { it.id == lane.cardId }?.let { art(it, false) }) }
         val clippedPorts = if (landscape) ports.map { p ->
             if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id == stack.id)
                 p.copy(bounds = p.bounds.intersection(sidebarBounds) ?: p.bounds.copy(height = 0f)) else p
@@ -465,7 +474,8 @@ object TablePresentation {
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
-            stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
+             stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
+            combatLabels = labels, combatLaneDividers = laneDividers,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, panels), width, height)
     }

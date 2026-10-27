@@ -71,7 +71,7 @@ class QuickActionsTest {
             TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
             TurnPosition.UPKEEP to listOf("Draw + go to main"),
             TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
-            TurnPosition.PRECOMBAT_MAIN to listOf("Go to attacks", "Skip combat"),
+            TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
             TurnPosition.DECLARE_ATTACKERS to listOf("Select attackers", "No attack"),
             TurnPosition.END_COMBAT to listOf("Advance + close combat"),
             TurnPosition.POSTCOMBAT_MAIN to listOf("End turn"),

@@ -32,8 +32,7 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
         val loyalty = field("loyalty"); val defense = field("defense")
         DefinitionFace(face.id, field("faceName").ifBlank { face.name }, face.otherFaces,
             field("type"), field("manaCost"), field("text"), power, toughness, loyalty, defense,
-            when { power.isNotEmpty() || toughness.isNotEmpty() -> "$power/$toughness"
-                loyalty.isNotEmpty() -> loyalty; else -> defense }, face.scryfallId, sourceData = face.json)
+             scryfallId = face.scryfallId, sourceData = face.json).let { it.copy(corner = it.defaultCorner()) }
     }
     val raw = DeckJson.format.parseToJsonElement(printing.json).jsonObject
     val definition = CardDefinition(printing.name, definitions, provider = "mtgjson",

@@ -22,6 +22,25 @@ object CombatStackController {
     }
     fun sources(targets: List<CombatStackTarget>) = targets.mapNotNull { it.sourceId }.distinct()
 
+    fun attackerPairs(board: BoardState, viewIds: List<String>): List<CombatPair> =
+        board.combat?.pairs.orEmpty().filter { pair -> pair.attackers.any { it.id in viewIds } }
+
+    /** Cross-lane attacker drops retarget whole pairs: their blockers never get left behind. */
+    fun retargetDrop(board: BoardState, viewIds: List<String>, destination: CombatDestination): List<CombatPair> {
+        val pairs = attackerPairs(board, viewIds)
+        if (pairs.flatMap { it.attackers }.none { it.id in viewIds } || viewIds.any { id ->
+                pairs.none { pair -> pair.attackers.any { it.id == id } } }) return emptyList()
+        val target = destination.pairId?.let { id -> board.combat?.pairs?.find { it.id == id }?.attackTarget }
+            ?: destination.attackTarget
+        return pairs.filter { it.attackTarget != target }
+    }
+
+    fun attackTarget(state: PlayState, actor: String, viewIds: List<String>, cardId: String?,
+        command: (PlayAction) -> GameCommand): CombatStackPlan = Builder(state, actor, command).apply {
+        for (pair in attackerPairs(state.board, viewIds)) emit(PlayAction.Combat(
+            CombatAction.SetAttackTarget(state.board.combat!!.id, pair.id, cardId)))
+    }.plan()
+
     /** Move the live source, not the projection, using its owner's bin and normal move defaults. */
     fun graveyard(board: BoardState, occurrenceId: String): PlayAction.MoveCard {
         require(CombatStackRules.occurrences(board.combat).any { it.id == occurrenceId })
@@ -94,6 +113,9 @@ object CombatStackController {
      */
     fun place(state: PlayState, actor: String, selected: List<String>, destination: CombatDestination,
         command: (PlayAction) -> GameCommand): CombatStackPlan {
+        val retarget = retargetDrop(state.board, selected, destination)
+        if (retarget.isNotEmpty()) return attackTarget(state, actor, selected,
+            state.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget, command)
         val targets = orderedTargets(state.board, selected)
         val sourceIds = sources(targets)
         require(sourceIds.size == targets.size && sourceIds.isNotEmpty()) { "No live source" }

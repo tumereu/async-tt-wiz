@@ -87,7 +87,7 @@ class CardRingInteractionTest {
         compose.ringPage(1)
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
-        for (name in listOf("Set corner", "Declare without tapping")) {
+        for (name in listOf("Set corner", if (battlefield) "Attack →" else "Declare without tapping")) {
             val node = compose.onNodeWithContentDescription(name)
             if (battlefield) node.assertIsEnabled() else node.assertIsNotEnabled()
         }

@@ -124,7 +124,7 @@ object ManualEditRules {
             is PlayAction.AdjustCorner -> field(id, GameplayField.CORNER, card.corner,
                 ManualText.corner(card.corner, action.part, action.delta) ?: return null)
             is PlayAction.ResetCorner -> field(id, GameplayField.CORNER, card.corner,
-                faces.singleOrNull { it.faceId == card.faceId }?.corner.orEmpty(),
+                faces.singleOrNull { it.faceId == card.faceId }?.defaultCorner().orEmpty(),
                 reads = listOf(GameplayRead(id, GameplayField.FACE, card.faceId)))
             is PlayAction.SetNote -> field(id, GameplayField.NOTE, card.note, action.value.trim())
             is PlayAction.SetOwner -> if (board.players.none { it.accountId == action.accountId }) null

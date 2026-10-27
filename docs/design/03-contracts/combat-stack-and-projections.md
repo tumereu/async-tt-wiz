@@ -39,8 +39,8 @@ left-to-right order, lethal first using effective corner + EOT P/T and already
 marked/assigned damage; excess goes to the last creature, or the attack target
 with attacker trample. Player life, target loyalty/defense corners and creature
 damage are ordinary edits sent in one atomic batch/history group/Undo. Replay
-uses those recorded edits, never recalculates combat, and introduces no new rule
-or event fields; existing edit concerned-field rules apply.
+uses those recorded edits, never recalculates combat; existing edit concerned-field
+rules apply.
 
 Current-face MTGJSON keywords and whole words in permanent/EOT notes supply
 deathtouch, trample, first/double strike and lifelink (life gain in the same batch).
@@ -50,6 +50,14 @@ The turn player's damage-step shortcuts deal with both sides, clear multiselect,
 and split into first-strike/regular buttons if any combatant has first/double
 strike. Players remove dead creatures between presses. **Close + next** closes
 combat and goes directly to postcombat main.
+
+Rules v20 pairs also record `blocked` (absent defaults to false for old records).
+Placing a blocker sets it; removing/moving blockers does not clear it for a
+surviving pair. Closing combat discards it. A blocked attacker with no remaining
+blockers deals no creature/target damage unless it has trample, in which case all
+power goes to the target; explicit **Deal to target** still bypasses blockers.
+Positive deathtouch assignments count as lethal for later dealers in the same
+calculation. These corrections do not recalculate old recorded damage edits.
 
 Status: required release scope in delivery stage 1, behavior specification
 (D-115). Confirmed behavior through D-158 is recorded below; remaining substantive

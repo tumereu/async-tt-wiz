@@ -62,6 +62,12 @@ destination effects, not unselected faces. Reveal Done concerns the exact remain
 tray and source locations; it preserves Hand order. Replay/undo use recorded effects
 and never resample; older sealed events retain their original behavior.
 
+Rules v20 player-target assignments (including placement retaining a player target
+and target-departure fallback) concern the resolved defending account, not just a
+null target-card ID. Random hand moves concern the chosen card's owner and record
+that owner's destination. Sticky pair blocking and token tray cleanup are recorded
+in the same transition and participate in exact concerned-field replay/undo.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

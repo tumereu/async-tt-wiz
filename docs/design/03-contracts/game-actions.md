@@ -19,6 +19,11 @@ are excluded; Logout cleanup/account isolation follows the account contract.
 
 ## 4.1 Shared action envelope
 
+Rules v20 random Hand discard/exile/library-bottom route to the chosen card's
+owner's corresponding zone, retaining the chosen identity and destination in the
+recorded event. RemoveToken prunes any author-owned contents/reveal tray and closes
+it when empty in the same transition, just like moving a displayed card.
+
 Every game action specifies:
 
 - Stable action ID and parent boundary; actor and originating client operation.

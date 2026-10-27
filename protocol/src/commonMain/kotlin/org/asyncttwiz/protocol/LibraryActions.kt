@@ -30,7 +30,7 @@ object LibraryRules {
     }
 
     internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
-        contentsRulesVersion: Int = 2, rulesVersion: Int = 19): GameplayChange {
+        contentsRulesVersion: Int = 2, rulesVersion: Int = 20): GameplayChange {
         val board = state.board
         fun record(next: BoardState, transition: GameplayTransition) =
             GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion, rulesVersion)

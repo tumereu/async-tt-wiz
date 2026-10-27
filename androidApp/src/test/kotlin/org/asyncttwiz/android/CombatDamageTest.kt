@@ -43,7 +43,7 @@ internal class CombatDamageFixture(
             combat = CombatArea(id(90), listOf(CombatPair(id(91),
                 attackerViews.zip(attackerIds).map { (view, source) -> CombatOccurrence(view, source) },
                 blockerViews.zip(blockerIds).map { (view, source) -> CombatOccurrence(view, source) },
-                target.takeIf { targetCorner != null })))))
+                target.takeIf { targetCorner != null }, blocked = blockers.isNotEmpty())))))
     }
     fun assign(selected: List<String> = attackerViews, targetOnly: Boolean = false,
         step: CombatDamageStep = CombatDamageStep.ALL, state: PlayState = play) = CombatDamage.assign(state, selected, targetOnly, step)
@@ -137,8 +137,8 @@ class CombatDamageTest {
             }
         }))
         val result = f.assign(f.attackerViews.reversed(), state = state)
-        assertEquals(listOf("3", "3"), f.blockerIds.indices.map { f.damage(result, it) })
-        assertEquals("-1", f.life(result))
+        assertEquals(listOf("1", "1"), f.blockerIds.indices.map { f.damage(result, it) })
+        assertEquals("-5", f.life(result))
         val area = state.board.combat!!
         val reversed = state.copy(board = state.board.copy(combat = area.copy(pairs = area.pairs.map { it.copy(attackers = it.attackers.reversed()) })))
         val changed = f.assign(state = reversed)
@@ -161,6 +161,36 @@ class CombatDamageTest {
         val first = CombatDamageFixture(keyword = "First strike")
         assertEquals("-5", first.life(first.assign(step = CombatDamageStep.FIRST_STRIKE)))
         assertTrue(first.assign(step = CombatDamageStep.REGULAR).actions.isEmpty())
+    }
+
+    @Test fun doubleStrikeRemainsBlockedAfterFirstStrikeKillsTheOnlyBlocker() {
+        for (trample in listOf(false, true)) {
+            val f = CombatDamageFixture(attackers = listOf("3/3"), blockers = listOf("1/2"),
+                note = "Double strike Lifelink" + if (trample) " Trample" else "")
+            val state = f.play.copy(board = f.play.board.copy(containers = f.play.board.containers +
+                PlayContainer(f.id(17), PlayZone.GRAVEYARD, f.defender)))
+            val firstStrike = f.assign(step = CombatDamageStep.FIRST_STRIKE, state = state)
+            assertEquals(if (trample) "2" else "3", f.damage(firstStrike))
+            assertEquals("3", f.life(firstStrike, f.actor))
+            var next = state
+            var request = 9000
+            fun apply(action: PlayAction) {
+                val command = GameCommand(f.id(request++), GameScope(next.gameId, playId = next.id), GameAction.Play(action), f.id(99), "1")
+                val result = GameplayRules.change(next, f.actor, command)
+                next = assertNotNull(result.state, result.reason)
+            }
+            firstStrike.actions.forEach(::apply)
+            val blocker = next.board.cards.single { it.id == f.blockerIds.single() }
+            val graveyard = next.board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == f.defender }
+            apply(PlayAction.MoveCard(blocker.id, MoveSource(blocker.containerId, blocker.placement),
+                MoveDestination(graveyard.id, MoveInsertion.UNORDERED)))
+            assertTrue(next.board.combat!!.pairs.single().blocked)
+            assertTrue(next.board.combat!!.pairs.single().blockers.isEmpty())
+            val regular = f.assign(step = CombatDamageStep.REGULAR, state = next)
+            assertEquals(if (trample) "-3" else null, f.life(regular))
+            assertEquals(if (trample) "3" else null, f.life(regular, f.actor))
+            if (!trample) assertTrue(regular.actions.isEmpty())
+        }
     }
 
     @Test fun lifelinkGainsAllDamageIncludingOverkillForControllerNotOwner() {

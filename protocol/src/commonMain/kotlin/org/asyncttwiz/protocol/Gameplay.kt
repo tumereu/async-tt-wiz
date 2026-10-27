@@ -280,16 +280,21 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 19): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 20): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action
-        val panel = (action as? PlayAction.MoveCard)?.let { move -> state.board.contentsDisplays.firstOrNull { move.cardId in it.cardIds } }
+        val removedFromPanel = when (action) {
+            is PlayAction.MoveCard -> action.cardId
+            is PlayAction.RemoveToken -> action.cardId.takeIf { rulesVersion >= 20 }
+            else -> null
+        }
+        val panel = state.board.contentsDisplays.firstOrNull { removedFromPanel in it.cardIds }
         if (panel != null && panel.author != actor) return GameplayChange(reason = "accessDenied")
         val resolved = LibraryKnowledge.after(state.board, if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.mapNotNull {
             if (it.id != panel.id) it else {
-                val updated = it.copy(cardIds = it.cardIds - (action as PlayAction.MoveCard).cardId,
-                    revealedIds = it.revealedIds - action.cardId)
+                val updated = it.copy(cardIds = it.cardIds - removedFromPanel!!,
+                    revealedIds = it.revealedIds - removedFromPanel)
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
         }), action)
@@ -308,7 +313,8 @@ object GameplayRules {
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
         // Version 17 adds temporary marks and atomic turn/zone cleanup; 18 adds pair targets/cleanup
-        // and printed loyalty/defense/lore defaults.
+        // and printed loyalty/defense/lore defaults. Version 20 adds sticky blocking,
+        // resolved player-target dependencies, owner-routed random moves and token tray cleanup.
         // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
         val relevant = transition.copy(rulesVersion = rulesVersion,
             fields = transition.fields + if (rulesVersion >= 17) TurnMarks.changes(resolved, cleanup) else emptyList(),

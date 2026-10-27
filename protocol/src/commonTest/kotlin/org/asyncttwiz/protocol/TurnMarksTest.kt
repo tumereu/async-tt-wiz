@@ -19,7 +19,7 @@ class TurnMarksTest {
         assertEquals(command, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(command)))
         return GameplayRules.change(state, id(7), command).also { result ->
             assertEquals("accepted", result.outcome)
-            assertEquals(19, result.mutation!!.transition.rulesVersion)
+            assertEquals(20, result.mutation!!.transition.rulesVersion)
             assertEquals(result, GameplayHistory.replay(state, result.mutation))
             assertEquals(state.board, GameplayHistory.reverse(result.state!!, result.mutation))
         }

@@ -46,6 +46,7 @@ internal object CombatDamage {
         val board = play.board
         val cards = board.cards.associateBy { it.id }
         val damage = linkedMapOf<String, BigInteger>()
+        val deathtouchDamage = mutableSetOf<String>()
         val corners = linkedMapOf<String, BigInteger>()
         val life = linkedMapOf<String, BigInteger>()
         val notes = linkedSetOf<String>()
@@ -73,13 +74,15 @@ internal object CombatDamage {
                     val toughness = card?.let { effectiveCorner(it).split('/').takeIf { it.size == 2 }?.get(1)?.let(::number) }
                     val marked = card?.let { number(it.damage.ifEmpty { "0" }) }
                     if (card == null || toughness == null || marked == null) { valid = false; break }
-                    val left = (toughness - marked - (damage[card.id] ?: zero) - (assigned[card.id] ?: zero)).max(zero)
+                    val left = if (card.id in deathtouchDamage) zero else
+                        (toughness - marked - (damage[card.id] ?: zero) - (assigned[card.id] ?: zero)).max(zero)
                     val lethal = if (left > zero && hasKeyword(play, source, "Deathtouch")) one else left
                     val amount = remaining.min(lethal)
                     if (amount > zero) assigned[card.id] = (assigned[card.id] ?: zero) + amount
                     remaining -= amount
                 }
-                val toTarget = role == CombatRole.ATTACKER && (recipients.isEmpty() ||
+                val blocked = pair.blocked || pair.blockers.isNotEmpty()
+                val toTarget = role == CombatRole.ATTACKER && (targetOnly || !blocked ||
                     hasKeyword(play, source, "Trample"))
                 var targetCard: PlayCard? = null
                 var targetPlayer: PlayPlayer? = null
@@ -105,6 +108,8 @@ internal object CombatDamage {
                 if (lifelink && board.players.find { it.accountId == controller }?.life?.let(::number) == null) valid = false
                 if (!valid) { manual(); continue }
                 assigned.forEach { (id, amount) -> damage[id] = (damage[id] ?: zero) + amount }
+                if (hasKeyword(play, source, "Deathtouch"))
+                    deathtouchDamage += assigned.filterValues { it > zero }.keys
                 if (remaining > zero) {
                     targetCard?.let { corners[it.id] = (corners[it.id] ?: zero) - remaining }
                     targetPlayer?.let { life[it.accountId] = (life[it.accountId] ?: zero) - remaining }

@@ -153,7 +153,7 @@ class AttackTargetPresentationTest {
         assertTrue(origin.attackers.isEmpty())
         assertEquals(pairs.first().blockers, origin.blockers)
         assertEquals(combatId(80), origin.attackTarget)
-        assertEquals(pairs.last().copy(blockers = pairs.last().blockers + attacker), result.pairs.last())
+        assertEquals(pairs.last().copy(blockers = pairs.last().blockers + attacker, blocked = true), result.pairs.last())
         assertEquals(targeted.board.cards, plan.prediction.board.cards)
         val change = GameplayRules.change(targeted, combatId(7), plan.commands.single().playMembers().single())
         assertNull(change.reason)

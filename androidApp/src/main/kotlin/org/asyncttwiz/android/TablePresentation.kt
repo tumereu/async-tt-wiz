@@ -123,7 +123,8 @@ data class TableItem(
     internal val valueDragSide: ValueDragSide = ValueDragSide.BOTTOM,
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
-    val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine
+    val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
+    val damage: String = "", val eotCorner: String = "", val eotNote: String = ""
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -315,7 +316,9 @@ object TablePresentation {
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else card.corner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (hidden) "" else effectiveCorner(card),
+                damage = if (hidden) "" else card.damage, eotCorner = if (hidden) "" else card.eotCorner,
+                eotNote = if (hidden) "" else card.eotNote,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token, note = if (hidden) "" else if (projection)
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,

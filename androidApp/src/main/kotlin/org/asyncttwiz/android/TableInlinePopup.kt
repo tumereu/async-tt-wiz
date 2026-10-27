@@ -89,8 +89,8 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                     repeat(inlinePopupGridRows(slots)) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
-                            while (column < 4) {
-                                val slot = slots.firstOrNull { it.cell == row * 4 + column }
+                            while (column < CardRingPages.columns) {
+                                val slot = slots.firstOrNull { it.cell == row * CardRingPages.columns + column }
                                 val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } }
                                 if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
                                 else if (entry.compound != null) RingWidget(entry, ownerColor)
@@ -118,7 +118,7 @@ internal object InlinePopupStyle {
 }
 
 internal fun inlinePopupGridRows(slots: List<CardRingSlot>): Int =
-    slots.maxOfOrNull { (it.cell + it.span + 3) / 4 } ?: 0
+    slots.maxOfOrNull { (it.cell + it.span + CardRingPages.columns - 1) / CardRingPages.columns } ?: 0
 
 /** All on-table context panels share placement, animation, input guard, relay and visual chrome.
  * The table host owns outside gestures, so a second tap can dismiss and draw/rotate immediately. */
@@ -240,7 +240,7 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 
 @Composable
 internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, select: (Int) -> Unit) {
-    Row(Modifier.width((CardRingGeometry.gridSide + 3 * InlinePopupStyle.cellGap).dp)
+    Row(Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
         .height(20.dp).horizontalScroll(rememberScrollState()).semantics {
         contentDescription = "Action page ${selected + 1} of ${pages.size}, ${pages[selected]}"
     }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {

@@ -32,6 +32,7 @@ import kotlinx.serialization.json.*
     @Serializable data class DefinitionAvailable(val digest: String) : ConcernField
     @Serializable data object PanelSlot : ConcernField
     @Serializable data object Attention : ConcernField
+    @Serializable data object TemporaryMarks : ConcernField
 }
 
 internal object GameplayConcerns {
@@ -139,6 +140,9 @@ internal object GameplayConcerns {
             is ConcernField.DefinitionAvailable -> encoded(state.definitions.any { it.digest == field.digest })
             ConcernField.PanelSlot -> encoded(b.contentsDisplays.map { it.id }.sorted())
             ConcernField.Attention -> encoded(listOf(b.attentionHolder, b.effectiveAttentionHolder))
+            ConcernField.TemporaryMarks -> encoded(b.cards.filter {
+                it.damage.isNotEmpty() || it.eotCorner.isNotEmpty() || it.eotNote.isNotEmpty()
+            }.sortedBy { it.id }.map { listOf(it.id, it.damage, it.eotCorner, it.eotNote) })
         }
     }
 
@@ -254,6 +258,8 @@ internal object GameplayConcerns {
             is PlayAction.ReorderContents -> entity("contents", a.displayId)
             PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep -> {
                 fields += ConcernField.Attention; entity("turn", "")
+                if (mutation.transition.rulesVersion >= 17 && TurnMarks.passed(from.board, to.board))
+                    fields += ConcernField.TemporaryMarks
             }
             PlayAction.PassAttention -> fields += ConcernField.Attention
             is PlayAction.Ping -> target(a.target)
@@ -290,7 +296,8 @@ internal object GameplayConcerns {
             is PlayAction.SetCovered -> {
                 entity("card", a.cardId, "covered"); entity("card", a.cardId, "explicitlyCovered")
             }
-            is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,
+            is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
+            is PlayAction.SetEotNote, is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,
             is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
             is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
             is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult -> Unit
@@ -307,8 +314,22 @@ internal object GameplayConcerns {
             mutation.transition.disclosures.filter { it.automatic || mutation.action is PlayAction.SetKeepTopRevealed }
                 .forEach { entity("card", it.cardId, "faceId") }
         }
+        if (mutation.transition.rulesVersion >= 17) {
+            // Zone entry resets assign all temporary fields, including absent/empty ones.
+            to.board.cards.forEach { c -> from.board.cards.singleOrNull { it.id == c.id }?.let { old ->
+                if (old.containerId != c.containerId &&
+                    (from.board.containers.single { it.id == old.containerId }.zone != PlayZone.BATTLEFIELD ||
+                        to.board.containers.single { it.id == c.containerId }.zone != PlayZone.BATTLEFIELD))
+                    for (key in listOf("damage", "eotCorner", "eotNote")) entity("card", c.id, key)
+            } }
+        }
         if (mutation.transition.rulesVersion >= 13) {
             val edit = when (val a = mutation.action) {
+                is PlayAction.SetDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                is PlayAction.AdjustDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                is PlayAction.SetEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                is PlayAction.AdjustEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                is PlayAction.SetEotNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
                 is PlayAction.SetNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
                 is PlayAction.SetOwner -> ConcernField.EditEligible(a.cardId)
                 is PlayAction.SetCorner -> ConcernField.EditEligible(a.cardId)

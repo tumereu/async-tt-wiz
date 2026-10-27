@@ -7,6 +7,11 @@ import kotlinx.serialization.Serializable
 
 /** Text first. Signed decimal integers use the existing life tool's checked 64-bit arithmetic. */
 object ManualText {
+    fun eotCorner(text: String): Boolean = text.isEmpty() || text.split('/').let {
+        it.size == 2 && it.all { part -> number(part) != null && part == part.trim() }
+    }
+    fun adjustEotCorner(text: String, part: CornerPart, delta: Int): String? =
+        if (part == CornerPart.WHOLE) null else corner(text.ifEmpty { "0/0" }, part, delta)
     private val integer = Regex("[+-]?[0-9]+")
     fun number(text: String): Long? = text.trim().takeIf { integer.matches(it) }?.toLongOrNull()
     fun add(text: String, delta: Long): String? {
@@ -47,6 +52,12 @@ object ManualDisclosure {
 /** Called only through GameplayRules, after its scope/access/wire checks. No second authoritative path. */
 object ManualEditRules {
     fun valid(action: PlayAction.Manual): Boolean = when (action) {
+        is PlayAction.SetDamage -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim()) &&
+            (action.value.isBlank() || TableActions.numeric(action.value.trim()))
+        is PlayAction.AdjustDamage -> DeckValidation.uuid(action.cardId) && TableActions.numeric(action.delta)
+        is PlayAction.SetEotCorner -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim()) && ManualText.eotCorner(action.value.trim())
+        is PlayAction.AdjustEotCorner -> DeckValidation.uuid(action.cardId) && action.part != CornerPart.WHOLE && action.delta in listOf(-1, 1)
+        is PlayAction.SetEotNote -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim())
         is PlayAction.SetCorner -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim())
         is PlayAction.AdjustCorner -> DeckValidation.uuid(action.cardId) && action.delta in listOf(-1, 1)
         is PlayAction.ResetCorner -> DeckValidation.uuid(action.cardId)
@@ -102,6 +113,11 @@ object ManualEditRules {
                 from, to, color)
         }
         val id = when (action) {
+            is PlayAction.SetDamage -> action.cardId
+            is PlayAction.AdjustDamage -> action.cardId
+            is PlayAction.SetEotCorner -> action.cardId
+            is PlayAction.AdjustEotCorner -> action.cardId
+            is PlayAction.SetEotNote -> action.cardId
             is PlayAction.SetCorner -> action.cardId
             is PlayAction.AdjustCorner -> action.cardId
             is PlayAction.ResetCorner -> action.cardId
@@ -114,12 +130,22 @@ object ManualEditRules {
         }
         val card = board.cards.singleOrNull { it.id == id } ?: return null
         val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return null
+        if ((action is PlayAction.SetDamage || action is PlayAction.AdjustDamage || action is PlayAction.SetEotCorner ||
+                action is PlayAction.AdjustEotCorner || action is PlayAction.SetEotNote) &&
+            zone !in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return null
         if (action is PlayAction.SetNote && zone !in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return null
         if ((action is PlayAction.SetCorner || action is PlayAction.AdjustCorner || action is PlayAction.ResetCorner ||
                 action is PlayAction.SetOwner) && zone != PlayZone.BATTLEFIELD) return null
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
         fun exposure(face: String, viewers: List<String>) = GameplayDisclosure(id, face, card.containerId, viewers.sorted())
         return when (action) {
+            is PlayAction.SetDamage -> field(id, GameplayField.DAMAGE, card.damage, action.value.trim())
+            is PlayAction.AdjustDamage -> field(id, GameplayField.DAMAGE, card.damage,
+                TableActions.addNumber(card.damage.ifEmpty { "0" }, action.delta) ?: return null)
+            is PlayAction.SetEotCorner -> field(id, GameplayField.EOT_CORNER, card.eotCorner, action.value.trim())
+            is PlayAction.AdjustEotCorner -> field(id, GameplayField.EOT_CORNER, card.eotCorner,
+                ManualText.adjustEotCorner(card.eotCorner, action.part, action.delta) ?: return null)
+            is PlayAction.SetEotNote -> field(id, GameplayField.EOT_NOTE, card.eotNote, action.value.trim())
             is PlayAction.SetCorner -> field(id, GameplayField.CORNER, card.corner, action.value.trim())
             is PlayAction.AdjustCorner -> field(id, GameplayField.CORNER, card.corner,
                 ManualText.corner(card.corner, action.part, action.delta) ?: return null)
@@ -163,6 +189,9 @@ object ManualEditRules {
             }) else next.copy(cards = next.cards.map {
                 if (it.id != field.targetId) it else when (field.field) {
                     GameplayField.CORNER -> it.copy(corner = field.to!!)
+                    GameplayField.DAMAGE -> it.copy(damage = field.to!!)
+                    GameplayField.EOT_CORNER -> it.copy(eotCorner = field.to!!)
+                    GameplayField.EOT_NOTE -> it.copy(eotNote = field.to!!)
                     GameplayField.COUNTER -> it.copy(counters = counters(it.counters))
                     GameplayField.NOTE -> it.copy(note = field.to!!)
                     GameplayField.OWNER -> it.copy(owner = field.to!!)

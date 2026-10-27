@@ -177,7 +177,9 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             listOfNotNull(
                 "Provisional inspection · awaiting shared result".takeIf { inspection.provisional },
                 "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
-                card.corner.takeIf(String::isNotBlank),
+                inspectedCorner(card).takeIf(String::isNotBlank),
+                card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
+                card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
                 card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
                 card.note.takeIf(String::isNotBlank)).joinToString("\n"),
             markedOptions = marks,

@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /** Exact relevant (from,to) tuples; fields absent from these effects are unchanged. No whole-card snapshots. */
 @Serializable enum class GameplayField { TAPPED, LIFE, CORNER, COUNTER, PLAYER_COUNTER, NOTE, OWNER, FACE, COVERED, CONTAINER,
-    PHASE, STEP, TURN_PLAYER, TURN_NUMBER, EXPLICITLY_COVERED }
+    PHASE, STEP, TURN_PLAYER, TURN_NUMBER, EXPLICITLY_COVERED, DAMAGE, EOT_CORNER, EOT_NOTE }
 @Serializable data class GameplayFieldChange(val targetId: String, val field: GameplayField,
     val from: String?, val to: String?, val color: CounterColor? = null)
 @Serializable data class CardLocation(val containerId: String, val placement: PlayPlacement? = null,
@@ -135,6 +135,9 @@ object GameplayHistory {
                 GameplayField.PLAYER_COUNTER -> player?.counters?.get(field.color)
                 GameplayField.TAPPED -> card?.tapped?.toString()
                 GameplayField.CORNER -> card?.corner
+                GameplayField.DAMAGE -> card?.damage
+                GameplayField.EOT_CORNER -> card?.eotCorner
+                GameplayField.EOT_NOTE -> card?.eotNote
                 GameplayField.COUNTER -> (card?.counters ?: player?.counters)?.get(field.color)
                 GameplayField.NOTE -> card?.note
                 GameplayField.OWNER -> card?.owner

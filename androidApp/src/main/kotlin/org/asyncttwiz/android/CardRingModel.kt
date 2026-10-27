@@ -6,13 +6,16 @@ import android.content.Context
 internal data class CardRingPage(val name: String, val actions: List<String>)
 internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 internal object CardRingPages {
-    const val capacity = 16
+    const val columns = 5
+    const val capacity = 25
     val defaults = listOf(
         CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
-            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library")),
+            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
+            "damage", "eotCorner", "eotNote")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "resetCorner",
-            "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1")),
+            "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1",
+            "eotCorner/LEFT/1", "eotCorner/RIGHT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/-1")),
         CardRingPage("Move", emptyList()))
 
     private fun defaultLayout(available: List<String>, token: Boolean) = defaults.mapIndexed { index, page ->
@@ -32,7 +35,7 @@ internal object CardRingPages {
     private fun isMove(id: String) = id.startsWith("Move ") || id in
         listOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile")
 
-    fun span(id: String) = if (id == "corner" || id == "corner/counters" ||
+    fun span(id: String) = if (id in listOf("corner", "corner/counters", "damage", "eotCorner") ||
         org.asyncttwiz.protocol.CounterColor.entries.any { id == "counter/${it.name}" }) 2 else 1
 
     /** Row-end padding belongs to the layout, never to an action or half of a widget. */
@@ -40,7 +43,7 @@ internal object CardRingPages {
         var cell = 0
         return actions.map { id ->
             val span = span(id)
-            if (cell % 4 + span > 4) cell += 4 - cell % 4
+            if (cell % columns + span > columns) cell += columns - cell % columns
             CardRingSlot(id, cell, span).also { cell += span }
         }
     }
@@ -84,8 +87,8 @@ internal data class CardRingPlacement(val square: TableBounds, val side: CardRin
 /** Pure dp geometry, independent of page contents and font scale. */
 internal object CardRingGeometry {
     const val cell = 48f
-    const val gridSide = 4 * cell
-    const val squareSide = gridSide + 24f // 192dp grid, 16dp tabs, 4dp top/bottom padding.
+    const val gridSide = CardRingPages.columns * cell
+    const val squareSide = gridSide + 24f
     private const val margin = 12f
     private const val gap = 8f
     fun place(width: Float, height: Float, card: TableBounds, own: Boolean,

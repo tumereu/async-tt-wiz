@@ -17,13 +17,13 @@ class InlinePopupTest {
     @Test fun sharedHostPreservesExistingCardGridPlacement() {
         val anchor = TableBounds(100f, 500f, 28f, 40f)
         val expected = assertNotNull(CardRingGeometry.place(412f, 892f, anchor, true)).square
-        assertEquals(expected, inlinePopupBounds(412f, 892f, anchor, true, 216f, 216f))
+        assertEquals(expected, inlinePopupBounds(412f, 892f, anchor, true, CardRingGeometry.squareSide, CardRingGeometry.squareSide))
     }
 
     @Test fun measuredContentKeepsOnlyOccupiedRowsAndCanFitBesideTheAnchor() {
         assertEquals(0, inlinePopupGridRows(emptyList()))
         assertEquals(1, inlinePopupGridRows(CardRingPages.layout(listOf("inspect"))))
-        assertEquals(2, inlinePopupGridRows(CardRingPages.layout(listOf("inspect", "corner", "note", "Clone"))))
+        assertEquals(1, inlinePopupGridRows(CardRingPages.layout(listOf("inspect", "corner", "note", "Clone"))))
         assertEquals(4, inlinePopupGridRows(CardRingPages.layout(List(16) { "action$it" })))
         val anchor = TableBounds(320f, 130f, 48f, 100f)
         val bounds = inlinePopupBounds(640f, 360f, anchor, true, 198f, 72f)

@@ -82,6 +82,35 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
     fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, battlefield && requests.isNotEmpty()) { emit(requests) }
+    val marksEnabled = enabled && !projection && zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
+    fun markActions(factory: (PlayCard) -> PlayAction?) = scope.cardActions(state) { target ->
+        if (state.board.containers.any { it.id == target.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }) factory(target) else null
+    }
+    fun markAdjustment(name: String, requests: List<PlayAction>) = MenuControl(name, marksEnabled && requests.isNotEmpty()) { emit(requests) }
+    fun damage(delta: Long) = markActions {
+        if (TableActions.addNumber(it.damage.ifEmpty { "0" }, delta.toString()) != null) PlayAction.AdjustDamage(it.id, delta.toString()) else null
+    }
+    entries += RingEntry("damage", "Damage", MenuControl("Set damage", marksEnabled, color = Color(0xffb3261e)) {
+        actions.edit(ManualValue(ManualValueKind.DAMAGE), state, viewer)
+    }, RingCompound(card.damage.ifEmpty { "0" }, markAdjustment("Decrease damage", damage(-1)), markAdjustment("Increase damage", damage(1)),
+        drag = { if (marksEnabled) emit(damage(it)) }, dragValue = card.damage.ifEmpty { "0" }))
+    fun eot(part: CornerPart, delta: Int) = markActions {
+        if (ManualText.adjustEotCorner(it.eotCorner, part, delta) != null) PlayAction.AdjustEotCorner(it.id, part, delta) else null
+    }
+    entries += RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", marksEnabled, color = Color(EotPowerToughnessColor)) {
+        actions.edit(ManualValue(ManualValueKind.EOT_CORNER), state, viewer)
+    }, RingCompound("⌛${card.eotCorner.ifEmpty { "0/0" }}", markAdjustment("Decrease EOT P/T", eot(CornerPart.BOTH, -1)),
+        markAdjustment("Increase EOT P/T", eot(CornerPart.BOTH, 1)), drag = { delta ->
+            if (marksEnabled) emit(markActions { target -> cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
+        }, dragValue = card.eotCorner.ifEmpty { "0/0" }, corner = true))
+    add("eotNote", "⌛ Note", MenuControl("Edit EOT note", marksEnabled) {
+        actions.edit(ManualValue(ManualValueKind.EOT_NOTE), state, viewer)
+    })
+    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "⌛ +/•"), Triple(CornerPart.RIGHT, 1, "⌛ •/+"),
+        Triple(CornerPart.LEFT, -1, "⌛ −/•"), Triple(CornerPart.RIGHT, -1, "⌛ •/−"))) {
+        add("eotCorner/${part.name}/$delta", symbol,
+            markAdjustment("Adjust corner EOT ${part.name.lowercase()} $delta", eot(part, delta)))
+    }
     entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
         RingCompound(card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
             if (battlefield) emit(scope.cardActions(state) { target ->
@@ -156,11 +185,20 @@ internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String,
         }
         if (face != null && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
             fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale, overflow = TextOverflow.Clip)
+        if (face != null && card.eotNote.isNotEmpty()) Text("⌛ ${card.eotNote}", maxLines = 1,
+            color = Color(EotPowerToughnessColor), fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale)
         Row { for ((color, value) in card.counters.filterValues(TablePresentation::nonzero)) Text(value, Modifier.background(counterColor(color)),
             maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
-        Text("${if (count > 1) "×$count " else ""}${card.corner}", Modifier.align(Alignment.End), maxLines = 1,
-            color = if (changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor) else LocalContentColor.current,
+        Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+        if (face != null && TablePresentation.nonzero(card.damage)) Text(card.damage, Modifier
+            .background(if (damageIsLethal(card.damage, effectiveCorner(card))) Color(0xffb3261e) else Color.White, CircleShape)
+            .border(1.dp, Color(0xffb3261e), CircleShape).padding(horizontal = 3.dp),
+            color = if (damageIsLethal(card.damage, effectiveCorner(card))) Color.White else Color(0xffb3261e), fontSize = 9.sp * valueScale)
+        Text("${if (count > 1) "×$count " else ""}${if (card.eotCorner.isNotEmpty()) "⌛" else ""}${effectiveCorner(card)}", maxLines = 1,
+            color = if (card.eotCorner.isNotEmpty()) Color(EotPowerToughnessColor)
+                else if (changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor) else LocalContentColor.current,
             fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)
+        }
     }
 }
 

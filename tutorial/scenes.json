@@ -1,0 +1,546 @@
+{
+ "chapters": [
+  {
+   "n": 0,
+   "title": "What this is"
+  },
+  {
+   "n": 1,
+   "title": "Getting started"
+  },
+  {
+   "n": 2,
+   "title": "Decks and starting a game"
+  },
+  {
+   "n": 3,
+   "title": "Reading the table"
+  },
+  {
+   "n": 4,
+   "title": "Basic controls"
+  },
+  {
+   "n": 5,
+   "title": "Turns and passing the move"
+  },
+  {
+   "n": 6,
+   "title": "The Stack"
+  },
+  {
+   "n": 7,
+   "title": "Combat"
+  },
+  {
+   "n": 8,
+   "title": "Library tools and tokens"
+  },
+  {
+   "n": 9,
+   "title": "History, undo and branching"
+  },
+  {
+   "n": 10,
+   "title": "Drafting"
+  },
+  {
+   "n": 11,
+   "title": "Ending a game"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "c0-title",
+   "chapter": 0,
+   "layout": "title",
+   "seconds": 3.5
+  },
+  {
+   "id": "c0-intro",
+   "chapter": 0,
+   "lines": [
+    {
+     "text": "Async Tabletop Wizards is a shared card-wizarding table for two.",
+     "media": {
+      "src": "clips/test.mp4",
+      "from": 1,
+      "to": 11
+     }
+    },
+    {
+     "text": "It's a simulated table, not a rules engine: you move the cards, and you and your opponent decide what the rules say.",
+     "marks": [
+      {
+       "type": "circle",
+       "x": 540,
+       "y": 800,
+       "r": 150
+      },
+      {
+       "type": "tap",
+       "x": 300,
+       "y": 1600,
+       "kind": "double",
+       "at": 0.5
+      },
+      {
+       "type": "arrow",
+       "x1": 200,
+       "y1": 300,
+       "x2": 800,
+       "y2": 500,
+       "at": 1
+      },
+      {
+       "type": "label",
+       "x": 540,
+       "y": 1100,
+       "text": "Stack",
+       "at": 1.2
+      }
+     ],
+     "zoom": {
+      "x": 200,
+      "y": 600,
+      "w": 700,
+      "h": 900
+     }
+    },
+    {
+     "text": "Everything you do is saved and synced. Your opponent sees it played back when they open the game, so you do not need to be present at the same time to play, and games can be played over a long time period."
+    },
+    {
+     "text": "The base setup is cooperative: any player can change anything on the table, and every action can be traced and undone."
+    }
+   ]
+  },
+  {
+   "id": "c1-card",
+   "chapter": 1,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c1-start",
+   "chapter": 1,
+   "lines": [
+    {
+     "text": "Install the app and create an account.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "On first launch the app downloads and imports the card catalog."
+    },
+    {
+     "text": "The main menu has your games, pods for drafting, decks, and settings."
+    },
+    {
+     "text": "When there's a new version, the app asks you to update before you can play."
+    }
+   ]
+  },
+  {
+   "id": "c2-card",
+   "chapter": 2,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c2-decks",
+   "chapter": 2,
+   "lines": [
+    {
+     "text": "To add a deck, paste a decklist or an Archidekt link.",
+     "say": "To add a deck, paste a decklist or an [Archidekt](/ˈɑɹkɪdɛkt/) link.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "To start a game, choose an opponent."
+    },
+    {
+     "text": "Game starts after both players have picked a deck in the lobby, adjusted the sideboard, and pressed Ready."
+    }
+   ]
+  },
+  {
+   "id": "c3-card",
+   "chapter": 3,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c3-table",
+   "chapter": 3,
+   "lines": [
+    {
+     "text": "Your side is at the bottom. Lands go in the row nearest you, everything else above them.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Your hand, library, graveyard and exile are along your edge."
+    },
+    {
+     "text": "The purple area is the Stack."
+    },
+    {
+     "text": "Two different things are shown: whose turn it is and whose move it is."
+    },
+    {
+     "text": "The turn player's battlefield is tinted."
+    },
+    {
+     "text": "The top and bottom bars take the color of whoever has the move, and the pill at the top says \"Your move\" or \"Waiting\"."
+    },
+    {
+     "text": "At the bottom: the step button, quick actions for this step, and a strip showing the most recent events."
+    }
+   ]
+  },
+  {
+   "id": "c4-card",
+   "chapter": 4,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c4-controls",
+   "chapter": 4,
+   "lines": [
+    {
+     "text": "Drag a card to put it anywhere.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Tap a card to open its menu. Swipe or use the arrows to change pages: everyday actions, counters, and more."
+    },
+    {
+     "text": "Double tap a permanent to tap or untap it."
+    },
+    {
+     "text": "In your hand, double tap plays the card: a land goes to your land row, permanents to the battlefield and other spells to the Stack."
+    },
+    {
+     "text": "Hold any card to inspect it."
+    },
+    {
+     "text": "Double tap your library to draw. Tap it for more actions."
+    },
+    {
+     "text": "Drag on your life total or a counter to change it."
+    },
+    {
+     "text": "Pinch to zoom, two-finger drag or double-tap-drag to pan."
+    },
+    {
+     "text": "Drag to select multiple cards to act on them all at once."
+    },
+    {
+     "text": "You can also use the multiselect mode to make multiselections."
+    }
+   ]
+  },
+  {
+   "id": "c5-card",
+   "chapter": 5,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c5-turns",
+   "chapter": 5,
+   "lines": [
+    {
+     "text": "The step button moves the game to the next step, hold it to end the turn.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Quick actions cover the common things in each step, like \"Untap, draw\" at the start of your turn."
+    },
+    {
+     "text": "Passing the move is how you tell your opponent it's their turn to act."
+    },
+    {
+     "text": "Turn and move tracking is informative: it may affect shown quick actions, but all actions are always available via some menu."
+    }
+   ]
+  },
+  {
+   "id": "c6-card",
+   "chapter": 6,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c6-stack",
+   "chapter": 6,
+   "lines": [
+    {
+     "text": "Spells and abilities go on the Stack, the purple area. Double tap a spell in your hand or drag it there.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "For an ability, choose Stack from the card's menu."
+    },
+    {
+     "text": "The Stack holds linked copies, so the real card stays where it is. A card cast from your hand is shown to both players while it's on the Stack."
+    },
+    {
+     "text": "Tap the top of the Stack for its bubbles. Battlefield and Graveyard resolve it: the copy leaves the Stack and the real card moves there."
+    },
+    {
+     "text": "Exile does the same to exile. Remove only takes the copy off the Stack, which is what you want when an ability resolves."
+    },
+    {
+     "text": "Drag the side handle up or down to mark which part of the text you're using: a mode, an ability, or one half of a split card. Your opponent sees the mark."
+    },
+    {
+     "text": "To respond, put your own card on top and pass the move."
+    },
+    {
+     "text": "Resolve from the top down; after each one, the next card's bubbles open by themselves."
+    },
+    {
+     "text": "Double tap the Stack to see every entry, remove one from the middle, or copy one."
+    },
+    {
+     "text": "Tap \"Ping\" on any card to point at it, for example to show a target."
+    }
+   ]
+  },
+  {
+   "id": "c7-card",
+   "chapter": 7,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c7-combat",
+   "chapter": 7,
+   "lines": [
+    {
+     "text": "Combat happens in its own area in the middle of the table.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Press Select attackers, pick your creatures, and declare them. Like on the Stack, these are linked copies; the real cards stay in place."
+    },
+    {
+     "text": "Each attacker sits in a lane that shows what it's attacking. By default that's your opponent."
+    },
+    {
+     "text": "To attack a planeswalker or a battle, tap the attacker, choose Attack, and pick the card. It moves into a new lane labeled with that target."
+    },
+    {
+     "text": "You can also drag an attacker from one lane to another."
+    },
+    {
+     "text": "When the game moves to blockers, the move passes to the defender. They drag their creatures below the attackers they block."
+    },
+    {
+     "text": "Damage is up to you: mark it on creatures, lower life totals, and lower a planeswalker's loyalty, the number in its corner. Then close the combat."
+    }
+   ]
+  },
+  {
+   "id": "c8-card",
+   "chapter": 8,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c8-library",
+   "chapter": 8,
+   "lines": [
+    {
+     "text": "Search, Look and Reveal open a panel on the left side. Drag cards out, or tap them for quick moves.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Closing a search shuffles your library."
+    },
+    {
+     "text": "Reveals show to both players; looking and searching are private."
+    },
+    {
+     "text": "Tokens come from the table actions menu, and you can favorite the ones you use often."
+    }
+   ]
+  },
+  {
+   "id": "c9-card",
+   "chapter": 9,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c9-history",
+   "chapter": 9,
+   "lines": [
+    {
+     "text": "Every action is recorded.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "When you open a game, the app plays back what your opponent did since you last looked, so you see what happened instead of only where things ended up."
+    },
+    {
+     "text": "Playback pauses on important moments, like a spell going on the Stack or a reveal. You choose which moments in Settings."
+    },
+    {
+     "text": "Tap the timeline button to enter timeline mode. Step back and forth through events, or let it run automatically. Hold a card at any point to read it."
+    },
+    {
+     "text": "Made a mistake? Undo takes back your latest action."
+    },
+    {
+     "text": "That only works while your opponent's later actions would still play out exactly the same. If undoing would change what they did, the app refuses, and you fix things by hand."
+    }
+   ]
+  },
+  {
+   "id": "c9-branch",
+   "chapter": 9,
+   "layout": "two-phones",
+   "devices": [
+    "You",
+    "Opponent"
+   ],
+   "lines": [
+    {
+     "text": "Branching is for \"wait, I wanted to respond to that.\"",
+     "media": [
+      {
+       "src": "clips/test.mp4",
+       "from": 0,
+       "to": 10
+      },
+      {
+       "src": "shots/placeholder.png"
+      }
+     ]
+    },
+    {
+     "text": "Example: you open the game and watch your opponent's turn. They cast Opt, looked at their top card, drew it, and then attacked with a creature."
+    },
+    {
+     "text": "You wanted to Shock that creature at the start of their turn, before all of that."
+    },
+    {
+     "text": "Step back in the timeline to their upkeep, choose Continue from here, and cast Shock. That starts a new branch, and it becomes the game."
+    },
+    {
+     "text": "Nothing is lost. The old line still exists in the game tree."
+    },
+    {
+     "text": "On your opponent's phone, the game shows \"Opponent branched\", rewinds to where you went back, and plays your Shock. Now they play their turn again."
+    },
+    {
+     "text": "When they cast Opt this time, they probably see a different card."
+    },
+    {
+     "text": "A new branch reshuffles every library card whose position nobody knows. What your opponent saw in the old line tells them nothing about the new one."
+    },
+    {
+     "text": "Cards with a known position stay put, like a card someone put on top before the branch point."
+    },
+    {
+     "text": "This only happens when a new branch starts. Undoing a draw and drawing again gives the same card, and branching again from the same point gives the same order, so going back can't be used to fish for a better draw."
+    }
+   ]
+  },
+  {
+   "id": "c9-tip",
+   "chapter": 9,
+   "lines": [
+    {
+     "text": "A tip that follows from this: when your spell would reveal cards from your opponent's hand or a face-down card, don't look yourself. Cast it and pass the move.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Your opponent gets the chance to respond first. And if they go back to respond, you haven't already seen their cards."
+    }
+   ]
+  },
+  {
+   "id": "c10-card",
+   "chapter": 10,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c10-draft",
+   "chapter": 10,
+   "lines": [
+    {
+     "text": "Pods are for drafting together. Create one from a cube, for example a Cube Cobra link, or from a set's boosters.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Choose a format: classic boosters, Glimpse, or Grid. Then invite the other players."
+    },
+    {
+     "text": "All packs open at once, so nobody waits for a pack to be passed."
+    },
+    {
+     "text": "To pick, swipe a card right to keep it or left to burn it, then confirm. Hold a card to see it big."
+    },
+    {
+     "text": "When the draft is done, build your deck: cards are sorted into columns by mana value, basic lands are added with one button, and the Stats tab shows your curve and colors."
+    },
+    {
+     "text": "Submit, then challenge another pod member. The game starts from the usual lobby."
+    }
+   ]
+  },
+  {
+   "id": "c11-card",
+   "chapter": 11,
+   "layout": "chapter",
+   "seconds": 2.2
+  },
+  {
+   "id": "c11-end",
+   "chapter": 11,
+   "lines": [
+    {
+     "text": "When the game is over, suggest the result from Table actions.",
+     "media": {
+      "src": "shots/placeholder.png"
+     }
+    },
+    {
+     "text": "Your opponent accepts or declines; until then, the game waits."
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "chapter": 11,
+   "layout": "end",
+   "seconds": 3.5
+  }
+ ]
+}

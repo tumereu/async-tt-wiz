@@ -1,0 +1,4 @@
+node_modules/
+out/
+video/public/
+capture/raw/

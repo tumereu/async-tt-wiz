@@ -1,0 +1,26 @@
+{
+  "name": "atw-tutorial-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts --ipv4",
+    "still": "NODE_OPTIONS=--require=./ipv4.cjs remotion still src/index.ts Tutorial",
+    "render": "NODE_OPTIONS=--require=./ipv4.cjs remotion render src/index.ts Tutorial ../out/atw-tutorial.mp4",
+    "chapters": "node src/chapters.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.534",
+    "@remotion/google-fonts": "^4.0.534",
+    "@remotion/media-utils": "4.0.534",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "remotion": "4.0.534"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.12",
+    "typescript": "5.9.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}

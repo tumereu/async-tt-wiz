@@ -40,6 +40,19 @@ class TableToolkitWiringTest {
         }
     }
 
+    @Test fun closingALibraryRevealStillAsksWhereTheRestGoes() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        try {
+            ui.openLibrary(f.container(PlayZone.LIBRARY))
+            ui.showLibraryContents(ContentsSelection.TOP, 2, true)
+            val display = f.play.board.contentsDisplays.single()
+            assertTrue(display.reveal)
+            ui.closeCardPanel(display)
+            assertEquals("panelRest/${display.id}", ui.panel)
+            assertEquals(listOf(display.id), f.play.board.contentsDisplays.map { it.id })
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun opponentsLibraryOpensTheSameToolsAndActionsKeepOwnerZonesAndActingPanelAuthor() {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(

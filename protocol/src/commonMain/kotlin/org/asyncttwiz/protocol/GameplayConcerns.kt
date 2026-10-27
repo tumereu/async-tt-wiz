@@ -24,6 +24,7 @@ import kotlinx.serialization.json.*
     @Serializable data class EditEligible(val id: String, val stackAllowed: Boolean = false) : ConcernField
     @Serializable data class Slice(val container: String, val selection: ContentsSelection, val count: Int) : ConcernField
     @Serializable data class ShuffleSet(val container: String) : ConcernField
+    @Serializable data class HandCandidates(val container: String, val selectedIds: List<String>) : ConcernField
     @Serializable data class Top(val container: String, val card: String) : ConcernField
     @Serializable data class Options(val id: String) : ConcernField
     @Serializable data class StackMember(val id: String) : ConcernField
@@ -134,6 +135,8 @@ internal object GameplayConcerns {
             is ConcernField.Slice -> encoded(LibraryRules.slice(container(field.container).cards, field.selection, field.count).let {
                 if (field.selection == ContentsSelection.ALL) it.sorted() else it })
             is ConcernField.ShuffleSet -> encoded(container(field.container).unknownMiddle.sorted())
+            is ConcernField.HandCandidates -> encoded(container(field.container).cards.filter {
+                field.selectedIds.isEmpty() || it in field.selectedIds }.sorted())
             is ConcernField.Top -> encoded(container(field.container).cards.firstOrNull() == field.card)
             is ConcernField.Options -> encoded(StackText.options(state, field.id).map { listOf(it.text, it.faceId, it.paragraph?.toString()) })
             is ConcernField.StackMember -> encoded(b.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards?.contains(field.id) == true)
@@ -249,13 +252,39 @@ internal object GameplayConcerns {
                 fields += ConcernField.Slice(a.containerId, a.selection, a.count)
                 mutation.transition.contents!!.to!!.cardIds.forEach { entity("card", it, "knownToAll") }
             }
+            is PlayAction.RevealHand -> {
+                fields += ConcernField.PanelSlot
+                entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
+                a.cardIds.forEach { id ->
+                    for (key in listOf("containerId", "faceId", "knownToAll")) entity("card", id, key)
+                }
+            }
+            is PlayAction.RandomHand -> {
+                fields += ConcernField.HandCandidates(a.handId, a.selectedIds)
+                entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
+                entity("card", a.cardId, "containerId")
+                if (a.result == HandRandomResult.REVEAL) {
+                    fields += ConcernField.PanelSlot
+                    entity("card", a.cardId, "faceId"); entity("card", a.cardId, "knownToAll")
+                } else {
+                    fields += ConcernField.Incident(a.cardId)
+                    for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped", "note")) entity("card", a.cardId, key)
+                }
+            }
             is PlayAction.DismissContents -> {
                 val display = from.board.contentsDisplays.single { it.id == a.displayId }
-                entity("contents", a.displayId); knowledge(display.containerId)
-                display.cardIds.forEach { id ->
-                    fields += ConcernField.Incident(id)
-                    for (key in listOf("containerId", "faceId", "corner", "counters", "covered", "explicitlyCovered")) entity("card", id, key)
-                    definition(card(id).definition)
+                entity("contents", a.displayId)
+                if (mutation.transition.rulesVersion >= 19 && display.reveal &&
+                    from.board.containers.single { it.id == display.containerId }.zone == PlayZone.HAND) {
+                    entity("container", display.containerId, "zone")
+                    display.cardIds.forEach { entity("card", it, "containerId"); entity("card", it, "knownToAll") }
+                } else {
+                    knowledge(display.containerId)
+                    display.cardIds.forEach { id ->
+                        fields += ConcernField.Incident(id)
+                        for (key in listOf("containerId", "faceId", "corner", "counters", "covered", "explicitlyCovered")) entity("card", id, key)
+                        definition(card(id).definition)
+                    }
                 }
             }
             is PlayAction.RevealContentsCard -> { entity("contents", a.displayId); entity("card", a.cardId, "faceId") }

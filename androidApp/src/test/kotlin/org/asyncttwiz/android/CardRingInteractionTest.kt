@@ -47,13 +47,32 @@ class CardRingInteractionTest {
 
     @Test fun realCardMenuHasNoOwnerEntryOnAnyPage() {
         render()
-        for (page in 1..4) {
+        for (page in 1..3) {
             compose.ringPage(page)
             compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
         }
     }
 
-    @Test fun handDisablesBattlefieldOnlyWidgetsAndNote() = zoneEnablement(PlayZone.HAND)
+    @Test fun handUsesItsOwnPagesWithoutBattlefieldControlsAndRandomDefaultsToWholeHand() {
+        val play = f.initial
+        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
+        render(play = play, contextId = hand.cards.first())
+        compose.onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
+        compose.onNodeWithContentDescription("Hand page").performClick()
+        for (name in listOf("Inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"))
+            compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
+        for (name in listOf("Set corner", "Edit card note", "Declare without tapping", "Set damage", "Stack"))
+            compose.onNodeWithContentDescription(name).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next page").performClick()
+        compose.onNode(hasContentDescription("Action page 2 of 2, Random")).assertExists()
+        for (name in listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom"))
+            compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithContentDescription("Discard random").performClick()
+        val action = assertIs<PlayAction.RandomHand>(sent.single())
+        assertTrue(action.selectedIds.isEmpty())
+        assertTrue(action.cardId in hand.cards)
+    }
+
     @Test fun stackEnablesNoteButDisablesBattlefieldOnlyWidgets() = zoneEnablement(PlayZone.STACK)
     @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
 
@@ -137,7 +156,7 @@ class CardRingInteractionTest {
             if (it.id == source) it.copy(token = true) else it
         }))
         render(multi = true, play = play)
-        for (page in listOf(1, 2, 4)) {
+        for (page in listOf(1, 2)) {
             compose.ringPage(page)
             compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
         }
@@ -201,10 +220,12 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertNull(toolkit.manual.scope); assertTrue(sent.isEmpty()) }
         compose.runOnIdle { val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id))) }
         compose.mainClock.advanceTimeBy(600)
-        val another = f.source(f.b, "2/3").id
         val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
-        val point = scene.items.single { it.cardId == another }.visible.first().center
         val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
+        val item = scene.items.first { it.kind == TableItemKind.CARD && it.cardId != f.source(f.a, "1/3").id &&
+            it.visible.isNotEmpty() && !square.contains(Offset(it.visible.first().center.x, it.visible.first().center.y)) }
+        val another = item.cardId!!
+        val point = item.visible.first().center
         assertFalse(square.contains(Offset(point.x, point.y)), "The second card must be outside the reserved square")
         compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(point.x, point.y)) }
         compose.runOnIdle {
@@ -349,38 +370,38 @@ class CardRingInteractionTest {
             swipe(center, center - Offset(100f, 0f), 160)
         }
         compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
-        compose.ringPage(4)
+        compose.ringPage(3)
         compose.runOnIdle { toolkit.dismiss() }
         compose.waitForIdle()
         compose.runOnIdle {
             val another = f.source(f.a, "1/2").id
             toolkit.openCard(TableScope(another, listOf(another)))
         }
-        compose.onNode(hasContentDescription("Action page 4 of ", substring = true)).assertIsDisplayed()
+        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
 
-    @Test fun verticalDragDoesNotSwitchPagesAndMovePageNeedsNoScrolling() {
+    @Test fun verticalDragDoesNotSwitchPagesAndMorePageNeedsNoScrolling() {
         render()
-        compose.ringPage(4)
+        compose.ringPage(3)
         compose.mainClock.advanceTimeBy(600)
         val grid = compose.onNodeWithContentDescription("Move to Stack")
         grid.performTouchInput { swipe(center, center - Offset(0f, 100f), 160) }
-        compose.onNode(hasContentDescription("Action page 4 of ", substring = true)).assertIsDisplayed()
+        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Stack").assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
 
-    @Test fun tabsSizeToTheirContentAndDisabledActionsStayDisabled() {
+    @Test fun pagesSizeToTheirContentAndDisabledActionsStayDisabled() {
         render()
         compose.ringPage(1)
         val bounds = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
-        for (page in 2..4) {
+        for (page in 2..3) {
             compose.ringPage(page)
             val resized = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
             assertEquals(bounds.width, resized.width)
-            assertTrue(resized.height <= 272f)
+            assertTrue(resized.height <= 300f)
         }
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()

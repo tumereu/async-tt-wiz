@@ -1,5 +1,23 @@
 # 10. Game board and controls
 
+## Round 16 card/hand menus (rules version 19)
+
+Card menus omit Move: non-Everyday moves join More, overflowing into More 2,
+More 3, etc. The header shows only the current title, previous/next arrows
+(wrapping), and a scrollable jump list on title tap; swipes and per-game memory remain.
+On tight screens only the grid scrolls, keeping the header fixed and the card unobscured.
+Own Hand cards instead have Hand (Inspect, Play, Reveal, Discard, Exile, Library
+top/bottom, Shuffle into library) and Random (discard/reveal/exile/library bottom)
+pages. Play uses the hand double-tap behavior, atomically for multiselection.
+Reveal opens the shared Reveal tray for the pressed card or selected hand cards.
+Cards remain references in their source Hand: moving even back to Hand expires
+their tray visibility; an empty tray closes automatically. Author-only Done closes
+the tray in one event, returning all remaining references without reordering Hand.
+Random actions sample one selected hand card, or the whole Hand if selection is
+empty, using fresh independent 32-byte entropy and the `hand-pick-v1` domain
+(`async-tt-wiz/hand-pick/v1\0`), never shuffle/reseed entropy. The event records the
+seed and chosen identity; only destination/tray visibility discloses its face.
+
 ## Round 16 temporary marks (rules version 17)
 
 Cards have independent `damage` (numeric text; empty means zero), `eotCorner`

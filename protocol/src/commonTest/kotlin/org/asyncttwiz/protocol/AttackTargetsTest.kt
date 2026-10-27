@@ -31,7 +31,7 @@ class AttackTargetsTest {
         val next = assertNotNull(result.state, result.reason)
         val event = assertNotNull(result.mutation)
         val decoded = GameWire.json.decodeFromString<GameplayMutation>(GameWire.json.encodeToString(event))
-        assertEquals(18, event.transition.rulesVersion)
+        assertTrue(event.transition.rulesVersion >= 18)
         assertEquals(next, GameplayHistory.apply(state, decoded))
         assertEquals(state, GameplayHistory.unapply(next, decoded))
         assertEquals(next, GameplayHistory.replay(state, decoded).state)

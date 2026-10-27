@@ -55,6 +55,13 @@ card IDs and values, including its empty-set witness. Zone resets concern all
 three reset fields even when empty. One undo restores the turn and cleared marks;
 retained pre-v17 events keep their recorded effects without new cleanup.
 
+Rules v19 hand reveals concern the panel slot, source Hand, selected card locations
+and disclosed faces. Random hand actions also concern the canonical candidate set
+(selection subset, or whole Hand), recorded chosen identity, movement defaults and
+destination effects, not unselected faces. Reveal Done concerns the exact remaining
+tray and source locations; it preserves Hand order. Replay/undo use recorded effects
+and never resample; older sealed events retain their original behavior.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

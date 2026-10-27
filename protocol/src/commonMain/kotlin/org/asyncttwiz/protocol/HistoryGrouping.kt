@@ -73,6 +73,11 @@ object HistoryGrouping {
         is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.libraryId)
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) "visibility" else "pageview")
+        is PlayAction.RevealHand -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
+        is PlayAction.RandomHand -> HistorySemantic(if (action.result == HandRandomResult.REVEAL)
+            HistorySignificance.EXPLICIT_DISCLOSURE else HistorySignificance.CROSS_ZONE_MOVE,
+            if (action.result == HandRandomResult.REVEAL) "visibility" else "open_with",
+            if (action.result == HandRandomResult.REVEAL) null else "${action.handId}/${action.result}", isolated = true)
         is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, "close")
         is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
         is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "open_with", action.displayId)

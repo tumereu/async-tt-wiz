@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -31,26 +32,69 @@ internal fun GameRows(games: List<GameSummary>, controller: LobbyController, acc
 }
 
 @Composable
-private fun GameRow(game: GameSummary, accountId: String, modifier: Modifier) {
+internal fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
+    trailing: (@Composable () -> Unit)? = null) {
     val move = gameRowMove(game, accountId)
     Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Avatar(game.opponent(accountId))
             Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                contentColor = if (move.highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                shape = RoundedCornerShape(8.dp)) {
-                Box(Modifier.width(100.dp).height(28.dp), contentAlignment = Alignment.Center) {
-                    Text(move.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (trailing != null) trailing() else {
+                Surface(color = if (move.highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                    contentColor = if (move.highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = RoundedCornerShape(8.dp)) {
+                    Box(Modifier.width(100.dp).height(28.dp), contentAlignment = Alignment.Center) {
+                        Text(move.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                EntryIcon(null, "chevron")
             }
-            EntryIcon(null, "chevron")
         }
         game.podName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis) }
         Text("vs ${game.opponent(accountId).username} · ${gameStatus(game)} · ${gameLastActivity(game)}",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Bare content for the shared menu panel; pod-screen cards keep their own presentation. */
+@Composable
+internal fun MenuPodRow(entry: QuickContinuePod, respond: (Boolean) -> Unit, responseEnabled: Boolean, open: () -> Unit) {
+    val pod = entry.pod
+    val invite = entry.invitation
+    Row(Modifier.fillMaxWidth().testTag("quick-pod-${entry.id}").clickable(onClick = open).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            (pod?.members ?: listOfNotNull(invite?.creator)).take(3).forEach { Avatar(it) }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(pod?.name ?: requireNotNull(invite).name, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(pod?.let(::podStatus) ?: "Invitation", style = MaterialTheme.typography.bodySmall)
+        }
+        if (invite != null) MenuInvitationActions(responseEnabled, respond)
+        else EntryIcon(null, "chevron")
+    }
+}
+
+@Composable
+internal fun MenuInvitationActions(enabled: Boolean, respond: (Boolean) -> Unit) {
+    Row {
+        FilledTonalIconButton(onClick = { respond(true) }, enabled = enabled) { EntryIcon("Accept invitation", "ready") }
+        OutlinedIconButton(onClick = { respond(false) }, enabled = enabled,
+            colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+            EntryIcon("Decline invitation", "close")
+        }
+    }
+}
+
+@Composable
+internal fun MenuActivityPanel(content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(horizontal = 12.dp),
+        color = Color.White, shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
+        border = BorderStroke(1.dp, ScreenBorder)) {
+        Column(content = content)
     }
 }

@@ -27,15 +27,20 @@
 
 - After the first login of a new account (and once for existing accounts without
   an avatar), a **Choose your avatar** step shows **6 random legendary creatures or
-  planeswalkers** from the catalog, a **Reroll** button, and a **search by card
+  planeswalkers** from the catalog, a dice-icon **Reroll** button, and a **search by card
   name** field (any card with art). **Skip** keeps the initial-letter circle.
-- If the catalog is still downloading, the step shows progress and opens when it
-  is ready.
+- Until the first catalog finishes downloading/indexing, the choices area says
+  avatars need the catalog and shows phase/progress. Choices appear automatically
+  in the same area when ready; Skip remains usable.
 
 ### Settings → Profile
 
-Change the **username** (must stay unique; login uses email, so it is unaffected)
-and the **avatar** (same chooser).
+A pen icon beside the avatar/username opens one dialog with a large current
+avatar, dice reroll, choices, search, username, Cancel and Save; no Skip or clear
+action. Username must stay unique; login still uses email. Save applies locally
+and closes immediately, reverting rejected changes with a short error. The two
+existing profile endpoints save independently; an accepted username survives an
+avatar failure. Catalog availability uses the same in-place block as first run.
 
 ## Where avatars appear
 

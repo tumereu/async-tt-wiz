@@ -281,11 +281,11 @@ private fun EntryField(label: String, value: String, enabled: Boolean, tag: Stri
 }
 
 @Composable
-internal fun WizardLogo(modifier: Modifier = Modifier) {
+internal fun WizardLogo(modifier: Modifier = Modifier, compact: Boolean = false) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painterResource(R.drawable.atw_logo), "Wizard hat", Modifier.size(112.dp, 86.dp))
+        Image(painterResource(R.drawable.atw_logo), "Wizard hat", Modifier.size(if (compact) 36.dp else 112.dp, if (compact) 28.dp else 86.dp))
         Text("ATW", fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp,
-            color = Color(0xff244c46), style = MaterialTheme.typography.titleLarge)
+            color = Color(0xff244c46), style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.titleLarge)
     }
 }
 

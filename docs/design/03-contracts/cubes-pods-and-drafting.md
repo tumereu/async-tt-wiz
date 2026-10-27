@@ -178,6 +178,22 @@ Why "packs open at once": with k = 1 and 2 players, each exchange gives one pick
 With k = 3 each player picks three packs in a row before waiting, cutting round
 trips by three. Synergy example with k = 3: 6 rounds, 9 picks each per round.
 
+### Cogwork Librarian
+
+- Booster/Glimpse have a **Librarians** tile (0–10, default 0); Grid rejects nonzero.
+  Each player starts with that many copies in Side, not in packs. The creator uploads
+  the catalog definition with settings; the pod freezes it and serves it to members.
+- A manual pick may spend any number of owned Librarians: keep increases by one
+  per copy, burns shrink first if necessary. The server validates copy ownership,
+  uniqueness and exact keep counts atomically. After keeps, burns and the normal
+  discard threshold, spent copies leave the pool/build and enter the passed pack.
+  A Librarian picked or automatically awarded later is spendable again; unspent
+  copies are ordinary deckbuilding cards. Automatic awards never spend Librarians.
+- The keep tray ends with a hold-preview Librarian chip and remaining count. Tap
+  reserves a dashed, badged extra slot; tapping that slot refunds it. Extra slots
+  pan inside the original tray without changing its row/width or the burn tray.
+  Confirm includes the spent count and predicts both awards and removed copies.
+
 ### Grid (phase 3)
 
 Draftmancer's Grid, unchanged in geometry:

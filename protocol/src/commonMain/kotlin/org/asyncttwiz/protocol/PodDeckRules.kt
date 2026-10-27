@@ -31,6 +31,15 @@ object PodDeckRules {
         return build.copy(copies = build.copies + pool.distinct().filter { it !in existing }.map { PodDeckCopy(it) })
     }
 
+    /** Synchronize ownership after a Librarian exchange, preserving all surviving assignments. */
+    fun withDraftPool(build: PodDeckBuild, pool: List<String>, initialSide: Set<String> = emptySet()): PodDeckBuild {
+        val retained = build.copy(copies = build.copies.filter { it.copyId in pool })
+        val existing = retained.copies.map { it.copyId }.toSet()
+        return retained.copy(copies = retained.copies + pool.filter { it !in existing }.map {
+            PodDeckCopy(it, if (it in initialSide) PodDeckCategory.SIDE else PodDeckCategory.MAIN)
+        })
+    }
+
     /** All drafted copies, including Trash, must be assigned exactly once. Lifecycle/locking is the server's job. */
     fun validate(build: PodDeckBuild, pool: List<String>, sideboardLimit: Int? = null): List<PodDeckIssue> {
         require(sideboardLimit == null || sideboardLimit >= 0)

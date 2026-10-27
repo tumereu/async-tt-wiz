@@ -10,6 +10,7 @@ internal data class PodPickMarks(
     val packId: String? = null,
     val keeps: List<String> = emptyList(),
     val burns: List<String> = emptyList(),
+    val librarians: List<String> = emptyList(),
 ) {
     fun forPack(pack: DraftPrivatePack?): PodPickMarks = if (packId == pack?.id) this else PodPickMarks(pack?.id)
 
@@ -20,6 +21,20 @@ internal data class PodPickMarks(
     }
 
     fun unmark(id: String) = copy(keeps = keeps - id, burns = burns - id)
+
+    fun spendLibrarian(available: List<String>, pack: DraftPrivatePack, settings: DraftSettings): PodPickMarks {
+        if (settings.keep + librarians.size >= pack.cards.size) return this
+        val next = available.firstOrNull { it !in librarians } ?: return this
+        return copy(librarians = librarians + next).trim(pack, settings)
+    }
+
+    fun refundLibrarian(id: String, pack: DraftPrivatePack, settings: DraftSettings) =
+        copy(librarians = librarians - id).trim(pack, settings)
+
+    private fun trim(pack: DraftPrivatePack, settings: DraftSettings): PodPickMarks {
+        val rules = PodPickRules(pack, settings, librarians.size)
+        return copy(keeps = keeps.takeLast(rules.requiredKeeps), burns = burns.takeLast(rules.manualBurns))
+    }
 
     fun toggle(id: String, mark: PodPickMark, rules: PodPickRules): PodPickMarks {
         if (id !in rules.ids || (mark == PodPickMark.BURN && rules.manualBurns == 0)) return this
@@ -32,10 +47,10 @@ internal data class PodPickMarks(
     }
 }
 
-internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings) {
+internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val spentLibrarians: Int = 0) {
     val ids = pack.cards.map { it.id }
-    val requiredKeeps = minOf(settings.keep, ids.size)
-    val automaticBurns = ids.size <= settings.keep.toLong() + settings.burn
+    val requiredKeeps = minOf(settings.keep + spentLibrarians, ids.size)
+    val automaticBurns = ids.size <= requiredKeeps.toLong() + settings.burn
     val manualBurns = if (automaticBurns) 0 else settings.burn
     val requiredBurns = if (automaticBurns) ids.size - requiredKeeps else settings.burn
 
@@ -47,7 +62,7 @@ internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings) {
 
     fun canConfirm(marks: PodPickMarks, busy: Boolean): Boolean {
         val burns = burnIds(marks)
-        return !busy && ids.isNotEmpty() && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
+        return !busy && ids.isNotEmpty() && marks.librarians.size == spentLibrarians && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
             (marks.keeps + burns).let { selected -> selected.distinct().size == selected.size && selected.all { it in ids } }
     }
 }

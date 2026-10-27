@@ -84,9 +84,10 @@ class PodControllerTest {
             val draft = saved.draft!!
             check(input.packId == draft.head!!.id)
             val kept = draft.head!!.cards.filter { it.id in input.keep }
+            val pool = draft.pool.filterNot { it.id in input.librarians } + kept
             saved = saved.copy(draft = draft.copy(head = draft.queuedPacks.firstOrNull(),
-                queuedPacks = draft.queuedPacks.drop(1), packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = draft.pool + kept),
-                build = PodDeckRules.withAwards(saved.build!!, kept.map { it.id }))
+                queuedPacks = draft.queuedPacks.drop(1), packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = pool),
+                build = PodDeckRules.withDraftPool(saved.build!!, pool.map { it.id }))
             return saved
         }
         override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail {
@@ -130,6 +131,51 @@ class PodControllerTest {
         assertNotNull(f.controller.state.error)
     }
 
+    @Test fun librarianExchangePredictsOneAtomicRequestAndRejectionRestoresOwnership(): Unit = Fixture().use { f ->
+        val librarian = copy.copy(id = "librarian", librarian = true)
+        val pack = head.copy(cards = List(5) { copy.copy(id = "pick-$it") })
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(head = pack, pool = listOf(librarian)),
+            build = PodDeckBuild(listOf(PodDeckCopy(librarian.id, PodDeckCategory.SIDE))))
+        f.open()
+        val keep = pack.cards.take(2).map { it.id }
+        f.api.pickFailure = "invalid_librarians"
+        f.controller.pick(keep, emptyList(), listOf(librarian.id))
+        assertEquals(keep, f.controller.state.detail!!.draft!!.pool.map { it.id })
+        assertEquals(keep, f.controller.state.detail!!.build!!.copies.map { it.copyId })
+        assertEquals(nextPack, f.controller.state.detail!!.draft!!.head)
+        assertTrue(f.api.calls.isEmpty())
+        f.deliver()
+        assertEquals(pack, f.controller.state.detail!!.draft!!.head)
+        assertEquals(listOf(librarian), f.controller.state.detail!!.draft!!.pool)
+        assertEquals(PodDeckCategory.SIDE, f.controller.state.detail!!.build!!.copies.single().category)
+        assertEquals(1, f.api.calls.size)
+        assertEquals(listOf(librarian.id), (f.api.calls.single().second as PickPod).librarians)
+        assertEquals("Pick rejected.", f.controller.state.error)
+    }
+
+    @Test fun librarianCatalogSnapshotIsPreparedInBackgroundForCreateAndSettingsUpdates() {
+        val card = CardDefinition("Cogwork Librarian", listOf(DefinitionFace("librarian-face", "Cogwork Librarian")))
+        val snapshot = SubmittedDefinition(DeckJson.digest(card), card)
+        var resolutions = 0
+        Fixture(PodPhase.SETUP, librarian = { resolutions++; snapshot }).use { f ->
+            f.controller.newPod(cube.id); f.deliver()
+            f.controller.newSettings { it.copy(librarians = 2) }
+            f.controller.create()
+            assertEquals(0, resolutions)
+            assertEquals(2, f.controller.state.creating!!.settings.librarians)
+            f.deliver()
+            val created = f.api.calls.single { it.first == "create" }.second as CreatePod
+            assertEquals(snapshot, created.settings!!.librarianDefinition)
+            assertEquals(1, resolutions)
+            f.controller.editSettings { it.copy(librarians = 3) }; f.controller.flushSetup()
+            assertEquals(3, f.controller.state.detail!!.settings.librarians)
+            f.deliver()
+            val updated = f.api.calls.single { it.first == "update" }.second as UpdatePod
+            assertEquals(snapshot, updated.settings!!.librarianDefinition)
+            assertEquals(1, resolutions)
+        }
+    }
+
     @Test fun submissionPredictsWithoutBlockingEarlierBuildEditsAndDefaultsToGamesOnReopen() = Fixture(PodPhase.DRAFTED).use { f ->
         f.open()
         assertEquals(PodTab.BUILD, f.controller.state.tab)
@@ -154,14 +200,15 @@ class PodControllerTest {
         override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
         override fun close() = Unit
     }
-    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING) : AutoCloseable {
+    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING, librarian: () -> SubmittedDefinition = { definition }) : AutoCloseable {
         val api = Api().also { it.saved = detail(phase) }
         val worker = Worker()
         val posts = ArrayDeque<() -> Unit>()
         var token: String? = "token"
         var sources = listOf(cube)
         val sets = Sets()
-        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, {}, sets)
+        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, {}, sets,
+            librarianDefinition = librarian)
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
                 worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()

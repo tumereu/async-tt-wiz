@@ -30,7 +30,7 @@ data class DraftState(
     val cards: List<String>,
 )
 
-@Serializable data class DraftPick(val player: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList())
+@Serializable data class DraftPick(val player: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList(), val librarians: List<String> = emptyList())
 @Serializable data class DraftPickLog(
     val player: String,
     val packId: String,
@@ -39,8 +39,9 @@ data class DraftState(
     val burned: List<String> = emptyList(),
     val discarded: List<String> = emptyList(),
     val automatic: Boolean = false,
+    val librarians: List<String> = emptyList(),
 )
-@Serializable enum class DraftPickRejection { NOT_YOUR_PACK, NOT_HEAD_OF_QUEUE, WRONG_COUNTS, UNKNOWN_CARD, DRAFT_FINISHED }
+@Serializable enum class DraftPickRejection { NOT_YOUR_PACK, NOT_HEAD_OF_QUEUE, WRONG_COUNTS, UNKNOWN_CARD, DRAFT_FINISHED, INVALID_LIBRARIANS }
 data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickRejection? = null)
 
 @Serializable data class DraftPrivatePack(val id: String, val number: Int, val cards: List<DraftCopy>)
@@ -77,7 +78,7 @@ object DraftEngine {
             val quantity = entries.sumOf { it.quantity.toLong() }
             require(quantity <= Int.MAX_VALUE) { "Too many copies of one definition" }
             List(quantity.toInt()) { index ->
-                DraftCopy("$definition:copy:$index", definition, entries.first().colors.sortedBy { it.ordinal }.toSet())
+                DraftCopy("$definition:copy:$index", definition, entries.first().colors.sortedBy { it.ordinal }.toSet(), entries.first().librarian)
             }
         }
         val remaining = shuffled(copies).toMutableList()
@@ -99,8 +100,7 @@ object DraftEngine {
                 }
             }
         }
-        return Working(DraftState(settings, seating, copies, packs, -1,
-            seating.associateWith { emptyList() }, seating.associateWith { emptyList() })).settle()
+        return initial(settings, seating, copies, packs)
     }
 
     /**
@@ -125,8 +125,15 @@ object DraftEngine {
             DraftPack("pack-$index", (number - 1) / settings.packsOpenAtOnce,
                 seating[index % seating.size], number, cards.map { it.id })
         }
-        return Working(DraftState(settings, seating.toList(), copies, draftPacks, -1,
-            seating.associateWith { emptyList() }, seating.associateWith { emptyList() })).settle()
+        return initial(settings, seating.toList(), copies, draftPacks)
+    }
+
+    private fun initial(settings: DraftSettings, seating: List<String>, copies: List<DraftCopy>, packs: List<DraftPack>): DraftState {
+        val supplied = seating.associateWith { player -> List(settings.librarians) { index ->
+            DraftCopy("librarian:$player:$index", requireNotNull(settings.librarianDefinition).digest, librarian = true)
+        } }
+        return Working(DraftState(settings, seating, copies + supplied.values.flatten(), packs, -1,
+            seating.associateWith { emptyList() }, supplied.mapValues { it.value.map { copy -> copy.id } })).settle()
     }
 
     fun pick(state: DraftState, pick: DraftPick): DraftPickResult {
@@ -136,12 +143,17 @@ object DraftEngine {
         if (queue == null || pick.packId !in queue) return reject(DraftPickRejection.NOT_YOUR_PACK)
         if (queue.first() != pick.packId) return reject(DraftPickRejection.NOT_HEAD_OF_QUEUE)
         val pack = state.packs.first { it.id == pick.packId }
+        val owned = state.pools.getValue(pick.player).toSet()
+        val librarians = state.copies.filter { it.librarian && it.id in owned }.map { it.id }.toSet()
+        if (pick.librarians.distinct().size != pick.librarians.size || pick.librarians.any { it !in librarians })
+            return reject(DraftPickRejection.INVALID_LIBRARIANS)
+        val keep = state.settings.keep.toLong() + pick.librarians.size
         val selected = pick.keep + pick.burn
         if (selected.any { it !in pack.cards }) return reject(DraftPickRejection.UNKNOWN_CARD)
-        if (selected.distinct().size != selected.size || pick.keep.size != state.settings.keep)
+        if (selected.distinct().size != selected.size || pick.keep.size.toLong() != keep)
             return reject(DraftPickRejection.WRONG_COUNTS)
         val rest = pack.cards.filter { it !in pick.keep }
-        val nearEnd = pack.cards.size <= state.settings.keep + state.settings.burn
+        val nearEnd = pack.cards.size <= keep + state.settings.burn
         if (nearEnd) {
             if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet()) return reject(DraftPickRejection.WRONG_COUNTS)
         } else if (pick.burn.size != state.settings.burn) return reject(DraftPickRejection.WRONG_COUNTS)
@@ -182,9 +194,11 @@ object DraftEngine {
             val remaining = pack.cards.filter { it !in removed }
             val discard = remaining.isNotEmpty() && remaining.size <= source.settings.discardRemainingAt
             val discarded = if (discard) remaining else emptyList()
-            packs[index] = pack.copy(cards = if (discard) emptyList() else remaining)
+            // Apply keeps, burns and the ordinary discard threshold before returning Librarians.
+            packs[index] = pack.copy(cards = (if (discard) emptyList() else remaining) + pick.librarians)
+            pools.getValue(pick.player).removeAll(pick.librarians.toSet())
             pools.getValue(pick.player).addAll(pick.keep)
-            log.add(DraftPickLog(pick.player, pack.id, round, pick.keep.toList(), burned.toList(), discarded))
+            log.add(DraftPickLog(pick.player, pack.id, round, pick.keep.toList(), burned.toList(), discarded, librarians = pick.librarians.toList()))
             if (packs[index].cards.isNotEmpty()) {
                 val seat = source.seating.indexOf(pick.player)
                 val step = if (round % 2 == 0) 1 else source.seating.size - 1

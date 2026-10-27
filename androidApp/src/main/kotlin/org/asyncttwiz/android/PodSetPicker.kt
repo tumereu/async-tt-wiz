@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
+import java.time.LocalDate
 import java.util.concurrent.ExecutorService
 
 /** Blocking methods: the picker calls these only on its worker. */
@@ -29,7 +30,7 @@ internal data class PodSetPickerState(
     val error: String? = null, val warnings: List<String> = emptyList(),
 ) {
     val filtered get() = rows.filter { row ->
-        row.set.draftable && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
+        row.set.draftable && row.set.releaseDate <= LocalDate.now().toString() && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
             row.set.code.contains(it, true) || row.set.releaseDate.contains(it, true) }
     }.sortedWith(compareByDescending<PodSetRow> { it.set.releaseDate }.thenBy { it.set.name }.thenBy { it.set.code })
 }

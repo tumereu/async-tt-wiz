@@ -96,6 +96,7 @@ described below; other screens show picking/waiting/building/submitted status.
 | After the draft | Tabs **Build · Stats · Games**. |
 
 Default is Draft during drafting, Build after completion until submission, then Games.
+Only setup keeps the member strip above the content; Build/Stats/Games do not.
 
 ### Setup, membership, and lifetime
 
@@ -103,7 +104,8 @@ Default is Draft during drafting, Build after completion until submission, then 
   user by username. Accepting an invitation does not add a contact.
 - Only the creator edits source and settings. Members see them read-only.
 - Creation and setup share the complete settings form; creation submits settings
-  atomically with the source and name. Numeric settings are square value tiles
+  atomically with the source and name. Create is full-width and fixed at the bottom,
+  like pick Confirm; the settings scroll above it. Numeric settings are square value tiles
   opening range-validated editors (dependent bounds include keep + burn ≤ pack
   size and open packs/grids ≤ totals). Sideboard uses the same editor with a square
   ∞ toggle. All applicable settings remain visible, without an Advanced toggle.
@@ -111,7 +113,7 @@ Default is Draft during drafting, Build after completion until submission, then 
   accepted settings with a short floating error. Background refresh/save has no
   loader or layout shift; only an uncached first load has a centred spinner.
 - Source is its name (or No source) plus an edit icon. The dialog has searchable
-  Cubes / Sets tabs and cube-management access; selection closes it and previews
+  Cubes / Sets tabs (excluding future-release sets) and cube-management access; selection closes it and previews
   the source immediately, including during background refresh/save. Preparation
   finishes in the background; failure restores the previous source.
   Pod invitations and game opponents share the contacts/search player picker,
@@ -272,6 +274,8 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 - **Confirm** is enabled when the counts are exactly right. After Confirm the next
   queued pack appears immediately.
 - No pack waiting: Build shortcut; the avatar badges already show who has work.
+- Avatars, compact cards-per-row −/+ icon buttons and an unboxed overflow icon
+  share one slim row; no separate column-control row in the card grid.
 - The private response includes the caller's queued packs and their definitions.
   Confirm predicts the pick and advances to the next pack (or normal waiting state)
   while sending in the background; subsequent picks remain usable and send in order.
@@ -294,8 +298,8 @@ each with a sticky header and count. Trash starts expanded (it is last).
 
 ```
 ┌─────────────────────────────────────┐
-│ Columns ───●── 7                     │
-│ Main 23 + 17 = 40                  │
+│ Full deck name                  ✎    │
+│ Main 23 + 17 = 40           − 7 +    │
 │ Basics  W[3] U[0] B[4] R[0] G[10]    │
 │ Land│ 0 │ 1 │ 2 │ 3 │ 4 │ 5+         │
 │ [c] │   │[c]│[c]│[c]│[c]│[c]         │
@@ -306,11 +310,12 @@ each with a sticky header and count. Trash starts expanded (it is last).
 ```
 
 - **Columns** sit side by side and always fit the width; there is no sideways
-  scrolling. A **column slider** (2–10, default 7, saved per device and
+  scrolling. A compact **− count + icon control** (2–10, default 7, saved per device and
   orientation) sets them: Lands first, then mana value 0, 1, 2, …, the last column
   holding that value and above. 7 = Lands, 0, 1, 2, 3, 4, 5+; 3 = Lands, 0, 1+;
   2 = Lands, everything else. Empty columns keep their place. All sections share
-  the columns. The control is centered in the title bar; tinted columns include
+  the columns. The control is right-aligned on the Main section bar; the separate
+  deck-name row wraps without truncation and has a pen icon button. Tinted columns include
   their mana-value headers, with 2dp gaps and 12dp outer padding. Widths animate
   and changed column contents fade.
 - A card is in Lands if its (front) face is a land; otherwise by mana value
@@ -349,7 +354,8 @@ each with a sticky header and count. Trash starts expanded (it is last).
 
 A tab next to Build, for **Main including basics**: mana curve of nonland cards,
 creature / noncreature / land counts in one row, and paired thin pip-demand % /
-mana-source % bars per color. Curve buckets are 0–6 and 7+, with counts above bars.
+mana-source % bars per color, with fixed-width right-aligned percentage labels.
+Curve buckets are 0–6 and 7+, with counts above nonempty bars only.
 No chart captions, explanatory text or footnotes. Hybrid pips count half
 to each color, Phyrexian pips to their color, generic and X are ignored; nonland
 mana sources are not counted. These are aids, not rules analysis.
@@ -367,7 +373,7 @@ confirmation, then **locks** Main, Side, and basic counts. Trash is excluded fro
 all later games. With a finite limit, surplus cards must go to Trash before
 submitting. Members submit independently; nobody waits for the slowest builder.
 
-**Games tab:** the owner's deck name, members with avatars and status, a filled
+**Games tab:** members with avatars and status (no deck-name heading), a filled
 crossed-swords icon button (accessible name **Challenge**) next to
 each member who has submitted (once you have too), and this pod's games, which
 open as ordinary games.

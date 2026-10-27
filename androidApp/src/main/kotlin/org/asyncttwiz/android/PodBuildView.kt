@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,16 +74,10 @@ fun PodBuildView(
     }
     Box(modifier) {
       Column(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp)) {
-            Text(deckName, Modifier.align(Alignment.CenterStart).fillMaxWidth(.27f),
-                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-            Box(Modifier.align(Alignment.Center)) {
-                PodColumnControl("Columns $columns", "Columns", columns, 2..10) { value ->
-                    columns = value
-                    preferences.edit().putInt(preferenceKey, columns).apply()
-                }
-            }
-            FilledTonalIconButton({ naming = true }, Modifier.align(Alignment.CenterEnd)) { EntryIcon("Name deck", "edit") }
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            IconButton({ naming = true }) { EntryIcon("Name deck", "edit") }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("pod-build"), contentPadding = PaddingValues(bottom = 12.dp)) {
             for (category in PodDeckCategory.entries) {
@@ -92,8 +85,15 @@ fun PodBuildView(
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 stickyHeader(key = "header-$category") {
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
-                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 40.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
+                                Modifier.weight(1f).padding(vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+                            if (category == PodDeckCategory.MAIN) PodColumnControl("$columns", "Columns", columns, 2..10) { value ->
+                                columns = value
+                                preferences.edit().putInt(preferenceKey, columns).apply()
+                            }
+                        }
                     }
                 }
                 if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }

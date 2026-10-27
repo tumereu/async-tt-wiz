@@ -71,7 +71,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                         retry = controller::refresh, loading = state.loading) {
                         state.detail?.let { detail ->
                             Column(Modifier.fillMaxSize()) {
-                                if (!pickTab) PodMemberStrip(detail)
+                                if (detail.phase == PodPhase.SETUP) PodMemberStrip(detail)
                                 if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
                                 else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
                                 else PodDraftScreen(controller, detail, accountId, lobby)
@@ -123,10 +123,11 @@ internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss:
 }
 
 @Composable
-private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodPhase) {
+private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodPhase, compact: Boolean = false) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        ScreenIconButton("Pod actions", "more", { expanded = true })
+        if (compact) IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
+        else ScreenIconButton("Pod actions", "more", { expanded = true })
         DropdownMenu(expanded, { expanded = false }) {
             if (creator && phase == PodPhase.DRAFTING) DropdownMenuItem(text = { Text("Cancel draft") }, onClick = {
                 expanded = false; controller.requestConfirmation(PodConfirmation.CANCEL)
@@ -189,18 +190,21 @@ internal fun PodRow(pod: PodSummary, open: () -> Unit, modifier: Modifier = Modi
 private fun NewPodScreen(controller: PodController) {
     val state = controller.state
     val draft = state.creating ?: return
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        val source = state.sourcePreview ?: draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
-        PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
-            controller::newSettings, controller::reroll)
-        ScreenButton(controller::create, enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() &&
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val source = state.sourcePreview ?: draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
+            PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
+                controller::newSettings, controller::reroll)
+        }
+        Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() &&
             draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null) { Text("Create") }
     }
 }
 
 @Composable
 private fun PodMemberStrip(detail: PodDetail) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(Modifier.fillMaxWidth().testTag("pod-member-strip").horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         detail.members.forEach { member ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Avatar(member.account)
@@ -257,8 +261,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         TabRow(tabs.indexOf(selected)) {
             tabs.forEach { tab -> Tab(selected == tab, { controller.tab(tab) }, text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
         }
-        if (selected == PodTab.DRAFT) PodDraftMemberRow(detail) {
-            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase)
+        if (selected == PodTab.DRAFT && detail.settings.mode == DraftMode.GRID) PodDraftMemberRow(detail) {
+            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
@@ -266,7 +270,11 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
-                    state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
+                    state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize(), chrome = { control ->
+                        PodDraftMemberRow(detail, control) {
+                            PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
+                        }
+                    })
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
@@ -279,7 +287,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
 }
 
 @Composable
-internal fun PodDraftMemberRow(detail: PodDetail, overflow: @Composable () -> Unit) {
+internal fun PodDraftMemberRow(detail: PodDetail, controls: @Composable () -> Unit = {}, overflow: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 8.dp).testTag("pod-draft-members"),
         verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -300,6 +308,7 @@ internal fun PodDraftMemberRow(detail: PodDetail, overflow: @Composable () -> Un
                 }
             }
         }
+        controls()
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }
     }
 }
@@ -310,7 +319,6 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
     val mine = detail.members.firstOrNull { it.account.accountId == accountId }
     val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(detail.deckName, style = MaterialTheme.typography.titleMedium)
         Text("Members", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {

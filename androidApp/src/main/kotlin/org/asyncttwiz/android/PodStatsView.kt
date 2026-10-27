@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
@@ -47,7 +48,7 @@ fun PodStatsView(
                     Row(Modifier.fillMaxWidth().semantics {
                         contentDescription = "${color.name}: pip demand ${pips.roundToInt()}%, mana sources ${sources.roundToInt()}%"
                     }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CardText("{${color.name}}", style = MaterialTheme.typography.titleLarge)
+                        CardText("{${color.name}}", Modifier.width(28.dp), style = MaterialTheme.typography.titleLarge)
                         PodColorBar(pips, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                         PodColorBar(sources, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
                     }
@@ -74,7 +75,7 @@ private fun PodStatsBars(values: Map<String, Double>, color: Color) {
         values.entries.forEachIndexed { index, (label, value) ->
             val height = (value / maximum * chartHeight).toFloat()
             drawRect(color, Offset(slot * index + slot * 0.15f, baseline - height), Size(slot * 0.7f, height))
-            drawContext.canvas.nativeCanvas.drawText(podStatsNumber(value), slot * (index + 0.5f), baseline - height - textSize * 0.3f, paint)
+            if (value > 0) drawContext.canvas.nativeCanvas.drawText(podStatsNumber(value), slot * (index + 0.5f), baseline - height - textSize * 0.3f, paint)
             drawContext.canvas.nativeCanvas.drawText(label, slot * (index + 0.5f), size.height - textSize * 0.25f, paint)
         }
     }
@@ -83,10 +84,10 @@ private fun PodStatsBars(values: Map<String, Double>, color: Color) {
 @Composable
 private fun PodColorBar(percent: Double, color: Color, modifier: Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(Modifier.weight(1f).height(4.dp)) {
+        Canvas(Modifier.weight(1f).height(4.dp).testTag("pod-color-bar")) {
             drawRect(color.copy(alpha = .15f))
             drawRect(color, size = Size(size.width * (percent / 100).toFloat(), size.height))
         }
-        Text("${percent.roundToInt()}%", style = MaterialTheme.typography.labelSmall)
+        Text("${percent.roundToInt()}%", Modifier.width(36.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelSmall)
     }
 }

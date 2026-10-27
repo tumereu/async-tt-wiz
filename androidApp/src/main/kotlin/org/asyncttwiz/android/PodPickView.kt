@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -54,13 +53,20 @@ fun PodPickView(
     onConfirm: (keep: List<String>, burn: List<String>) -> Unit,
     onOpenBuild: () -> Unit,
     modifier: Modifier = Modifier,
+    chrome: @Composable (@Composable () -> Unit) -> Unit = { control ->
+        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically) { control() }
+    },
 ) {
     val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
     if (pack == null) {
-        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Button(onClick = onOpenBuild) { Text("Build") }
+        Column(modifier.fillMaxSize()) {
+            chrome {}
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Button(onClick = onOpenBuild) { Text("Build") }
+            }
         }
         return
     }
@@ -83,18 +89,16 @@ fun PodPickView(
     val inspect: (DraftCopy?) -> Unit = { inspected = it }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        chrome {
+            PodColumnControl("$columns", "Cards per row", columns, 1..maxColumns) {
+                preferredColumns = it
+                preferences.edit().putInt(preferenceKey, preferredColumns).apply()
+            }
+        }
         key(pack.id) {
             LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
                 state = rememberLazyGridState(), horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        PodPickColumnControl(columns, maxColumns) {
-                            preferredColumns = it
-                            preferences.edit().putInt(preferenceKey, preferredColumns).apply()
-                        }
-                    }
-                }
                 items(pack.cards, key = { it.id }) { copy ->
                     PodPickCard(copy, definitions[copy.definition], marks.markOf(copy.id),
                         automaticBurn = rules.automaticBurns && copy.id in burnIds,
@@ -117,25 +121,6 @@ fun PodPickView(
 @Composable
 private fun rememberPodPickPreferences() = LocalContext.current.applicationContext.let { context ->
     remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
-}
-
-@Composable
-private fun PodPickColumnControl(columns: Int, maximum: Int, change: (Int) -> Unit) {
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        Row(Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "Cards per row"
-            progressBarRangeInfo = ProgressBarRangeInfo(columns.toFloat(), 1f..maximum.toFloat(), (maximum - 2).coerceAtLeast(0))
-            setProgress { change(it.toInt().coerceIn(1, maximum)); true }
-        }, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedIconButton({ change(columns - 1) }, Modifier.size(32.dp), enabled = columns > 1) {
-                Text("−", Modifier.semantics { contentDescription = "Fewer cards per row" })
-            }
-            Text("$columns", style = MaterialTheme.typography.labelMedium)
-            OutlinedIconButton({ change(columns + 1) }, Modifier.size(32.dp), enabled = columns < maximum) {
-                Text("+", Modifier.semantics { contentDescription = "More cards per row" })
-            }
-        }
-    }
 }
 
 /** One recognizer owns tap, horizontal swipe and the short, release-to-close hold. */

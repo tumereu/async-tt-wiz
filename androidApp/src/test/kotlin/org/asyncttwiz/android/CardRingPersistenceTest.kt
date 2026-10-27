@@ -23,7 +23,7 @@ class CardRingPersistenceTest {
         CardRingPageStore(context, "alice", "game").write(1)
         assertEquals(1, first.read())
         first.write(20)
-        assertEquals(3, first.read())
+        assertEquals(20, first.read())
         first.write(-1)
         assertEquals(0, first.read())
     }

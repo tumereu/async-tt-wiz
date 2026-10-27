@@ -36,6 +36,7 @@ object RandomV1 {
             "shuffle-v1" -> "async-tt-wiz/shuffle/v1\u0000"
             "starter-v1" -> "async-tt-wiz/starter/v1\u0000"
             "branch-reseed-v1" -> "async-tt-wiz/branch-reseed/v1\u0000"
+            "hand-pick-v1" -> "async-tt-wiz/hand-pick/v1\u0000"
             else -> error("Unsupported random algorithm")
         }.encodeToByteArray()
         private var counter = 0uL
@@ -86,5 +87,10 @@ object RandomV1 {
     fun starter(participants: List<String>, seed: String): String {
         val sorted = canonical(participants); require(sorted.size == 2)
         return sorted[sample(2, Words(seed, "starter-v1")::next)]
+    }
+    fun handPick(ids: List<String>, seed: String): String {
+        val sorted = canonical(ids)
+        require(sorted.isNotEmpty())
+        return sorted[sample(sorted.size, Words(seed, "hand-pick-v1")::next)]
     }
 }

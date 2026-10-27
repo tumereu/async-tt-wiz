@@ -138,6 +138,20 @@ class GameplayTest {
                             send(PlayAction.Stack(StackAction.RemoveEffect(effect)))
                         }
                     }
+                    val handIds = predicted.board.containers.single { it.id == hand.id }.cards
+                    send(PlayAction.RevealHand(hand.id, handIds.take(2)))
+                    assertTrue(predicted.board.contentsDisplays.single().cardIds.all { id ->
+                        CardVisibility.isVisibleFaceUp(predicted.board, predicted.board.cards.single { it.id == id }, a.account.accountId) })
+                    send(PlayAction.DismissContents(predicted.board.contentsDisplays.single().id))
+                    assertTrue(predicted.board.contentsDisplays.isEmpty())
+                    for (result in HandRandomResult.entries) {
+                        val selected = if (result == HandRandomResult.REVEAL)
+                            predicted.board.containers.single { it.id == hand.id }.cards.take(2) else emptyList()
+                        val random = HandActions.random(predicted.board, hand.id, selected,
+                            RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }), result)
+                        send(random)
+                        if (result == HandRandomResult.REVEAL) send(PlayAction.DismissContents(predicted.board.contentsDisplays.single().id))
+                    }
                     val drawn = predicted
                     val card = drawn.board.containers.single { it.id == hand.id }.cards.first()
                     send(PlayAction.MoveCard(card, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(1024, 0))))

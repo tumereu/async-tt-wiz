@@ -15,8 +15,11 @@ internal object CardRingPages {
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.map { "counter/${it.name}" }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "resetCorner",
             "corner/LEFT/1", "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1",
-            "eotCorner/LEFT/1", "eotCorner/RIGHT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/-1")),
-        CardRingPage("Move", emptyList()))
+            "eotCorner/LEFT/1", "eotCorner/RIGHT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/-1")))
+
+    val hand = listOf(
+        CardRingPage("Hand", listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
+        CardRingPage("Random", listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
 
     private fun defaultLayout(available: List<String>, token: Boolean) = defaults.mapIndexed { index, page ->
         when (index) {
@@ -27,13 +30,9 @@ internal object CardRingPages {
                     else -> id
                 }
             })
-            3 -> page.copy(actions = available.filter { isMove(it) && it !in defaults[0].actions }.sortedBy { it != "Move to Stack" })
             else -> page
         }
     }
-
-    private fun isMove(id: String) = id.startsWith("Move ") || id in
-        listOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile")
 
     fun span(id: String) = if (id in listOf("corner", "corner/counters", "damage", "eotCorner") ||
         org.asyncttwiz.protocol.CounterColor.entries.any { id == "counter/${it.name}" }) 2 else 1
@@ -48,32 +47,38 @@ internal object CardRingPages {
         }
     }
 
-    fun resolve(available: List<String>, pages: List<CardRingPage>? = null, token: Boolean = false): List<CardRingPage> {
+    fun resolve(available: List<String>, pages: List<CardRingPage>? = null, token: Boolean = false, inHand: Boolean = false): List<CardRingPage> {
+        if (inHand) return hand.map { page -> page.copy(actions = page.actions.filter { it in available }) }
         val requested = pages ?: defaultLayout(available, token)
         val remaining = available.toMutableSet()
         val assigned = requested.map { page -> page.actions.filter { remaining.remove(it) || pages == null && it.startsWith("empty/") } }.toMutableList()
-        assigned[2] = assigned[2] + remaining.filterNot(::isMove)
-        assigned[3] = assigned[3] + remaining.filter(::isMove)
+        assigned[2] = assigned[2] + remaining
         val result = requested.map { it.copy(actions = emptyList()) }.toMutableList()
+        val overflow = mutableListOf<String>()
         for ((index, actions) in assigned.withIndex()) for (action in actions) {
-            // Spill forward, wrapping to unused cells on Everyday after Move.
-            val destination = result.indices.map { (index + it) % result.size }
-                .firstOrNull { layout(result[it].actions + action).last().let { it.cell + it.span <= capacity } }
-            if (destination != null) result[destination] = result[destination].copy(actions = result[destination].actions + action)
-            else {
-                // Unbounded player-created piles must not make their move actions unreachable.
-                result += CardRingPage("Move ${result.size - 2}", listOf(action))
+            if (fits(result[index].actions + action)) result[index] = result[index].copy(actions = result[index].actions + action)
+            else overflow += action
+        }
+        for (action in overflow) {
+            // Overflow never fills unrelated Everyday/Counter cells or creates Move pages.
+            var index = result.lastIndex
+            if (index < 2 || !fits(result[index].actions + action)) {
+                result += CardRingPage("More ${result.size - 1}", emptyList())
+                index = result.lastIndex
             }
+            result[index] = result[index].copy(actions = result[index].actions + action)
         }
         return result
     }
+    private fun fits(actions: List<String>) = layout(actions).last().let { it.cell + it.span <= capacity }
+    fun adjacent(selected: Int, delta: Int, count: Int) = (selected + delta).mod(count)
 }
 
 internal class CardRingPageStore(context: Context, account: String, game: String) {
     private val preferences = context.applicationContext.getSharedPreferences("card-ring-pages", Context.MODE_PRIVATE)
     private val key = "${account.length}:$account:$game"
-    fun read() = preferences.getInt(key, 0).coerceIn(0, 3)
-    fun write(page: Int) { preferences.edit().putInt(key, page.coerceIn(0, 3)).apply() }
+    fun read() = preferences.getInt(key, 0).coerceAtLeast(0)
+    fun write(page: Int) { preferences.edit().putInt(key, page.coerceAtLeast(0)).apply() }
 }
 
 /** A press that began during the guard stays inert, even if released after the deadline. */

@@ -141,13 +141,21 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.ShuffleLibrary -> text("Library shuffled", "Shuffle")
         is PlayAction.SetKeepTopRevealed -> text("Library top reveal → ${if (action.enabled) "on" else "off"}", "Top reveal ${if (action.enabled) "on" else "off"}")
         is PlayAction.Mulligan -> text("Mulligan to ${action.drawCount}", "Mulligan")
+        is PlayAction.RevealHand -> text("Hand revealed → ${action.cardIds.size} cards", "Reveal hand")
+        is PlayAction.RandomHand -> text("Random hand card → ${when (action.result) {
+            HandRandomResult.DISCARD -> "Graveyard"
+            HandRandomResult.REVEAL -> "Reveal"
+            HandRandomResult.EXILE -> "Exile"
+            HandRandomResult.LIBRARY_BOTTOM -> "Library bottom"
+        }}", "Random hand")
         is PlayAction.ShowContents -> {
             val size = transition.contents?.to?.cardIds?.size
             val quantity = size?.let { "$it ${if (it == 1) "card" else "cards"}" } ?: "cards"
             text("${zone(action.containerId)} ${if (action.reveal) "revealed" else if (action.selection == ContentsSelection.ALL) "searched" else "looked at"} → $quantity",
                 if (action.reveal) "Reveal" else if (action.selection == ContentsSelection.ALL) "Search" else "Look")
         }
-        is PlayAction.DismissContents -> text(if (transition.contents?.from?.search == true) "Search closed → Library shuffled"
+        is PlayAction.DismissContents -> text(if (transition.contents?.from?.let { container(it.containerId)?.zone == PlayZone.HAND && it.reveal } == true) "Hand reveal done"
+            else if (transition.contents?.from?.search == true) "Search closed → Library shuffled"
             else "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
         is PlayAction.RevealContentsCard -> text("${card(action.cardId)} revealed in panel", "Reveal card")
         is PlayAction.ReorderContents -> text("Card panel reordered", "Reorder panel")

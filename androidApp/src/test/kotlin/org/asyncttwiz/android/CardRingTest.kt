@@ -36,17 +36,17 @@ class CardRingTest {
             listOf("flip", "otherSide", "switchFace", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token")
         val available = ids.distinct()
         val pages = CardRingPages.resolve(available)
-        assertEquals(listOf("Everyday", "Counters", "More", "Move"), pages.map { it.name })
+        assertEquals(listOf("Everyday", "Counters", "More"), pages.map { it.name })
         assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
         assertEquals(available.size, pages.flatMap { it.actions }.size)
         assertEquals(CardRingPages.defaults[0], pages[0])
         assertEquals(6, pages[1].actions.size)
         assertEquals(12, CardRingPages.layout(pages[1].actions).sumOf { it.span })
         assertTrue(pages.all { CardRingPages.layout(it.actions).all { slot -> slot.cell + slot.span <= 25 } })
-        assertTrue("Move to Stack" in pages[3].actions)
+        assertTrue("Move to Stack" in pages[2].actions)
         val everydayMoves = listOf("Library top", "Library bottom", "Graveyard", "Exile")
         assertTrue(pages[0].actions.containsAll(everydayMoves))
-        assertTrue(pages[3].actions.none { it in everydayMoves })
+        assertTrue(pages[2].actions.none { it in everydayMoves })
         assertTrue("switchFace" in pages[0].actions)
         val custom = CardRingPages.defaults.toMutableList().apply { this[0] = this[0].copy(actions = listOf("Clone", "inspect")) }
         assertEquals(listOf("Clone", "inspect"), CardRingPages.resolve(ids, custom)[0].actions)
@@ -99,7 +99,7 @@ class CardRingTest {
         val custom = CardRingPages.defaults.mapIndexed { index, page -> page.copy(actions = if (index == 0) actions else emptyList()) }
         val pages = CardRingPages.resolve(actions, custom)
         assertEquals(actions.take(24), pages[0].actions)
-        assertEquals(listOf("corner"), pages[1].actions)
+        assertEquals(listOf("corner"), pages[2].actions)
         val slots = CardRingPages.layout(listOf("a", "b", "c", "d", "corner", "counter/RED", "damage", "eotCorner"))
         assertEquals(listOf(0, 1, 2, 3, 5, 7, 10, 12), slots.map { it.cell })
         assertTrue(slots.all { it.cell % 5 + it.span <= 5 })
@@ -114,6 +114,24 @@ class CardRingTest {
         assertEquals("2/3", entry.compound.value)
         entry.control.click(); entry.compound.plus.click()
         assertEquals(11, calls)
+    }
+
+    @Test fun fifteenPlusPagesHaveOnlyMoreContinuationsAndWrapInBothDirections() {
+        val ids = List(400) { "Move to pile $it" }
+        val pages = CardRingPages.resolve(ids)
+        assertEquals(listOf("Everyday", "Counters", "More") + (2..16).map { "More $it" }, pages.map { it.name })
+        assertEquals(ids, pages.flatMap { it.actions })
+        assertEquals(pages.lastIndex, CardRingPages.adjacent(0, -1, pages.size))
+        assertEquals(0, CardRingPages.adjacent(pages.lastIndex, 1, pages.size))
+        assertTrue(pages.all { page -> CardRingPages.layout(page.actions).all { it.cell + it.span <= 25 } })
+    }
+
+    @Test fun handHasOnlyItsOwnTwoPagesAndExactActions() {
+        val ids = CardRingPages.defaults.flatMap { it.actions } + CardRingPages.hand.flatMap { it.actions }
+        val pages = CardRingPages.resolve(ids, inHand = true)
+        assertEquals(listOf("Hand", "Random"), pages.map { it.name })
+        assertEquals(listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"), pages[0].actions)
+        assertEquals(listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom"), pages[1].actions)
     }
 
     @Test fun onlyTheValueCellKeepsTheCounterDragCallbackAndRawValue() {

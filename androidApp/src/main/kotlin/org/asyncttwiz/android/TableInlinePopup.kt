@@ -70,22 +70,33 @@ internal fun ringShortLabel(name: String): String = when (name) {
 
 @Composable
 internal fun CardActionRing(game: String, viewer: String, identity: String, viewId: String,
-    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit, token: Boolean = false) {
+    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit, token: Boolean = false, inHand: Boolean = false) {
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
     var page by remember(viewer, game) { mutableIntStateOf(store.read()) }
-    val pages = CardRingPages.resolve(entries.map { it.id }, token = token)
+    val pages = CardRingPages.resolve(entries.map { it.id }, token = token, inHand = inHand)
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
     val anchor = LocalCardRingAnchors.current[viewId]
     val selectPage: (Int) -> Unit = { page = it; store.write(it) }
-    val switchPage: (Int) -> Unit = { delta -> selectPage((selectedPage + delta).mod(pages.size)) }
+    val switchPage: (Int) -> Unit = { delta -> selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val gridWidth = CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap
+    // A full-height header must not force the menu over its card on small screens.
+    // Keep the header fixed and scroll only the grid when no full-height side fits.
+    val contentHeight = anchor?.let { card ->
+        val vertical = maxOf(card.y - 20f, maxHeight.value - card.bottom - 20f)
+        val beside = maxOf(card.x - 20f, maxWidth.value - card.right - 20f) >= gridWidth
+        if (beside) maxHeight.value - 24f else vertical
+    } ?: (maxHeight.value - 24f)
     TableInlinePopup(identity, viewId, anchor, own, ownerColor, dismiss,
         description = "Card action ring", title = "Card actions", switchPage = switchPage) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
             key(identity, viewId, selectedPage) {
-                Column(verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
+                Column(Modifier.heightIn(max = (contentHeight - 52f).coerceAtLeast(48f).dp)
+                    .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                     repeat(inlinePopupGridRows(slots)) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
@@ -103,6 +114,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                 }
             }
         }
+    }
     }
 }
 
@@ -240,18 +252,28 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 
 @Composable
 internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, select: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
     Row(Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
-        .height(20.dp).horizontalScroll(rememberScrollState()).semantics {
+        .height(48.dp).semantics {
         contentDescription = "Action page ${selected + 1} of ${pages.size}, ${pages[selected]}"
     }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        pages.forEachIndexed { index, name ->
-            RingPress(MenuControl("$name page", selected = index == selected) { select(index) },
-                Modifier.width(48.dp).fillMaxHeight(), color,
-                fill = if (index == selected) color.copy(alpha = .18f) else Color.White, role = Role.Tab) {
-                Text(name, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 1, overflow = TextOverflow.Clip,
-                    color = MenuInk, fontWeight = if (index == selected) FontWeight.Bold else FontWeight.Normal)
+        RingPress(MenuControl("Previous page") { expanded = false; select(CardRingPages.adjacent(selected, -1, pages.size)) },
+            Modifier.size(48.dp), color) { Text("◀", color = MenuInk) }
+        Box(Modifier.weight(1f)) {
+            RingPress(MenuControl("Choose action page") { expanded = !expanded }, Modifier.fillMaxWidth().height(48.dp), color) {
+                Text(pages[selected], fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MenuInk, fontWeight = FontWeight.Bold)
+            }
+            DropdownMenu(expanded, { expanded = false }, modifier = Modifier.heightIn(max = 240.dp).ringInputTarget(draggable = true)) {
+                pages.forEachIndexed { index, name ->
+                    DropdownMenuItem(text = { Text(name) }, modifier = Modifier.ringInputTarget().semantics {
+                        contentDescription = "$name page"; this.selected = index == selected
+                    }, onClick = { expanded = false; select(index) })
+                }
             }
         }
+        RingPress(MenuControl("Next page") { expanded = false; select(CardRingPages.adjacent(selected, 1, pages.size)) },
+            Modifier.size(48.dp), color) { Text("▶", color = MenuInk) }
     }
 }
 

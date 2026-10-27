@@ -28,7 +28,11 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
-    val tools = if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
+    val handCard = bound?.let { b -> play.board.cards.singleOrNull { it.id == b.contextViewId } }?.let { card ->
+        play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND }
+    } == true
+    val tools = if (bound != null && handCard) handMenuTools(toolkit, play, bound, selection, names, enabled)
+        else if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
         cardExtraTools(toolkit, play, bound, selection, select, names, enabled, selectionEnabled) else emptyList()
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
         submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,

@@ -60,6 +60,10 @@ import kotlinx.serialization.json.*
         val displayedHand: List<String>, val drawCount: Int, val seed: String) : PlayAction
     @Serializable @SerialName("showContents") data class ShowContents(val containerId: String,
         val selection: ContentsSelection, val count: Int = 1, val reveal: Boolean = false) : PlayAction
+    @Serializable @SerialName("revealHand") data class RevealHand(val handId: String, val cardIds: List<String>) : PlayAction
+    /** Fresh independent seed and literal chosen identity, verified at acceptance, never rerolled on replay. */
+    @Serializable @SerialName("randomHand") data class RandomHand(val handId: String, val selectedIds: List<String>,
+        val seed: String, val result: HandRandomResult, val cardId: String) : PlayAction
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("dismissContents") data class DismissContents(val displayId: String,
         @EncodeDefault(EncodeDefault.Mode.NEVER) val rest: ContentsRest = ContentsRest.TOP,
@@ -150,6 +154,11 @@ object GameplayRules {
             action.displayedHand.all(DeckValidation::uuid) && action.displayedHand.distinct().size == action.displayedHand.size &&
             action.drawCount >= 0 && runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.ShowContents -> DeckValidation.uuid(action.containerId) && action.count >= 0
+        is PlayAction.RevealHand -> DeckValidation.uuid(action.handId) && action.cardIds.isNotEmpty() &&
+            action.cardIds.all(DeckValidation::uuid) && action.cardIds.distinct().size == action.cardIds.size
+        is PlayAction.RandomHand -> listOf(action.handId, action.cardId).all(DeckValidation::uuid) &&
+            action.selectedIds.all(DeckValidation::uuid) && action.selectedIds.distinct().size == action.selectedIds.size &&
+            runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.DismissContents -> DeckValidation.uuid(action.displayId) &&
             (action.seed == null || runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess)
         is PlayAction.RevealContentsCard -> DeckValidation.uuid(action.displayId) && DeckValidation.uuid(action.cardId)
@@ -251,6 +260,7 @@ object GameplayRules {
                 transition = GameplayTransition(listOf(GameplayFieldChange(account, GameplayField.LIFE, player.life, value)))
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
+            is PlayAction.RevealHand, is PlayAction.RandomHand -> return HandRules.change(state, actor, command, action)
             is PlayAction.SetKeepTopRevealed, is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
             is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
                 return LibraryRules.change(state, actor, command, action)
@@ -270,7 +280,7 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 17): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 19): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action

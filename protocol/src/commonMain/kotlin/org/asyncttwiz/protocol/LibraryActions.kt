@@ -30,10 +30,10 @@ object LibraryRules {
     }
 
     internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
-        contentsRulesVersion: Int = 2): GameplayChange {
+        contentsRulesVersion: Int = 2, rulesVersion: Int = 19): GameplayChange {
         val board = state.board
         fun record(next: BoardState, transition: GameplayTransition) =
-            GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion)
+            GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion, rulesVersion)
         return when (action) {
             is PlayAction.SetKeepTopRevealed -> {
                 val library = board.containers.singleOrNull { it.id == action.containerId && it.zone == PlayZone.LIBRARY }
@@ -113,6 +113,13 @@ object LibraryRules {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
                 if (display.author != actor) return GameplayChange(reason = "accessDenied")
                 val source = board.containers.single { it.id == display.containerId }
+                // Hand reveals are references: Done returns them simply by removing the tray,
+                // preserving the exact hand order and expiring public visibility in ONE event.
+                if (rulesVersion >= 19 && source.zone == PlayZone.HAND && display.reveal) {
+                    return record(board.copy(contentsDisplays = board.contentsDisplays - display,
+                        cards = board.cards.map { if (it.id in display.cardIds) it.copy(knownToAll = false) else it }),
+                        GameplayTransition(contents = ContentsDisplayChange(from = display)))
+                }
                 val ids = display.cardIds.filter { it in source.cards }
                 val rest = source.cards.filterNot { it in ids }
                 // Older clients omitted a seed on dismiss. The request still binds one reproducible result.

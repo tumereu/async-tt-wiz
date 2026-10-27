@@ -116,6 +116,8 @@ internal object LibraryKnowledge {
                 val insertion = action.destination.libraryInsertion ?: action.destination.insertion
                 if (insertion == MoveInsertion.TOP || insertion == MoveInsertion.BOTTOM) place(listOf(action.cardId), insertion)
             }
+            is PlayAction.RandomHand -> if (action.result == HandRandomResult.LIBRARY_BOTTOM && action.cardId in members &&
+                action.cardId !in old.cards) place(listOf(action.cardId), MoveInsertion.BOTTOM)
             is PlayAction.DismissContents -> before.contentsDisplays.singleOrNull {
                 it.id == action.displayId && it.containerId == library.id }?.let { display ->
                 val ids = display.cardIds.filter { it in members }

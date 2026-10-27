@@ -260,6 +260,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
+        val real = play.board.cards.singleOrNull { it.id == scope.contextId }
+        if (real != null && play.board.containers.any { it.id == real.containerId && it.zone == PlayZone.HAND && it.accountId != viewer }) return
         val bound = bind(scope, sources) ?: return
         val previous = panel?.takeIf { it.startsWith("contents/") }
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
@@ -323,6 +325,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun closeCardPanel(display: ContentsDisplay) {
         if (display.author != viewer || !enabled()) return
+        if (display.reveal) {
+            if (submit(PlayAction.DismissContents(display.id))) dismiss()
+            return
+        }
         if (!display.search && display.cardIds.isNotEmpty()) { dismiss(); panel = "panelRest/${display.id}" }
         else resolveCardPanel(display)
     }
@@ -332,6 +338,22 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }
         val result = libraryController(display.containerId, hand.id)?.dismiss(display.id, rest)
         if (result?.refused == 0) dismiss()
+    }
+    fun playHand(ids: List<String>): Boolean = batchResult {
+        ids.isNotEmpty() && ids.distinct().all { id ->
+            val play = current() ?: return@all false
+            val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
+            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }) return@all false
+            val destination = handPlayDestination(play, card) ?: return@all false
+            basic.handle(TableIntent.Move(TableScope(id, listOf(id)), destination,
+                BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
+        }
+    }
+    fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val seed = RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
+        val action = runCatching { HandActions.random(play.board, handId, selectedIds, seed, result) }.getOrNull() ?: return false
+        return submit(action)
     }
     fun cardPanelAction(display: ContentsDisplay, id: String, zone: PlayZone, reveal: Boolean = false,
         bottom: Boolean = false, tapped: Boolean = false) = batch {

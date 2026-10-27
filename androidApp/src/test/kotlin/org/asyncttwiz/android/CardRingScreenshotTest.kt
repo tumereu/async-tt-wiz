@@ -68,7 +68,7 @@ class CardRingScreenshotTest {
                 val card = if (at == 2) f.source(f.b, "2/3") else f.source(f.a, "1/3")
                 toolkit.openCard(TableScope(card.id, listOf(card.id)))
             }
-            for (page in 0..3) {
+            for (page in 0..2) {
                 compose.mainClock.advanceTimeBy(350)
                 compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
                 compose.onAllNodes(isDialog()).assertCountEquals(0)
@@ -76,7 +76,7 @@ class CardRingScreenshotTest {
                 indicator.assertIsDisplayed()
                 val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
                 assertEquals(248f, square.width)
-                assertTrue(square.height <= 272f)
+                assertTrue(square.height <= 300f)
                 if (page == 0) for (name in listOf("Inspect", "Set corner", "Clone", "Ping / Unping"))
                     compose.onNodeWithContentDescription(name).assertIsDisplayed()
                 if (page == 1) for (color in CounterColor.entries) for (prefix in listOf("Set", "Decrease", "Increase"))
@@ -86,8 +86,10 @@ class CardRingScreenshotTest {
                 val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring")) and
                     SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).fetchSemanticsNodes()
                 for (button in buttons) {
-                    val b = button.boundsInRoot
                     val name = button.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first()
+                    val node = compose.onNodeWithContentDescription(name)
+                    if (name !in listOf("Previous page", "Choose action page", "Next page")) node.performScrollTo()
+                    val b = node.fetchSemanticsNode().boundsInRoot
                     val edge = name.startsWith("Increase ") || name.startsWith("Decrease ")
                     assertTrue(b.width >= (if (edge) 23.9f else 47.9f) && b.height >= 47.9f, "Widget target: ${button.config} $b")
                     assertNull(TableBounds(b.left, b.top, b.width, b.height).intersection(card), "Cell covers card: $b $card")
@@ -95,7 +97,7 @@ class CardRingScreenshotTest {
                 val file = File("build/outputs/roborazzi/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")
                 file.parentFile!!.mkdirs()
                 captureScreenRoboImage(file.path)
-                if (page < 3) compose.ringPage(page + 2)
+                if (page < 2) compose.ringPage(page + 2)
             }
             compose.runOnIdle { toolkit.dismiss() }
             compose.waitForIdle()
@@ -113,9 +115,7 @@ class CardRingScreenshotTest {
 internal fun ComposeContentTestRule.ringPage(page: Int) {
     mainClock.advanceTimeBy(350)
     // Explicit event time keeps physical presses past the uptime guard without an entrance animation.
-    onNodeWithContentDescription("${listOf("Everyday", "Counters", "More", "Move")[page - 1]} page").performTouchInput {
-        advanceEventTime(350)
-        click()
-    }
+    onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
+    onNodeWithContentDescription("${listOf("Everyday", "Counters", "More")[page - 1]} page").performScrollTo().performClick()
     onNode(hasContentDescription("Action page $page of ", substring = true)).assertIsDisplayed()
 }

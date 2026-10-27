@@ -22,7 +22,7 @@ data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBoun
     val viewport: TableViewport, val rows: List<CardPanelRow>, val columns: Int = 1,
     val localZone: PlayZone? = null, val typeHeaders: List<CardPanelTypeHeader> = emptyList(), val cardScale: Float = 1f) {
     val title get() = localZone?.let(::moveZoneLabel) ?: display.title
-    val closeBounds get() = TableBounds(bounds.right - 24, bounds.y + 2, 24f, 24f)
+    val closeBounds get() = (if (display.reveal && localZone == null) 40f else 24f).let { TableBounds(bounds.right - it, bounds.y + 2, it, 24f) }
 }
 
 /** Concealed copies are never grouped using hidden names (or collapsed into one back). */
@@ -156,8 +156,10 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
                 Text(display.cardIds.size.toString(), Modifier.weight(1f), fontSize = 10.sp, maxLines = 1)
                 if (display.author == viewer) IconButton({
                     if (panel.localZone != null) toolkit?.closeLocalPile() else toolkit?.closeCardPanel(display)
-                }, enabled = toolkit != null && (panel.localZone != null || writable), modifier = Modifier.size(24.dp)) {
-                    Icon(menuIcon("Close"), "Close ${panel.title} panel", Modifier.size(16.dp))
+                }, enabled = toolkit != null && (panel.localZone != null || writable), modifier = Modifier.width(panel.closeBounds.width.dp).height(24.dp)) {
+                    if (display.reveal && panel.localZone == null) Text("Done", fontSize = 10.sp,
+                        modifier = Modifier.semantics { contentDescription = "Done Reveal panel" })
+                    else Icon(menuIcon("Close"), "Close ${panel.title} panel", Modifier.size(16.dp))
                 } else Spacer(Modifier.width(3.dp))
             }
         }

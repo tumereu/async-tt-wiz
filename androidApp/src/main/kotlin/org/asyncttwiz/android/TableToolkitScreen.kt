@@ -24,7 +24,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {
-        toolkit.manual.projectionNote(play, id, toolkit.viewer)
+        toolkit.manual.projectionNote(play, id, toolkit.viewer, bound?.viewIds ?: listOf(id))
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
@@ -36,6 +36,11 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         editProjectionNote = bound?.let { { editProjectionNote(it.contextViewId) } }) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
+        "attackTarget" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Attack →") {
+            for ((id, label) in attackTargetChoices(play, names, toolkit.viewer)) MenuButton(label, enabled = enabled) {
+                if (toolkit.setAttackTarget(bound, id)) toolkit.dismiss()
+            }
+        }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
             perform = { toolkit.handle(it) }, cardActions = { id -> toolkit.openCard(TableScope(id, listOf(id))) })
         "table" -> {
@@ -123,8 +128,10 @@ private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, boun
     val card = play.board.cards.singleOrNull { it.id == toolkit.manual.scope?.contextId } ?: return emptyList()
     val battlefield = play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
     return listOf(
-        MenuControl("Clone", enabled && toolkit.tokens.scope != null) {
-            toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
+        MenuControl("Clone", enabled && bound.sourceIds.isNotEmpty()) {
+            if (toolkit.tokens.scope != null) {
+                toolkit.batch { toolkit.tokens.clone() }; if (toolkit.tokens.error == null) toolkit.dismiss()
+            } else { toolkit.submitAll(bound.sourceIds.map { PlayAction.CloneToken(it) }); toolkit.dismiss() }
         },
         MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
         cardPingTool(toolkit, play, bound, enabled, annotations),
@@ -153,7 +160,7 @@ private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlaySt
         add(MenuControl("Remove Stack effect", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = effects))) toolkit.dismiss() })
     }
     if (combat.isNotEmpty()) {
-        add(MenuControl("Undeclare", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })
+        add(MenuControl("Remove from combat", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })
         add(MenuControl("Graveyard", enabled) {
             toolkit.batch { combat.forEach { toolkit.submit(CombatStackController.graveyard(play.board, it)) } }
             toolkit.dismiss()
@@ -165,18 +172,36 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
     selection: TableSelection, select: (String) -> Unit, names: Map<String, String>, enabled: Boolean,
     selectionEnabled: Boolean): List<MenuControl> = buildList {
     add(MenuControl("Select / deselect", selectionEnabled, selected = bound.contextViewId in selection.ids) { select(bound.contextViewId) })
-    if (selection.mode == TableMode.SELECT && play.board.cards.any { card -> card.id == bound.contextViewId &&
+    if (CombatStackRules.occurrences(play.board.combat).any { it.id == bound.contextViewId } ||
+        selection.mode == TableMode.SELECT && play.board.cards.any { card -> card.id == bound.contextViewId &&
             play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) for (tapped in listOf(true, false))
         add(MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
             if (toolkit.handle(TableIntent.Rotate(TableScope(bound.contextViewId, bound.viewIds), tapped, bound.sources))) toolkit.dismiss()
         })
-    if (toolkit.tokens.scope != null && bound.sourceIds.any { id -> play.board.cards.any { it.id == id && it.token } })
-        add(MenuControl("Remove token", enabled) { toolkit.batch { toolkit.tokens.removeTokens() }; if (toolkit.tokens.error == null) toolkit.dismiss() })
+    if (bound.sourceIds.any { id -> play.board.cards.any { it.id == id && it.token } })
+        add(MenuControl("Remove token", enabled) {
+            if (toolkit.tokens.scope != null) {
+                toolkit.batch { toolkit.tokens.removeTokens() }; if (toolkit.tokens.error == null) toolkit.dismiss()
+            } else {
+                toolkit.submitAll(bound.sourceIds.filter { id -> play.board.cards.any { it.id == id && it.token } }.map { PlayAction.RemoveToken(it) })
+                toolkit.dismiss()
+            }
+        })
     if (toolkit.tokens.projectionScope != null && bound.sourceIds.isNotEmpty())
         add(MenuControl("Source actions") { toolkit.openCard(TableScope(bound.sourceIds.first(), bound.sourceIds)) })
     addAll(occurrenceRemovalTools(toolkit, play, bound, enabled))
+    if (CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty())
+        add(MenuControl("Attack →", enabled) { toolkit.openAttackTargets() })
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),
         bound.sources, toolkit::handle, toolkit::dismiss))
     if (play.board.combat != null) for (destination in CombatStackPresentation.combat(play.board, 48f, 68f).destinations)
         add(MenuControl(destination.label, enabled) { if (toolkit.place(bound, destination.destination)) toolkit.dismiss() })
 }
+
+internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
+    listOf(null to "→ ${names[CombatStackRules.defendingPlayer(play.board)] ?: "Player"}") +
+        play.board.cards.filter { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) &&
+            CombatStackRules.canAttack(play, it.id) }.map { card ->
+            card.id to (play.definitions.find { it.digest == card.definition }?.definition?.faces
+                ?.find { it.faceId == card.faceId }?.name ?: "Card")
+        }

@@ -121,7 +121,7 @@ class TableToolkitWiringTest {
                 for (id in 40..41) assertTrue(f.move(id, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), id - 40, 0), true))
                 val scope = ui.table.scope()!!
                 assertTrue(ui.perform(TableActionIntent.Choose(scope, TurnPosition.PRECOMBAT_MAIN)))
-                assertTrue(quick(ui, "Go to attacks"))
+                assertTrue(quick(ui, "Select attackers"))
                 assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(f.play.board.turn))
                 assertEquals(TableMode.SELECT, ui.selectionState.value.mode)
                 assertTrue(ui.selectionState.value.attackSelection)

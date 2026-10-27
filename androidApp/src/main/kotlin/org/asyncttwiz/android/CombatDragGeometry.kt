@@ -24,10 +24,12 @@ internal fun TableScene.combatDestination(point: TablePoint, scope: TableScope?)
     // than silently merging them. Empty opposing rows still accept attacker/blocker placement.
     if (originRow != null && originRow.destination.role == row.destination.role &&
         originRow.destination.pairId != row.destination.pairId && cards.isNotEmpty()) {
+        if (originRow.destination.attackTarget != row.destination.attackTarget) return row.destination
         val slots = rows.filter { it.destination.role == row.destination.role }
         val index = combatInsertionIndex(slots.map { it.bounds.center.x }, point.x, origin.bounds.center.x)
-        return row.destination.copy(pairId = null, pairGap = IdentityGap(
-            slots.getOrNull(index - 1)?.destination?.pairId, slots.getOrNull(index)?.destination?.pairId))
+        val boundary = if (index == 0) slots.first().bounds.x else slots[index - 1].bounds.right
+        return combatDrops.first { it.destination.pairId == null && it.destination.role == row.destination.role &&
+            kotlin.math.abs(it.landing.x - boundary) < .1f }.destination.copy(attackTarget = row.destination.attackTarget)
     }
     val remaining = cards.filter { it.sourceId !in sources }
     val index = combatInsertionIndex(remaining.map { it.bounds.center.x }, point.x, origin?.bounds?.center?.x)

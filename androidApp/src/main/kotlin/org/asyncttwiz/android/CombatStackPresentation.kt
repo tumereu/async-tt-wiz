@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
@@ -30,7 +31,10 @@ data class CombatDropRegion(val label: String, val bounds: TableBounds, val dest
         (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
 }
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
-    val dividers: List<Float>, val destinations: List<CombatDropRegion>)
+    val dividers: List<Float>, val destinations: List<CombatDropRegion>,
+    val lanes: List<CombatLaneLabel> = emptyList(), val laneDividers: List<Float> = emptyList(), val labelHeight: Float = 0f)
+data class CombatLaneLabel(val cardId: String?, val label: String, val lines: List<String>, val bounds: TableBounds,
+    val artwork: org.asyncttwiz.storage.ArtworkReference? = null)
 data class StackGeometry(val width: Float, val height: Float, val count: Int,
     val visible: List<OccurrenceDrawing>, val orderedIds: List<String>)
 
@@ -43,7 +47,8 @@ object CombatStackPresentation {
     fun slotWidth(blockers: Int, attackers: Int, cardWidth: Float) =
         maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
 
-    fun combat(board: BoardState, cardWidth: Float, cardHeight: Float): CombatGeometry {
+    fun combat(board: BoardState, cardWidth: Float, cardHeight: Float,
+        definitions: List<SubmittedDefinition> = emptyList(), names: Map<String, String> = emptyMap(), viewer: String = ""): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
         val margin = cardGap(cardWidth)
@@ -52,25 +57,57 @@ object CombatStackPresentation {
         val cards = mutableListOf<OccurrenceDrawing>()
         val targets = mutableListOf<CombatDropRegion>()
         val dividers = mutableListOf<Float>()
+        val laneDividers = mutableListOf<Float>()
+        val groups = area.pairs.groupBy { it.attackTarget }
+        val pairs = groups.values.flatten()
+        val lanes = mutableListOf<CombatLaneLabel>()
+        val font = cardWidth * .22f
+        var laneX = 0f
+        for ((target, members) in groups.ifEmpty { mapOf(null to emptyList()) }) {
+            val width = members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat()
+                .coerceAtLeast(cardWidth + 2 * padding)
+            val targetCard = board.cards.find { it.id == target }
+            val hidden = targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
+            val label = when {
+                target == null -> "→ ${names[CombatStackRules.defendingPlayer(board)] ?: "Player"}"
+                hidden -> "→ Face-down card"
+                else -> definitions.find { it.digest == targetCard?.definition }?.definition?.faces
+                    ?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
+            }
+            val textWidth = width - 4 * margin - if (target != null) cardWidth * .3f else 0f
+            val columns = (textWidth / (font * .6f)).toInt().coerceAtLeast(1)
+            val lines = label.chunked(columns)
+            lanes += CombatLaneLabel(target, label, lines, TableBounds(laneX, 0f, width, 0f))
+            if (laneX > 0) laneDividers += laneX
+            laneX += width
+        }
+        val labelHeight = maxOf(cardWidth * .5f, lanes.maxOf { it.lines.size } * font * 1.2f + margin * 2)
         var x = 0f
         fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false) {
+            // Display grouping can make two visual neighbors nonadjacent in recorded pair order.
+            val anchor = area.pairs.indexOfFirst { it.id == after }
+            val gap = if (anchor >= 0) IdentityGap(after, area.pairs.getOrNull(anchor + 1)?.id) else {
+                val next = area.pairs.indexOfFirst { it.id == before }
+                IdentityGap(area.pairs.getOrNull(next - 1)?.id, before)
+            }
+            val target = (pairs.find { it.id == before } ?: pairs.find { it.id == after })?.attackTarget
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
-                val y = if (role == CombatRole.BLOCKER) 0f else rowHeight
+                val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
                     TableBounds(at - if (left) 0f else if (right) margin else 12f, y, if (left || right) margin else 24f, rowHeight),
-                    CombatDestination(area.id, role, pairGap = IdentityGap(after, before)), left, right,
+                    CombatDestination(area.id, role, pairGap = gap, attackTarget = target), left, right,
                     TablePoint(at, y + rowHeight / 2))
             }
         }
-        for ((index, pair) in area.pairs.withIndex()) {
+        for ((index, pair) in pairs.withIndex()) {
             if (index > 0) dividers += x
             val pairWidth = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth)
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                 val side = pair.side(role)
-                val y = if (role == CombatRole.BLOCKER) 0f else rowHeight
+                val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
                 var left = x + (pairWidth - rowWidth(side.size, cardWidth)) / 2
                 targets += CombatDropRegion("Append ${role.name.lowercase()} to pair ${index + 1}",
-                    TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id),
+                    TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id, attackTarget = pair.attackTarget),
                     landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
                 for ((member, occurrence) in side.withIndex()) {
                     val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
@@ -89,11 +126,12 @@ object CombatStackPresentation {
             x = cardWidth + 2 * padding
             insertion(null, null, x / 2, left = true, right = true)
         } else {
-            dividers.forEachIndexed { index, at -> insertion(area.pairs[index].id, area.pairs[index + 1].id, at) }
-            insertion(null, area.pairs.first().id, 0f, left = true)
-            insertion(area.pairs.last().id, null, x, right = true)
+            dividers.forEachIndexed { index, at -> insertion(pairs[index].id, pairs[index + 1].id, at) }
+            insertion(null, pairs.first().id, 0f, left = true)
+            insertion(pairs.last().id, null, x, right = true)
         }
-        return CombatGeometry(x, rowHeight * 2, cards, dividers, targets)
+        return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
+            lanes.map { it.copy(bounds = it.bounds.copy(height = labelHeight)) }, laneDividers, labelHeight)
     }
 
     fun stack(board: BoardState, cardWidth: Float, cardHeight: Float): StackGeometry {
@@ -152,16 +190,18 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
     selected: Set<String>, related: Set<String>, onCard: (String) -> Unit,
     placementEnabled: Boolean, onDestination: (CombatDestination) -> Unit,
     face: @Composable (PlayCard, Modifier) -> Unit, modifier: Modifier = Modifier) {
-    val scene = CombatStackPresentation.combat(state.board, cardWidth, cardHeight)
+    val scene = CombatStackPresentation.combat(state.board, cardWidth, cardHeight, state.definitions, viewer = viewer)
     if (state.board.combat == null) return
     BoxWithConstraints(modifier) {
         val laneWidth = maxWidth
         Box(Modifier.horizontalScroll(rememberScrollState()).widthIn(min = laneWidth), contentAlignment = Alignment.Center) {
             Box(Modifier.size(scene.width.dp, scene.height.dp)) {
                 Canvas(Modifier.fillMaxSize()) {
-                    for (x in scene.dividers) drawLine(Color.Black.copy(alpha = .22f), Offset(x.dp.toPx(), 0f),
-                        Offset(x.dp.toPx(), size.height), 1.dp.toPx())
+                    for (x in scene.dividers) drawLine(Color.Black.copy(alpha = if (x in scene.laneDividers) .7f else .22f),
+                        Offset(x.dp.toPx(), 0f), Offset(x.dp.toPx(), size.height), (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
                 }
+                for (lane in scene.lanes) Text(lane.label, Modifier.offset(lane.bounds.x.dp, 0.dp)
+                    .size(lane.bounds.width.dp, scene.labelHeight.dp), fontSize = (cardWidth * .22f).sp)
                 for (region in scene.destinations) {
                     val b = region.bounds
                     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)

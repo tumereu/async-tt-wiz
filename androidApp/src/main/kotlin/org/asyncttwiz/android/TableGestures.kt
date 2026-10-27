@@ -403,8 +403,6 @@ class TableGestureCoordinator(
         } else if (!explicit && c.suppressTapUi) {
             // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
             return
-        } else if (item?.viewport == "combat") {
-            emit(TableIntent.CombatBubbles(item.cardId))
         } else if (!explicit && item?.zone == PlayZone.STACK) {
             if (item.kind == TableItemKind.CARD && item.cardId == scene.stackTopId) emit(TableIntent.StackBubbles(item.cardId))
         } else if (item == null || item.kind == TableItemKind.HAND) {

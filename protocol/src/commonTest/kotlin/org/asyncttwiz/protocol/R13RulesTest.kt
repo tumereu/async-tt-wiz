@@ -36,7 +36,7 @@ class R13RulesTest {
         val event = assertNotNull(changed.mutation, changed.reason)
         val next = assertNotNull(changed.state)
         val decoded = GameWire.json.decodeFromString<GameplayMutation>(GameWire.json.encodeToString(event))
-        assertEquals(17, event.transition.rulesVersion)
+        assertEquals(18, event.transition.rulesVersion)
         assertEquals(next, GameplayHistory.apply(s, decoded))
         assertEquals(s, GameplayHistory.unapply(next, decoded))
         assertEquals(next, GameplayHistory.replay(s, decoded).state)

@@ -30,6 +30,8 @@ import kotlinx.serialization.json.*
     @Serializable data class Exists(val endpoint: LinkEndpoint) : ConcernField
     @Serializable data class Occupied(val id: String) : ConcernField
     @Serializable data class DefinitionAvailable(val digest: String) : ConcernField
+    @Serializable data class AttackTargetEligible(val id: String) : ConcernField
+    @Serializable data class AttackTargetIncident(val id: String) : ConcernField
     @Serializable data object PanelSlot : ConcernField
     @Serializable data object Attention : ConcernField
     @Serializable data object TemporaryMarks : ConcernField
@@ -138,6 +140,8 @@ internal object GameplayConcerns {
             is ConcernField.Exists -> encoded(TokenLinkRules.exists(b, field.endpoint))
             is ConcernField.Occupied -> encoded(TokenLinkRules.occupied(b, field.id))
             is ConcernField.DefinitionAvailable -> encoded(state.definitions.any { it.digest == field.digest })
+            is ConcernField.AttackTargetEligible -> encoded(CombatStackRules.canAttack(state, field.id))
+            is ConcernField.AttackTargetIncident -> encoded(b.combat?.pairs.orEmpty().filter { it.attackTarget == field.id }.map { it.id }.sorted())
             ConcernField.PanelSlot -> encoded(b.contentsDisplays.map { it.id }.sorted())
             ConcernField.Attention -> encoded(listOf(b.attentionHolder, b.effectiveAttentionHolder))
             ConcernField.TemporaryMarks -> encoded(b.cards.filter {
@@ -269,11 +273,20 @@ internal object GameplayConcerns {
                 val source = when (val combat = a.action) {
                     is CombatAction.Declare -> combat.sourceId
                     is CombatAction.Place -> combat.sourceId
-                    is CombatAction.Remove, is CombatAction.Close, CombatAction.Open -> null
+                    is CombatAction.Remove, is CombatAction.Close, CombatAction.Open, is CombatAction.SetAttackTarget -> null
                 }
                 source?.let { entity("card", it, "containerId"); fields += ConcernField.Incident(it) }
                 // Combat edits depend on occurrence uniqueness, area and pair gaps.
-                entity("combat", "")
+                val retarget = a.action as? CombatAction.SetAttackTarget
+                if (retarget != null) {
+                    entity("combat", "", "id")
+                    entity("combat", "", "pairs", "@${retarget.pairId}", "id")
+                    entity("combat", "", "pairs", "@${retarget.pairId}", "attackTarget")
+                    retarget.cardId?.let { fields += ConcernField.AttackTargetEligible(it) }
+                } else {
+                    entity("combat", "")
+                    (a.action as? CombatAction.Place)?.destination?.attackTarget?.let { fields += ConcernField.AttackTargetEligible(it) }
+                }
             }
             is PlayAction.Stack -> when (val stack = a.action) {
                 is StackAction.AddEffect -> {
@@ -322,6 +335,13 @@ internal object GameplayConcerns {
                         to.board.containers.single { it.id == c.containerId }.zone != PlayZone.BATTLEFIELD))
                     for (key in listOf("damage", "eotCorner", "eotNote")) entity("card", c.id, key)
             } }
+        }
+        if (mutation.transition.rulesVersion >= 18) {
+            when (val action = mutation.action) {
+                is PlayAction.MoveCard -> fields += ConcernField.AttackTargetIncident(action.cardId)
+                is PlayAction.RemoveToken -> fields += ConcernField.AttackTargetIncident(action.cardId)
+                else -> Unit
+            }
         }
         if (mutation.transition.rulesVersion >= 13) {
             val edit = when (val a = mutation.action) {

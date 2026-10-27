@@ -147,7 +147,7 @@ object StartRules {
                 val face = definition.faces.first()
                 List(entry.quantity) { offset ->
                     PlayCard(deck.card(entry, offset).id, entry.definition, player.accountId, library,
-                        face.faceId, corner = face.corner).also(cards::add).id
+                        face.faceId, corner = face.defaultCorner()).also(cards::add).id
                 }
             }
             val seed = librarySeeds.getValue(player.accountId)

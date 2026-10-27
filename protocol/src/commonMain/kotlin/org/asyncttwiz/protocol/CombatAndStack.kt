@@ -9,7 +9,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class CombatOccurrence(val id: String, val sourceId: String,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "")
 @Serializable data class CombatPair(val id: String, val attackers: List<CombatOccurrence> = emptyList(),
-    val blockers: List<CombatOccurrence> = emptyList()) {
+    val blockers: List<CombatOccurrence> = emptyList(),
+    /** Absent/null targets the defending player, including all retained pre-v18 pairs. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val attackTarget: String? = null) {
     fun side(role: CombatRole) = if (role == CombatRole.ATTACKER) attackers else blockers
     fun withSide(role: CombatRole, cards: List<CombatOccurrence>) =
         if (role == CombatRole.ATTACKER) copy(attackers = cards) else copy(blockers = cards)
@@ -30,7 +32,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class CombatDestination(val areaId: String, val role: CombatRole,
     val pairId: String? = null, val pairGap: IdentityGap = IdentityGap(),
     val insertion: CombatInsertion = CombatInsertion.APPEND, val cardGap: IdentityGap = IdentityGap(),
-    val pendingSourceIds: List<String> = emptyList())
+    val pendingSourceIds: List<String> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val attackTarget: String? = null)
 
 @Serializable sealed interface CombatAction {
     @Serializable @SerialName("open") data object Open : CombatAction
@@ -39,6 +42,8 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("place") data class Place(val sourceId: String, val destination: CombatDestination,
         val expectedOccurrence: CombatLocation? = null) : CombatAction
     @Serializable @SerialName("remove") data class Remove(val areaId: String, val occurrenceId: String) : CombatAction
+    @Serializable @SerialName("setAttackTarget") data class SetAttackTarget(val areaId: String, val pairId: String,
+        val cardId: String? = null) : CombatAction
 }
 @Serializable sealed interface StackAction {
     @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
@@ -58,6 +63,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class CombatOccurrenceChange(val id: String, val from: CombatOccurrenceState?, val to: CombatOccurrenceState?)
 @Serializable data class CombatPairPosition(val areaId: String, val gap: IdentityGap)
 @Serializable data class CombatPairChange(val id: String, val from: CombatPairPosition?, val to: CombatPairPosition?)
+@Serializable data class CombatAttackTargetChange(val pairId: String, val from: String?, val to: String?)
 @Serializable data class CombatAreaChange(val from: String?, val to: String?)
 @Serializable data class StackEffectChange(val id: String, val from: StackEffect?, val to: StackEffect?)
 @Serializable data class StackOrderChange(val id: String, val from: IdentityGap?, val to: IdentityGap?)
@@ -69,12 +75,24 @@ import kotlinx.serialization.Serializable
     val effects: List<StackEffectChange> = emptyList(), val order: List<StackOrderChange> = emptyList(),
     val removedLinks: List<ProjectionLink> = emptyList(), val stackGuard: StackGuardChange? = null,
     val addedLinks: List<ProjectionLink> = emptyList(),
-    val textMarks: List<StackTextMarkChange> = emptyList())
+    val textMarks: List<StackTextMarkChange> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val attackTargets: List<CombatAttackTargetChange> = emptyList())
 
 @Serializable data class StackIdentity(val kind: String, val id: String, val sourceId: String)
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
 
 object CombatStackRules {
+    fun defendingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId != board.turn.accountId }?.accountId
+    fun canAttack(state: PlayState, cardId: String): Boolean {
+        val card = state.board.cards.singleOrNull { it.id == cardId } ?: return false
+        val container = state.board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        val face = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
+            ?.singleOrNull { it.faceId == card.faceId } ?: return false
+        return container.zone == PlayZone.BATTLEFIELD && container.accountId == defendingPlayer(state.board) &&
+            (face.typeLine.contains("Planeswalker", ignoreCase = true) || face.typeLine.contains("Battle", ignoreCase = true))
+    }
+
     fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
         ?: occurrences(board.combat).singleOrNull { it.id == id }?.note
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
@@ -128,11 +146,14 @@ object CombatStackRules {
         is CombatAction.Close -> action.areaId == null || DeckValidation.uuid(action.areaId)
         is CombatAction.Declare -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.sourceId)
         is CombatAction.Remove -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.occurrenceId)
+        is CombatAction.SetAttackTarget -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.pairId) &&
+            (action.cardId == null || DeckValidation.uuid(action.cardId))
         is CombatAction.Place -> with(action.destination) {
             DeckValidation.uuid(action.sourceId) && DeckValidation.uuid(areaId) &&
                 (pairId == null || DeckValidation.uuid(pairId)) && valid(pairGap) && valid(cardGap) &&
                 pendingSourceIds.distinct().size == pendingSourceIds.size && pendingSourceIds.all(DeckValidation::uuid) &&
-                (action.expectedOccurrence == null || valid(action.expectedOccurrence))
+                (action.expectedOccurrence == null || valid(action.expectedOccurrence)) &&
+                (attackTarget == null || DeckValidation.uuid(attackTarget))
         }
     }
     fun valid(action: StackAction): Boolean = when (action) {
@@ -169,6 +190,13 @@ object CombatStackRules {
                         if (occurrences(area).none { it.id == action.occurrenceId }) return reject("missingReference")
                         board.copy(combat = without(area, action.occurrenceId))
                     }
+                    is CombatAction.SetAttackTarget -> {
+                        if (area?.id != action.areaId || area.pairs.none { it.id == action.pairId }) return reject("missingReference")
+                        if (action.cardId != null && !canAttack(state, action.cardId)) return reject("inapplicable")
+                        board.copy(combat = area.copy(pairs = area.pairs.map {
+                            if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
+                        }))
+                    }
                     is CombatAction.Declare, is CombatAction.Place -> {
                         val sourceId = when (action) {
                             is CombatAction.Declare -> action.sourceId
@@ -191,8 +219,9 @@ object CombatStackRules {
                         val pairs = reduced.pairs.toMutableList()
                         val pairIndex: Int
                         if (destination.pairId == null) {
+                            if (destination.attackTarget != null && !canAttack(state, destination.attackTarget)) return reject("inapplicable")
                             pairIndex = gapIndex(pairs.map { it.id }, destination.pairGap) ?: return reject("destinationChanged")
-                            pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0")))
+                            pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
                         } else {
                             pairIndex = pairs.indexOfFirst { it.id == destination.pairId }
                             if (pairIndex < 0) return reject("missingReference")
@@ -294,14 +323,16 @@ object CombatStackRules {
     }
 
     /** Called by the shared record boundary, including future real-move/token reducers. */
-    internal fun closeInvariants(before: BoardState, candidate: BoardState): BoardState? {
+    internal fun closeInvariants(before: BoardState, candidate: BoardState, rulesVersion: Int = 18): BoardState? {
         val vanished = before.cards.filter { old -> candidate.cards.none { it.id == old.id } }
         if (vanished.any { !it.token }) return null
         val battlefield = candidate.containers.filter { it.zone == PlayZone.BATTLEFIELD }.map { it.id }.toSet()
         val live = candidate.cards.associateBy { it.id }
         val combat = candidate.combat?.let { area -> area.copy(pairs = area.pairs.map { pair ->
             fun keep(cards: List<CombatOccurrence>) = cards.filter { live[it.sourceId]?.containerId in battlefield }
-            pair.copy(attackers = keep(pair.attackers), blockers = keep(pair.blockers))
+            pair.copy(attackers = keep(pair.attackers), blockers = keep(pair.blockers),
+                attackTarget = if (rulesVersion >= 18 && pair.attackTarget != null &&
+                    live[pair.attackTarget]?.containerId !in battlefield) null else pair.attackTarget)
         }.filterNot(::empty)) }
         val effects = candidate.stackEffects.map { effect ->
             val old = vanished.singleOrNull { it.id == effect.sourceId }
@@ -374,11 +405,16 @@ object CombatStackRules {
             if (from == to) null else StackTextMarkChange(id, from, to)
         }
         val area = if (before.combat?.id == next.combat?.id) null else CombatAreaChange(before.combat?.id, next.combat?.id)
+        val attackTargets = (oldPairs + newPairs).distinct().mapNotNull { id ->
+            val from = before.combat?.pairs?.find { it.id == id }?.attackTarget
+            val to = next.combat?.pairs?.find { it.id == id }?.attackTarget
+            if (from == to) null else CombatAttackTargetChange(id, from, to)
+        }
         val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect })
             StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
         return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
-            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && guard == null) null else
+            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && attackTargets.isEmpty() && guard == null) null else
             CombatStackTransition(area, occurrenceChanges, pairChanges, effectChanges, orderChanges, links.sortedBy { it.id }, guard,
-                addedLinks.sortedBy { it.id }, marks)
+                addedLinks.sortedBy { it.id }, marks, attackTargets)
     }
 }

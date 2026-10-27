@@ -17,8 +17,9 @@ class ManualActions {
         scope = ManualScope(state.gameId, state.id, contextId, ids, noteViewId = noteViewId)
         editor = null
     }
-    fun projectionNote(state: PlayState, id: String, viewer: String) {
-        scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewId = id)
+    fun projectionNote(state: PlayState, id: String, viewer: String, selectedViewIds: List<String> = listOf(id)) {
+        scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewId = id,
+            noteViewIds = if (id in selectedViewIds) selectedViewIds.distinct() else listOf(id))
         edit(ManualValue(ManualValueKind.NOTE), state, viewer)
     }
     fun player(state: PlayState, accountId: String, counters: Boolean = false) {
@@ -74,7 +75,7 @@ data class ManualInspection(val gameId: String, val playId: String, val cardId: 
 
 data class ManualScope(val gameId: String, val playId: String, val contextId: String,
     val targetIds: List<String>, val player: Boolean = false, val noteViewId: String? = null,
-    val playerCounters: Boolean = false) {
+    val playerCounters: Boolean = false, val noteViewIds: List<String> = emptyList()) {
     fun usable(state: PlayState): Boolean = gameId == state.gameId && playId == state.id &&
         if (player) state.board.players.any { it.accountId == contextId }
         else if (noteViewId != null) CombatStackRules.projectionNote(state.board, noteViewId) != null
@@ -103,7 +104,8 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
     fun actions(state: PlayState, field: ManualValue, text: String, viewer: String): List<PlayAction> {
         if (!usable(state)) return emptyList()
         if (field.kind == ManualValueKind.NOTE && noteViewId != null)
-            return listOf(PlayAction.SetProjectionNote(noteViewId, text))
+            return noteViewIds.ifEmpty { listOf(noteViewId) }.filter { CombatStackRules.projectionNote(state.board, it) != null }
+                .map { PlayAction.SetProjectionNote(it, text) }
         return targetIds.mapNotNull { id ->
             if (field.kind in listOf(ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.EOT_NOTE) &&
                 state.board.cards.singleOrNull { it.id == id }?.let { card ->

@@ -22,6 +22,8 @@ internal object CardRingPages {
         when (index) {
             0 -> page.copy(actions = page.actions.map { id ->
                 when {
+                    id == "Declare without tapping" && "Attack →" in available -> "Attack →"
+                    id == "Clone" && "Remove from combat" in available -> "Remove from combat"
                     token && id == "Hand" -> if ("Remove token" in available) "Remove token" else "empty/Hand"
                     token && id in listOf("Library top", "Library bottom", "Shuffle into library") -> "empty/$id"
                     else -> id

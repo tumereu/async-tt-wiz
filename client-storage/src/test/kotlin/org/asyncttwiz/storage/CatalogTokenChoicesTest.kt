@@ -9,6 +9,19 @@ import java.nio.file.Path
 import java.io.File
 
 class CatalogTokenChoicesTest {
+    @Test fun deckAndTokenFacesShareLoyaltyDefenseAndSagaCorners() {
+        for (token in listOf(false, true)) for ((type, fields, expected) in listOf(
+            Triple("Legendary Planeswalker — Test", "\"loyalty\":\"4\"", "4"),
+            Triple("Battle — Siege", "\"defense\":\"7\"", "7"),
+            Triple("Enchantment — Saga", "\"text\":\"Chapter text\"", "1"),
+            Triple("Creature", "\"power\":\"2\",\"toughness\":\"3\"", "2/3"))) {
+            val printing = CatalogPrinting(id(90), "Test", "SYN", "1", "English", "", null, token, emptyList(),
+                """{"type":"$type",$fields}""")
+            val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), emptyList()).definition(null)
+            assertEquals(expected, definition.faces.single().corner)
+            assertEquals(expected, definition.faces.single().defaultCorner())
+        }
+    }
     @TempDir lateinit var temporary: Path
     private var opens = 0
     private fun repo(name: String = "catalog") = CatalogRepository(temporary.resolve(name).toFile()) {

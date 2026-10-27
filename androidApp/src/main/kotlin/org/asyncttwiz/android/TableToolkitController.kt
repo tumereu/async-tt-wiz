@@ -529,6 +529,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
         sent
     }
+    fun openAttackTargets() { manual.close(); panel = "attackTarget" }
+    fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean = batchResult {
+        val board = current()?.board ?: return@batchResult false
+        if (board.combat?.id != bound.areaId) return@batchResult false
+        var sent = false
+        for (pair in CombatStackController.attackerPairs(board, bound.viewIds))
+            sent = submit(PlayAction.Combat(CombatAction.SetAttackTarget(bound.areaId!!, pair.id, cardId))) || sent
+        sent
+    }
     override fun stack(intent: TableActionIntent.Stack) {
         if (intent.target.kind == StackTargetKind.EFFECT) submit(PlayAction.Stack(StackAction.RemoveEffect(intent.target.id)))
         else {
@@ -551,6 +560,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * Request-derived occurrence IDs are read from that session's immediate prediction, never the probe. */
     fun place(bound: ToolkitCapture, destination: CombatDestination): Boolean = batchResult {
         val initial = current()?.takeIf { enabled() } ?: return@batchResult false
+        if (CombatStackController.retargetDrop(initial.board, bound.viewIds, destination).isNotEmpty())
+            return@batchResult setAttackTarget(bound,
+                initial.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
         val probe = runCatching { CombatStackController.place(initial, viewer, bound.viewIds, destination) { action ->
             GameCommand(UUID.randomUUID().toString(), GameScope(initial.gameId, playId = initial.id),
                 GameAction.Play(action), initial.id, "0")

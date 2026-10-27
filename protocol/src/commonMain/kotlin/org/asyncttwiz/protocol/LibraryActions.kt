@@ -141,7 +141,7 @@ object LibraryRules {
                     } }, cards = board.cards.map { card -> when {
                         card.id in ids && restZone != null -> card.copy(containerId = restDestination!!.id,
                             covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
-                            corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.corner)
+                            corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.defaultCorner())
                         card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
                         contentsRulesVersion >= 2 && card.id in ids -> card.copy(knownToAll = false)
                         else -> card
@@ -226,7 +226,7 @@ object LibraryRules {
         val entering = source.id != destination.id
         val reset = entering && destination.zone in specialZones
         val defaultCorner = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
-            ?.singleOrNull { it.faceId == card.faceId }?.corner.orEmpty()
+            ?.singleOrNull { it.faceId == card.faceId }?.defaultCorner().orEmpty()
         val updated = card.copy(containerId = destination.id, placement = null,
             corner = if (reset) defaultCorner else card.corner, counters = if (reset) emptyMap() else card.counters)
         if (source.id == destination.id && destination.zone != PlayZone.LIBRARY ||

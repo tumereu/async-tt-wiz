@@ -270,7 +270,7 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 17): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 18): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action
@@ -284,7 +284,7 @@ object GameplayRules {
             }
         }), action)
         val cleanup = if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved
-        val closed = CombatStackRules.closeInvariants(state.board, cleanup)
+        val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)
             ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.
         val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
@@ -297,7 +297,8 @@ object GameplayRules {
                 // Only replacement tops are automatic; an explicit face change is still a Reveal.
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
-        // Version 17 adds temporary marks and atomic turn/zone cleanup.
+        // Version 17 adds temporary marks and atomic turn/zone cleanup; 18 adds pair targets/cleanup
+        // and printed loyalty/defense/lore defaults.
         // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
         val relevant = transition.copy(rulesVersion = rulesVersion,
             fields = transition.fields + if (rulesVersion >= 17) TurnMarks.changes(resolved, cleanup) else emptyList(),
@@ -481,7 +482,7 @@ object GameplayRules {
         val moved = card.copy(containerId = target.id, placement = placement,
             note = if (coverRulesVersion >= 7 && source.id != target.id &&
                 (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD)) "" else card.note,
-            corner = if (leaving) front?.corner.orEmpty() else card.corner,
+            corner = if (leaving) front?.defaultCorner().orEmpty() else card.corner,
             counters = if (leaving) emptyMap() else card.counters,
             faceId = if (leaving) front?.faceId ?: card.faceId else card.faceId,
             owner = if (leaving) originalOwner(state, card) else card.owner,

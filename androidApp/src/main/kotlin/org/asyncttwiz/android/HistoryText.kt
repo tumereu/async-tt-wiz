@@ -191,6 +191,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.LinkProjections -> text("${card(action.first.occurrenceId)} linked → ${card(action.second.occurrenceId)}", "Link entries")
         is PlayAction.RemoveProjectionLink -> text("Combat/Stack link removed", "Unlink entries")
         is PlayAction.Combat -> when (val combat = action.action) {
+            is CombatAction.SetAttackTarget -> text("Attack → ${combat.cardId?.let { card(it) } ?: "defending player"}", "Attack target")
             CombatAction.Open -> text("Combat opened", "Open combat")
             is CombatAction.Close -> text("Combat closed", "Close combat")
             is CombatAction.Declare -> text("${card(combat.sourceId)} → Attacker", "Attack")

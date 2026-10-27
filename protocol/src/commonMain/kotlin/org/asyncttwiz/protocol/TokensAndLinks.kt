@@ -62,7 +62,7 @@ object TokenLinkRules {
                 while (BoardPosition(x, 0) in positions) x++
                 val face = definition.definition.faces.first()
                 val token = PlayCard(tokenId, definition.digest, actor, container.id, read?.faceId ?: face.faceId,
-                    covered = read?.covered ?: false, tapped = read?.tapped ?: false, corner = read?.corner ?: face.corner,
+                    covered = read?.covered ?: false, tapped = read?.tapped ?: false, corner = read?.corner ?: face.defaultCorner(),
                     counters = read?.counters ?: emptyMap(), note = read?.note ?: "", token = true,
                     placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false)
                 val presence = TokenPresence(token, CardLocation(container.id, token.placement))

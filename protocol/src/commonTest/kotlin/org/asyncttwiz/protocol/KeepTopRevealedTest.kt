@@ -253,7 +253,7 @@ class KeepTopRevealedTest {
                 val before = state.board
                 val result = assertNotNull(tree.play(actor, command(state, GameAction.Play(PlayAction.SetKeepTopRevealed(libraryId, enabled)))).tree)
                 val toggled = assertNotNull(result.stateAt(result.currentNodeId))
-                assertEquals(17, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
+                assertEquals(18, result.nodes.getValue(result.currentNodeId).transition.rulesVersion)
                 if (enabled) assertTop(toggled) else assertTrue(toggled.board.cards.none { CardVisibility.isVisibleFaceUp(toggled.board, it, b) })
                 val later = assertNotNull(result.play(other, command(toggled, GameAction.Play(PlayAction.AdjustLife(other, "1")))).tree)
                 val laterState = assertNotNull(later.stateAt(later.currentNodeId))

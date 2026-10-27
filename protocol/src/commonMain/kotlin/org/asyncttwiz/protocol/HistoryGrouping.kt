@@ -102,6 +102,7 @@ object HistoryGrouping {
             is CombatAction.Close -> HistorySemantic(HistorySignificance.COMBAT_CLOSURE, "layers_clear")
             is CombatAction.Declare -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "swords")
             is CombatAction.Remove -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "remove_circle_outline")
+            is CombatAction.SetAttackTarget -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "swords")
             is CombatAction.Place -> HistorySemantic(if (combat.expectedOccurrence == null ||
                 combat.expectedOccurrence.role != combat.destination.role) HistorySignificance.COMBAT_MEMBERSHIP
                 else HistorySignificance.COMBAT_LAYOUT, "open_with")

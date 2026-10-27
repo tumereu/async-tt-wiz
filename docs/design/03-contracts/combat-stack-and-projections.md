@@ -1,5 +1,32 @@
 # 13. Combat, Stack, and projections
 
+## Round 16 update (rules version 18)
+
+- Main 1's **Select attackers** advances to Declare attackers and visibly enables
+  multiselect. Combat projections open the ordinary paged card menu, with source
+  actions plus **Remove from combat** and attacker-only **Attack →**. Selected
+  occurrences/sources are handled in one atomic invocation batch.
+- Each pair has an optional target-card ID; absent/null means the defending player
+  (the other player from the tracked turn player). Target cards must be on that
+  player's Battlefield and have Planeswalker or Battle in their current type line.
+  Target departure clears the target in the same invariant-closed transition.
+  The picker excludes face-down cards and cards not visible face up to the viewer;
+  hidden lane targets show only `→ Face-down card`, without name or art.
+  Retarget events concern the pair's identity/target and destination eligibility;
+  departures also concern pairs targeting that card. Recorded old events keep
+  their original values and replay unchanged.
+- Equal targets form contiguous lanes in the same single blocker/attacker rows,
+  separated by bold dividers. A reserved top label row shows `→ name` or tiny art
+  plus card name; empty combat shows only its default player label, not guidance.
+  Cross-lane drags onto attacker rows retarget whole pairs, keeping blockers
+  attached; blocker-row drops still move the occurrence into the blocker role
+  (D-135/D-136). Within-lane placement/reordering is unchanged.
+- Default/reset corners use printed planeswalker loyalty, battle defense, or `1`
+  for the Saga subtype. Deck cards and tokens share these defaults, including
+  Battlefield-departure resets; single numbers use the existing ±1 corner widget.
+
+This update supersedes the older combat-bubble/no-normal-menu wording below.
+
 Status: required release scope in delivery stage 1, behavior specification
 (D-115). Confirmed behavior through D-158 is recorded below; remaining substantive
 cases need design before implementation. The

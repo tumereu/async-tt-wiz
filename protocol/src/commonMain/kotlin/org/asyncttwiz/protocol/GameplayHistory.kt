@@ -54,7 +54,7 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     tokens.size + links.size + listOfNotNull(movement, libraryOrder, contents, random, annotation, cloneRead, tokenMoveRead).size +
     (libraryOrder?.from?.size ?: 0) + (libraryOrder?.to?.size ?: 0) +
     (contents?.from?.cardIds?.size ?: 0) + (contents?.to?.cardIds?.size ?: 0) + (if (attention == null) 0 else 1) +
-    (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size +
+    (combatStack?.let { it.occurrences.size + it.pairs.size + it.effects.size + it.order.size + it.textMarks.size + it.attackTargets.size +
         listOfNotNull(it.area, it.stackGuard).size } ?: 0) + GameplayHistory.projectionLinkWorkUnits(this) +
     delta?.libraryReseeds.orEmpty().sumOf { it.from.size.toLong() + it.to.size }
 /** Compact prefix context, not a recursive history or client-assigned group. */

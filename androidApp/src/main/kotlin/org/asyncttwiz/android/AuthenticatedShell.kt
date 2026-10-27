@@ -44,7 +44,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         lobby?.refresh()
         if (state.destination == ShellDestination.MENU) pods?.refresh()
     }
-    val catalogBusy = !tabletop && catalog?.state?.background == false && catalog.state.progress != null
+    val catalogBusy = !tabletop && state.destination != ShellDestination.MENU && state.destination != ShellDestination.SETTINGS &&
+        catalog?.state?.background == false && catalog.state.progress != null
     val content: @Composable () -> Unit = {
         ScreenBusyOverlay(if (catalogBusy) catalog.state.status else null, catalog?.state?.progress) {
             CompositionLocalProvider(LocalBusySuppressed provides catalogBusy) {
@@ -112,6 +113,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         if (!tabletop && lobby != null) FloatingTransientError(
             lobby.state.error?.takeIf { lobby.state.draft == null } ?: lobby.state.searchError ?: lobby.state.connectionMessage,
             lobby::dismissSessionError, Modifier.align(Alignment.BottomCenter))
+        FloatingTransientError(state.profileError, controller::dismissProfileError, Modifier.align(Alignment.BottomCenter))
     }
     // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
     // This also keeps dialogs available when the authenticated shell is composed on its own.
@@ -220,6 +222,10 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
     Column(Modifier.fillMaxSize()) {
         if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
+            if (hamburger && destination == ShellDestination.MENU) {
+                Spacer(Modifier.weight(1f))
+                WizardLogo(Modifier.padding(end = 16.dp), compact = true)
+            }
             if (destination != ShellDestination.MENU)
                 Text(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title, Modifier.padding(12.dp).testTag("destination-title"), style = MaterialTheme.typography.titleLarge,
                      fontWeight = FontWeight.Bold)
@@ -239,8 +245,10 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                 verticalArrangement = if (destination == ShellDestination.MENU) Arrangement.Center else Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 if (destination == ShellDestination.MENU) {
-                    WizardLogo()
-                    Spacer(Modifier.height(24.dp))
+                    if (!hamburger) {
+                        WizardLogo()
+                        Spacer(Modifier.height(24.dp))
+                    }
                      for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                           OutlinedButton(onClick = { if (item == ShellDestination.CONTACTS) lobby?.contacts(false); navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
@@ -256,16 +264,27 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              EntryIcon(null, "chevron")
                         }
                          if (item == ShellDestination.GAMES && lobby != null) {
-                              Column(Modifier.widthIn(max = 540.dp).fillMaxWidth().padding(start = 12.dp, top = 4.dp),
-                                  verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                  for (entry in quickContinue(lobby.state.games, pods?.state?.pods.orEmpty(), accountId)) {
-                                      entry.game?.let { GameRows(listOf(it), lobby, accountId, Modifier.fillMaxWidth()) }
-                                      entry.pod?.let { pod -> PodRow(pod, {
-                                          navigate(ShellDestination.PODS); pods?.open(pod.id)
-                                      }, quick = true) }
-                                  }
-                              }
-                        }
+                             val games = quickContinueGames(lobby.state.games + lobby.state.invitations, accountId)
+                             if (games.isNotEmpty()) MenuActivityPanel {
+                                 games.forEachIndexed { index, game ->
+                                     if (index > 0) HorizontalDivider(color = ScreenBorder)
+                                     GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
+                                         .gameRowActions(lobby, game) { navigate(ShellDestination.GAMES); lobby.open(game.id) })
+                                 }
+                             }
+                         }
+                         if (item == ShellDestination.PODS && pods != null) {
+                             val entries = quickContinuePods(pods.state.pods, pods.state.invitations)
+                             if (entries.isNotEmpty()) MenuActivityPanel {
+                                 entries.forEachIndexed { index, entry ->
+                                     if (index > 0) HorizontalDivider(color = ScreenBorder)
+                                     MenuPodRow(entry) {
+                                         navigate(ShellDestination.PODS)
+                                         entry.pod?.let { pods.open(it.id) }
+                                     }
+                                 }
+                             }
+                         }
                         Spacer(Modifier.height(12.dp))
                     }
                 } else {

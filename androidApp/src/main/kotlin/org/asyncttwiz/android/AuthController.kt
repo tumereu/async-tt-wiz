@@ -31,7 +31,7 @@ data class AuthState(
     val rememberedAccounts: List<RememberedAccount> = emptyList(),
     val validationMessage: Boolean = false,
     val avatarChooser: Boolean = false,
-    val usernameDialog: Boolean = false,
+    val profileDialog: Boolean = false,
     val profileBusy: Boolean = false,
     val profileError: String? = null,
 ) { override fun toString() = "AuthState[redacted]" }
@@ -114,28 +114,42 @@ class AuthController(
     init { restore() }
     fun dismissMessage() { state = state.copy(message = null) }
 
-    fun chooseAvatar(open: Boolean = true) { if (!state.profileBusy) state = state.copy(avatarChooser = open, profileError = null) }
-    fun editUsername(open: Boolean = true) { if (!state.profileBusy) state = state.copy(usernameDialog = open, profileError = null) }
-    fun saveUsername(name: String) = updateProfile { accounts.changeUsername(it, name) }
-    fun saveAvatar(avatar: org.asyncttwiz.protocol.Avatar?) = updateProfile { accounts.changeAvatar(it, avatar) }
+    fun chooseAvatar(open: Boolean = true) { state = state.copy(avatarChooser = open, profileError = null) }
+    fun editProfile(open: Boolean = true) { state = state.copy(profileDialog = open, profileError = null) }
+    fun dismissProfileError() { state = state.copy(profileError = null) }
+    fun saveAvatar(avatar: org.asyncttwiz.protocol.Avatar?) {
+        state.account?.let { saveProfile(it.username, avatar) }
+    }
 
-    private fun updateProfile(update: suspend (String) -> AccountIdentity) {
+    fun saveProfile(name: String, avatar: org.asyncttwiz.protocol.Avatar?) {
         val credential = sessionToken() ?: return
+        val previous = state.account ?: return
         if (state.profileBusy) return
         val epoch = generation.get()
-        state = state.copy(profileBusy = true, profileError = null)
+        state = state.copy(account = previous.copy(username = name, avatar = avatar), profileBusy = true,
+            profileError = null, avatarChooser = false, profileDialog = false)
         worker.execute {
+            var accepted = previous
             try {
-                val identity = runBlocking { update(credential) }
+                // Existing endpoints save independently. Retain an accepted username if the avatar fails.
+                runBlocking {
+                    if (name != previous.username) accepted = accounts.changeUsername(credential, name)
+                    if (avatar != previous.avatar) accepted = accounts.changeAvatar(credential, avatar)
+                }
                 post {
                     if (!closed && generation.get() == epoch && token.get() == credential)
-                        state = state.copy(account = identity, profileBusy = false, avatarChooser = false, usernameDialog = false)
+                        state = state.copy(account = accepted, profileBusy = false)
                 }
             } catch (failure: Exception) {
-                if (failure is AccountFailure && failure.code == "authentication_required") authenticationRequired(credential)
                 post {
-                    if (!closed && generation.get() == epoch && token.get() == credential)
-                        state = state.copy(profileBusy = false, profileError = errorMessage(failure as? AccountFailure ?: AccountFailure("network")))
+                    if (!closed && generation.get() == epoch && token.get() == credential) {
+                        state = state.copy(account = accepted, profileBusy = false, profileError = when ((failure as? AccountFailure)?.code) {
+                            "username_taken", "account_unavailable" -> "Username unavailable"
+                            "invalid_field" -> "Invalid profile"
+                            else -> "Could not save profile"
+                        })
+                        if (failure is AccountFailure && failure.code == "authentication_required") authenticationRequired(credential)
+                    }
                 }
             }
         }

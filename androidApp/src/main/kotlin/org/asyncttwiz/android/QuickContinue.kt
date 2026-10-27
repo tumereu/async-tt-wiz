@@ -4,46 +4,52 @@ import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.protocol.PodAttention
-import org.asyncttwiz.protocol.PodPhase
+import org.asyncttwiz.protocol.PodInvitation
+import org.asyncttwiz.protocol.InvitationState
 import java.time.Instant
 import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Activity ownership is independent of the turn player; only accepted summaries rank here. */
+/** Each menu panel ranks actions, other active items, then invitations, independently. */
 internal fun quickContinueGames(games: List<GameSummary>, accountId: String): List<GameSummary> =
-    games.filter { it.lifecycle == GameLifecycle.ACTIVE }.sortedWith { a, b ->
-        val aOwn = a.attentionHolder == accountId
-        val bOwn = b.attentionHolder == accountId
-        val aTime = Instant.parse(a.updatedAt)
-        val bTime = Instant.parse(b.updatedAt)
+    games.distinctBy { it.id }.filter { it.lifecycle == GameLifecycle.ACTIVE ||
+        it.lifecycle == GameLifecycle.LOBBY && it.invitationState != InvitationState.DECLINED
+    }.sortedWith(panelOrder({ it.id }, { it.updatedAt }) {
         when {
-            aOwn != bOwn -> if (aOwn) -1 else 1
-            aTime != bTime -> if (aOwn) aTime.compareTo(bTime) else bTime.compareTo(aTime)
-            else -> a.id.compareTo(b.id)
+            it.invitationState == InvitationState.PENDING -> 2
+            it.lifecycle == GameLifecycle.ACTIVE && it.attentionHolder == accountId -> 0
+            else -> 1
         }
-    }.take(3)
+    }).take(3)
 
-internal data class QuickContinueEntry(val id: String, val updatedAt: String, val yours: Boolean,
-    val game: GameSummary? = null, val pod: PodSummary? = null)
+internal data class QuickContinuePod(val pod: PodSummary? = null, val invitation: PodInvitation? = null) {
+    val id: String get() = pod?.id ?: requireNotNull(invitation).podId
+    val updatedAt: String get() = pod?.updatedAt ?: requireNotNull(invitation).invitedAt
+}
 
-/** Own moves/picks oldest first, then other active games newest first, with stable type/id ties. */
-internal fun quickContinue(games: List<GameSummary>, pods: List<PodSummary>, accountId: String): List<QuickContinueEntry> =
-    (games.filter { it.lifecycle == GameLifecycle.ACTIVE }.map {
-        QuickContinueEntry(it.id, it.updatedAt, it.attentionHolder == accountId, game = it)
-    } + pods.filter { it.phase == PodPhase.DRAFTING && it.attention == PodAttention.YOUR_PICK }.map {
-        QuickContinueEntry(it.id, it.updatedAt, true, pod = it)
-    }).sortedWith { a, b ->
+internal fun quickContinuePods(pods: List<PodSummary>, invitations: List<PodInvitation>): List<QuickContinuePod> =
+    (pods.map { QuickContinuePod(pod = it) } + invitations.filter { invite -> pods.none { it.id == invite.podId } }
+        .map { QuickContinuePod(invitation = it) })
+        .sortedWith(panelOrder({ it.id }, { it.updatedAt }) {
+            when {
+                it.invitation != null -> 2
+                it.pod?.attention == PodAttention.YOUR_PICK || it.pod?.attention == PodAttention.BUILD -> 0
+                else -> 1
+            }
+        }).take(3)
+
+private fun <T> panelOrder(id: (T) -> String, time: (T) -> String, priority: (T) -> Int): Comparator<T> =
+    Comparator { a, b ->
+        val rank = priority(a).compareTo(priority(b))
+        val activity = Instant.parse(time(a)).compareTo(Instant.parse(time(b)))
         when {
-            a.yours != b.yours -> if (a.yours) -1 else 1
-            Instant.parse(a.updatedAt) != Instant.parse(b.updatedAt) ->
-                if (a.yours) Instant.parse(a.updatedAt).compareTo(Instant.parse(b.updatedAt))
-                else Instant.parse(b.updatedAt).compareTo(Instant.parse(a.updatedAt))
-            a.id != b.id -> a.id.compareTo(b.id)
-            else -> (a.pod != null).compareTo(b.pod != null)
+            rank != 0 -> rank
+            activity != 0 -> if (priority(a) == 0) activity else -activity
+            else -> id(a).compareTo(id(b))
         }
-    }.take(3)
+    }
 
 internal fun quickContinueMove(game: GameSummary, accountId: String): String = when (game.attentionHolder) {
     accountId -> "Your move"
@@ -54,7 +60,9 @@ internal fun quickContinueMove(game: GameSummary, accountId: String): String = w
 internal data class GameRowMove(val label: String, val highlighted: Boolean)
 
 internal fun gameRowMove(game: GameSummary, accountId: String) =
-    GameRowMove(quickContinueMove(game, accountId), game.attentionHolder == accountId)
+    if (game.lifecycle == GameLifecycle.ACTIVE)
+        GameRowMove(quickContinueMove(game, accountId), game.attentionHolder == accountId)
+    else GameRowMove(if (game.invitationState == InvitationState.PENDING) "Invitation" else "Setup", false)
 
 internal fun gameLastActivity(game: GameSummary, clock: Clock = Clock.systemDefaultZone()): String = runCatching {
     val activity = Instant.parse(game.updatedAt).atZone(clock.zone)

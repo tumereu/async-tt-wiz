@@ -8,29 +8,58 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class AuthControllerTest {
-    @Test fun profileEditsKeepErrorsInDialogAndPublishOnlyAcceptedIdentity() {
+    @Test fun profileEditsApplyImmediatelyCloseDialogAndRevertOnRejection() {
         val api = Api(); val worker = Worker(); val store = Store()
         store.value = StoredSession.Present("A".repeat(43))
         val controller = AuthController(api, store, worker) { it() }
         try {
             worker.drain()
-            controller.editUsername()
+            controller.editProfile()
             api.failure = AccountFailure("username_taken")
-            controller.saveUsername("Taken"); worker.drain()
+            controller.saveProfile("Taken", null)
+            assertEquals("Taken", controller.state.account!!.username)
+            assertFalse(controller.state.profileDialog)
+            assertTrue(controller.state.profileBusy)
+            assertNotNull(controller.sessionToken())
+            worker.drain()
             assertEquals("Wizard", controller.state.account!!.username)
-            assertTrue(controller.state.usernameDialog)
-            assertContains(controller.state.profileError!!, "already taken")
+            assertEquals("Username unavailable", controller.state.profileError)
             api.failure = null
-            controller.saveUsername("New name"); worker.drain()
-            assertEquals("New name", controller.state.account!!.username)
-            assertFalse(controller.state.usernameDialog)
-            controller.chooseAvatar()
+            controller.editProfile()
             val avatar = org.asyncttwiz.protocol.Avatar(java.util.UUID.randomUUID().toString(), 1)
-            controller.saveAvatar(avatar); worker.drain()
+            controller.saveProfile("New name", avatar)
+            assertEquals("New name", controller.state.account!!.username)
             assertEquals(avatar, controller.state.account!!.avatar)
-            assertFalse(controller.state.avatarChooser)
-            controller.saveAvatar(null); worker.drain()
+            worker.drain()
+            assertEquals("New name", controller.state.account!!.username)
+            assertEquals(avatar, api.identity.avatar)
+            assertFalse(controller.state.profileDialog)
+            assertFalse(controller.state.profileBusy)
+            controller.chooseAvatar()
+            controller.saveAvatar(null)
             assertNull(controller.state.account!!.avatar)
+            assertFalse(controller.state.avatarChooser)
+            worker.drain()
+            assertNull(api.identity.avatar)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    @Test fun partialProfileFailureKeepsAcceptedUsernameAndDoesNotCloseReopenedDialog() {
+        val api = Api(); val worker = Worker(); val store = Store()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker) { it() }
+        try {
+            worker.drain()
+            api.avatarFailure = AccountFailure("network")
+            controller.saveProfile("Accepted", org.asyncttwiz.protocol.Avatar(java.util.UUID.randomUUID().toString()))
+            controller.editProfile()
+            worker.drain()
+            assertEquals(api.identity, controller.state.account)
+            assertEquals("Accepted", controller.state.account!!.username)
+            assertNull(controller.state.account!!.avatar)
+            assertEquals("Could not save profile", controller.state.profileError)
+            assertTrue(controller.state.profileDialog)
+            assertFalse(controller.state.profileBusy)
         } finally { controller.close(); worker.drain() }
     }
 
@@ -39,7 +68,7 @@ class AuthControllerTest {
         store.value = StoredSession.Present("A".repeat(43))
         val controller = AuthController(api, store, worker) { it() }
         worker.drain()
-        controller.saveUsername("Old account")
+        controller.saveProfile("Old account", null)
         controller.logout()
         worker.drain()
         assertNull(controller.state.account)
@@ -145,6 +174,7 @@ class AuthControllerTest {
         var identity = AccountIdentity("id", "Wizard")
         var calls = 0
         var failure: AccountFailure? = null
+        var avatarFailure: AccountFailure? = null
         var revoked = false
         var exact = ""
         override suspend fun register(username: String, email: String, password: String): AccountIdentity {
@@ -159,7 +189,7 @@ class AuthControllerTest {
             failure?.let { throw it }; identity = identity.copy(username = username); return identity
         }
         override suspend fun changeAvatar(token: String, avatar: org.asyncttwiz.protocol.Avatar?): AccountIdentity {
-            failure?.let { throw it }; identity = identity.copy(avatar = avatar); return identity
+            (avatarFailure ?: failure)?.let { throw it }; identity = identity.copy(avatar = avatar); return identity
         }
         override fun close() = Unit
     }

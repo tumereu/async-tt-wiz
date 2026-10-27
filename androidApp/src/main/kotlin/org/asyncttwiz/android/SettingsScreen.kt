@@ -21,7 +21,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        if (auth != null) ProfileSettings(auth)
+        if (auth != null) ProfileSettings(auth, catalog)
         PlaybackSettings(preferences, accountId)
         CardSettings()
         TextButton(onClick = logout, modifier = Modifier.heightIn(min = 48.dp).testTag("logout"),

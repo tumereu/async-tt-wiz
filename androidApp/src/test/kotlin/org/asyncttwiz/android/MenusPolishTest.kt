@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.GameLifecycle
+import org.asyncttwiz.protocol.InvitationState
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -59,5 +60,19 @@ class MenusPolishTest {
         compose.setContent { ScreenTheme { SettingsContent(null) { logouts++ } } }
         compose.onNodeWithText("Log out").performScrollTo().performClick()
         assertEquals(1, logouts)
+    }
+
+    @Test fun menuIncludesIncomingInvitationsFromTheirSeparateListAndOpensGamesDestination() {
+        val fixtures = ScreenFixtures()
+        val invitation = fixtures.lobby.state.games.first().copy(lifecycle = GameLifecycle.LOBBY,
+            inviter = ScreenFixtures.riley, recipient = ScreenFixtures.alex, invitationState = InvitationState.PENDING)
+        fixtures.lobby.seed(LobbyState(invitations = listOf(invitation), loaded = true))
+        var destination = ShellDestination.MENU
+        compose.setContent { ScreenTheme {
+            ShellContent(ShellDestination.MENU, true, {}, { destination = it }, null, null, null, fixtures.lobby, "a")
+        } }
+        compose.onNodeWithTag("quick-continue-${invitation.id}").assert(hasText("Invitation")).performScrollTo().performClick()
+        assertEquals(ShellDestination.GAMES, destination)
+        assertEquals(invitation.id, fixtures.lobby.state.selected)
     }
 }

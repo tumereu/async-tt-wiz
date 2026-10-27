@@ -24,10 +24,11 @@ class QuickContinueTest {
         assertEquals("Bob's move", quickContinueMove(games[0], "a"))
     }
 
-    @Test fun lobbiesAndEndedGamesNeverAppearAndEmptyListHasNoEntries() {
-        val excluded = listOf(GameLifecycle.LOBBY, GameLifecycle.CANCELLED, GameLifecycle.DELETED)
+    @Test fun endedGamesAndDeclinedInvitationsNeverAppearAndEmptyListHasNoEntries() {
+        val excluded = listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)
             .map { game(it.name, 1, "a", it) }
-        assertTrue(quickContinueGames(excluded, "a").isEmpty())
+        val declined = game("declined", 1, lifecycle = GameLifecycle.LOBBY).copy(invitationState = InvitationState.DECLINED)
+        assertTrue(quickContinueGames(excluded + declined, "a").isEmpty())
         assertTrue(quickContinueGames(emptyList(), "a").isEmpty())
         assertEquals(listOf("active"), quickContinueGames(excluded + game("active", 2), "a").map { it.id })
     }
@@ -66,17 +67,48 @@ class QuickContinueTest {
         assertEquals("31 Dec 2026", format("2026-12-31T21:05:00Z"))
     }
 
-    @Test fun podsWithPicksMixWithOwnGamesOldestFirstBeforeOtherGames() {
-        fun pod(id: String, hour: Int, attention: PodAttention = PodAttention.YOUR_PICK) = PodSummary(id, id,
-            PodPhase.DRAFTING, self, listOf(self, other), attention, 2,
-            "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
-        val pods = listOf(pod("pick-new", 9), pod("pick-old", 1), pod("waiting", 0, PodAttention.NONE))
-        val entries = quickContinue(listOf(game("own", 5, "a"), game("other", 20)), pods, "a")
-        assertEquals(listOf("pick-old", "own", "pick-new"), entries.map { it.id })
-        assertEquals(listOf(true, true, true), entries.map { it.yours })
-        assertNotNull(entries.first().pod)
-        assertNotNull(entries[1].game)
-        assertEquals(listOf("pick-old", "other"), quickContinue(listOf(game("other", 20)),
-            listOf(pods[1], pods[2], pods[0].copy(phase = PodPhase.DRAFTED)), "a").map { it.id })
+    @Test fun gameInvitationsAlwaysComeAfterActiveGamesAndAcceptedSetupAndOnlyFillFreeSlots() {
+        val invitation = game("invitation", 0, "a", GameLifecycle.LOBBY).copy(invitationState = InvitationState.PENDING)
+        val setup = game("setup", 2, lifecycle = GameLifecycle.LOBBY)
+        val active = game("active", 1)
+        assertEquals(listOf("setup", "active", "invitation"),
+            quickContinueGames(listOf(invitation, active, setup), "a").map { it.id })
+        assertEquals(listOf("own", "setup", "active"),
+            quickContinueGames(listOf(invitation, active, setup, game("own", 5, "a")), "a").map { it.id })
+        val newer = invitation.copy(id = "newer-invitation", updatedAt = game("date", 20).updatedAt)
+        assertEquals(listOf("newer-invitation", "invitation"), quickContinueGames(listOf(invitation, newer), "a").map { it.id })
+        assertEquals(listOf("active", "invitation"), quickContinueGames(listOf(invitation, active, invitation), "a").map { it.id })
+    }
+
+    private fun pod(id: String, hour: Int, attention: PodAttention = PodAttention.NONE,
+        phase: PodPhase = PodPhase.DRAFTING) = PodSummary(id, id, phase, self, listOf(self, other), attention, 2,
+        "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
+    private fun invitation(id: String, hour: Int) = PodInvitation(id, id, other, pod(id, hour).updatedAt)
+
+    @Test fun podPicksAndBuildActionsComeFirstOldestFirstThenOtherPodsNewestFirstCappedAtThree() {
+        val pods = listOf(pod("other-old", 1), pod("pick-new", 10, PodAttention.YOUR_PICK),
+            pod("other-new", 20, phase = PodPhase.SETUP), pod("build-old", 5, PodAttention.BUILD, PodPhase.DRAFTED))
+        assertEquals(listOf("build-old", "pick-new", "other-new"), quickContinuePods(pods, emptyList()).map { it.id })
+        assertEquals(listOf("other-new", "other-old"),
+            quickContinuePods(pods.filter { it.attention == PodAttention.NONE }, emptyList()).map { it.id })
+    }
+
+    @Test fun podInvitationsRankLastOnlyFillFreeSlotsAndEmptyPanelHasNoEntries() {
+        val invitations = listOf(invitation("invite-old", 0), invitation("invite-new", 23))
+        val pods = listOf(pod("active", 10), pod("pick", 20, PodAttention.YOUR_PICK))
+        assertEquals(listOf("pick", "active", "invite-new"), quickContinuePods(pods, invitations).map { it.id })
+        assertEquals(listOf("pick", "active", "other"),
+            quickContinuePods(pods + pod("other", 1), invitations).map { it.id })
+        assertTrue(quickContinuePods(emptyList(), emptyList()).isEmpty())
+        assertEquals(listOf("active"), quickContinuePods(listOf(pods[0]), listOf(invitation("active", 23))).map { it.id })
+        assertNotNull(quickContinuePods(emptyList(), invitations).first().invitation)
+    }
+
+    @Test fun podTimestampsUseInstantsAndStableIdentityTies() {
+        val early = pod("early", 1, PodAttention.YOUR_PICK).copy(updatedAt = "2026-10-24T04:00:00+04:00")
+        val late = pod("late", 1, PodAttention.YOUR_PICK)
+        assertEquals(listOf("early", "late"), quickContinuePods(listOf(late, early), emptyList()).map { it.id })
+        val tied = listOf("z", "b", "a", "c").map { pod(it, 1) }
+        assertEquals(listOf("a", "b", "c"), quickContinuePods(tied, emptyList()).map { it.id })
     }
 }

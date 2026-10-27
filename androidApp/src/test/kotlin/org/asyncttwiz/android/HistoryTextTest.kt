@@ -179,6 +179,22 @@ class HistoryTextTest {
         }
     }
 
+    @Test fun handCardProjectedOnStackIsNamedToBothPlayers() {
+        val ref = EventReference(id(2), id(5))
+        for (holder in listOf(f.a, f.b)) {
+            val placedHand = placed(holder, PlayZone.HAND)
+            val hand = placedHand.copy(board = placedHand.board.copy(cards = placedHand.board.cards.map { if (it.id == id(9)) it.copy(owner = holder) else it }))
+            val before = hand.copy(board = hand.board.copy(stackEffects = listOf(StackEffect(id(80), id(9))),
+                containers = hand.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = it.cards + id(80)) else it }))
+            for (viewer in listOf(f.a, f.b)) {
+                assertEquals("Velvet Prism Engine pinged", format(PlayAction.Ping(ref, PingTarget(PingTargetKind.CARD, id(9))),
+                    before = before, viewer = viewer).description)
+                assertEquals(if (viewer == holder) "Velvet Prism Engine pinged" else "A card pinged",
+                    format(PlayAction.Ping(ref, PingTarget(PingTargetKind.CARD, id(9))), before = hand, viewer = viewer).description)
+            }
+        }
+    }
+
     @Test fun lookAndSearchCardsAreNamedOnlyToPanelAuthorUntilThisEventRevealsThem() {
         for (holder in listOf(f.a, f.b)) for (panelAuthor in listOf(f.a, f.b)) for (selection in listOf(ContentsSelection.TOP, ContentsSelection.ALL)) {
             val before = placed(holder, PlayZone.LIBRARY)

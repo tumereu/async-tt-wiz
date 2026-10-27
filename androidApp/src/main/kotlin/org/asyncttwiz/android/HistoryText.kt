@@ -45,7 +45,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         return card.knownToAll || before?.board?.contentsDisplays?.any {
             card.id in it.cardIds && it.faceVisibleTo(card.id, viewer.orEmpty()) } == true ||
             area.zone == PlayZone.LIBRARY && area.keepTopRevealed && area.cards.firstOrNull() == card.id ||
-            CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty())
+            CardVisibility.isVisibleFaceUp(card, area.zone, area.accountId, viewer.orEmpty()) ||
+            before?.board?.let { CardVisibility.isVisibleFaceUp(it, card, viewer.orEmpty()) } == true
     }
     fun shownCard(id: String): PlayCard? {
         val old = before?.let { CombatStackRules.inspection(it.board, id) }

@@ -27,6 +27,26 @@
 
 This update supersedes the older combat-bubble/no-normal-menu wording below.
 
+### Experimental combat damage aid (round 16)
+
+Projection menus offer **Deal to target** (attackers only) and **Deal to target or
+creatures**, using the pressed/selected projections. Assignment follows displayed
+left-to-right order, lethal first using effective corner + EOT P/T and already
+marked/assigned damage; excess goes to the last creature, or the attack target
+with attacker trample. Player life, target loyalty/defense corners and creature
+damage are ordinary edits sent in one atomic batch/history group/Undo. Replay
+uses those recorded edits, never recalculates combat, and introduces no new rule
+or event fields; existing edit concerned-field rules apply.
+
+Current-face MTGJSON keywords and whole words in permanent/EOT notes supply
+deathtouch, trample, first/double strike and lifelink (life gain in the same batch).
+Infect, wither or unknown required numbers skip that dealer with an “assign
+manually” floating note. No deaths, movement, prevention or other rules are inferred.
+The turn player's damage-step shortcuts deal with both sides, clear multiselect,
+and split into first-strike/regular buttons if any combatant has first/double
+strike. Players remove dead creatures between presses. **Close + next** closes
+combat and goes directly to postcombat main.
+
 Status: required release scope in delivery stage 1, behavior specification
 (D-115). Confirmed behavior through D-158 is recorded below; remaining substantive
 cases need design before implementation. The

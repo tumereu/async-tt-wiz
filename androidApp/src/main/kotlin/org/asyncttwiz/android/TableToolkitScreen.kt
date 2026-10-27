@@ -194,6 +194,7 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
     if (toolkit.tokens.projectionScope != null && bound.sourceIds.isNotEmpty())
         add(MenuControl("Source actions") { toolkit.openCard(TableScope(bound.sourceIds.first(), bound.sourceIds)) })
     addAll(occurrenceRemovalTools(toolkit, play, bound, enabled))
+    addAll(combatDamageMenuTools(toolkit, play, bound, enabled))
     if (CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty())
         add(MenuControl("Attack →", enabled) { toolkit.openAttackTargets() })
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),

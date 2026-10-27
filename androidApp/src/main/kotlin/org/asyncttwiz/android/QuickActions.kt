@@ -77,6 +77,8 @@ object QuickActions {
                 add(if (declared) "Select more attackers" else "Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
                 if (!declared) add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
             }
+            // Experimental damage aid; all offerings live in one removable helper.
+            TurnPosition.COMBAT_DAMAGE -> result.addAll(combatDamageQuickActions(play))
             TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))

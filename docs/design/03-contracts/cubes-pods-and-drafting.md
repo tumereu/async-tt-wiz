@@ -240,8 +240,8 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 
 ```
 ┌──────────────────────────────┐
-│ Draft       Build      Stats │
-│ ◉✓ ◉2                     ⋮  │  fixed
+│ Draft       Build    Stats ⋮ │
+│ ◉✓ ◉2                − ▥3 + │  fixed
 │ ┌────┐┌────┐┌────┐            │
 │ │▓✓▓▓││    ││░🔥░│            │  scrolls
 │ └────┘└────┘└────┘ …          │
@@ -251,9 +251,11 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 └──────────────────────────────┘
 ```
 
-- Draft tab: no title/hamburger bar. Below the tabs, a slim row shows 28dp avatars
+- Pod play tabs (Draft/Build/Stats): no title/hamburger bar in portrait; Back leaves
+  the pod. The unchanged pod overflow menu is a narrow, never-selected last tab.
+  Below the Draft tabs, a slim row shows 28dp avatars
   with a green check when no packs wait (otherwise a tiny count when it fits),
-  and the pod overflow at the end. No names or status captions.
+  and the column control at the end. No names or status captions.
 - The card list scrolls vertically, including its compact cards-per-row control
   (1 to all; default 3 portrait, 5 landscape; saved per device/orientation).
   Trays and a full-width bottom Confirm stay fixed. No refresh loaders over cached data.
@@ -272,16 +274,21 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   release closes it. Crossing touch slop dismisses it without marking. Swiped
   cards render above their neighbours. Show cached normal artwork immediately,
   replacing it with large artwork when available, without blanking or a spinner.
-- Marked cards keep their place in the list with a green/red border and icon.
+- Marked cards keep their place in the list with a green/red border and icon;
+  the border hugs the artwork equally on all four sides.
 - Keep and burn **trays** show just their icon and x/y, sized for the required
-  slots: one row if both fit, otherwise two compact rows, with horizontal overflow.
+  slots: one row if both fit, sharing spare width in proportion to required widths,
+  otherwise two compact rows as before. Both trays pan horizontally on overflow,
+  independently of grid swipes and holds.
   Tapping a tray card unmarks it. Hide burn when none are required. Automatic burns
   appear only after all required keeps are marked; unmarking a keep hides them again.
 - **Confirm** is enabled when the counts are exactly right. After Confirm the next
   queued pack appears immediately.
-- No pack waiting: Build shortcut; the avatar badges already show who has work.
-- Avatars, compact cards-per-row −/+ icon buttons and an unboxed overflow icon
-  share one slim row; no separate column-control row in the card grid.
+- No pack waiting: centred “Waiting for other players” at 40% onSurface opacity,
+  without a button; Build stays accessible through its tab.
+- Avatars and compact cards-per-row −/+ icon buttons share one slim row; no
+  separate column-control row in the card grid. The number has a small columns
+  icon; holding icon/number shows “Cards per row” (Build: “Columns”).
 - The private response includes the caller's queued packs and their definitions.
   Confirm predicts the pick and advances to the next pack (or normal waiting state)
   while sending in the background; subsequent picks remain usable and send in order.
@@ -295,7 +302,8 @@ The board fills the width, with arrow buttons left of each row and above each
 column. Tap an arrow to highlight the line, then **Confirm**. Gaps show as empty
 slots. A log line above the board ("B took row 2: …") expands to the grid's
 earlier selections. Arrows are disabled when it is not your turn. Header shows
-grid progress and grids waiting. Hold inspects.
+grid progress and grids waiting. Hold uses the same 150ms, artwork-only,
+release-to-close preview as Booster/Glimpse, not the full card inspector.
 
 ### Build
 

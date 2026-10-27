@@ -1,6 +1,9 @@
 package org.asyncttwiz.android
 
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -27,14 +30,17 @@ class PodPickChromeTest {
         val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(),
             PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(alice), PodMember(bob, packsWaiting = 2)), emptyList(), updatedAt = "now")
-        compose.setContent { ScreenTheme {
+        compose.setContent { ScreenTheme { Column {
+            PodDraftTabs(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), PodTab.DRAFT, {}) {
+                IconButton({}, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
+            }
             PodPickView(DraftPrivatePack("pack", 1, (1..15).map { DraftCopy("$it", "card") }),
-                detail.settings, emptyMap(), false, { _, _ -> }, {}, chrome = { control ->
+                detail.settings, emptyMap(), false, { _, _ -> }, chrome = { control ->
                     PodDraftMemberRow(detail.copy(members = detail.members.map {
                         if (it.account.accountId == alice.accountId) it.copy(packsWaiting = waiting) else it
-                    }), control) { IconButton({}) { EntryIcon("Pod actions", "more") } }
+                    }), control)
                 })
-        } }
+        } } }
         val aliceAvatar = compose.onNodeWithContentDescription("Alice's avatar")
         val bobAvatar = compose.onNodeWithContentDescription("Bob's avatar")
         aliceAvatar.assertWidthIsEqualTo(28.dp).assertHeightIsEqualTo(28.dp)
@@ -45,11 +51,15 @@ class PodPickChromeTest {
         val aliceBounds = aliceAvatar.fetchSemanticsNode().boundsInRoot
         val bobBounds = bobAvatar.fetchSemanticsNode().boundsInRoot
         val row = compose.onNodeWithTag("pod-draft-members").fetchSemanticsNode().boundsInRoot
-        for (description in listOf("Cards per row", "Pod actions")) {
-            val control = compose.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot
-            assertTrue(control.top >= row.top && control.bottom <= row.bottom)
-            assertTrue(control.left >= bobBounds.right)
-        }
+        val control = compose.onNodeWithContentDescription("Cards per row").fetchSemanticsNode().boundsInRoot
+        assertTrue(control.top >= row.top && control.bottom <= row.bottom)
+        assertTrue(control.left >= bobBounds.right)
+        val tabs = compose.onNodeWithTag("pod-tabs").fetchSemanticsNode().boundsInRoot
+        val overflow = compose.onNodeWithContentDescription("Pod actions").fetchSemanticsNode().boundsInRoot
+        val lastTab = compose.onNodeWithText("Stats").fetchSemanticsNode().boundsInRoot
+        assertTrue(overflow.top >= tabs.top && overflow.bottom <= tabs.bottom && overflow.bottom <= row.top)
+        assertTrue(overflow.left >= lastTab.right && overflow.width < lastTab.width)
+        compose.onNodeWithContentDescription("Pod actions").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
         compose.onNodeWithContentDescription("Cards per row")
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(3f) }
         compose.onNodeWithContentDescription("More cards per row").performClick()
@@ -63,5 +73,25 @@ class PodPickChromeTest {
             compose.onNodeWithTag("pod-draft-members").assertHeightIsEqualTo(40.dp)
             compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "$count packs waiting")).assertExists()
         }
+    }
+
+    @Test fun holdingColumnIconAndNumberShowsContextualTooltipWithoutChangingValue() {
+        var value by mutableIntStateOf(3)
+        var description by mutableStateOf("Cards per row")
+        compose.setContent { ScreenTheme {
+            PodColumnControl("$value", description, value, 1..10) { value = it }
+        } }
+        for (label in listOf("Cards per row", "Columns")) {
+            compose.runOnIdle { description = label }
+            compose.onAllNodesWithText("3", useUnmergedTree = true).onLast().performTouchInput { down(center); advanceEventTime(600) }
+            compose.mainClock.advanceTimeBy(600)
+            compose.onNodeWithText(label).assertIsDisplayed()
+            compose.onAllNodesWithText("3", useUnmergedTree = true).onLast().performTouchInput { up() }
+            compose.runOnIdle { assertEquals(3, value) }
+            compose.mainClock.advanceTimeBy(2_000)
+            compose.onNodeWithText(label).assertDoesNotExist()
+        }
+        compose.onNodeWithContentDescription("More columns").performClick()
+        compose.onNodeWithContentDescription("Columns").assert(hasText("4"))
     }
 }

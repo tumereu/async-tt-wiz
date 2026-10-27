@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
@@ -172,5 +174,34 @@ class NavigationPodsTest {
         }
         compose.runOnIdle { pods.seed(pods.state.copy(detail = detail.copy(phase = PodPhase.SETUP))) }
         compose.onNodeWithTag("pod-member-strip").assertIsDisplayed()
+    }
+
+    @Test fun portraitPodPlayTabsUseFullScreenAndKeepOverflowAndBackNavigation() {
+        val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, ScreenFixtures.alex, DraftSettings(),
+            PodSource("Cube", 540), DraftSupply(90, 540),
+            listOf(PodMember(ScreenFixtures.alex), PodMember(ScreenFixtures.riley)), emptyList(), updatedAt = "now")
+        fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.PODS))
+        pods.seed(PodState(selected = detail.id, detail = detail))
+        lateinit var back: OnBackPressedDispatcher
+        compose.setContent { ScreenTheme {
+            back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            AuthenticatedShell(fixtures.auth, false, pods = pods)
+        } }
+        for (tab in listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)) {
+            compose.runOnIdle { pods.tab(tab) }
+            compose.onNodeWithContentDescription("Open navigation").assertDoesNotExist()
+            compose.onNodeWithText("Pod").assertDoesNotExist()
+            val tabs = compose.onNodeWithTag("pod-tabs").getUnclippedBoundsInRoot()
+            val root = compose.onNodeWithTag("authenticated-identity").getUnclippedBoundsInRoot()
+            assertEquals(root.top, tabs.top)
+            assertEquals(root.left, tabs.left)
+            assertEquals(root.right, tabs.right)
+            compose.onNodeWithContentDescription("Pod actions").assertIsDisplayed().performClick()
+            compose.onNodeWithText("Cancel draft").assertIsDisplayed()
+            compose.onNodeWithText("Destroy").assertIsDisplayed()
+            compose.onNode(isPopup()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Back) }
+        }
+        compose.runOnIdle { back.onBackPressed(); assertNull(pods.state.selected) }
+        compose.onNodeWithText("Pods").assertIsDisplayed()
     }
 }

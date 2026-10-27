@@ -14,3 +14,17 @@ internal fun podPickTrayWidth(required: Int, labelWidth: Dp): Dp =
 
 internal fun podPickTraysFit(available: Dp, keep: Int, burn: Int, keepLabel: Dp, burnLabel: Dp): Boolean =
     burn == 0 || podPickTrayWidth(keep, keepLabel) + PodPickTrayGap + podPickTrayWidth(burn, burnLabel) <= available
+
+internal data class PodPickTrayLayout(val keepWidth: Dp, val burnWidth: Dp, val singleRow: Boolean)
+
+internal fun podPickTrayLayout(available: Dp, keep: Int, burn: Int, keepLabel: Dp, burnLabel: Dp): PodPickTrayLayout {
+    val keepWidth = podPickTrayWidth(keep, keepLabel)
+    if (burn == 0) return PodPickTrayLayout(available, 0.dp, true)
+    val burnWidth = podPickTrayWidth(burn, burnLabel)
+    if (!podPickTraysFit(available, keep, burn, keepLabel, burnLabel)) {
+        return PodPickTrayLayout(minOf(keepWidth, available), minOf(burnWidth, available), false)
+    }
+    val usable = available - PodPickTrayGap
+    val expandedKeep = keepWidth * (usable / (keepWidth + burnWidth))
+    return PodPickTrayLayout(expandedKeep, usable - expandedKeep, true)
+}

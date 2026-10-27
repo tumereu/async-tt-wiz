@@ -26,9 +26,9 @@ class PodGridViewTest {
     private val initial = GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(board), emptyList()), mine)
 
     private fun show(view: () -> GridViewData = { initial }, busy: () -> Boolean = { false },
-        onConfirm: (String, GridLineType, Int) -> Unit = { _, _, _ -> }, onBuild: () -> Unit = {}) {
+        onConfirm: (String, GridLineType, Int) -> Unit = { _, _, _ -> }) {
         compose.setContent { ScreenTheme {
-            PodGridView(view(), 18, definitions, listOf(alice, bob), busy(), onConfirm, onBuild)
+            PodGridView(view(), 18, definitions, listOf(alice, bob), busy(), onConfirm)
         } }
     }
 
@@ -93,21 +93,37 @@ class PodGridViewTest {
         assertHighlighted(3, false)
     }
 
-    @Test fun waitingShowsAllOpenBoardsReadOnlyAndBuildShortcutAndStillInspects() {
+    @Test fun waitingShowsAllOpenBoardsReadOnlyWithoutBuildShortcutAndStillPreviews() {
         val waitingBoard = board.copy(currentPlayer = "bob")
-        var builds = 0
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waitingBoard, waitingBoard.copy(id = "later", number = 2))),
-            mine = mine.copy(headGridId = null)) }, onBuild = { builds++ })
-        compose.onAllNodesWithText("Waiting for Bob").assertCountEquals(1).onFirst().assertIsDisplayed()
+            mine = mine.copy(headGridId = null)) })
+        compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
         compose.onNodeWithText("+0 waiting", substring = true).assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Select row 1").onFirst().assertIsNotEnabled()
         compose.onAllNodesWithContentDescription("Select column 2").onFirst().assertIsNotEnabled()
         compose.onNodeWithTag("pod-grid-later-slot-0").assertExists()
         compose.onNodeWithText("Confirm").assertDoesNotExist()
-        compose.onNodeWithText("Build").performClick()
-        assertEquals(1, builds)
-        slot(0).onChildren().filterToOne(hasClickAction()).performTouchInput { longClick() }
-        compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Build").assertDoesNotExist()
+        assertHoldPreview(slot(0))
+    }
+
+    private fun assertHoldPreview(target: SemanticsNodeInteraction) {
+        target.performTouchInput { down(center); advanceEventTime(80) }
+        compose.mainClock.advanceTimeBy(80)
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        target.performTouchInput { advanceEventTime(80) }
+        compose.mainClock.advanceTimeBy(80)
+        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close card inspection").assertDoesNotExist()
+        target.performTouchInput { up() }
+        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+    }
+
+    @Test fun gridUsesInstantReleaseToClosePreviewWithoutSelectingALine() {
+        show()
+        assertHoldPreview(slot(0))
+        compose.onNodeWithText("Confirm").assertIsNotEnabled()
+        repeat(9) { assertHighlighted(it, false) }
     }
 
     @Test fun selectionResetsAfterServerRefillEvenIfGridAndPlayerStayTheSame() {

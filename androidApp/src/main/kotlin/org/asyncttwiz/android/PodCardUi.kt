@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -56,16 +58,25 @@ internal fun PodCardMenu(expanded: Boolean, dismiss: () -> Unit, content: @Compo
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PodColumnControl(label: String, description: String, value: Int, range: IntRange, change: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
         contentDescription = description
+        text = AnnotatedString(label)
         progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), range.first.toFloat()..range.last.toFloat(),
             (range.last - range.first - 1).coerceAtLeast(0))
         setProgress { change(it.toInt().coerceIn(range)); true }
     }) {
         PodColumnButton("Fewer ${description.replaceFirstChar(Char::lowercase)}", false, value > range.first) { change(value - 1) }
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
+            Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Icon(Icons.Default.ViewColumn, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+        }
         PodColumnButton("More ${description.replaceFirstChar(Char::lowercase)}", true, value < range.last) { change(value + 1) }
     }
 }

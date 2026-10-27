@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,7 +61,6 @@ fun PodPickView(
     definitions: Map<String, CardDefinition>,
     busy: Boolean,
     onConfirm: (keep: List<String>, burn: List<String>) -> Unit,
-    onOpenBuild: () -> Unit,
     modifier: Modifier = Modifier,
     chrome: @Composable (@Composable () -> Unit) -> Unit = { control ->
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.End,
@@ -74,7 +74,7 @@ fun PodPickView(
         Column(modifier.fillMaxSize()) {
             chrome {}
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Button(onClick = onOpenBuild) { Text("Build") }
+                PodPickWaiting()
             }
         }
         return
@@ -133,7 +133,7 @@ private fun rememberPodPickPreferences() = LocalContext.current.applicationConte
 }
 
 /** One recognizer owns tap, horizontal swipe and the short, release-to-close hold. */
-private suspend fun PointerInputScope.podPickGestures(
+internal suspend fun PointerInputScope.podPickGestures(
     onTap: () -> Unit,
     onInspect: (Boolean) -> Unit,
     onDrag: ((Float) -> Unit)? = null,
@@ -193,7 +193,7 @@ private suspend fun PointerInputScope.podPickGestures(
 }
 
 @Composable
-private fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
+internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
     }
@@ -211,6 +211,11 @@ private fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
 }
 
 @Composable
+internal fun PodPickWaiting() {
+    Text("Waiting for other players", color = MaterialTheme.colorScheme.onSurface.copy(alpha = .4f))
+}
+
+@Composable
 private fun PodPickTrays(
     keeps: List<String>, burns: List<String>, rules: PodPickRules,
     copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
@@ -221,18 +226,17 @@ private fun PodPickTrays(
     val style = MaterialTheme.typography.bodySmall
     val keepLabel = with(density) { measurer.measure(AnnotatedString("✓ ${rules.requiredKeeps}/${rules.requiredKeeps}"), style).size.width.toDp() + 4.dp }
     val burnLabel = with(density) { measurer.measure(AnnotatedString("🔥 ${rules.requiredBurns}/${rules.requiredBurns}"), style).size.width.toDp() + 4.dp }
-    val keepWidth = podPickTrayWidth(rules.requiredKeeps, keepLabel)
-    val burnWidth = podPickTrayWidth(rules.requiredBurns, burnLabel)
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        val layout = podPickTrayLayout(maxWidth, rules.requiredKeeps, rules.requiredBurns, keepLabel, burnLabel)
         val keep: @Composable () -> Unit = {
             PodPickTray("Keep", keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
-                false, Modifier.width(minOf(keepWidth, maxWidth)), keepLabel, onUnmark, onInspect)
+                false, Modifier.width(layout.keepWidth), keepLabel, onUnmark, onInspect)
         }
         val burn: @Composable () -> Unit = {
             if (rules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
-                rules.automaticBurns, Modifier.width(minOf(burnWidth, maxWidth)), burnLabel, onUnmark, onInspect)
+                rules.automaticBurns, Modifier.width(layout.burnWidth), burnLabel, onUnmark, onInspect)
         }
-        if (podPickTraysFit(maxWidth, rules.requiredKeeps, rules.requiredBurns, keepLabel, burnLabel)) {
+        if (layout.singleRow) {
             Row(horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
@@ -330,8 +334,8 @@ private fun PodPickCardFace(
     copy: DraftCopy, definition: CardDefinition?, keepAlpha: Float, burnAlpha: Float,
     tint: Color = Color.Transparent, reuseArtwork: Boolean = false,
 ) {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))) {
-        PodPickArtwork(copy, definition, Modifier.fillMaxSize().padding(3.dp), reuseArtwork)
+    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        PodPickArtwork(copy, definition, Modifier.fillMaxSize(), reuseArtwork, crop = true)
         Box(Modifier.matchParentSize().background(tint, RoundedCornerShape(4.dp)))
         listOf(PodPickMark.KEEP to keepAlpha, PodPickMark.BURN to burnAlpha).forEach { (kind, alpha) ->
             if (alpha > 0f) {
@@ -406,7 +410,8 @@ private fun PodPickTray(
         Text("${if (label == "Keep") "✓" else "🔥"} ${ids.size}/$required",
             Modifier.width(labelWidth).semantics { contentDescription = "$label ${ids.size}/$required" },
             style = MaterialTheme.typography.bodySmall, maxLines = 1)
-        Row(Modifier.weight(1f).height(48.dp).horizontalScroll(rememberScrollState()),
+        Row(Modifier.weight(1f).height(48.dp).testTag("pod-pick-${label.lowercase()}-cards")
+            .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             ids.forEach { id -> copies[id]?.let { copy ->
                 key(id) {
@@ -425,7 +430,8 @@ private fun PodPickTray(
 }
 
 @Composable
-private fun PodPickArtwork(copy: DraftCopy, definition: CardDefinition?, modifier: Modifier, reuseArtwork: Boolean = false) {
+private fun PodPickArtwork(copy: DraftCopy, definition: CardDefinition?, modifier: Modifier, reuseArtwork: Boolean = false,
+    crop: Boolean = false) {
     val card = remember(copy.definition, definition) {
         definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
     }
@@ -437,6 +443,6 @@ private fun PodPickArtwork(copy: DraftCopy, definition: CardDefinition?, modifie
             with(density) { maxWidth.roundToPx() }.coerceIn(1, 4096),
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
             placeholder = { PodCardPlaceholder(definition?.name ?: "Card data unavailable") },
-            previewReference = reference.takeIf { reuseArtwork })
+            previewReference = reference.takeIf { reuseArtwork }, crop = crop)
     }
 }

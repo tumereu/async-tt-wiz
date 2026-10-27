@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -23,6 +24,10 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     openNavigation: (() -> Unit)?, catalog: CatalogViewModel?) {
     val state = controller.state
     val keyboard = LocalSoftwareKeyboardController.current
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(state.fromUrl) {
+        if (state.fromUrl) controller.prefillUrl { clipboard.getText()?.text }
+    }
     LaunchedEffect(catalog?.state?.installed, catalog?.state?.busy) {
         controller.catalogChanged(catalog?.state?.installed, catalog?.state?.busy == true)
     }
@@ -51,71 +56,80 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
         return
     }
-    ScreenBusyOverlay(when { state.saving -> "Saving deck…"; state.busy -> "Looking up card records…"; else -> null }) {
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist", openNavigation) {
             ScreenButton(onClick = { keyboard?.hide(); controller.save() }, enabled = state.result?.resolved == true && !state.busy && !state.saving,
                 modifier = Modifier.testTag("save-deck")) {
-                EntryIcon(null, "save"); Spacer(Modifier.width(6.dp)); Text("Save")
+                EntryIcon("Save deck", "save")
             }
         }
-        DeckMetadataHeader(state.name, controller.currentCover, controller::name,
-            if (state.result?.resolved == true) controller::chooseCover else null, !state.saving)
-        if (state.target != null && !state.editing) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                DeckImportMode.entries.forEach { mode ->
-                    ScreenOutlinedButton(onClick = { controller.mode(mode) }, Modifier.weight(1f), enabled = !state.saving,
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (state.mode == mode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface)) {
-                        EntryIcon(null, if (mode == DeckImportMode.OVERWRITE) "refresh" else "add"); Spacer(Modifier.width(8.dp))
-                        Text(if (mode == DeckImportMode.OVERWRITE) "Overwrite" else "Merge")
+        TabRow(selectedTabIndex = if (state.fromUrl) 0 else 1) {
+            Tab(state.fromUrl, onClick = { controller.fromUrl(true) }, text = { Text("From URL") })
+            Tab(!state.fromUrl, onClick = { controller.fromUrl(false) }, text = { Text("Paste list") })
+        }
+        if (state.fromUrl) {
+            Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(state.url, controller::url, Modifier.fillMaxWidth().testTag("deck-url"),
+                    label = { Text("Deck URL or site:ID") }, singleLine = true)
+                ScreenButton(onClick = { keyboard?.hide(); controller.importUrl() }, enabled = state.url.isNotBlank() && !state.busy && !state.saving) {
+                    EntryIcon("Import deck", "import")
+                }
+            }
+        } else {
+            DeckMetadataHeader(state.name, controller.currentCover, controller::name,
+                if (state.result?.resolved == true) controller::chooseCover else null)
+            if (state.target != null && !state.editing) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DeckImportMode.entries.forEach { mode ->
+                        ScreenOutlinedButton(onClick = { controller.mode(mode) }, Modifier.weight(1f), enabled = !state.saving,
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mode == state.mode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.onSurface)) {
+                            EntryIcon(null, if (mode == DeckImportMode.OVERWRITE) "refresh" else "add"); Spacer(Modifier.width(8.dp))
+                            Text(if (mode == DeckImportMode.OVERWRITE) "Overwrite" else "Merge")
+                        }
                     }
                 }
             }
-        }
-        val list: @Composable ColumnScope.() -> Unit = {
-            Text("Deck list", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(8.dp))
-            ScreenTextField(state.text, controller::edit, singleLine = false, enabled = !state.saving,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-                modifier = Modifier.fillMaxWidth().heightIn(min = if (landscape) 200.dp else 260.dp)
-                    .testTag("deck-list").semantics { contentDescription = "Deck list" })
-            // Always reserved and independently scrollable: any number of line issues fits here.
-            Column(Modifier.fillMaxWidth().height(80.dp).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-                state.result?.issues?.forEach { issue ->
-                    Text((if (issue.line > 0) "Line ${issue.line}: " else "") + issue.message,
-                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            val list: @Composable ColumnScope.() -> Unit = {
+                ScreenTextField(state.text, controller::edit, singleLine = false,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = if (landscape) 200.dp else 260.dp)
+                        .testTag("deck-list").semantics { contentDescription = "Deck list" })
+                // Always reserved and independently scrollable: any number of line issues fits here.
+                Column(Modifier.fillMaxWidth().height(80.dp).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+                    state.result?.issues?.forEach { issue ->
+                        Text((if (issue.line > 0) "Line ${issue.line}: " else "") + issue.message,
+                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(48.dp)) {
+                    if (state.lookupFailed || state.result?.resolved == false) ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() },
+                        enabled = !state.busy && !state.saving && catalog?.state?.busy != true, modifier = Modifier.testTag("retry-lookup")) {
+                        EntryIcon("Retry lookup", "refresh")
+                    }
                 }
             }
-            Box(Modifier.fillMaxWidth().height(48.dp)) {
-                if (state.lookupFailed || state.result?.resolved == false) ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() },
-                    enabled = !state.busy && !state.saving && catalog?.state?.busy != true, modifier = Modifier.testTag("retry-lookup")) {
-                    EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text("Retry lookup")
+            // Route and screen properties alone determine columns; lookup never changes geometry.
+            if (landscape) Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), content = list)
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+                    if (catalog != null) CatalogControls(catalog)
                 }
-            }
-        }
-        // Route and screen properties alone determine columns; lookup never changes geometry.
-        if (landscape) Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), content = list)
-            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                if (catalog != null) CatalogControls(catalog)
-            }
-        } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            list()
-            if (catalog != null) {
-                Spacer(Modifier.height(16.dp))
-                CatalogControls(catalog)
+            } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                list()
+                if (catalog != null) {
+                    Spacer(Modifier.height(16.dp))
+                    CatalogControls(catalog)
+                }
             }
         }
     }
     FloatingTransientError(state.error ?: catalog?.state?.status?.takeIf { catalog.state.error },
         { if (state.error != null) controller.dismissError() else catalog?.dismissError() }, Modifier.align(Alignment.BottomCenter))
     }
-    }
     if (state.discard) ScreenDialog(controller::keepEditing) {
         Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
-        Text("Your saved deck will not change.")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(controller::keepEditing, Modifier.weight(1f)) { Text("Keep editing") }
             ScreenButton(controller::exit, Modifier.weight(1f)) { Text("Discard") }

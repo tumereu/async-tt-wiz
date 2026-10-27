@@ -204,8 +204,8 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  val row = compose.onNodeWithText("Meadow Sentinel").fetchSemanticsNode().boundsInRoot
                  assertTrue(row.height <= 48f)
              }
-             "deck-edit" -> {
-                 compose.onNodeWithText("Save").assertIsDisplayed()
+              "deck-edit" -> {
+                  compose.onNodeWithContentDescription("Save deck").assertIsDisplayed()
                  compose.onNodeWithText("Edit").assertDoesNotExist()
                  compose.onNodeWithTag("deck-list").assertIsDisplayed()
                  compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()

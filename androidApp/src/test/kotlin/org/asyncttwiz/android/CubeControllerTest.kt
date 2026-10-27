@@ -9,6 +9,38 @@ import org.junit.Test
 import kotlin.test.*
 
 class CubeControllerTest {
+    @Test fun cobraClipboardIsReadOncePerEditorAndNeverStartsImport() {
+        val worker = Worker(); val api = Api(); var fetches = 0; var reads = 0
+        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+            fetchCobra = { fetches++; DeckTextParser.parse("1 Retained card") })
+        controller.newCube()
+        controller.prefillCobra { reads++; "https://cubecobra.com/cube/list/fixture" }
+        controller.cobraTab(false); controller.cobraTab(true)
+        controller.prefillCobra { reads++; "another" }
+        assertEquals(1, reads); assertEquals(0, fetches)
+        assertEquals("https://cubecobra.com/cube/list/fixture", controller.state.cobraInput)
+        controller.importCobra(); worker.drain()
+        assertEquals(1, fetches); assertFalse(controller.state.cobraTab)
+        assertEquals("fixture", controller.state.name)
+        controller.back(); controller.newCube(); controller.cobraInput("typed")
+        controller.prefillCobra { reads++; "another" }
+        assertEquals("typed", controller.state.cobraInput); assertEquals(2, reads)
+        controller.close(); worker.drain()
+    }
+
+    @Test fun cubeEditorRemainsEditableDuringSaveAndRetainsNewerInput() {
+        val worker = Worker(); val api = Api(); val controller = controller(api, worker)
+        controller.newCube(); controller.name("First"); controller.text("2 Retained card"); controller.lookup(); worker.drain()
+        controller.save(); assertTrue(controller.state.saving)
+        controller.name("Second"); controller.text("3 Retained card")
+        worker.drain()
+        assertEquals("First", api.creates.single().name)
+        assertTrue(controller.state.editing); assertFalse(controller.state.busy)
+        assertEquals("Second", controller.state.name); assertEquals("3 Retained card", controller.state.text)
+        assertNotNull(controller.state.target)
+        controller.close(); worker.drain()
+    }
+
     private val card = CardDefinition("Retained card", listOf(DefinitionFace(UUID.randomUUID().toString(), "Retained card")))
     private val digest = DeckJson.digest(card)
     private val summary = CubeSummary(UUID.randomUUID().toString(), "Accepted cube", "1", "2026-10-26T00:00:00Z", "2026-10-26T00:00:00Z", 1500, "fixture")

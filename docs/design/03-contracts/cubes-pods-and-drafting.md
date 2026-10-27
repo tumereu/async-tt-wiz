@@ -58,6 +58,13 @@ A cube is created from either:
   only, and resolves it against the local catalog like a pasted list. The result
   is a snapshot; the Cube Cobra ID is kept only as provenance.
 
+The editor separates **Cube Cobra | Paste list** tabs, showing only the selected
+source's fields. Read clipboard once on first opening Cube Cobra in an editor
+session, prefill only a Cube Cobra URL/ID, and require explicit Import. A fetched
+snapshot opens Paste list for naming/correction; a new cube defaults its name to
+the Cube Cobra ID. Resolution feedback has a fixed area; imports/saves do not
+block the screen or add background-refresh loaders.
+
 Before saving, show total copies. A requested printing that is missing may be
 replaced by another printing of the same card; list substitutions before saving.
 Unknown cards block saving and name the offending lines; nothing is silently
@@ -429,7 +436,7 @@ Concrete choices made during implementation, recorded for the owner's review:
 - Choosing art for supplied basics; Wastes and snow basics.
 - Build sorting by color or type; pinch-to-zoom for the slider.
 - Sealed, Winston, Rochester, and other Draftmancer modes; bots.
-- Cube editing card by card; direct Moxfield/Archidekt URL import.
+- Cube editing card by card; direct Moxfield/Archidekt **cube** URL import.
 
 ## Appendix: Draftmancer reference
 

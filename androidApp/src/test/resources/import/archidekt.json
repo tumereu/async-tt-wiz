@@ -1,0 +1,9 @@
+{
+  "name": "Cooperative spells",
+  "cards": [
+    {"quantity": 4, "categories": ["Instant", "Mainboard"], "card": {"oracleCard": {"name": "Rune Spark"}}},
+    {"quantity": 2, "categories": ["Sideboard"], "card": {"oracleCard": {"name": "Rune Shield"}}},
+    {"quantity": 1, "categories": ["Commander"], "card": {"oracleCard": {"name": "Rune Captain"}}},
+    {"quantity": 3, "categories": ["Maybeboard"], "card": {"oracleCard": {"name": "Rune Wish"}}}
+  ]
+}

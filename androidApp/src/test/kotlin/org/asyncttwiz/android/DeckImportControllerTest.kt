@@ -7,6 +7,86 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 
 class DeckImportControllerTest {
+    @Test fun urlImportUsesParsedPipelineRetainsSiteNameAndRequiresExplicitConfirmation() {
+        val worker = Worker(); var fetches = 0; var reads = 0
+        val parsed = DeckTextParser.parse("Deck\n2 Rune Bear\nSideboard\n1 Rune Shield")
+        var received: ParsedDeck? = null
+        val controller = DeckImportController({ error("Use parsed pipeline") }, worker) { it() }
+        controller.connectUrl({ received = it; result(it.text) }, { fetches++; ImportedDeck("Site deck", parsed) })
+        controller.open(); controller.fromUrl(true)
+        controller.prefillUrl { reads++; "https://archidekt.com/decks/123" }
+        controller.fromUrl(false); controller.fromUrl(true)
+        controller.prefillUrl { reads++; "https://archidekt.com/decks/456" }
+        assertEquals(1, reads); assertEquals(0, fetches)
+        assertEquals("https://archidekt.com/decks/123", controller.state.url)
+        controller.importUrl(); assertTrue(controller.state.busy); worker.drain()
+        assertEquals(1, fetches); assertEquals(parsed, received)
+        assertEquals("Site deck", controller.state.name); assertEquals(parsed.text, controller.state.text)
+        assertFalse(controller.state.fromUrl); assertFalse(controller.state.busy)
+        assertEquals(result(parsed.text), controller.state.result)
+        controller.close()
+    }
+
+    @Test fun urlFailureKeepsDraftAndSuggestsPasteAndCorrectionsFenceDelayedResults() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
+        val controller = DeckImportController(::result, worker) { posts += it }
+        controller.connectUrl(::resultParsed, { error("403") })
+        controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
+        controller.url("https://moxfield.com/decks/aBcDeFgHiJkLmNoPqRsT_1")
+        controller.importUrl(); worker.drain(); posts.removeFirst()()
+        assertEquals("1 Retained", controller.state.text); assertEquals("Retained", controller.state.name)
+        assertTrue(controller.state.error!!.contains("Paste list")); assertFalse(controller.state.busy)
+        controller.connectUrl(::resultParsed, { ImportedDeck("Remote", DeckTextParser.parse("2 Remote")) })
+        controller.importUrl(); worker.drain(); controller.url("archidekt:123"); posts.removeFirst()()
+        assertEquals("Retained", controller.state.name); assertFalse(controller.state.busy)
+        controller.importUrl(); worker.drain(); controller.edit("3 Corrected"); posts.removeFirst()()
+        assertEquals("3 Corrected", controller.state.text); assertEquals("Retained", controller.state.name)
+        controller.importUrl(); worker.drain(); controller.exit(); controller.open(); posts.removeFirst()()
+        assertEquals("", controller.state.text); assertEquals("", controller.state.name)
+        controller.close()
+    }
+
+    @Test fun nameChangesAndTabSwitchesDropDelayedUrlImports() {
+        val changes: List<(DeckImportController) -> Unit> = listOf(
+            { it.name("Corrected name") },
+            { it.fromUrl(false) },
+            { it.fromUrl(false); it.fromUrl(true) }
+        )
+        changes.forEach { change ->
+            val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
+            val controller = DeckImportController(::result, worker) { posts += it }
+            controller.connectUrl(::resultParsed, { ImportedDeck("Remote", DeckTextParser.parse("2 Remote")) })
+            controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
+            controller.url("archidekt:123"); controller.importUrl(); worker.drain()
+            change(controller)
+            val corrected = controller.state
+            posts.removeFirst()()
+            assertEquals(corrected, controller.state)
+            assertEquals("1 Retained", controller.state.text)
+            assertFalse(controller.state.busy); assertFalse(controller.state.fetchingUrl)
+            controller.close()
+        }
+    }
+
+    @Test fun anotherUrlImportSupersedesThePendingResponse() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var fetches = 0
+        val controller = DeckImportController(::result, worker) { posts += it }
+        controller.connectUrl(::resultParsed, { ImportedDeck("Remote ${++fetches}", DeckTextParser.parse("$fetches Remote")) })
+        controller.open(); controller.name("Retained"); controller.fromUrl(true); controller.url("archidekt:123")
+        controller.importUrl(); worker.drain()
+        controller.importUrl(); worker.drain()
+        assertEquals(2, fetches)
+        posts.removeFirst()()
+        assertEquals("Retained", controller.state.name); assertEquals("", controller.state.text)
+        assertTrue(controller.state.busy); assertTrue(controller.state.fetchingUrl)
+        posts.removeFirst()()
+        assertEquals("Remote 2", controller.state.name); assertEquals("2 Remote", controller.state.text)
+        assertFalse(controller.state.busy); assertFalse(controller.state.fetchingUrl)
+        controller.close()
+    }
+
+    private fun resultParsed(parsed: ParsedDeck) = result(parsed.text)
+
     @Test fun installationDisablesRetryAndNewMetadataRelooksUpOnlyAnUnresolvedDraft() {
         val worker = Worker()
         var calls = 0

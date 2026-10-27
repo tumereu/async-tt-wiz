@@ -103,6 +103,48 @@ class DeckSaveTest {
         }
         assertEquals(definition, DeckJson.format.decodeFromString<CardDefinition>(DeckJson.format.encodeToString(definition)))
     }
+    @Test fun editingDuringSaveKeepsNewDraftAndDoesNotMutateTheCapturedRequest() {
+        val worker = Worker(); val attempts = mutableListOf<DeckSavePlan>(); var successes = 0
+        val controller = DeckImportController({ result() }, worker) { it() }
+        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.deck.entries) } }, { successes++ })
+        controller.open(); controller.edit(result().text); controller.lookup(); worker.drain()
+        controller.name("First"); controller.save()
+        controller.name("Second"); controller.edit("3 New input")
+        assertTrue(controller.state.saving); assertEquals("3 New input", controller.state.text)
+        worker.drain()
+        assertEquals("First", attempts.single().deck.name)
+        assertEquals("Second", controller.state.name); assertEquals("3 New input", controller.state.text)
+        assertTrue(controller.state.active); assertFalse(controller.state.saving)
+        assertEquals(summary.id, controller.state.target); assertEquals(0, successes)
+        controller.close()
+    }
+
+    @Test fun successfulMergeClosesEditorDespiteNameCorrectionAndCannotApplyQuantitiesAgain() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
+        val imported = result().let { it.copy(text = "Deck\n2 Front // Back", entries = listOf(it.entries.first().copy(quantity = 2))) }
+        var accepted = SavedDeck(summary, listOf(DeckSavePlan.from(result(), summary.name).deck.entries.first()))
+        var successes = 0
+        val controller = DeckImportController({ imported }, worker) { posts += it }
+        controller.connectSave({ { plan ->
+            attempts += plan
+            val contents = checkNotNull(plan.update().contents)
+            val entry = contents.entries.single()
+            val quantity = if (contents.mode == DeckImportMode.MERGE) accepted.entries.single().quantity + entry.quantity else entry.quantity
+            accepted = SavedDeck(summary, listOf(entry.copy(quantity = quantity)))
+            accepted
+        } }, { successes++; assertEquals(6, it.entries.single().quantity) })
+        controller.openExisting(summary); controller.edit(imported.text); controller.lookup()
+        worker.drain(); posts.removeFirst()()
+        controller.mode(DeckImportMode.MERGE); controller.save(); controller.name("Corrected name")
+        assertTrue(controller.state.active); assertTrue(controller.state.saving); assertEquals(4, accepted.entries.single().quantity)
+        worker.drain(); posts.removeFirst()()
+        assertEquals(6, accepted.entries.single().quantity)
+        assertFalse(controller.state.active); assertEquals(1, successes)
+        controller.save(); worker.drain()
+        assertEquals(1, attempts.size); assertEquals(6, accepted.entries.single().quantity)
+        controller.close()
+    }
+
     @Test fun uncertainRetryKeepsIdentitiesAndInputButChangedIntentGetsNewIds() {
         val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
         var successes = 0

@@ -21,3 +21,21 @@ internal fun fetchCubeCobra(id: String): ParsedDeck {
         }
     }
 }
+
+/** Executed on the import worker on the phone, without account credentials. */
+internal fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlocking {
+    AccountApi.client().use { client ->
+        suspend fun read(url: String, accept: String): String {
+            val response = client.get(url) { header("Accept", accept) }
+            check(response.status.value == 200) { "${location.site.label} could not be loaded. Try Paste list." }
+            val bytes = response.bodyAsChannel().readRemaining(DeckApi.MAX_BODY.toLong() + 1).readByteArray()
+            check(bytes.size <= DeckApi.MAX_BODY) { "Deck response is too large. Try Paste list." }
+            return bytes.decodeToString(throwOnInvalidSequence = true)
+        }
+        val body = read(location.endpoint, if (location.site == DeckImportSite.MTGGOLDFISH) "text/plain" else "application/json")
+        val name = if (location.site == DeckImportSite.MTGGOLDFISH) {
+            DeckUrlImport.goldfishName(read("https://www.mtggoldfish.com/deck/${location.id}", "text/html"))
+        } else null
+        DeckUrlImport.parse(location.site, body, name)
+    }
+}

@@ -374,6 +374,8 @@ format-legality validation or automated sideboarding rules.
   D-198 applies to both modes: any unresolved/ambiguous entry blocks the entire save.
   Invalid/failed import never partially changes a saved deck. The mode and target
   remain bound to the original save request; retry cannot add Merge quantities twice.
+  A successful Merge closes the import editor even if input changed during saving;
+  the accepted additive list must not be reused for a later save.
 - **Already selected lobby/game copies remain unchanged when the saved deck
   changes.** A selected deck is game-local preparation, not a live reference whose
   card list updates behind a player's back. This complements D-191: lobby edits
@@ -410,6 +412,18 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
 **text lists**, not a claim to support every tool's proprietary export.
 
 - Paste one `quantity Card Name` entry per line, such as `4 Lightning Bolt`.
+- Import has **From URL | Paste list** tabs. On the phone, From URL fetches
+  Archidekt public JSON, MTGGoldfish text plus its public page name, or Moxfield
+  public JSON, then uses the same resolution/errors/save pipeline as pasted text.
+  Keep the site's name and mainboard/sideboard; commanders enter mainboard,
+  maybeboard is omitted. Provider failures suggest **Paste list**.
+  Copied deck URLs (including share queries/fragments) select the provider;
+  `archidekt:ID`, `mtggoldfish:ID`, and `moxfield:ID` also work. A bare Moxfield
+  public ID is recognizable; ambiguous numeric IDs require the site prefix.
+  Read clipboard once when the URL tab first opens in an import session, prefill
+  only a matching supported URL/ID, and never fetch without pressing Import.
+  Drop pending URL results when the name, list, URL or tab changes; a newer import
+  supersedes an older pending response without overwriting newer input.
 - Use a paste area plus **Save**, with import errors inline in a fixed reserved
   area. There is no separate review step; after save, the deck view is the review.
 - Accept the common optional printing suffix `(SET) collector-number`, such as

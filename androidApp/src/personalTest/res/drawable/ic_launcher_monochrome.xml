@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.65" android:scaleY="0.65"
+        android:translateX="22.8" android:translateY="24">
+        <path android:fillColor="#000000" android:fillType="evenOdd"
+            android:pathData="M24,58 C14,58 8,61 5,64 C0,69 8,73 20,75 C43,80 73,77 88,71 C95,68 94,65 88,62 C84,60 79,59 73,58 C66,44 60,35 57,25 C55,18 62,12 74,12 C60,7 48,8 40,18 C30,30 29,46 24,58 Z M43,27 L46,34 L53,37 L46,40 L43,47 L40,40 L33,37 L40,34 Z" />
+    </group>
+    <!-- The T stays distinct even when Android removes the orange color. -->
+    <path android:fillColor="#000000" android:pathData="M65,62 H78 V66 H74 V79 H69 V66 H65 Z" />
+</vector>

@@ -69,6 +69,13 @@ open; button wording/placement is stage 3.
 
 ## Android support, distribution and upgrades — D-273
 
+The personal WSL test environment uses the separate `personalTest` APK:
+`org.asyncttwiz.android.test`, labelled **ATW Test**, with an orange/T-badged
+launcher icon. It coexists with production and uses only the test API/reset
+origin (`https://desktop-b2kalvm.tail27cccc.ts.net:10443`); catalog/art retain
+their normal public providers. App-private storage and Keystore remain isolated
+by Android UID; reset links use the test host and validate the full origin.
+
 **Confirmed:** initially distribute versioned **signed APK downloads**, without
 requiring Google Play. Users install updates through Android's normal installer;
 there is no custom in-app updater requirement. GitHub Releases is an example host,

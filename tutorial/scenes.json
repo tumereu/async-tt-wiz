@@ -63,55 +63,30 @@
     {
      "text": "Async Tabletop Wizards is a shared card-wizarding table for two.",
      "media": {
-      "src": "clips/test.mp4",
-      "from": 1,
-      "to": 11
+      "src": "shots/c3-table-a.png"
      }
     },
     {
      "text": "It's a simulated table, not a rules engine: you move the cards, and you and your opponent decide what the rules say.",
-     "marks": [
-      {
-       "type": "circle",
-       "x": 540,
-       "y": 800,
-       "r": 150
-      },
-      {
-       "type": "tap",
-       "x": 300,
-       "y": 1600,
-       "kind": "double",
-       "at": 0.5
-      },
-      {
-       "type": "arrow",
-       "x1": 200,
-       "y1": 300,
-       "x2": 800,
-       "y2": 500,
-       "at": 1
-      },
-      {
-       "type": "label",
-       "x": 540,
-       "y": 1100,
-       "text": "Stack",
-       "at": 1.2
-      }
-     ],
-     "zoom": {
-      "x": 200,
-      "y": 600,
-      "w": 700,
-      "h": 900
+     "media": {
+      "src": "clips/c4-hand.mp4",
+      "from": 1.5,
+      "to": 9.7
      }
     },
     {
-     "text": "Everything you do is saved and synced. Your opponent sees it played back when they open the game, so you do not need to be present at the same time to play, and games can be played over a long time period."
+     "text": "Everything you do is saved and synced. Your opponent sees it played back when they open the game, so you do not need to be present at the same time to play, and games can be played over a long time period.",
+     "media": {
+      "src": "clips/c9-catchup-a.mp4",
+      "from": 2,
+      "to": 19
+     }
     },
     {
-     "text": "The base setup is cooperative: any player can change anything on the table, and every action can be traced and undone."
+     "text": "The base setup is cooperative: any player can change anything on the table, and every action can be traced and undone.",
+     "media": {
+      "src": "shots/c9-tree3.png"
+     }
     }
    ]
   },
@@ -128,14 +103,52 @@
     {
      "text": "Install the app and create an account.",
      "media": {
-      "src": "shots/placeholder.png"
-     }
+      "src": "clips/c1-register.mp4",
+      "from": 0,
+      "to": 16,
+      "rate": 3
+     },
+     "hold": 5.4
     },
     {
-     "text": "On first launch the app downloads and imports the card catalog."
+     "text": "On first launch the app downloads and imports the card catalog.",
+     "media": {
+      "src": "clips/c1-onboard.mp4",
+      "from": 1.5,
+      "to": 9
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 30,
+       "y": 760,
+       "w": 1020,
+       "h": 760,
+       "at": 0.3,
+       "until": 2.6
+      }
+     ],
+     "hold": 5.5
     },
     {
-     "text": "The main menu has your games, pods for drafting, decks, and settings."
+     "text": "The main menu has your games, pods for drafting, decks, and settings.",
+     "media": {
+      "src": "clips/c1-avatar.mp4",
+      "from": 6,
+      "to": 22,
+      "rate": 2
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 40,
+       "y": 630,
+       "w": 1010,
+       "h": 1180,
+       "at": 5.0
+      }
+     ],
+     "hold": 8.2
     },
     {
      "text": "When there's a new version, the app asks you to update before you can play."
@@ -156,14 +169,53 @@
      "text": "To add a deck, paste a decklist or an Archidekt link.",
      "say": "To add a deck, paste a decklist or an [Archidekt](/ˈɑɹkɪdɛkt/) link.",
      "media": {
-      "src": "shots/placeholder.png"
-     }
+      "src": "clips/c2-import.mp4",
+      "from": 0,
+      "to": 27,
+      "rate": 4
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 20,
+       "y": 150,
+       "w": 1040,
+       "h": 120,
+       "at": 0.2,
+       "until": 2.0
+      }
+     ],
+     "hold": 6.8
     },
     {
-     "text": "To start a game, choose an opponent."
+     "text": "To start a game, choose an opponent.",
+     "media": {
+      "src": "clips/c2-newgame.mp4",
+      "from": 2,
+      "to": 33,
+      "rate": 4
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 975,
+       "y": 536,
+       "r": 70,
+       "at": 4.6,
+       "until": 6.5
+      }
+     ],
+     "hold": 7.8
     },
     {
-     "text": "Game starts after both players have picked a deck in the lobby, adjusted the sideboard, and pressed Ready."
+     "text": "Game starts after both players have picked a deck in the lobby, adjusted the sideboard, and pressed Ready.",
+     "media": {
+      "src": "clips/c2-newgame.mp4",
+      "from": 33,
+      "to": 72,
+      "rate": 4
+     },
+     "hold": 9.8
     }
    ]
   },
@@ -180,26 +232,158 @@
     {
      "text": "Your side is at the bottom. Lands go in the row nearest you, everything else above them.",
      "media": {
-      "src": "shots/placeholder.png"
-     }
+      "src": "shots/c3-table-a.png"
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 15,
+       "y": 1475,
+       "w": 1050,
+       "h": 160,
+       "at": 2.2
+      },
+      {
+       "type": "label",
+       "x": 1050,
+       "y": 1460,
+       "text": "Lands",
+       "at": 2.2,
+       "anchor": "end"
+      },
+      {
+       "type": "rect",
+       "x": 15,
+       "y": 1120,
+       "w": 1050,
+       "h": 345,
+       "at": 3.6
+      },
+      {
+       "type": "label",
+       "x": 1050,
+       "y": 1105,
+       "text": "Everything else",
+       "at": 3.6,
+       "anchor": "end"
+      }
+     ]
     },
     {
-     "text": "Your hand, library, graveyard and exile are along your edge."
+     "text": "Your hand, library, graveyard and exile are along your edge.",
+     "marks": [
+      {
+       "type": "rect",
+       "x": 15,
+       "y": 1655,
+       "w": 1050,
+       "h": 175,
+       "at": 0.3
+      },
+      {
+       "type": "label",
+       "x": 1050,
+       "y": 1640,
+       "text": "Hand",
+       "at": 0.3,
+       "anchor": "end"
+      },
+      {
+       "type": "rect",
+       "x": 150,
+       "y": 1875,
+       "w": 470,
+       "h": 150,
+       "at": 1.5
+      }
+     ]
     },
     {
-     "text": "The purple area is the Stack."
+     "text": "The purple area is the Stack.",
+     "marks": [
+      {
+       "type": "circle",
+       "x": 935,
+       "y": 1115,
+       "r": 140,
+       "at": 0.3
+      }
+     ]
     },
     {
      "text": "Two different things are shown: whose turn it is and whose move it is."
     },
     {
-     "text": "The turn player's battlefield is tinted."
+     "text": "The turn player's battlefield is tinted.",
+     "marks": [
+      {
+       "type": "rect",
+       "x": 15,
+       "y": 1110,
+       "w": 1050,
+       "h": 560,
+       "at": 0.3
+      }
+     ]
     },
     {
-     "text": "The top and bottom bars take the color of whoever has the move, and the pill at the top says \"Your move\" or \"Waiting\"."
+     "text": "The top and bottom bars take the color of whoever has the move, and the pill at the top says \"Your move\" or \"Waiting\".",
+     "marks": [
+      {
+       "type": "rect",
+       "x": 5,
+       "y": 5,
+       "w": 1070,
+       "h": 120,
+       "at": 0.3,
+       "until": 4.0
+      },
+      {
+       "type": "rect",
+       "x": 5,
+       "y": 2200,
+       "w": 1070,
+       "h": 135,
+       "at": 0.3,
+       "until": 4.0
+      },
+      {
+       "type": "circle",
+       "x": 236,
+       "y": 83,
+       "r": 120,
+       "at": 4.2
+      }
+     ]
     },
     {
-     "text": "At the bottom: the step button, quick actions for this step, and a strip showing the most recent events."
+     "text": "At the bottom: the step button, quick actions for this step, and a strip showing the most recent events.",
+     "marks": [
+      {
+       "type": "rect",
+       "x": 880,
+       "y": 2200,
+       "w": 195,
+       "h": 135,
+       "at": 0.6
+      },
+      {
+       "type": "rect",
+       "x": 160,
+       "y": 2200,
+       "w": 715,
+       "h": 135,
+       "at": 2.2
+      },
+      {
+       "type": "rect",
+       "x": 5,
+       "y": 2090,
+       "w": 1070,
+       "h": 85,
+       "at": 3.8
+      }
+     ]
     }
    ]
   },
@@ -216,35 +400,120 @@
     {
      "text": "Drag a card to put it anywhere.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c4-drag.mp4",
+      "from": 1.5,
+      "to": 6
+     },
+     "hold": 4.5
+    },
+    {
+     "text": "Tap a card to open its menu. Swipe or use the arrows to change pages: everyday actions, counters, and more.",
+     "media": {
+      "src": "clips/c4-menu.mp4",
+      "from": 2,
+      "to": 19,
+      "rate": 1.8
+     },
+     "hold": 9.4
+    },
+    {
+     "text": "Double tap a permanent to tap or untap it.",
+     "media": {
+      "src": "clips/c4-tap.mp4",
+      "from": 2,
+      "to": 8
+     },
+     "hold": 6,
+     "zoom": {
+      "x": 0,
+      "y": 1100,
+      "w": 1080,
+      "h": 1170
      }
     },
     {
-     "text": "Tap a card to open its menu. Swipe or use the arrows to change pages: everyday actions, counters, and more."
+     "text": "In your hand, double tap plays the card: a land goes to your land row, permanents to the battlefield and other spells to the Stack.",
+     "media": {
+      "src": "clips/c4-hand.mp4",
+      "from": 2,
+      "to": 9.7
+     },
+     "hold": 8.5,
+     "zoom": null
     },
     {
-     "text": "Double tap a permanent to tap or untap it."
+     "text": "Hold any card to inspect it.",
+     "media": {
+      "src": "clips/c4-inspect.mp4",
+      "from": 2,
+      "to": 7.5
+     },
+     "hold": 5.5
     },
     {
-     "text": "In your hand, double tap plays the card: a land goes to your land row, permanents to the battlefield and other spells to the Stack."
+     "text": "Double tap your library to draw. Tap it for more actions.",
+     "media": {
+      "src": "clips/c4-library.mp4",
+      "from": 2,
+      "to": 10.7
+     },
+     "hold": 8.7
     },
     {
-     "text": "Hold any card to inspect it."
+     "text": "Drag on your life total or a counter to change it.",
+     "media": {
+      "src": "clips/c4-life.mp4",
+      "from": 1.5,
+      "to": 6.7
+     },
+     "hold": 5.2,
+     "zoom": {
+      "x": 0,
+      "y": 1380,
+      "w": 1080,
+      "h": 960
+     }
     },
     {
-     "text": "Double tap your library to draw. Tap it for more actions."
+     "text": "Pinch to zoom, two-finger drag or double-tap-drag to pan.",
+     "media": {
+      "src": "clips/c4-zoom.mp4",
+      "from": 2,
+      "to": 14.5,
+      "rate": 1.4
+     },
+     "hold": 8.9,
+     "zoom": null
     },
     {
-     "text": "Drag on your life total or a counter to change it."
+     "text": "Drag to select multiple cards to act on them all at once.",
+     "media": {
+      "src": "clips/c4-select.mp4",
+      "from": 2,
+      "to": 15,
+      "rate": 1.5
+     },
+     "hold": 8.7
     },
     {
-     "text": "Pinch to zoom, two-finger drag or double-tap-drag to pan."
-    },
-    {
-     "text": "Drag to select multiple cards to act on them all at once."
-    },
-    {
-     "text": "You can also use the multiselect mode to make multiselections."
+     "text": "You can also use the multiselect mode to make multiselections.",
+     "media": {
+      "src": "clips/c4-multiselect.mp4",
+      "from": 2.5,
+      "to": 14,
+      "rate": 1.4
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 980,
+       "y": 1563,
+       "r": 75,
+       "at": 0.6,
+       "until": 2.5
+      }
+     ],
+     "hold": 8.2
     }
    ]
   },
@@ -261,14 +530,85 @@
     {
      "text": "The step button moves the game to the next step, hold it to end the turn.",
      "media": {
-      "src": "shots/placeholder.png"
-     }
+      "src": "clips/c5-endturn-a.mp4",
+      "from": 1.5,
+      "to": 7.8
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 880,
+       "y": 2200,
+       "w": 195,
+       "h": 135,
+       "at": 0.4
+      }
+     ],
+     "hold": 6.3
     },
     {
-     "text": "Quick actions cover the common things in each step, like \"Untap, draw\" at the start of your turn."
-    },
+     "text": "Quick actions cover the common things in each step, like \"Untap, draw\" at the start of your turn.",
+     "media": {
+      "src": "clips/c5-turn-a.mp4",
+      "from": 2,
+      "to": 9
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 160,
+       "y": 2200,
+       "w": 715,
+       "h": 135,
+       "at": 0.3
+      }
+     ],
+     "hold": 7
+    }
+   ]
+  },
+  {
+   "id": "c5-move",
+   "chapter": 5,
+   "layout": "two-phones",
+   "devices": [
+    "You",
+    "Opponent"
+   ],
+   "lines": [
     {
-     "text": "Passing the move is how you tell your opponent it's their turn to act."
+     "text": "Passing the move is how you tell your opponent it's their turn to act.",
+     "media": [
+      {
+       "src": "clips/c5-turn-a.mp4",
+       "from": 10.5,
+       "to": 22.9
+      },
+      {
+       "src": "clips/c5-turn-b.mp4",
+       "from": 10.1,
+       "to": 22.5
+      }
+     ],
+     "marks": [
+      {
+       "type": "circle",
+       "x": 236,
+       "y": 83,
+       "r": 120,
+       "at": 1.7,
+       "device": 0
+      },
+      {
+       "type": "circle",
+       "x": 236,
+       "y": 83,
+       "r": 120,
+       "at": 2.2,
+       "device": 1
+      }
+     ],
+     "hold": 6
     },
     {
      "text": "Turn and move tracking is informative: it may affect shown quick actions, but all actions are always available via some menu."
@@ -288,35 +628,173 @@
     {
      "text": "Spells and abilities go on the Stack, the purple area. Double tap a spell in your hand or drag it there.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c6-cast-a.mp4",
+      "from": 2,
+      "to": 10
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 935,
+       "y": 1115,
+       "r": 140,
+       "at": 3.0
+      }
+     ]
+    },
+    {
+     "text": "For an ability, choose Stack from the card's menu.",
+     "media": {
+      "src": "clips/c6-ability.mp4",
+      "from": 12.5,
+      "to": 21
+     },
+     "hold": 6
+    },
+    {
+     "text": "The Stack holds linked copies, so the real card stays where it is. A card cast from your hand is shown to both players while it's on the Stack.",
+     "media": {
+      "src": "clips/c6-cast-b.mp4",
+      "from": 3,
+      "to": 15
      }
     },
     {
-     "text": "For an ability, choose Stack from the card's menu."
+     "text": "Tap the top of the Stack for its bubbles. Battlefield and Graveyard resolve it: the copy leaves the Stack and the real card moves there.",
+     "media": {
+      "src": "shots/c6-bubbles.png"
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 994,
+       "y": 976,
+       "r": 60,
+       "at": 2.6
+      },
+      {
+       "type": "label",
+       "x": 930,
+       "y": 960,
+       "text": "Battlefield",
+       "at": 2.6,
+       "anchor": "end"
+      },
+      {
+       "type": "circle",
+       "x": 994,
+       "y": 1365,
+       "r": 60,
+       "at": 4.0
+      },
+      {
+       "type": "label",
+       "x": 930,
+       "y": 1460,
+       "text": "Graveyard",
+       "at": 4.0,
+       "anchor": "end"
+      }
+     ],
+     "zoom": {
+      "x": 300,
+      "y": 700,
+      "w": 780,
+      "h": 900
+     }
     },
     {
-     "text": "The Stack holds linked copies, so the real card stays where it is. A card cast from your hand is shown to both players while it's on the Stack."
+     "text": "Exile does the same to exile. Remove only takes the copy off the Stack, which is what you want when an ability resolves.",
+     "marks": [
+      {
+       "type": "circle",
+       "x": 844,
+       "y": 1365,
+       "r": 60,
+       "at": 0.3
+      },
+      {
+       "type": "label",
+       "x": 780,
+       "y": 1460,
+       "text": "Exile",
+       "at": 0.3,
+       "anchor": "end"
+      },
+      {
+       "type": "circle",
+       "x": 844,
+       "y": 976,
+       "r": 60,
+       "at": 2.6
+      },
+      {
+       "type": "label",
+       "x": 780,
+       "y": 900,
+       "text": "Remove",
+       "at": 2.6,
+       "anchor": "end"
+      }
+     ]
     },
     {
-     "text": "Tap the top of the Stack for its bubbles. Battlefield and Graveyard resolve it: the copy leaves the Stack and the real card moves there."
+     "text": "Drag the side handle up or down to mark which part of the text you're using: a mode, an ability, or one half of a split card. Your opponent sees the mark.",
+     "media": {
+      "src": "clips/c6-cast-a.mp4",
+      "from": 13.5,
+      "to": 23
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 843,
+       "y": 1170,
+       "r": 60,
+       "at": 0.3,
+       "until": 2.0
+      }
+     ],
+     "hold": 10.6
     },
     {
-     "text": "Exile does the same to exile. Remove only takes the copy off the Stack, which is what you want when an ability resolves."
+     "text": "To respond, put your own card on top and pass the move.",
+     "media": {
+      "src": "clips/c6-cast-b.mp4",
+      "from": 40,
+      "to": 49
+     },
+     "hold": 7,
+     "zoom": null
     },
     {
-     "text": "Drag the side handle up or down to mark which part of the text you're using: a mode, an ability, or one half of a split card. Your opponent sees the mark."
+     "text": "Resolve from the top down; after each one, the next card's bubbles open by themselves.",
+     "media": {
+      "src": "clips/c6-resolve.mp4",
+      "from": 1.5,
+      "to": 14
+     },
+     "hold": 7.5
     },
     {
-     "text": "To respond, put your own card on top and pass the move."
+     "text": "Double tap the Stack to see every entry, remove one from the middle, or copy one.",
+     "media": {
+      "src": "clips/c6-manage.mp4",
+      "from": 2,
+      "to": 31,
+      "rate": 3
+     },
+     "hold": 9.8
     },
     {
-     "text": "Resolve from the top down; after each one, the next card's bubbles open by themselves."
-    },
-    {
-     "text": "Double tap the Stack to see every entry, remove one from the middle, or copy one."
-    },
-    {
-     "text": "Tap \"Ping\" on any card to point at it, for example to show a target."
+     "text": "Tap \"Ping\" on any card to point at it, for example to show a target.",
+     "media": {
+      "src": "clips/c6-ability.mp4",
+      "from": 26,
+      "to": 37,
+      "rate": 1.5
+     },
+     "hold": 7.4
     }
    ]
   },
@@ -333,26 +811,97 @@
     {
      "text": "Combat happens in its own area in the middle of the table.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c7-attack-a.mp4",
+      "from": 2,
+      "to": 7
      }
     },
     {
-     "text": "Press Select attackers, pick your creatures, and declare them. Like on the Stack, these are linked copies; the real cards stay in place."
+     "text": "Press Select attackers, pick your creatures, and declare them. Like on the Stack, these are linked copies; the real cards stay in place.",
+     "media": {
+      "src": "clips/c7-attack-a.mp4",
+      "from": 3,
+      "to": 16
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 160,
+       "y": 2200,
+       "w": 360,
+       "h": 135,
+       "at": 0.4,
+       "until": 2.6
+      }
+     ],
+     "hold": 9
     },
     {
-     "text": "Each attacker sits in a lane that shows what it's attacking. By default that's your opponent."
+     "text": "Each attacker sits in a lane that shows what it's attacking. By default that's your opponent.",
+     "media": {
+      "src": "clips/c7-attack-a.mp4",
+      "from": 16,
+      "to": 20
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 300,
+       "y": 880,
+       "w": 400,
+       "h": 120,
+       "at": 0.4
+      }
+     ]
     },
     {
-     "text": "To attack a planeswalker or a battle, tap the attacker, choose Attack, and pick the card. It moves into a new lane labeled with that target."
+     "text": "To attack a planeswalker or a battle, tap the attacker, choose Attack, and pick the card. It moves into a new lane labeled with that target.",
+     "media": {
+      "src": "clips/c7-attack-a.mp4",
+      "from": 19.5,
+      "to": 39,
+      "rate": 1.8
+     },
+     "hold": 10.8
     },
     {
-     "text": "You can also drag an attacker from one lane to another."
+     "text": "You can also drag an attacker from one lane to another.",
+     "media": {
+      "src": "clips/c7-attack-a.mp4",
+      "from": 41.5,
+      "to": 48
+     },
+     "hold": 5.5
     },
     {
-     "text": "When the game moves to blockers, the move passes to the defender. They drag their creatures below the attackers they block."
+     "text": "When the game moves to blockers, the move passes to the defender. They drag their creatures onto the attackers they block.",
+     "media": {
+      "src": "clips/c7-block-b.mp4",
+      "from": 0.5,
+      "to": 52,
+      "rate": 6
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 236,
+       "y": 83,
+       "r": 120,
+       "at": 0.3,
+       "until": 2.5
+      }
+     ],
+     "hold": 8.6
     },
     {
-     "text": "Damage is up to you: mark it on creatures, lower life totals, and lower a planeswalker's loyalty, the number in its corner. Then close the combat."
+     "text": "Damage is up to you: mark it on creatures, lower life totals, and lower a planeswalker's loyalty, the number in its corner. Then close the combat.",
+     "media": {
+      "src": "clips/c7-damage-a.mp4",
+      "from": 21.5,
+      "to": 33,
+      "rate": 1.2
+     },
+     "hold": 10.5
     }
    ]
   },
@@ -369,17 +918,57 @@
     {
      "text": "Search, Look and Reveal open a panel on the left side. Drag cards out, or tap them for quick moves.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c8-search.mp4",
+      "from": 1.5,
+      "to": 18.5,
+      "rate": 1.6
      }
     },
     {
      "text": "Closing a search shuffles your library."
-    },
+    }
+   ]
+  },
+  {
+   "id": "c8-reveal",
+   "chapter": 8,
+   "layout": "two-phones",
+   "devices": [
+    "You",
+    "Opponent"
+   ],
+   "lines": [
     {
-     "text": "Reveals show to both players; looking and searching are private."
-    },
+     "text": "Reveals show to both players; looking and searching are private.",
+     "media": [
+      {
+       "src": "clips/c8-look-a.mp4",
+       "from": 7,
+       "to": 21
+      },
+      {
+       "src": "clips/c8-look-b.mp4",
+       "from": 6.7,
+       "to": 20.7
+      }
+     ],
+     "hold": 11
+    }
+   ]
+  },
+  {
+   "id": "c8-tokens",
+   "chapter": 8,
+   "lines": [
     {
-     "text": "Tokens come from the table actions menu, and you can favorite the ones you use often."
+     "text": "Tokens come from the table actions menu, and you can favorite the ones you use often.",
+     "media": {
+      "src": "clips/c8-tokens.mp4",
+      "from": 2,
+      "to": 32.5,
+      "rate": 3.3
+     },
+     "hold": 9.4
     }
    ]
   },
@@ -396,20 +985,103 @@
     {
      "text": "Every action is recorded.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "shots/c3-table-a.png"
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 5,
+       "y": 2090,
+       "w": 1070,
+       "h": 85,
+       "at": 0.3
+      }
+     ]
+    },
+    {
+     "text": "When you open a game, the app plays back what your opponent did since you last looked, so you see what happened instead of only where things ended up.",
+     "media": {
+      "src": "clips/c9-catchup-a.mp4",
+      "from": 1,
+      "to": 18
      }
     },
     {
-     "text": "When you open a game, the app plays back what your opponent did since you last looked, so you see what happened instead of only where things ended up."
+     "text": "Playback pauses on important moments, like a spell going on the Stack or a reveal.",
+     "media": {
+      "src": "clips/c9-catchup-a.mp4",
+      "from": 15.5,
+      "to": 22
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 985,
+       "y": 1170,
+       "r": 140,
+       "at": 3.0
+      },
+      {
+       "type": "rect",
+       "x": 140,
+       "y": 2200,
+       "w": 800,
+       "h": 135,
+       "at": 3.0
+      }
+     ],
+     "hold": 6
     },
     {
-     "text": "Playback pauses on important moments, like a spell going on the Stack or a reveal. You choose which moments in Settings."
+     "text": "You choose which moments in Settings.",
+     "media": {
+      "src": "shots/c9-settings.png"
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 20,
+       "y": 540,
+       "w": 1040,
+       "h": 1230,
+       "at": 0.4
+      }
+     ]
     },
     {
-     "text": "Tap the timeline button to enter timeline mode. Step back and forth through events, or let it run automatically. Hold a card at any point to read it."
+     "text": "Tap the timeline button to enter timeline mode. Step back and forth through events, or let it run automatically. Hold a card at any point to read it.",
+     "media": {
+      "src": "clips/c9-branch-a.mp4",
+      "from": 1.5,
+      "to": 16
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 84,
+       "y": 2267,
+       "r": 75,
+       "at": 1.5
+      }
+     ]
     },
     {
-     "text": "Made a mistake? Undo takes back your latest action."
+     "text": "Made a mistake? Undo takes back your latest action.",
+     "media": {
+      "src": "clips/c9-undo.mp4",
+      "from": 1.5,
+      "to": 10.5
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 89,
+       "y": 2267,
+       "r": 75,
+       "at": 3.0
+      }
+     ],
+     "hold": 6
     },
     {
      "text": "That only works while your opponent's later actions would still play out exactly the same. If undoing would change what they did, the app refuses, and you fix things by hand."
@@ -429,12 +1101,15 @@
      "text": "Branching is for \"wait, I wanted to respond to that.\"",
      "media": [
       {
-       "src": "clips/test.mp4",
-       "from": 0,
-       "to": 10
+       "src": "clips/c9-catchup-a.mp4",
+       "from": 2,
+       "to": 34
       },
       {
-       "src": "shots/placeholder.png"
+       "src": "clips/c9-turn1-b.mp4",
+       "from": 2,
+       "to": 79,
+       "rate": 4
       }
      ]
     },
@@ -445,16 +1120,124 @@
      "text": "You wanted to Shock that creature at the start of their turn, before all of that."
     },
     {
-     "text": "Step back in the timeline to their upkeep, choose Continue from here, and cast Shock. That starts a new branch, and it becomes the game."
+     "text": "Step back in the timeline to their upkeep, choose Continue from here, and cast Shock. That starts a new branch, and it becomes the game.",
+     "media": [
+      {
+       "src": "clips/c9-branch-a.mp4",
+       "from": 2,
+       "to": 38,
+       "rate": 3.4
+      },
+      {
+       "src": "clips/c9-branch-b.mp4",
+       "from": 3,
+       "to": 62,
+       "rate": 5.6
+      }
+     ],
+     "marks": [
+      {
+       "type": "circle",
+       "x": 722,
+       "y": 63,
+       "r": 70,
+       "at": 4.4,
+       "until": 6.5,
+       "device": 0
+      }
+     ],
+     "hold": 10.8
     },
     {
-     "text": "Nothing is lost. The old line still exists in the game tree."
+     "text": "Nothing is lost. The old line still exists in the game tree.",
+     "media": [
+      {
+       "src": "shots/c9-tree.png"
+      },
+      {
+       "src": "clips/c9-branch-b.mp4",
+       "from": 62,
+       "to": 66
+      }
+     ],
+     "marks": [
+      {
+       "type": "rect",
+       "x": 20,
+       "y": 980,
+       "w": 870,
+       "h": 280,
+       "at": 0.4,
+       "device": 0
+      }
+     ]
     },
     {
-     "text": "On your opponent's phone, the game shows \"Opponent branched\", rewinds to where you went back, and plays your Shock. Now they play their turn again."
-    },
+     "text": "On your opponent's phone, the game shows \"Opponent branched\", rewinds to where you went back, and plays your Shock. Now they play their turn again.",
+     "media": [
+      {
+       "src": "shots/c9-tree3.png"
+      },
+      {
+       "src": "clips/c9-branched-b.mp4",
+       "from": 1.5,
+       "to": 25,
+       "rate": 2.2
+      }
+     ],
+     "marks": [
+      {
+       "type": "rect",
+       "x": 310,
+       "y": 2070,
+       "w": 460,
+       "h": 100,
+       "at": 0.8,
+       "until": 3.5,
+       "device": 1
+      }
+     ],
+     "hold": 10.7
+    }
+   ]
+  },
+  {
+   "id": "c9-opt",
+   "chapter": 9,
+   "layout": "two-phones",
+   "devices": [
+    "Old line",
+    "New line"
+   ],
+   "lines": [
     {
-     "text": "When they cast Opt this time, they probably see a different card."
+     "text": "When they cast Opt this time, they probably see a different card.",
+     "media": [
+      {
+       "src": "shots/c9-opt1.png"
+      },
+      {
+       "src": "shots/c9-opt2.png"
+      }
+     ],
+     "marks": [
+      {
+       "type": "circle",
+       "x": 70,
+       "y": 700,
+       "r": 120,
+       "at": 0.8,
+       "device": 0
+      },
+      {
+       "type": "circle",
+       "x": 70,
+       "y": 700,
+       "r": 120,
+       "at": 0.8,
+       "device": 1
+      }
+     ]
     },
     {
      "text": "A new branch reshuffles every library card whose position nobody knows. What your opponent saw in the old line tells them nothing about the new one."
@@ -474,11 +1257,25 @@
     {
      "text": "A tip that follows from this: when your spell would reveal cards from your opponent's hand or a face-down card, don't look yourself. Cast it and pass the move.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c9-tip-a.mp4",
+      "from": 2,
+      "to": 10.2
      }
     },
     {
-     "text": "Your opponent gets the chance to respond first. And if they go back to respond, you haven't already seen their cards."
+     "text": "Your opponent gets the chance to respond first. And if they go back to respond, you haven't already seen their cards.",
+     "media": {
+      "src": "shots/c9-tip-b.png"
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 236,
+       "y": 83,
+       "r": 120,
+       "at": 0.4
+      }
+     ]
     }
    ]
   },
@@ -495,23 +1292,109 @@
     {
      "text": "Pods are for drafting together. Create one from a cube, for example a Cube Cobra link, or from a set's boosters.",
      "media": {
-      "src": "shots/placeholder.png"
+      "src": "clips/c10-cube.mp4",
+      "from": 2,
+      "to": 28,
+      "rate": 3
+     },
+     "hold": 8.7
+    },
+    {
+     "text": "Choose a format: classic boosters, Glimpse, or Grid. Then invite the other players.",
+     "media": {
+      "src": "clips/c10-pod.mp4",
+      "from": 2,
+      "to": 58.5,
+      "rate": 6
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 20,
+       "y": 560,
+       "w": 660,
+       "h": 100,
+       "at": 0.3,
+       "until": 2.0
+      }
+     ],
+     "hold": 9.4
+    },
+    {
+     "text": "All packs open at once, so nobody waits for a pack to be passed.",
+     "media": {
+      "src": "clips/c10-start.mp4",
+      "from": 2,
+      "to": 14.5
      }
     },
     {
-     "text": "Choose a format: classic boosters, Glimpse, or Grid. Then invite the other players."
+     "text": "To pick, swipe a card right to keep it or left to burn it, then confirm. Hold a card to see it big.",
+     "media": {
+      "src": "clips/c10-pick.mp4",
+      "from": 2,
+      "to": 21,
+      "rate": 1.4
+     },
+     "hold": 13.6
     },
     {
-     "text": "All packs open at once, so nobody waits for a pack to be passed."
+     "text": "If the pod has Cogwork Librarians, tap the book to keep one extra card from that pack.",
+     "media": {
+      "src": "clips/c10-pick2.mp4",
+      "from": 1.5,
+      "to": 15.4
+     },
+     "marks": [
+      {
+       "type": "circle",
+       "x": 330,
+       "y": 2141,
+       "r": 75,
+       "at": 0.3,
+       "until": 2.5
+      }
+     ],
+     "hold": 8.3
     },
     {
-     "text": "To pick, swipe a card right to keep it or left to burn it, then confirm. Hold a card to see it big."
+     "text": "When the draft is done, build your deck: cards are sorted into columns by mana value, basic lands are added from the counters at the top, and the Stats tab shows your curve and colors.",
+     "media": {
+      "src": "clips/c10-build.mp4",
+      "from": 2,
+      "to": 31.2,
+      "rate": 2.4
+     },
+     "marks": [
+      {
+       "type": "rect",
+       "x": 120,
+       "y": 370,
+       "w": 840,
+       "h": 120,
+       "at": 4.8,
+       "until": 7.5
+      }
+     ],
+     "hold": 12.2
     },
     {
-     "text": "When the draft is done, build your deck: cards are sorted into columns by mana value, basic lands are added with one button, and the Stats tab shows your curve and colors."
+     "text": "Submit, then challenge another pod member.",
+     "media": {
+      "src": "clips/c10-submit.mp4",
+      "from": 2,
+      "to": 13,
+      "rate": 1.6
+     },
+     "hold": 6.9
     },
     {
-     "text": "Submit, then challenge another pod member. The game starts from the usual lobby."
+     "text": "The game starts from the usual lobby.",
+     "media": {
+      "src": "clips/c10-challenge.mp4",
+      "from": 1.5,
+      "to": 8
+     }
     }
    ]
   },
@@ -524,15 +1407,55 @@
   {
    "id": "c11-end",
    "chapter": 11,
+   "layout": "two-phones",
+   "devices": [
+    "You",
+    "Opponent"
+   ],
    "lines": [
     {
      "text": "When the game is over, suggest the result from Table actions.",
-     "media": {
-      "src": "shots/placeholder.png"
-     }
+     "media": [
+      {
+       "src": "clips/c11-suggest-a.mp4",
+       "from": 2,
+       "to": 20,
+       "rate": 1.5
+      },
+      {
+       "src": "clips/c11-suggest-b.mp4",
+       "from": 1.7,
+       "to": 19.7,
+       "rate": 1.5
+      }
+     ],
+     "hold": 12
     },
     {
-     "text": "Your opponent accepts or declines; until then, the game waits."
+     "text": "Your opponent accepts or declines; until then, the game waits.",
+     "media": [
+      {
+       "src": "clips/c11-suggest-a.mp4",
+       "from": 20,
+       "to": 33
+      },
+      {
+       "src": "clips/c11-suggest-b.mp4",
+       "from": 19.7,
+       "to": 29.1
+      }
+     ],
+     "marks": [
+      {
+       "type": "circle",
+       "x": 614,
+       "y": 1124,
+       "r": 80,
+       "at": 0.4,
+       "device": 1
+      }
+     ],
+     "hold": 8
     }
    ]
   },

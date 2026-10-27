@@ -70,11 +70,11 @@ class Device:
     def hold(self, x, y, ms=1200):
         self._run([f"d 0 {' '.join(map(str, _raw(x, y)))}", "s", f"w {ms}", "u 0", "s"])
 
-    def drag(self, x1, y1, x2, y2, ms=700, press=120, release=80):
+    def drag(self, x1, y1, x2, y2, ms=700, press=60, release=120):
         """Finger down, rest briefly, move, rest, lift (a deliberate drag, not a fling)."""
         self.path([(x1, y1), (x2, y2)], ms=ms, press=press, release=release)
 
-    def path(self, points, ms=700, press=120, release=80):
+    def path(self, points, ms=700, press=60, release=120):
         ops = [f"d 0 {' '.join(map(str, _raw(*points[0])))}", "s", f"w {press}"]
         legs = list(zip(points, points[1:]))
         total = sum(math.dist(a, b) for a, b in legs) or 1

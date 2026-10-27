@@ -68,7 +68,7 @@ class QuickActionsTest {
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Start turn", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
             TurnPosition.UPKEEP to listOf("Draw + go to main"),
             TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Go to attacks", "Skip combat"),
@@ -129,7 +129,8 @@ class QuickActionsTest {
     }
 
     @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {
-        for ((position, name) in listOf(TurnPosition.UNTAP to "Start turn", TurnPosition.UPKEEP to "Draw + go to main")) {
+        assertEquals("Untap, draw\n→ main", quickActionLabel("Untap, draw → main"))
+        for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
             val play = TableToolFixture.play(position)
             val sent = mutableListOf<PlayAction>()
             val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())

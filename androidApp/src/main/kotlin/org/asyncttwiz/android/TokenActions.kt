@@ -110,10 +110,10 @@ class TokenChoiceIndex(choices: List<CatalogTokenChoice>) {
         val keys = favorites.keys?.toHashSet()
         val favorite = mutableListOf<CatalogTokenChoice>()
         val rest = mutableListOf<CatalogTokenChoice>()
-        for (choice in alphabetical) if (choice.identity != blank.identity) {
+        for (choice in alphabetical) {
             if (keys?.contains(choice.identity) ?: (choice.name in TokenIdentity.defaultNames)) favorite += choice else rest += choice
         }
-        return listOf(blank) + favorite + rest
+        return favorite + rest
     }
     companion object {
         private val blank = CatalogTokenChoice.from(TokenCatalog.blank)
@@ -228,20 +228,21 @@ class TokenSearchController(private val source: TokenSearchSource, private val s
 
 /** Exact retained definitions from the catalog adapter; Blank is an ordinary catalog choice. */
 object TokenActions {
-    private val blankKey = TokenIdentity.key(TokenCatalog.blank.definition)
     fun ordered(definitions: List<SubmittedDefinition>, favorites: TokenFavorites = TokenFavorites()): List<SubmittedDefinition> {
         val keys = favorites.keys?.toHashSet()
         return definitions.filter(TokenLinkRules::validDefinition).map { TokenIdentity.key(it.definition) to it }
             .distinctBy { it.first }.sortedWith(compareBy<Pair<String, SubmittedDefinition>>(
-                { (key, token) -> if (key == blankKey) 0
-                    else if (keys?.contains(key) ?: (token.definition.name in TokenIdentity.defaultNames)) 1 else 2 },
+                { (key, token) -> if (keys?.contains(key) ?: (token.definition.name in TokenIdentity.defaultNames)) 0 else 1 },
                 { it.second.definition.name.lowercase(Locale.ROOT) }, { it.first })).map { it.second }
     }
 
     fun detail(definition: CardDefinition): String = definition.faces.first().let { face ->
         listOf(face.corner.ifEmpty { if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) "${face.power}/${face.toughness}" else "" },
-            TokenIdentity.attributes(face)).filter(String::isNotBlank).joinToString(" · ")
+            face.rulesText.ifBlank { TokenIdentity.attributes(face) }).filter(String::isNotBlank).joinToString(" · ")
     }
+    /** Row zero is the land row; creation placement is lowered to ordinary recorded moves. */
+    internal fun row(definition: CardDefinition): Int =
+        if ("Land" in StackContexts.types(definition.faces.first().typeLine)) 0 else 1
     /** Uses the existing exact snapshot encoding; never re-fetches faces from a newer generation. */
     internal fun definitions(page: CatalogTokenPage): List<SubmittedDefinition> = page.tokens.map { token ->
         val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, token.faces, emptyList()).definition(page.metadata)
@@ -343,8 +344,7 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
                         CardArtwork(card.artwork.first(), "—", 80, 112, Modifier.size(40.dp * cardSize, 56.dp * cardSize).border(1.dp, MenuBorder))
                         Column(Modifier.weight(1f)) {
                             Text(definition.definition.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(search.detail(definition), style = MaterialTheme.typography.bodySmall,
-                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            CardText(search.detail(definition), style = MaterialTheme.typography.bodySmall, maxLines = 2)
                         }
                         IconToggleButton(checked = favorite,
                             enabled = enabled && favoritesReady && !search.loading && !saving &&

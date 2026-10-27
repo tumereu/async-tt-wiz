@@ -87,9 +87,10 @@ internal fun TurnStepIcon(turn: TurnState) {
 
 @Composable
 internal fun StepIcon(position: TurnPosition?) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {}) {
-        MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(22.dp), tint = LocalContentColor.current)
-        Text(position?.let(::stepLabel) ?: "?", fontSize = 8.sp, lineHeight = 9.sp, maxLines = 2, textAlign = TextAlign.Center)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp).semantics { hideFromAccessibility() }) {
+        MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(20.dp), tint = LocalContentColor.current)
+        Text(position?.let(::stepLabel) ?: "?", Modifier.fillMaxWidth(), fontSize = 9.sp, lineHeight = 10.sp, letterSpacing = 0.sp,
+            maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 

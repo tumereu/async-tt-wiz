@@ -118,7 +118,7 @@ class TableControlsInteractionTest {
         assertEquals(0f, end.left)
         assertEquals(end.right + 4f, next.left)
         assertEquals(412f, next.right)
-        assertEquals(120f, next.width)
+        assertEquals(72f, next.width)
     }
 
     @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {

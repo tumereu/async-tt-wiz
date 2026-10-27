@@ -86,7 +86,10 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         val file = activeFile() ?: return@synchronized
         CatalogIndex(openDriver(file)).use { index ->
             index.prepareTokenSearch()
-            if (!index.hasTokenChoices()) index.transaction { index.rebuildTokenChoices(index.metadata()) }
+            if (!index.hasTokenChoices()) {
+                index.transaction { index.rebuildTokenChoices(index.metadata()) }
+                tokenCache.list = null
+            }
         }
     }
 
@@ -290,7 +293,10 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("INSERT INTO metadata VALUES (?, ?, ?, ?)", listOf(meta.date, meta.version, meta.checksum, meta.records.toString()))
     }
 
-    internal fun hasTokenChoices(): Boolean = long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice')") != 0L
+    internal fun hasTokenChoices(): Boolean =
+        long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice')") != 0L &&
+            long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice_ready')") != 0L &&
+            long("SELECT count(*) FROM token_choice_ready WHERE version=2") == 1L
 
     /** Rebuilt on the unpublished generation, in the transaction that commits its metadata. */
     internal fun rebuildTokenChoices(meta: CatalogMetadata): List<CatalogTokenChoice> {
@@ -326,6 +332,9 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             sql("INSERT INTO token_choice VALUES (?,?,?,?,?,?,?)", listOf(key, choice.identity, choice.name, choice.detail,
                 DeckJson.format.encodeToString(choice.searchNames), DeckJson.format.encodeToString(choice.submitted.definition), choice.submitted.digest))
         }
+        sql("CREATE TABLE IF NOT EXISTS token_choice_ready (version INTEGER NOT NULL)")
+        sql("DELETE FROM token_choice_ready")
+        sql("INSERT INTO token_choice_ready VALUES (2)")
         return distinct.values.map { it.choice }.sortedWith(compareBy({ it.name.lowercase(Locale.ROOT) }, { it.identity }))
     }
 

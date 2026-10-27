@@ -185,6 +185,8 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
 }
 
 internal val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
+/** The smaller special-pile bubble straddles the card's top-left corner in either layout. */
+internal val TableItem.pileCountBubble get() = TableBounds(bounds.x - 8f, bounds.y - 8f, 16f, 16f)
 internal val TableScene.columnPitch get() = TablePresentation.COLUMN_PITCH * cardWidth / 28f
 internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bounds.center) }) bounds.center
     else visible.maxByOrNull { it.width * it.height }?.center

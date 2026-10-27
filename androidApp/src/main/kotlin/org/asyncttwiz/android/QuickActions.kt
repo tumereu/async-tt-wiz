@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
@@ -49,7 +50,7 @@ object QuickActions {
             TurnPosition.UNTAP -> {
                 add("Untap all", "↶", controller.untap(play, false))
                 add("Untap all + next", "↶", controller.untap(play, true), "↦")
-                add("Start turn", "", bundle(controller.untap(play, false), controller.draw(play, false),
+                add("Untap, draw → main", "", bundle(controller.untap(play, false), controller.draw(play, false),
                     choose(TurnPosition.PRECOMBAT_MAIN)))
                 if (play.board.turn.number == "1") {
                     add("Return Hand → Shuffle → Draw N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N), "↓")
@@ -139,15 +140,15 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 76.dp else 120.dp).shadow(3.dp, AdvanceArrowShape)
+            ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
                 .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
                 fill = style.fill, ink = style.ink, compactContent = true,
                 holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
                 gestureKey = scope,
-                icon = { Row(Modifier.padding(start = 6.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                icon = { Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     MenuIcon(nextStep(play.board.turn)?.label ?: "End turn", Modifier.size(20.dp), tint = LocalContentColor.current)
-                    Text(nextStepLabel(play.board.turn, compact), fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
+                    Text(nextLabel, Modifier.fillMaxWidth(), fontSize = 10.sp, lineHeight = 12.sp, letterSpacing = 0.sp,
+                        maxLines = 2, textAlign = TextAlign.Center)
                 } },
                 onClick = { perform(TableActionIntent.Next(scope)) })
         }
@@ -165,6 +166,7 @@ internal val AdvanceArrowShape = GenericShape { size, _ ->
 }
 
 internal fun quickActionLabel(name: String) = when (name) {
+    "Untap, draw → main" -> "Untap, draw\n→ main"
     "Untap all + next" -> "Untap + next"
     "Return Hand → Shuffle → Draw N" -> "Mulligan N"
     "Return Hand → Shuffle → Draw previous Hand size −1" -> "Mulligan −1"

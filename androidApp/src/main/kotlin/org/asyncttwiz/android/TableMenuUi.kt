@@ -40,7 +40,6 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
-        n == "start turn" -> Icons.Outlined.PlayArrow
         n == "draw + go to main" -> Icons.Outlined.Download
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward
@@ -76,10 +75,11 @@ internal fun menuIcon(name: String): ImageVector {
         "remove token" in n -> Icons.Outlined.DeleteOutline
         "untap" in n -> Icons.Outlined.Rotate90DegreesCcw
         "tap" == n || "tap selected" in n -> Icons.Outlined.Rotate90DegreesCw
-        "select" in n -> Icons.Outlined.CheckBoxOutlineBlank
+        "select" in n -> MultipleSelectionIcon
         "battlefield" in n -> Icons.Outlined.TableRows
         "shuffle" in n || "return hand" in n -> Icons.Outlined.Shuffle
-        n.startsWith("draw") || "hand" in n -> Icons.Outlined.Download
+        n.startsWith("draw") -> Icons.Outlined.Download
+        "hand" in n -> HandCardsIcon
         "choose" in n || "beginning of combat" in n || "suggest my loss" in n || n == "suggest game end" || n == "my loss" -> Icons.Outlined.Flag
         "next step" in n -> Icons.Outlined.SkipNext
         "end turn" in n || "end opponent" in n -> Icons.AutoMirrored.Outlined.LastPage
@@ -116,7 +116,7 @@ internal fun menuIcon(name: String): ImageVector {
 internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color = MenuInk) {
     if (name in listOf("Reveal+Hand", "Reveal+Top", "Battlefield tapped")) Box(modifier.size(24.dp)) {
         Icon(when (name) {
-            "Reveal+Hand" -> Icons.Outlined.BackHand
+            "Reveal+Hand" -> HandCardsIcon
             "Reveal+Top" -> Icons.Outlined.VerticalAlignTop
             else -> Icons.Outlined.CropPortrait
         }, null, Modifier.fillMaxSize().graphicsLayer { if (name == "Battlefield tapped") rotationZ = 90f }, tint = tint)

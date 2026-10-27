@@ -170,6 +170,7 @@ internal fun TableMenuPanel(onDismiss: () -> Unit, width: Dp = 384.dp, title: St
 
 @Composable
 internal fun MenuWindowDimming() {
+    TrackGameDialogInput()
     val window = (LocalView.current.parent as? DialogWindowProvider)?.window
     SideEffect { window?.setDimAmount(.28f) }
 }

@@ -27,6 +27,7 @@ internal fun MulliganDialog(controller: LibraryController, handIds: List<String>
     var input by remember(controller) { mutableStateOf(selectedLibraryQuantity(quantity.read().toString())) }
     val count = input.text.toIntOrNull()?.takeIf { it >= 0 }
     Dialog(onDismissRequest = dismiss) {
+        TrackGameDialogInput()
         Surface(shape = MaterialTheme.shapes.medium) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {

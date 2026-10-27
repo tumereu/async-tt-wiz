@@ -14,6 +14,7 @@ import org.asyncttwiz.server.generated.tables.AccountActivity.ACCOUNT_ACTIVITY a
 import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY as SUMMARY
 import org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION as INSTALL
 import org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH as PUSH
+import org.asyncttwiz.server.generated.tables.ActivityPresence.ACTIVITY_PRESENCE as PRESENCE
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
@@ -36,6 +37,31 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         catch (failure: ActivityFailure) { connection.rollback(savepoint); Result.failure<T>(failure) }
     }.getOrThrow()
     private fun account(principal: AccountService.Principal) = UUID.fromString(principal.account.accountId)
+
+    fun heartbeat(principal: AccountService.Principal, input: GamePresence) {
+        if (!DeckValidation.uuid(input.gameId) || !DeckValidation.uuid(input.presenceId)) throw ActivityFailure(400, "invalid_request")
+        transaction { sql ->
+            val owner = account(principal); val game = UUID.fromString(input.gameId); val time = now()
+            val row = sql.selectFrom(GAME).where(GAME.ID.eq(game)).forShare().fetchOne()
+            if (row == null || owner !in listOf(row.inviterId, row.recipientId)) throw ActivityFailure(404, "game_unavailable")
+            val presence = UUID.fromString(input.presenceId)
+            val old = sql.selectFrom(PRESENCE).where(PRESENCE.GAME_ID.eq(game)).and(PRESENCE.ACCOUNT_ID.eq(owner))
+                .and(PRESENCE.PRESENCE_ID.eq(presence)).fetchOne()
+            val active = input.didSomething || old == null || old.leftGame == true || !old.heartbeatAt!!.plusSeconds(15).isAfter(time)
+            sql.insertInto(PRESENCE).set(PRESENCE.GAME_ID, game).set(PRESENCE.ACCOUNT_ID, owner)
+                .set(PRESENCE.SESSION_ID, principal.sessionId).set(PRESENCE.PRESENCE_ID, presence)
+                .set(PRESENCE.HEARTBEAT_AT, time).set(PRESENCE.INPUT_AT, if (active) time else old!!.inputAt)
+                .set(PRESENCE.LEFT_GAME, input.left).onConflict(PRESENCE.GAME_ID, PRESENCE.ACCOUNT_ID, PRESENCE.PRESENCE_ID)
+                .doUpdate().set(PRESENCE.SESSION_ID, principal.sessionId).set(PRESENCE.HEARTBEAT_AT, time)
+                .set(PRESENCE.INPUT_AT, if (active) time else old!!.inputAt).set(PRESENCE.LEFT_GAME, input.left).execute()
+            if (!input.left) {
+                sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).set(SUMMARY.NEW_MESSAGE, false).where(SUMMARY.ACCOUNT_ID.eq(owner))
+                    .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
+                sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
+                    .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
+            }
+        }
+    }
 
     fun register(principal: AccountService.Principal, input: RegisterInstallation): ActivityRegistration {
         if (!ActivityWire.valid(input)) throw ActivityFailure(400, "invalid_request")
@@ -101,6 +127,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
     /** Bounded maintenance also runs without FCM or an account reopening the app. */
     fun pruneExpired() = transaction { sql ->
+        sql.deleteFrom(PRESENCE).where(PRESENCE.HEARTBEAT_AT.lt(now().minusDays(1))).execute()
         val owners = sql.selectDistinct(EVENT.ACCOUNT_ID).from(EVENT).where(EVENT.CREATED_AT.lt(now().minusDays(30)))
             .orderBy(EVENT.ACCOUNT_ID).limit(100).fetch(EVENT.ACCOUNT_ID)
         for (owner in owners) {
@@ -153,13 +180,31 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
             .orderBy(activity).limit(101).fetch()
-        val entries = rows.take(100).map { ActivityHint(it[activity].toString(), ActivityKind.valueOf(it[kind]!!),
-            it[game].toString(), it[identity].toString(), it[author]?.toString()) }
+        val entries = rows.take(100).map { row ->
+            val type = ActivityKind.valueOf(row[kind]!!)
+            val name = if (type.name.startsWith("POD_")) sql.select(POD.NAME).from(POD).where(POD.ID.eq(row[game])).fetchOne(POD.NAME) else null
+            ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(), resourceName = name)
+        }
         val more = rows.size > 100
         val next = if (more) {
             if (reset) "r:$snapshot:${entries.last().activityId}" else entries.last().activityId
         } else (if (reset) snapshot else high).toString()
-        ActivityPage(entries, next, floor.toString(), reset, more)
+        // Sync cursor advances immediately. Notification eligibility is re-evaluated independently
+        // on every poll, including empty deltas, so an actor's later heartbeat can reset the timer.
+        val ready = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME"))
+            .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).and(SUMMARY.ACTIVITY_ID.le(high))
+            .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row ->
+                val gameRow = sql.selectFrom(GAME).where(GAME.ID.eq(row.gameId)).fetchOne() ?: return@mapNotNull null
+                if (gameRow.lifecycle !in listOf("LOBBY", "ACTIVE")) return@mapNotNull null
+                val authorId = row.authorId ?: return@mapNotNull null
+                if (!ActivityTiming.due(ActivityTiming.leases(sql, row.gameId!!, authorId),
+                        ActivityTiming.leases(sql, row.gameId!!, owner), row.lastEventAt!!, row.yourMove!!, now())) return@mapNotNull null
+                val opponent = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(authorId)).fetchSingle()
+                ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
+                    authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
+                        row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!))
+            }.take(50).toList()
+        ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + ready)
     }
 
     companion object {
@@ -181,7 +226,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                         "exists (select 1 from jsonb_array_elements({0}->'grids') as board(value) " +
                             "where board.value->'turns'->>cast(board.value->>'selection' as integer) = cast({1} as text))",
                         POD.DRAFT_STATE, owner)))
-                        .or(kind.eq("POD_DRAFT_COMPLETE").and(POD.PHASE.eq("DRAFTED")))))
+                        .or(kind.`in`("POD_DRAFT_COMPLETE", "POD_DECKS_READY").and(POD.PHASE.eq("DRAFTED")))))
             val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))
                 .and(POD.PHASE.eq("SETUP")))
@@ -191,17 +236,27 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.
          * Only an opponent's activity is recorded; publication never waits for a delivery window. */
         fun record(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, identity: UUID,
-            author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)) {
+            author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
+            yourMove: Boolean = false, newMessage: Boolean = false) {
             if (author == owner) return
             val id = sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner).set(CURSOR.HIGH_WATER, 1L)
                 .onConflict(CURSOR.ACCOUNT_ID).doUpdate().set(CURSOR.HIGH_WATER, CURSOR.HIGH_WATER.plus(1L))
                 .returning(CURSOR.HIGH_WATER).fetchSingle().highWater!!
             sql.insertInto(EVENT).set(EVENT.ACCOUNT_ID, owner).set(EVENT.ACTIVITY_ID, id).set(EVENT.KIND, kind.name)
                 .set(EVENT.GAME_ID, game).set(EVENT.IDENTITY, identity).set(EVENT.AUTHOR_ID, author).set(EVENT.CREATED_AT, time).execute()
+            // Keep presence suppression atomic without another action/undo SQL statement.
+            val present = if (kind == ActivityKind.GAME) ActivityTiming.present(game, owner, time) else DSL.falseCondition()
             sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, kind.name)
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
+                .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
+                .set(SUMMARY.SEEN_THROUGH, DSL.`when`(present, id).otherwise(0L))
+                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(present, false).otherwise(newMessage))
                 .onConflict(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.KIND).doUpdate()
-                .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author).execute()
+                .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
+                .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
+                .set(SUMMARY.SEEN_THROUGH, DSL.greatest(SUMMARY.SEEN_THROUGH, DSL.excluded(SUMMARY.SEEN_THROUGH)))
+                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(DSL.excluded(SUMMARY.SEEN_THROUGH).eq(id), false)
+                    .otherwise(DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE)))).execute()
             val installs = sql.select(INSTALL.GENERATION).from(INSTALL).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                 .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).where(INSTALL.ACCOUNT_ID.eq(owner))
                 .and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull).and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
@@ -210,7 +265,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 val pending = sql.selectFrom(PUSH).where(PUSH.GENERATION.eq(generation)).and(PUSH.GAME_ID.eq(game))
                     .and(PUSH.KIND.eq(kind.name)).forUpdate().fetchOne()
                 val first = if (pending?.identity == identity) pending.firstAt!! else time
-                val due = if (kind == ActivityKind.INVITATION) time else minOf(time.plusSeconds(2), first.plusSeconds(10))
+                val due = time // Game timing is evaluated against live presence by the scheduler.
                 val retrying = pending?.identity == identity && pending.attempts!! > 0
                 val nextDue = if (retrying) maxOf(due, pending!!.dueAt!!) else due
                 sql.insertInto(PUSH).set(PUSH.GENERATION, generation).set(PUSH.GAME_ID, game).set(PUSH.KIND, kind.name)

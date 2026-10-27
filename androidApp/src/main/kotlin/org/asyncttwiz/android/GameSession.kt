@@ -1005,6 +1005,7 @@ class GameSession(private val connection: GameConnection, private val credential
             }
         }
     }
+    fun heartbeat(presence: GamePresence): Boolean = connected && welcome && send(GamePing(UUID.randomUUID().toString(), presence))
     private fun send(message: GameClientMessage): Boolean {
         if (!connection.send(message)) { connectionUnavailable("socketSendFailed"); return false }; return true
     }

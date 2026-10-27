@@ -53,11 +53,13 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         override fun cursor() = preferences.getString("cursor", null)
         override fun watermark(key: String): ActivityWatermark? {
             val identity = preferences.getString("identity:$key", null) ?: return null
-            return ActivityWatermark(preferences.getLong("watermark:$key", 0), identity)
+            return ActivityWatermark(preferences.getLong("watermark:$key", 0), identity,
+                if (preferences.contains("move:$key")) preferences.getBoolean("move:$key", false) else null)
         }
         override fun save(cursor: String, marks: Map<String, ActivityWatermark>): Boolean = preferences.edit().apply {
             putString("cursor", cursor)
-            marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity) }
+            marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity)
+                mark.yourMove?.let { putBoolean("move:$key", it) } }
         }.commit()
         override fun pending(): Map<String, PendingActivity> = preferences.getString("pending", null)?.let {
             ActivityWire.json.decodeFromString<Map<String, PendingActivity>>(it)
@@ -65,7 +67,8 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         override fun saveWindow(cursor: String, marks: Map<String, ActivityWatermark>, pending: Map<String, PendingActivity>): Boolean =
             preferences.edit().apply {
                 putString("cursor", cursor); putString("pending", ActivityWire.json.encodeToString(pending))
-                marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity) }
+                marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity)
+                    mark.yourMove?.let { putBoolean("move:$key", it) } }
             }.commit()
     }) { notice -> owner?.let { notifications.post(it, notice) } }
     @Volatile var authenticationRequired: ((String) -> Unit)? = null

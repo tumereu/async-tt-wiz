@@ -99,7 +99,7 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             MenuButton(choice.first, Modifier.fillMaxWidth(), enabled) { outcome = choice }
     }
     outcome?.let { chosen ->
-        AlertDialog(onDismissRequest = { outcome = null }, title = { Text("Suggest ${chosen.first.lowercase().removeSuffix(" game")}?") },
+        AlertDialog(onDismissRequest = { outcome = null }, title = { TrackGameDialogInput(); Text("Suggest ${chosen.first.lowercase().removeSuffix(" game")}?") },
             confirmButton = { TextButton(enabled = enabled, onClick = {
                 if (perform(TableActionIntent.Ending(scope, chosen.second))) onDismiss()
             }) { Text("Confirm") } },

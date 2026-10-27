@@ -44,10 +44,10 @@ public final class SpringService implements AutoCloseable {
     private boolean closed;
 
     public SpringService(ServiceSettings settings) {
-        this(settings, null);
+        this(settings, org.asyncttwiz.server.activity.FcmServiceAccount.fromEnvironment());
     }
 
-    /** Optional explicit adapter injection; FCM callers supply their own token supplier.
+    /** Optional explicit adapter injection for embedded callers/tests.
      * The ordinary service performs maintenance without any provider credentials. */
     public SpringService(ServiceSettings settings, ActivityPushAdapter activityPush) {
         this.settings = settings;

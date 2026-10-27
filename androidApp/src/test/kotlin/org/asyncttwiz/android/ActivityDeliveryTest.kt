@@ -23,6 +23,28 @@ class ActivityDeliveryTest {
     private fun page(vararg hints: ActivityHint, reset: Boolean = false, cursor: String = hints.lastOrNull()?.activityId ?: "0") =
         ActivityPage(hints.toList(), cursor, "0", reset, false)
 
+    @Test fun serverReadyNoticesSurviveAnAdvancedSyncCursorAndAlertAgainOnlyOnNewYourMove() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        val content = GameNoticeContent("Game", "Opponent", "2026-10-27T12:00:00Z", false)
+        val first = hint(1).copy(notice = content)
+        delivery.apply(alice, page(first).copy(readyNotices = emptyList())) { true }
+        assertEquals("1", store.cursor); assertTrue(posted.isEmpty())
+        delivery.apply(alice, page(cursor = "1").copy(readyNotices = listOf(first))) { true }
+        assertEquals(1, posted.size); assertFalse(posted.last().silent)
+        delivery.apply(alice, page(cursor = "1").copy(readyNotices = listOf(first))) { true }
+        assertEquals(1, posted.size)
+        fun next(id: Long, move: Boolean) = delivery.apply(alice, page(cursor = id.toString()).copy(
+            readyNotices = listOf(hint(id, "new-group-$id").copy(notice = content.copy(yourMove = move))))) { true }
+        next(2, false); assertTrue(posted.last().silent)
+        next(3, true); assertFalse(posted.last().silent)
+        next(4, true); assertTrue(posted.last().silent)
+        delivery.display("game", true)
+        next(5, true); assertEquals(4, posted.size)
+        delivery.display("game", false)
+        next(6, true); assertEquals(5, posted.size); assertFalse(posted.last().silent)
+    }
+
     @Test fun pollPushOverlapRestartAndGroupExtensionUseOneReplacement() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         fun delivery() = ActivityDelivery(store) { notice ->

@@ -49,6 +49,19 @@ class MainActivity : ComponentActivity() {
             }
         } catch (_: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed() }
     }
+    internal fun gameInput() = ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.input()
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        gameInput()
+        return super.dispatchTouchEvent(event)
+    }
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        gameInput()
+        return super.dispatchKeyEvent(event)
+    }
+    override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+        gameInput()
+        return super.dispatchGenericMotionEvent(event)
+    }
     private var resumed by mutableStateOf(false)
     private var notificationRoute by mutableStateOf<ActivityRoute?>(null)
     private fun consumeActivityIntent(intent: android.content.Intent?) {
@@ -106,6 +119,7 @@ class MainActivity : ComponentActivity() {
         resumed = false
         ViewModelProvider(this)[AuthViewModel::class.java].lobby.background()
         AndroidActivityDelivery.get(this).display(null, false)
+        ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.display(null, null)
         super.onPause()
     }
 
@@ -135,9 +149,9 @@ class MainActivity : ComponentActivity() {
                         DebugCrashes.authenticated(if (state.account != null) token else null)
                         if (auth.activity.session(state.account?.accountId, token)) auth.activity.foreground()
                     }
-                    val displayed = ActivityDisplay.game(state.destination == ShellDestination.GAMES,
-                        auth.lobby.state.selected, auth.lobby.state.detail)
-                    auth.activity.display(displayed, resumed)
+                    val gameScreen = auth.lobby.state.selected?.takeIf { state.destination == ShellDestination.GAMES }
+                    auth.activity.display(gameScreen, resumed)
+                    auth.heartbeat.display(gameScreen?.takeIf { resumed }, token)
                     if (state.account != null) auth.activity.rememberPods(auth.pods.state.pods)
                     val route = notificationRoute
                     if (route != null && !state.restoring && !state.busy) {

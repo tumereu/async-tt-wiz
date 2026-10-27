@@ -204,6 +204,7 @@ internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, bu
     error: String? = null, dismissError: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        TrackGameDialogInput()
         ScreenTheme {
             Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {

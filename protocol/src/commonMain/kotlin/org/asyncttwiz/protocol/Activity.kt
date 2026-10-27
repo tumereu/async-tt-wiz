@@ -3,14 +3,21 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Delivery hints only. No names, content, board state, read receipt or player progress. */
-@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DRAFT_CANCELLED, POD_DESTROYED }
+/** Account activity, never board state, covered-card names, read receipts or player progress.
+ * Only the authenticated feed carries display content; ActivityPushHint stays opaque. */
+@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
  * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. */
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
-    val identity: String, val authorId: String? = null)
+    val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null)
+/** Authenticated projection only; never included in the FCM data hint. */
+@Serializable data class GameNoticeContent(val gameName: String, val opponentName: String,
+    val lastEventAt: String, val yourMove: Boolean, val newMessage: Boolean = false)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
-    val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean)
+    val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
+    val readyNotices: List<ActivityHint>? = null)
+@Serializable data class GamePresence(val gameId: String, val presenceId: String,
+    val didSomething: Boolean = false, val left: Boolean = false)
 @Serializable data class RegisterInstallation(val installationId: String, val binding: String, val pushToken: String? = null)
 @Serializable data class ActivityRegistration(val generation: String)
 @Serializable data class ActivityPushHint(val generation: String, val gameId: String, val activityId: String,

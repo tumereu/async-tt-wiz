@@ -35,7 +35,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             lobby.activityUnavailable("This notification belongs to an earlier sign-in. Showing your current Games.")
             return
         }
-        lobby.openActivity(route) { activity.accepts(route.accountId, route.binding) }
+        if (route.kind == org.asyncttwiz.protocol.ActivityKind.GAME) lobby.open(route.gameId)
+        else lobby.openActivity(route) { activity.accepts(route.accountId, route.binding) }
     }
     private fun authenticationRequired(token: String) {
         activity.rejected(token)
@@ -87,6 +88,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 throw failure
             }
         }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) })
+    internal val heartbeat = GameHeartbeatController { token, presence ->
+        controller.sessionToken() == token && lobby.heartbeat(presence)
+    }
     private val gameMaintenance = GameConnectionMaintenance({ true }, {
         controller.foreground()
         if (controller.state.account != null) {
@@ -94,6 +98,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }, main, lobby::tick)
     init {
+        lobby.gameInput = heartbeat::input
         activity.authenticationRequired = ::authenticationRequired
         activity.activityHints = { hints ->
             val token = controller.sessionToken()
@@ -112,6 +117,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         succeeded = controller::passwordResetCompleted, post = { action -> main.post { action() } })
 
     override fun onCleared() {
+        heartbeat.close()
         gameMaintenance.close()
         activity.authenticationRequired = null
         activity.activityHints = null

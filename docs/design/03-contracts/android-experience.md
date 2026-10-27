@@ -778,13 +778,28 @@ to all logged-in registered installations and local game-activity suppression wh
 that game is actively displayed, including review/playback. Background is not active
 display. D-284's [notification profile](../04-technical/notifications-and-background-work.md)
 defines bounded windows, polling, data-only push, retries/dedup and permission defaults.
+Round 18 supersedes the old quiet/max windows: foreground game screens heartbeat
+every ~5s with an any-input bit (including local gestures/review/menus); explicit
+leave is best effort and presence expires after ~15s. Suppress and clear pending
+game notices while the recipient is present. Otherwise deliver when the actor is
+absent, or idle 10s if it is the recipient's move / 60s otherwise. Actions and chat
+share one replacement notice; updates are silent unless newly the recipient's move.
+Build `game name · vs opponent` and `Your move` / `Opponent's move` (optionally
+`· new message`) from authenticated data, with Android's visible timestamp set to
+the opponent's last event. Opening by any route cancels the notice. A 1s server
+timer evaluates due notices independently of sync/poll cursors. Optional FCM uses
+high-priority data hints and cached OAuth tokens minted from the explicitly
+configured `FCM_SERVICE_ACCOUNT_FILE`; without it, polling remains the fallback.
+Poll responses include at most the newest 50 due game notices, independent of the
+bounded activity page and its advancing cursor. Presence suppression is recorded
+atomically in the existing activity summary write, without an extra action/Undo query.
 This does not add branch-switch/response alerts or a shared unread/read model.
 
 **Excluded from R1 (D-241):** additional branch-switch/response-request alerts and
 their preference controls; these are not a required design backlog or roadmap.
 Notification previews should avoid covered identities
-beyond the confirmed no-covered-card-names rule. Deep links open the referenced
-game/boundary but check current branch status and access.
+beyond the confirmed no-covered-card-names rule. Game notices open that game by
+the normal authenticated route, including normal catch-up playback.
 Stale notifications are harmless pointers to history, not instructions to replay
 an operation. Push/poll failure cannot affect game-state correctness. Notification
 delivery and background results remain bound to the originating account/session;

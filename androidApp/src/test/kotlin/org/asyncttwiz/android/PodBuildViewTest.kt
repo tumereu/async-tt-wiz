@@ -100,19 +100,21 @@ class PodBuildViewTest {
             PodBuildView(build, mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card), 0,
                 true, true, { _, _ -> }, { index, delta -> requestedBasics = build.basics.podBuildAdjust(index, delta) }, { submits++ })
         } }
-        compose.onNodeWithText("Main 1 + 38 basics = 39").assertIsDisplayed()
-        compose.onNodeWithText("Main needs 40 cards").assertIsDisplayed()
-        compose.onNodeWithText("Submit").assertIsNotEnabled()
+        compose.onNodeWithText("Main 1 + 38 = 39").assertIsDisplayed()
+        compose.onNodeWithText("Main needs 40 cards").assertDoesNotExist()
+        compose.onNodeWithText("Submit deck (39)").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Edit basic lands").performClick()
         compose.onNodeWithContentDescription("Remove Island").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Add Plains").performClick()
         compose.runOnIdle { assertEquals(PodDeckBasics(plains = 39), requestedBasics); assertEquals(38, build.basics.plains) }
         compose.runOnIdle { build = build.copy(basics = requestedBasics!!) }
-        compose.onNodeWithText("Main 1 + 39 basics = 40").assertIsDisplayed()
-        compose.onNodeWithText("Submit").assertIsEnabled().performClick()
-        compose.onNodeWithText("Submit your deck? It is locked afterwards.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Main 1 + 39 = 40").assertIsDisplayed()
+        compose.onNodeWithText("Submit deck (40)").assertIsEnabled().performClick()
+        compose.onNodeWithText("Submit deck?").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
         compose.runOnIdle { assertEquals(0, submits) }
-        compose.onNodeWithText("Submit").performClick()
+        compose.onNodeWithText("Submit deck (40)").performClick()
         compose.onAllNodesWithText("Submit").onLast().performClick()
         compose.runOnIdle { assertEquals(1, submits) }
     }
@@ -125,8 +127,12 @@ class PodBuildViewTest {
                 true, false, { _, _ -> }, { _, _ -> }, {})
         } }
         assertTrue(with(compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
-        assertTrue(with(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        // The single tappable basic-land area retains the standard 48dp touch target.
+        assertTrue(with(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()) { bottom - top } <= 48.dp)
+        compose.onNodeWithContentDescription("Add Forest").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Edit basic lands").performClick()
         compose.onNodeWithContentDescription("Add Forest").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Done").performClick()
         val bounds = compose.onNodeWithTag("pod-build-card-first").fetchSemanticsNode().boundsInRoot
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
         compose.onNodeWithContentDescription("More Columns").performClick()
@@ -139,12 +145,39 @@ class PodBuildViewTest {
                 mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card), null,
                 false, false, { _, _ -> fail("read-only") }, { _, _ -> fail("read-only") }, { fail("read-only") })
         } }
-        compose.onNodeWithText("Deck submitted").assertIsDisplayed()
-        compose.onNodeWithText("Submit").assertDoesNotExist()
+        compose.onNodeWithText("✓ Submitted").assertIsDisplayed()
+        compose.onNodeWithText("Submit deck (0)").assertDoesNotExist()
         compose.onNodeWithContentDescription("Add Plains").assertDoesNotExist()
         compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-first"))
         compose.onNodeWithTag("pod-build-card-first").assertIsDisplayed()
         compose.onNodeWithText("Trash 1").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-mdpi")
+    fun allBasicLandSteppersAreReachableInShortLandscapeDialog() {
+        var build by mutableStateOf(PodDeckBuild())
+        val adjustments = mutableListOf<Pair<Int, Int>>()
+        compose.setContent { ScreenTheme {
+            PodBuildView(build, emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { index, delta ->
+                adjustments += index to delta
+                build = build.copy(basics = build.basics.podBuildAdjust(index, delta))
+            }, {})
+        } }
+        compose.onNodeWithContentDescription("Edit basic lands").performClick()
+        listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
+            val add = compose.onNodeWithContentDescription("Add $name").performScrollTo().assertIsDisplayed()
+            val bounds = add.getUnclippedBoundsInRoot()
+            val done = compose.onNodeWithContentDescription("Done").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val dialog = compose.onNode(isDialog()).getUnclippedBoundsInRoot()
+            assertTrue(bounds.top >= dialog.top && bounds.bottom <= done.top)
+            add.performTouchInput { click() }
+            compose.onNodeWithContentDescription("Remove $name").assertIsEnabled().performTouchInput { click() }
+            compose.runOnIdle { assertEquals(listOf(index to 1, index to -1), adjustments.takeLast(2)) }
+        }
+        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Basic lands").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(PodDeckBasics(), build.basics) }
     }
 
     @Test

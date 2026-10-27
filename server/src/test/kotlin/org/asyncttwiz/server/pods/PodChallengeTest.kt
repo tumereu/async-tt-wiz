@@ -146,6 +146,36 @@ class PodChallengeTest {
         assertEquals(own, f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck)
     }
 
+    @Test fun `pod deck names are private head metadata never shared preparation or replay`() = fixture { f ->
+        val pod = f.pod()
+        val attempt = f.detail(f.a, pod).draftAttemptId!!
+        val aName = "Private white strategy"
+        val bName = "Private green strategy"
+        assertEquals(200, f.pods.deckName(f.a, pod, SetPodDeckName(id(), attempt, aName)).status)
+        assertEquals(200, f.pods.deckName(f.b, pod, SetPodDeckName(id(), attempt, bName)).status)
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val game = f.challenge(pod)
+        assertEquals(aName, f.games.head(f.a, game.id).ownPodDeckName)
+        assertNull(f.games.subscriptionHead(f.b, game.id).ownPodDeckName)
+        val recipient = f.stream(f.b, game)
+        recipient.execute(GameAction.AcceptInvitation)
+        val owner = f.stream(f.a, game)
+        fun checkHeads() {
+            for ((player, mine, other) in listOf(Triple(f.a, aName, bName), Triple(f.b, bName, aName))) {
+                val head = f.games.head(player, game.id)
+                assertEquals(mine, head.ownPodDeckName)
+                assertFalse(GameWire.encode(head).contains(other))
+                val revisions = f.games.revisions(player, game.id, "0").revisions.map(GameWire::encode)
+                assertTrue(revisions.none { aName in it || bName in it })
+            }
+        }
+        checkHeads()
+        owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
+        checkHeads()
+        assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
+        checkHeads()
+    }
+
     @Test fun `recipient deck lists basics and definitions stay private until acceptance including revisions and declined or withdrawn invitations`() = fixture(uniqueCards = true) { f ->
         val pod = f.pod()
         val counts = PodDeckBasics(plains = 37, island = 4)

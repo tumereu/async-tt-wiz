@@ -207,7 +207,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 val own: @Composable (Modifier) -> Unit = { modifier ->
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
-                        PreparedSummary(state.preparation, accountId, accountId)
+                        PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                              if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
                                 game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
@@ -370,7 +370,7 @@ private fun PlayerReadiness(account: AccountIdentity, ready: Boolean) {
 }
 
 @Composable
-internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?) {
+internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
     val player = preparation?.players?.find { it.accountId == accountId }
     val deck = player?.deck
     Box(Modifier.fillMaxWidth().height(68.dp), contentAlignment = Alignment.CenterStart) {
@@ -384,7 +384,7 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
                     48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
             }
             Column {
-                Text(gameDeckName(accountId, viewer, deck.name), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

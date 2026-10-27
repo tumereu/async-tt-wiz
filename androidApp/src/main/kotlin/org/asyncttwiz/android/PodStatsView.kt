@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
+import kotlin.math.roundToInt
 
 @Composable
 fun PodStatsView(
@@ -30,54 +32,33 @@ fun PodStatsView(
 ) {
     val stats = remember(build, copies, definitions) { podStats(build, copies, definitions) }
     LazyColumn(modifier.fillMaxSize().testTag("pod-stats"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { PodStatsBars(stats.curveBuckets(), MaterialTheme.colorScheme.primary) }
         item {
-            Text("Main including basics", style = MaterialTheme.typography.titleLarge)
-            if (stats.missingDefinitions > 0) Text("Card details unavailable: ${stats.missingDefinitions}", color = MaterialTheme.colorScheme.error)
-        }
-        item {
-            Text("Mana curve · nonland cards", style = MaterialTheme.typography.titleMedium)
-            val curve = ((0..7).map { it.toDouble() } + stats.curve.keys).distinct().sorted().associate { mv ->
-                podStatsNumber(mv) to (stats.curve[mv] ?: 0).toDouble()
-            }
-            PodStatsBars(curve, MaterialTheme.colorScheme.primary, legend = false)
-        }
-        item {
-            Text("Card types", style = MaterialTheme.typography.titleMedium)
-            PodStatsBars(linkedMapOf("Creature" to stats.creatures.toDouble(), "Noncreature" to stats.noncreatures.toDouble(),
-                "Land" to stats.lands.toDouble()), MaterialTheme.colorScheme.tertiary)
-            Text("Noncreature excludes lands.", style = MaterialTheme.typography.bodySmall)
-        }
-        item {
-            Text("Colored mana pips", style = MaterialTheme.typography.titleMedium)
-            val total = stats.pips.values.sum()
-            Canvas(Modifier.fillMaxWidth().height(180.dp).semantics {
-                contentDescription = "Colored mana pip pie chart: " + stats.pips.entries.joinToString { "${it.key.name}: ${podStatsNumber(it.value)}" }
-            }) {
-                val diameter = size.minDimension
-                val origin = Offset((size.width - diameter) / 2, 0f)
-                if (total == 0.0) drawCircle(Color.Gray, diameter / 2, Offset(size.width / 2, diameter / 2))
-                var angle = -90f
-                for ((color, count) in stats.pips) {
-                    if (count <= 0) continue
-                    val sweep = (count / total * 360).toFloat()
-                    drawArc(podStatsColor(color), angle, sweep, true, origin, Size(diameter, diameter))
-                    angle += sweep
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                listOf("Creature" to stats.creatures, "Noncreature" to stats.noncreatures, "Land" to stats.lands).forEach { (label, count) ->
+                    Text("$label: $count", style = MaterialTheme.typography.labelMedium)
                 }
             }
-            PodStatsLegend(stats.pips.entries.associate { it.key.name to it.value })
-            if (total == 0.0) Text("No colored pips", style = MaterialTheme.typography.bodySmall)
         }
         item {
-            Text("Mana sources · approximate", style = MaterialTheme.typography.titleMedium)
-            PodStatsBars(stats.sources.entries.associate { it.key.name to it.value.toDouble() }, MaterialTheme.colorScheme.secondary)
-            Text("Lands and basics only. Each land counts once per produced color, using basic land types and Add text; not rules analysis.",
-                style = MaterialTheme.typography.bodySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DraftColor.entries.forEach { color ->
+                    val (pips, sources) = stats.colorPercentages(color)
+                    Row(Modifier.fillMaxWidth().semantics {
+                        contentDescription = "${color.name}: pip demand ${pips.roundToInt()}%, mana sources ${sources.roundToInt()}%"
+                    }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CardText("{${color.name}}", style = MaterialTheme.typography.titleLarge)
+                        PodColorBar(pips, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                        PodColorBar(sources, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun PodStatsBars(values: Map<String, Double>, color: Color, legend: Boolean = true) {
+private fun PodStatsBars(values: Map<String, Double>, color: Color) {
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSize = with(LocalDensity.current) { 11.sp.toPx() }
     val paint = remember(textColor, textSize) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -97,21 +78,15 @@ private fun PodStatsBars(values: Map<String, Double>, color: Color, legend: Bool
             drawContext.canvas.nativeCanvas.drawText(label, slot * (index + 0.5f), size.height - textSize * 0.25f, paint)
         }
     }
-    // A wrapping numeric legend stays legible even with many distinct mana values.
-    if (legend) PodStatsLegend(values)
 }
 
 @Composable
-private fun PodStatsLegend(values: Map<String, Double>) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        values.forEach { (label, value) -> Text("$label: ${podStatsNumber(value)}", style = MaterialTheme.typography.bodyMedium) }
+private fun PodColorBar(percent: Double, color: Color, modifier: Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Canvas(Modifier.weight(1f).height(4.dp)) {
+            drawRect(color.copy(alpha = .15f))
+            drawRect(color, size = Size(size.width * (percent / 100).toFloat(), size.height))
+        }
+        Text("${percent.roundToInt()}%", style = MaterialTheme.typography.labelSmall)
     }
-}
-
-private fun podStatsColor(color: DraftColor): Color = when (color) {
-    DraftColor.W -> Color(0xFFE6D99A)
-    DraftColor.U -> Color(0xFF3988CC)
-    DraftColor.B -> Color(0xFF65556F)
-    DraftColor.R -> Color(0xFFD6533C)
-    DraftColor.G -> Color(0xFF388A52)
 }

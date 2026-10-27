@@ -1,15 +1,26 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -40,15 +51,18 @@ fun PodBuildView(
     onAdjustBasic: (index: Int, delta: Int) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    deckName: String = "Deck",
+    onRename: (String) -> Unit = {},
+    submitted: Boolean = !editable,
 ) {
     val context = LocalContext.current
     val orientation = LocalConfiguration.current.orientation
     val preferences = remember(context) { context.getSharedPreferences("pod-build", Context.MODE_PRIVATE) }
     val preferenceKey = "columns-$orientation"
     var columns by remember(preferences, preferenceKey) { mutableIntStateOf(preferences.getInt(preferenceKey, 7).coerceIn(2, 10)) }
-    val issues = remember(build, copies, sideboardLimit) { PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit) }
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
     var confirmSubmit by remember { mutableStateOf(false) }
+    var naming by remember { mutableStateOf(false) }
     val inspector = remember { CardInspectionController() }
     var feedback by remember { mutableStateOf<Pair<Int, PodDeckCategory>?>(null) }
     var feedbackId by remember { mutableIntStateOf(0) }
@@ -60,66 +74,49 @@ fun PodBuildView(
         }
     }
     Box(modifier) {
-        LazyColumn(Modifier.fillMaxSize().testTag("pod-build"), contentPadding = PaddingValues(bottom = 16.dp)) {
-            item("columns") {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
-                    PodColumnControl("Columns $columns", "Columns", columns, 2..10) { value ->
-                        columns = value
-                        preferences.edit().putInt(preferenceKey, columns).apply()
-                    }
-                    if (!editable) Text("Deck submitted", style = MaterialTheme.typography.titleMedium)
+      Column(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp)) {
+            Text(deckName, Modifier.align(Alignment.CenterStart).fillMaxWidth(.27f),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+            Box(Modifier.align(Alignment.Center)) {
+                PodColumnControl("Columns $columns", "Columns", columns, 2..10) { value ->
+                    columns = value
+                    preferences.edit().putInt(preferenceKey, columns).apply()
                 }
             }
+            FilledTonalIconButton({ naming = true }, Modifier.align(Alignment.CenterEnd)) { EntryIcon("Name deck", "edit") }
+        }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("pod-build"), contentPadding = PaddingValues(bottom = 12.dp)) {
             for (category in PodDeckCategory.entries) {
                 val count = podBuildCount(build, category)
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 stickyHeader(key = "header-$category") {
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val title = if (category == PodDeckCategory.MAIN)
-                                    "Main $count + ${build.basics.total} basics = ${count + build.basics.total}"
-                                else "${category.podBuildLabel()} $count"
-                                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                                if (category == PodDeckCategory.MAIN && canSubmit && editable) {
-                                    Button(onClick = { confirmSubmit = true }, enabled = submitEnabled) { Text("Submit") }
-                                }
-                            }
-                            if (category == PodDeckCategory.MAIN && canSubmit && editable && issues.isNotEmpty())
-                                Text(podBuildIssueText(issues.first(), sideboardLimit), color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall)
-                            if (category == PodDeckCategory.SIDE)
-                                Text("Sideboard limit: ${sideboardLimit?.toString() ?: "unlimited"}",
-                                    color = if (sideboardLimit != null && count > sideboardLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall)
-                        }
+                        Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
+                            Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
                     }
                 }
                 if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }
-                item("labels-$category") {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
-                        PodDeckColumns.buckets(columns).forEach { bucket ->
-                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                Text(bucket.label, fontSize = 11.sp, maxLines = 1)
-                            }
-                        }
-                    }
-                }
-                val rows = buckets.maxOf { it.size }
-                if (rows == 0) item("empty-$category") {
-                    Text("No cards", Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
-                }
-                items(rows, key = { "$category-row-$it" }) { row ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        buckets.forEach { bucket ->
-                            Box(Modifier.weight(1f)) {
-                                bucket.getOrNull(row)?.let { tile ->
-                                    key(tile.digest, tile.copyIds.first()) {
-                                        PodBuildCard(tile, category, editable, move) {
-                                            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let {
-                                                inspector.open(InspectedCard.retained(tile.digest, it))
-                                            }
+                item("columns-$category") {
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(12.dp)) {
+                        val width by animateDpAsState((maxWidth - (columns - 1).dp * 2) / columns, label = "column-width")
+                        val tint = MaterialTheme.colorScheme.primary.copy(alpha = .045f)
+                        Row(Modifier.fillMaxWidth().animateContentSize().drawBehind {
+                            repeat(columns) { index -> drawRect(tint, Offset(index * (width.toPx() + 2.dp.toPx()), 0f), Size(width.toPx(), size.height)) }
+                        }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            buckets.forEachIndexed { index, bucket ->
+                                Column(Modifier.width(width)) {
+                                    Text(PodDeckColumns.buckets(columns)[index].label,
+                                        Modifier.fillMaxWidth().padding(vertical = 6.dp), textAlign = TextAlign.Center, fontSize = 11.sp)
+                                    AnimatedContent(bucket, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "column-cards") { tiles ->
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            tiles.forEach { tile -> key(tile.digest, tile.copyIds.first()) {
+                                                PodBuildCard(tile, category, editable, move) {
+                                                    tile.definition?.takeIf { it.faces.isNotEmpty() }?.let {
+                                                        inspector.open(InspectedCard.retained(tile.digest, it))
+                                                    }
+                                                }
+                                            } }
                                         }
                                     }
                                 }
@@ -129,6 +126,12 @@ fun PodBuildView(
                 }
             }
         }
+        Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }
+            else Button({ confirmSubmit = true }, Modifier.fillMaxSize(), enabled = submitEnabled,
+                shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
+        }
+      }
         feedback?.let { (_, category) ->
             Surface(Modifier.align(Alignment.TopCenter).padding(top = 8.dp), color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.small, shadowElevation = 4.dp) {
@@ -138,35 +141,47 @@ fun PodBuildView(
     }
     if (confirmSubmit && submitEnabled) AlertDialog(
         onDismissRequest = { confirmSubmit = false },
-        text = { Text("Submit your deck? It is locked afterwards.") },
-        confirmButton = { TextButton(onClick = { confirmSubmit = false; onSubmit() }) { Text("Submit") } },
-        dismissButton = { TextButton(onClick = { confirmSubmit = false }) { Text("Cancel") } },
+        title = { Text("Submit deck?") },
+        confirmButton = { Button(onClick = { confirmSubmit = false; onSubmit() }) { Text("Submit") } },
+        dismissButton = { OutlinedButton(onClick = { confirmSubmit = false }) { Text("Cancel") } },
     )
+    if (naming) {
+        var name by remember { mutableStateOf(deckName) }
+        AlertDialog(onDismissRequest = { naming = false }, title = { Text("Deck name") },
+            text = { OutlinedTextField(name, { name = it.take(120) }, singleLine = true, label = { Text("Name") }) },
+            confirmButton = { FilledIconButton({ onRename(name.trim()); naming = false }, enabled = name.isNotBlank()) { EntryIcon("Save name", "ready") } },
+            dismissButton = { OutlinedIconButton({ naming = false }) { EntryIcon("Cancel", "close") } })
+    }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
     DeckCardInspection(inspector)
 }
 
 @Composable
 private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp).testTag("pod-build-basics"),
-        verticalAlignment = Alignment.CenterVertically) {
-        listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
-            val count = basics.podBuildValues()[index]
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center) {
-                Text(listOf("W", "U", "B", "R", "G")[index], fontSize = 11.sp,
-                    modifier = Modifier.semantics { contentDescription = name })
-                if (editable) PodSmallButton("Remove $name", "−", count > 0, width = 22.dp) {
-                    onAdjust(index, -1)
-                }
-                Text(count.toString(), fontSize = 11.sp, maxLines = 1,
-                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
-                if (editable) PodSmallButton("Add $name", "+", count < Int.MAX_VALUE, width = 22.dp) {
-                    onAdjust(index, 1)
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()
+                .height(48.dp).testTag("pod-build-basics").semantics { contentDescription = "Edit basic lands" }) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                DraftColor.entries.forEachIndexed { index, color ->
+                    CardText("{${color.name}} ${basics.podBuildValues()[index]}", Modifier.weight(1f), maxLines = 1)
                 }
             }
         }
     }
+    if (open && editable) AlertDialog(onDismissRequest = { open = false }, title = { Text("Basic lands") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
+                val count = basics.podBuildValues()[index]
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CardText("{${DraftColor.entries[index].name}}", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                    OutlinedIconButton({ onAdjust(index, -1) }, enabled = count > 0) { Text("−", Modifier.semantics { contentDescription = "Remove $name" }) }
+                    Text("$count", Modifier.width(48.dp), textAlign = TextAlign.Center)
+                    OutlinedIconButton({ onAdjust(index, 1) }, enabled = count < Int.MAX_VALUE) { Text("+", Modifier.semantics { contentDescription = "Add $name" }) }
+                }
+            }
+        } }, confirmButton = { FilledIconButton({ open = false }) { EntryIcon("Done", "ready") } })
 }
 
 @Composable

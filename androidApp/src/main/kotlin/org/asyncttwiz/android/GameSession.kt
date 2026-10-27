@@ -98,6 +98,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
         val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)
     private val preparations = mutableMapOf<String, PreparationReplica>()
+    private val ownPodDeckNames = mutableMapOf<String, String>()
+    fun ownPodDeckName(gameId: String): String? = ownPodDeckNames[gameId]
     private val plays = mutableMapOf<String, GameplayReplica>()
     private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String, val playId: String?,
         val tail: MutableList<GameRevision> = mutableListOf())
@@ -222,6 +224,7 @@ class GameSession(private val connection: GameConnection, private val credential
         statusChanged()
     }
     private fun clearContext(gameId: String) {
+        ownPodDeckNames.remove(gameId)
         observedPlays.remove(gameId)
         evictDownload(gameId)
         inspections.entries.removeAll { (_, observer) ->
@@ -654,6 +657,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 // A leading HTTP summary is deliberately not this accepted-state boundary.
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
+                message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
                 installChatHead(message)
                 observePlay(message.summary)
                 recoveries[message.gameId]?.let { if (newerOrEqual(message.revision, it.through)) it.through = message.revision }
@@ -886,6 +890,10 @@ class GameSession(private val connection: GameConnection, private val credential
         if (result.outcome != "accepted") inspections.remove(result.requestId)?.let { observer ->
             presentInspection(observer, InspectionEvent.NotAccepted(observer.subscription.request, result = result)) }
         notifyInspections()
+        if (original.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
+            summaries[original.scope.gameId]?.podId != null) {
+            send(SubscribeGame(original.scope.gameId, result.commitRevision ?: "0"))
+        }
         settled(original, result)
     }
 
@@ -1249,7 +1257,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
-        messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
+        ownPodDeckNames.clear(); messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

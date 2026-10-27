@@ -48,6 +48,7 @@ class PodControllerTest {
         var secondPod: PodDetail? = null
         var missing = false
         var failMoves = false
+        var failName = false
         var failSourceWrites = false
         var updateFailure: String? = null
         var gridFailure: String? = null
@@ -103,12 +104,45 @@ class PodControllerTest {
         override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail {
             calls += "basics" to input; saved = saved.copy(build = saved.build!!.copy(basics = input.basics)); return saved
         }
+        override suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail {
+            calls += "name" to input
+            if (failName) throw PodFailure("invalid_name")
+            saved = saved.copy(deckName = input.name); return saved
+        }
         override suspend fun submit(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "submit" to input; saved = saved.copy(submitted = true); return saved }
         override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
         override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "leave" to input; missing = true; return PodAcknowledged(id) }
         override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "destroy" to input; missing = true; return PodAcknowledged(id) }
         override fun close() = Unit
     }
+    @Test fun nameEditsPredictImmediatelyAndRevertOnRejection(): Unit = Fixture().use { f ->
+        f.open()
+        f.controller.deckName("My private deck")
+        assertEquals("My private deck", f.controller.state.detail!!.deckName)
+        assertTrue(f.api.calls.isEmpty())
+        f.deliver()
+        assertEquals("My private deck", f.controller.state.detail!!.deckName)
+        f.api.failName = true
+        f.controller.deckName("Rejected name")
+        assertEquals("Rejected name", f.controller.state.detail!!.deckName)
+        f.deliver()
+        assertEquals("My private deck", f.controller.state.detail!!.deckName)
+        assertNotNull(f.controller.state.error)
+    }
+
+    @Test fun submissionPredictsWithoutBlockingEarlierBuildEditsAndDefaultsToGamesOnReopen() = Fixture(PodPhase.DRAFTED).use { f ->
+        f.open()
+        assertEquals(PodTab.BUILD, f.controller.state.tab)
+        f.controller.adjustBasic(0, 40)
+        f.controller.submit()
+        assertTrue(f.controller.state.detail!!.submitted)
+        assertEquals(PodTab.GAMES, f.controller.state.tab)
+        f.deliver()
+        assertEquals(listOf("basics", "submit"), f.api.calls.map { it.first })
+        f.controller.open(id); f.deliver()
+        assertEquals(PodTab.GAMES, f.controller.state.tab)
+    }
+
     private fun cubes(sources: () -> List<CubeSummary> = { listOf(cube) }) = object : Cubes {
         override suspend fun listCubes(token: String, after: String?) = CubeList(sources())
         override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")

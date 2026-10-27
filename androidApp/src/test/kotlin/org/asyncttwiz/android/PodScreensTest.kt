@@ -4,6 +4,9 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.DraftableSet
@@ -178,23 +181,43 @@ class PodScreensTest {
         compose.onNodeWithText("Bob").assertIsDisplayed()
         compose.onNodeWithText("deck submitted").assertIsDisplayed()
         compose.onNodeWithText("Challenge").assertDoesNotExist()
-        compose.onNodeWithText("Submit your deck to challenge other members.").assertIsDisplayed()
+        compose.onNodeWithText("Synergy deck").assertIsDisplayed()
+        compose.onNodeWithText("Submit your deck to challenge other members.").assertDoesNotExist()
     }
 
-    @Test fun retainedChallengeRetryIsReachableEvenWithNoPodsAndDisabledWhileSending() {
-        var state by mutableStateOf(LobbyState(retryPodChallengeName = "Original game"))
+    @Test fun challengeErrorsDoNotShiftContentAndRetainedRetryOutlastsTransientErrorEvenWithoutPods() {
+        var state by mutableStateOf(LobbyState())
         var retries = 0
-        compose.setContent { ScreenTheme { Column {
-            PodChallengeRetry(state) { retries++ }
+        compose.setContent { ScreenTheme { Box(Modifier.fillMaxSize()) {
             PodsList(PodState(loaded = true), {}, { _, _ -> }, {})
+            PodChallengeFeedback(state, { retries++ }, { state = state.copy(error = null) }, Modifier.matchParentSize())
         } } }
         compose.onNodeWithText("MY PODS (0)").assertIsDisplayed()
-        compose.onNodeWithText("Challenge not confirmed: Original game").assertIsDisplayed()
-        compose.onNodeWithText("Retry challenge").assertIsEnabled().performClick()
+        val before = compose.onNodeWithText("MY PODS (0)").getUnclippedBoundsInRoot()
+        compose.runOnIdle { state = state.copy(error = "Could not send challenge", retryPodChallengeName = "Original game") }
+        compose.onNodeWithText("Could not send challenge").assertIsDisplayed()
+        assertEquals(before, compose.onNodeWithText("MY PODS (0)").getUnclippedBoundsInRoot())
+        compose.mainClock.advanceTimeBy(7_100)
+        compose.onNodeWithText("Could not send challenge").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Retry challenge").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, retries); state = state.copy(mutating = true) }
-        compose.onNodeWithText("Retry challenge").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Retry challenge").assertIsNotEnabled()
         compose.runOnIdle { state = state.copy(mutating = false, retryPodChallengeName = null) }
-        compose.onNodeWithText("Retry challenge").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Retry challenge").assertDoesNotExist()
+    }
+
+    @Test fun rejectedChallengeShowsDismissibleErrorWithoutRetainedRetryAndCanFailAgain() {
+        val error = lobbyError(LobbyFailure("opponent_not_member"))
+        var state by mutableStateOf(LobbyState(error = error))
+        compose.setContent { ScreenTheme {
+            PodChallengeFeedback(state, {}, { state = state.copy(error = null) }, Modifier.fillMaxSize())
+        } }
+        compose.onNodeWithText(error).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Retry challenge").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Dismiss message").performClick()
+        compose.onNodeWithText(error).assertDoesNotExist()
+        compose.runOnIdle { state = state.copy(error = error) }
+        compose.onNodeWithText(error).assertIsDisplayed()
     }
 
     @Test fun modeChipsSwitchToGridDefaultsAndHideBoosterSettingsIncludingAdvanced() {

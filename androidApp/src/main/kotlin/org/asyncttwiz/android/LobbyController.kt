@@ -27,7 +27,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
-    val retryPodChallengeName: String? = null) {
+    val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
 }
 
@@ -110,6 +110,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
             acceptedPlay = state.detail?.let(wire::acceptedPlay),
+            ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = state.selected?.let(wire::chatLoaded) == true)
     }

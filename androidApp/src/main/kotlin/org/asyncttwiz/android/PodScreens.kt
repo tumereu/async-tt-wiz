@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +64,6 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                     state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
                 }
             }
-            if (!pickTab) lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     state.creating != null -> NewPodScreen(controller)
@@ -85,6 +85,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                     if (state.uncertain) ScreenIconButton("Retry pod request", "refresh", controller::retry,
                         Modifier.align(Alignment.BottomEnd), enabled = !state.loading)
                 }
+                lobby?.let { PodChallengeFeedback(it.state, it::retryPodChallenge, it::dismissSessionError, Modifier.matchParentSize()) }
             }
         }
         if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
@@ -110,12 +111,14 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
 
 /** Available even when the original pod or opponent can no longer be opened. */
 @Composable
-internal fun PodChallengeRetry(state: LobbyState, retry: () -> Unit) {
-    state.retryPodChallengeName?.let { name ->
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Challenge not confirmed: $name", Modifier.weight(1f))
-            TextButton(retry, enabled = !state.mutating) { Text("Retry challenge") }
+internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        if (state.retryPodChallengeName != null) {
+            FilledTonalIconButton(retry, Modifier.align(Alignment.TopEnd).padding(12.dp), enabled = !state.mutating) {
+                EntryIcon("Retry challenge", "refresh")
+            }
         }
+        FloatingTransientError(state.error, dismiss, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -245,9 +248,8 @@ private fun PodChooseMember(controller: PodController, lobby: LobbyController, d
 @Composable
 private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val state = controller.state
-    val tabs = if (detail.phase == PodPhase.DRAFTING) listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)
-        else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
-    val selected = state.tab.takeIf { it in tabs } ?: tabs.first()
+    val tabs = podTabs(detail.phase)
+    val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
     val build = detail.build ?: PodDeckBuild()
     val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
@@ -266,8 +268,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
-                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
-                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize())
+                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
+                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
+                    detail.deckName, controller::deckName, detail.submitted)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
@@ -307,16 +310,17 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
     val mine = detail.members.firstOrNull { it.account.accountId == accountId }
     val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(detail.deckName, style = MaterialTheme.typography.titleMedium)
         Text("Members", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (member.account.accountId != accountId && member.submitted && lobby != null)
-                    TextButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
-                        enabled = mine?.submitted == true && !lobby.state.mutating) { Text("Challenge") }
+                    FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
+                        enabled = mine?.submitted == true && !lobby.state.mutating) {
+                        Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
+                    }
             }
         }
-        if (mine?.submitted != true) Text("Submit your deck to challenge other members.", style = MaterialTheme.typography.bodySmall)
-        lobby?.state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         if (games.isNotEmpty()) {
             Text("Games", style = MaterialTheme.typography.titleMedium)
             games.forEach { game ->

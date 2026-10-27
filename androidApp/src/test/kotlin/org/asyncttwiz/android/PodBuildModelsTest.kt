@@ -5,6 +5,20 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
+    @Test fun mainHeaderCountsOnlyMainCopiesPlusAllBasics() {
+        val build = PodDeckBuild((0 until 27).map { PodDeckCopy("$it") } +
+            PodDeckCopy("side", PodDeckCategory.SIDE) + PodDeckCopy("trash", PodDeckCategory.TRASH), PodDeckBasics(3, 3, 3, 2, 2))
+        assertEquals("Main 27 + 13 = 40", podBuildMainTitle(build))
+        assertEquals("Main 0 + 0 = 0", podBuildMainTitle(PodDeckBuild()))
+    }
+
+    @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {
+        assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), podTabs(PodPhase.DRAFTING))
+        assertEquals(listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTED))
+        assertEquals(PodTab.DRAFT, podDefaultTab(PodPhase.DRAFTING, false))
+        assertEquals(PodTab.BUILD, podDefaultTab(PodPhase.DRAFTED, false))
+        assertEquals(PodTab.GAMES, podDefaultTab(PodPhase.DRAFTED, true))
+    }
     private fun card(name: String, type: String = "Creature", cost: String = "{1}") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
 

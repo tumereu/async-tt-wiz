@@ -111,7 +111,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
             }
         }
         if (!tabletop && lobby != null) FloatingTransientError(
-            lobby.state.error?.takeIf { lobby.state.draft == null } ?: lobby.state.searchError ?: lobby.state.connectionMessage,
+            lobby.state.error?.takeIf { lobby.state.draft == null && !(state.destination == ShellDestination.PODS && pods != null) }
+                ?: lobby.state.searchError ?: lobby.state.connectionMessage,
             lobby::dismissSessionError, Modifier.align(Alignment.BottomCenter))
         FloatingTransientError(state.profileError, controller::dismissProfileError, Modifier.align(Alignment.BottomCenter))
     }

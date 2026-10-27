@@ -201,6 +201,27 @@ class PodHttpTest {
         assertEquals(PodAttention.NONE, f.list(f.a).pods.single().attention)
     }
 
+    @Test fun `deck name endpoint is owner scoped validated idempotent and attempt fenced`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        val started = f.start(pod)
+        val attempt = started.draftAttemptId!!
+        assertEquals("Fixture pod deck", started.deckName)
+        val input = SetPodDeckName(id(), attempt, "Secret blue plan")
+        val saved = f.send(f.a, "PUT", "/v1/pods/$pod/build/name", input)
+        assertEquals(saved, f.send(f.a, "PUT", "/v1/pods/$pod/build/name", input))
+        assertEquals(input.name, f.get(f.a, pod).deckName)
+        assertEquals("Fixture pod deck", f.get(f.b, pod).deckName)
+        assertFalse(f.request(f.b, "GET", "/v1/pods/$pod").body().contains(input.name))
+        assertFalse(f.request(f.b, "GET", "/v1/pods").body().contains(input.name))
+        f.send(f.b, "PUT", "/v1/pods/$pod/build/name", input, 409)
+        f.send(f.c, "PUT", "/v1/pods/$pod/build/name", input.copy(requestId = id()), 404)
+        for (name in listOf("", " ", "x".repeat(121), "bad\nname"))
+            f.send(f.a, "PUT", "/v1/pods/$pod/build/name", input.copy(requestId = id(), name = name), 400)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/name", input.copy(requestId = id(), draftAttemptId = id()), 409)
+        assertEquals(input.name, f.get(f.a, pod).deckName)
+    }
+
     private fun assertPrivacy(f: Fixture, pod: String) {
         checkPrivacy(f.get(f.a, pod), f.get(f.b, pod))
         checkPrivacy(f.get(f.b, pod), f.get(f.a, pod)) // The creator has no extra visibility either.

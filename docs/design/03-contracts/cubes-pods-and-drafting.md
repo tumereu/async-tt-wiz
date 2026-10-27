@@ -169,8 +169,15 @@ Rules:
   With 2 players, packs simply go back and forth. If k does not divide the pack
   count, the last round opens the remaining packs.
 - Each player has a **queue** of packs waiting for them and acts only on the
-  oldest. After a pick the pack goes to the next seat's queue. The next round opens
-  only when every pack of the current round is empty.
+  oldest. After a pick the pack goes to the next seat's queue.
+- Round 20: each player opens their own next-round packs as soon as no pack of
+  their opened rounds can come back to them for a pick (e.g. only the opponent's
+  final pick remains). The server decides from pack sizes: each pick removes
+  keep + burn (all cards near the end), the discard threshold applies, and an
+  automatic award is not a pick. Early packs pass in their own round's direction
+  and join queues in arrival order. A near-end Librarian spend can return cards to
+  a pack that was predicted empty; it keeps passing and queues normally. Pods
+  saved before this rule pick it up at their next pick.
 - A pick takes **keep** cards into the pool (into Main) and removes **burn** cards
   from the draft. Burned cards never enter anyone's pool.
 - **End of a pack:** if remaining cards ≤ keep, the server awards them

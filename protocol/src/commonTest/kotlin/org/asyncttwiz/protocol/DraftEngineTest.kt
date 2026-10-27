@@ -29,6 +29,10 @@ class DraftEngineTest {
 
     private fun next(state: DraftState) = pick(state, state.seating.first { state.queues.getValue(it).isNotEmpty() })
 
+    /** Picks the head pack of the lowest round, so members who opened the next round early wait until it starts. */
+    private fun nextLowest(state: DraftState) = pick(state, state.seating.filter { state.queues.getValue(it).isNotEmpty() }
+        .minBy { player -> state.packs.first { it.id == state.queues.getValue(player).first() }.round })
+
     private fun finish(initial: DraftState, check: (DraftState) -> Unit = {}): DraftState {
         var state = initial
         var actions = 0
@@ -164,7 +168,7 @@ class DraftEngineTest {
                 val nextTarget = state.seating[(state.seating.indexOf(target) + if (round % 2 == 0) 1 else players - 1) % players]
                 state = pick(state, target)
                 assertEquals(pack, state.queues.getValue(nextTarget).last())
-                while (!state.finished && state.round == round) state = next(state)
+                while (!state.finished && state.round == round) state = nextLowest(state)
             }
             assertTrue(state.finished)
             assertEquals(players * 3 * 4, state.pools.values.sumOf { it.size })
@@ -185,26 +189,27 @@ class DraftEngineTest {
                 state = pick(state, player)
                 assertEquals(original.drop(1), state.queues.getValue(player))
                 assertEquals(original.first(), state.queues.getValue(other).last())
-                while (!state.finished && state.round == round) state = next(state)
+                while (!state.finished && state.round == round) state = nextLowest(state)
             }
             assertTrue(state.finished)
         }
     }
 
-    @Test fun roundBarrierHoldsUntilEveryCurrentPackIsEmpty() {
+    @Test fun roundBarrierHoldsWhileACurrentPackCanStillReachTheMember() {
         var state = start(settings(packs = 2, cards = 3))
         val a = state.seating[0]
         val b = state.seating[1]
         val held = state.queues.getValue(b).first()
         val future = state.packs.filter { it.round == 1 }
         state = pick(state, a)
-        // B's original pack blocks the passed pack. A cannot open another round early.
+        // B's original pack will still reach A for a pick. A cannot open another round early.
         assertEquals(0, state.round)
         assertTrue(state.queues.getValue(a).isEmpty())
         assertEquals(held, state.queues.getValue(b).first())
         assertEquals(future, state.packs.filter { it.round == 1 })
         state = pick(state, b)
         state = pick(state, b) // empties the passed pack via an automatic award to A
+        assertEquals(1, state.openedRound(b)) // only A's final pick of B's pack remains; B opens early
         assertEquals(0, state.round)
         assertTrue(state.packs.any { it.round == 0 && it.cards.isNotEmpty() })
         state = pick(state, a)
@@ -412,11 +417,14 @@ class DraftEngineTest {
                     }
                     val queued = state.queues.values.flatten()
                     assertEquals(queued.size, queued.toSet().size)
+                    if (!state.finished) assertEquals(state.seating.minOf { state.openedRound(it) }, state.round)
                     for (pack in state.packs) {
+                        val opened = pack.round <= state.openedRound(pack.initialPlayer)
                         if (pack.id in queued) {
-                            assertEquals(state.round, pack.round)
+                            assertTrue(opened && pack.round >= state.round)
                             assertTrue(pack.cards.size > settings.keep)
-                        } else if (pack.round <= state.round) assertTrue(pack.cards.isEmpty())
+                        } else if (opened) assertTrue(pack.cards.isEmpty())
+                        else assertEquals(9, pack.cards.size)
                     }
                 }
                 assertEquals(state, Json.decodeFromString<DraftState>(Json.encodeToString(state)))

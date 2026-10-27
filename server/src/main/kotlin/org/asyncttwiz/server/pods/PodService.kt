@@ -455,8 +455,11 @@ class PodService(private val runtime: ServiceRuntime) {
             val initialSide = if (previous == null) next.copies.filter { it.librarian && it.id.startsWith("librarian:") }.map { it.id }.toSet() else emptySet()
             sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withDraftPool(build, next.pools.getValue(player), initialSide)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
-            val hadPacks = previous?.queues?.get(player).orEmpty().isNotEmpty()
-            if ((!hadPacks || previous?.round != next.round) && next.queues.getValue(player).isNotEmpty())
+            // Notify when a pack arrives at an empty queue. The picker's own just-picked pack does not count as waiting,
+            // so their next-round packs opening (possibly early) right after their pick notify them too.
+            val queue = next.queues.getValue(player)
+            val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue }
+            if (!hadPacks && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
         if (next.finished && previous?.finished != true) {

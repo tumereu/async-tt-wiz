@@ -74,7 +74,7 @@ class AttentionPresentationTest {
         val changed = GameplayRules.change(d.initial, d.actor, d.command(PlayAction.PassAttention))
         val holder = changed.state!!.board.effectiveAttentionHolder
         val names = mapOf(d.actor to "Alice", d.other to "Bob")
-        assertEquals("Alice passed the move to ${names.getValue(holder)}",
+        assertEquals("Move passed → ${names.getValue(holder)}",
             historyText(changed.mutation, d.initial, d.actor, names).description)
     }
 

@@ -1615,6 +1615,16 @@ retain their existing semantics. Accessible details expose type, author, boundar
 and result without requiring precision taps on tiny icons. Final icon artwork/
 hit geometry remains UI completion; density is not a new grouping/history limit.
 
+Held-event descriptions use compact subject-first text without the actor (already
+shown by event color): `Llanowar Elves tapped`, `Lightning Bolt → Graveyard`,
+`Life 20 → 17`, `Bob's life 20 → 17`, `Turn 5 → Bob`. Counters include color and
+before/after values; notes include their text when visible. Keep the 180-character
+plain-text cap; hidden card statistics and note text remain redacted too.
+Card names use only visibility at the event's parent plus that event's disclosures/
+destination exposure; hidden identities read `A card`. Later reveals never rename
+earlier hidden events, including other players' hand, Library, face-down and Look/
+Search cards. Library known-order metadata alone does not reveal card faces.
+
 **D-296 author/groups:** color each event-type icon by the originating participant,
 not affected card owner, current viewer or latest editor. Add faint vertical
 dividers exactly between adjacent events belonging to different effective

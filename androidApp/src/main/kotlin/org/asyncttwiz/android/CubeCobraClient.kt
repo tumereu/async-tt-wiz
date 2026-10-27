@@ -32,10 +32,7 @@ internal fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlock
             check(bytes.size <= DeckApi.MAX_BODY) { "Deck response is too large. Try Paste list." }
             return bytes.decodeToString(throwOnInvalidSequence = true)
         }
-        val body = read(location.endpoint, if (location.site == DeckImportSite.MTGGOLDFISH) "text/plain" else "application/json")
-        val name = if (location.site == DeckImportSite.MTGGOLDFISH) {
-            DeckUrlImport.goldfishName(read("https://www.mtggoldfish.com/deck/${location.id}", "text/html"))
-        } else null
-        DeckUrlImport.parse(location.site, body, name)
+        val body = read(location.endpoint, "application/json")
+        DeckUrlImport.parse(location.site, body)
     }
 }

@@ -413,13 +413,13 @@ not a project-specific syntax. The compatibility target is Arena/MTGO-style
 
 - Paste one `quantity Card Name` entry per line, such as `4 Lightning Bolt`.
 - Import has **From URL | Paste list** tabs. On the phone, From URL fetches
-  Archidekt public JSON, MTGGoldfish text plus its public page name, or Moxfield
-  public JSON, then uses the same resolution/errors/save pipeline as pasted text.
+  Archidekt public JSON only, then uses the same resolution/errors/save pipeline
+  as pasted text. MTGGoldfish and Moxfield block non-browser clients with
+  Cloudflare challenges (HTTP 403); use **Paste list** for those sites.
   Keep the site's name and mainboard/sideboard; commanders enter mainboard,
   maybeboard is omitted. Provider failures suggest **Paste list**.
-  Copied deck URLs (including share queries/fragments) select the provider;
-  `archidekt:ID`, `mtggoldfish:ID`, and `moxfield:ID` also work. A bare Moxfield
-  public ID is recognizable; ambiguous numeric IDs require the site prefix.
+  Copied Archidekt deck URLs (including share queries/fragments) and `archidekt:ID`
+  work; bare numeric IDs require the `archidekt:` prefix.
   Read clipboard once when the URL tab first opens in an import session, prefill
   only a matching supported URL/ID, and never fetch without pressing Import.
   Drop pending URL results when the name, list, URL or tab changes; a newer import

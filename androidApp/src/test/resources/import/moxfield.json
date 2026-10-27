@@ -1,9 +1,0 @@
-{
-  "name": "Cooperative creatures",
-  "boards": {
-    "mainboard": {"count": 4, "cards": [{"quantity": 4, "card": {"name": "Rune Bear"}}]},
-    "sideboard": {"count": 2, "cards": [{"quantity": 2, "card": {"name": "Rune Shield"}}]},
-    "commanders": {"count": 1, "cards": [{"quantity": 1, "card": {"name": "Rune Captain"}}]},
-    "maybeboard": {"count": 3, "cards": [{"quantity": 3, "card": {"name": "Rune Wish"}}]}
-  }
-}

@@ -39,7 +39,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun connectUrl(resolve: (ParsedDeck) -> DeckImportResult, fetch: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl) {
         resolveParsed = resolve; fetchUrl = fetch
     }
-    fun fromUrl(value: Boolean) { state = state.copy(fromUrl = value, error = null) }
+    fun fromUrl(value: Boolean) {
+        if (value != state.fromUrl) cancelUrlFetch()
+        state = state.copy(fromUrl = value, error = null)
+    }
     fun prefillUrl(read: () -> String?) {
         if (state.clipboardRead || !state.active || !state.fromUrl) return
         val match = ImportClipboard.deck(read())
@@ -47,11 +50,14 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun url(value: String) {
         if (closed || !state.active) return
-        if (state.fetchingUrl) { epoch++; state = state.copy(busy = false, fetchingUrl = false) }
+        cancelUrlFetch()
         state = state.copy(url = value, error = null)
     }
+    private fun cancelUrlFetch() {
+        if (state.fetchingUrl) { epoch++; state = state.copy(busy = false, fetchingUrl = false) }
+    }
     fun importUrl() {
-        if (closed || !state.active || state.busy || state.saving) return
+        if (closed || !state.active || (state.busy && !state.fetchingUrl) || state.saving) return
         val location = DeckUrlImport.location(state.url) ?: run {
             state = state.copy(error = "Enter a supported deck URL or site:ID."); return
         }
@@ -207,6 +213,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun review() { if (state.result?.resolved == true && !state.busy) state = state.copy(preview = true) }
     fun editList() { if (!state.saving) { inspection.close(); state = state.copy(preview = false, error = null) } }
     fun name(value: String) { if (value != state.name) {
+        cancelUrlFetch()
         retryPlan = null; state = state.copy(name = value, error = null)
     } }
     fun save() {
@@ -234,7 +241,9 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                        cover, retained, input.editing)
                 val result = action(checkNotNull(plan))
                 post { if (!closed && generation == epoch && state.active) {
-                    if (state.text == input.text && state.name == input.name && state.cover == input.cover) { exit(); saved(result) }
+                    // A merged list is a delta, not an editable snapshot: never save it again after acceptance.
+                    if (input.mode == DeckImportMode.MERGE ||
+                        (state.text == input.text && state.name == input.name && state.cover == input.cover)) { exit(); saved(result) }
                     else {
                         retryPlan = null
                         initial = input.copy(target = result.deck.id, editing = true)

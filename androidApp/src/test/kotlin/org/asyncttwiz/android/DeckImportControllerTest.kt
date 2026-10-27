@@ -46,6 +46,45 @@ class DeckImportControllerTest {
         controller.close()
     }
 
+    @Test fun nameChangesAndTabSwitchesDropDelayedUrlImports() {
+        val changes: List<(DeckImportController) -> Unit> = listOf(
+            { it.name("Corrected name") },
+            { it.fromUrl(false) },
+            { it.fromUrl(false); it.fromUrl(true) }
+        )
+        changes.forEach { change ->
+            val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
+            val controller = DeckImportController(::result, worker) { posts += it }
+            controller.connectUrl(::resultParsed, { ImportedDeck("Remote", DeckTextParser.parse("2 Remote")) })
+            controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
+            controller.url("archidekt:123"); controller.importUrl(); worker.drain()
+            change(controller)
+            val corrected = controller.state
+            posts.removeFirst()()
+            assertEquals(corrected, controller.state)
+            assertEquals("1 Retained", controller.state.text)
+            assertFalse(controller.state.busy); assertFalse(controller.state.fetchingUrl)
+            controller.close()
+        }
+    }
+
+    @Test fun anotherUrlImportSupersedesThePendingResponse() {
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var fetches = 0
+        val controller = DeckImportController(::result, worker) { posts += it }
+        controller.connectUrl(::resultParsed, { ImportedDeck("Remote ${++fetches}", DeckTextParser.parse("$fetches Remote")) })
+        controller.open(); controller.name("Retained"); controller.fromUrl(true); controller.url("archidekt:123")
+        controller.importUrl(); worker.drain()
+        controller.importUrl(); worker.drain()
+        assertEquals(2, fetches)
+        posts.removeFirst()()
+        assertEquals("Retained", controller.state.name); assertEquals("", controller.state.text)
+        assertTrue(controller.state.busy); assertTrue(controller.state.fetchingUrl)
+        posts.removeFirst()()
+        assertEquals("Remote 2", controller.state.name); assertEquals("2 Remote", controller.state.text)
+        assertFalse(controller.state.busy); assertFalse(controller.state.fetchingUrl)
+        controller.close()
+    }
+
     private fun resultParsed(parsed: ParsedDeck) = result(parsed.text)
 
     @Test fun installationDisablesRetryAndNewMetadataRelooksUpOnlyAnUnresolvedDraft() {

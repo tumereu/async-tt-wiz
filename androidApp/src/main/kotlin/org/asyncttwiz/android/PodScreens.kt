@@ -53,7 +53,6 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
             }
         }
-        lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
         if (!draftScreen) state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
         if (!draftScreen && (state.error != null || state.uncertain)) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(state.error ?: "An earlier request needs to be checked.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
@@ -82,6 +81,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 action = { FilledTonalIconButton(controller::retry) { EntryIcon("Retry", "refresh") } }) {
                 Text("Could not save changes")
             }
+            lobby?.let { PodChallengeFeedback(it.state, it::retryPodChallenge, it::dismissSessionError, Modifier.matchParentSize()) }
         }
     }
     if (controller.setPicker.state.open) PodSetPickerDialog(controller.setPicker)
@@ -105,12 +105,14 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
 
 /** Available even when the original pod or opponent can no longer be opened. */
 @Composable
-internal fun PodChallengeRetry(state: LobbyState, retry: () -> Unit) {
-    state.retryPodChallengeName?.let { name ->
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Challenge not confirmed: $name", Modifier.weight(1f))
-            TextButton(retry, enabled = !state.mutating) { Text("Retry challenge") }
+internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        if (state.retryPodChallengeName != null) {
+            FilledTonalIconButton(retry, Modifier.align(Alignment.TopEnd).padding(12.dp), enabled = !state.mutating) {
+                EntryIcon("Retry challenge", "refresh")
+            }
         }
+        FloatingTransientError(state.error, dismiss, Modifier.align(Alignment.BottomCenter))
     }
 }
 

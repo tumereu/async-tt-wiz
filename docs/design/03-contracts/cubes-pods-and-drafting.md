@@ -294,7 +294,7 @@ each with a sticky header and count. Trash starts expanded (it is last).
   While dragging, the destination shows ("→ Side"); section counts update immediately.
 - **Tap** opens a menu with the two destinations. **Hold** inspects.
 - **Basics**: one compact W/U/B/R/G count row opens one dialog with all five
-  steppers. Edits predict immediately and revert on rejection. Basics count toward Main but are not tiles. They are unlimited and do not
+  steppers, scrollable in short windows with Done always visible. Edits predict immediately and revert on rejection. Basics count toward Main but are not tiles. They are unlimited and do not
   come from the cube. Snow and other special basics are not supplied.
 - New picks enter Main without moving anything else.
 - Build is available during the draft. Every move and basic change is saved on the
@@ -335,6 +335,8 @@ submitting. Members submit independently; nobody waits for the slowest builder.
 crossed-swords icon button (accessible name **Challenge**) next to
 each member who has submitted (once you have too), and this pod's games, which
 open as ordinary games.
+Challenge failures appear as transient overlays without shifting content; uncertain
+challenges retain a retry icon even after the error disappears or the pod is gone.
 
 **Challenge** sends an ordinary game invitation (name suggestion, acceptance, and
 lobby as today). Differences in the lobby:

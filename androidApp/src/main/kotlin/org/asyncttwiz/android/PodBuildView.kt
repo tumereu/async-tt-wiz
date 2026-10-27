@@ -12,6 +12,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -157,17 +159,19 @@ fun PodBuildView(
 @Composable
 private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
-            .height(48.dp).testTag("pod-build-basics").semantics { contentDescription = "Edit basic lands" }) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            DraftColor.entries.forEachIndexed { index, color ->
-                CardText("{${color.name}} ${basics.podBuildValues()[index]}", Modifier.weight(1f), maxLines = 1)
+    Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()
+                .height(48.dp).testTag("pod-build-basics").semantics { contentDescription = "Edit basic lands" }) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                DraftColor.entries.forEachIndexed { index, color ->
+                    CardText("{${color.name}} ${basics.podBuildValues()[index]}", Modifier.weight(1f), maxLines = 1)
+                }
             }
         }
     }
     if (open && editable) AlertDialog(onDismissRequest = { open = false }, title = { Text("Basic lands") },
-        text = { Column {
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
             listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
                 val count = basics.podBuildValues()[index]
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

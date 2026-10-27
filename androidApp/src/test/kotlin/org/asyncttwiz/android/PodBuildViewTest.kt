@@ -154,6 +154,33 @@ class PodBuildViewTest {
     }
 
     @Test
+    @Config(qualifiers = "w800dp-h360dp-land-mdpi")
+    fun allBasicLandSteppersAreReachableInShortLandscapeDialog() {
+        var build by mutableStateOf(PodDeckBuild())
+        val adjustments = mutableListOf<Pair<Int, Int>>()
+        compose.setContent { ScreenTheme {
+            PodBuildView(build, emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { index, delta ->
+                adjustments += index to delta
+                build = build.copy(basics = build.basics.podBuildAdjust(index, delta))
+            }, {})
+        } }
+        compose.onNodeWithContentDescription("Edit basic lands").performClick()
+        listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
+            val add = compose.onNodeWithContentDescription("Add $name").performScrollTo().assertIsDisplayed()
+            val bounds = add.getUnclippedBoundsInRoot()
+            val done = compose.onNodeWithContentDescription("Done").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val dialog = compose.onNode(isDialog()).getUnclippedBoundsInRoot()
+            assertTrue(bounds.top >= dialog.top && bounds.bottom <= done.top)
+            add.performTouchInput { click() }
+            compose.onNodeWithContentDescription("Remove $name").assertIsEnabled().performTouchInput { click() }
+            compose.runOnIdle { assertEquals(listOf(index to 1, index to -1), adjustments.takeLast(2)) }
+        }
+        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Basic lands").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(PodDeckBasics(), build.basics) }
+    }
+
+    @Test
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeUsesItsOwnColumnPreferenceAndFitsAllColumns() {
         val preferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0)

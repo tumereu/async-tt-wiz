@@ -48,6 +48,13 @@ not concerned state; Library branch reseeds are semantic, and a later event's
 recorded reseed input must never be silently rewritten. Undo is a convenience:
 when uncertain, refuse rather than under-block; players can reverse manually.
 
+Rules v17 temporary-mark edits concern their exact damage/EOT P/T/EOT note field
+and edit eligibility, independently of permanent corner/note. Turn passage clears
+all temporary marks in the turn event and concerns the complete set of marked
+card IDs and values, including its empty-set witness. Zone resets concern all
+three reset fields even when empty. One undo restores the turn and cleared marks;
+retained pre-v17 events keep their recorded effects without new cleanup.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

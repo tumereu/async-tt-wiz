@@ -94,6 +94,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     }
     fun corner(id: String, fallback: String?, label: String = "Corner") = text(if (shownCard(id) == null) "A card P/T changed"
         else "${card(id)} P/T ${change(id, GameplayField.CORNER, inspection(id)?.corner, fallback)}", label)
+    fun damage(id: String, value: String?, delta: String?) = text(if (shownCard(id) == null) "A card damage changed"
+        else "${card(id)} damage ${change(id, GameplayField.DAMAGE, inspection(id)?.damage?.ifEmpty { "0" }, value?.ifEmpty { "0" }, delta)}", "Damage")
     fun note(id: String, value: String, projection: Boolean = false): HistoryText {
         val subject = "${card(id)} ${if (projection) "projection note" else "note"}"
         return text(if (shownCard(id) == null) "$subject edited" else "$subject: $value", "Note")
@@ -159,6 +161,14 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.Unping -> text("Ping removed", "Unping")
         is PlayAction.SetCorner -> corner(action.cardId, action.value)
         is PlayAction.AdjustCorner -> corner(action.cardId, inspection(action.cardId)?.corner?.let { ManualText.corner(it, action.part, action.delta) })
+        is PlayAction.SetDamage -> damage(action.cardId, action.value, null)
+        is PlayAction.AdjustDamage -> damage(action.cardId, null, action.delta)
+        is PlayAction.SetEotCorner -> text(if (shownCard(action.cardId) == null) "A card EOT P/T changed"
+            else "${card(action.cardId)} EOT P/T ${change(action.cardId, GameplayField.EOT_CORNER, inspection(action.cardId)?.eotCorner, action.value)}", "EOT P/T")
+        is PlayAction.AdjustEotCorner -> text(if (shownCard(action.cardId) == null) "A card EOT P/T changed"
+            else "${card(action.cardId)} EOT P/T ${change(action.cardId, GameplayField.EOT_CORNER, inspection(action.cardId)?.eotCorner, null)}", "EOT P/T")
+        is PlayAction.SetEotNote -> text(if (shownCard(action.cardId) == null) "A card EOT note edited"
+            else "${card(action.cardId)} EOT note: ${historyPlainText(action.value)}", "EOT note")
         is PlayAction.ResetCorner -> corner(action.cardId, null, "Reset corner")
         is PlayAction.SetCounter -> counter(action.target, action.targetId, action.color, action.value, false)
         is PlayAction.AdjustCounter -> counter(action.target, action.targetId, action.color, action.delta, true)

@@ -1,5 +1,20 @@
 # 10. Game board and controls
 
+## Round 16 temporary marks (rules version 17)
+
+Cards have independent `damage` (numeric text; empty means zero), `eotCorner`
+(two-part signed P/T delta; empty means none), and `eotNote` fields. Manual edits
+are available on Battlefield and real Stack cards. Everyday retains its actions
+in a five-column, at-most-five-row grid and adds two-cell Damage/EOT P/T widgets
+and a one-cell EOT note editor; edits apply to multiselection as one atomic batch.
+The effective P/T is permanent corner plus the temporary delta, shown in teal
+with an hourglass; inspect also shows the delta and “until end of turn”. EOT notes
+are separate hourglass-prefixed chips. Damage is a red outlined badge beside P/T,
+filled when numeric damage reaches numeric effective toughness (a hint only).
+Passing to a new turn clears all three fields on every card within that same
+event. Zone changes clear them too; Battlefield-to-Battlefield moves retain them.
+Direct phase/step choices retain their existing same-turn semantics.
+
 **Initial-delivery connectivity (D-182):** game edits and shared controls require
 a connection. Offline use is downloaded read-only history, not offline gameplay,
 Undo, Reset, new random outcomes or queued synchronization. Optimistic updates

@@ -15,7 +15,10 @@ import kotlinx.serialization.Serializable
     val token: Boolean = false, val placement: PlayPlacement? = null,
     /** Old snapshots used covered=true for hidden-zone defaults, even after entering public zones. */
     val explicitlyCovered: Boolean = false,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownToAll: Boolean = false) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownToAll: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val damage: String = "",
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotCorner: String = "",
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotNote: String = "") {
     val isFaceDown: Boolean get() = covered && explicitlyCovered
 }
 /** Library order is top first. Other empty zones already have stable identities for later commands. */

@@ -24,10 +24,11 @@ class CardRingInteractionTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
     private val sent = mutableListOf<PlayAction>()
+    private val batches = mutableListOf<List<PlayAction>>()
     private fun render(multi: Boolean = false, play: PlayState = f.combat(),
         contextId: String = f.source(f.a, "1/3").id): TableToolkitController {
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true },
-            playBatch = { actions, _ -> sent += actions; true })
+            playBatch = { actions, _ -> batches += actions.toList(); sent += actions; true })
         val source = f.source(f.a, "1/3").id
         toolkit.openCard(TableScope(contextId, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(contextId)))
         compose.setContent {
@@ -257,6 +258,30 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
     }
 
+    @Test fun everydayDamageAndEotAdjustmentsBatchTheWholeSelection() {
+        render(multi = true)
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Increase damage").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Increase EOT P/T").assertIsDisplayed().performClick()
+        val ids = listOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id)
+        compose.runOnIdle {
+            assertEquals<List<List<PlayAction>>>(listOf(ids.map { PlayAction.AdjustDamage(it, "1") },
+                ids.map { PlayAction.AdjustEotCorner(it, CornerPart.BOTH, 1) }), batches)
+        }
+    }
+
+    @Test fun everydayEotNoteEditorBatchesTheWholeSelection() {
+        render(multi = true)
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Edit EOT note").assertIsDisplayed().performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement("can't block")
+        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
+        compose.runOnIdle {
+            val ids = listOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id)
+            assertEquals<List<List<PlayAction>>>(listOf(ids.map { PlayAction.SetEotNote(it, "can't block") }), batches)
+        }
+    }
+
     @Test fun counterDragShowsRelativeResultAndDoesNotSwipePagesOrOpenEditor() {
         val toolkit = render()
         compose.ringPage(2)
@@ -355,7 +380,7 @@ class CardRingInteractionTest {
             compose.ringPage(page)
             val resized = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
             assertEquals(bounds.width, resized.width)
-            assertTrue(resized.height <= 222f)
+            assertTrue(resized.height <= 272f)
         }
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()

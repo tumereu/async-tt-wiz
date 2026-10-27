@@ -78,6 +78,7 @@ object HistoryGrouping {
         is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "open_with", action.displayId)
         is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
         is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, "ads_click")
+        is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
         is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.ClearCardCounter ->
             HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
         is PlayAction.ResetCorner -> HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, "settings_backup_restore")
@@ -85,7 +86,7 @@ object HistoryGrouping {
             HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
         is PlayAction.AdjustCounter -> HistorySemantic(if (action.target == CounterTarget.PLAYER)
             HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
-        is PlayAction.SetNote, is PlayAction.SetProjectionNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "sticky_note_2")
+        is PlayAction.SetNote, is PlayAction.SetEotNote, is PlayAction.SetProjectionNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "sticky_note_2")
         is PlayAction.SetOwner -> HistorySemantic(HistorySignificance.OWNER_EDIT, "switch_account")
         is PlayAction.SetFace -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT, "flip_camera_android")
         is PlayAction.SetCovered -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT,

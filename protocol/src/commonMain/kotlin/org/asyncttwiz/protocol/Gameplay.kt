@@ -71,6 +71,12 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("ping") data class Ping(val reference: EventReference, val target: PingTarget) : PlayAction
     @Serializable @SerialName("unping") data class Unping(val reference: EventReference, val target: PingTarget) : PlayAction
     @Serializable sealed interface Manual : PlayAction
+    @Serializable @SerialName("setDamage") data class SetDamage(val cardId: String, val value: String) : Manual
+    @Serializable @SerialName("adjustDamage") data class AdjustDamage(val cardId: String, val delta: String) : Manual
+    @Serializable @SerialName("setEotCorner") data class SetEotCorner(val cardId: String, val value: String) : Manual
+    @Serializable @SerialName("adjustEotCorner") data class AdjustEotCorner(val cardId: String, val part: CornerPart,
+        val delta: Int) : Manual
+    @Serializable @SerialName("setEotNote") data class SetEotNote(val cardId: String, val value: String) : Manual
     @Serializable @SerialName("setCorner") data class SetCorner(val cardId: String, val value: String) : Manual
     @Serializable @SerialName("adjustCorner") data class AdjustCorner(val cardId: String, val part: CornerPart,
         val delta: Int) : Manual
@@ -264,7 +270,7 @@ object GameplayRules {
     }
 
     internal fun record(state: PlayState, actor: String, command: GameCommand, board: BoardState,
-        transition: GameplayTransition, contentsRulesVersion: Int = 2): GameplayChange {
+        transition: GameplayTransition, contentsRulesVersion: Int = 2, rulesVersion: Int = 17): GameplayChange {
         // Movement/token adapters must enter here BEFORE publishing. Capture disappearance before resets,
         // close empty pairs and remove incident occurrence links in this same individual mutation.
         val action = (command.action as GameAction.Play).action
@@ -277,7 +283,8 @@ object GameplayRules {
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
         }), action)
-        val closed = CombatStackRules.closeInvariants(state.board, resolved)
+        val cleanup = if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved
+        val closed = CombatStackRules.closeInvariants(state.board, cleanup)
             ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.
         val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
@@ -290,9 +297,11 @@ object GameplayRules {
                 // Only replacement tops are automatic; an explicit face change is still a Reveal.
                 automatic = action !is PlayAction.SetKeepTopRevealed && old.cards.firstOrNull() != id)
         }
-        // Version 16 preserves token-adjacent pile order and canonicalizes map-derived event arrays.
+        // Version 17 adds temporary marks and atomic turn/zone cleanup.
         // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
-        val relevant = transition.copy(rulesVersion = 16, combatStack = CombatStackRules.transition(state, closed, action),
+        val relevant = transition.copy(rulesVersion = rulesVersion,
+            fields = transition.fields + if (rulesVersion >= 17) TurnMarks.changes(resolved, cleanup) else emptyList(),
+            combatStack = CombatStackRules.transition(state, closed, action),
             disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {
                 it.cardId == disclosure.cardId && it.containerId == disclosure.containerId } } + topDisclosures,
             contentsRulesVersion = if (panel != null || transition.contents != null || transition.movement != null)

@@ -19,7 +19,11 @@ import org.asyncttwiz.protocol.DeckValidation
 /** The draft is independent of sync's current preview, and publishes only on completed Set. */
 class ValueDraft(val scope: ManualScope, val field: ManualValue, initial: String) {
     var text by mutableStateOf(initial)
-    val valid: Boolean get() = DeckValidation.text(text.trim())
+    val valid: Boolean get() = DeckValidation.text(text.trim()) && when (this.field.kind) {
+        ManualValueKind.DAMAGE -> text.isBlank() || org.asyncttwiz.protocol.TableActions.numeric(text.trim())
+        ManualValueKind.EOT_CORNER -> org.asyncttwiz.protocol.ManualText.eotCorner(text.trim())
+        else -> true
+    }
 }
 
 @Composable
@@ -39,9 +43,9 @@ internal fun ValueEditor(draft: ValueDraft, current: String?, enabled: Boolean, 
             Text("Current: ${current ?: "no value"}", style = MaterialTheme.typography.labelSmall)
             OutlinedTextField(input, onValueChange = { input = it; draft.text = it.text },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus), label = { Text(draft.field.label) },
-                singleLine = draft.field.kind != ManualValueKind.NOTE, minLines = if (draft.field.kind == ManualValueKind.NOTE) 3 else 1,
-                maxLines = if (draft.field.kind == ManualValueKind.NOTE) 8 else 1, isError = !draft.valid,
-                keyboardOptions = KeyboardOptions(imeAction = if (draft.field.kind == ManualValueKind.NOTE) ImeAction.Default else ImeAction.Done),
+                singleLine = !draft.field.multiline, minLines = if (draft.field.multiline) 3 else 1,
+                maxLines = if (draft.field.multiline) 8 else 1, isError = !draft.valid,
+                keyboardOptions = KeyboardOptions(imeAction = if (draft.field.multiline) ImeAction.Default else ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { complete() }))
             if (!draft.valid) Text("Text is invalid or too long", color = MaterialTheme.colorScheme.error)
         }

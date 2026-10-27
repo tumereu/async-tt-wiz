@@ -117,7 +117,9 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
             frozen = panel.localZone == null && panel.display.author != viewer, artwork = art,
             panelRevealed = panel.localZone == null && panel.display.author == viewer && !panel.display.reveal &&
                 card.id in panel.display.revealedIds,
-            corner = if (row.entry.faceVisible) card.corner else "", note = if (row.entry.faceVisible) card.note else "",
+            corner = if (row.entry.faceVisible) effectiveCorner(card) else "", note = if (row.entry.faceVisible) card.note else "",
+            damage = if (row.entry.faceVisible) card.damage else "", eotCorner = if (row.entry.faceVisible) card.eotCorner else "",
+            eotNote = if (row.entry.faceVisible) card.eotNote else "",
             copies = row.copies, token = card.token, counters = if (row.entry.faceVisible) card.counters.filterValues(TablePresentation::nonzero) else emptyMap(),
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "",
             changedPowerToughness = row.entry.faceVisible && changedPowerToughness(card.corner, face))

@@ -90,6 +90,9 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         }
         val card = state.board.cards.single { it.id == contextId }
         return when (field.kind) {
+            ManualValueKind.DAMAGE -> card.damage
+            ManualValueKind.EOT_CORNER -> card.eotCorner
+            ManualValueKind.EOT_NOTE -> card.eotNote
             ManualValueKind.CORNER -> card.corner
             ManualValueKind.NOTE -> card.note
             ManualValueKind.COUNTER -> card.counters[field.color]
@@ -102,12 +105,19 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         if (field.kind == ManualValueKind.NOTE && noteViewId != null)
             return listOf(PlayAction.SetProjectionNote(noteViewId, text))
         return targetIds.mapNotNull { id ->
+            if (field.kind in listOf(ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.EOT_NOTE) &&
+                state.board.cards.singleOrNull { it.id == id }?.let { card ->
+                    state.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }
+                } != true) return@mapNotNull null
             if (player) {
                 if (state.board.players.none { it.accountId == id }) null
                 else if (field.kind == ManualValueKind.LIFE) PlayAction.SetLife(id, text)
                 else PlayAction.SetCounter(CounterTarget.PLAYER, id, field.color!!, text)
             } else {
                 if (state.board.cards.none { it.id == id }) null else when (field.kind) {
+                    ManualValueKind.DAMAGE -> PlayAction.SetDamage(id, text)
+                    ManualValueKind.EOT_CORNER -> PlayAction.SetEotCorner(id, text)
+                    ManualValueKind.EOT_NOTE -> PlayAction.SetEotNote(id, text)
                     ManualValueKind.CORNER -> PlayAction.SetCorner(id, text)
                     ManualValueKind.NOTE -> PlayAction.SetNote(id, text)
                     ManualValueKind.COUNTER -> PlayAction.SetCounter(CounterTarget.CARD, id, field.color!!, text)
@@ -124,10 +134,15 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         }
 }
 
-enum class ManualValueKind { LIFE, CORNER, COUNTER, NOTE }
+enum class ManualValueKind { LIFE, CORNER, COUNTER, NOTE, DAMAGE, EOT_CORNER, EOT_NOTE }
 data class ManualValue(val kind: ManualValueKind, val color: CounterColor? = null) {
     init { require((kind == ManualValueKind.COUNTER) == (color != null)) }
-    val label: String get() = if (color != null) "${color.name.lowercase()} counter" else kind.name.lowercase()
+    val label: String get() = when (kind) {
+        ManualValueKind.EOT_CORNER -> "EOT P/T"
+        ManualValueKind.EOT_NOTE -> "EOT note"
+        else -> if (color != null) "${color.name.lowercase()} counter" else kind.name.lowercase()
+    }
+    val multiline: Boolean get() = kind == ManualValueKind.NOTE || kind == ManualValueKind.EOT_NOTE
 }
 
 /** Shared gesture decision used by the production square; a recognized hold always consumes click. */

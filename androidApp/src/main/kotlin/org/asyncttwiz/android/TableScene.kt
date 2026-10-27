@@ -889,7 +889,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
     }
     fun cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
-        if (i.covered || i.note.isEmpty() && i.counters.isEmpty()) return
+        if (i.covered || i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
         val noteMetrics = paint.fontMetrics
@@ -898,7 +898,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val valueMetrics = paint.fontMetrics
         val counterHeight = maxOf(10 * valueScale, (valueMetrics.bottom - valueMetrics.top) / (z * density) + 2f)
         val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.takeIf(TablePresentation::nonzero)?.let { color to it } }
-        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size)
+        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size, i.eotNote.isNotEmpty())
         fun label(value: String, b: TableBounds, metrics: Paint.FontMetrics) {
             val baseline = y + (b.y + b.height / 2) * z - (metrics.top + metrics.bottom) / (2 * density)
             // Only horizontal clipping: every line retains its complete vertical extent.
@@ -913,6 +913,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
             paint.color = android.graphics.Color.DKGRAY
             label(i.note.take(32), b, noteMetrics)
+        }
+        layout.eotNote?.let { slot ->
+            val value = "⌛ ${i.eotNote.take(30)}"
+            paint.textSize = 7 * noteScale * z * density
+            val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
+            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
+            paint.color = EotPowerToughnessColor
+            label(value, b, noteMetrics)
         }
         paint.textSize = 7 * valueScale * z * density
         entries.forEachIndexed { index, (color, value) ->
@@ -943,6 +951,26 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val x = 0f; val y = 0f
         val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else i.bounds.width / 28f
         val cardWidth = 28f * z; val cardHeight = 40f * z
+        val corner = if (i.eotCorner.isEmpty()) i.corner else "⌛${i.corner}"
+        fun damageBadge() {
+            if (!TablePresentation.nonzero(i.damage)) return
+            val previousColor = paint.color
+            paint.textSize = 6 * valueScale * z * density
+            val width = (cache.measure(i.damage) / density + 3 * z).coerceAtMost(cardWidth * .42f)
+            paint.textSize = 7 * valueScale * z * density
+            val ptWidth = cache.measure(corner) / density + 3 * z
+            val left = (cardWidth - ptWidth - width - 2 * z).coerceAtLeast(z)
+            val height = maxOf(9f, 6 * valueScale + 3) * z
+            val top = cardHeight - height - z
+            val red = Color(0xffb3261e)
+            val lethal = damageIsLethal(i.damage, i.corner)
+            drawRoundRect(if (lethal) red else Color.White, xy(left, top), size(width, height), CornerRadius(2 * z * density))
+            drawRoundRect(red, xy(left, top), size(width, height), CornerRadius(2 * z * density), style = Stroke(z * density))
+            paint.textSize = 6 * valueScale * z * density
+            paint.color = if (lethal) android.graphics.Color.WHITE else 0xffb3261e.toInt()
+            fittedText(i.damage, left + z, cardHeight - 3 * z, width - 2 * z)
+            paint.color = previousColor
+        }
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
@@ -951,19 +979,20 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             drawTableArtwork(requireNotNull(art), TableBounds(x, y, cardWidth, cardHeight))
             if (i.corner.isNotEmpty()) {
                 paint.textSize = 7 * valueScale * z * density
-                val badgeWidth = (cache.measure(i.corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
+                val badgeWidth = (cache.measure(corner) / density + 4 * z).coerceAtMost(cardWidth - 4 * z)
                 drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
                     size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
                 val previousColor = paint.color
-                if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
-                fittedText(i.corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
+                if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
+                else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
+                fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
                 paint.color = previousColor
             }
         }
         drawPath(outline, color,
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) return@translate
-        if (mode == TableArtworkMode.CUSTOM_CARD) { cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
+        if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
         fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
@@ -978,9 +1007,11 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         }
         paint.textSize = 7 * valueScale * z * density
         val previousColor = paint.color
-        if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
-        fittedText(i.corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
+        if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
+        else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
+        fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
+        damageBadge()
         cardAnnotations(i, x, y, z)
         paint.textSize = 11 * density
         }

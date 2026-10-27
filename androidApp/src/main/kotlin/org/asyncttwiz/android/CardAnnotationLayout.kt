@@ -1,10 +1,17 @@
 package org.asyncttwiz.android
 
 /** Face-local units (28 × 40), independent of HUD size and battlefield zoom. */
-internal data class CardAnnotationLayout(val note: TableBounds?, val counters: List<TableBounds>)
+internal data class CardAnnotationLayout(val note: TableBounds?, val counters: List<TableBounds>, val eotNote: TableBounds? = null)
 
 internal fun cardAnnotationLayout(titleBand: Float, artBottom: Float, noteHeight: Float,
-    counterHeight: Float, hasNote: Boolean, counterCount: Int): CardAnnotationLayout {
+    counterHeight: Float, hasNote: Boolean, counterCount: Int, hasEotNote: Boolean = false): CardAnnotationLayout {
+    if (hasEotNote) {
+        val base = cardAnnotationLayout(titleBand, artBottom, noteHeight * if (hasNote) 2 else 1, counterHeight, true, counterCount)
+        val note = requireNotNull(base.note).copy(height = noteHeight)
+        // Separate chips share the note column, never replace the permanent note.
+        return base.copy(note = if (hasNote) note else null,
+            eotNote = note.copy(y = if (hasNote) note.y + note.height else note.y))
+    }
     val top = titleBand - 1f
     if (counterCount > 2) {
         val columns = (counterCount + 1) / 2

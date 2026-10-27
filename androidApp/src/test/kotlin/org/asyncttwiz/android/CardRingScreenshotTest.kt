@@ -75,8 +75,8 @@ class CardRingScreenshotTest {
                 val indicator = compose.onNode(hasContentDescription("Action page ${page + 1} of ", substring = true))
                 indicator.assertIsDisplayed()
                 val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
-                assertEquals(198f, square.width)
-                assertTrue(square.height <= 222f)
+                assertEquals(248f, square.width)
+                assertTrue(square.height <= 272f)
                 if (page == 0) for (name in listOf("Inspect", "Set corner", "Clone", "Ping / Unping"))
                     compose.onNodeWithContentDescription(name).assertIsDisplayed()
                 if (page == 1) for (color in CounterColor.entries) for (prefix in listOf("Set", "Decrease", "Increase"))

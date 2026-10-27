@@ -196,3 +196,8 @@ The hidden Windows `wsl.exe` session prevents WSL idle shutdown after all termin
 close; shutdown/reboot still stops it. Run the script again afterward.
 For local verification without changing Serve or installing on a phone:
 `ATW_TEST_SKIP_TAILSCALE=1 ATW_TEST_SKIP_INSTALL=1 scripts/test-env.sh`.
+
+Push notifications: put `google-services-test.json`, `google-services-prod.json` and
+`fcm-service-account.json` in `~/.config/atw-firebase` (mode 600). `test-env.sh` and
+`prod-release.sh` then build the FCM flavor, and the test server sends pushes. Without
+those files, builds and servers stay on polling only.

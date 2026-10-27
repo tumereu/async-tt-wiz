@@ -85,8 +85,13 @@ counter.write_text(str(code) + "\n")
 print(code)
 PY
 )
-./scripts/gradle.sh :server:installDist :androidApp:assemblePersonalTest "-PatwTestVersionCode=$test_code"
-APK=$ROOT/androidApp/build/outputs/apk/personalTest/androidApp-personalTest.apk
+source "$ROOT/scripts/lib/fcm.sh"
+atw_fcm_args "$ATW_FIREBASE/google-services-test.json" org.asyncttwiz.android.test
+# Firebase identifiers add the "fcm" flavor, which renames the task and output directory.
+variant=personalTest apk_dir=personalTest
+if (( ${#fcm_args[@]} )); then variant=fcmPersonalTest apk_dir=fcm/personalTest; fi
+./scripts/gradle.sh :server:installDist ":androidApp:assemble${variant^}" "-PatwTestVersionCode=$test_code" "${fcm_args[@]}"
+APK=$(echo "$ROOT/androidApp/build/outputs/apk/$apk_dir/"*.apk)
 [[ -f $APK ]]
 version=$(date -u +%Y%m%dT%H%M%S)-$(git rev-parse --short=12 HEAD)
 snapshot=$(mktemp -d "$STATE/server/$version-XXXXXX")
@@ -100,6 +105,11 @@ export DB_PASSWORD_FILE="$STATE/db-password" RESET_MAIL_KEY_FILE="$STATE/reset-m
 export PUBLIC_BASE_URL=$ORIGIN RESET_BASE_URL=$ORIGIN
 export SERVER_ADDRESS=127.0.0.1 SERVER_PORT=18090 HEALTH_ADDRESS=127.0.0.1 HEALTH_PORT=18091
 export APP_RELEASE_DIR="$STATE/app-release"
+if [[ -f $ATW_FIREBASE/fcm-service-account.json ]]; then
+    export FCM_SERVICE_ACCOUNT_FILE=$ATW_FIREBASE/fcm-service-account.json
+else
+    unset FCM_SERVICE_ACCOUNT_FILE
+fi
 export SMTP_HOST=127.0.0.1 SMTP_PORT=11026 SMTP_TLS=local-plaintext SMTP_FROM=test@atw.invalid
 unset SMTP_USERNAME_FILE SMTP_PASSWORD_FILE
 if grep -qi microsoft /proc/sys/kernel/osrelease; then
@@ -151,7 +161,7 @@ if [[ $ready != true ]]; then
 fi
 
 # Immutable APK first, atomic metadata last; a running client never sees a partial release.
-python3 - "$APK" "$ROOT/androidApp/build/outputs/apk/personalTest/output-metadata.json" "$APP_RELEASE_DIR" "$test_code" <<'PY'
+python3 - "$APK" "$ROOT/androidApp/build/outputs/apk/$apk_dir/output-metadata.json" "$APP_RELEASE_DIR" "$test_code" <<'PY'
 import hashlib, json, os, pathlib, shutil, sys
 apk, output, root = map(pathlib.Path, sys.argv[1:4])
 entry, = json.loads(output.read_text())["elements"]

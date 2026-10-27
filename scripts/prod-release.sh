@@ -120,12 +120,17 @@ export ATW_RELEASE_STORE_FILE=$KEYS/release.p12
 export ATW_RELEASE_STORE_PASSWORD_FILE=$KEYS/store-password
 export ATW_RELEASE_KEY_ALIAS=atw-release
 export ATW_RELEASE_KEY_PASSWORD_FILE=$KEYS/key-password
-"$worktree/scripts/gradle.sh" :androidApp:assembleRelease -PatwSelfHosted=true \
-    "-PatwApiOrigin=$ORIGIN" "-PatwResetOrigin=$ORIGIN" -PatwAccountSwitcher=false -PatwCatalogTestOrigin=
+source "$ROOT/scripts/lib/fcm.sh"
+atw_fcm_args "$ATW_FIREBASE/google-services-prod.json" org.asyncttwiz.android
+# Firebase identifiers add the "fcm" flavor, which renames the task and output directory.
+variant=release apk_dir=release
+if (( ${#fcm_args[@]} )); then variant=fcmRelease apk_dir=fcm/release; fi
+"$worktree/scripts/gradle.sh" ":androidApp:assemble${variant^}" -PatwSelfHosted=true \
+    "-PatwApiOrigin=$ORIGIN" "-PatwResetOrigin=$ORIGIN" -PatwAccountSwitcher=false -PatwCatalogTestOrigin= "${fcm_args[@]}"
 artifact=$STATE/releases/$commit
 mkdir -p "$artifact"
-cp "$worktree/androidApp/build/outputs/apk/release/androidApp-release.apk" "$artifact/app.apk"
-python3 - "$artifact/app.apk" "$worktree/androidApp/build/outputs/apk/release/output-metadata.json" "$code" "$artifact/latest.json" <<'PY'
+cp "$worktree/androidApp/build/outputs/apk/$apk_dir/"*.apk "$artifact/app.apk"
+python3 - "$artifact/app.apk" "$worktree/androidApp/build/outputs/apk/$apk_dir/output-metadata.json" "$code" "$artifact/latest.json" <<'PY'
 import hashlib, json, pathlib, sys
 apk, output = map(pathlib.Path, sys.argv[1:3])
 build = json.loads(output.read_text())

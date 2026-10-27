@@ -45,7 +45,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
         return card.owner == viewer || containers.any { it.id == card.container && it.accountId == viewer }
     }
 
-    fun triggers(node: GameplayMutation): Set<PlaybackAutoPause> {
+    fun triggers(node: GameplayMutation, nextAuthor: String? = null): Set<PlaybackAutoPause> {
         val t = node.transition
         val action = node.action
         val result = mutableSetOf<PlaybackAutoPause>()
@@ -77,7 +77,7 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
                 } == true) result += PlaybackAutoPause.REVEAL
             if (action is PlayAction.Ping || action is PlayAction.EventComment) result += PlaybackAutoPause.PINGS_COMMENTS
             if (action is PlayAction.RollDie || action is PlayAction.FlipCoin) result += PlaybackAutoPause.RANDOM
-            if (t.attention?.let { it.to == viewer && (it.from ?: turnPlayer) != viewer } == true)
+            if (nextAuthor != viewer && t.attention?.let { it.to == viewer && (it.from ?: turnPlayer) != viewer } == true)
                 result += PlaybackAutoPause.ATTENTION
             if (action is PlayAction.Combat && (action.action is CombatAction.Declare ||
                     (action.action as? CombatAction.Place)?.destination?.role == CombatRole.ATTACKER)) result += PlaybackAutoPause.ATTACKERS
@@ -140,5 +140,9 @@ internal fun HistoryTree.autoPauseBetween(from: String, to: String, viewer: Stri
         cursor = node.parentId
     }
     val classifier = HistoryAutoPause(viewer, board, containers.ifEmpty { board?.containers.orEmpty() }, definitions)
-    return delta.asReversed().any { classifier.triggers(it).any(enabled::contains) }
+    val path = path(sharedHeadId)
+    return delta.asReversed().any { node ->
+        val nextAuthor = path.getOrNull(depth(node.id) + 1)?.let { nodes.getValue(it).author }
+        classifier.triggers(node, nextAuthor).any(enabled::contains)
+    }
 }

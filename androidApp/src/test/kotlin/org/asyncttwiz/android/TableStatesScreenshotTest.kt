@@ -186,7 +186,7 @@ class TableStatesScreenshotTest {
         if (kind.startsWith("history")) {
             compose.onNodeWithText("Timeline mode").assertIsDisplayed()
             compose.onNodeWithText(if (kind == "history-playing") "Auto: on" else "Auto: off").assertIsDisplayed()
-            compose.onNodeWithText("Tap: toggle · Hold: branch").assertIsDisplayed()
+            compose.onNodeWithText("Tap: toggle · Hold: branch").assertDoesNotExist()
         }
         if (kind == "tree-viewer") {
             compose.onNodeWithText("Make current").assertDoesNotExist()

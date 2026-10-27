@@ -249,10 +249,15 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                           onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
                          continueHere = if (reviewing && history.armed == null && interactive &&
                             history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
-                         returnCurrent = if (reviewing || history.armed != null) ({ history.requestExitReview(interactive) }) else null,
+                          returnCurrent = if (reviewing || history.armed != null) history::current else null,
                          cancelContinuation = history::cancelContinuation,
-                          bottomPanel = if (playback != null && history.armed == null) ({ playControls ->
-                            HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
+                           bottomPanel = if (playback != null) ({ playControls ->
+                             // Prediction can precede the worker's timeline index. Keep its last
+                             // concrete boundary mounted until that new node is indexed.
+                             val stripCursor = if (history.armed != null)
+                                 play.currentNodeId.takeIf(playback.tree::contains) ?: playback.position.cursorId
+                                 else playback.tree.sharedHeadId
+                             HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
                                    interactive, playbackPause, { history.requestContinuation(it) },
                                     autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
                                   onSettings = { playbackSettingsOpen = true },
@@ -268,7 +273,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                  continuationReady = position?.cursorId?.let(history::canRequestContinuation) == true,
                                  overlay = true, landscape = landscape,
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
-                                  readOnly = !reviewing, onEnter = { history.select(playback.tree.sharedHeadId) },
+                                   readOnly = editable, playCursorId = stripCursor,
+                                   onEnter = { history.select(stripCursor) },
                                    playControls = playControls)
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,

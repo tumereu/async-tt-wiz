@@ -1531,6 +1531,13 @@ onto a new branch. No runtime priority/legality enforcement is added.
 transport, continuation and timing text below; exact-event scrubbing, centered
 cursor, author-colored icons and endpoint animation remain current.
 
+R17: “Continue playing from here” (fork) arms the exact reviewed boundary and
+keeps the play strip visible there; “Return to current” starts catch-up without
+arming or a continuation chooser. Neither changes shared history. Move-to-you
+auto-pause is skipped when the immediately next event on the active path is yours;
+an opponent next event or no next event retains the existing pause behavior.
+Transport has no helper caption; its hold/accessibility continuation action remains.
+
 - Persist the last node shown live locally per (game, account), independently of
   sync revision. Debug builds retain it across Logout/account switching. Opening
   behind head enters timeline mode and auto-plays EVERY group at normal pacing
@@ -1547,7 +1554,7 @@ cursor, author-colored icons and endpoint animation remain current.
   bottom HUD (hand, piles, life, counters) sits immediately above the timeline.
    Use gray top/bottom bars, dim the field, show a faint centered “Timeline mode” + icon.
   Transport is white-bordered: green play/orange pause left, large “Auto: off/on”,
-  small “Tap: toggle · Hold: branch”. Branch markers use correctly directed graph
+   no helper caption. Branch markers use correctly directed graph
    lines. There are no timeline overflow/More/History options menus or manual
    Download history action; sync/recovery is automatic. Actions have direct
    buttons or live in Table actions. Toggles are normal buttons whose color/icon

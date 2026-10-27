@@ -113,7 +113,7 @@ class HistoryModeReworkTest {
         val auto = compose.onNodeWithContentDescription("Auto advance")
         auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
-        compose.onNodeWithText("Tap: toggle · Hold: branch").assertIsDisplayed()
+        compose.onNodeWithText("Tap: toggle · Hold: branch").assertDoesNotExist()
         auto.performClick()
         compose.runOnIdle { assertTrue(player.position.playing) }
         auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: on"))

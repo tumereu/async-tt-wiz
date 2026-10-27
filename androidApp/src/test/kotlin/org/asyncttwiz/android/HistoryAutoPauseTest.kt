@@ -6,6 +6,44 @@ import org.junit.Test
 import kotlin.test.*
 
 class HistoryAutoPauseTest {
+    @Test fun attentionLooksAheadOneEventEvenBeyondGroupAndIgnoresInactiveBranches() {
+        val attention = node(PlayAction.PassAttention, GameplayTransition(attention = AttentionChange(opponent, me)))
+        val own = node(PlayAction.RollDie(6, 1), author = me, id = "own", parent = attention.id)
+        val theirs = node(PlayAction.RollDie(6, 2), id = "theirs", parent = attention.id)
+        val enabled = setOf(PlaybackAutoPause.ATTENTION)
+        for ((head, expected) in listOf(own.id to false, theirs.id to true, attention.id to true)) {
+            val tree = HistoryTree("root", listOf(attention, own, theirs), head, "v")
+            assertEquals(expected, tree.autoPauseBetween("root", attention.id, me, enabled, board), head)
+        }
+        // Look at the immediate event, not the next group, the group author, or a later own action.
+        val laterOwn = own.copy(id = "later", parentId = theirs.id)
+        val tree = HistoryTree("root", listOf(attention, theirs, laterOwn), laterOwn.id, "v")
+        assertTrue(tree.autoPauseBetween("root", attention.id, me, enabled, board))
+        val sameGroup = GameplayGroup("group", opponent, attention.id, theirs.id, "move", null, "2")
+        val ownThenTheirs = theirs.copy(parentId = own.id)
+        val grouped = HistoryTree("root", listOf(attention, own, ownThenTheirs).map {
+            it.copy(bookkeeping = GameplayBookkeeping(null, "branch", sameGroup))
+        }, theirs.id, "v")
+        assertFalse(grouped.autoPauseBetween("root", theirs.id, me, enabled, board))
+        // Suppression is specific to attention, not a blanket suppression of other triggers.
+        val ping = attention.copy(action = PlayAction.Ping(reference, PingTarget(PingTargetKind.AREA, "mine")))
+        assertTrue(HistoryTree("root", listOf(ping, own), own.id, "v").autoPauseBetween("root", ping.id,
+            me, setOf(PlaybackAutoPause.PINGS_COMMENTS), board))
+    }
+
+    @Test fun alreadyActedAttentionDoesNotPausePlaybackAfterAnimation() {
+        val attention = node(PlayAction.PassAttention, GameplayTransition(attention = AttentionChange(opponent, me)))
+        for (nextAuthor in listOf(me, opponent)) {
+            val next = node(PlayAction.RollDie(6, 1), author = nextAuthor, id = "next", parent = attention.id)
+            val player = HistoryPlayback(HistoryTree("root", listOf(attention, next), next.id, "v"))
+            player.openFrom("root")
+            player.next(true, me, setOf(PlaybackAutoPause.ATTENTION), board)
+            assertEquals(attention.id, player.position.cursorId)
+            assertEquals(nextAuthor == opponent, player.pauseAfterAnimation())
+            assertEquals(nextAuthor == me, player.position.playing)
+        }
+    }
+
     @Test fun toggleMayPauseUnderRevealButAutomaticallyExposedTopsNeverDo() {
         for (enabled in listOf(false, true)) assertEquals(setOf(PlaybackAutoPause.REVEAL),
             triggers(PlayAction.SetKeepTopRevealed("theirs", enabled)))

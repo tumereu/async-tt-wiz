@@ -88,11 +88,11 @@ class TableChromeUiTest {
             val handLabel = TablePresentation.scene(TableFixture.game, play, who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
                 .items.single { it.cardId == "$who/HAND/0" }.label
             val handBefore = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
-            // The read-only strip enters at the latest event; it cannot scrub live play.
+            // Only the strip's toggle enters timeline mode; event taps describe without scrubbing.
             val latest = compose.onNodeWithContentDescription(events.last().description, useUnmergedTree = true)
             latest.assertIsSelected()
             val latestBefore = latest.fetchSemanticsNode().boundsInRoot
-            latest.performClick()
+            compose.onNodeWithContentDescription("Timeline mode").performClick()
             compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
             val handAfter = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             assertEquals(handBefore, handAfter, "HUD must not move on mode change")
@@ -174,22 +174,22 @@ class TableChromeUiTest {
 
     @Test fun holdingTimelineEventShowsDescriptionWithoutSelectingOrEntering() {
         val events = listOf(HistoryTimelineEvent("root", "flag", "The game started", "a", null))
-        var entered = 0
         var selected = 0
         compose.setContent { MaterialTheme {
-            HistoryTimeline(events, "root", "a", {}, { selected++ }, readOnly = true, onEnter = { entered++ })
+            HistoryTimeline(events, "root", "a", {}, { selected++ }, readOnly = true)
         } }
         val event = compose.onNodeWithContentDescription("The game started", useUnmergedTree = true)
         event.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(650)
         compose.onNodeWithText("The game started").assertIsDisplayed()
         event.performTouchInput { up() }
-        assertEquals(0, entered); assertEquals(0, selected)
+        assertEquals(0, selected)
         event.performTouchInput { click() }
-        assertEquals(1, entered); assertEquals(0, selected)
+        compose.onNodeWithText("The game started").assertIsDisplayed()
+        assertEquals(0, selected)
     }
 
-    @Test fun readOnlyStripShowsPressedTintAcrossEmptySpace() {
+    @Test fun playStripHasNoWholeAreaClickOrPressedTintAndOnlyIconToggleEnters() {
         val playback = LiveTableFixture.playback()
         var entered = 0
         compose.setContent { MaterialTheme {
@@ -207,10 +207,13 @@ class TableChromeUiTest {
         compose.mainClock.advanceTimeBy(300)
         compose.onRoot().captureRoboImage(output.path)
         val pressed = ImageIO.read(output)
-        assertNotEquals(before.getRGB(350, 24), pressed.getRGB(350, 24))
-        assertNotEquals(before.getRGB(50, 24), pressed.getRGB(50, 24), "Empty strip space shares press feedback")
+        assertEquals(before.getRGB(350, 24), pressed.getRGB(350, 24))
+        assertEquals(before.getRGB(50, 24), pressed.getRGB(50, 24), "Empty strip space has no press feedback")
         compose.onRoot().performTouchInput { up() }
         compose.mainClock.autoAdvance = true
+        assertEquals(0, entered)
+        compose.onNodeWithContentDescription("Event strip").assertHasNoClickAction()
+        compose.onNodeWithContentDescription("Timeline mode").assertIsDisplayed().performClick()
         assertEquals(1, entered)
     }
 

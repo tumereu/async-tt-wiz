@@ -31,13 +31,14 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                     // Real entries embed large decks/sealedProduct lists; keep only planning/display fields.
                     val json = JsonObject()
                     objectFields(reader) { key ->
-                        if (key == "code" || key == "releaseDate" || key == "name") json.add(key, value(reader, 3, intArrayOf(0))) else skip(reader, 3)
+                        if (key in setOf("code", "releaseDate", "name", "type")) json.add(key, value(reader, 3, intArrayOf(0))) else skip(reader, 3)
                     }
                     val code = string(json, "code", true)
                     catalogSetFilename(code) // Reject path-like codes before planning or downloading.
                     val date = string(json, "releaseDate", true).also { LocalDate.parse(it) }
                     val name = string(json, "name").takeIf { it.isNotBlank() }?.also { check(it.length <= 256) }
-                    check(sets.size < 20_000 && sets.put(code, CatalogSet(code, date, name = name)) == null)
+                    val type = string(json, "type").takeIf { it.isNotBlank() }?.also { check(it.length <= 64) }
+                    check(sets.size < 20_000 && sets.put(code, CatalogSet(code, date, name = name, type = type)) == null)
                 }
                 reader.endArray()
             }
@@ -66,9 +67,11 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 var sawCode = false
                 var releaseDate = ""
                 var setName = set
+                var setType: String? = null
                 objectFields(reader) { field -> when (field) {
                     "code" -> { check(reader.nextString() == set); sawCode = true }
                     "name" -> setName = reader.nextString().also { check(it.length in 1..256) }
+                    "type" -> setType = reader.nextString().also { check(it.length in 1..64) }
                     "releaseDate" -> releaseDate = reader.nextString().also { LocalDate.parse(it) }
                     "cards", "tokens" -> {
                         if (field == "cards") sawCards = true
@@ -109,6 +112,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                 index.addBatch(batch); batch.clear()
                 index.addSet(set, releaseDate, expected.checksum)
                 index.setName(set, setName)
+                setType?.let { index.setType(set, it) }
             }
             objectFields(reader) { key -> when (key) {
                 "meta" -> meta = metadata(value(reader, 1, intArrayOf(0)).asJsonObject)

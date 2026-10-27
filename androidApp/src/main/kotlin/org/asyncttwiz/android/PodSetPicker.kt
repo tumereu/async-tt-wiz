@@ -29,13 +29,14 @@ internal data class PodSetPickerState(
     val error: String? = null, val warnings: List<String> = emptyList(),
 ) {
     val filtered get() = rows.filter { row ->
-        query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
+        row.set.draftable && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
             row.set.code.contains(it, true) || row.set.releaseDate.contains(it, true) }
     }.sortedWith(compareByDescending<PodSetRow> { it.set.releaseDate }.thenBy { it.set.name }.thenBy { it.set.code })
 }
 
 internal class PodSetPickerController(private val repository: PodSetRepository?, private val worker: ExecutorService,
-    private val post: (() -> Unit) -> Unit, private val selected: (SetSourceUpload) -> Unit) {
+    private val post: (() -> Unit) -> Unit, private val choosing: (DraftableSet) -> Unit = {},
+    private val failed: () -> Unit = {}, private val selected: (SetSourceUpload) -> Unit) {
     var state by mutableStateOf(PodSetPickerState())
         private set
     private var generation = 0L
@@ -43,32 +44,35 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
 
     fun open() {
         if (state.open) return
-        state = state.copy(open = true, query = "", error = null, warnings = emptyList())
+        generation++
+        state = state.copy(open = true, busy = false, query = "", error = null, warnings = emptyList())
         list()
     }
     fun dismiss() { generation++; retryAction = null; state = state.copy(open = false, busy = false, status = null, error = null) }
     fun clear() { dismiss(); state = PodSetPickerState() }
     fun query(value: String) { state = state.copy(query = value) }
     fun retry() { if (!state.busy) retryAction?.invoke() }
-    private fun list() = work("Loading installed sets…", ::list, {
+    private fun list() = work("Loading installed sets…", ::list, action = {
         checkNotNull(repository).sets().map { PodSetRow(it, repository.isCached(it.code)) }
     }) { state = state.copy(rows = it, loaded = true) }
 
     fun choose(code: String) = acquire(code, false)
     fun redownload(code: String) = acquire(code, true)
     private fun acquire(code: String, force: Boolean) {
-        if (state.rows.none { it.set.code == code }) return
+        val set = state.rows.firstOrNull { it.set.code == code && it.set.draftable }?.set ?: return
+        if (state.busy) return
         work(if (force) "Redownloading $code and preparing card definitions…" else "Loading $code: downloading if needed and preparing card definitions…",
-            { acquire(code, force) }, {
+            { acquire(code, force) }, detached = !force, action = {
                 val source = checkNotNull(repository)
                 if (force) source.redownload(code) else source.load(code)
             }) { upload ->
             state = state.copy(rows = state.rows.map { if (it.set.code == code) it.copy(cached = true) else it }, warnings = upload.warnings)
             if (!force) { dismiss(); selected(upload) }
         }
+        if (!force) { state = state.copy(open = false); choosing(set) }
     }
 
-    private fun <T> work(status: String, retry: () -> Unit, action: () -> T, apply: (T) -> Unit) {
+    private fun <T> work(status: String, retry: () -> Unit, detached: Boolean = false, action: () -> T, apply: (T) -> Unit) {
         if (!state.open || state.busy) return
         val current = generation
         retryAction = retry
@@ -76,14 +80,16 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         worker.execute {
             try {
                 val result = action()
-                post { if (current == generation && state.open) {
+                post { if (current == generation && (state.open || detached)) {
                     retryAction = null
                     state = state.copy(busy = false, status = null, error = null)
                     apply(result)
                 } }
             } catch (_: Exception) {
-                post { if (current == generation && state.open) state = state.copy(busy = false, status = null,
-                    error = "Could not load the set source. Check your connection and installed card records, then Retry.") }
+                post { if (current == generation && (state.open || detached)) {
+                    state = state.copy(busy = false, status = null, error = "Could not load source.")
+                    if (detached) failed()
+                } }
             }
         }
     }
@@ -92,17 +98,3 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
 internal fun PodSetSource.podSource() = PodSource(kind = PodSourceKind.SET, setCode = snapshot.setCode,
     setName = snapshot.setName, boosterKind = if (snapshot.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
     boosterName = snapshot.recipe?.name)
-
-internal fun podSourceLabel(source: PodSource): String = if (source.kind == PodSourceKind.CUBE)
-    "${source.cubeName} · ${source.totalCopies} copies"
-else "${source.setName ?: source.setCode} (${source.setCode}) · ${podBoosterLabel(source)}"
-
-internal fun podBoosterLabel(source: PodSource): String = when {
-    source.boosterKind == SetBoosterKind.APPROXIMATE -> "Approximate packs"
-    source.boosterName == "play" -> "Play booster"
-    source.boosterName == "draft" -> "Draft booster"
-    else -> "Recipe-based boosters"
-}
-
-internal fun podSupplyLabel(source: PodSource, needed: Long): String = if (source.kind == PodSourceKind.SET)
-    "Unlimited (set boosters)" else "$needed / ${source.totalCopies} cards used"

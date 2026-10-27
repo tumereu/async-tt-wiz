@@ -79,6 +79,7 @@ class SetSourceRepositoryTest {
     }
     private fun set(code: String = "OLD", date: String = "2000-01-01", cards: List<JsonObject> = listOf(card(1))) = JsonObject().apply {
         addProperty("code", code); addProperty("name", "Set $code"); addProperty("releaseDate", date)
+        addProperty("type", "expansion")
         add("cards", JsonArray().apply { cards.forEach { add(it) } })
     }
     private fun recipe(ids: List<Int>, sources: List<String> = emptyList(), count: Int = 1) = JsonObject().apply {
@@ -135,8 +136,8 @@ class SetSourceRepositoryTest {
         val catalog = catalog(old, recent, tokens)
         val source = FixtureSource()
         val sets = repository(catalog, source).sets()
-        assertEquals(listOf(DraftableSet("NEW", "Set NEW", today.toString(), 1),
-            DraftableSet("OLD", "Set OLD", "2000-01-01", 2)), sets)
+        assertEquals(listOf(DraftableSet("NEW", "Set NEW", today.toString(), 1, "expansion"),
+            DraftableSet("OLD", "Set OLD", "2000-01-01", 2, "expansion")), sets)
         assertEquals(0, source.listRequests)
         val pointer = temporary.resolve("catalog/current").toFile().readText()
         DriverManager.getConnection("jdbc:sqlite:${temporary.resolve("catalog/$pointer")}").use {
@@ -163,6 +164,26 @@ class SetSourceRepositoryTest {
         }
         assertEquals(1, source.listRequests)
         assertTrue(source.requests.isEmpty())
+        assertTrue(source.downloads.isEmpty())
+    }
+
+    @Test fun draftableTypesExcludeCommanderPromoAndUnknownAndLegacyTypesArePersistedFromSmallSetList() {
+        val types = listOf("expansion", "core", "masters", "draft_innovation", "commander", "promo", "token", "unknown")
+        val catalog = catalog(*types.mapIndexed { n, type -> set("S$n", "2026-10-${(n + 1).toString().padStart(2, '0')}", listOf(card(n)))
+            .apply { addProperty("type", type) } }.toTypedArray())
+        val source = FixtureSource()
+        assertEquals(listOf("S3", "S2", "S1", "S0"), repository(catalog, source).sets().map { it.code })
+        assertEquals(0, source.listRequests)
+        val pointer = temporary.resolve("catalog/current").toFile().readText()
+        DriverManager.getConnection("jdbc:sqlite:${temporary.resolve("catalog/$pointer")}").use {
+            it.createStatement().use { statement -> statement.execute("DROP TABLE catalog_set_type") }
+        }
+        source.listed = CatalogSetList(metadata, types.mapIndexed { n, type -> CatalogSet("S$n", "2026-10-01", type = type) })
+        val legacy = repository(catalog, source)
+        repeat(2) { assertEquals(listOf("S3", "S2", "S1", "S0"), legacy.sets().map { it.code }) }
+        assertEquals(1, source.listRequests)
+        assertEquals(listOf("S3", "S2", "S1", "S0"), repository(catalog, FixtureSource()).sets().map { it.code })
+        assertEquals(pointer, temporary.resolve("catalog/current").toFile().readText())
         assertTrue(source.downloads.isEmpty())
     }
 

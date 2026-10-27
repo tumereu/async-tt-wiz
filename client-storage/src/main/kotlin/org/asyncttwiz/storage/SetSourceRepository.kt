@@ -13,7 +13,10 @@ import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.GZIPInputStream
 
-data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long)
+data class DraftableSet(val code: String, val name: String, val releaseDate: String, val cardCount: Long,
+    val type: String? = null) {
+    val draftable: Boolean get() = type in setOf("expansion", "core", "masters", "draft_innovation")
+}
 enum class MissingSetCardReason { CATALOG, SOURCE_FILE }
 data class MissingSetCard(val uuid: String, val setCode: String?, val reason: MissingSetCardReason)
 data class SetSourceUpload(val snapshot: SetSourceSnapshot, val definitions: SubmittedDefinitions,
@@ -35,15 +38,15 @@ class SetSourceRepository(
         require(decodedLimit in 1..HttpCatalogSource.MAX_DECODED_SET_BYTES)
     }
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
-    // Legacy catalogs lack names. Reuse the incremental updater's small metadata endpoint,
-    // at most once per repository; unavailable metadata must not prevent offline drafting.
-    private val setNames by lazy {
-        runCatching { source.setList().sets.mapNotNull { set -> set.name?.let { set.code to it } }.toMap() }
-            .getOrDefault(emptyMap())
+    // Backfill legacy metadata once, without downloading card records. Persist for offline use.
+    private val enrichMetadata by lazy {
+        runCatching { catalog.enrichSets(source.setList().sets) }
     }
 
-    fun sets(): List<DraftableSet> = catalog.draftableSets().map { set ->
-        if (set.name == set.code) set.copy(name = setNames[set.code] ?: set.name) else set
+    fun sets(): List<DraftableSet> {
+        val installed = catalog.draftableSets()
+        if (installed.any { it.type == null || it.name == it.code }) enrichMetadata
+        return catalog.draftableSets().filter { it.draftable }
     }
     fun isCached(code: String): Boolean = File(directory, "${catalogSetFilename(code)}.json.gz").isFile
     fun load(code: String): SetSourceUpload = load(code, false)
@@ -54,7 +57,8 @@ class SetSourceRepository(
     private fun load(code: String, force: Boolean): SetSourceUpload = synchronized(lock) {
         catalogSetFilename(code)
         if (catalog.metadata() == null) throw CatalogNotInstalledException()
-        val sets = sets().associateBy { it.code }
+        // Recipe dependencies may be non-draftable supplemental sets; keep their refresh dates.
+        val sets = catalog.draftableSets().associateBy { it.code }
         require(code in sets) { "Set $code has no installed non-token cards" }
         check(directory.isDirectory || directory.mkdirs())
         val main = acquire(code, sets[code]?.releaseDate, force)

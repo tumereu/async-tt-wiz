@@ -126,6 +126,22 @@ class PodHttpTest {
         Fixture(db).use(test)
     }
 
+    @Test fun `creation atomically accepts all settings and rejects invalid ranges`() = fixture { f ->
+        val settings = DraftSettings.glimpse().copy(packsPerPlayer = 4, cardsPerPack = 12, keep = 2, burn = 3,
+            discardRemainingAt = 1, packsOpenAtOnce = 2, colorBalance = false, sideboardLimit = 7)
+        val input = CreatePod(id(), "Configured at creation", f.cube.cube.id, settings = settings)
+        val response = f.send(f.a, "POST", "/v1/pods", input, 201)
+        val created = json.decodeFromString<PodDetail>(response)
+        assertEquals(settings, created.settings)
+        assertEquals(settings, f.get(f.a, created.id).settings)
+        assertEquals(response, f.send(f.a, "POST", "/v1/pods", input, 201))
+        for (invalid in listOf(settings.copy(keep = 13), settings.copy(sideboardLimit = -1),
+            DraftSettings.grid().copy(grids = 2, gridsOpenAtOnce = 3))) {
+            f.send(f.a, "POST", "/v1/pods", input.copy(requestId = id(), settings = invalid), 400)
+        }
+        assertEquals(1, f.list(f.a).pods.size)
+    }
+
     @Test fun `Glimpse HTTP completion private builds locked submission and retained retries`() = fixture { f ->
         val create = CreatePod(id(), "Glimpse pod", f.cube.cube.id, DraftMode.GLIMPSE)
         val created = f.send(f.a, "POST", "/v1/pods", create, 201)

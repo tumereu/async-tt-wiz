@@ -1124,12 +1124,19 @@ Confirmed optional communication direction (D-94/D-95):
    waits for a message or a gameplay Send step.
    D-297 gives Chat a **separate directly available button** and a panel, not an
    overflow-only route. Show a bubble for unviewed incoming game-chat messages.
-   This is personal UI state: mark only messages actually presented in the panel
-   as viewed, not hidden/offscreen messages merely because it opened. Own sent
-   echoes do not create unread incoming messages. Do not publish read receipts,
+   Read state is private server state per (game, account), shared across that
+   account's devices. Advance its monotonic cursor to the newest message actually
+   presented in the panel, never merely on opening; positions through that cursor
+   are read. Count only other authors after it, including unloaded messages. Coalesce
+   cursor reports and retry on reconnect. Own sent echoes do not create unread
+   incoming messages. Do not publish read receipts to the other player,
    presence or gameplay mutations for opening/closing/viewing chat, and do not
    change the selected historical boundary or fork intent. Existing immutable
    sent-chat/no-Undo rules persist; this adds no Edit/Delete, mute or alert category.
+   `GET /v1/games/{gameId}/chat/read` returns the caller's cursor and incoming
+   unread count; `PUT` with `ReadChat(messageId)` advances it (older reports are
+   ignored; a message from another game is invalid). Chat pages include the same
+   private state. This does not increment the game revision or create history events.
 2. Game chat is the only comment channel. There is no event Note/Reply action,
    event-comments UI or Event details dialog. Card notes and pings remain distinct.
 

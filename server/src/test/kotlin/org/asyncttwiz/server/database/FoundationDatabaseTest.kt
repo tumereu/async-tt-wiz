@@ -72,7 +72,7 @@ class FoundationDatabaseTest {
                     "request_identity", "account_request", "definition", "account_definition", "saved_deck", "deck_entry", "saved_cube", "cube_entry", "pod", "pod_member", "pod_invitation",
                     "contact", "game", "invitation", "game_stream", "game_inbox", "game_revision", "game_outbox",
                     "player_preparation", "game_definition", "game_play", "gameplay_group", "gameplay_mutation",
-                    "game_chat", "game_play_mutation", "activity_cursor", "account_activity", "activity_summary",
+                    "game_chat", "game_chat_read_cursor", "game_play_mutation", "activity_cursor", "account_activity", "activity_summary",
                     "activity_installation", "activity_push", "gameplay_tree_control", "gameplay_endpoint_record", "gameplay_endpoint_edge", "debug_crash_report", "debug_crash_daily_count"), tables)
             }
             assertThrows(FlywayException::class.java) { flyway.clean() }

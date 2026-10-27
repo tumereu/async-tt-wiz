@@ -3,10 +3,32 @@ package org.asyncttwiz.server.game
 import java.util.UUID
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.generated.tables.GameChat.GAME_CHAT
+import org.asyncttwiz.server.generated.tables.GameChatReadCursor.GAME_CHAT_READ_CURSOR
 import org.asyncttwiz.server.generated.tables.records.GameRecord
 import org.jooq.DSLContext
 
 internal object ChatStore {
+    fun readState(sql: DSLContext, game: UUID, account: UUID): ChatReadState {
+        val cursor = sql.select(GAME_CHAT_READ_CURSOR.REVISION).from(GAME_CHAT_READ_CURSOR)
+            .where(GAME_CHAT_READ_CURSOR.GAME_ID.eq(game)).and(GAME_CHAT_READ_CURSOR.ACCOUNT_ID.eq(account))
+            .fetchOne(GAME_CHAT_READ_CURSOR.REVISION) ?: 0L
+        val unread = sql.fetchCount(GAME_CHAT, GAME_CHAT.GAME_ID.eq(game)
+            .and(GAME_CHAT.REVISION.gt(cursor)).and(GAME_CHAT.AUTHOR_ID.ne(account)))
+        return ChatReadState(game.toString(), cursor.toString(), sync(sql, game).revision, unread)
+    }
+
+    fun read(sql: DSLContext, game: UUID, account: UUID, message: UUID): ChatReadState {
+        val revision = sql.select(GAME_CHAT.REVISION).from(GAME_CHAT)
+            .where(GAME_CHAT.GAME_ID.eq(game)).and(GAME_CHAT.ID.eq(message))
+            .fetchOne(GAME_CHAT.REVISION) ?: throw GameProtocolFailure("invalidInput")
+        sql.insertInto(GAME_CHAT_READ_CURSOR).set(GAME_CHAT_READ_CURSOR.GAME_ID, game)
+            .set(GAME_CHAT_READ_CURSOR.ACCOUNT_ID, account).set(GAME_CHAT_READ_CURSOR.REVISION, revision)
+            .onConflict(GAME_CHAT_READ_CURSOR.GAME_ID, GAME_CHAT_READ_CURSOR.ACCOUNT_ID).doUpdate()
+            .set(GAME_CHAT_READ_CURSOR.REVISION, org.jooq.impl.DSL.greatest(GAME_CHAT_READ_CURSOR.REVISION,
+                org.jooq.impl.DSL.`val`(revision))).execute()
+        return readState(sql, game, account)
+    }
+
     private fun message(it: org.asyncttwiz.server.generated.tables.records.GameChatRecord) =
         ChatMessage(it.id.toString(), it.gameId.toString(), it.playId.toString(), it.authorId.toString(),
             it.text!!, it.revision.toString(), it.createdAt!!.toInstant().toString())

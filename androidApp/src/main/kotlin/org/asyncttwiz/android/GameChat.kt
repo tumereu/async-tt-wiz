@@ -10,12 +10,11 @@ data class ChatPresentation(val messages: List<ChatMessage> = emptyList(), val o
         draft != null && draft.playId == game.playId && ChatValidation.text(draft.text)
 }
 
-/** Personal, process-memory UI state only. Opening a panel does not mark any message viewed. */
+/** Drafts are local. Private unread state comes from the server, with a provisional cursor. */
 class GameChat {
     private val drafts = mutableMapOf<String, ChatDraft>()
-    private val viewed = mutableSetOf<String>()
-    private data class Unread(var messages: IndexedChatMessages, val account: String?, var count: Int)
-    private val unread = mutableMapOf<String, Unread>()
+    private val accepted = mutableMapOf<String, ChatReadState>()
+    private val presented = mutableMapOf<String, ChatMessage>()
     var inspectedMessages = 0; private set
     fun compose(game: GameSummary, text: String) {
         if (text.isEmpty()) drafts.remove(game.id)
@@ -26,27 +25,33 @@ class GameChat {
         for (id in visibleIds) {
             val message = if (messages is IndexedChatMessages) messages.byId(id) else messages.firstOrNull { it.id == id }
             inspectedMessages++
-            if (message != null && viewed.add(id)) unread[message.gameId]?.let { if (message.author != it.account) it.count-- }
+            if (message != null && GameWire.ordinal(message.revision) > cursor(message.gameId)) presented[message.gameId] = message
         }
+    }
+    private fun cursor(gameId: String) = maxOf(accepted[gameId]?.readThrough?.let(GameWire::ordinal) ?: 0,
+        presented[gameId]?.revision?.let(GameWire::ordinal) ?: 0)
+    fun pendingRead(gameId: String): ReadChat? = presented[gameId]?.takeIf {
+        GameWire.ordinal(it.revision) > (accepted[gameId]?.readThrough?.let(GameWire::ordinal) ?: 0)
+    }?.let { ReadChat(it.id) }
+    fun accept(state: ChatReadState) {
+        val old = accepted[state.gameId]
+        if (old != null && (GameWire.ordinal(state.readThrough) < GameWire.ordinal(old.readThrough) ||
+            GameWire.ordinal(state.throughRevision) < GameWire.ordinal(old.throughRevision))) return
+        accepted[state.gameId] = state
+        if (pendingRead(state.gameId) == null) presented.remove(state.gameId)
     }
     fun presentation(gameId: String, account: String?, messages: List<ChatMessage>, outgoing: List<ChatSubmission>): ChatPresentation {
-        if (messages !is IndexedChatMessages) return ChatPresentation(messages, outgoing, drafts[gameId], messages.count { it.author != account && it.id !in viewed })
-        val old = unread[gameId]?.takeIf { it.account == account }
-        val next = if (old?.messages === messages) old else {
-            val changes = old?.let { messages.changedSince(it.messages) }
-            if (old != null && changes != null) {
-                for (id in changes) {
-                    inspectedMessages++
-                    val before = old.messages.byId(id); val after = messages.byId(id)
-                    if (before != null && before.author != account && id !in viewed) old.count--
-                    if (after != null && after.author != account && id !in viewed) old.count++
-                }
-                old.messages = messages; old
-            } else Unread(messages, account, messages.size - messages.authoredBy(account) - viewed.count { id ->
-                inspectedMessages++; messages.byId(id)?.author?.let { it != account } == true })
+        fun after(revision: Long) = if (messages is IndexedChatMessages) messages.incomingAfter(revision, account)
+            else messages.count { it.author != account && GameWire.ordinal(it.revision) > revision }
+        val cursor = cursor(gameId)
+        val state = accepted[gameId]
+        val count = if (state == null || cursor >= GameWire.ordinal(state.throughRevision)) after(cursor) else {
+            // The server includes unloaded history. Only subtract locally presented messages;
+            // the acknowledgement supplies the exact count if the cursor crosses unloaded rows.
+            state.unread - (after(GameWire.ordinal(state.readThrough)) - after(cursor)) + after(GameWire.ordinal(state.throughRevision))
         }
-        unread[gameId] = next
-        return ChatPresentation(messages, outgoing, drafts[gameId], next.count)
+        return ChatPresentation(messages, outgoing, drafts[gameId], count.coerceAtLeast(0))
     }
-    fun clear() { drafts.clear(); viewed.clear(); unread.clear() }
+    fun remove(gameId: String) { accepted.remove(gameId); presented.remove(gameId) }
+    fun clear() { drafts.clear(); accepted.clear(); presented.clear() }
 }

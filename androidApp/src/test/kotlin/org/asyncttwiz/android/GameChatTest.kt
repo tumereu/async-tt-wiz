@@ -19,6 +19,10 @@ class GameChatTest {
     private class Wire : GameConnection {
         lateinit var listener: GameConnection.Listener
         val frames = mutableListOf<GameClientMessage>()
+        val reads = mutableListOf<Triple<String, ReadChat?, (ChatReadState?) -> Unit>>()
+        override fun chatRead(gameId: String, input: ReadChat?, complete: (ChatReadState?) -> Unit): Boolean {
+            reads.add(Triple(gameId, input, complete)); return true
+        }
         override fun connect(token: String, listener: GameConnection.Listener) { this.listener = listener }
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
         override fun disconnect() = Unit
@@ -27,7 +31,10 @@ class GameChatTest {
     private inner class Fixture {
         val wire = Wire(); var token: String? = "token"
         val posts = ArrayDeque<() -> Unit>()
-        val session = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, _ -> }, {})
+        val personal = GameChat()
+        var time = 0L
+        val session = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, _ -> }, {},
+            now = { time }, personalChat = personal)
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun receive(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1", chat: List<ChatMessage> = emptyList(), revision: String = "0",
@@ -43,6 +50,43 @@ class GameChatTest {
             if (accepted) "accepted" else "rejected", if (accepted) null else "inapplicable", "1", if (accepted) "1" else null)
         fun message(c: GameCommand, revision: String = "1") = ChatMessage(c.requestId, game.id, game.playId!!, a.accountId,
             (c.action as GameAction.SendChat).text, revision, "2026-10-23T00:00:00Z")
+    }
+    @Test fun visibilityReportsCoalesceRetryOnReconnectAndFenceOldAccountCallbacks() {
+        val f = Fixture()
+        val messages = (1..3).map { ChatMessage(id(), game.id, game.playId!!, b.accountId, "$it", "$it", "date") }
+        fun unread() = f.personal.presentation(game.id, a.accountId, f.session.chat(game.id), emptyList()).unread
+        f.connect(chat = messages, revision = "3")
+        assertEquals(1, f.wire.reads.size); assertNull(f.wire.reads.single().second)
+        f.session.presentedChat(game.id, setOf(messages[0].id))
+        f.session.presentedChat(game.id, setOf(messages[2].id))
+        assertEquals(1, f.wire.reads.size) // one read in flight, only latest intent retained
+        f.wire.reads[0].third(ChatReadState(game.id, "0", "3", 3)); f.drain()
+        assertEquals(ReadChat(messages[2].id), f.wire.reads[1].second)
+        assertEquals(0, unread())
+        f.wire.reads[1].third(null); f.drain()
+        f.time = 1_001; f.session.tick()
+        assertEquals(ReadChat(messages[2].id), f.wire.reads[2].second)
+        val oldCallback = f.wire.reads[2].third
+        f.wire.listener.disconnected(); f.drain()
+        f.connect(generation = "2", chat = messages, revision = "3")
+        assertEquals(ReadChat(messages[2].id), f.wire.reads.last().second)
+        f.wire.reads.last().third(ChatReadState(game.id, "3", "3", 0)); f.drain()
+        assertNull(f.personal.pendingRead(game.id)); assertEquals(0, unread())
+        f.session.clear(); f.token = "other-account"
+        oldCallback(ChatReadState(game.id, "3", "3", 0)); f.drain()
+        assertEquals(3, f.personal.presentation(game.id, b.accountId, messages.map { it.copy(author = a.accountId) }, emptyList()).unread)
+    }
+    @Test fun anotherDevicesReadCursorRefreshesDotWithoutAnyGameplayRevision() {
+        val f = Fixture()
+        val message = ChatMessage(id(), game.id, game.playId!!, b.accountId, "incoming", "1", "date")
+        f.connect(chat = listOf(message), revision = "1")
+        f.wire.reads.single().third(ChatReadState(game.id, "0", "1", 1)); f.drain()
+        assertEquals(1, f.personal.presentation(game.id, a.accountId, f.session.chat(game.id), emptyList()).unread)
+        f.time = 10_001; f.session.tick()
+        assertNull(f.wire.reads.last().second)
+        f.wire.reads.last().third(ChatReadState(game.id, "1", "1", 0)); f.drain()
+        assertEquals(0, f.personal.presentation(game.id, a.accountId, f.session.chat(game.id), emptyList()).unread)
+        assertNull(f.personal.pendingRead(game.id))
     }
     @Test fun pipelinedChatUsesExistingFifoAndUncertaintyRetainsOriginalWithoutDuplicateEcho() {
         val f = Fixture(); assertFalse(f.session.sendChat(game, "offline")); f.connect()

@@ -13,7 +13,7 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceRuntime.UnavailabilityBoundary
 import org.asyncttwiz.server.accounts.AccountService
 
-/** Socket upgrade and ordinary authorized reads, never a second existing-game write ingress. */
+/** Socket upgrade, authorized reads and private chat cursors; no second gameplay write ingress. */
 class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
     private val accounts = AccountService(runtime)
     private val json = GameWire.json
@@ -74,8 +74,10 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             val result = parts.size == 6 && parts[4] == "results"
             val history = parts.size == 7 && parts[4] == "plays" && parts[6] == "mutations"
             val chat = parts.size == 5 && parts[4] == "chat"
-            if (!(lookup || revisions || result || baseline || history || chat)) { error(404, "not_found"); return true }
-            if (request.method != if (lookup || baseline) "POST" else "GET") { error(405, "method_not_allowed"); return true }
+            val chatRead = parts.size == 6 && parts[4] == "chat" && parts[5] == "read"
+            if (!(lookup || revisions || result || baseline || history || chat || chatRead)) { error(404, "not_found"); return true }
+            if (if (chatRead) request.method !in listOf("GET", "PUT")
+                else request.method != if (lookup || baseline) "POST" else "GET") { error(405, "method_not_allowed"); return true }
             boundary = when {
                 history -> UnavailabilityBoundary.GAME_HTTP_HISTORY
                 revisions -> UnavailabilityBoundary.GAME_HTTP_REVISIONS
@@ -83,6 +85,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 else -> UnavailabilityBoundary.GAME_HTTP_RESULTS
             }
             val body = when {
+                chatRead && request.method == "GET" -> json.encodeToString(hub.games.chatRead(principal, parts[3]))
                 chat -> json.encodeToString(hub.games.chat(principal, parts[3], request.getParameter("before"), request.getParameter("after")))
                 history -> json.encodeToString(hub.games.history(principal, parts[3], parts[5], request.getParameter("after") ?: "0"))
                 revisions -> json.encodeToString(hub.games.revisions(principal, parts[3], request.getParameter("after") ?: "0"))
@@ -95,9 +98,12 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                     if (bytes.size > 128 * 1024) { error(413, "request_too_large"); return true }
                     val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                         .decode(ByteBuffer.wrap(bytes)).toString()
-                    val input = json.decodeFromString<LookupGameResults>(text)
-                    if (baseline) json.encodeToString(hub.games.baseline(principal, parts[3], input.requestIds))
-                    else json.encodeToString(hub.games.results(principal, parts[3], input.requestIds))
+                    if (chatRead) json.encodeToString(hub.games.chatRead(principal, parts[3], json.decodeFromString<ReadChat>(text)))
+                    else {
+                        val input = json.decodeFromString<LookupGameResults>(text)
+                        if (baseline) json.encodeToString(hub.games.baseline(principal, parts[3], input.requestIds))
+                        else json.encodeToString(hub.games.results(principal, parts[3], input.requestIds))
+                    }
                 }
             }
             boundary = UnavailabilityBoundary.GAME_HTTP_WRITE

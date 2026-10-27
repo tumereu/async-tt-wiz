@@ -70,7 +70,9 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 20
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
     val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
     val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false,
-    val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false) : GameServerMessage
+    val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false,
+    /** Authorized caller's private pod deck name; not replay state or revision data. */
+    val ownPodDeckName: String? = null) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

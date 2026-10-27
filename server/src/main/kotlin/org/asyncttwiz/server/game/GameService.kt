@@ -164,7 +164,8 @@ class GameService(private val runtime: ServiceRuntime) {
         val play = PlayStore.read(sql, uuid(gameId))
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
-            play = play, retainedTreeRequired = play != null, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true)
+            play = play, retainedTreeRequired = play != null, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
+            ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)))
     }
     /** Snapshot export and original-outcome lookup are independent of the incremental delivery window. */
     fun baseline(principal: AccountService.Principal, gameId: String, ids: List<String>): GameplayManifest {
@@ -174,7 +175,8 @@ class GameService(private val runtime: ServiceRuntime) {
             locked(sql, game, account)
             val summary = lobby.summary(sql, game)
             val head = GameHead(gameId, summary.revision, summary, play = PlayStore.read(sql, game), retainedTreeRequired = true,
-                chatSync = ChatStore.sync(sql, game), boundedEndpoint = true)
+                chatSync = ChatStore.sync(sql, game), boundedEndpoint = true,
+                ownPodDeckName = PreparationStore.ownPodDeckName(sql, game, account))
             gameplayStore.create(sql, account, head, ids.map { status(sql, game, account, it, "unknown") })
         }
     }

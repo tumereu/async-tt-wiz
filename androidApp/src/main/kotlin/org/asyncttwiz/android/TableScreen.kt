@@ -52,7 +52,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
     val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
-    val changes: TableChanges? = null)
+    val changes: TableChanges? = null, val ownPodDeckName: String? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -239,7 +239,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
                     connected = interactive && editable, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
-                     runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
+                      runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
+                          ownPodDeckName = state.ownPodDeckName,
                           liveView = position?.mode == HistoryMode.LIVE, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },

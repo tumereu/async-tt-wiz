@@ -44,7 +44,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         if (feedback != null) { alpha.snapTo(1f); alpha.animateTo(0f, tween(1500)) } else alpha.snapTo(0f)
     }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Prepare deck", hamburger)
+        ScreenHeader(state.ownPodDeckName ?: "Prepare deck", hamburger)
         // Always allocated, including before the first move and after the text fades.
         Box(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
             Text(if (!connected) "Disconnected · preparation is read-only" else feedback?.text.orEmpty(), Modifier.alpha(if (!connected) 1f else alpha.value).semantics {

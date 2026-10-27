@@ -94,3 +94,14 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
 }
 
 internal fun podStatsNumber(value: Double): String = if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
+
+internal fun PodStats.curveBuckets(): Map<String, Double> = (0..7).associate { bucket ->
+    (if (bucket == 7) "7+" else "$bucket") to curve.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }.sumOf { it.value }.toDouble()
+}
+
+internal fun PodStats.colorPercentages(color: DraftColor): Pair<Double, Double> {
+    val demand = pips.values.sum()
+    val supply = sources.values.sum()
+    return (if (demand == 0.0) 0.0 else pips.getValue(color) / demand * 100) to
+        (if (supply == 0L) 0.0 else sources.getValue(color).toDouble() / supply * 100)
+}

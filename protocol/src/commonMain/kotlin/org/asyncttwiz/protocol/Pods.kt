@@ -39,6 +39,8 @@ import kotlinx.serialization.Serializable
     val build: PodDeckBuild? = null, val submitted: Boolean = false,
     val deck: PodDeckBuild? = null, val definitions: List<SubmittedDefinition> = emptyList(),
     val updatedAt: String, val grid: PodGridView? = null,
+    /** Caller-only; never included in member projections or shared game state. */
+    val deckName: String = "$name deck",
 )
 /** POST /v1/pods: exactly one of cubeId/setSource is required.
  * GET /v1/pods returns PodList, GET /v1/pods/{id} returns PodDetail. */
@@ -64,5 +66,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class MovePodCopy(val requestId: String, val draftAttemptId: String, val copyId: String, val category: PodDeckCategory)
 /** PUT /v1/pods/{id}/build/basics. */
 @Serializable data class SetPodBasics(val requestId: String, val draftAttemptId: String, val basics: PodDeckBasics)
+/** PUT /v1/pods/{id}/build/name. Changes only the caller's private deck name. */
+@Serializable data class SetPodDeckName(val requestId: String, val draftAttemptId: String, val name: String)
 @Serializable data class PodAcknowledged(val podId: String)
 @Serializable data class PodError(val code: String)

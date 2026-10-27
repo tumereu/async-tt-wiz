@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +30,7 @@ import org.asyncttwiz.protocol.*
 internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
     lobby: LobbyController?, manageCubes: () -> Unit) {
     val state = controller.state
+    val draftScreen = state.detail?.phase?.let { it != PodPhase.SETUP } == true
     val owner = LocalLifecycleOwner.current
     DisposableEffect(controller) { onDispose { controller.flushSetup() } }
     LaunchedEffect(controller, state.selected) {
@@ -52,12 +54,12 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             }
         }
         lobby?.let { PodChallengeRetry(it.state, it::retryPodChallenge) }
-        state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
-        if (state.error != null || state.uncertain) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!draftScreen) state.notice?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.primary) }
+        if (!draftScreen && (state.error != null || state.uncertain)) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(state.error ?: "An earlier request needs to be checked.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
             TextButton(onClick = controller::retry, enabled = !state.loading) { Text("Retry") }
         }
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.loading && !draftScreen) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.loading && state.pending > 0 && (state.creating?.setSource != null || state.setup?.setSource != null))
             Text("Uploading set source and saving pod…", Modifier.padding(12.dp))
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -75,6 +77,10 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                     }
                 }
                 else -> PodsList(state, controller::open, controller::respond, controller::refresh)
+            }
+            if (draftScreen && (state.error != null || state.uncertain)) Snackbar(Modifier.align(Alignment.TopCenter),
+                action = { FilledTonalIconButton(controller::retry) { EntryIcon("Retry", "refresh") } }) {
+                Text("Could not save changes")
             }
         }
     }
@@ -380,9 +386,8 @@ private fun PodChooseMember(controller: PodController, lobby: LobbyController, d
 @Composable
 private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val state = controller.state
-    val tabs = if (detail.phase == PodPhase.DRAFTING) listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)
-        else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
-    val selected = state.tab.takeIf { it in tabs } ?: tabs.first()
+    val tabs = podTabs(detail.phase)
+    val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
     val build = detail.build ?: PodDeckBuild()
     val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
@@ -399,8 +404,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     definitions, detail.members.filter { it.packsWaiting > 0 && it.account.accountId != detail.draft?.player }.map { it.account },
                     state.picking || state.uncertain, controller::pick, { controller.tab(PodTab.BUILD) }, Modifier.fillMaxSize())
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
-                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted && state.pending == 0,
-                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize())
+                    !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
+                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
+                    detail.deckName, controller::deckName, detail.submitted)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
@@ -414,16 +420,17 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
     val mine = detail.members.firstOrNull { it.account.accountId == accountId }
     val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(detail.deckName, style = MaterialTheme.typography.titleMedium)
         Text("Members", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (member.account.accountId != accountId && member.submitted && lobby != null)
-                    TextButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
-                        enabled = mine?.submitted == true && !lobby.state.mutating) { Text("Challenge") }
+                    FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
+                        enabled = mine?.submitted == true && !lobby.state.mutating) {
+                        Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
+                    }
             }
         }
-        if (mine?.submitted != true) Text("Submit your deck to challenge other members.", style = MaterialTheme.typography.bodySmall)
-        lobby?.state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         if (games.isNotEmpty()) {
             Text("Games", style = MaterialTheme.typography.titleMedium)
             games.forEach { game ->

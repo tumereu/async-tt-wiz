@@ -177,7 +177,8 @@ class PodScreensTest {
         compose.onNodeWithText("Bob").assertIsDisplayed()
         compose.onNodeWithText("deck submitted").assertIsDisplayed()
         compose.onNodeWithText("Challenge").assertDoesNotExist()
-        compose.onNodeWithText("Submit your deck to challenge other members.").assertIsDisplayed()
+        compose.onNodeWithText("Synergy deck").assertIsDisplayed()
+        compose.onNodeWithText("Submit your deck to challenge other members.").assertDoesNotExist()
     }
 
     @Test fun retainedChallengeRetryIsReachableEvenWithNoPodsAndDisabledWhileSending() {

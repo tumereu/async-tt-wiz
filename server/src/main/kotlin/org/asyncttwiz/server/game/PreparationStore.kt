@@ -12,6 +12,10 @@ import org.jooq.DSLContext
 /** Adapter only: pure rules own selection; the existing game transaction owns all writes. */
 internal object PreparationStore {
     private val json = GameWire.json
+    fun ownPodDeckName(sql: DSLContext, game: UUID, account: UUID): String? =
+        sql.select(PLAYER_PREPARATION.POD_DECK_NAME).from(PLAYER_PREPARATION)
+            .where(PLAYER_PREPARATION.GAME_ID.eq(game)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account))
+            .fetchOne(PLAYER_PREPARATION.POD_DECK_NAME)
     fun definitions(sql: DSLContext, digests: Set<String>): List<SubmittedDefinition> =
         sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(DEFINITION).where(DEFINITION.DIGEST.`in`(digests))
             .orderBy(DEFINITION.DIGEST).fetch().map {

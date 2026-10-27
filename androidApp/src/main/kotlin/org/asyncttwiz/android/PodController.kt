@@ -7,6 +7,13 @@ import java.util.UUID
 import java.util.concurrent.ExecutorService
 
 enum class PodTab { DRAFT, BUILD, STATS, GAMES }
+internal fun podTabs(phase: PodPhase): List<PodTab> = if (phase == PodPhase.DRAFTING)
+    listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS) else listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES)
+internal fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
+    phase == PodPhase.DRAFTING -> PodTab.DRAFT
+    submitted -> PodTab.GAMES
+    else -> PodTab.BUILD
+}
 enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT }
 data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
     val setSource: PodSetSource? = null)
@@ -44,6 +51,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private data class Write(val pod: String?, val attempt: String? = null, val pick: Boolean = false,
         val predict: ((PodDeckBuild) -> PodDeckBuild)? = null, val exit: Boolean = false,
         val select: Boolean = false, val setupRevision: Long? = null,
+        val deckName: String? = null, val submit: Boolean = false,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
     internal val setPicker = PodSetPickerController(setRepository, worker, post) { upload ->
@@ -205,6 +213,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val current = state.detail?.build?.basics ?: return
         basics(current.podBuildAdjust(index, delta))
     }
+    fun deckName(name: String) {
+        val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return
+        if (name.isBlank() || name.length > 120 || !DeckValidation.text(name) || name.any { it.isISOControl() }) return
+        val input = SetPodDeckName(requestId(), detail.draftAttemptId!!, name)
+        enqueue(Write(detail.id, input.draftAttemptId, deckName = name, send = { api.deckName(it, detail.id, input) }))
+    }
     private fun editable() = state.detail?.takeIf { it.draftAttemptId != null && !it.submitted &&
         it.phase != PodPhase.SETUP && !state.uncertain && state.confirmation == null }
     fun requestConfirmation(action: PodConfirmation) {
@@ -216,11 +230,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun submit() { perform(PodConfirmation.SUBMIT) }
     private fun perform(action: PodConfirmation) {
         val detail = state.detail ?: return
-        if (state.pending > 0 || state.uncertain) return
+        if ((state.pending > 0 && action != PodConfirmation.SUBMIT) || state.uncertain) return
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }
         if (action in listOf(PodConfirmation.SUBMIT, PodConfirmation.CANCEL) && submit == null) return
-        enqueue(Write(detail.id, exit = action in listOf(PodConfirmation.LEAVE, PodConfirmation.DESTROY), send = { token ->
+        enqueue(Write(detail.id, attempt = detail.draftAttemptId, submit = action == PodConfirmation.SUBMIT,
+            exit = action in listOf(PodConfirmation.LEAVE, PodConfirmation.DESTROY), send = { token ->
             when (action) {
                 PodConfirmation.DESTROY -> { api.destroy(token, detail.id, input); null }
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
@@ -228,6 +243,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 PodConfirmation.SUBMIT -> api.submit(token, detail.id, submit!!)
             }
         }))
+        if (action == PodConfirmation.SUBMIT) state = state.copy(tab = PodTab.GAMES)
     }
     private fun requestId() = UUID.randomUUID().toString()
     private fun enqueue(write: Write) {
@@ -243,13 +259,18 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 .fold(base.build!!) { build, write -> write.predict?.invoke(build) ?: build }
             detail = base.copy(build = predicted)
         }
+        detail?.let { base ->
+            val pending = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
+            detail = base.copy(deckName = pending.lastOrNull { it.deckName != null }?.deckName ?: base.deckName,
+                submitted = base.submitted || pending.any { it.submit })
+        }
         state = state.copy(detail = detail, pending = writes.size, picking = writes.any { it.pick })
     }
     private fun applyDetail(detail: PodDetail) {
         if (state.selected != detail.id) return
-        val changed = accepted?.phase != detail.phase
+        val changed = accepted?.phase != detail.phase || accepted?.submitted != detail.submitted
         accepted = detail
-        if (changed) state = state.copy(tab = if (detail.phase == PodPhase.DRAFTING) PodTab.DRAFT else PodTab.BUILD)
+        if (changed) state = state.copy(tab = podDefaultTab(detail.phase, detail.submitted))
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
     }
     private fun syncCredential(): String? {

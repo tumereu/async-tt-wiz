@@ -5,6 +5,17 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodStatsModelsTest {
+    @Test fun compactChartGroupsSevenPlusAndNormalizesDemandAndSourcesIndependently() {
+        val stats = podStats(PodDeckBuild(), emptyMap(), emptyMap()).copy(curve = mapOf(0.0 to 1, 1.5 to 2, 7.0 to 3, 9.0 to 4),
+            pips = DraftColor.entries.associateWith { if (it == DraftColor.W) 3.0 else if (it == DraftColor.U) 1.0 else 0.0 },
+            sources = DraftColor.entries.associateWith { if (it == DraftColor.W || it == DraftColor.U) 2L else 0L })
+        assertEquals(listOf("0", "1", "2", "3", "4", "5", "6", "7+"), stats.curveBuckets().keys.toList())
+        assertEquals(7.0, stats.curveBuckets()["7+"])
+        assertEquals(2.0, stats.curveBuckets()["1"])
+        assertEquals(75.0 to 50.0, stats.colorPercentages(DraftColor.W))
+        assertEquals(25.0 to 50.0, stats.colorPercentages(DraftColor.U))
+        assertEquals(0.0 to 0.0, podStats(PodDeckBuild(), emptyMap(), emptyMap()).colorPercentages(DraftColor.W))
+    }
     private fun card(name: String, type: String, cost: String = "", text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
 

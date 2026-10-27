@@ -426,6 +426,13 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
                     pingPulse?.value ?: 0f)
             }
+            runtime.ownPodDeckName?.let { name ->
+                scene.items.firstOrNull { it.owner == accountId && it.zone == PlayZone.LIBRARY && it.drawHandId != null }?.let { library ->
+                    Text(name, Modifier.offset(library.bounds.x.dp, (library.bounds.y - 12f).dp).width(132.dp),
+                        fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+            }
             preview.delta?.let { delta ->
                 scene.items.firstOrNull { it.id == preview.pressedId }?.let { item ->
                     val anchor = item.visible.maxByOrNull { it.width * it.height } ?: item.bounds

@@ -17,6 +17,7 @@ import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameRevision.GAME_REVISION
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.Pod.POD
+import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION as INVITE
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER as MEMBER
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
@@ -245,6 +246,16 @@ class PodService(private val runtime: ServiceRuntime) {
             if (!input.basics.valid) null else build.copy(basics = input.basics)
         }
 
+    fun deckName(principal: AccountService.Principal, id: String, input: SetPodDeckName): Result =
+        mutate(principal, id, input.requestId, "setPodDeckName", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (row.phase !in listOf("DRAFTING", "DRAFTED")) return@mutate error(409, "not_drafting")
+            if (!validName(input.name)) return@mutate error(400, "invalid_name")
+            sql.update(MEMBER).set(MEMBER.DECK_NAME, input.name).where(MEMBER.POD_ID.eq(row.id))
+                .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            save(sql, row); detail(sql, row, owner)
+        }
+
     private fun editBuild(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,
         attempt: String, edit: (PodDeckBuild) -> PodDeckBuild?): Result = mutate(principal, id, request, kind, input, attempt) { sql, owner, row ->
         member(sql, row, owner)?.let { return@mutate it }
@@ -344,6 +355,11 @@ class PodService(private val runtime: ServiceRuntime) {
         val definitions = PreparationStore.definitions(sql, entries.map { it.definition }.toSet()) + basicDefinitions
         PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(summary.id, summary.preparationRound,
             listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
+        val name = sql.select(MEMBER.DECK_NAME).from(MEMBER).where(MEMBER.POD_ID.eq(row.id))
+            .and(MEMBER.ACCOUNT_ID.eq(UUID.fromString(player))).fetchSingle(MEMBER.DECK_NAME) ?: "${row.name} deck"
+        sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.POD_DECK_NAME, name)
+            .where(PLAYER_PREPARATION.GAME_ID.eq(UUID.fromString(summary.id)))
+            .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(UUID.fromString(player))).execute()
     }
 
     fun leave(principal: AccountService.Principal, id: String, input: PodRequest): Result =
@@ -395,6 +411,7 @@ class PodService(private val runtime: ServiceRuntime) {
         notify(sql, row, ActivityKind.POD_DRAFT_CANCELLED, author)
         row.phase = "SETUP"; row.draftAttemptId = null; row.draftState = null
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckBuild())).set(MEMBER.SUBMITTED_DECK, null as JSONB?)
+            .set(MEMBER.DECK_NAME, null as String?)
             .where(MEMBER.POD_ID.eq(row.id)).execute()
         save(sql, row)
     }
@@ -526,7 +543,7 @@ class PodService(private val runtime: ServiceRuntime) {
             }, pending(sql, row.id!!).map { identity(sql, it.accountId!!) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) json.decodeFromString<PodDeckBuild>(mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { json.decodeFromString<PodDeckBuild>(it.data()) }, cards,
-            row.updatedAt!!.toInstant().toString(), gridView)
+            row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck")
         return Result(status, json.encodeToString(result))
     }
 

@@ -40,7 +40,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
                 action in listOf("invitations", "accept", "decline", "start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
-                action in listOf("build/move", "build/basics") -> "PUT"
+                action in listOf("build/move", "build/basics", "build/name") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
@@ -70,7 +70,8 @@ class PodHttp(private val runtime: ServiceRuntime) {
                      action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
                      action == "grid/select" -> pods.selectGrid(principal, id, json.decodeFromString<SelectPodGrid>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))
-                    action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
+                     action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
+                     action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))
                      action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))
                      action == "challenge" -> pods.challenge(principal, id, json.decodeFromString<ChallengeFromPod>(text))
                     action == "leave" -> pods.leave(principal, id, json.decodeFromString<PodRequest>(text))

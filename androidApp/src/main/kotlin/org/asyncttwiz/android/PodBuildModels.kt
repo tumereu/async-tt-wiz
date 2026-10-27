@@ -38,6 +38,11 @@ internal fun podBuildColumns(
 internal fun podBuildCount(build: PodDeckBuild, category: PodDeckCategory): Int =
     build.copies.count { it.category == category }
 
+internal fun podBuildMainTitle(build: PodDeckBuild): String {
+    val cards = podBuildCount(build, PodDeckCategory.MAIN)
+    return "Main $cards + ${build.basics.total} = ${cards + build.basics.total}"
+}
+
 internal fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()

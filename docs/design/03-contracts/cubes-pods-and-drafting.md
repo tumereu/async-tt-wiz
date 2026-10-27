@@ -88,6 +88,8 @@ Inside a pod a top strip always shows members' avatars with status badges
 | Drafting | Tabs **Draft · Build · Stats**. Overflow: Cancel draft and Destroy (creator) / Leave (others). |
 | After the draft | Tabs **Build · Stats · Games**. |
 
+Default is Draft during drafting, Build after completion until submission, then Games.
+
 ### Setup, membership, and lifetime
 
 - Up to **8 members** including the creator. The creator invites contacts or any
@@ -257,7 +259,7 @@ each with a sticky header and count. Trash starts expanded (it is last).
 ```
 ┌─────────────────────────────────────┐
 │ Columns ───●── 7                     │
-│ MAIN 23 + 17 basics = 40   [Submit] │
+│ Main 23 + 17 = 40                  │
 │ Basics  W[3] U[0] B[4] R[0] G[10]    │
 │ Land│ 0 │ 1 │ 2 │ 3 │ 4 │ 5+         │
 │ [c] │   │[c]│[c]│[c]│[c]│[c]         │
@@ -272,7 +274,9 @@ each with a sticky header and count. Trash starts expanded (it is last).
   orientation) sets them: Lands first, then mana value 0, 1, 2, …, the last column
   holding that value and above. 7 = Lands, 0, 1, 2, 3, 4, 5+; 3 = Lands, 0, 1+;
   2 = Lands, everything else. Empty columns keep their place. All sections share
-  the columns.
+  the columns. The control is centered in the title bar; tinted columns include
+  their mana-value headers, with 2dp gaps and 12dp outer padding. Widths animate
+  and changed column contents fade.
 - A card is in Lands if its (front) face is a land; otherwise by mana value
   (X counts as 0). Within a column: color order W U B R G, multicolor, colorless,
   then name.
@@ -287,23 +291,30 @@ each with a sticky header and count. Trash starts expanded (it is last).
   | Side | Main | Trash |
   | Trash | Main | Side |
 
-  While dragging, the destination shows ("→ Side"). A moved card flies toward its
-  section's header, which updates its count.
+  While dragging, the destination shows ("→ Side"); section counts update immediately.
 - **Tap** opens a menu with the two destinations. **Hold** inspects.
-- **Basics**: a stepper row for Plains, Island, Swamp, Mountain, Forest at the top
-  of Main. They count toward Main but are not tiles. They are unlimited and do not
+- **Basics**: one compact W/U/B/R/G count row opens one dialog with all five
+  steppers. Edits predict immediately and revert on rejection. Basics count toward Main but are not tiles. They are unlimited and do not
   come from the cube. Snow and other special basics are not supplied.
 - New picks enter Main without moving anything else.
 - Build is available during the draft. Every move and basic change is saved on the
   server (it is the member's private workspace).
-- After the draft completes, Main's header shows **Submit** (see section 7). After
-  submitting, Build is read-only.
+- A fixed 48dp bottom bar always shows **Submit deck (N)**, disabled until valid
+  and the draft is complete; after submitting it shows **✓ Submitted** at the same height.
+  Submitted card categories and basic counts are read-only.
+- The header pen edits the owner's private deck name, default **<pod name> deck**.
+  `PUT /v1/pods/{id}/build/name` takes requestId, draftAttemptId and name (1–120
+  characters, nonblank, no controls), including after submission. PodDetail returns
+  only the caller's deckName. Challenges snapshot each name in owner-only game-head
+  metadata (ownPodDeckName), never shared decks, revisions or replay events; it
+  survives pod deletion and labels the owner's lobby and game deck only.
 
 ### Stats
 
 A tab next to Build, for **Main including basics**: mana curve of nonland cards,
-creature / noncreature / land counts, a colored-pip pie chart, and mana sources per
-color from lands and basics. Every chart shows its numbers. Hybrid pips count half
+creature / noncreature / land counts in one row, and paired thin pip-demand % /
+mana-source % bars per color. Curve buckets are 0–6 and 7+, with counts above bars.
+No chart captions, explanatory text or footnotes. Hybrid pips count half
 to each color, Phyrexian pips to their color, generic and X are ignored; nonland
 mana sources are not counted. These are aids, not rules analysis.
 
@@ -320,7 +331,8 @@ confirmation, then **locks** Main, Side, and basic counts. Trash is excluded fro
 all later games. With a finite limit, surplus cards must go to Trash before
 submitting. Members submit independently; nobody waits for the slowest builder.
 
-**Games tab:** members with avatars and status, a **Challenge** button next to
+**Games tab:** the owner's deck name, members with avatars and status, a filled
+crossed-swords icon button (accessible name **Challenge**) next to
 each member who has submitted (once you have too), and this pod's games, which
 open as ordinary games.
 

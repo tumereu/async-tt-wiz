@@ -36,6 +36,15 @@ Passing to a new turn clears all three fields on every card within that same
 event. Zone changes clear them too; Battlefield-to-Battlefield moves retain them.
 Direct phase/step choices retain their existing same-turn semantics.
 
+**Keyword toggles (round 19):** More's fourth row has Keywords (card note) and
+EOT keywords (EOT note). Each opens a floating 4×4 toggle grid: Flying, First strike,
+Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace,
+Hexproof, Indestructible, Defender, Ward, Can't block, Goaded. A toggle sends the
+note at once and the popup stays open. Notes are keywords joined by `, ` in that
+order; reading is case-insensitive, comma-separated and trimmed. Any other token
+disables that button. Multiselection: a toggle is on only if every selected card
+has it; toggling edits all of them as one batch. Gates follow note/EOT note editing.
+
 **Initial-delivery connectivity (D-182):** game edits and shared controls require
 a connection. Offline use is downloaded read-only history, not offline gameplay,
 Undo, Reset, new random outcomes or queued synchronization. Optimistic updates

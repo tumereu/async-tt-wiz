@@ -23,7 +23,7 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
-    @Test fun readableLabelsReserveTheirWrappedHeightAndFollowCardAndTitleSettings() {
+    @Test fun readableLabelsReserveOneRowAndFollowCardAndTitleSettings() {
         val initial = TableFixture.play(board = 1, library = 0)
         val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
             CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")),
@@ -36,8 +36,9 @@ class AttackTargetPresentationTest {
             val lane = scene.combatLabels.single()
             assertEquals(11.5f * cardScale * textScale, lane.fontSize, .001f)
             assertEquals(lane.lineHeight, lane.artworkHeight)
-            assertTrue(lane.lines.size <= 2, "A single-card target lane must allow readable name wrapping")
-            assertTrue(lane.bounds.height >= lane.lines.size * lane.lineHeight)
+            assertEquals(listOf(lane.label), lane.lines)
+            assertTrue(lane.bounds.height >= lane.lineHeight)
+            assertTrue(lane.bounds.width >= CombatStackPresentation.laneWidth(lane) - .001f)
             val card = scene.items.single { it.cardId == "attacker" }
             assertTrue(lane.bounds.bottom < card.bounds.y)
         }
@@ -65,11 +66,70 @@ class AttackTargetPresentationTest {
         }
     }
 
+    @Test fun everyLaneFitsItsIconAndFullNameOnOneRowAndPlayerLanesUseTheAvatar() {
+        val original = attackTargetState()
+        val area = original.board.combat!!
+        val long = "Nicol Bolas, Dragon-God of the Multiverse Who Walks Very Far"
+        val state = original.copy(definitions = original.definitions.map { submitted ->
+            if (submitted.definition.faces.any { it.faceId == combatId(90) }) submitted.copy(definition = submitted.definition.copy(
+                faces = submitted.definition.faces.map { it.copy(name = long) })) else submitted
+        }, board = original.board.copy(combat = area.copy(pairs = area.pairs.mapIndexed { n, pair ->
+            pair.copy(attackTarget = if (n == 1) null else combatId(80)) })))
+        val bob = "Bob the Exceedingly Long-Named Defender"
+        for (cardWidth in listOf(28f, 48f)) for (titleScale in listOf(.5f, 1f, 2f)) {
+            val plain = CombatStackPresentation.combat(state.board, cardWidth, cardWidth * 1.4f, state.definitions,
+                mapOf(combatId(8) to bob), titleScale = titleScale)
+            assertEquals(listOf(long, "→ $bob"), plain.lanes.map { it.label })
+            assertNull(plain.lanes.last().artwork)
+            val avatar = Avatar("scryfall-avatar", 0)
+            val scene = CombatStackPresentation.combat(state.board, cardWidth, cardWidth * 1.4f, state.definitions,
+                mapOf(combatId(8) to bob), titleScale = titleScale, avatars = mapOf(combatId(8) to avatar))
+            val player = scene.lanes.last()
+            assertEquals(bob, player.label)
+            assertEquals(combatId(8), player.accountId)
+            assertEquals("scryfall-avatar", player.artwork?.printing)
+            assertEquals(player.artworkHeight, player.artworkWidth)
+            for (lanes in listOf(plain.lanes, scene.lanes)) for (lane in lanes) {
+                assertEquals(listOf(lane.label), lane.lines)
+                assertTrue(lane.bounds.width + .001f >= CombatStackPresentation.laneWidth(lane))
+                assertTrue(lane.textInset + CombatStackPresentation.laneTextWidth(lane.label, lane.fontSize) <= lane.bounds.width + .001f)
+            }
+            // Lanes tile the whole area without shrinking: the area widens (and pans) instead.
+            assertEquals(scene.width, scene.lanes.sumOf { it.bounds.width.toDouble() }.toFloat(), .01f)
+            assertTrue(scene.lanes.zipWithNext().all { (a, b) -> kotlin.math.abs(a.bounds.right - b.bounds.x) < .01f })
+            assertTrue(scene.labelHeight >= scene.lanes.maxOf { it.lineHeight })
+        }
+        // Wider text needs a wider estimate; narrow glyphs need less than wide ones.
+        assertTrue(CombatStackPresentation.laneTextWidth("WWWW", 10f) > CombatStackPresentation.laneTextWidth("iiii", 10f))
+        assertTrue(CombatStackPresentation.laneTextWidth(long, 10f) > CombatStackPresentation.laneTextWidth("Bob", 10f))
+    }
+
+    @Test fun tableScenePassesProfileAvatarsToThePlayerLane() {
+        val initial = TableFixture.play(board = 1, library = 0)
+        val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
+            CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")))))))
+        val defender = CombatStackRules.defendingPlayer(state.board)
+        val game = TableFixture.game.let { g -> if (g.inviter.accountId == defender)
+            g.copy(inviter = g.inviter.copy(avatar = Avatar("avatar-print", 1)))
+            else g.copy(recipient = g.recipient.copy(avatar = Avatar("avatar-print", 1))) }
+        val lane = TablePresentation.scene(game, state, "a", 412f, 892f, false).combatLabels.single()
+        assertEquals(defender, lane.accountId)
+        assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "avatar-v1", "art_crop"), lane.artwork)
+        val plain = TablePresentation.scene(TableFixture.game, state, "a", 412f, 892f, false).combatLabels.single()
+        assertNull(plain.accountId)
+        assertTrue(plain.label.startsWith("→ "))
+    }
+
     @Test fun emptyCombatHasDefaultPlayerLabelAndChoicesOnlyIncludeDefendingWalkersAndBattles() {
         val original = attackTargetState()
         val empty = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(pairs = emptyList())))
         val labels = CombatStackPresentation.combat(empty.board, 48f, 68f, empty.definitions, mapOf(combatId(8) to "Bob")).lanes
         assertEquals(listOf("→ Bob"), labels.map { it.label })
+        val long = CombatStackPresentation.combat(empty.board, 28f, 40f, empty.definitions,
+            mapOf(combatId(8) to "Bartholomew the Long-Named"))
+        assertEquals(long.width, long.lanes.single().bounds.width, .001f)
+        assertTrue(long.width >= CombatStackPresentation.laneWidth(long.lanes.single()) - .001f)
+        assertEquals(long.width / 2, long.destinations.first().landing.x, .001f)
         assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(original, mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
     }
 

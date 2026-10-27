@@ -1067,11 +1067,21 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             for (label in scene.combatLabels) {
                 val bounds = label.bounds
                 val font = label.fontSize
+                val thumb = TableBounds(bounds.x + label.padding, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
                 if (label.cardId != null) {
-                    val thumb = TableBounds(bounds.x + label.padding, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
                     val image = label.artwork?.key?.let(artwork::get)
                     if (image != null) drawTableArtwork(image, thumb)
                     else drawRect(Color(0xffb5b0a0), xy(thumb.x, thumb.y), size(thumb.width, thumb.height))
+                } else if (label.accountId != null) {
+                    // The defending player's profile avatar, round like everywhere else.
+                    val image = label.artwork?.key?.let(artwork::get)
+                    val circle = androidx.compose.ui.graphics.Path().apply {
+                        addOval(androidx.compose.ui.geometry.Rect(thumb.x * density, thumb.y * density, thumb.right * density, thumb.bottom * density))
+                    }
+                    clipPath(circle) {
+                        drawRect(avatarColor(label.accountId), xy(thumb.x, thumb.y), size(thumb.width, thumb.height))
+                        if (image != null) drawTableArtwork(image, thumb)
+                    }
                 }
                 paint.textSize = font * density; paint.isFakeBoldText = true
                 label.lines.forEachIndexed { index, line ->

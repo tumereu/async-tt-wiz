@@ -117,6 +117,13 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     add("eotNote", "EOT note", MenuControl("Edit EOT note", marksEnabled) {
         actions.edit(ManualValue(ManualValueKind.EOT_NOTE), state, viewer)
     })
+    // Keywords follow the note gates; a note with any non-keyword text disables its toggles.
+    fun keywordsParseable(eot: Boolean) = CardKeywords.state(scope.keywordCards(state).map { CardKeywords.note(it, eot) }) != null
+    add("keywords", "Keywords", MenuControl("Edit keywords",
+        enabled && !hidden && cardModificationEnabled(zone, note = true) && keywordsParseable(false)) { actions.keywords(false, state) })
+    add("eotKeywords", "EOT keywords", MenuControl("Edit EOT keywords", marksEnabled && keywordsParseable(true)) {
+        actions.keywords(true, state)
+    })
     for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "EOT +1/+0"), Triple(CornerPart.RIGHT, 1, "EOT +0/+1"),
         Triple(CornerPart.LEFT, -1, "EOT −1/−0"), Triple(CornerPart.RIGHT, -1, "EOT +0/−1"))) {
         add("eotCorner/${part.name}/$delta", symbol,

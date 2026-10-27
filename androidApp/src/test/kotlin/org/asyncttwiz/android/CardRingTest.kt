@@ -65,17 +65,19 @@ class CardRingTest {
         assertEquals(4, inlinePopupGridRows(card))
     }
 
-    @Test fun countersFillLastColumnAndMoreKeepsExactlyThreeRowsWithAnIntentionalEotNoteDuplicate() {
+    @Test fun countersFillLastColumnAndMoreKeepsExactlyFourRowsWithAnIntentionalEotNoteDuplicate() {
         val pages = CardRingPages.resolve(CardRingPages.defaults.flatMap { it.actions } + "extra")
         assertFalse("eotNote" in pages[0].actions)
         val counters = CardRingPages.layout(pages[1].actions)
         assertEquals(listOf(0, 2, 4, 5, 7, 9, 10, 12, 14), counters.map { it.cell })
         assertEquals(listOf("note", "eotNote", "resetCounters"), counters.filter { it.cell % 5 == 4 }.map { it.id })
         val more = CardRingPages.layout(pages[2].actions)
-        assertEquals((0..14).toList(), more.map { it.cell })
+        assertEquals((0..16).toList(), more.map { it.cell })
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink", "eotNote"), more.take(5).map { it.id })
         assertEquals(listOf("corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner"), more.drop(5).take(5).map { it.id })
-        assertEquals(listOf("eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile"), more.drop(10).map { it.id })
+        assertEquals(listOf("eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile"), more.drop(10).take(5).map { it.id })
+        assertEquals(listOf("keywords", "eotKeywords"), more.drop(15).map { it.id })
+        assertEquals(4, inlinePopupGridRows(more))
         assertEquals(listOf("Counters", "More"), pages.filter { "eotNote" in it.actions }.map { it.name })
         assertEquals(listOf("extra"), pages[3].actions)
         val saved = CardRingPages.defaults.map { it.copy(actions = listOf("eotNote", "eotNote")) }

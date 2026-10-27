@@ -227,6 +227,28 @@ class CombatDamageTest {
         assertEquals(listOf("Face-down card: assign manually"), f.assign(state = faceDown("*/2")).notes)
     }
 
+    @Test fun keywordToggleNotesGrantCombatKeywordsIgnoringOtherTokensAndCountForFaceDownCards() {
+        // Toggle-formatted note plus free text: the known keywords still apply.
+        val f = CombatDamageFixture(blockers = listOf("2/2", "2/2"), note = "Flying, deathtouch, X=3",
+            eotNote = "Trample, Lifelink")
+        val result = f.assign()
+        assertEquals(listOf("1", "1"), f.blockerIds.indices.map { f.damage(result, it) })
+        assertEquals("-3", f.life(result))
+        assertEquals("5", f.life(result, f.actor))
+        val strike = CombatDamageFixture(note = "Haste, first strike")
+        assertTrue(CombatDamage.splitSteps(strike.play))
+        assertEquals("-5", strike.life(strike.assign(step = CombatDamageStep.FIRST_STRIKE)))
+        assertTrue(strike.assign(step = CombatDamageStep.REGULAR).actions.isEmpty())
+        val double = CombatDamageFixture(eotNote = "Double strike")
+        assertEquals("-5", double.life(double.assign(step = CombatDamageStep.REGULAR)))
+        // Face-down: printed Trample is hidden, but note keywords count.
+        val printed = CombatDamageFixture(keyword = "Trample", blockers = listOf("1/1"))
+        fun faceDown(note: String) = printed.play.copy(board = printed.play.board.copy(cards = printed.play.board.cards.map {
+            if (it.id in printed.attackerIds) it.copy(covered = true, explicitlyCovered = true, corner = "2/2", note = note) else it }))
+        assertNull(printed.life(printed.assign(state = faceDown(""))))
+        assertEquals("-1", printed.life(printed.assign(state = faceDown("Trample"))))
+    }
+
     @Test fun keywordMatchingUsesWholeWordsAndOnlyCurrentFaceMetadataNotRulesText() {
         val f = CombatDamageFixture(note = "notinfect notwithered trampler", blockers = listOf("1/1"))
         assertEquals("5", f.damage(f.assign()))

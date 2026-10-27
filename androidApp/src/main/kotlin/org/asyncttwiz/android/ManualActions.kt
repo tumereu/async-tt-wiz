@@ -11,11 +11,14 @@ class ManualActions {
         private set
     var inspection by mutableStateOf<ManualInspection?>(null)
         private set
+    /** Open keyword toggles: false edits the card note, true the EOT note. */
+    var keywords by mutableStateOf<Boolean?>(null)
+        private set
 
     fun cards(state: PlayState, contextId: String, selectedSourceIds: List<String>, noteViewId: String? = null) {
         val ids = if (contextId in selectedSourceIds) selectedSourceIds.distinct() else listOf(contextId)
         scope = ManualScope(state.gameId, state.id, contextId, ids, noteViewId = noteViewId)
-        editor = null
+        editor = null; keywords = null
     }
     fun projectionNote(state: PlayState, id: String, viewer: String, selectedViewIds: List<String> = listOf(id)) {
         scope = ManualScope(state.gameId, state.id, id, emptyList(), noteViewId = id,
@@ -24,7 +27,7 @@ class ManualActions {
     }
     fun player(state: PlayState, accountId: String, counters: Boolean = false) {
         scope = ManualScope(state.gameId, state.id, accountId, listOf(accountId), player = true, playerCounters = counters)
-        editor = null
+        editor = null; keywords = null
     }
     fun edit(field: ManualValue, state: PlayState, viewer: String) {
         val bound = scope ?: return
@@ -33,9 +36,15 @@ class ManualActions {
         if (!bound.player && !(field.kind == ManualValueKind.NOTE && bound.noteViewId != null) &&
             state.board.cards.singleOrNull { it.id == bound.contextId }?.let { cardValuesHidden(state.board, it, viewer) } != false) return
         editor = ValueDraft(bound, field, bound.value(state, field, viewer).orEmpty())
+        keywords = null
+    }
+    fun keywords(eot: Boolean, state: PlayState) {
+        val bound = scope ?: return
+        if (!bound.usable(state) || bound.player) return
+        editor = null; keywords = eot
     }
     fun cancelEditor() { editor = null }
-    fun close() { scope = null; editor = null }
+    fun close() { scope = null; editor = null; keywords = null }
     fun clear() { close(); inspection = null }
     fun closeInspection() { inspection = null }
 
@@ -134,6 +143,11 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         }
     }
 
+    /** Keyword toggles edit Battlefield/Stack cards only, like the EOT marks. */
+    fun keywordCards(state: PlayState): List<PlayCard> =
+        if (!usable(state) || player) emptyList() else targetIds.mapNotNull { id -> state.board.cards.singleOrNull { it.id == id } }
+            .filter { card -> state.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) } }
+
     /** Each captured source emits one ordinary request; inapplicable numeric targets are skipped. */
     fun cardActions(state: PlayState, action: (PlayCard) -> PlayAction?): List<PlayAction> =
         if (!usable(state) || player) emptyList() else targetIds.mapNotNull { id ->
@@ -187,8 +201,13 @@ internal fun ManualActionsHost(state: PlayState, viewer: String, actions: Manual
     val scope = actions.scope
     if (scope != null && scope.usable(state)) {
         if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, landscape, submit)
-        else if (actions.editor == null && state.board.cards.any { it.id == scope.contextId })
+        else if (actions.editor == null && actions.keywords == null && state.board.cards.any { it.id == scope.contextId })
             CardActions(state, viewer, scope, actions, canEdit, names, submitAll, tools, previewViewId, inspect, editProjectionNote, submit)
+        actions.keywords?.let { eot ->
+            if (actions.editor == null) KeywordToggles(state, scope, eot, canEdit, actions::close) { requests ->
+                if (requests.isEmpty()) Unit else if (submitAll != null) submitAll(requests) else requests.forEach { submit(it) }
+            }
+        }
         actions.editor?.let { draft ->
             ValueEditor(draft, scope.value(state, draft.field, viewer), canEdit && draft.scope.usable(state),
                 onCancel = actions::cancelEditor, onSubmit = completeValue ?: { actions.submitValue(state, viewer, submit) },

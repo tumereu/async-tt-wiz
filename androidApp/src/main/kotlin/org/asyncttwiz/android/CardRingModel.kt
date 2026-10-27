@@ -17,7 +17,8 @@ internal object CardRingPages {
         }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "eotNote",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
-            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile")))
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile",
+            "keywords", "eotKeywords")))
 
     val hand = listOf(
         CardRingPage("Hand", listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
@@ -60,7 +61,7 @@ internal object CardRingPages {
             remaining.remove(it)
             it in available || pages == null && it.startsWith("empty/")
         } }.toMutableList()
-        // Saved layouts retain their original capacity; the new default More is exactly three rows.
+        // Saved layouts retain their original capacity; the new default More is exactly four rows.
         if (pages != null) assigned[2] = assigned[2] + remaining
         val result = requested.map { it.copy(actions = emptyList()) }.toMutableList()
         val overflow = mutableListOf<String>()

@@ -16,6 +16,13 @@ class PreparationPresentationTest {
     private val base = LobbyPreparation(id(), id(), listOf(PlayerPreparation(actor, deck = deck)), listOf(submitted))
     private fun capture(all: Boolean = true) = PreparationRules.capture(base, actor, submitted.digest, SavedDeckSection.MAINBOARD, all)!!
 
+    @Test fun deckNamesAreOnlyPresentedToTheirOwnerIncludingPodGames() {
+        val secret = "Unexpected sideboard strategy"
+        assertEquals(secret, gameDeckName(actor, actor, secret))
+        assertEquals("Deck", gameDeckName(actor, id(), secret))
+        assertEquals("Deck", gameDeckName(actor, null, secret))
+    }
+
     @Test fun tapAndRecognizedDragHaveOneCapturedReleaseAndCancelOutsideOrConsumedSendNothing() {
         val captured = capture()
         assertSame(captured, PreparationGesture(captured, 8f).release(false))

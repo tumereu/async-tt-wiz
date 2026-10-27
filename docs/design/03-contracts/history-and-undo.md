@@ -68,6 +68,12 @@ null target-card ID. Random hand moves concern the chosen card's owner and recor
 that owner's destination. Sticky pair blocking and token tray cleanup are recorded
 in the same transition and participate in exact concerned-field replay/undo.
 
+Rules v21 Library-to-Stack uses the existing AddEffect event and its source
+location/owner, live-source and Stack concerns. Its revealsLibrarySource flag is
+part of the exact Stack-effect delta/concerns (also retained by copies); removing
+the last revealing entry hides the Library source again. Pre-v21 events retain
+their original eligibility and disclosure behavior on replay.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

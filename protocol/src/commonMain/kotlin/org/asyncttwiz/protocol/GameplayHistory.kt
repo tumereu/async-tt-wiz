@@ -223,7 +223,8 @@ object GameplayHistory {
             is PlayAction.Stack -> when (val stack = action.action) {
                 is StackAction.AddEffect -> {
                     val source = board.cards.singleOrNull { it.id == stack.sourceId } ?: return false
-                    if (!CombatStackRules.canProject(board, source) || GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
+                    if (!CombatStackRules.canProject(board, source, mutation.transition.rulesVersion) ||
+                        GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
                 }
                 is StackAction.CopyEffect -> if (stack.entryId !in CombatStackRules.stack(board).cards ||
                     GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false

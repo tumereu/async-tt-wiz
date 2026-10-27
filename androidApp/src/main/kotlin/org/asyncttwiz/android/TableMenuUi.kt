@@ -78,7 +78,7 @@ internal fun menuIcon(name: String): ImageVector {
         "tap" == n || "tap selected" in n -> Icons.Outlined.Rotate90DegreesCw
         "select" in n -> MultipleSelectionIcon
         "battlefield" in n -> Icons.Outlined.TableRows
-        "shuffle" in n || "return hand" in n -> Icons.Outlined.Shuffle
+        "shuffle" in n || "return hand" in n || "mulligan" in n -> Icons.Outlined.Shuffle
         n.startsWith("draw") -> Icons.Outlined.Download
         "hand" in n -> HandCardsIcon
         "choose" in n || "beginning of combat" in n || "suggest my loss" in n || n == "suggest game end" || n == "my loss" -> Icons.Outlined.Flag

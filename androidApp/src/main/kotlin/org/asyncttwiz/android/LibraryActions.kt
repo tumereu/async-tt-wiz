@@ -27,6 +27,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     val context = LocalContext.current
     val quantities = remember(owner) { LibraryQuantityStore(context, owner) }
     var editing by remember(controller) { mutableStateOf<String?>(null) }
+    var mulligan by remember(controller) { mutableStateOf(false) }
     var text by remember { mutableStateOf(selectedLibraryQuantity("")) }
     val enabled = controller.available()
     val mayOpen = enabled && board.contentsDisplays.isEmpty()
@@ -61,7 +62,7 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             InlinePopupCell(MenuControl("Shuffle", enabled) { finish(controller.shuffle()) })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            InlinePopupCell(MenuControl("Mulligan 7", enabled) { finish(controller.mulligan(displayedHand, 7)) })
+            InlinePopupCell(MenuControl("Mulligan N…", enabled) { mulligan = true })
             InlinePopupCell(MenuControl("Mulligan −1", enabled) { finish(controller.mulligan(displayedHand, minusOne = true)) })
         }
         val revealed = board.containers.single { it.id == controller.libraryId }.keepTopRevealed
@@ -90,6 +91,9 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
             }
         })
         }
+    }
+    if (mulligan) MulliganDialog(controller, displayedHand, owner, { mulligan = false }) {
+        mulligan = false; onComplete()
     }
 }
 

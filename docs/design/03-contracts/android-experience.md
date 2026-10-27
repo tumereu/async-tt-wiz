@@ -250,6 +250,17 @@ Panels use Stack-sized cards and the fewest fitting columns up to three; when bo
 are open, shared left/local right use at most two each. Look/Reveal retain source
 order and allow insertion reordering. Local pile viewing is not shared or logged.
 
+Card menus in Graveyard, Exile and Library (including Look/Search and left panels)
+offer the existing Stack projection action. Library sources require rules v21;
+the source stays in its zone, as with the existing Battlefield Stack action.
+The live Library projection reveals its source while at least one such entry remains.
+At turn 1 Untap both players get Mulligan N and Mulligan −1 for their own Hand/
+Library; the non-turn player's bar contains only these actions, without advance.
+Mulligan N opens a number dialog (initially 7, remembered locally per game/player)
+and submits once on confirmation; −1 immediately draws one fewer than Hand size.
+Library menus use the same dialog/preference. Other players' game deck titles are
+replaced with “Deck” client-side; your own title remains visible.
+
 No essential action may require leaving Android for an external editing tool.
 
 ## 5.2 Persistent table context

@@ -68,7 +68,7 @@ class QuickActionsTest {
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Return Hand → Shuffle → Draw N", "Return Hand → Shuffle → Draw previous Hand size −1"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Mulligan N", "Mulligan −1"),
             TurnPosition.UPKEEP to listOf("Draw + go to main"),
             TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
@@ -122,11 +122,43 @@ class QuickActionsTest {
             val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
             val defender = QuickContext(viewer = TableToolFixture.id(8))
             val actions = QuickActions.contextual(play, defender, controller)
-            assertEquals(if (position == TurnPosition.DECLARE_BLOCKERS) listOf("No blocks + next") else emptyList(), actions.map { it.name })
+            assertEquals(when (position) {
+                TurnPosition.UNTAP -> listOf("Mulligan N", "Mulligan −1")
+                TurnPosition.DECLARE_BLOCKERS -> listOf("No blocks + next")
+                else -> emptyList()
+            }, actions.map { it.name })
             assertTrue(QuickActions.contextual(play, QuickContext(), controller).isEmpty())
             val target = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)
-            assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
+            if (position != TurnPosition.UNTAP)
+                assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
         }
+    }
+
+    @Test fun openingMulligansUseEachViewersOwnHandAndLibraryAndOnlyTheOpeningUntap() {
+        val first = TableToolFixture.play()
+        for (viewer in first.board.players.map { it.accountId }) {
+            val play = first.copy(board = first.board.copy(attentionHolder = first.board.turn.accountId))
+            val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+            assertTrue(QuickActions.visible(play, viewer))
+            assertEquals(viewer != play.board.turn.accountId, QuickActions.mulliganOnly(play, viewer))
+            val actions = QuickActions.contextual(play, QuickContext(viewer = viewer,
+                stackTarget = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)), controller)
+            val mulligans = actions.mapNotNull { it.intent as? TableActionIntent.Library }
+            assertEquals(listOf(LibraryTool.MULLIGAN_N, LibraryTool.MULLIGAN_MINUS_ONE), mulligans.map { it.tool })
+            for (intent in mulligans) {
+                assertEquals(viewer, intent.targets.accountId)
+                assertEquals(play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == viewer }.cards, intent.handIds)
+                assertEquals(play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == viewer }.id, intent.targets.libraryId)
+            }
+            if (viewer != play.board.turn.accountId) assertEquals(2, actions.size)
+        }
+        val other = TableToolFixture.id(8)
+        for (play in listOf(TableToolFixture.play(number = "2"), TableToolFixture.play(TurnPosition.UPKEEP))) {
+            assertFalse(QuickActions.visible(play, other))
+            assertFalse(QuickActions.openingMulligan(play, other))
+        }
+        assertFalse(QuickActions.visible(first, null))
+        assertFalse(QuickActions.visible(first, "spectator"))
     }
 
     @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {

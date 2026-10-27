@@ -29,6 +29,7 @@ class LibraryActionsUiTest {
 
     private fun render(connected: Boolean = true, viewer: String = "a", revealed: Boolean = false) {
         ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("library-quantities", 0).edit().clear().commit()
+        ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("mulligan-quantities", 0).edit().clear().commit()
         val state = play.copy(board = play.board.copy(containers = play.board.containers.map {
             if (it.id == library.id) it.copy(keepTopRevealed = revealed) else it }))
         val controller = LibraryController(play.id, library.id, hand.id, { state }, { connected },
@@ -58,7 +59,7 @@ class LibraryActionsUiTest {
 
     @Test fun inlineRowsFitAndOneTapActionsUseTopCard() {
         render()
-        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan N…", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp)
         for ((action, zone) in listOf("Draw" to PlayZone.HAND, "Mill" to PlayZone.GRAVEYARD, "Exile" to PlayZone.EXILE)) {
             sent.clear(); click("$action 1")
@@ -101,8 +102,13 @@ class LibraryActionsUiTest {
 
     @Test fun mulligansAreIndependentOfQuantities() {
         render()
-        for ((label, count) in listOf("Mulligan 7" to 7, "Mulligan −1" to hand.cards.size - 1)) {
+        for ((label, count) in listOf("Mulligan N…" to 7, "Mulligan −1" to hand.cards.size - 1)) {
             sent.clear(); click(label)
+            if (label == "Mulligan N…") {
+                assertTrue(sent.isEmpty())
+                compose.onNode(hasSetTextAction()).assertTextEquals("7")
+                click("Mulligan")
+            }
             val action = sent.single() as PlayAction.Mulligan
             assertEquals(hand.cards, action.displayedHand)
             assertEquals(count, action.drawCount)
@@ -136,7 +142,7 @@ class LibraryActionsUiTest {
 
     @Test fun disconnectedActionsCannotDispatch() {
         render(false)
-        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan 7", "Mulligan −1"))
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan N…", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
         compose.onNodeWithText("Keep top card revealed").assertIsNotEnabled()
         assertTrue(sent.isEmpty())

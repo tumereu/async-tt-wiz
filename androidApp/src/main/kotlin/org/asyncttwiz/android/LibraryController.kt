@@ -24,6 +24,7 @@ class LibraryController(
     private val batchRequest: ((List<PlayAction>, String) -> Boolean)? = null
 ) {
     private fun current(): PlayState? = state()?.takeIf { it.id == playId }
+    val gameId: String? get() = current()?.gameId
     fun available() = connected() && current() != null
     fun maySetKeepTopRevealed() = available() && current()?.board?.containers?.any {
         it.id == libraryId && it.zone == PlayZone.LIBRARY } == true

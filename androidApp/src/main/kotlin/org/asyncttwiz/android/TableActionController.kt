@@ -68,8 +68,7 @@ class TableActionController(private val state: () -> PlayState?, private val can
     fun scope(): TableActionScope? = state()?.let { TableActionScope(it.gameId, it.id) }
     fun enabled(scope: TableActionScope) = current(scope) != null
 
-    fun targets(play: PlayState): TurnPlayerTargets? {
-        val account = play.board.turn.accountId
+    fun targets(play: PlayState, account: String = play.board.turn.accountId): TurnPlayerTargets? {
         fun container(zone: PlayZone) = play.board.containers.singleOrNull { it.accountId == account && it.zone == zone }?.id
         return TurnPlayerTargets(account, container(PlayZone.BATTLEFIELD) ?: return null,
             container(PlayZone.LIBRARY) ?: return null, container(PlayZone.HAND) ?: return null)

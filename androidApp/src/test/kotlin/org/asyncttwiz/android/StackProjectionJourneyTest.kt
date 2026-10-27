@@ -291,9 +291,10 @@ class StackProjectionJourneyTest {
         j.sync(); j.undoRedo()
     }
 
-    @Test fun loggedContentsMoveControlsProjectPublicCardsButNeverLibraryCards() {
-        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND)) Journey().use { j ->
-            assertTrue(j.move(j.f.id(40), zone)); j.sync()
+    @Test fun loggedContentsMoveControlsProjectCardsFromAllSupportedSourceZones() {
+        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND, PlayZone.LIBRARY)) Journey().use { j ->
+            if (zone != PlayZone.LIBRARY) assertTrue(j.move(j.f.id(40), zone))
+            j.sync()
             val controller = j.ui.libraryController(j.f.container(zone), j.f.container(PlayZone.HAND))!!
             val target = libraryDestinations(j.f.play.board, sourceIds = listOf(j.f.id(40))).single {
                 it.second.containerId == j.f.container(PlayZone.STACK) }.second
@@ -303,17 +304,14 @@ class StackProjectionJourneyTest {
         }
     }
 
-    @Test fun multiSelectionLibraryRejectionAndOpponentHandRevealLifetime() = Journey().use { j ->
+    @Test fun hiddenLibraryHasNoDragTargetAndOpponentHandRevealLifetime() = Journey().use { j ->
         val library = j.scene().items.single { it.zone == PlayZone.LIBRARY && it.owner == j.f.actor }
         val before = j.f.commands().size
         assertNull(j.drag(listOf(j.f.id(40))))
-        assertFalse(j.move(j.f.id(40), PlayZone.STACK))
         val controller = j.ui.libraryController(library.id, j.f.container(PlayZone.HAND))!!
         assertEquals(LibrarySubmission(0, 1), controller.move(ContentsSelection.TOP, 1,
             MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP)))
-        assertEquals(LibrarySubmission(0, 1), controller.moveCards(listOf(j.f.id(40)),
-            MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP)))
-        assertTrue(libraryDestinations(j.f.play.board, sourceIds = listOf(j.f.id(40))).none {
+        assertTrue(libraryDestinations(j.f.play.board, sourceIds = listOf(j.f.id(40))).any {
             it.second.containerId == j.f.container(PlayZone.STACK) })
         assertEquals(before, j.f.commands().size)
         assertTrue(libraryDestinations(j.f.play.board).none { it.second.containerId == j.f.container(PlayZone.STACK) })
@@ -345,15 +343,16 @@ class StackProjectionJourneyTest {
         opponent.inspect(j.f.id(40)); assertTrue(opponent.inspection!!.faceIds.isEmpty())
     }
 
-    @Test fun aLibraryMemberInvalidatesTheWholeStackDropAndDirectSubmission() = Journey().use { j ->
+    @Test fun hiddenLibraryMemberHasNoDragTargetButDirectStackActionWorks() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.HAND)); j.sync()
         val before = j.f.commands().size
         assertNull(j.drag(listOf(j.f.id(40), j.f.id(41))))
         val libraryCard = j.f.card(41)
-        assertFalse(j.ui.submit(PlayAction.MoveCard(libraryCard.id, MoveSource(libraryCard.containerId),
+        assertTrue(j.ui.submit(PlayAction.MoveCard(libraryCard.id, MoveSource(libraryCard.containerId),
             MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP))))
-        assertEquals(before, j.f.commands().size)
-        assertTrue(j.f.play.board.stackEffects.isEmpty())
+        assertEquals(before + 1, j.f.commands().size)
+        assertEquals(libraryCard.id, j.f.play.board.stackEffects.single().sourceId)
+        assertEquals(libraryCard, j.f.card(41))
         j.sync()
     }
 

@@ -172,7 +172,7 @@ internal val panelCardActions = listOf(PanelCardAction("Hand", PlayZone.HAND), P
     PanelCardAction("Battlefield", PlayZone.BATTLEFIELD), PanelCardAction("Battlefield tapped", PlayZone.BATTLEFIELD, tapped = true),
     PanelCardAction("Graveyard", PlayZone.GRAVEYARD), PanelCardAction("Exile", PlayZone.EXILE),
     PanelCardAction("Top", PlayZone.LIBRARY), PanelCardAction("Reveal+Top", PlayZone.LIBRARY, reveal = true),
-    PanelCardAction("Bottom", PlayZone.LIBRARY, bottom = true))
+    PanelCardAction("Bottom", PlayZone.LIBRARY, bottom = true), PanelCardAction("Stack", PlayZone.STACK))
 internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDisplay, id: String, localZone: PlayZone?): Boolean =
     action.zone != localZone && (!action.reveal || localZone == null && !display.reveal && id !in display.revealedIds)
 
@@ -194,7 +194,7 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
     val id = if (rest) null else route.getOrNull(2)?.takeIf { it in display.cardIds } ?: return
     val cell = CardRingGeometry.cell.toFloat()
     val width = if (rest) 5 * cell + 8f else 3 * cell + 4f
-    val height = if (rest) cell else 3 * cell + 4f
+    val height = if (rest) cell else ceil(panelCardActions.size / 3f) * (cell + 2f) - 2f
     val x = if (rest) panel.closeBounds.x else scene.cardPanels.maxOf { it.bounds.right } + 4f
     val y = if (rest) panel.closeBounds.y else panel.viewport.bounds.y + 2f
     TableInlinePopup(toolkit.panel.orEmpty(), id ?: display.id, panel.bounds, true, OwnTableColor, toolkit::dismiss,

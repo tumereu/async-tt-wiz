@@ -37,8 +37,13 @@ class CardVisibilityTest {
         val library = move(projected, PlayZone.LIBRARY, 206).state!!
         assertFalse(CardVisibility.isVisibleFaceUp(library.board, library.board.cards.first(), opponent))
         assertTrue(ManualDisclosure.permittedFaces(library, library.board.cards.first(), opponent, true).isEmpty())
-        assertEquals("inapplicable", gameplayChange(library,
-            PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(library))), 207).reason)
+        val libraryEffect = gameplayChange(library,
+            PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(library))), 207)
+        assertEquals("accepted", libraryEffect.outcome)
+        assertTrue(CardVisibility.isVisibleFaceUp(libraryEffect.state!!.board, library.board.cards.first(), opponent))
+        val hiddenAgain = gameplayChange(libraryEffect.state, PlayAction.Stack(StackAction.RemoveEffect(
+            libraryEffect.state.board.stackEffects.last().id)), 209).state!!
+        assertFalse(CardVisibility.isVisibleFaceUp(hiddenAgain.board, hiddenAgain.board.cards.first(), opponent))
         val foreignHand = hand.copy(board = hand.board.copy(cards = listOf(source.copy(owner = opponent))))
         assertEquals("inapplicable", gameplayChange(foreignHand,
             PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(foreignHand))), 208).reason)

@@ -52,6 +52,7 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?Set the public HTTPS origin in deploy/.env}
       RESET_BASE_URL: ${RESET_BASE_URL:-${PUBLIC_BASE_URL}}
       RESET_MAIL_KEY_FILE: /run/secrets/reset_mail_key
+      APP_RELEASE_DIR: /app-release
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: "8080"
       HEALTH_ADDRESS: 127.0.0.1
@@ -62,6 +63,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-no-reply@example.invalid}
       SMTP_TLS: ${SMTP_TLS:-starttls}
     secrets: [db_password, reset_mail_key]
+    volumes:
+      - ${APP_RELEASE_HOST_DIR:-./app-release}:/app-release:ro
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     healthcheck:

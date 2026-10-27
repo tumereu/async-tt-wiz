@@ -199,6 +199,15 @@ kotlin {
     compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }
 
+// Only the side-by-side test identity may use a locally allocated update sequence.
+providers.gradleProperty("atwTestVersionCode").orNull?.let { value ->
+    val code = value.toInt()
+    require(code in 1..2100000000)
+    androidComponents.onVariants(androidComponents.selector().withBuildType("personalTest")) { variant ->
+        variant.outputs.forEach { it.versionCode.set(code) }
+    }
+}
+
 // AGP's built-in Kotlin directory DSL has no file exclusions. Keep the optional SDK
 // adapter out of the normal APK entirely, rather than shipping missing SDK classes.
 if (!fcmEnabled) {

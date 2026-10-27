@@ -14,7 +14,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val catalogStore = ViewModelStore()
     val catalog = ViewModelProvider(catalogStore, ViewModelProvider.AndroidViewModelFactory(application))[CatalogViewModel::class.java]
     val deckImport = DeckImportController(DeckImportResolver(catalog.repository)::resolve,
-        Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } })
+        Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } }).apply {
+        connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
+    }
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
     private val local = AndroidAccountLocalData(application)
     val activity = AndroidActivityDelivery.get(application)

@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.DeckSection
@@ -76,33 +77,43 @@ private fun CubeCollection(controller: CubeController) {
 @Composable
 internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null) {
     val state = controller.state
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(state.editing, state.cobraTab) {
+        if (state.editing && state.cobraTab) controller.prefillCobra { clipboard.getText()?.text }
+    }
     BackHandler { controller.back() }
-    ScreenBusyOverlay(if (state.busy) "Working on cube…" else null) {
+    Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ScreenHeader(if (state.editing) { if (state.target == null) "New cube" else "Edit cube" } else "Saved cube", navigation) {
-                TextButton(onClick = controller::back, enabled = !state.busy) { Text("Back") }
+                ScreenIconButton("Back", "back", controller::back)
             }
             if (state.editing) {
+                TabRow(selectedTabIndex = if (state.cobraTab) 0 else 1) {
+                    Tab(state.cobraTab, onClick = { controller.cobraTab(true) }, text = { Text("Cube Cobra") })
+                    Tab(!state.cobraTab, onClick = { controller.cobraTab(false) }, text = { Text("Paste list") })
+                }
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(state.name, controller::name, Modifier.fillMaxWidth(), label = { Text("Cube name") }, singleLine = true)
-                    OutlinedTextField(state.cobraInput, controller::cobraInput, Modifier.fillMaxWidth(), label = { Text("Cube Cobra URL or cube id") }, singleLine = true)
-                    ScreenOutlinedButton(onClick = controller::importCobra, enabled = state.cobraInput.isNotBlank() && !state.busy) { Text("Import Cube Cobra mainboard") }
-                    Text("Or paste a counted card list. Importing from Cube Cobra replaces the text below.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(state.text, controller::text, Modifier.fillMaxWidth().heightIn(min = 220.dp), label = { Text("Card list") })
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(state.includeSideboard, controller::sideboard)
-                        Text("Include sideboard")
+                    if (state.cobraTab) {
+                        OutlinedTextField(state.cobraInput, controller::cobraInput, Modifier.fillMaxWidth(), label = { Text("Cube Cobra URL or cube ID") }, singleLine = true)
+                        ScreenButton(onClick = controller::importCobra, enabled = state.cobraInput.isNotBlank() && !state.busy) {
+                            EntryIcon("Import Cube Cobra", "import")
+                        }
+                    } else {
+                        OutlinedTextField(state.name, controller::name, Modifier.fillMaxWidth(), label = { Text("Cube name") }, singleLine = true)
+                        OutlinedTextField(state.text, controller::text, Modifier.fillMaxWidth().heightIn(min = 220.dp), label = { Text("Card list") })
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(state.includeSideboard, controller::sideboard)
+                            Text("Include sideboard")
+                        }
+                        ScreenButton(onClick = controller::lookup, enabled = !state.busy && state.text.isNotBlank()) { EntryIcon("Import list", "import") }
                     }
-                    ScreenOutlinedButton(onClick = controller::lookup, enabled = !state.busy) { Text("Resolve cards") }
-                    state.provenance?.let { Text("Cube Cobra snapshot: $it", style = MaterialTheme.typography.bodySmall) }
+                }
+                Column(Modifier.fillMaxWidth().height(160.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                     state.result?.let { result ->
                         if (result.resolved) {
                             Text("${result.count(DeckSection.MAINBOARD)} total copies", fontWeight = FontWeight.Bold)
-                            if (result.substitutions.isNotEmpty()) {
-                                Text("Printing substitutions — review before saving", fontWeight = FontWeight.Bold)
-                                result.substitutions.forEach { Text("Line ${it.line}: ${it.message}") }
-                            }
+                            result.substitutions.forEach { Text("Line ${it.line}: ${it.message}") }
                             result.entries.forEach { Text("${it.quantity} ${it.printing.name} (${it.printing.set}) ${it.printing.number}") }
                         }
                         result.issues.forEach { issue ->
@@ -112,7 +123,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                     }
                 }
                 ScreenButton(onClick = controller::save, Modifier.fillMaxWidth().padding(16.dp),
-                    enabled = state.result?.resolved == true && state.name.isNotBlank() && !state.busy) { Text("Save cube") }
+                    enabled = state.result?.resolved == true && state.name.isNotBlank() && !state.busy) { EntryIcon("Save cube", "save") }
             } else {
                 InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
                     val detail = state.detail
@@ -120,11 +131,10 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                         item {
                             Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
                             Text("${detail.saved.cube.totalCopies} total copies")
-                            detail.saved.cube.cubeCobraId?.let { Text("Cube Cobra snapshot: $it", style = MaterialTheme.typography.bodySmall) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ScreenOutlinedButton(onClick = controller::edit) { Text("Edit") }
-                                ScreenOutlinedButton(onClick = { controller.dialog(CubeDialog.RENAME) }) { Text("Rename") }
-                                TextButton(onClick = { controller.dialog(CubeDialog.DELETE) }) { Text("Delete") }
+                                ScreenIconButton("Edit cube", "edit", controller::edit)
+                                ScreenIconButton("Rename cube", "edit", { controller.dialog(CubeDialog.RENAME) })
+                                ScreenIconButton("Delete cube", "delete", { controller.dialog(CubeDialog.DELETE) })
                             }
                             if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
                                 EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
@@ -137,12 +147,12 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                     }
                 }
             }
-            if (state.dialog == null) state.error?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
         }
+        if (state.dialog == null) FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
     if (state.dialog != null) {
         val deleting = state.dialog == CubeDialog.DELETE
-        ScreenDialog(controller::dismiss, busyMessage = if (state.busy) "Saving cube…" else null,
+        ScreenDialog(controller::dismiss,
             error = state.error, dismissError = controller::dismissError) {
             Text(if (deleting) "Delete cube?" else "Rename cube", style = MaterialTheme.typography.titleLarge)
             if (deleting) Text("Delete ${state.detail?.saved?.cube?.name}? Deletion cannot be undone.")

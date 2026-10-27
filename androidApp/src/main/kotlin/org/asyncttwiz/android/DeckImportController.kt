@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.CatalogMetadata
+import org.asyncttwiz.storage.ParsedDeck
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.ExecutorService
 
@@ -13,7 +14,8 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val saving: Boolean = false, val error: String? = null, val target: String? = null,
     val mode: DeckImportMode = DeckImportMode.OVERWRITE, val editing: Boolean = false,
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
-    val lookupFailed: Boolean = false)
+    val lookupFailed: Boolean = false, val fromUrl: Boolean = false, val url: String = "",
+    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -32,6 +34,47 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var initial = DeckImportState()
     private var saveAfterLookup = false
     private var chosenCover: SubmittedDefinition? = null
+    private var resolveParsed: (ParsedDeck) -> DeckImportResult = { resolve(it.text) }
+    private var fetchUrl: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl
+    fun connectUrl(resolve: (ParsedDeck) -> DeckImportResult, fetch: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl) {
+        resolveParsed = resolve; fetchUrl = fetch
+    }
+    fun fromUrl(value: Boolean) { state = state.copy(fromUrl = value, error = null) }
+    fun prefillUrl(read: () -> String?) {
+        if (state.clipboardRead || !state.active || !state.fromUrl) return
+        val match = ImportClipboard.deck(read())
+        state = state.copy(clipboardRead = true, url = if (state.url.isBlank()) match.orEmpty() else state.url)
+    }
+    fun url(value: String) {
+        if (closed || !state.active) return
+        if (state.fetchingUrl) { epoch++; state = state.copy(busy = false, fetchingUrl = false) }
+        state = state.copy(url = value, error = null)
+    }
+    fun importUrl() {
+        if (closed || !state.active || state.busy || state.saving) return
+        val location = DeckUrlImport.location(state.url) ?: run {
+            state = state.copy(error = "Enter a supported deck URL or site:ID."); return
+        }
+        val generation = ++epoch
+        state = state.copy(busy = true, fetchingUrl = true, error = null)
+        worker.execute {
+            if (generation != epoch) return@execute
+            val fetched = runCatching { fetchUrl(location) }
+            val imported = fetched.getOrNull()
+            val resolved = imported?.let { runCatching { resolveParsed(it.parsed) } }
+            post { if (!closed && generation == epoch && state.active) {
+                if (imported == null) state = state.copy(busy = false, fetchingUrl = false,
+                    error = "${location.site.label} could not be loaded. Try Paste list.")
+                else {
+                    source = null; retryPlan = null; chosenCover = null
+                    state = state.copy(text = imported.parsed.text, name = imported.name, result = resolved?.getOrNull(),
+                        busy = false, fetchingUrl = false, fromUrl = false, cover = null, preview = false,
+                        lookupFailed = resolved?.isFailure == true,
+                        error = if (resolved?.isFailure == true) "Card records could not be read. Retry lookup." else null)
+                }
+            } }
+        }
+    }
     val coverCards: List<SubmittedDefinition> get() = state.result?.let { result ->
         result.entries.map { entry ->
             val definition = PhysicalCardFaces.normalize(source?.definitions?.get(entry.printing.id) ?: entry.definition(result.catalog))
@@ -56,9 +99,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         }
     }
     fun cancel() {
-        if (state.saving) return
         saveAfterLookup = false
-        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover)
+        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover || state.url != initial.url)
             state = state.copy(discard = true)
         else exit()
     }
@@ -132,12 +174,12 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun exit() { epoch++; inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
-        if (!closed && state.active && !state.saving) { epoch++; retryPlan = null
+        if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
             relookupAfterCurrent = false; saveAfterLookup = false
-            state = state.copy(text = text, busy = false, result = null, preview = false, error = null, lookupFailed = false) }
+            state = state.copy(text = text, busy = false, fetchingUrl = false, result = null, preview = false, error = null, lookupFailed = false) }
     }
     fun lookup() {
-        if (closed || !state.active || state.busy || state.preview || catalogInstalling) return
+        if (closed || !state.active || state.busy || state.saving || state.preview || catalogInstalling) return
         val generation = ++epoch
         val text = state.text
         val retained = source
@@ -164,7 +206,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun review() { if (state.result?.resolved == true && !state.busy) state = state.copy(preview = true) }
     fun editList() { if (!state.saving) { inspection.close(); state = state.copy(preview = false, error = null) } }
-    fun name(value: String) { if (!state.saving && value != state.name) {
+    fun name(value: String) { if (value != state.name) {
         retryPlan = null; state = state.copy(name = value, error = null)
     } }
     fun save() {
@@ -182,19 +224,29 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         val generation = ++epoch
         val previous = retryPlan
         val retained = source?.definitions.orEmpty()
+        val cover = input.cover ?: coverCards.firstOrNull()?.digest
         state = state.copy(saving = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
             var plan = previous
             try {
                  if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target, input.mode,
-                      input.cover ?: coverCards.firstOrNull()?.digest, retained, input.editing)
+                       cover, retained, input.editing)
                 val result = action(checkNotNull(plan))
-                post { if (!closed && generation == epoch && state.active) { exit(); saved(result) } }
+                post { if (!closed && generation == epoch && state.active) {
+                    if (state.text == input.text && state.name == input.name && state.cover == input.cover) { exit(); saved(result) }
+                    else {
+                        retryPlan = null
+                        initial = input.copy(target = result.deck.id, editing = true)
+                        state = state.copy(saving = false, target = result.deck.id, editing = true)
+                        if (state.result == null) lookup()
+                    }
+                } }
             } catch (failure: Exception) {
                 val retained = plan
                 post { if (!closed && generation == epoch && state.active) {
-                    retryPlan = retained; state = state.copy(saving = false, error = deckError(failure))
+                     retryPlan = retained.takeIf { state.text == input.text && state.name == input.name && state.cover == input.cover }
+                     state = state.copy(saving = false, error = deckError(failure))
                 } }
             }
         }

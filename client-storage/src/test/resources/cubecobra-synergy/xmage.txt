@@ -1,0 +1,19 @@
+1 [MH2:32] Solitude
+1 [2XM:35] Thraben Inspector
+1 [SLD:38] Thalia, Guardian of Thraben
+1 [MD1:3] Path to Exile
+1 [SLD:110] Swords to Plowshares
+1 [NEO:29] Michiko's Reign of Truth
+1 [ORI:60] Jace, Vryn's Prodigy
+1 [ELD:39] Brazen Borrower
+1 [KHM:123] Birgi, God of Storytelling
+1 [ROE:190] Joraga Treespeaker
+1 [UST:113f] Ineffable Blessing
+1 [GRN:224] Expansion // Explosion
+1 [ONS:316] Flooded Strand
+1 [KTK:233] Flooded Strand
+1 [ZNE:1] Flooded Strand
+1 [RNA:251] Hallowed Fountain
+1 [RTR:241] Hallowed Fountain
+1 [V09:13] Strip Mine
+1 [TMP:330] Wasteland

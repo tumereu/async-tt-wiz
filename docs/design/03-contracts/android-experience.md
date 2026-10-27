@@ -166,6 +166,8 @@ System Back leaves unfinished import/editor input unsaved; lobby Cancel is a gam
 not a screen close control;
 lobby title is the game name and Reinvite belongs in the opponent slot. No Ready
 leaving helper. Dialog close X is top-right; related button pairs fill 50/50.
+Text-input dialogs (names, pod setting values, value editors, scales, profile name)
+open with the field focused, its whole text selected and the soft keyboard shown.
 Cover selection has a border, no checkbox; deck deletion says only it cannot be
 undone. Deck picker uses personal border selection and one bottom confirmation,
 not per-row Select. Preparation **1 / ∞** markers are 24 px wide, an explicit compact

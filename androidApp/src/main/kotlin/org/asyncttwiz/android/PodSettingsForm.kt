@@ -100,13 +100,26 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         (fields + PodSetting.SIDEBOARD).forEach { field -> key(field) { PodSettingTile(field, settings, enabled, change) } }
+        if (settings.mode != DraftMode.GRID && source.kind == PodSourceKind.CUBE) key("colorBalance") {
+            PodToggleTile("Color balancing", settings.colorBalance, enabled) { value -> change { it.copy(colorBalance = value) } }
+        }
     }
     if (settings.mode == DraftMode.GRID) Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
         Text("Two picks each")
-    } else if (source.kind == PodSourceKind.CUBE) Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(settings.colorBalance, { value -> change { it.copy(colorBalance = value) } }, enabled = enabled)
-        Text("Color balancing")
+    }
+}
+
+/** On/off setting in the same square tile shape as the numeric settings; a tap toggles it. */
+@Composable
+private fun PodToggleTile(label: String, checked: Boolean, enabled: Boolean, toggle: (Boolean) -> Unit) {
+    Surface(checked = checked, onCheckedChange = toggle, enabled = enabled, modifier = Modifier.size(96.dp),
+        shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder),
+        color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
+        Box(Modifier.fillMaxSize().padding(6.dp)) {
+            Text(label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
+            Text(if (checked) "On" else "Off", Modifier.align(Alignment.Center), style = MaterialTheme.typography.headlineSmall)
+        }
     }
 }
 
@@ -130,7 +143,7 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
 
 @Composable
 internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> Unit, save: (Int?) -> Unit) {
-    var text by remember { mutableStateOf((field.value(settings) ?: 0).toString()) }
+    val input = rememberDialogField((field.value(settings) ?: 0).toString())
     var unlimited by remember { mutableStateOf(field == PodSetting.SIDEBOARD && settings.sideboardLimit == null) }
     val range = field.range(settings)
     ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp)) {
@@ -139,7 +152,7 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
             ScreenIconButton("Close setting", "close", dismiss)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(text, { text = it }, Modifier.weight(1f), enabled = !unlimited, singleLine = true,
+            OutlinedTextField(input.value, { input.value = it }, Modifier.weight(1f).dialogField(input), enabled = !unlimited, singleLine = true,
                 label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             if (field == PodSetting.SIDEBOARD) OutlinedButton({ unlimited = !unlimited }, Modifier.size(56.dp)
                 .semantics { contentDescription = "Unlimited sideboard"; selected = unlimited },
@@ -148,6 +161,6 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
                 Text(if (unlimited) "∞ ✓" else "∞")
             }
         }
-        ScreenButton({ save(if (unlimited) null else text.toInt()) }, enabled = unlimited || field.valid(text, settings)) { Text("Save") }
+        ScreenButton({ save(if (unlimited) null else input.text.toInt()) }, enabled = unlimited || field.valid(input.text, settings)) { Text("Save") }
     }
 }

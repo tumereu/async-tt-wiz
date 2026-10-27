@@ -1,0 +1,22 @@
+[metadata]
+name=Caleb Gannon's Powered Synergy Cube
+[Main]
+1 Solitude|MH2
+1 Thraben Inspector|2XM
+1 Thalia, Guardian of Thraben|SLD
+1 Path to Exile|MD1
+1 Swords to Plowshares|SLD
+1 Michiko's Reign of Truth|NEO
+1 Jace, Vryn's Prodigy|ORI
+1 Brazen Borrower|ELD
+1 Birgi, God of Storytelling|KHM
+1 Joraga Treespeaker|ROE
+1 Ineffable Blessing|UST
+1 Expansion // Explosion|GRN
+1 Flooded Strand|ONS
+1 Flooded Strand|KTK
+1 Flooded Strand|ZNE
+1 Hallowed Fountain|RNA
+1 Hallowed Fountain|RTR
+1 Strip Mine|V09
+1 Wasteland|TMP

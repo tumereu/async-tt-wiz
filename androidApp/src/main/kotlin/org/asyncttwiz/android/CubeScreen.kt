@@ -156,7 +156,10 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
             error = state.error, dismissError = controller::dismissError) {
             Text(if (deleting) "Delete cube?" else "Rename cube", style = MaterialTheme.typography.titleLarge)
             if (deleting) Text("Delete ${state.detail?.saved?.cube?.name}? Deletion cannot be undone.")
-            else OutlinedTextField(state.name, controller::name, label = { Text("Cube name") })
+            else {
+                val name = rememberDialogField(state.name)
+                OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, Modifier.dialogField(name), label = { Text("Cube name") })
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.busy) { Text("Cancel") }
                 ScreenButton(onClick = controller::confirm, enabled = !state.busy) { Text(if (deleting) "Delete cube" else "Save name") }

@@ -7,7 +7,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
@@ -30,13 +29,12 @@ class ValueDraft(val scope: ManualScope, val field: ManualValue, initial: String
 internal fun ValueEditor(draft: ValueDraft, current: String?, enabled: Boolean, onCancel: () -> Unit,
     onSubmit: () -> Boolean, preview: @Composable () -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
-    val focus = remember { FocusRequester() }
+    val focus = rememberOpenFocus(draft)
     var input by rememberSaveable(draft, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(draft.text, TextRange(0, draft.text.length)))
     }
     fun cancel() { keyboard?.hide(); onCancel() }
     fun complete() { if (enabled && draft.valid && onSubmit()) keyboard?.hide() }
-    LaunchedEffect(draft) { focus.requestFocus() }
     TableMenuPanel(::cancel, title = "Set ${draft.field.label}") {
         Column(Modifier.imePadding()) {
             preview()

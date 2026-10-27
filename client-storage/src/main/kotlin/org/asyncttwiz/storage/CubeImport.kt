@@ -2,30 +2,33 @@ package org.asyncttwiz.storage
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import java.net.URI
 import java.util.Locale
 import org.asyncttwiz.protocol.CubeValidation
 
 class CubeImportResolver(repository: CatalogRepository) {
     private val resolver = DeckImportResolver(repository)
-    fun resolve(text: String, includeSideboard: Boolean = false): DeckImportResult = resolve(
-        DeckTextParser.parse(text, CubeValidation.MAX_CARDS, includeSideboard))
+    fun resolve(text: String, includeSideboard: Boolean = false): DeckImportResult = resolve(parse(text, includeSideboard))
     fun resolve(parsed: ParsedDeck): DeckImportResult = resolver.resolve(parsed.copy(lines = parsed.lines.map {
         it.copy(section = DeckSection.MAINBOARD)
     }), CubeValidation.MAX_CARDS, allowSubstitutions = true)
+    companion object {
+        /** Cube lists may also be bare card names, one copy per line (Cube Cobra plaintext export). */
+        fun parse(text: String, includeSideboard: Boolean = false): ParsedDeck =
+            DeckTextParser.parse(text, CubeValidation.MAX_CARDS, includeSideboard, bareNames = true)
+    }
 }
 
 /** Pure conversion, independent of HTTP. Every mainboard record is resolved or reported, never dropped. */
 object CubeCobraImport {
+    // cubecobra.com/cube/<page>/<id> or /cube/api/cubeJSON/<id>, anywhere in shared text; scheme and www optional.
+    private val link = Regex("(?i)(?:https?://)?(?<![A-Za-z0-9.@-])(?:www\\.)?cubecobra\\.com/cube/(?:api/cubejson|[A-Za-z0-9_-]+)/([A-Za-z0-9_-]+)(?![A-Za-z0-9_-])[^\\s]*")
+
+    /** The first Cube Cobra cube link in [text], as written, or null. */
+    fun link(text: String?): String? = text?.let { link.find(it)?.value }
+
     fun cubeId(value: String): String {
         val trimmed = value.trim()
-        val id = if (trimmed.contains("://")) {
-            val uri = URI(trimmed)
-            require(uri.scheme == "https" && uri.host in listOf("cubecobra.com", "www.cubecobra.com") && uri.userInfo == null)
-            val parts = uri.path.trim('/').split('/')
-            require(parts.size >= 3 && parts[0] == "cube" && parts[1] in listOf("overview", "list", "analysis", "blog", "playtest", "edit", "api"))
-            if (parts[1] == "api") { require(parts.size == 4 && parts[2] == "cubeJSON"); parts[3] } else parts[2]
-        } else trimmed
+        val id = link.find(trimmed)?.groupValues?.get(1) ?: trimmed
         require(CubeValidation.provenance(id)) { "Enter a Cube Cobra URL or cube id." }
         return id
     }

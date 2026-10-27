@@ -54,9 +54,15 @@ A cube is created from either:
 - **Pasted text** in the existing deck-import syntax (quantities, optional
   set/collector numbers), with an **Include sideboard** checkbox (off by default).
   Editing a cube is the same text field, prefilled, exactly like decks today.
+  Cube lists also accept bare card names (one copy per line), so every Cube Cobra
+  export (plaintext, MTGO, Forge, XMage, CSV) imports; maybeboard rows are skipped.
+  A name shared by different cards (e.g. Unstable variants) does not block a cube:
+  a deterministic one is picked and listed with the substitutions.
 - **Cube Cobra URL or cube ID.** The phone fetches the list, takes the mainboard
   only, and resolves it against the local catalog like a pasted list. The result
-  is a snapshot; the Cube Cobra ID is kept only as provenance.
+  is a snapshot; the Cube Cobra ID is kept only as provenance. A
+  `cubecobra.com/cube/<page>/<id>` link is found anywhere in the input (shared
+  text, scheme/`www` optional, query ignored); fetch failures show their reason.
 
 The editor separates **Cube Cobra | Paste list** tabs, showing only the selected
 source's fields. Read clipboard once on first opening Cube Cobra in an editor
@@ -154,7 +160,7 @@ Glimpse is a preset of the same pack-passing mode.
 | Burn per pick | 0 | 2 | Tile |
 | Discard remaining at | 0 | 0 | Tile |
 | Packs open at once | 1 | 1 | Tile |
-| Color balancing | On | On | Checkbox (cubes) |
+| Color balancing | On | On | Toggle tile (cubes) |
 
 Rules:
 

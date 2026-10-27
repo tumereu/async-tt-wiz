@@ -109,7 +109,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val input = state; val retained = source; val cobra = cobraSource
         work { _ ->
             val result = if (cobra != null) {
-                val parsed = DeckTextParser.parse(input.text, CubeValidation.MAX_CARDS, input.includeSideboard)
+                val parsed = CubeImportResolver.parse(input.text, input.includeSideboard)
                 val occurrences = mutableMapOf<Triple<String, String?, String?>, Int>()
                 val lines = parsed.lines.map { line ->
                     val key = Triple(line.name, line.set, line.number)
@@ -220,7 +220,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 post { if (!closed && generation == epoch) {
                     onFailure()
                     state = state.copy(busy = false, saving = false)
-                    if (credential() == token) state = state.copy(error = when ((failure as? DeckFailure)?.code) {
+                    if (credential() == token) state = state.copy(error = if (failure is CubeCobraFailure) failure.message else when ((failure as? DeckFailure)?.code) {
                         "invalid_cube" -> "Check the cube name and quantities (maximum 3000 copies)."
                         "not_found" -> "Cube is no longer available."
                         else -> "Cube request failed. Try again."

@@ -1,0 +1,271 @@
+{
+ "id": "5fab13510efe0d1071b87fae",
+ "shortId": "synergy",
+ "name": "Caleb Gannon's Powered Synergy Cube",
+ "cards": {
+  "mainboard": [
+   {
+    "cardID": "47a6234f-309f-4e03-9263-66da48b57153",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Solitude",
+     "set": "mh2",
+     "collector_number": "32",
+     "scryfall_id": "47a6234f-309f-4e03-9263-66da48b57153",
+     "oracle_id": "dcb9c2a7-ae54-4ddc-a567-640bf4bf4366",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "2be39749-ad6f-4160-99eb-c677eee7f1b2",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Thraben Inspector",
+     "set": "2xm",
+     "collector_number": "35",
+     "scryfall_id": "2be39749-ad6f-4160-99eb-c677eee7f1b2",
+     "oracle_id": "caa02547-66e3-4e27-a2d3-5e94f3e7a069",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "1bbde9d9-1723-4f26-8700-63c459ac80cb",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Thalia, Guardian of Thraben",
+     "set": "sld",
+     "collector_number": "38",
+     "scryfall_id": "1bbde9d9-1723-4f26-8700-63c459ac80cb",
+     "oracle_id": "9b7f1d05-707c-4ed3-9f0e-8ced1232c2ee",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "045ce37b-86d2-4e56-84af-b6625b53d13c",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Path to Exile",
+     "set": "md1",
+     "collector_number": "3",
+     "scryfall_id": "045ce37b-86d2-4e56-84af-b6625b53d13c",
+     "oracle_id": "d683d985-9888-4d21-8b5f-69e69ce4a03b",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "20ef813e-2bec-431f-b010-995791285d0a",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Swords to Plowshares",
+     "set": "sld",
+     "collector_number": "110",
+     "scryfall_id": "20ef813e-2bec-431f-b010-995791285d0a",
+     "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "74f12c23-5c15-4ae6-8f4d-c5e6c1878817",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Michiko's Reign of Truth",
+     "set": "neo",
+     "collector_number": "29",
+     "scryfall_id": "74f12c23-5c15-4ae6-8f4d-c5e6c1878817",
+     "oracle_id": "94794f7c-62e7-43c8-ba7f-ac5c0bc9a712",
+     "layout": "transform"
+    }
+   },
+   {
+    "cardID": "02d6d693-f1f3-4317-bcc0-c21fa8490d38",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Jace, Vryn's Prodigy",
+     "set": "ori",
+     "collector_number": "60",
+     "scryfall_id": "02d6d693-f1f3-4317-bcc0-c21fa8490d38",
+     "oracle_id": "594f6881-c059-46f8-aa4e-7151d502de73",
+     "layout": "transform"
+    }
+   },
+   {
+    "cardID": "c2089ec9-0665-448f-bfe9-d181de127814",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Brazen Borrower",
+     "set": "eld",
+     "collector_number": "39",
+     "scryfall_id": "c2089ec9-0665-448f-bfe9-d181de127814",
+     "oracle_id": "c7b044c3-3cfa-407e-bf20-2875e8e04b7b",
+     "layout": "adventure"
+    }
+   },
+   {
+    "cardID": "44657ab1-0a6a-4a5f-9688-86f239083821",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Birgi, God of Storytelling",
+     "set": "khm",
+     "collector_number": "123",
+     "scryfall_id": "44657ab1-0a6a-4a5f-9688-86f239083821",
+     "oracle_id": "fb81e4d3-1d8c-4779-be62-87cf49277e51",
+     "layout": "modal_dfc"
+    }
+   },
+   {
+    "cardID": "1132218d-56cd-441e-9006-df3c50344491",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Joraga Treespeaker",
+     "set": "roe",
+     "collector_number": "190",
+     "scryfall_id": "1132218d-56cd-441e-9006-df3c50344491",
+     "oracle_id": "a011aefe-5853-4435-b686-179e931ba897",
+     "layout": "leveler"
+    }
+   },
+   {
+    "cardID": "65b25c91-892d-48d6-b42e-045d16d35316",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Ineffable Blessing",
+     "set": "ust",
+     "collector_number": "113f",
+     "scryfall_id": "65b25c91-892d-48d6-b42e-045d16d35316",
+     "oracle_id": "f876a190-8c4f-4dce-a603-f5b825e6be9d",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "e0644c92-4d67-475e-8c8e-0e2c493682fb",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Expansion // Explosion",
+     "set": "grn",
+     "collector_number": "224",
+     "scryfall_id": "e0644c92-4d67-475e-8c8e-0e2c493682fb",
+     "oracle_id": "af6f771f-5154-4fb3-8ed4-768d71eea568",
+     "layout": "split"
+    }
+   },
+   {
+    "cardID": "b4e3d844-d3b4-41d8-921d-c1cb3af343f8",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Flooded Strand",
+     "set": "ons",
+     "collector_number": "316",
+     "scryfall_id": "b4e3d844-d3b4-41d8-921d-c1cb3af343f8",
+     "oracle_id": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "8c2996d9-3287-4480-8c04-7a378e37e3cf",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Flooded Strand",
+     "set": "ktk",
+     "collector_number": "233",
+     "scryfall_id": "8c2996d9-3287-4480-8c04-7a378e37e3cf",
+     "oracle_id": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "acc4115b-4bbb-4bb7-81c6-466130982a9c",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Flooded Strand",
+     "set": "zne",
+     "collector_number": "1",
+     "scryfall_id": "acc4115b-4bbb-4bb7-81c6-466130982a9c",
+     "oracle_id": "f3c7af78-a77d-4134-82a2-a5ce84285a84",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "f97a6d34-03ab-49f1-b02e-405b733f8843",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Hallowed Fountain",
+     "set": "rna",
+     "collector_number": "251",
+     "scryfall_id": "f97a6d34-03ab-49f1-b02e-405b733f8843",
+     "oracle_id": "f1750962-a87c-49f6-b731-02ae971ac6ea",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "af7091c9-5f98-4078-a42b-c9e057346d9b",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Hallowed Fountain",
+     "set": "rtr",
+     "collector_number": "241",
+     "scryfall_id": "af7091c9-5f98-4078-a42b-c9e057346d9b",
+     "oracle_id": "f1750962-a87c-49f6-b731-02ae971ac6ea",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "2b5315a4-6a78-456f-8d5a-fea9d62f3f0e",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Strip Mine",
+     "set": "v09",
+     "collector_number": "13",
+     "scryfall_id": "2b5315a4-6a78-456f-8d5a-fea9d62f3f0e",
+     "oracle_id": "d21a89eb-7c5b-459a-acc7-12b20b13bf79",
+     "layout": "normal"
+    }
+   },
+   {
+    "cardID": "99ff731b-8399-40c8-b539-ba6ba5783771",
+    "board": "mainboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Wasteland",
+     "set": "tmp",
+     "collector_number": "330",
+     "scryfall_id": "99ff731b-8399-40c8-b539-ba6ba5783771",
+     "oracle_id": "09a70ae8-3859-4a09-901d-dce063fa3b5f",
+     "layout": "normal"
+    }
+   }
+  ],
+  "maybeboard": [
+   {
+    "cardID": "1a6cbece-f9d8-4c40-b72b-dfdb86430ff2",
+    "board": "maybeboard",
+    "finish": "Non-foil",
+    "details": {
+     "name": "Children of Korlis",
+     "set": "tsr",
+     "collector_number": "14",
+     "scryfall_id": "1a6cbece-f9d8-4c40-b72b-dfdb86430ff2",
+     "oracle_id": "d44a8f89-b9c0-4e8a-9179-baa0c448a3c9",
+     "layout": "normal"
+    }
+   }
+  ]
+ }
+}

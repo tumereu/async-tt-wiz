@@ -69,6 +69,82 @@ class CubeImportTest {
         assertEquals("101", result.entries.single().printing.number)
         assertTrue(result.substitutions.isEmpty())
     }
+    @Test fun cubeCobraLinksAreFoundAnywhereInPastedOrSharedText() {
+        for (input in listOf("https://cubecobra.com/cube/list/synergy", "http://cubecobra.com/cube/list/synergy",
+            "cubecobra.com/cube/list/synergy", "www.cubecobra.com/cube/overview/synergy", "HTTPS://WWW.CubeCobra.com/cube/list/synergy",
+            "https://cubecobra.com/cube/list/synergy?view=table&f=tag:\"cheap removal\"#top",
+            "https://cubecobra.com/cube/list/synergy/?view=spoiler",
+            "Caleb Gannon's Powered Synergy Cube - Cube Cobra\nhttps://cubecobra.com/cube/list/synergy",
+            "Check this cube: https://cubecobra.com/cube/playtest/synergy.", "https://cubecobra.com/cube/api/cubeJSON/synergy",
+            "  synergy \n")) {
+            assertEquals("synergy", CubeCobraImport.cubeId(input), input)
+        }
+        assertEquals("https://cubecobra.com/cube/list/synergy?view=table",
+            CubeCobraImport.link("Synergy - Cube Cobra https://cubecobra.com/cube/list/synergy?view=table"))
+        assertNull(CubeCobraImport.link("synergy"))
+        for (input in listOf("https://evil.invalid/cube/list/synergy", "notcubecobra.com/cube/list/synergy",
+            "https://user@cubecobra.com/cube/list/synergy", "https://cubecobra.com/cube/list/", "my cube", "")) {
+            assertThrows(IllegalArgumentException::class.java, { CubeCobraImport.cubeId(input) }, input)
+        }
+    }
+
+    private fun synergy(): CatalogRepository {
+        val repository = CatalogRepository(temporary.resolve("synergy").toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
+        repository.stage { index -> synergyFile("AllPrintings.json").byteInputStream().use {
+            MtgJsonCatalog().import(it, index, CatalogMetadata("2026-10-23", "5.2.2"))
+        } }
+        return repository
+    }
+    /** Real exports of Cube Cobra's "synergy" cube, trimmed to a sample covered by the small real-record catalog. */
+    private fun synergyFile(name: String) = javaClass.getResource("/cubecobra-synergy/$name")!!.readText()
+    private fun cards(result: DeckImportResult) = result.entries.groupBy { it.printing.name }.mapValues { (_, rows) -> rows.sumOf { it.quantity } }
+    private fun printing(result: DeckImportResult, name: String) = result.entries.single { it.printing.name == name }.printing.let { "${it.set} ${it.number}" }
+
+    @Test fun everyCubeCobraExportOfOneCubeResolvesToTheSameCards() {
+        val resolver = CubeImportResolver(synergy())
+        val json = resolver.resolve(CubeCobraImport.parse(synergyFile("cubeJSON.json")))
+        assertTrue(json.resolved, json.issues.toString())
+        assertTrue(json.substitutions.isEmpty(), json.substitutions.toString())
+        assertEquals(19L, json.count(DeckSection.MAINBOARD))
+        val expected = cards(json)
+        assertEquals(3, expected["Flooded Strand"])
+        assertTrue(expected.keys.containsAll(listOf("Expansion // Explosion", "Brazen Borrower // Petty Theft",
+            "Jace, Vryn's Prodigy // Jace, Telepath Unbound", "Birgi, God of Storytelling // Harnfel, Horn of Bounty")), expected.toString())
+        for (file in listOf("plaintext.txt", "mtgo.txt", "forge.txt", "xmage.txt", "csv.csv")) {
+            val result = resolver.resolve(synergyFile(file))
+            assertTrue(result.resolved, file + result.issues)
+            assertEquals(expected, cards(result), file)
+            // Different Unstable cards share the name Ineffable Blessing: only a numbered printing is exact.
+            val exact = file in listOf("xmage.txt", "csv.csv")
+            assertEquals(if (exact) emptyList() else listOf("Ineffable Blessing"), result.substitutions.map { it.message.substringBefore(":") }, file)
+            if (exact) {
+                assertEquals("UST 113f", printing(result, "Ineffable Blessing"), file)
+                assertEquals("SLD 38", printing(result, "Thalia, Guardian of Thraben"), file)
+            }
+        }
+        assertEquals("UST 113f", printing(json, "Ineffable Blessing"))
+        // Several printings of one card in a set are a default choice, never an error.
+        assertTrue(printing(resolver.resolve(synergyFile("forge.txt")), "Thalia, Guardian of Thraben").startsWith("SLD "))
+    }
+
+    @Test fun maybeboardRowsAndSectionsAreSkipped() {
+        val resolver = CubeImportResolver(synergy())
+        val plaintext = resolver.resolve(synergyFile("plaintext.txt") + "\r\n# maybeboard\r\nNot A Real Card\r\n")
+        assertTrue(plaintext.resolved, plaintext.issues.toString())
+        assertEquals(19L, plaintext.count(DeckSection.MAINBOARD))
+        val csv = resolver.resolve(synergyFile("csv.csv") +
+            "\"Not A Real Card\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"maybeboard\",\"true\",\"\",\"\",\"\",\"Line one\nline two\",\"-1\",\"false\",\"false\",\"Nobody\"\n" +
+            "\"Also Not Real\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"mainboard\",\"true\",\"\",\"\",\"\",\"\",\"-1\",\"false\",\"false\",\"Nobody\"\n")
+        assertTrue(csv.resolved, csv.issues.toString())
+        assertEquals(19L, csv.count(DeckSection.MAINBOARD))
+        val forge = resolver.resolve(synergyFile("forge.txt") + "\n[Sideboard]\n1 Not A Real Card|ZZZ\n")
+        assertTrue(forge.resolved, forge.issues.toString())
+        val island = resolver.resolve("Island (M21)\nIsland|ZNR")
+        assertTrue(island.resolved, island.issues.toString())
+        assertTrue(island.substitutions.isEmpty())
+        assertEquals(listOf("M21", "ZNR"), island.entries.map { it.printing.set })
+    }
+
     @Test fun knownScryfallPrintingDoesNotDependOnProviderNameAndMissingIdentityUsesNameFallback() {
         val resolver = resolver()
         val byId = CubeCobraImport.parse("""{"cards":{"mainboard":[{"cardID":"f76be976-d1a3-58fb-9b57-abdf2c982a94"}]}}""")

@@ -170,7 +170,8 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
         }
     }
     if (state.profileDialog) {
-        var name by remember(account.accountId) { mutableStateOf(account.username) }
+        val nameField = rememberDialogField(account.username, account.accountId)
+        val name = nameField.text
         var avatar by remember(account.accountId) { mutableStateOf(account.avatar) }
         Dialog(onDismissRequest = { controller.editProfile(false) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             BoxWithConstraints(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -179,7 +180,8 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Edit profile", style = MaterialTheme.typography.headlineSmall)
                         AvatarPicker(account.copy(username = name, avatar = avatar), catalog, { avatar = it }, Modifier.height(256.dp), compact = true)
-                        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("Username") }, singleLine = true)
+                        OutlinedTextField(nameField.value, { nameField.value = it }, Modifier.fillMaxWidth().dialogField(nameField),
+                            label = { Text("Username") }, singleLine = true)
                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             OutlinedIconButton(onClick = { controller.editProfile(false) }) { Icon(menuIcon("Close"), "Cancel profile") }
                             FilledIconButton(onClick = { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy) { Icon(menuIcon("Set"), "Save profile") }

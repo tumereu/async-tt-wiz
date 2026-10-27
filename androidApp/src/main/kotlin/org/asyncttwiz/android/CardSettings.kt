@@ -78,12 +78,12 @@ internal fun CardScaleInput(label: String, value: Float, dismiss: () -> Unit, sa
 @Composable
 internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingPointRange<Float>,
     dismiss: () -> Unit, save: (Float) -> Unit) {
-    var input by remember { mutableStateOf(value.toString()) }
-    val parsed = input.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)
+    val input = rememberDialogField(value.toString())
+    val parsed = input.text.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)
     ScreenDialog(dismiss) {
         Text(label, style = MaterialTheme.typography.titleMedium)
         Text("Scale (${range.start}–${range.endInclusive}×)")
-        ScreenTextField(input, { input = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input"),
+        ScreenTextField(input.value, { input.value = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input").dialogField(input),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
         if (parsed == null) Text("Enter a finite number", color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

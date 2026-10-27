@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -122,6 +123,55 @@ class TableMotionRuntimeTest {
 
     @Test fun ownLibraryDrawMovesAcrossTheTableAndConfirmationDoesNotRestartClock() = draw("a")
     @Test fun opponentLibraryDrawMovesToCoveredHand() = draw("b")
+
+    @Test fun bothHandRailsSlideTheirSurvivorsInsteadOfJumping() = handReflow(false)
+    @Test fun historyJumpSkipsHandReflowWithTheOtherSceneAnimations() = handReflow(true)
+
+    private fun handReflow(jump: Boolean) {
+        val initial = TableFixture.play(hand = 1, library = 1)
+        val state = mutableStateOf(initial)
+        val changes = if (jump) TableChanges() else null
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize(),
+                runtime = TableRuntimeHooks(changes = changes))
+        } }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        val ids = listOf("a/LIBRARY/0", "b/LIBRARY/0")
+        val target = initial.copy(currentNodeId = "draw", board = initial.board.copy(
+            cards = initial.board.cards.map { if (it.id in ids) it.copy(containerId = "${it.owner}/HAND") else it },
+            containers = initial.board.containers.map { c -> when (c.zone) {
+                PlayZone.LIBRARY -> c.copy(cards = emptyList())
+                PlayZone.HAND -> c.copy(cards = c.cards + "${c.accountId}/LIBRARY/0")
+                else -> c
+            } }))
+        val before = TablePresentation.scene(TableFixture.game, initial, "a", 412f, 892f, false)
+        val after = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false)
+        compose.runOnIdle {
+            changes?.apply(TableChangeBatch(jump = true))
+            state.value = target
+        }
+        repeat(2) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+        compose.mainClock.advanceTimeBy(80); compose.waitForIdle()
+        for (owner in listOf("a", "b")) {
+            val old = before.items.single { it.cardId == "$owner/HAND/0" }
+            val next = after.items.single { it.cardId == old.cardId }
+            val lefts = compose.onAllNodesWithContentDescription(next.label).fetchSemanticsNodes().map { it.boundsInRoot.left }
+            if (jump) assertTrue(lefts.any { kotlin.math.abs(it - next.bounds.x) < .01f })
+            else {
+                val current = lefts.min()
+                assertTrue(current > minOf(old.bounds.x, next.bounds.x) && current < maxOf(old.bounds.x, next.bounds.x),
+                    "$owner hand must still be sliding: $current")
+            }
+        }
+        compose.mainClock.advanceTimeBy(500); compose.waitForIdle()
+        for (owner in listOf("a", "b")) {
+            val cards = after.items.filter { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == owner }
+            val lefts = compose.onAllNodesWithContentDescription(cards.first().label).fetchSemanticsNodes().map { it.boundsInRoot.left }.sorted()
+            assertEquals(cards.map { it.bounds.x }.sorted(), lefts)
+        }
+        compose.mainClock.autoAdvance = true
+    }
 
     @Test fun tapAndUntapAccessibilityBoundsTrackTheDrawnFaceAndFinishInNinetyMillis() {
         val initial = TableFixture.play(board = 1)

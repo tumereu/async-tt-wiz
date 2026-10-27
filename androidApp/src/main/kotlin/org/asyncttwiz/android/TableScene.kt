@@ -459,14 +459,15 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     }
                 })
             }
-            // Semantics-only children do NOT install a second pointer detector or expanded hit targets.
-            // Each exposed fragment has exactly the geometry used to draw/hit-test that fragment.
+            // Semantics-only children do not install a second pointer detector. Dock piles expose
+            // the same minimum touch rectangle used by the scene's pointer hit testing.
             for (item in semanticItems) {
                 if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
                 key(item.id) {
                     Box(Modifier.tableFrameBounds {
                         rendered.value.items[item.id]?.let { current ->
-                            if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
+                            if (current.touchBounds != null) current.touchBounds
+                            else if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
                             else current.visible.maxByOrNull { it.width * it.height }
                         }
                     }.semantics {
@@ -550,7 +551,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         TableEventFeedbackOverlay(runtime.changes?.feedback, accountId, game.inviter.accountId, scene,
             renderedScene = { rendered.value.scene },
             usernames = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
-        TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader)
+        TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, writable, toolkit)
         val playControls: @Composable () -> Unit = {
             Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) {
@@ -669,13 +670,13 @@ private fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Bool
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
 @Composable
 private fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
-    runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean) {
+    runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean, appearance: CardAppearance) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
     val spacing = if (compact) 0.dp else 4.dp
     // Landscape shares this rail with the fixed opponent Hand (sidebar + 10dp).
     val titleWidth = if (landscape)
-        (TablePresentation.sidebarWidth(maxWidth.value) + 10f - 48f - spacing.value).coerceAtLeast(0f).dp
+        (TablePresentation.sidebarWidth(maxWidth.value, appearance) + 10f - 48f - spacing.value).coerceAtLeast(0f).dp
         else Dp.Infinity
     Row(Modifier.align(Alignment.TopStart).height(48.dp).fillMaxWidth()
         .padding(end = if (compact) 0.dp else 8.dp),

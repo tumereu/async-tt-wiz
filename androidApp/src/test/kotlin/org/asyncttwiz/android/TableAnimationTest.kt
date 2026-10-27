@@ -5,6 +5,95 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableAnimationTest {
+    @Test fun drawnCardsStayAirborneWhenAnotherDrawOrBattlefieldChangeRetargetsTheirFlight() {
+        for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) for (drawAgain in listOf(false, true)) {
+            val initial = TableFixture.play(hand = 2, board = 1)
+            val id = "$owner/LIBRARY/0"
+            val drawn = moved(initial, listOf(id), "$owner/HAND")
+            val animation = HistorySceneAnimation(TableFixture.scene(initial, landscape))
+            assertTrue(animation.retarget(TableFixture.scene(drawn, landscape), 1f))
+            val flying = animation.frame(.1f).single { it.item.cardId == id }
+            assertTrue(flying.item.inTransit)
+            assertEquals(PlayZone.HAND, flying.item.zone, "Flight samples already carry destination metadata")
+            val changed = if (drawAgain) moved(drawn, listOf("$owner/LIBRARY/1"), "$owner/HAND")
+                else drawn.copy(board = drawn.board.copy(cards = drawn.board.cards.map {
+                    if (it.id == "$owner/BATTLEFIELD/0") it.copy(tapped = true) else it
+                }))
+            val target = TableFixture.scene(changed, landscape)
+            assertTrue(animation.retarget(target, .1f))
+            assertEquals(flying.bounds, animation.frame(0f).single { it.item.cardId == id }.bounds)
+            for (progress in listOf(0f, .1f, .25f, .5f)) {
+                val frame = animation.frame(progress)
+                val card = frame.single { it.item.cardId == id }
+                val landed = target.items.single { it.cardId == id }.bounds
+                if (card.bounds != landed) assertTrue(card.item.inTransit, "Retargeted draws must not become hand reflow")
+                // Isolate viewport clipping: two simultaneous draws can legitimately cover one another.
+                val rendered = TablePresentation.clip(target.copy(items = listOf(card.item.copy(bounds = card.bounds))),
+                    if (landscape) 900f else 412f, if (landscape) 412f else 820f)
+                assertEquals(listOf(card.bounds), rendered.items.single { it.cardId == id }.visible,
+                    "The hand rail must not clip the flying card")
+                assertEquals(card.item.id, rendered.hit(card.bounds.center)?.id)
+            }
+            val landed = animation.frame(1f).single { it.item.cardId == id }
+            assertFalse(landed.item.inTransit)
+            assertEquals(target.items.single { it.cardId == id }.bounds, landed.bounds)
+
+            val next = TableFixture.scene(moved(changed, listOf("$owner/HAND/0"), "$owner/GRAVEYARD"), landscape)
+            assertTrue(animation.retarget(next, 1f))
+            assertFalse(animation.frame(.1f).single { it.item.cardId == id }.item.inTransit,
+                "After landing the drawn card participates in ordinary hand reflow")
+        }
+    }
+
+    @Test fun handSurvivorsSlideForDrawPlayDiscardAndUndoForBothPlayersAndOrientations() {
+        for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) {
+            val initial = TableFixture.play(hand = 3)
+            val survivor = "$owner/HAND/0"
+            val changes = listOf(moved(initial, listOf("$owner/LIBRARY/0"), "$owner/HAND"),
+                moved(initial, listOf("$owner/HAND/1"), "$owner/BATTLEFIELD"),
+                moved(initial, listOf("$owner/HAND/1"), "$owner/GRAVEYARD"))
+            for (changed in changes) for ((from, to) in listOf(initial to changed, changed to initial)) {
+                val source = TableFixture.scene(from, landscape)
+                val target = TableFixture.scene(to, landscape)
+                val start = source.items.single { it.cardId == survivor }.bounds
+                val end = target.items.single { it.cardId == survivor }.bounds
+                assertNotEquals(start, end)
+                val animation = HistorySceneAnimation(source)
+                assertTrue(animation.retarget(target, 1f))
+                fun at(millis: Float) = animation.frame(millis / animation.durationMillis).single { it.item.cardId == survivor }
+                assertEquals(start, at(0f).bounds)
+                assertEquals(start.x + (end.x - start.x) * .75f, at(110f).bounds.x, .001f)
+                assertNotEquals(end, at(200f).bounds)
+                assertEquals(end, at(220f).bounds)
+                assertFalse(at(110f).item.inTransit, "Reflow stays clipped to its hand rail")
+                assertEquals(owner != "a", at(110f).item.covered)
+                assertEquals(end, animation.frame(1f).single { it.item.cardId == survivor }.bounds)
+            }
+        }
+    }
+
+    @Test fun handReflowRespectsMoveSpeedAndRetargetsFromCurrentVisiblePosition() {
+        val initial = TableFixture.play(hand = 3)
+        val source = TableFixture.scene(initial)
+        val target = TableFixture.scene(moved(initial, listOf("a/HAND/1"), "a/GRAVEYARD"))
+        for ((multiplier, duration) in listOf(.25f to 880, 1f to 220, 2f to 110)) {
+            val animation = HistorySceneAnimation(source)
+            animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * multiplier
+            animation.retarget(target, 1f)
+            fun card(progress: Float) = animation.frame(progress).single { it.item.cardId == "a/HAND/0" }.bounds
+            val halfway = duration / 2f / animation.durationMillis
+            val current = card(halfway)
+            assertNotEquals(source.items.single { it.cardId == "a/HAND/0" }.bounds, current)
+            assertNotEquals(target.items.single { it.cardId == "a/HAND/0" }.bounds, current)
+            assertEquals(target.items.single { it.cardId == "a/HAND/0" }.bounds, card(duration.toFloat() / animation.durationMillis))
+            animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * 3f
+            assertEquals(current, card(halfway), "A setting change must not alter an already-running scene")
+            assertTrue(animation.retarget(source, halfway))
+            assertEquals(current, card(0f))
+            assertEquals(source.items.single { it.cardId == "a/HAND/0" }.bounds, card(1f))
+        }
+    }
+
     @Test fun rotationFinishesAtNinetyMillisBesideALongMoveAndFlipAndFadeUseTheirOwnClocks() {
         fun card(id: String, x: Float, tapped: Boolean = false) = TableItem(id, TableBounds(x, 0f, 28f, 40f), id, id,
             kind = TableItemKind.CARD, cardId = id, tapped = tapped,

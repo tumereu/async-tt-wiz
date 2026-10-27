@@ -124,7 +124,8 @@ data class TableItem(
     val panelRevealed: Boolean = false, val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
-    val damage: String = "", val eotCorner: String = "", val eotNote: String = ""
+    val damage: String = "", val eotCorner: String = "", val eotNote: String = "",
+    val touchBounds: TableBounds? = null
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -159,14 +160,14 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) }?.let { return it }
         val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
-            it.visible.any { bounds -> bounds.contains(point) } }
+            (it.visible.any { bounds -> bounds.contains(point) } || it.touchBounds?.contains(point) == true) }
         if (stack != null) {
             if (stack.stackBadge.contains(point)) return stack
             // Visible lower peeks retain their identity for hold-to-inspect, not top-card shortcuts.
             return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
                 it.viewport == stack.viewport && it.visible.any { bounds -> bounds.contains(point) } } ?: stack
         }
-        return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } }
+        return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true }
     }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
@@ -202,7 +203,12 @@ object TablePresentation {
     const val HEADER = 48f
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
     const val TOOLBAR = 212f
-    fun sidebarWidth(width: Float) = minOf(326f, width * .366f)
+    private const val PILE_START = 76f
+    private fun landscapePileSpacing(pileWidth: Float) = maxOf(52f, pileWidth + 12f)
+    private fun landscapeDockWidth(pileWidth: Float) = PILE_START + 2 * landscapePileSpacing(pileWidth) +
+        pileWidth + (48f - pileWidth).coerceAtLeast(0f) / 2 + 6f
+    fun sidebarWidth(width: Float, appearance: CardAppearance = CardAppearance()) =
+        maxOf(minOf(224f, width * .366f), landscapeDockWidth(28f * appearance.size(CardArea.PILES)))
 
     fun stackBubbles(scene: TableScene, play: PlayState, entryId: String?, width: Float, height: Float): StackBubbleGeometry? {
         if (entryId != CombatStackRules.stack(play.board).cards.firstOrNull()) return null
@@ -235,7 +241,7 @@ object TablePresentation {
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
             return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f), card.definition)?.forTable()
         }
-        val sidebar = if (landscape) sidebarWidth(width) else 0f
+        val sidebar = if (landscape) sidebarWidth(width, appearance) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
         val battlefieldScale = cardScale(appearance.cardSize)
         val columnPitch = COLUMN_PITCH * battlefieldScale
@@ -243,7 +249,7 @@ object TablePresentation {
         val handHeight = hudHeight * appearance.size(CardArea.HAND)
         val pileWidth = hudWidth * appearance.size(CardArea.PILES)
         val pileHeight = hudHeight * appearance.size(CardArea.PILES)
-        val pileEnvelope = maxOf(hudEnvelope, pileWidth + 24f)
+        val pileInsetY = if (landscape) maxOf(12f, (48f - pileHeight) / 2) else 12f
         val stackWidth = hudWidth * appearance.size(CardArea.STACK)
         val stackHeight = hudHeight * appearance.size(CardArea.STACK)
         val logicalLeft = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.minOfOrNull { c ->
@@ -261,7 +267,8 @@ object TablePresentation {
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
         val counterHeight = 48f
         val counterHeights = players.map { if (landscape) counterHeight else 0f }
-        val middleHeight = max(combat.height, stackHeight + 24f)
+        // Include clearance for the Stack's protruding count badge and minimum pile targets.
+        val middleHeight = max(combat.height, stackHeight + if (landscape) 28f else 24f)
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
         val ownDockY = height - controlsHeight - dockRow - counterHeights[1]
@@ -370,14 +377,14 @@ object TablePresentation {
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * columnPitch
             port(battlefield.id, field.bounds, logicalWidth * zoom)
-            val rowY = if (landscape) boardTop + (if (index == 0) 0f else sidebarContent - sidebarRow) - sidebarScroll
+            // Mirror the player blocks: counters face the outside, piles face the Stack.
+            val rowY = if (landscape) boardTop + (if (index == 0) counterHeight else sidebarContent - sidebarRow) - sidebarScroll
                 else if (index == 0) HEADER else ownDockY
             val gridWidth = minOf(132f, width * .34f)
             val dock = TableBounds(0f, rowY, if (landscape) sidebar else width - gridWidth, dockRow)
-            val spacing = if (landscape) max(pileEnvelope, (dock.width - 64f) / 3) else pileWidth + 12f
-            val pileStart = if (landscape) 84f else 76f
-            val dp = port("dock/${player.accountId}", dock, if (landscape) 76f + 2 * spacing + pileEnvelope
-                else pileStart + 2 * spacing + pileWidth + 8f)
+            val spacing = if (landscape) landscapePileSpacing(pileWidth) else pileWidth + 12f
+            val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth)
+                else PILE_START + 2 * spacing + pileWidth + 8f)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
@@ -385,10 +392,12 @@ object TablePresentation {
                 val c = container(player.accountId, zone)
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(pileStart + n * spacing - dp.scroll, rowY + 12f, pileWidth, pileHeight)
+                val b = TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
                 items += TableItem(c.id, b, "${name(player.accountId)} ${zone.name.lowercase()}, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
+                    touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
+                        b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null,
                     token = top?.token == true,
                     keepTopRevealed = c.keepTopRevealed,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY },
@@ -399,7 +408,8 @@ object TablePresentation {
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
             run {
-                val cp = if (landscape) port("counters/${player.accountId}", TableBounds(0f, rowY + dockRow, dock.width, counterHeight),
+                val cp = if (landscape) port("counters/${player.accountId}", TableBounds(0f,
+                    if (ownSide) rowY + dockRow else rowY - counterHeight, dock.width, counterHeight),
                     max(dock.width, 288f)) else port("counters/${player.accountId}",
                     TableBounds(dock.right, rowY, gridWidth, dockRow), gridWidth)
                 for ((n, color) in CounterColor.entries.withIndex()) {
@@ -415,21 +425,25 @@ object TablePresentation {
         }
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, stackWidth, stackHeight)
-        // The same inset on every side; landscape centres the padded Stack in the sidebar lane.
+        // Centre between the actual pile rows, not the asymmetric pile + counter blocks.
         val stackPadding = 12f
         val stackHalfHeight = stackHeight / 2 + stackPadding
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
-        val stackCenter = if (landscape) TablePoint((16f + sidebar) / 2,
-            boardTop + sidebarContent / 2 - sidebarScroll) else TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
+        val stackCenter = if (landscape) TablePoint(sidebar / 2,
+            boardTop + pileInsetY + pileHeight / 2 + (counterHeight + sidebarContent - sidebarRow) / 2 - sidebarScroll)
+            else TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
-            countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f))
+            countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f),
+            touchBounds = if (landscape) stackRegion.copy(x = stackCenter.x - maxOf(48f, stackRegion.width) / 2,
+                y = stackCenter.y - maxOf(48f, stackRegion.height) / 2,
+                width = maxOf(48f, stackRegion.width), height = maxOf(48f, stackRegion.height)) else null)
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
@@ -500,7 +514,9 @@ object TablePresentation {
             val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
                 scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
-                panelClipped.flatMap { it.subtract(scene.stackRegion) } else panelClipped)
+                panelClipped.flatMap { it.subtract(scene.stackRegion) } else panelClipped,
+                touchBounds = i.touchBounds?.intersection(
+                    (if (i.zone == PlayZone.STACK) viewports["sidebar"]?.bounds else null) ?: viewport?.bounds ?: screen)?.intersection(screen))
         }
         val occlusion = TableOcclusionIndex(clipped)
         val visible = clipped.mapIndexed { n, i ->

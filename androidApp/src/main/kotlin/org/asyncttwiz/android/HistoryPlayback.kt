@@ -320,6 +320,7 @@ internal const val CARD_ROTATION_DURATION_MILLIS = 90
 internal const val CARD_FLIP_DURATION_MILLIS = 350
 internal const val CARD_FADE_DURATION_MILLIS = 350
 internal const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
+internal const val HAND_REFLOW_DURATION_MILLIS = 220
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -346,9 +347,17 @@ class HistorySceneAnimation(initial: TableScene) {
             a.item.faceTransform(a.bounds).let { from -> b.item.faceTransform(b.bounds).let { to -> from.width == to.width && from.height == to.height } }
     private fun flipping(a: HistoryAnimatedItem, b: HistoryAnimatedItem) = b.item.cardId in flippingCardIds ||
         a.item.covered != b.item.covered && a.item.viewport.startsWith("cardPanel/") && b.item.viewport == a.item.viewport
+    // Retargeted flights already carry destination metadata, but have not joined the hand yet.
+    private fun handReflow(a: HistoryAnimatedItem, b: HistoryAnimatedItem) =
+        a.item.kind == TableItemKind.CARD && b.item.kind == TableItemKind.CARD &&
+            !a.item.inTransit &&
+            a.item.zone == PlayZone.HAND && b.item.zone == PlayZone.HAND && a.item.viewport == b.item.viewport
+    private fun handReflowDuration() = kotlin.math.round(HAND_REFLOW_DURATION_MILLIS * DEFAULT_CARD_MOVE_SPEED / sceneMoveSpeed)
+        .toInt().coerceAtLeast(1)
     private fun moveDuration(a: HistoryAnimatedItem, b: HistoryAnimatedItem): Int = when {
         a.bounds == b.bounds -> 0
         rotationOnly(a, b) -> CARD_ROTATION_DURATION_MILLIS
+        handReflow(a, b) -> handReflowDuration()
         b.item.kind != TableItemKind.CARD -> MAX_CARD_MOVE_DURATION_MILLIS
         a.bounds.center == b.bounds.center -> MAX_CARD_MOVE_DURATION_MILLIS
         else -> cardMoveDurationMillis(kotlin.math.hypot(b.bounds.center.x - a.bounds.center.x,
@@ -377,7 +386,11 @@ class HistorySceneAnimation(initial: TableScene) {
             }
             val rotationProgress = channel(CARD_ROTATION_DURATION_MILLIS)
             val flipProgress = channel(CARD_FLIP_DURATION_MILLIS)
-            val t = if (rotationOnly(a, b)) rotationProgress else if (b.item.kind == TableItemKind.CARD)
+            val reflow = handReflow(a, b)
+            val t = if (rotationOnly(a, b)) rotationProgress else if (reflow) {
+                val t = channel(handReflowDuration())
+                1f - (1f - t) * (1f - t)
+            } else if (b.item.kind == TableItemKind.CARD)
                 cardMoveProgress(a.bounds, b.bounds, channel(MAX_CARD_MOVE_DURATION_MILLIS), MAX_CARD_MOVE_DURATION_MILLIS, sceneMoveSpeed)
                 else channel(MAX_CARD_MOVE_DURATION_MILLIS)
             fun mix(x: Float, y: Float) = x + (y - x) * t
@@ -418,7 +431,7 @@ class HistorySceneAnimation(initial: TableScene) {
             val shuffledBounds = if (id in shufflingPileIds) bounds.copy(x = bounds.x +
                 (kotlin.math.sin(shuffle * 6f * kotlin.math.PI) * 6f * (1f - shuffle)).toFloat()) else bounds
             HistoryAnimatedItem(item.copy(cardTransform = face, flipScale = if (flipping) kotlin.math.abs(1f - 2f * flipProgress).coerceAtLeast(.02f) else 1f,
-                inTransit = item.kind == TableItemKind.CARD && (t < 1f && a.bounds != b.bounds ||
+                inTransit = item.kind == TableItemKind.CARD && (t < 1f && a.bounds != b.bounds && !reflow ||
                     rotationProgress < 1f && a.item.faceTransform(a.bounds).rotation != b.item.faceTransform(b.bounds).rotation)), shuffledBounds,
                 a.alpha + (b.alpha - a.alpha) * alphaProgress)
         }.sortedBy { it.item.inTransit }

@@ -37,6 +37,8 @@ import org.asyncttwiz.protocol.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private val PodBuildSidePadding = 48.dp
+
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 fun PodBuildView(
@@ -74,7 +76,7 @@ fun PodBuildView(
     }
     Box(modifier) {
       Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
             verticalAlignment = Alignment.CenterVertically) {
             Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             IconButton({ naming = true }) { EntryIcon("Name deck", "edit") }
@@ -85,7 +87,7 @@ fun PodBuildView(
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 stickyHeader(key = "header-$category") {
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 40.dp),
+                        Row(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).heightIn(min = 40.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
                                 Modifier.weight(1f).padding(vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
@@ -98,7 +100,7 @@ fun PodBuildView(
                 }
                 if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }
                 item("columns-$category") {
-                    BoxWithConstraints(Modifier.fillMaxWidth().padding(12.dp)) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding, vertical = 12.dp)) {
                         val width by animateDpAsState((maxWidth - (columns - 1).dp * 2) / columns, label = "column-width")
                         val tint = MaterialTheme.colorScheme.primary.copy(alpha = .045f)
                         Row(Modifier.fillMaxWidth().animateContentSize().drawBehind {
@@ -126,7 +128,7 @@ fun PodBuildView(
                 }
             }
         }
-        Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Surface(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }
             else Button({ confirmSubmit = true }, Modifier.fillMaxSize(), enabled = submitEnabled,
                 shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
@@ -159,7 +161,7 @@ fun PodBuildView(
 @Composable
 private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Box(Modifier.padding(horizontal = PodBuildSidePadding, vertical = 4.dp)) {
         Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()
                 .height(48.dp).testTag("pod-build-basics").semantics { contentDescription = "Edit basic lands" }) {

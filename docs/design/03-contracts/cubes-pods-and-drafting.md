@@ -330,7 +330,8 @@ each with a sticky header and count. Trash starts expanded (it is last).
   2 = Lands, everything else. Empty columns keep their place. All sections share
   the columns. The control is right-aligned on the Main section bar; the separate
   deck-name row wraps without truncation and has a pen icon button. Tinted columns include
-  their mana-value headers, with 2dp gaps and 12dp outer padding. Widths animate
+  their mana-value headers, with 2dp gaps and 48dp horizontal outer padding,
+  shared by the deck header, section headers and basics row. Widths animate
   and changed column contents fade.
 - A card is in Lands if its (front) face is a land; otherwise by mana value
   (X counts as 0). Within a column: color order W U B R G, multicolor, colorless,
@@ -366,11 +367,16 @@ each with a sticky header and count. Trash starts expanded (it is last).
 
 ### Stats
 
-A tab next to Build, for **Main including basics**: mana curve of nonland cards,
-creature / noncreature / land counts in one row, and paired thin pip-demand % /
-mana-source % bars per color, with fixed-width right-aligned percentage labels.
-Curve buckets are 0–6 and 7+, with counts above nonempty bars only.
-No chart captions, explanatory text or footnotes. Hybrid pips count half
+A tab next to Build, for **Main including basics**: mana curve of nonland cards
+stacked by creature / noncreature in two tones, and creature / noncreature / land
+counts in one row. Curve buckets are 0–6 and 7+, with total counts above nonempty bars only.
+Side-by-side **Pips** and **Sources** donuts show independently normalized color
+shares; **Colors** shows Main nonland copies by card color identity (W/U/B/R/G,
+multicolor gold, colorless gray), using catalog identity when available and
+otherwise face colors and non-reminder mana symbols. Donuts use compact percentage
+legends and the app's mana colors; empty charts have a neutral ring and zero shares.
+All three donuts share a row in wide windows. Only the small donut headers are
+shown; no other captions, explanatory text or footnotes. Hybrid pips count half
 to each color, Phyrexian pips to their color, generic and X are ignored; nonland
 mana sources are not counted. These are aids, not rules analysis.
 

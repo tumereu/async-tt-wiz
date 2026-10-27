@@ -2,9 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -13,6 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class HistoryTimelineEvent(val id: String, val icon: String, val description: String,
     val author: String?, val groupId: String?, val alternatives: Int = 0, val label: String = "Change")
@@ -59,7 +61,9 @@ object HistoryTimelineLayout {
         }
     }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) =
-        width / 2f + (index - selected) * pitch
+        x(index, selected.toFloat(), width, pitch)
+    fun x(index: Int, center: Float, width: Float, pitch: Float) =
+        width / 2f + (index - center) * pitch
     fun selectedAfterDrag(start: Int, delta: Float, pitch: Float, count: Int): Int {
         require(count > 0 && pitch > 0)
         return (start - (delta / pitch).roundToInt()).coerceIn(0, count - 1)
@@ -76,7 +80,7 @@ object HistoryTimelineLayout {
 @Composable
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
-    readOnly: Boolean = false, onEnter: () -> Unit = {},
+    readOnly: Boolean = false,
     eventIcon: @Composable (String) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { if (events is HistoryTimelineLayout.IndexedHistoryEvents) null else events.withIndex().associate { it.value.id to it.index } }
     val selected = (events as? HistoryTimelineLayout.IndexedHistoryEvents)?.positionOf(selectedId) ?: positions?.get(selectedId) ?: -1
@@ -85,20 +89,30 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     val selectedNow by rememberUpdatedState(selected)
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val pitch = 24f
+    // Panning the live strip is presentation only: never scrub the board/review cursor.
+    val liveCenter = remember(readOnly) { Animatable(selected.toFloat()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(readOnly, selectedId, events.last().id) {
+        if (readOnly) liveCenter.animateTo(selected.toFloat(), tween(180))
+    }
+    val windowCenter = if (readOnly) liveCenter.value.coerceIn(0f, events.lastIndex.toFloat()) else selected.toFloat()
     BoxWithConstraints(modifier.fillMaxWidth().height(TableTimelineHeight.dp).clipToBounds()
-        .then(if (readOnly) Modifier.pressFeedback().clickable(
-            onClickLabel = "Open timeline", onClick = onEnter) else Modifier.pointerInput(Unit) {
+        .then(if (readOnly) Modifier else Modifier.pointerInput(Unit) {
         awaitEachGesture { awaitFirstDown(requireUnconsumed = false); pause(); waitForUpOrCancellation() }
-    }.pointerInput(IdentityKey(events), density) {
-        var start = selectedNow; var delta = 0f
-        detectDragGestures(onDragStart = { pause(); start = selectedNow; delta = 0f }) { change, amount ->
-            change.consume(); delta += amount.x / density
-            select(events[HistoryTimelineLayout.selectedAfterDrag(start, delta, pitch, events.size)].id)
+    }).pointerInput(IdentityKey(events), density, readOnly) {
+        var start = 0f; var delta = 0f
+        detectHorizontalDragGestures(onDragStart = {
+            if (!readOnly) pause()
+            start = if (readOnly) liveCenter.value else selectedNow.toFloat(); delta = 0f
+        }) { change, amount ->
+            change.consume(); delta += amount / density
+            if (readOnly) scope.launch { liveCenter.snapTo((start - delta / pitch).coerceIn(0f, events.lastIndex.toFloat())) }
+            else select(events[HistoryTimelineLayout.selectedAfterDrag(start.roundToInt(), delta, pitch, events.size)].id)
         }
-    })) {
+    }) {
         val width = maxWidth.value
         Box(Modifier.fillMaxSize().semantics {
-            contentDescription = if (readOnly) "Open timeline" else events[selected].description
+            contentDescription = if (readOnly) "Event strip" else events[selected].description
             if (!readOnly) {
                 progressBarRangeInfo = ProgressBarRangeInfo(selected.toFloat(), 0f..events.lastIndex.toFloat(), maxOf(0, events.size - 2))
                 setProgress { value -> pause(); select(events[value.roundToInt().coerceIn(events.indices)].id); true }
@@ -108,15 +122,16 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             }
         })
         Canvas(Modifier.fillMaxSize()) {
-            val first = HistoryTimelineLayout.x(0, selected, size.width / density, pitch).dp.toPx()
-            val last = HistoryTimelineLayout.x(events.lastIndex, selected, size.width / density, pitch).dp.toPx()
+            val first = HistoryTimelineLayout.x(0, windowCenter, size.width / density, pitch).dp.toPx()
+            val last = HistoryTimelineLayout.x(events.lastIndex, windowCenter, size.width / density, pitch).dp.toPx()
             if (first != last) drawLine(Color.Gray.copy(alpha = .3f), Offset(maxOf(0f, first), center.y),
                 Offset(minOf(size.width, last), center.y), 1.dp.toPx())
-            drawRect(Color(0xff287f85), Offset(center.x - 11.dp.toPx(), center.y - 12.dp.toPx()),
+            val selectionX = HistoryTimelineLayout.x(selected, windowCenter, size.width / density, pitch).dp.toPx()
+            drawRect(Color(0xff287f85), Offset(selectionX - 11.dp.toPx(), center.y - 12.dp.toPx()),
                 Size(22.dp.toPx(), 24.dp.toPx()), style = Stroke(1.5.dp.toPx()))
         }
-        for (i in HistoryTimelineLayout.visible(events.size, selected, width, pitch)) {
-            val event = events[i]; val x = HistoryTimelineLayout.x(i, selected, width, pitch)
+        for (i in HistoryTimelineLayout.visible(events.size, windowCenter.roundToInt(), width, pitch)) {
+            val event = events[i]; val x = HistoryTimelineLayout.x(i, windowCenter, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = historyAuthorColor(event.author, viewer)
             if (event.alternatives > 0) Canvas(Modifier.offset(x.dp).width(24.dp).fillMaxHeight()) {
@@ -128,8 +143,8 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
                 drawLine(edge, corner, Offset(size.width, corner.y), 1.dp.toPx())
             }
             TimelineEventChip(event, authorColor, i == selected,
-                Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon) {
-                if (readOnly) onEnter() else { pause(); select(event.id) }
+                Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon, describeOnTap = readOnly) {
+                pause(); select(event.id)
             }
             if (i > 0 && event.groupId != events[i - 1].groupId) Canvas(Modifier.offset((x - 12f).dp).width(1.dp).fillMaxHeight()) {
                 drawLine(Color.Gray.copy(alpha = .25f), Offset(0f, 4.dp.toPx()), Offset(0f, size.height - 4.dp.toPx()), 1.dp.toPx())
@@ -141,16 +156,31 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
 @Composable
 private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier,
-    eventIcon: @Composable (String) -> Unit, onClick: () -> Unit) {
-    var tooltip by remember(event.id) { mutableStateOf(false) }
+    eventIcon: @Composable (String) -> Unit, describeOnTap: Boolean, onClick: () -> Unit) {
+    var held by remember(event.id) { mutableStateOf(false) }
+    var tapped by remember(event.id) { mutableStateOf(false) }
+    var tapSerial by remember(event.id) { mutableIntStateOf(0) }
+    LaunchedEffect(tapSerial) {
+        if (tapSerial > 0) { delay(1_650); tapped = false }
+    }
+    val alpha by animateFloatAsState(if (held || tapped) 1f else 0f, tween(150), label = "Event description")
     val click by rememberUpdatedState(onClick)
-    HistoryEventChip(event, color, selected, modifier.semantics { onClick { click(); true } }
-        .pointerInput(event.id) {
-            detectTapGestures(onPress = { try { tryAwaitRelease() } finally { tooltip = false } },
-                onTap = { click() }, onLongPress = { tooltip = true })
+    val tap = { if (describeOnTap) { tapped = true; tapSerial++ } else click() }
+    HistoryEventChip(event, color, selected, modifier.semantics { onClick { tap(); true } }
+        .pointerInput(event.id, describeOnTap) {
+            detectTapGestures(onPress = { tapped = false; try { tryAwaitRelease() } finally { held = false } },
+                onTap = { tap() }, onLongPress = { held = true })
         }) { icon ->
         eventIcon(icon)
-        if (tooltip) HoldTooltip(event.description)
+        if (alpha > 0f) {
+            val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.roundToPx() }
+            androidx.compose.ui.window.Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) {
+                Surface(Modifier.graphicsLayer { this.alpha = alpha }, color = MenuInk, contentColor = Color.White,
+                    shape = MaterialTheme.shapes.extraSmall) {
+                    Text(event.description, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
     }
 }
 
@@ -192,14 +222,14 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
     definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
     background: Color = TimelineBarColor, readOnly: Boolean = false, onEnter: () -> Unit = {},
-    playControls: (@Composable () -> Unit)? = null) {
+    playControls: (@Composable () -> Unit)? = null, playCursorId: String = playback.tree.sharedHeadId) {
     require(pauseMillis > 0)
     val position = playback.position
+    val stripCursor = if (readOnly) playCursorId else position.cursorId
     val endpoint = when {
-        readOnly -> playback.tree.sharedHeadId
-        playback.tree.isAncestor(position.cursorId, timelineEndpoint) -> timelineEndpoint
-        playback.tree.isAncestor(position.cursorId, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
-        else -> position.cursorId
+        playback.tree.isAncestor(stripCursor, timelineEndpoint) -> timelineEndpoint
+        playback.tree.isAncestor(stripCursor, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
+        else -> stripCursor
     }
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
     val continuation by rememberUpdatedState(onContinue)
@@ -216,9 +246,9 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             playback.acknowledgeBranch()
         }
     }
-    LaunchedEffect(position.cursorId, position.displayVersion, position.playing, playback.foreground,
+    LaunchedEffect(readOnly, position.cursorId, position.displayVersion, position.playing, playback.foreground,
         animationFinished, playback.branched) {
-        if (playback.foreground && animationFinished && !playback.branched) {
+        if (!readOnly && playback.foreground && animationFinished && !playback.branched) {
             if (playback.finishAnimation(position.cursorId)) return@LaunchedEffect
             if (!position.playing) return@LaunchedEffect
             if (playback.pauseAfterAnimation()) return@LaunchedEffect
@@ -230,19 +260,24 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val timeline: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-            HistoryTimeline(events, if (readOnly) playback.tree.sharedHeadId else position.cursorId, viewer, { if (!playback.transportLocked) playback.pause() },
+            HistoryTimeline(events, stripCursor, viewer, { if (!playback.transportLocked) playback.pause() },
                 { if (!playback.transportLocked) playback.scrub(it) },
-                Modifier.fillMaxWidth(), readOnly = readOnly, onEnter = onEnter)
-            if (!readOnly) Row(Modifier.align(Alignment.CenterEnd).background(background)) {
-                if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
-                    enabled = !readOnly && !playback.transportLocked,
+                Modifier.fillMaxWidth(), readOnly = readOnly)
+            Row(Modifier.align(Alignment.CenterEnd).background(background)) {
+                if (readOnly) IconButton(onClick = onEnter,
                     modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
-                    Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
-                }
-                if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
-                    enabled = !readOnly && !playback.transportLocked,
-                    modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
-                    TableChromeIcon("tree")
+                    Icon(Icons.Outlined.History, contentDescription = "Timeline mode")
+                } else {
+                    if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
+                        enabled = !playback.transportLocked,
+                        modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
+                    }
+                    if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
+                        enabled = !playback.transportLocked,
+                        modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
+                        TableChromeIcon("tree")
+                    }
                 }
             }
         }
@@ -348,8 +383,8 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
     val toggle = { if (controlsEnabled) { if (current.playing) pause() else play() } }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onPrevious, modifier = Modifier.width(48.dp).semantics { contentDescription = "Previous" }, enabled = previousEnabled && controlsEnabled,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("previous") }
+            OutlinedIconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
+                enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
             run {
                 var captured by remember { mutableStateOf<String?>(null) }
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
@@ -372,15 +407,12 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
-                        Column {
-                            Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
-                            Text("Tap: toggle · Hold: branch", fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
-                        }
+                        Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
                     }
                 }
             }
-            TextButton(onNext, modifier = Modifier.width(48.dp).semantics { contentDescription = "Next" }, enabled = nextEnabled && controlsEnabled,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xff253d44))) { TableChromeIcon("next") }
+            OutlinedIconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
+                enabled = nextEnabled && controlsEnabled) { TableChromeIcon("next") }
         }
     }
 }

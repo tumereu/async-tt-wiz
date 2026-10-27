@@ -409,6 +409,12 @@ bottom only and keep the full HUD above it, with dimmed field/gray top and botto
 Timeline mode label. Pausing playback never pauses
 publication or loses pending work. See [the primary resume contract](history-and-undo.md#312-resume-playback-and-exact-timeline-navigation-d-177).
 
+R17: the play strip has no whole-area click/ripple. Its icon-only “Timeline mode”
+button enters review; event taps show a fading description (~1.8 s), holds keep it
+until release. Horizontal panning is local and never moves the board/review cursor;
+each new event quickly animates the strip back to its displayed play boundary.
+Armed historical play retains the same strip and controls geometry.
+
 If a branch changes during review, show a persistent non-destructive notice
 with “Go to divergence” and “Keep inspecting this line.” Avoid automatically
 changing the board under a user's finger.

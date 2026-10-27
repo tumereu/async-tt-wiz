@@ -120,7 +120,7 @@ print(code)
 PY
 ) ;;
 404) published=0 ;;
-000) # Backend down (e.g. first release after a wipe): never go below a code this machine already built.
+000|502|503|504) # Backend down (e.g. first release after a wipe; Funnel answers 502): never go below a code this machine already built.
     published=$(python3 - "$STATE/releases" <<'PY'
 import json, pathlib, sys
 codes = [json.loads(p.read_text())["versionCode"] for p in pathlib.Path(sys.argv[1]).glob("*/latest.json")]

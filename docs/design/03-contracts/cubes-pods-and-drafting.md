@@ -269,9 +269,17 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   the earliest mark of that kind. With burn 0, left swipe does nothing.
 - **Tap** opens a small menu: Keep / Burn / Unmark as applicable.
 - A stationary **150ms hold** shows large artwork only, in the list and trays;
-  release closes it. Crossing touch slop dismisses it without marking. Swiped
+  release closes it. Horizontal movement past touch slop dismisses without marking;
+  vertical movement pans tall inspection content like gameplay inspection. Swiped
   cards render above their neighbours. Show cached normal artwork immediately,
   replacing it with large artwork when available, without blanking or a spinner.
+  Pick, Grid and Build share the artwork content: physical double faces (including
+  meld fronts) stack front above back in a scrollable viewport; split/adventure/
+  flip/room parts keep their single printed image. Resolve retained printing IDs
+  and provider face names, never search display names. Missing/partial downloads
+  keep named card placeholders and retry indefinitely at 1s exponential backoff
+  capped at 30s, with bounded parallelism and immediate retry on reconnect. A 404
+  tries available alternate image sources; provider Retry-After is respected.
 - Marked cards keep their place in the list with a green/red border and icon.
 - Keep and burn **trays** show just their icon and x/y, sized for the required
   slots: one row if both fit, otherwise two compact rows, with horizontal overflow.

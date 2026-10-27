@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +71,7 @@ fun PodPickView(
     val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
+    val previewScroll = rememberScrollState()
     if (pack == null) {
         Column(modifier.fillMaxSize()) {
             chrome {}
@@ -95,7 +97,10 @@ fun PodPickView(
         packMarks[pack] = marks.toggle(id, kind, rules)
     }
     val unmark: (String) -> Unit = { id -> packMarks[pack] = marks.unmark(id) }
-    val inspect: (DraftCopy?) -> Unit = { inspected = it }
+    val inspect: (DraftCopy?) -> Unit = {
+        if (it != null) previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+        inspected = it
+    }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         chrome {
@@ -113,18 +118,20 @@ fun PodPickView(
                         automaticBurn = rules.automaticBurns && copy.id in burnIds,
                         burnEnabled = rules.manualBurns > 0,
                         onMark = { mark(copy.id, it) }, onUnmark = { unmark(copy.id) },
-                        onInspect = { inspect(if (it) copy else null) })
+                        onInspect = { inspect(if (it) copy else null) },
+                        onInspectScroll = { previewScroll.dispatchRawDelta(it) })
                 }
             }
         }
-        PodPickTrays(marks.keeps, burnIds, rules, copies, definitions, unmark, inspect)
+        PodPickTrays(marks.keeps, burnIds, rules, copies, definitions, unmark, inspect,
+            onInspectScroll = { previewScroll.dispatchRawDelta(it) })
         Button(onClick = { if (rules.canConfirm(marks, busy)) {
             onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
         } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
             Text("Confirm")
         }
     }
-    inspected?.let { PodPickArtPreview(it, definitions[it.definition]) }
+    inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
 }
 
 @Composable
@@ -136,6 +143,7 @@ private fun rememberPodPickPreferences() = LocalContext.current.applicationConte
 private suspend fun PointerInputScope.podPickGestures(
     onTap: () -> Unit,
     onInspect: (Boolean) -> Unit,
+    onInspectScroll: (Float) -> Unit = {},
     onDrag: ((Float) -> Unit)? = null,
     onDragEnd: (Float) -> Unit = {},
     onEnd: () -> Unit = {},
@@ -178,7 +186,8 @@ private suspend fun PointerInputScope.podPickGestures(
             val change = event.changes.firstOrNull { it.id == down.id }
             if (change == null || change.isConsumed || event.changes.size > 1) break
             delta = change.position - down.position
-            if (held && delta.getDistance() > viewConfiguration.touchSlop) break
+            if (held && abs(delta.x) > viewConfiguration.touchSlop && abs(delta.x) > abs(delta.y)) break
+            if (held) { onInspectScroll(-change.positionChange().y); change.consume() }
             if (dragging) { change.consume(); onDrag?.invoke(delta.x) }
             if (change.changedToUpIgnoreConsumed()) {
                 change.consume()
@@ -193,28 +202,11 @@ private suspend fun PointerInputScope.podPickGestures(
 }
 
 @Composable
-private fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?) {
-    val card = remember(copy.definition, definition) {
-        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
-    }
-    Popup(alignment = Alignment.Center, properties = PopupProperties(focusable = false)) {
-        BoxWithConstraints(Modifier.fillMaxSize().testTag("pod-pick-art-preview"), contentAlignment = Alignment.Center) {
-            val width = minOf(maxWidth - 16.dp, (maxHeight - 16.dp) / 1.4f)
-            val height = width * 1.4f
-            val density = LocalDensity.current
-            CardArtwork(card?.artwork?.firstOrNull()?.copy(size = "large"), "Card artwork",
-                with(density) { width.roundToPx() }.coerceIn(1, 4096),
-                with(density) { height.roundToPx() }.coerceIn(1, 4096), Modifier.size(width, height),
-                placeholder = {}, previewReference = card?.artwork?.firstOrNull()?.copy(size = "normal"))
-        }
-    }
-}
-
-@Composable
 private fun PodPickTrays(
     keeps: List<String>, burns: List<String>, rules: PodPickRules,
     copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
+    onInspectScroll: (Float) -> Unit,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -226,11 +218,11 @@ private fun PodPickTrays(
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
         val keep: @Composable () -> Unit = {
             PodPickTray("Keep", keeps, rules.requiredKeeps, copies, definitions, PodPickGreen,
-                false, Modifier.width(minOf(keepWidth, maxWidth)), keepLabel, onUnmark, onInspect)
+                false, Modifier.width(minOf(keepWidth, maxWidth)), keepLabel, onUnmark, onInspect, onInspectScroll)
         }
         val burn: @Composable () -> Unit = {
             if (rules.requiredBurns > 0) PodPickTray("Burn", burns, rules.requiredBurns, copies, definitions, PodPickRed,
-                rules.automaticBurns, Modifier.width(minOf(burnWidth, maxWidth)), burnLabel, onUnmark, onInspect)
+                rules.automaticBurns, Modifier.width(minOf(burnWidth, maxWidth)), burnLabel, onUnmark, onInspect, onInspectScroll)
         }
         if (podPickTraysFit(maxWidth, rules.requiredKeeps, rules.requiredBurns, keepLabel, burnLabel)) {
             Row(horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) { keep(); burn() }
@@ -250,6 +242,7 @@ private fun PodPickCard(
     onMark: (PodPickMark) -> Unit,
     onUnmark: () -> Unit,
     onInspect: (Boolean) -> Unit,
+    onInspectScroll: (Float) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     var swipe by remember { mutableStateOf(PodPickSwipeState()) }
@@ -294,7 +287,7 @@ private fun PodPickCard(
                 onClick { menu = true; true }
             }
             .pointerInput(burnEnabled) {
-                podPickGestures(onTap = { menu = true }, onInspect = { currentOnInspect(it) },
+                podPickGestures(onTap = { menu = true }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
                     onDrag = {
                         if (swipe.phase != PodPickSwipePhase.DRAGGING) liftedMark = currentMark
                         swipe = swipe.drag(it)
@@ -398,6 +391,7 @@ private fun PodPickTray(
     definitions: Map<String, CardDefinition>, color: Color, automatic: Boolean,
     modifier: Modifier, labelWidth: Dp,
     onUnmark: (String) -> Unit, onInspect: (DraftCopy?) -> Unit,
+    onInspectScroll: (Float) -> Unit,
 ) {
     val currentOnUnmark by rememberUpdatedState(onUnmark)
     val currentOnInspect by rememberUpdatedState(onInspect)
@@ -416,7 +410,7 @@ private fun PodPickTray(
                             if (!automatic) onClick { currentOnUnmark(id); true }
                         }.pointerInput(id, automatic) {
                             podPickGestures(onTap = { if (!automatic) currentOnUnmark(id) },
-                                onInspect = { currentOnInspect(if (it) copy else null) })
+                                 onInspect = { currentOnInspect(if (it) copy else null) }, onInspectScroll = onInspectScroll)
                         })
                 }
             } }

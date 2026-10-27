@@ -5,7 +5,14 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
@@ -27,6 +34,9 @@ import coil3.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
@@ -71,32 +81,68 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
         "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})")
     val repository = HttpArtworkRepository(disk, transport, policy, apiBase,
         imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null })
+    private val connectivity = application.getSystemService(ConnectivityManager::class.java)
+    private val connection = MutableStateFlow(0L)
+    private var online = false
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+            val available = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            if (available && !online) {
+                repository.connectivityRestored()
+                connection.value += 1
+            }
+            online = available
+        }
+        override fun onLost(network: Network) { online = false }
+    }
     private val decodes = Semaphore(2)
     val loader = ImageLoader.Builder(application)
         .memoryCache { MemoryCache.Builder().maxSizeBytes(memoryBudget).weakReferencesEnabled(false).build() }
-        .diskCache(null) // Our encoded cache also holds negative results, conditional validators and versions.
+        .diskCache(null) // Our encoded cache owns retry windows, conditional validators and versions.
         .components {
             add(Keyer<CardArtworkRequest> { data, _ -> data.key })
             add(Fetcher.Factory<CardArtworkRequest> { data, _, _ -> Fetcher {
-                decodes.withPermit { withContext(Dispatchers.IO) {
-                    val bytes = runInterruptible { repository.load(data.reference) } ?: error("Artwork unavailable")
+                val retry = ArtworkRetrySchedule(connectivityGeneration = { connection.value })
+                var image: Bitmap? = null
+                while (image == null) {
                     currentCoroutineContext().ensureActive()
-                    val bitmap = ArtworkDecoder.decode(bytes, data.width, data.height, memoryBudget)
-                    if (bitmap == null) { repository.rejectDecoded(data.reference); error("Artwork unavailable") }
-                    repository.decoded(data.reference)
-                    currentCoroutineContext().ensureActive()
-                    ImageFetchResult(bitmap.asImage(), true, DataSource.DISK)
-                } }
+                    image = decodes.withPermit { withContext(Dispatchers.IO) {
+                        val bytes = runInterruptible { repository.load(data.reference) }
+                        currentCoroutineContext().ensureActive()
+                        bytes?.let {
+                            ArtworkDecoder.decode(it, data.width, data.height, memoryBudget).also { bitmap ->
+                                if (bitmap == null) repository.rejectDecoded(data.reference)
+                                else repository.decoded(data.reference)
+                            }
+                        }
+                    } }
+                    if (image == null) {
+                        retry.failed()
+                        val generation = connection.value
+                        val wait = retry.remainingMillis()
+                        if (wait > 0) withTimeoutOrNull(wait) { connection.first { it != generation } }
+                    }
+                }
+                currentCoroutineContext().ensureActive()
+                ImageFetchResult(image.asImage(), true, DataSource.DISK)
             } })
         }.build()
-    init { application.registerComponentCallbacks(this) }
+    init {
+        application.registerComponentCallbacks(this)
+        connectivity.registerDefaultNetworkCallback(networkCallback)
+    }
     override fun onConfigurationChanged(newConfig: Configuration) = Unit
     override fun onLowMemory() { loader.memoryCache?.clear() }
     override fun onTrimMemory(level: Int) {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) loader.memoryCache?.clear()
         else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) loader.memoryCache?.trimToSize(memoryBudget / 2)
     }
-    override fun close() { application.unregisterComponentCallbacks(this); loader.shutdown(); transport.close() }
+    override fun close() {
+        connectivity.unregisterNetworkCallback(networkCallback)
+        application.unregisterComponentCallbacks(this)
+        loader.shutdown()
+        transport.close()
+    }
 }
 
 internal class ArtworkServiceProvider {
@@ -117,6 +163,17 @@ object PublicArtwork {
     internal fun current(): CardArtworkService? = provider.current()
 }
 
+/** Same bounded, pannable viewport for gameplay inspection and draft face stacks. */
+@Composable
+internal fun ArtworkViewport(modifier: Modifier = Modifier, scroll: ScrollState = rememberScrollState(),
+    content: @Composable () -> Unit) {
+    // Separate nodes keep each axis's accessibility ScrollBy action intact. Combining both
+    // modifiers on one node replaces that action and can make bring-into-view loop forever.
+    Box(modifier.horizontalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.verticalScroll(scroll), contentAlignment = Alignment.TopCenter) { content() }
+    }
+}
+
 /** Reusable ordinary native presentation, not a catalog browser or a new inspector.
  * Text is visible while missing/loading/invalid; rebind/disposal cancels the Coil request and
  * cannot display a late previous face. No HTML, name guessing, retries per frame or saved secrets. */
@@ -125,8 +182,8 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
     modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false,
     placeholder: (@Composable () -> Unit)? = null, previewReference: ArtworkReference? = null) {
     val context = LocalContext.current
-    val request = reference?.let { CardArtworkRequest(it, width, height) }
-    val previewRequest = previewReference?.let { CardArtworkRequest(it, width, height) }
+    val request = reference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, width, height) }
+    val previewRequest = previewReference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, width, height) }
     val availableService = service ?: PublicArtwork.current()
     // Inspection can reuse the displayed thumbnail on its very first frame, even
     // though the thumbnail's decode target differs from the full-size request.

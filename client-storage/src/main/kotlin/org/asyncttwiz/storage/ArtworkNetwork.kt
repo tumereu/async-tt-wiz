@@ -114,7 +114,9 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
                         check(response.header("Content-Encoding").let { it == null || it == "identity" })
                         val body = requireNotNull(response.body)
                         check(body.contentLength() <= maximum)
-                        body.byteStream().use { LimitedInput(it, maximum).readBytes() }
+                        body.byteStream().use { LimitedInput(it, maximum).readBytes() }.also {
+                            check(body.contentLength() < 0 || it.size.toLong() == body.contentLength()) { "Incomplete artwork download" }
+                        }
                     } else byteArrayOf()
                     return ArtworkResponse(response.code, bytes, response.header("Content-Type").orEmpty().substringBefore(';'),
                         response.header("ETag").orEmpty().take(1024), response.header("Last-Modified").orEmpty().take(1024), retry)

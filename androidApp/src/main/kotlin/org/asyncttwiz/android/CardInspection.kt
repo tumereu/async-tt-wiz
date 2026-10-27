@@ -63,10 +63,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                 val height = width * 1.4f
                                 val density = LocalDensity.current
                                 val scale = if (!peek && state.enlarged) 2 else 1
-                                Box(Modifier.fillMaxWidth().height(height)
-                                    .horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
-                                    .semantics { contentDescription = "Card artwork viewport" },
-                                    contentAlignment = Alignment.TopCenter) {
+                                ArtworkViewport(Modifier.fillMaxWidth().height(height)
+                                    .semantics { contentDescription = "Card artwork viewport" }) {
                                     CardArtwork(card.artwork[state.face], "Artwork for ${face.name}",
                                         with(density) { (width * scale).roundToPx() }.coerceIn(1, 4096),
                                         with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),

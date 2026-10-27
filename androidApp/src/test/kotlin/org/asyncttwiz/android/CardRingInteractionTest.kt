@@ -291,9 +291,9 @@ class CardRingInteractionTest {
         }
     }
 
-    @Test fun everydayEotNoteEditorBatchesTheWholeSelection() {
+    @Test fun countersEotNoteEditorBatchesTheWholeSelection() {
         render(multi = true)
-        compose.ringPage(1)
+        compose.ringPage(2)
         compose.onNodeWithContentDescription("Edit EOT note").assertIsDisplayed().performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("can't block")
         compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
@@ -385,10 +385,10 @@ class CardRingInteractionTest {
         render()
         compose.ringPage(3)
         compose.mainClock.advanceTimeBy(600)
-        val grid = compose.onNodeWithContentDescription("Move to Stack")
+        val grid = compose.onNodeWithContentDescription("Reset corner")
         grid.performTouchInput { swipe(center, center - Offset(0f, 100f), 160) }
         compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Move to Stack").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Reset corner").assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
 

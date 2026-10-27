@@ -49,8 +49,10 @@ class ResultActionsTest {
             if (command != null && session.acceptedPlay(active)?.currentNodeId == initial.root.id) {
                 val change = GameplayRules.change(initial, a.accountId, command)
                 assertEquals(play, change.state)
+                val root = GameplayTree(initial)
+                val next = assertNotNull(root.play(a.accountId, command).tree)
                 message(GameRevision(game.id, "1", summary.revision, command.requestId, a.accountId, command.scope,
-                    summary, play = play, mutation = change.mutation, group = play!!.currentGroup))
+                    summary, play = play, mutation = change.mutation, group = play!!.currentGroup, treeDelta = TreeSync.delta(root, next)))
             } else message(GameHead(game.id, summary.revision, summary, preparation = preparation, play = play))
         }
         fun commands() = wire.frames.filterIsInstance<GameCommand>()
@@ -72,6 +74,39 @@ class ResultActionsTest {
         assertEquals(GameLifecycle.ACTIVE, f.session.summary(active).lifecycle)
         f.head(active.copy(revision = "2"), play = prediction)
         assertFalse(f.session.pending(game.id)); assertEquals(prediction, f.session.play(active))
+    }
+
+    @Test fun pendingSuggestionBlocksBothClientsAtTheLiveEndpointEvenWhileReviewingAnEarlierBoard() {
+        val proposed = proposed()
+        assertFalse(ResultActions.blocksGameActions(active, initial))
+        assertTrue(ResultActions.blocksGameActions(active, proposed))
+        assertTrue(ResultActions.blocksGameActions(active, initial, proposed))
+        assertTrue(ResultActions.blocksGameActions(active, proposed, initial))
+        assertFalse(ResultActions.blocksGameActions(game, proposed))
+        assertFalse(ResultActions.blocksGameActions(active.copy(playId = id()), proposed))
+        for (viewer in listOf(a.accountId, b.accountId)) {
+            assertNotNull(ResultActions.pendingPresentation(active, proposed, viewer))
+            Fixture(viewer).use { f ->
+                f.head(active.copy(revision = "2"), play = proposed)
+                assertFalse(f.session.gameplay(active, viewer, PlayAction.NextStep))
+                assertFalse(f.session.gameplay(active, viewer, PlayAction.SetLife(viewer, "19")))
+                assertFalse(f.session.gameplayBatch(active, viewer, listOf(PlayAction.NextStep), id()))
+                assertFalse(f.session.historyControl(active, viewer, GameAction.Redo))
+                if (viewer == b.accountId) assertFalse(f.session.historyControl(active, viewer, GameAction.Undo))
+                assertTrue(f.commands().isEmpty())
+                val target = ResultAcceptanceTarget(target, proposed.board.resultSuggestion!!.id)
+                assertTrue(f.session.rejectResult(active, viewer, target), "Reject result for $viewer: ${f.session.error}")
+                assertNull(f.session.play(active)!!.board.resultSuggestion)
+                val action = f.commands().single().action
+                if (viewer == a.accountId) {
+                    assertEquals(GameAction.Undo, action)
+                    assertFalse(f.session.rejectResult(active, viewer, target))
+                    assertEquals(1, f.commands().size)
+                } else assertEquals(GameAction.Play(PlayAction.DeclineResult(target.suggestionId)), action)
+                // Acceptance still owns the lock until the server publishes resolution.
+                assertFalse(f.session.gameplay(active, viewer, PlayAction.NextStep))
+            }
+        }
     }
 
     @Test fun rejectionRemovesOnlySuggestionOverlayAndGraceWaitNeverRetargetsOldPlay() = Fixture().use { f ->

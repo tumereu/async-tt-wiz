@@ -47,7 +47,7 @@ class MulliganUiTest {
                 TableSurface(f.game, f.lobby.state.play!!, f.actor, false, connected = true, toolkit = ui, onIntent = ui::handle)
             } }
             compose.onNodeWithContentDescription(nextStepLabel(f.play.board.turn)).assertDoesNotExist()
-            click("Mulligan N")
+            click("Mull N")
             assertTrue(f.commands().isEmpty())
             compose.onNodeWithContentDescription("Search").assertDoesNotExist()
             compose.onNode(hasSetTextAction()).assertTextEquals("7").performTextReplacement("3")
@@ -60,9 +60,9 @@ class MulliganUiTest {
             compose.runOnIdle { ui.openLibrary(f.container(PlayZone.LIBRARY)) }
             click("Mulligan N…")
             compose.onNode(hasSetTextAction()).assertTextEquals("3")
-            click("Cancel mulligan")
+            compose.onNodeWithContentDescription("Cancel mulligan").assertDoesNotExist()
             compose.runOnIdle { ui.dismiss() }
-            click("Mulligan −1")
+            click("Mull −1")
             assertEquals(2, assertIs<PlayAction.Mulligan>((f.commands().last().action as GameAction.Play).action).drawCount)
             assertNull(ui.panel)
             compose.onAllNodes(isDialog()).assertCountEquals(0)

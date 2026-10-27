@@ -56,6 +56,7 @@ object HistoryGrouping {
         transition: GameplayTransition? = null): HistorySemantic {
         val semantic = when (action) {
         is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "flag")
+        is PlayAction.DeclineResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "close")
         PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, "outlined_flag")
         is PlayAction.SetTapped -> HistorySemantic(HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
         is PlayAction.SetLife, is PlayAction.AdjustLife -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "favorite")

@@ -15,6 +15,36 @@ class GameResultLifecycleTest {
     private fun suggest(outcome: SuggestedResult = SuggestedResult.WIN, actor: String = a.accountId, n: Int = 10) =
         GameplayRules.change(play(), actor, command(GameAction.Play(PlayAction.SuggestResult(outcome)), n))
 
+    @Test fun declineIsExactOpponentOnlyVersion22StateAndItsUndoProtectsTheSuggestionTuple() {
+        val proposalCommand = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))
+        val proposedTree = GameplayTree(play()).play(a.accountId, proposalCommand).tree!!
+        val proposed = proposedTree.stateAt(proposedTree.currentNodeId)!!
+        val suggestion = proposed.board.resultSuggestion!!
+        val decline = command(GameAction.Play(PlayAction.DeclineResult(suggestion.id)), 12)
+        assertEquals(decline, GameWire.decodeClient(GameWire.json.encodeToString(GameClientMessage.serializer(), decline)))
+        assertEquals("otherPlayerRequired", GameplayRules.change(proposed, a.accountId, decline).reason)
+        assertEquals("inapplicable", GameplayRules.change(proposed, b.accountId,
+            decline.copy(action = GameAction.Play(PlayAction.DeclineResult(id(99))))).reason)
+        val change = GameplayRules.change(proposed, b.accountId, decline)
+        val event = change.mutation!!
+        assertEquals(22, event.transition.rulesVersion)
+        assertEquals(ResultSuggestionChange(suggestion, null), event.transition.resultSuggestion)
+        assertNotNull(event.transition.concerns)
+        assertEquals(proposed.board.copy(resultSuggestion = null), change.state!!.board)
+        assertEquals(change.state, GameplayHistory.apply(proposed, event))
+        assertEquals(proposed, GameplayHistory.unapply(change.state!!, event))
+        assertEquals(change, GameplayHistory.replay(proposed, event))
+        val old = event.copy(transition = event.transition.copy(rulesVersion = 21))
+        val sealedOld = old.copy(transition = old.transition.copy(delta = old.transition.delta!!.copy(seal = GameplayDeltas.seal(old))))
+        assertNull(GameplayHistory.apply(proposed, sealedOld))
+        val declinedTree = proposedTree.play(b.accountId, decline).tree!!
+        assertNotNull(SelectiveUndo.change(declinedTree, a.accountId, command(GameAction.Undo, 13)).reason)
+        val restored = SelectiveUndo.change(declinedTree, b.accountId, command(GameAction.Undo, 14)).tree!!
+        assertEquals(proposed.board, restored.stateAt(restored.currentNodeId)!!.board)
+        assertNull(SelectiveUndo.change(restored, a.accountId, command(GameAction.Undo, 15)).tree!!
+            .stateAt(play().root.id)!!.board.resultSuggestion)
+    }
+
     @Test fun allOutcomesHaveSharedExactHistoryTuplesAndReplayNotUnilateralEnd() {
         for (outcome in SuggestedResult.entries) {
             val change = suggest(outcome)

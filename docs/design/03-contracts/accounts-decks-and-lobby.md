@@ -614,9 +614,10 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   deterministic grouping applies this rule; the UI does not define the group.
 - **Show the final board before the acceptance dialog (D-257).** While catching
   up by groups, present the preceding board-state group before advancing to the
-  singleton suggestion and its acceptance dialog. Receipt of a pending suggestion
-  must not put that dialog over earlier unreviewed playback and hide the final
-  board. Synchronization continues immediately and is not held for playback.
+  singleton suggestion and its acceptance dialog. Round 18 locks game actions
+  immediately from the live pending suggestion; during personal playback/chat a
+  non-dismissable outcome banner replaces the modal. Returning to the table
+  restores the modal. Synchronization is not held for playback.
   A historical/removed suggestion is not a new actionable acceptance prompt;
   ordinary current-suggestion/incarnation validation still applies. This is the
   existing acceptance interaction, not an additional confirmation or review vote.

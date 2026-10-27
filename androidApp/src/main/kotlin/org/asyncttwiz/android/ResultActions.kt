@@ -6,12 +6,22 @@ import org.asyncttwiz.protocol.*
 data class ResultTarget(val gameId: String, val playId: String)
 data class ResultAcceptanceTarget(val play: ResultTarget, val suggestionId: String)
 
-/** I22 supplies this only after playback presents the preceding board then the singleton S group.
- * Receipt of a server suggestion is intentionally insufficient to produce a prompt. */
+/** Group-playback presentation marker. The pending-outcome lock instead uses the live endpoint. */
 data class ResultPlaybackGate(val play: ResultTarget, val suggestionId: String)
 data class ResultPresentation(val target: ResultAcceptanceTarget, val text: String, val canAccept: Boolean)
 
 object ResultActions {
+    /** The live accepted endpoint, never the board at the personal review cursor, owns the lock.
+     * A local proposal also locks immediately while its ordinary prediction is in flight. */
+    fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
+        listOf(accepted, predicted).any { capture(game, it) != null && it?.board?.resultSuggestion != null }
+
+    fun pendingPresentation(game: GameSummary, accepted: PlayState?, viewer: String): ResultPresentation? {
+        val target = capture(game, accepted) ?: return null
+        val suggestion = accepted?.board?.resultSuggestion ?: return null
+        return presentation(game, accepted, viewer, ResultPlaybackGate(target, suggestion.id))
+    }
+
     fun capture(game: GameSummary, play: PlayState?): ResultTarget? = play?.takeIf {
         game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.id
     }?.let { ResultTarget(it.gameId, it.id) }

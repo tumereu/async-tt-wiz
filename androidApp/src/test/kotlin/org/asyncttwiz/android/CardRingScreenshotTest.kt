@@ -164,6 +164,7 @@ internal fun ComposeContentTestRule.ringPage(page: Int) {
     mainClock.advanceTimeBy(350)
     // Explicit event time keeps physical presses past the uptime guard without an entrance animation.
     onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
-    onNodeWithContentDescription("${listOf("Everyday", "Counters", "More")[page - 1]} page").performScrollTo().performClick()
+    val name = if (page <= 3) listOf("Everyday", "Counters", "More")[page - 1] else "More ${page - 2}"
+    onNodeWithContentDescription("$name page").performScrollTo().performClick()
     onNode(hasContentDescription("Action page $page of ", substring = true)).assertIsDisplayed()
 }

@@ -145,6 +145,27 @@ class GameResultLifecycleTest {
         }
     }
 
+    @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                assertEquals("accepted", f.owner.execute(f.suggestion()).outcome)
+                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                assertEquals("otherPlayerRequired", f.owner.execute(GameAction.Play(PlayAction.DeclineResult(suggestion.id))).reason)
+                val decline = f.other.command(GameAction.Play(PlayAction.DeclineResult(suggestion.id)))
+                val result = f.other.execute(decline)
+                assertEquals("accepted", result.outcome)
+                assertEquals(result, f.other.admit(decline))
+                val head = f.games.head(f.a, f.game.id)
+                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
+                assertNull(head.play!!.board.resultSuggestion)
+                assertEquals(head, f.games.head(f.b, f.game.id))
+                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
+                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.DRAW)).outcome)
+            }
+        }
+    }
+
     @Test fun `failed return rolls back atomically and admitted acceptance recovers after restart without duplicate effect`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

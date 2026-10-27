@@ -37,7 +37,6 @@ internal fun MulliganDialog(controller: LibraryController, handIds: List<String>
                         if (result.refused == 0 && result.submitted > 0) { quantity.write(count); complete() }
                     }
                 }, enabled = count != null && controller.available()) { Icon(menuIcon("Mulligan"), "Mulligan") }
-                OutlinedIconButton(onClick = dismiss) { Icon(menuIcon("Close"), "Cancel mulligan") }
             }
         }
     }

@@ -8,9 +8,8 @@ class CardRingTest {
     @Test fun normalMultiFaceMoreAndCounterPagesFitFiveRowsAndFacesCycleIndividually() {
         val ids = CardRingPages.defaults.flatMap { it.actions } + "Select / deselect"
         val pages = CardRingPages.resolve(ids)
-        assertEquals(listOf("owner", "otherSide", "Link", "Unlink", "resetCorner", "corner/LEFT/1",
-            "corner/RIGHT/1", "corner/LEFT/-1", "corner/RIGHT/-1", "eotCorner/LEFT/1", "eotCorner/RIGHT/1",
-            "eotCorner/LEFT/-1", "eotCorner/RIGHT/-1", "Select / deselect"), pages[2].actions)
+        assertEquals(CardRingPages.defaults[2], pages[2])
+        assertEquals(listOf("Select / deselect"), pages[3].actions)
         for (page in pages.slice(1..2)) assertTrue(CardRingPages.layout(page.actions).last().let { it.cell + it.span } <= 25)
         val definition = CardDefinition("Two faces", listOf(DefinitionFace("front", "Front"), DefinitionFace("back", "Back")))
         val submitted = SubmittedDefinition("digest", definition)
@@ -23,27 +22,26 @@ class CardRingTest {
     }
     @Test fun ownerEntryIsAssignedToMoreOnlyWhenAvailableForAToken() {
         for (token in listOf(false, true)) {
-            val ids = CardRingPages.defaults.flatMap { it.actions }.filter { it != "owner" || token }
+            val ids = CardRingPages.defaults.flatMap { it.actions }.filter { !it.startsWith("empty/") && (it != "owner" || token) }.distinct()
             val pages = CardRingPages.resolve(ids)
             assertEquals(if (token) listOf("More") else emptyList(), pages.filter { "owner" in it.actions }.map { it.name })
-            assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
-            assertEquals(ids.size, pages.sumOf { it.actions.size })
+            assertEquals(ids.toSet(), pages.flatMap { it.actions }.filterNot { it.startsWith("empty/") }.toSet())
         }
     }
 
-    @Test fun pagesAreDataAndEveryAvailableActionIsOnExactlyOnePage() {
+    @Test fun pagesAreDataAndRepeatedNotesAreAllowedAcrossPagesNotWithinAPage() {
         val ids = CardRingPages.defaults.take(2).flatMap { it.actions } +
             listOf("flip", "otherSide", "switchFace", "Link", "Unlink", "resetCorner", "corner/LEFT/1", "Add Stack effect", "Move to Stack", "Remove token")
         val available = ids.distinct()
         val pages = CardRingPages.resolve(available)
-        assertEquals(listOf("Everyday", "Counters", "More"), pages.map { it.name })
-        assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
-        assertEquals(available.size, pages.flatMap { it.actions }.size)
+        assertEquals(listOf("Everyday", "Counters", "More", "More 2"), pages.map { it.name })
+        assertEquals(ids.toSet(), pages.flatMap { it.actions }.filterNot { it.startsWith("empty/") }.toSet())
+        assertTrue(pages.all { it.actions.size == it.actions.distinct().size })
         assertEquals(CardRingPages.defaults[0], pages[0])
-        assertEquals(6, pages[1].actions.size)
-        assertEquals(12, CardRingPages.layout(pages[1].actions).sumOf { it.span })
+        assertEquals(9, pages[1].actions.size)
+        assertEquals(15, CardRingPages.layout(pages[1].actions).sumOf { it.span })
         assertTrue(pages.all { CardRingPages.layout(it.actions).all { slot -> slot.cell + slot.span <= 25 } })
-        assertTrue("Move to Stack" in pages[2].actions)
+        assertTrue("Move to Stack" in pages[3].actions)
         val everydayMoves = listOf("Library top", "Library bottom", "Graveyard", "Exile")
         assertTrue(pages[0].actions.containsAll(everydayMoves))
         assertTrue(pages[2].actions.none { it in everydayMoves })
@@ -57,14 +55,31 @@ class CardRingTest {
         val card = CardRingPages.layout(CardRingPages.resolve(ids)[0].actions)
         assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
-            "damage", "eotCorner", "eotNote"), card.map { it.id })
-        assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20), card.map { it.cell })
+            "damage", "eotCorner"), card.map { it.id })
+        assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18), card.map { it.cell })
         val tokenIds = ids.filterNot { it in listOf("Hand", "Library top", "Library bottom", "Shuffle into library") } + "Remove token"
         val token = CardRingPages.layout(CardRingPages.resolve(tokenIds, token = true)[0].actions)
         assertEquals(card.map { it.cell }, token.map { it.cell })
         assertEquals("Remove token", token.single { it.cell == 12 }.id)
         assertTrue(token.filter { it.cell in 13..15 }.all { it.id.startsWith("empty/") })
-        assertEquals(5, inlinePopupGridRows(card))
+        assertEquals(4, inlinePopupGridRows(card))
+    }
+
+    @Test fun countersFillLastColumnAndMoreKeepsExactlyThreeRowsWithAnIntentionalEotNoteDuplicate() {
+        val pages = CardRingPages.resolve(CardRingPages.defaults.flatMap { it.actions } + "extra")
+        assertFalse("eotNote" in pages[0].actions)
+        val counters = CardRingPages.layout(pages[1].actions)
+        assertEquals(listOf(0, 2, 4, 5, 7, 9, 10, 12, 14), counters.map { it.cell })
+        assertEquals(listOf("note", "eotNote", "resetCounters"), counters.filter { it.cell % 5 == 4 }.map { it.id })
+        val more = CardRingPages.layout(pages[2].actions)
+        assertEquals((0..14).toList(), more.map { it.cell })
+        assertEquals(listOf("owner", "otherSide", "Link", "Unlink", "eotNote"), more.take(5).map { it.id })
+        assertEquals(listOf("corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner"), more.drop(5).take(5).map { it.id })
+        assertEquals(listOf("eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "empty/More"), more.drop(10).map { it.id })
+        assertEquals(listOf("Counters", "More"), pages.filter { "eotNote" in it.actions }.map { it.name })
+        assertEquals(listOf("extra"), pages[3].actions)
+        val saved = CardRingPages.defaults.map { it.copy(actions = listOf("eotNote", "eotNote")) }
+        assertTrue(CardRingPages.resolve(listOf("eotNote"), saved).all { it.actions == listOf("eotNote") })
     }
 
     @Test fun battlefieldModificationsAreDisabledElsewhereExceptStackAndProjectionNotes() {
@@ -79,18 +94,18 @@ class CardRingTest {
     @Test fun overflowingPagesSpillForwardWithoutDuplicatesOrGrowingTheGrid() {
         val ids = List(40) { "extra/$it" }
         val pages = CardRingPages.resolve(ids)
-        assertEquals(ids.take(25), pages[2].actions)
-        assertEquals(ids.drop(25), pages[3].actions)
+        assertEquals(ids.take(25), pages[3].actions)
+        assertEquals(ids.drop(25), pages[4].actions)
         assertTrue(pages[0].actions.isEmpty())
-        assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
+        assertEquals(ids.toSet(), pages.flatMap { it.actions }.filterNot { it.startsWith("empty/") }.toSet())
         assertTrue(pages.all { it.actions.size <= 25 })
     }
 
     @Test fun unusuallyManyPileDestinationsRemainReachableInBoundedContinuationPages() {
         val ids = List(80) { "Move to pile $it" }
         val pages = CardRingPages.resolve(ids)
-        assertEquals(ids.toSet(), pages.flatMap { it.actions }.toSet())
-        assertEquals(ids.size, pages.sumOf { it.actions.size })
+        assertEquals(ids.toSet(), pages.flatMap { it.actions }.filterNot { it.startsWith("empty/") }.toSet())
+        assertEquals(ids.size, pages.sumOf { page -> page.actions.count { !it.startsWith("empty/") } })
         assertTrue(pages.all { it.actions.size <= 25 })
     }
 
@@ -119,8 +134,8 @@ class CardRingTest {
     @Test fun fifteenPlusPagesHaveOnlyMoreContinuationsAndWrapInBothDirections() {
         val ids = List(400) { "Move to pile $it" }
         val pages = CardRingPages.resolve(ids)
-        assertEquals(listOf("Everyday", "Counters", "More") + (2..16).map { "More $it" }, pages.map { it.name })
-        assertEquals(ids, pages.flatMap { it.actions })
+        assertEquals(listOf("Everyday", "Counters", "More") + (2..17).map { "More $it" }, pages.map { it.name })
+        assertEquals(ids, pages.flatMap { it.actions }.filterNot { it.startsWith("empty/") })
         assertEquals(pages.lastIndex, CardRingPages.adjacent(0, -1, pages.size))
         assertEquals(0, CardRingPages.adjacent(pages.lastIndex, 1, pages.size))
         assertTrue(pages.all { page -> CardRingPages.layout(page.actions).all { it.cell + it.span <= 25 } })

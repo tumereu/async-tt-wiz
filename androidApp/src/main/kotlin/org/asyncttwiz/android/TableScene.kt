@@ -459,14 +459,15 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     }
                 })
             }
-            // Semantics-only children do NOT install a second pointer detector or expanded hit targets.
-            // Each exposed fragment has exactly the geometry used to draw/hit-test that fragment.
+            // Semantics-only children do not install a second pointer detector. Dock piles expose
+            // the same minimum touch rectangle used by the scene's pointer hit testing.
             for (item in semanticItems) {
                 if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
                 key(item.id) {
                     Box(Modifier.tableFrameBounds {
                         rendered.value.items[item.id]?.let { current ->
-                            if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
+                            if (current.touchBounds != null) current.touchBounds
+                            else if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
                             else current.visible.maxByOrNull { it.width * it.height }
                         }
                     }.semantics {

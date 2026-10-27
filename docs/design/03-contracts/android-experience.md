@@ -655,6 +655,13 @@ Live batches coalesce same-card moves to their endpoint; playback preserves grou
 staging. An in-progress animation retargets from current visible geometry. See the
 [primary reconciliation example](history-and-undo.md#prediction-rebasing-and-cascading-invalidation--d-277).
 
+Hand additions/removals slide the remaining cards in either player's hand over
+220 ms at default move speed, scaled by the existing move-speed preference.
+History jumps and catch-up fast paths skip this motion with the other scene animations.
+Landscape uses a compact side lane with 48 dp minimum pile targets and tightly
+spaced piles; the Stack is centred between the two pile rows, with counters facing
+the outer edges. Portrait geometry is unchanged.
+
 Use explicit states: downloaded/current, offline/read-only, incomplete input,
 online-pending/sending, synchronized, rejected, explicitly branched, and uncertain
 delivery/failed. Exact connection readiness and mid-request-loss recovery mechanics

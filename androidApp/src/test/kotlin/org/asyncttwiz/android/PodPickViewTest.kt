@@ -420,4 +420,24 @@ class PodPickViewTest {
         compose.onNodeWithText("Waiting for other players").assertDoesNotExist()
         card("1").assertIsDisplayed()
     }
+
+    @Test fun waitingNamesWhoWeWaitForWithACentredMainMenuLink() {
+        var menus = 0
+        compose.setContent { ScreenTheme { Surface {
+            PodPickView(null, DraftSettings.glimpse(), definitions, false, { _, _ -> }, chrome = {},
+                waitingText = "Waiting for Bob", onMainMenu = { menus++ })
+        } } }
+        val text = compose.onNodeWithText("Waiting for Bob").assertIsDisplayed().assertHasNoClickAction()
+            .fetchSemanticsNode().boundsInRoot
+        val link = compose.onNodeWithText("Main menu").assertIsDisplayed().assertHasClickAction()
+        val linkBounds = link.fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(root.center.x, text.center.x, 1f)
+        assertEquals(root.center.x, linkBounds.center.x, 1f)
+        assertTrue(linkBounds.top >= text.bottom)
+        assertEquals(root.center.y, (text.top + linkBounds.bottom) / 2f, 1f)
+        compose.onNodeWithText("Build").assertDoesNotExist()
+        link.performClick()
+        compose.runOnIdle { assertEquals(1, menus) }
+    }
 }

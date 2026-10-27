@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -32,7 +33,7 @@ import org.asyncttwiz.protocol.*
 
 @Composable
 internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
-    lobby: LobbyController?, manageCubes: () -> Unit) {
+    lobby: LobbyController?, manageCubes: () -> Unit, mainMenu: (() -> Unit)? = null) {
     val state = controller.state
     val pickTab = state.detail?.phase == PodPhase.DRAFTING && state.tab == PodTab.DRAFT
     val playScreen = state.detail?.phase?.let { it != PodPhase.SETUP } == true
@@ -75,7 +76,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                                 if (detail.phase == PodPhase.SETUP) PodMemberStrip(detail)
                                 if (state.choosingMember && lobby != null) PodChooseMember(controller, lobby, detail)
                                 else if (detail.phase == PodPhase.SETUP) PodSetupScreen(controller, detail, accountId, lobby)
-                                else PodDraftScreen(controller, detail, accountId, lobby)
+                                else PodDraftScreen(controller, detail, accountId, lobby, navigation, mainMenu)
                             }
                         }
                     }
@@ -251,28 +252,32 @@ private fun PodChooseMember(controller: PodController, lobby: LobbyController, d
 }
 
 @Composable
-private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?) {
+private fun PodDraftScreen(controller: PodController, detail: PodDetail, accountId: String, lobby: LobbyController?,
+    navigation: (() -> Unit)?, mainMenu: (() -> Unit)?) {
     val state = controller.state
     val tabs = podTabs(detail.phase)
     val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
     val build = detail.build ?: PodDeckBuild()
     val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
+    val pickColumns = rememberPodPickColumns()
+    val head = detail.draft?.head?.takeIf { selected == PodTab.DRAFT && detail.settings.mode != DraftMode.GRID }
+    val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
+        PodPlayHeader(detail, navigation) { head?.let { PodPickColumnControl(pickColumns, it.cards.size) } }
         PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
         }
-        if (selected == PodTab.DRAFT && detail.settings.mode == DraftMode.GRID) PodDraftMemberRow(detail)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
-                    controller::gridSelect, Modifier.fillMaxSize())
+                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
-                    state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(), chrome = { control ->
-                        PodDraftMemberRow(detail, control)
-                    }, librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
-                    nextPack = detail.draft?.queuedPacks?.firstOrNull())
+                    state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(), chrome = {},
+                    librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
+                    nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
+                    waitingText = waiting, onMainMenu = mainMenu)
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
@@ -300,30 +305,58 @@ internal fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab)
     }
 }
 
+internal val PodPlayHeaderHeight = 48.dp
+
+/** Hamburger (modal drawer), a very small pod title and the readiness avatars under it. */
 @Composable
-internal fun PodDraftMemberRow(detail: PodDetail, controls: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 8.dp).testTag("pod-draft-members"),
-        verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            detail.members.forEach { member ->
-                val waiting = if (detail.settings.mode == DraftMode.GRID)
-                    detail.grid?.publicView?.grids.orEmpty().count { it.currentPlayer == member.account.accountId }
-                else member.packsWaiting
-                Box(Modifier.size(28.dp).semantics {
-                    stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
-                }) {
-                    Avatar(member.account, size = 28.dp)
-                    if (waiting <= 9) Box(Modifier.align(Alignment.BottomEnd).size(12.dp)
-                        .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape),
-                        contentAlignment = Alignment.Center) {
-                        Text(if (waiting == 0) "✓" else "$waiting", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp)
-                    }
+internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
+    Surface {
+        Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (navigation != null) IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") }
+            else Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                PodDraftMemberRow(detail)
+            }
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { trailing() }
+        }
+    }
+}
+
+/** Readiness badges only while drafting; afterwards the avatars just show who is in the pod. */
+@Composable
+internal fun PodDraftMemberRow(detail: PodDetail) {
+    val drafting = detail.phase == PodPhase.DRAFTING
+    Row(Modifier.fillMaxWidth().height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        detail.members.forEach { member ->
+            val waiting = if (detail.settings.mode == DraftMode.GRID)
+                detail.grid?.publicView?.grids.orEmpty().count { it.currentPlayer == member.account.accountId }
+            else member.packsWaiting
+            Box(Modifier.size(28.dp).semantics {
+                if (drafting) stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
+            }) {
+                Avatar(member.account, size = 28.dp)
+                if (drafting && waiting <= 9) Box(Modifier.align(Alignment.BottomEnd).size(12.dp)
+                    .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Text(if (waiting == 0) "✓" else "$waiting", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp)
                 }
             }
         }
-        controls()
     }
+}
+
+/** Who still holds packs (or grid turns), plus the round where the client knows it (grid only). */
+internal fun podWaitingText(detail: PodDetail, accountId: String): String {
+    val grid = detail.grid?.publicView?.takeIf { detail.settings.mode == DraftMode.GRID }
+    val busy = if (grid != null) grid.grids.mapNotNull { it.currentPlayer }.toSet()
+        else detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
+    val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }
+    val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
+    return who + (grid?.takeIf { !it.finished }?.let { " · Round ${it.round} of ${it.rounds}" } ?: "")
 }
 
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */

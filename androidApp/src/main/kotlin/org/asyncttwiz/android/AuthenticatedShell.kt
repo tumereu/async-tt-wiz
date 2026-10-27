@@ -36,6 +36,10 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
     val tabletop = state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby.state.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
+    // A started pod is a play screen: the modal hamburger replaces the side area in both orientations.
+    val podPlay = state.destination == ShellDestination.PODS && pods?.state?.let {
+        it.selected != null && it.creating == null && it.detail?.phase.let { phase -> phase != null && phase != org.asyncttwiz.protocol.PodPhase.SETUP }
+    } == true
     BackHandler(state.drawerOpen || state.destination != ShellDestination.MENU) { controller.back() }
     LaunchedEffect(state.destination) {
         if (state.destination != ShellDestination.DECKS && !(state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true)) deckImport?.exit()
@@ -61,10 +65,11 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     WaitingLobby(lobby, state.account!!.accountId, if (!landscape || tabletop) ({ controller.drawer(true) }) else null, landscape,
                         importDeck = deckImport?.let { importer -> { lobby.importForPicker(); importer.open() } })
                 } else if (state.destination == ShellDestination.PODS && pods != null) {
-                    PodsDestination(pods, state.account!!.accountId, if (!landscape) ({ controller.drawer(true) }) else null, lobby) {
-                        collectionCubes = true
-                        controller.navigate(ShellDestination.DECKS)
-                    }
+                    PodsDestination(pods, state.account!!.accountId, if (!landscape || podPlay) ({ controller.drawer(true) }) else null, lobby,
+                        manageCubes = {
+                            collectionCubes = true
+                            controller.navigate(ShellDestination.DECKS)
+                        }, mainMenu = { controller.navigate(ShellDestination.MENU) })
                 } else if (state.destination == ShellDestination.DECKS && cubes != null) {
                     ManageCollectionScreen(cubes, decks, deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog,
                         draftCube = pods?.let { podController -> { id -> podController.newPod(id); controller.navigate(ShellDestination.PODS) } },
@@ -85,7 +90,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
     }
     Box(Modifier.fillMaxSize().testTag("authenticated-identity")
         .semantics { contentDescription = "Signed in as ${state.account!!.username}" }) {
-        if (landscape && !tabletop) {
+        if (landscape && !tabletop && !podPlay) {
             Row(Modifier.fillMaxSize()) {
                 Surface(Modifier.width(220.dp).fillMaxHeight(), color = Color.White,
                     border = BorderStroke(1.dp, Color(0xffd0d6dd))) {

@@ -41,6 +41,8 @@ fun PodGridView(
     busy: Boolean,
     onConfirm: (gridId: String, line: GridLineType, index: Int) -> Unit,
     modifier: Modifier = Modifier,
+    waitingText: String = "Waiting for other players",
+    onMainMenu: (() -> Unit)? = null,
 ) {
     val head = view?.publicView?.grids?.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
     val log = view?.publicView?.log.orEmpty()
@@ -53,11 +55,11 @@ fun PodGridView(
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
         if (head == null && boards.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            PodPickWaiting()
+            PodPickWaiting(waitingText, onMainMenu)
         } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (head == null) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                PodPickWaiting()
+                PodPickWaiting(waitingText, onMainMenu)
             }
             boards.forEach { board -> key(board.id) {
                 val boardRules = view?.let { PodGridRules(board, it.mine) }

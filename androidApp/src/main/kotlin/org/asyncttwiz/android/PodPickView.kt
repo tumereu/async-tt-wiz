@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
@@ -44,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -56,8 +58,8 @@ import org.asyncttwiz.protocol.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private val PodPickGreen = Color(0xFF237A38)
-private val PodPickRed = Color(0xFFB3261E)
+internal val PodPickGreen = Color(0xFF237A38)
+internal val PodPickRed = Color(0xFFB3261E)
 
 @Composable
 fun PodPickView(
@@ -74,6 +76,9 @@ fun PodPickView(
     librarians: List<DraftCopy> = emptyList(),
     onConfirmLibrarians: ((List<String>, List<String>, List<String>) -> Unit)? = null,
     nextPack: DraftPrivatePack? = null,
+    columns: PodPickColumns = rememberPodPickColumns(),
+    waitingText: String = "Waiting for other players",
+    onMainMenu: (() -> Unit)? = null,
 ) {
     val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
@@ -87,7 +92,7 @@ fun PodPickView(
         Column(modifier.fillMaxSize()) {
             chrome {}
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                PodPickWaiting()
+                PodPickWaiting(waitingText, onMainMenu)
             }
         }
         return
@@ -95,14 +100,7 @@ fun PodPickView(
 
     val rules = remember(pack, settings, marks.librarians.size) { PodPickRules(pack, settings, marks.librarians.size) }
     val baseRules = remember(pack, settings) { PodPickRules(pack, settings) }
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val preferences = rememberPodPickPreferences()
-    val preferenceKey = if (landscape) "columns-landscape" else "columns-portrait"
-    var preferredColumns by remember(preferences, preferenceKey) {
-        mutableIntStateOf(preferences.getInt(preferenceKey, if (landscape) 5 else 3))
-    }
-    val maxColumns = pack.cards.size.coerceAtLeast(1)
-    val columns = preferredColumns.coerceIn(1, maxColumns)
+    val columnCount = columns.columns(pack.cards.size)
     val burnIds = rules.burnIds(marks)
     val copies = remember(pack) { pack.cards.associateBy { it.id } }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
@@ -118,14 +116,9 @@ fun PodPickView(
     }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        chrome {
-            PodColumnControl("$columns", "Cards per row", columns, 1..maxColumns) {
-                preferredColumns = it
-                preferences.edit().putInt(preferenceKey, preferredColumns).apply()
-            }
-        }
+        chrome { PodPickColumnControl(columns, pack.cards.size) }
         key(pack.id) {
-            LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
+            LazyVerticalGrid(GridCells.Fixed(columnCount), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
                 state = rememberLazyGridState(), horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                 items(pack.cards, key = { it.id }) { copy ->
@@ -164,6 +157,29 @@ fun PodPickView(
 @Composable
 private fun rememberPodPickPreferences() = LocalContext.current.applicationContext.let { context ->
     remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
+}
+
+/** Personal per-orientation cards-per-row choice, hoisted so the pod header can host its control. */
+@Stable
+class PodPickColumns internal constructor(private val preferences: SharedPreferences, private val key: String, default: Int) {
+    var preferred by mutableIntStateOf(preferences.getInt(key, default))
+        private set
+    fun choose(value: Int) { preferred = value; preferences.edit().putInt(key, value).apply() }
+    fun columns(cards: Int) = preferred.coerceIn(1, cards.coerceAtLeast(1))
+}
+
+@Composable
+internal fun rememberPodPickColumns(): PodPickColumns {
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val preferences = rememberPodPickPreferences()
+    val key = if (landscape) "columns-landscape" else "columns-portrait"
+    return remember(preferences, key) { PodPickColumns(preferences, key, if (landscape) 5 else 3) }
+}
+
+@Composable
+internal fun PodPickColumnControl(columns: PodPickColumns, cards: Int) {
+    val value = columns.columns(cards)
+    PodColumnControl("$value", "Cards per row", value, 1..cards.coerceAtLeast(1), columns::choose)
 }
 
 internal const val PodHoldMillis = 150L
@@ -228,8 +244,12 @@ internal suspend fun PointerInputScope.podPickGestures(
 }
 
 @Composable
-internal fun PodPickWaiting() {
-    Text("Waiting for other players", color = MaterialTheme.colorScheme.onSurface.copy(alpha = .4f))
+internal fun PodPickWaiting(text: String = "Waiting for other players", onMainMenu: (() -> Unit)? = null) {
+    Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text, Modifier.testTag("pod-waiting"), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f),
+            textAlign = TextAlign.Center)
+        if (onMainMenu != null) TextButton(onMainMenu) { Text("Main menu") }
+    }
 }
 
 @Composable

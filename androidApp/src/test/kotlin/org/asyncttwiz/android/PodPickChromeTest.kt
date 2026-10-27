@@ -30,47 +30,57 @@ class PodPickChromeTest {
         val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(),
             PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(alice), PodMember(bob, packsWaiting = 2)), emptyList(), updatedAt = "now")
+        var navigations = 0
         compose.setContent { ScreenTheme { Column {
+            val columns = rememberPodPickColumns()
+            val pack = DraftPrivatePack("pack", 1, (1..15).map { DraftCopy("$it", "card") })
+            PodPlayHeader(detail.copy(members = detail.members.map {
+                if (it.account.accountId == alice.accountId) it.copy(packsWaiting = waiting) else it
+            }), { navigations++ }) { PodPickColumnControl(columns, pack.cards.size) }
             PodDraftTabs(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), PodTab.DRAFT, {}) {
                 IconButton({}, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
             }
-            PodPickView(DraftPrivatePack("pack", 1, (1..15).map { DraftCopy("$it", "card") }),
-                detail.settings, emptyMap(), false, { _, _ -> }, chrome = { control ->
-                    PodDraftMemberRow(detail.copy(members = detail.members.map {
-                        if (it.account.accountId == alice.accountId) it.copy(packsWaiting = waiting) else it
-                    }), control)
-                })
+            PodPickView(pack, detail.settings, emptyMap(), false, { _, _ -> }, chrome = {}, columns = columns)
         } } }
         val aliceAvatar = compose.onNodeWithContentDescription("Alice's avatar")
         val bobAvatar = compose.onNodeWithContentDescription("Bob's avatar")
         aliceAvatar.assertWidthIsEqualTo(28.dp).assertHeightIsEqualTo(28.dp)
-        compose.onNodeWithTag("pod-draft-members").assertHeightIsEqualTo(40.dp)
+        compose.onNodeWithTag("pod-play-header").assertHeightIsEqualTo(PodPlayHeaderHeight)
         compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Ready")).assertExists()
         compose.onNodeWithText("Alice").assertDoesNotExist()
         compose.onNodeWithText("Bob").assertDoesNotExist()
         val aliceBounds = aliceAvatar.fetchSemanticsNode().boundsInRoot
         val bobBounds = bobAvatar.fetchSemanticsNode().boundsInRoot
-        val row = compose.onNodeWithTag("pod-draft-members").fetchSemanticsNode().boundsInRoot
+        val header = compose.onNodeWithTag("pod-play-header").fetchSemanticsNode().boundsInRoot
+        val title = compose.onNodeWithTag("pod-play-title").assertTextEquals("Pod").fetchSemanticsNode().boundsInRoot
+        val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot
+        assertTrue(aliceBounds.top >= title.bottom && title.left >= menu.right)
         val control = compose.onNodeWithContentDescription("Cards per row").fetchSemanticsNode().boundsInRoot
-        assertTrue(control.top >= row.top && control.bottom <= row.bottom)
+        assertTrue(control.top >= header.top && control.bottom <= header.bottom)
         assertTrue(control.left >= bobBounds.right)
         val tabs = compose.onNodeWithTag("pod-tabs").fetchSemanticsNode().boundsInRoot
+        assertEquals(header.bottom, tabs.top)
         val overflow = compose.onNodeWithContentDescription("Pod actions").fetchSemanticsNode().boundsInRoot
         val lastTab = compose.onNodeWithText("Stats").fetchSemanticsNode().boundsInRoot
-        assertTrue(overflow.top >= tabs.top && overflow.bottom <= tabs.bottom && overflow.bottom <= row.top)
+        assertTrue(overflow.top >= tabs.top && overflow.bottom <= tabs.bottom)
         assertTrue(overflow.left >= lastTab.right && overflow.width < lastTab.width)
         compose.onNodeWithContentDescription("Pod actions").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
+        compose.onNodeWithContentDescription("Open navigation").performClick()
+        compose.runOnIdle { assertEquals(1, navigations) }
         compose.onNodeWithContentDescription("Cards per row")
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(3f) }
         compose.onNodeWithContentDescription("More cards per row").performClick()
         compose.onNodeWithContentDescription("Cards per row").assert(hasText("4"))
         val firstCard = compose.onNodeWithTag("pod-pick-card-1").fetchSemanticsNode().boundsInRoot
-        assertTrue(firstCard.top >= row.bottom && firstCard.top - row.bottom < 8)
+        assertTrue(firstCard.top >= tabs.bottom && firstCard.top - tabs.bottom < 8)
+        // The header's control drives the grid below it: four cards per row.
+        assertEquals(firstCard.top, compose.onNodeWithTag("pod-pick-card-4").fetchSemanticsNode().boundsInRoot.top, .5f)
+        assertTrue(compose.onNodeWithTag("pod-pick-card-5").fetchSemanticsNode().boundsInRoot.top > firstCard.bottom)
         for (count in listOf(1, 9, 10, 100)) {
             compose.runOnIdle { waiting = count }
             assertEquals(aliceBounds, aliceAvatar.fetchSemanticsNode().boundsInRoot)
             assertEquals(bobBounds, bobAvatar.fetchSemanticsNode().boundsInRoot)
-            compose.onNodeWithTag("pod-draft-members").assertHeightIsEqualTo(40.dp)
+            compose.onNodeWithTag("pod-play-header").assertHeightIsEqualTo(PodPlayHeaderHeight)
             compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "$count packs waiting")).assertExists()
         }
     }

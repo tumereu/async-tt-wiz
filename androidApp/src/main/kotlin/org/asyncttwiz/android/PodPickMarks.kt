@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.DraftPrivatePack
 import org.asyncttwiz.protocol.DraftSettings
-import kotlin.math.abs
 
 internal enum class PodPickMark { KEEP, BURN }
 
@@ -51,13 +50,4 @@ internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings) {
         return !busy && ids.isNotEmpty() && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
             (marks.keeps + burns).let { selected -> selected.distinct().size == selected.size && selected.all { it in ids } }
     }
-}
-
-internal fun podPickSwipe(offset: Float, width: Int, velocity: Float, flingThreshold: Float): PodPickMark? {
-    val direction = when {
-        width > 0 && abs(offset) / width >= .3f -> offset
-        abs(velocity) >= flingThreshold -> velocity
-        else -> return null
-    }
-    return if (direction > 0) PodPickMark.KEEP else PodPickMark.BURN
 }

@@ -103,13 +103,4 @@ class PodPickMarksTest {
         assertFalse(rules.canConfirm(empty.copy(keeps = listOf("1", "2"), burns = listOf("2", "3")), false))
         assertFalse(rules.canConfirm(empty.copy(keeps = listOf("1", "2"), burns = listOf("3", "unknown")), false))
     }
-
-    @Test fun swipesRequireDistanceOrFlingInEitherDirection() {
-        assertNull(podPickSwipe(29f, 100, 0f, 800f))
-        assertEquals(PodPickMark.KEEP, podPickSwipe(30f, 100, 0f, 800f))
-        assertEquals(PodPickMark.BURN, podPickSwipe(-30f, 100, 0f, 800f))
-        assertEquals(PodPickMark.KEEP, podPickSwipe(12f, 100, 900f, 800f))
-        assertEquals(PodPickMark.BURN, podPickSwipe(-12f, 100, -900f, 800f))
-        assertNull(podPickSwipe(0f, 0, 0f, 800f))
-    }
 }

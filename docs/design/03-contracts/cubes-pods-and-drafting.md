@@ -255,8 +255,14 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 - The card list scrolls vertically, including its compact cards-per-row control
   (1 to all; default 3 portrait, 5 landscape; saved per device/orientation).
   Trays and a full-width bottom Confirm stay fixed. No refresh loaders over cached data.
-- **Swipe right = keep, left = burn.** The card follows the finger, tinted green
-  or red, and commits past a threshold. Swiping a marked card the same direction
+- **Swipe right = keep, left = burn.** The original stays fixed. Horizontal movement
+  lifts a 70%-opaque copy above the UI, following the finger horizontally and tilting
+  up to 8° in that direction. Green/red tint increases to its maximum at 30% of card
+  width; only releasing at or beyond that distance commits (not velocity alone).
+  Release or cancellation fades the copy in place over 150ms, never back to its slot.
+  A committed swipe flashes the original in that colour; its border and badge animate
+  in/out over 200ms. Vertical drags scroll without lifting a copy.
+  Swiping a marked card the same direction
   unmarks it; the opposite direction switches it. Marking more than allowed drops
   the earliest mark of that kind. With burn 0, left swipe does nothing.
 - **Tap** opens a small menu: Keep / Burn / Unmark as applicable.

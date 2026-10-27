@@ -20,6 +20,7 @@ class GameplayTest {
         assertEquals(command, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(command)))
         val change = GameplayRules.change(original, id(8), command)
         assertEquals("accepted", change.outcome)
+        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, change.mutation!!.transition.rulesVersion)
         assertEquals(CommandIds.uuidV5(command.requestId, "board-node"), change.state!!.currentNodeId)
         assertEquals("preserved", change.state.board.cards.single().note)
         assertEquals(original.board.containers, change.state.board.containers)

@@ -6,6 +6,14 @@ import kotlinx.serialization.encodeToString
 class GameWireTest {
     private val id = "00000000-0000-4000-8000-000000000001"
     private fun command() = GameCommand(id, GameScope(id, id, id), GameAction.AcceptInvitation, id, "1")
+    @Test fun gameplayRulesHandshakeRoundTripsAndMissingVersionsMeanOldestRules() {
+        val hello = GameHello(id, id, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
+        assertEquals(hello, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(hello)))
+        val welcome = GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
+        assertEquals(welcome, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(welcome)))
+        assertEquals(1, (GameWire.decodeClient("""{"type":"hello","processId":"$id","installationId":"$id"}""") as GameHello).gameplayRulesVersion)
+        assertEquals(1, (GameWire.json.decodeFromString<GameServerMessage>("""{"type":"welcome"}""") as GameWelcome).gameplayRulesVersion)
+    }
     @Test fun typedRoundTripsAndTransportIndependentCanonicalIntent() {
         val command = command()
         val encoded = GameWire.json.encodeToString<GameClientMessage>(command)

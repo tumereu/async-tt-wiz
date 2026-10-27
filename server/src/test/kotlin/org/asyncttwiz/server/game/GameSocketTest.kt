@@ -54,7 +54,8 @@ class GameSocketTest {
         val response = post(settings, "/v1/invitations", input, a.token)
         assertEquals(201, response.statusCode()); return input to json.decodeFromString(response.body())
     }
-    private inner class Socket(settings: ServiceSettings, token: String, val hello: GameHello = GameHello(id(), id())) : WebSocket.Listener, AutoCloseable {
+    private inner class Socket(settings: ServiceSettings, token: String,
+        val hello: GameHello = GameHello(id(), id(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)) : WebSocket.Listener, AutoCloseable {
         private val queue = LinkedBlockingQueue<GameServerMessage>()
         private val saved = mutableListOf<GameServerMessage>()
         private val text = StringBuilder()
@@ -92,6 +93,39 @@ class GameSocketTest {
     }
     private fun command(game: GameSummary, stream: GameStreamReady, action: GameAction) =
         GameCommand(id(), GameScope(game.id, game.preparationRound, game.invitationId), action, stream.streamId, stream.generation)
+
+    @Test fun `gameplay rules negotiation rejects old and missing versions before opening streams`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val a = account(settings, "RulesOwner"); val b = account(settings, "RulesRecipient")
+                val (_, game) = create(settings, a, b)
+                for (version in listOf<Int?>(null, CURRENT_GAMEPLAY_RULES_VERSION - 1)) {
+                    Socket(settings, a.token).use { old ->
+                        if (version == null) old.raw("""{"type":"hello","processId":"${id()}","installationId":"${id()}"}""")
+                        else old.send(old.hello.copy(gameplayRulesVersion = version))
+                        assertEquals(GameAdmissionError("gameplayRulesUpgradeRequired", false), old.next<GameAdmissionError>())
+                        old.send(OpenGameStream(game.id, id()))
+                        assertEquals("upgradeRequired", old.next<GameAdmissionError>().code)
+                    }
+                }
+                Socket(settings, a.token).use { current ->
+                    current.send(current.hello)
+                    assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, current.next<GameWelcome>().gameplayRulesVersion)
+                    assertEquals(game.id, current.open(game).gameId)
+                }
+                Socket(settings, a.token).use { newer ->
+                    newer.send(newer.hello.copy(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION + 1))
+                    assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, newer.next<GameWelcome>().gameplayRulesVersion)
+                    newer.send(OpenGameStream(game.id, id()))
+                    assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
+                    newer.send(GameCommand(id(), GameScope(game.id), GameAction.Undo, id(), "1"))
+                    assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
+                }
+            }
+        }
+    }
 
     @Test fun `real authenticated sockets decline reinvite stale decision accept and recover private original outcomes`() {
         OwnedPostgres().start().use { db ->

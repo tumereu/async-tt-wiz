@@ -37,7 +37,7 @@ class GameplayMoveIntegrationTest {
         private fun display() = session.play(data.game)?.board
         fun message(message: GameServerMessage) = wire.listener.message(message)
         fun connect() {
-            session.watch(listOf(data.game)); wire.listener.opened(); message(GameWelcome())
+            session.watch(listOf(data.game)); wire.listener.opened(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.filterIsInstance<OpenGameStream>().single().streamId
             message(GameStreamReady(data.game.id, stream, "1")); message(data.head(root))
             assertTrue(session.ready(data.game.id))

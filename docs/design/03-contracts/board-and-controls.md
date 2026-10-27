@@ -1161,7 +1161,11 @@ Confirmed optional communication direction (D-94/D-95):
    account's devices. Advance its monotonic cursor to the newest message actually
    presented in the panel, never merely on opening; positions through that cursor
    are read. Count only other authors after it, including unloaded messages. Coalesce
-   cursor reports and retry on reconnect. Own sent echoes do not create unread
+   cursor reports and retry on reconnect. While connected, failed cursor writes
+   retain the newest presented message and wait at least one second before retry;
+   visibility callbacks and heads cannot bypass that deadline. Poll private cursors
+   only for the currently opened game or pending writes, never each Games-list row
+   (the list has no unread indicator). Own sent echoes do not create unread
    incoming messages. Do not publish read receipts to the other player,
    presence or gameplay mutations for opening/closing/viewing chat, and do not
    change the selected historical boundary or fork intent. Existing immutable

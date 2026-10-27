@@ -59,7 +59,7 @@ class GameplaySessionTest {
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1", head: GameHead = data.head()) {
-            session.watch(listOf(data.game)); wire.listener.opened(); drain(); message(GameWelcome())
+            session.watch(listOf(data.game)); wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) {
                 is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(data.game.id, stream, generation, statuses)); message(head)

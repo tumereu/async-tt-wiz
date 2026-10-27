@@ -101,10 +101,16 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (!DeckValidation.uuid(message.installationId) || !DeckValidation.uuid(message.processId)) {
                     send(GameAdmissionError("invalidInput", false)); return
                 }
-                hello = message; send(GameWelcome()); return
+                if (message.gameplayRulesVersion < CURRENT_GAMEPLAY_RULES_VERSION) {
+                    send(GameAdmissionError("gameplayRulesUpgradeRequired", false)); return
+                }
+                hello = message; send(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
             }
             val negotiated = hello ?: run { send(GameAdmissionError("upgradeRequired", false)); return }
             if (message is GamePing) { send(GamePong(message.correlationId)); return }
+            if (negotiated.gameplayRulesVersion != CURRENT_GAMEPLAY_RULES_VERSION) {
+                send(GameAdmissionError("serverUpdatePending", false)); return
+            }
             val gameId = when (message) {
                 is GameCommand -> message.scope.gameId
                 is OpenGameStream -> message.gameId

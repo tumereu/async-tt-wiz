@@ -43,7 +43,7 @@ internal class CancellationFixture(recipient: Boolean = false, pendingInvite: Bo
     }, { "token" }, Worker(), { it() }, gameConnection = wire, accountId = { if (recipient) other.accountId else owner.accountId })
     init {
         lobby.open(game.id)
-        wire.listener.opened(); message(GameWelcome())
+        wire.listener.opened(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
         val stream = wire.frames.filterIsInstance<OpenGameStream>().single()
         message(GameStreamReady(game.id, stream.streamId, "1"))
         head(game)

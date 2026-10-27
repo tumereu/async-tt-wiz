@@ -60,7 +60,7 @@ class GameplayTest {
         fun result(id: String) = message { it is GameResult && it.requestId == id } as GameResult
         fun revision(id: String) = message { it is GameRevision && it.requestId == id } as GameRevision
         fun open(game: GameSummary): GameStreamReady {
-            send(GameHello(gameplayId(), gameplayId())); next<GameWelcome>()
+            send(GameHello(gameplayId(), gameplayId(), gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); next<GameWelcome>()
             send(OpenGameStream(game.id, gameplayId())); val stream = next<GameStreamReady>()
             send(SubscribeGame(game.id)); next<GameHead>(); return stream
         }

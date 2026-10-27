@@ -85,7 +85,7 @@ class LobbyPreparationTest {
         }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun ready(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1") {
-            wire.listener.opened(); drain(); message(GameWelcome())
+            wire.listener.opened(); drain(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, statuses)); head(game, base)
         }

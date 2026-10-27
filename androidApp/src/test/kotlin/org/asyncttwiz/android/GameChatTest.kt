@@ -32,14 +32,15 @@ class GameChatTest {
         val wire = Wire(); var token: String? = "token"
         val posts = ArrayDeque<() -> Unit>()
         val personal = GameChat()
+        var opened: String? = game.id
         var time = 0L
         val session = GameSession(wire, { token }, { posts.add(it) }, {}, {}, { _, _ -> }, {},
-            now = { time }, personalChat = personal)
+            now = { time }, personalChat = personal, openedGame = { opened })
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun receive(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect(statuses: List<GameRequestStatus> = emptyList(), generation: String = "1", chat: List<ChatMessage> = emptyList(), revision: String = "0",
             current: GameSummary = game, headPlay: PlayState = play) {
-            session.watch(listOf(game)); wire.listener.opened(); drain(); receive(GameWelcome())
+            session.watch(listOf(game)); wire.listener.opened(); drain(); receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.last { it is OpenGameStream || it is ResumeGameStream }.let {
                 if (it is OpenGameStream) it.streamId else (it as ResumeGameStream).streamId }
             receive(GameStreamReady(game.id, stream, generation, statuses))
@@ -50,6 +51,55 @@ class GameChatTest {
             if (accepted) "accepted" else "rejected", if (accepted) null else "inapplicable", "1", if (accepted) "1" else null)
         fun message(c: GameCommand, revision: String = "1") = ChatMessage(c.requestId, game.id, game.playId!!, a.accountId,
             (c.action as GameAction.SendChat).text, revision, "2026-10-23T00:00:00Z")
+    }
+    @Test fun hundredUnopenedGamesNeverPollCursorsAndOnlyOpenedGameOrPendingWritesArePolled() {
+        val f = Fixture(); f.opened = null
+        val games = listOf(game) + (1..99).map { game.copy(id = id()) }
+        try {
+            f.session.watch(games); f.wire.listener.opened(); f.drain()
+            f.receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            for (current in games) {
+                val stream = f.wire.frames.filterIsInstance<OpenGameStream>().single { it.gameId == current.id }
+                f.receive(GameStreamReady(current.id, stream.streamId, "1"))
+                f.receive(GameHead(current.id, "0", current))
+            }
+            repeat(3) { f.time += 10_000; f.session.tick() }
+            assertTrue(f.wire.reads.isEmpty())
+            f.opened = game.id; f.session.tick()
+            assertEquals(listOf(game.id), f.wire.reads.map { it.first })
+            f.wire.reads.last().third(ChatReadState(game.id, "0", "0", 0)); f.drain()
+            f.opened = games[1].id; f.time += 10_000; f.session.tick()
+            assertEquals(listOf(game.id, games[1].id), f.wire.reads.map { it.first })
+            f.wire.reads.last().third(ChatReadState(games[1].id, "0", "0", 0)); f.drain()
+            f.opened = null; f.time += 10_000; f.session.tick()
+            assertEquals(2, f.wire.reads.size)
+        } finally { f.session.close() }
+    }
+    @Test fun failedCursorWriteCannotBeRetriedByVisibilityOrHeadUntilDeadlineAndKeepsNewestCursor() {
+        val f = Fixture()
+        val messages = (1..3).map { ChatMessage(id(), game.id, game.playId!!, b.accountId, "$it", "$it", "date") }
+        try {
+            f.connect(chat = messages, revision = "3")
+            f.wire.reads.single().third(ChatReadState(game.id, "0", "3", 3)); f.drain()
+            f.session.presentedChat(game.id, setOf(messages[0].id))
+            assertEquals(ReadChat(messages[0].id), f.wire.reads.last().second)
+            f.wire.reads.last().third(null); f.drain()
+            f.time = 999
+            repeat(5) {
+                f.session.presentedChat(game.id, setOf(messages[2].id))
+                f.session.tick()
+                f.receive(GameHead(game.id, "3", game.copy(revision = "3"), play = play, chat = messages))
+            }
+            assertEquals(2, f.wire.reads.size)
+            // Navigating away must retain and retry the pending write, not poll other games.
+            f.opened = null; f.time = 1_000; f.session.tick()
+            assertEquals(3, f.wire.reads.size)
+            assertEquals(ReadChat(messages[2].id), f.wire.reads.last().second)
+            f.wire.reads.last().third(ChatReadState(game.id, "3", "3", 0)); f.drain()
+            f.time = 20_000; f.session.tick()
+            assertEquals(3, f.wire.reads.size)
+            assertNull(f.personal.pendingRead(game.id))
+        } finally { f.session.close() }
     }
     @Test fun visibilityReportsCoalesceRetryOnReconnectAndFenceOldAccountCallbacks() {
         val f = Fixture()
@@ -87,6 +137,23 @@ class GameChatTest {
         f.wire.reads.last().third(ChatReadState(game.id, "1", "1", 0)); f.drain()
         assertEquals(0, f.personal.presentation(game.id, a.accountId, f.session.chat(game.id), emptyList()).unread)
         assertNull(f.personal.pendingRead(game.id))
+    }
+    @Test fun incompatibleReconnectCannotCaptureGameplayAgainstRetainedBoard() {
+        val f = Fixture()
+        try {
+            f.connect()
+            assertNotNull(f.session.acceptedPlay(game))
+            f.wire.listener.disconnected(); f.drain(); f.session.tick()
+            f.wire.listener.opened(); f.drain()
+            f.receive(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION - 1))
+            val frames = f.wire.frames.toList()
+            assertFalse(f.session.gameplay(game, a.accountId, PlayAction.AdjustLife(a.accountId, "1")))
+            assertFalse(f.session.historyControl(game, a.accountId, GameAction.Undo))
+            assertFalse(f.session.sendChat(game, "must not queue"))
+            assertFalse(f.session.pending(game.id))
+            assertEquals(frames, f.wire.frames)
+            assertEquals("Server update pending", f.session.error)
+        } finally { f.session.close() }
     }
     @Test fun pipelinedChatUsesExistingFifoAndUncertaintyRetainsOriginalWithoutDuplicateEcho() {
         val f = Fixture(); assertFalse(f.session.sendChat(game, "offline")); f.connect()
@@ -163,7 +230,7 @@ class GameChatTest {
         }
         val controller = LobbyController(api, { token }, worker, { it() }, gameConnection = wire, accountId = { actor })
         fun connect(chat: List<ChatMessage>) {
-            wire.listener.opened(); wire.listener.message(GameWelcome())
+            wire.listener.opened(); wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.filterIsInstance<OpenGameStream>().last()
             wire.listener.message(GameStreamReady(game.id, stream.streamId, "1"))
             wire.listener.message(GameHead(game.id, "1", game.copy(revision = "1"), play = play, chat = chat))

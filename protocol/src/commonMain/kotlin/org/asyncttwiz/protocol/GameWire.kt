@@ -5,6 +5,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
+/** Highest recorded-transition rules understood by this build; also used when recording new events. */
+const val CURRENT_GAMEPLAY_RULES_VERSION = 19
+
 @Serializable data class GameScope(val gameId: String, val preparationId: String? = null,
     val invitationId: String? = null, val playId: String? = null)
 @Serializable data class Continuation(val nodeId: String, val explicit: Boolean)
@@ -32,7 +35,8 @@ import kotlinx.serialization.json.*
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
     val protocolMajor: Int = 1, val minMinor: Int = 0, val maxMinor: Int = 0,
-    val engineVersions: List<Int> = listOf(1), val readFormats: List<Int> = listOf(1)) : GameClientMessage
+    val engineVersions: List<Int> = listOf(1), val readFormats: List<Int> = listOf(1),
+    val gameplayRulesVersion: Int = 1) : GameClientMessage
 @Serializable @SerialName("openStream") data class OpenGameStream(val gameId: String, val streamId: String) : GameClientMessage
 @Serializable @SerialName("resumeStream") data class ResumeGameStream(val gameId: String, val streamId: String,
     val requestIds: List<String>) : GameClientMessage
@@ -47,7 +51,8 @@ import kotlinx.serialization.json.*
 @Serializable sealed interface GameServerMessage
 @Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = 0,
     val engineVersion: Int = 1, val readFormat: Int = 1, val heartbeatSeconds: Int = 30,
-    val commandBytes: Int = 1048576, val pendingRequests: Int = 1024) : GameServerMessage
+    val commandBytes: Int = 1048576, val pendingRequests: Int = 1024,
+    val gameplayRulesVersion: Int = 1) : GameServerMessage
 @Serializable @SerialName("upgradeRequired") data class GameUpgradeRequired(val protocolMajor: Int = 1) : GameServerMessage
 @Serializable data class GameRequestStatus(val requestId: String, val status: String, val result: GameResult? = null)
 @Serializable @SerialName("streamReady") data class GameStreamReady(val gameId: String, val streamId: String,

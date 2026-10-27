@@ -31,7 +31,10 @@ class LibraryActionsTest {
     }.fold(state) { current, action ->
         val result = change(current, action)
         assertNull(result.reason, "$action: ${result.reason}")
-        result.mutation?.let { assertEquals(result, GameplayHistory.replay(current, it)) }
+        result.mutation?.let {
+            assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, it.transition.rulesVersion)
+            assertEquals(result, GameplayHistory.replay(current, it))
+        }
         result.state!!
     }
     private fun members(state: PlayState, container: Int = 10) = state.board.containers.single { it.id == id(container) }.cards

@@ -77,7 +77,7 @@ class GameConnectionLifecycleTest {
         val maintenance = GameConnectionMaintenance({ signedIn }, lobby::sync)
         fun accept(generation: String = "1") {
             wire.listener.opened()
-            wire.listener.message(GameWelcome())
+            wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.last { it is OpenGameStream || it is ResumeGameStream }.let {
                 if (it is OpenGameStream) it.streamId else (it as ResumeGameStream).streamId
             }
@@ -152,6 +152,22 @@ class GameConnectionLifecycleTest {
             compose.onNodeWithText("Disconnected · read-only").assertDoesNotExist()
             compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
             compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
+        } finally { compose.runOnIdle { owner.close() } }
+    }
+    @Test fun rulesUpgradeMessageStaysVisibleAfterTransientErrorTimeoutAndDismissal() {
+        val owner = Owner()
+        compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
+        try {
+            compose.setContent { MaterialTheme { WaitingLobby(owner.lobby, owner.data.actor, null) } }
+            compose.runOnIdle { owner.wire.listener.message(GameAdmissionError("gameplayRulesUpgradeRequired", false)) }
+            compose.onNodeWithText("Update the app to continue this game").assertExists()
+            compose.mainClock.advanceTimeBy(8_000)
+            compose.runOnIdle { owner.lobby.dismissSessionError(); owner.lobby.foreground() }
+            compose.onNodeWithText("Update the app to continue this game").assertExists()
+            compose.runOnIdle {
+                assertEquals(1, owner.wire.opens)
+                assertFalse(owner.data.game.id in owner.lobby.state.connectedGames)
+            }
         } finally { compose.runOnIdle { owner.close() } }
     }
 }

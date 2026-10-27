@@ -24,7 +24,7 @@ class GameDeletionTest {
         val session = GameSession(wire, { token }, { it() }, {}, changed::add, { _, result -> results.add(result) }, {})
         fun message(message: GameServerMessage) = wire.listener.message(message)
         fun connect(game: GameSummary, statuses: List<GameRequestStatus> = emptyList(), generation: String = "1") {
-            session.watch(listOf(game)); wire.listener.opened(); message(GameWelcome())
+            session.watch(listOf(game)); wire.listener.opened(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.mapNotNull { when (it) { is OpenGameStream -> it.streamId; is ResumeGameStream -> it.streamId; else -> null } }.last()
             message(GameStreamReady(game.id, stream, generation, statuses))
         }

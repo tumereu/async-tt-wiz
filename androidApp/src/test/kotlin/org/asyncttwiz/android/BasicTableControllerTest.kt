@@ -61,7 +61,7 @@ internal class BasicTableFixture {
     fun message(message: GameServerMessage) = wire.listener.message(message)
     fun connect(initial: PlayState = root) {
         updateTree = GameplayTree(initial)
-        lobby.open(game.id); worker.drain(); wire.listener.opened(); message(GameWelcome())
+        lobby.open(game.id); worker.drain(); wire.listener.opened(); message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
         val stream = wire.frames.filterIsInstance<OpenGameStream>().last().streamId
         message(GameStreamReady(game.id, stream, "1")); message(data.head(initial))
         assertTrue(game.id in lobby.state.connectedGames)

@@ -1,8 +1,7 @@
 # ATW tutorial video — plan + draft script
 
-Status: PRODUCED (2026-10-27). The narration below matches scenes.json, which is what the video uses. Controls described from project notes; verify each
-shot on the emulator before capture. `[verify]` = I'm not sure the current UI
-matches.
+Status: PRODUCED (2026-10-27). The narration below matches scenes.json, which is
+what the video uses; every control was checked on the emulator during capture.
 
 ## Format
 

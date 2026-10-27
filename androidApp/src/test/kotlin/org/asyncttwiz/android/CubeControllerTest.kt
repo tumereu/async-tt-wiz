@@ -20,7 +20,7 @@ class CubeControllerTest {
         assertEquals(1, reads); assertEquals(0, fetches)
         assertEquals("https://cubecobra.com/cube/list/fixture", controller.state.cobraInput)
         controller.importCobra(); worker.drain()
-        assertEquals(1, fetches); assertFalse(controller.state.cobraTab)
+        assertEquals(1, fetches); assertTrue(controller.state.cobraTab); assertTrue(controller.state.imported)
         assertEquals("fixture", controller.state.name)
         controller.back(); controller.newCube(); controller.cobraInput("typed")
         controller.prefillCobra { reads++; "another" }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.*
@@ -182,9 +183,9 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
     enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None, trailingIcon: (@Composable () -> Unit)? = null,
     placeholder: String? = null, maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
-    textStyle: TextStyle = MaterialTheme.typography.bodyLarge) {
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge, keyboardActions: KeyboardActions = KeyboardActions.Default) {
     BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
-        keyboardOptions = keyboardOptions, visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, visualTransformation = visualTransformation,
         maxLines = maxLines, textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
         decorationBox = { field -> ScreenTextFieldDecoration(value.isEmpty(), singleLine, placeholder, trailingIcon, field) })
 }
@@ -261,6 +262,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "chevron" -> Icons.Outlined.ChevronRight
     "send" -> Icons.AutoMirrored.Outlined.Send
     "import" -> Icons.Outlined.ContentPaste
+    "paste" -> Icons.Outlined.ContentPaste
     "download" -> Icons.Outlined.FileDownload
     "save" -> Icons.Outlined.Save
     "delete" -> Icons.Outlined.DeleteOutline

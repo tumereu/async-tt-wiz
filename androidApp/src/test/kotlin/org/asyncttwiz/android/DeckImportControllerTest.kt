@@ -22,7 +22,7 @@ class DeckImportControllerTest {
         controller.importUrl(); assertTrue(controller.state.busy); worker.drain()
         assertEquals(1, fetches); assertEquals(parsed, received)
         assertEquals("Site deck", controller.state.name); assertEquals(parsed.text, controller.state.text)
-        assertFalse(controller.state.fromUrl); assertFalse(controller.state.busy)
+        assertTrue(controller.state.fromUrl); assertTrue(controller.state.imported); assertFalse(controller.state.busy)
         assertEquals(result(parsed.text), controller.state.result)
         controller.close()
     }

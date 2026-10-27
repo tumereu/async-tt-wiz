@@ -148,10 +148,10 @@ class LobbyDeckScreensTest {
     }
 
     @Test @Config(qualifiers = "w412dp-h640dp-port-mdpi")
-    fun portraitCatalogRecoveryPreservesDraftAndShowsErrorsAboveTheScroller() = assertCatalogRecovery(false)
+    fun portraitCatalogInstallRelooksUpTheDraftWithoutCatalogControls() = assertCatalogRecovery(false)
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun landscapeCatalogRecoveryPreservesDraftAndShowsErrorsAboveTheScroller() = assertCatalogRecovery(true)
+    fun landscapeCatalogInstallRelooksUpTheDraftWithoutCatalogControls() = assertCatalogRecovery(true)
 
     private fun assertCatalogRecovery(landscape: Boolean) {
         val models = ViewModelStore()
@@ -168,15 +168,12 @@ class LobbyDeckScreensTest {
         importer.open(); importer.name("Keep my draft"); importer.edit("1 Unknown"); importer.lookup(); worker.drain()
         try {
             compose.setContent { ScreenTheme { DeckImportScreen(importer, landscape, null, catalog) } }
-            compose.onNodeWithText("Download card records").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Check for updates").performScrollTo().assertIsDisplayed()
-            // Report a transfer failure while the catalog section is outside the viewport.
-            compose.onNodeWithTag("deck-list").performScrollTo()
+            // Card records are managed in Settings only; the problem list names what failed.
+            compose.onNodeWithText("Download card records").assertDoesNotExist()
+            compose.onNodeWithText("Check for updates").assertDoesNotExist()
+            compose.onNodeWithText("Refresh full catalog").assertDoesNotExist()
+            compose.onNodeWithText("Line 1: Card records are missing or outdated").assertIsDisplayed()
             val paste = compose.onNodeWithTag("deck-list").getUnclippedBoundsInRoot()
-            compose.runOnIdle { catalog.seed(catalog.state.copy(error = true, status = "Synthetic catalog transfer failure")) }
-            compose.onNodeWithText("Synthetic catalog transfer failure").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Dismiss message").performClick()
-            assertNull(catalog.state.status)
             assertEquals("Keep my draft", importer.state.name)
             assertEquals("1 Unknown", importer.state.text)
             compose.runOnIdle {

@@ -11,6 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.DeckSection
@@ -21,7 +25,7 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
     draftCube: ((String) -> Unit)? = null, initiallyCubes: Boolean = false) {
     var cubeTab by remember(initiallyCubes) { mutableStateOf(initiallyCubes) }
     if (cubeTab && (cubes.state.editing || cubes.state.selected != null)) {
-        CubeScreen(cubes, navigation, draftCube); return
+        CubeScreen(cubes, navigation, draftCube, landscape); return
     }
     if (!cubeTab && importer?.state?.active == true) {
         DeckImportScreen(importer, landscape, navigation, catalog); return
@@ -75,75 +79,34 @@ private fun CubeCollection(controller: CubeController) {
 }
 
 @Composable
-internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null) {
+internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, draftCube: ((String) -> Unit)? = null,
+    landscape: Boolean = false) {
     val state = controller.state
-    val clipboard = LocalClipboardManager.current
-    LaunchedEffect(state.editing, state.cobraTab) {
-        if (state.editing && state.cobraTab) controller.prefillCobra { clipboard.getText()?.text }
-    }
     BackHandler { controller.back() }
+    if (state.editing) { CubeImportScreen(controller, navigation, landscape); return }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            ScreenHeader(if (state.editing) { if (state.target == null) "New cube" else "Edit cube" } else "Saved cube", navigation) {
+            ScreenHeader("Saved cube", navigation) {
                 ScreenIconButton("Back", "back", controller::back)
             }
-            if (state.editing) {
-                TabRow(selectedTabIndex = if (state.cobraTab) 0 else 1) {
-                    Tab(state.cobraTab, onClick = { controller.cobraTab(true) }, text = { Text("Cube Cobra") })
-                    Tab(!state.cobraTab, onClick = { controller.cobraTab(false) }, text = { Text("Paste list") })
-                }
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (state.cobraTab) {
-                        OutlinedTextField(state.cobraInput, controller::cobraInput, Modifier.fillMaxWidth(), label = { Text("Cube Cobra URL or cube ID") }, singleLine = true)
-                        ScreenButton(onClick = controller::importCobra, enabled = state.cobraInput.isNotBlank() && !state.busy) {
-                            EntryIcon("Import Cube Cobra", "import")
+            InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
+                val detail = state.detail
+                if (detail != null) LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
+                        Text("${detail.saved.cube.totalCopies} total copies")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ScreenIconButton("Edit cube", "edit", controller::edit)
+                            ScreenIconButton("Rename cube", "edit", { controller.dialog(CubeDialog.RENAME) })
+                            ScreenIconButton("Delete cube", "delete", { controller.dialog(CubeDialog.DELETE) })
                         }
-                    } else {
-                        OutlinedTextField(state.name, controller::name, Modifier.fillMaxWidth(), label = { Text("Cube name") }, singleLine = true)
-                        OutlinedTextField(state.text, controller::text, Modifier.fillMaxWidth().heightIn(min = 220.dp), label = { Text("Card list") })
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(state.includeSideboard, controller::sideboard)
-                            Text("Include sideboard")
-                        }
-                        ScreenButton(onClick = controller::lookup, enabled = !state.busy && state.text.isNotBlank()) { EntryIcon("Import list", "import") }
-                    }
-                }
-                Column(Modifier.fillMaxWidth().height(160.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                    state.result?.let { result ->
-                        if (result.resolved) {
-                            Text("${result.count(DeckSection.MAINBOARD)} total copies", fontWeight = FontWeight.Bold)
-                            result.substitutions.forEach { Text("Line ${it.line}: ${it.message}") }
-                            result.entries.forEach { Text("${it.quantity} ${it.printing.name} (${it.printing.set}) ${it.printing.number}") }
-                        }
-                        result.issues.forEach { issue ->
-                            val offending = state.text.lines().getOrNull(issue.line - 1)
-                            Text("Line ${issue.line}: ${issue.message}" + (offending?.let { "\n$it" } ?: ""), color = MaterialTheme.colorScheme.error)
+                        if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
+                            EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
                         }
                     }
-                }
-                ScreenButton(onClick = controller::save, Modifier.fillMaxWidth().padding(16.dp),
-                    enabled = state.result?.resolved == true && state.name.isNotBlank() && !state.busy) { EntryIcon("Save cube", "save") }
-            } else {
-                InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
-                    val detail = state.detail
-                    if (detail != null) LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
-                            Text("${detail.saved.cube.totalCopies} total copies")
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ScreenIconButton("Edit cube", "edit", controller::edit)
-                                ScreenIconButton("Rename cube", "edit", { controller.dialog(CubeDialog.RENAME) })
-                                ScreenIconButton("Delete cube", "delete", { controller.dialog(CubeDialog.DELETE) })
-                            }
-                            if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
-                                EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
-                            }
-                        }
-                        items(detail.saved.entries, key = { it.definition }) { entry ->
-                            Text("${entry.quantity} ${detail.definitions.getValue(entry.definition).name}")
-                            HorizontalDivider()
-                        }
+                    items(detail.saved.entries, key = { it.definition }) { entry ->
+                        Text("${entry.quantity} ${detail.definitions.getValue(entry.definition).name}")
+                        HorizontalDivider()
                     }
                 }
             }
@@ -166,4 +129,45 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
             }
         }
     }
+}
+
+/** New/edit cube: the deck import layout, with Cube Cobra as the link source. */
+@Composable
+private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit)?, landscape: Boolean) {
+    val state = controller.state
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(state.cobraTab) {
+        if (state.cobraTab) controller.prefillCobra { clipboard.getText()?.text }
+    }
+    // Pasted lists resolve on their own, like deck lists; a failed attempt waits for the next edit.
+    LaunchedEffect(state.text, state.includeSideboard, state.busy) {
+        delay(400)
+        val current = controller.state
+        if (current.text.isNotBlank() && current.result == null && current.error == null && !current.busy) controller.lookup()
+    }
+    val name: @Composable (Modifier) -> Unit = { modifier ->
+        ScreenTextField(state.name, controller::name, modifier.testTag("cube-name").semantics { contentDescription = "Cube name" },
+            placeholder = "Cube name")
+    }
+    ImportScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape, state.cobraTab,
+        controller::cobraTab, controller.canSave, state.saving, controller::save, "save-cube",
+        input = {
+            if (state.cobraTab) ImportLinkField(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
+                "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,
+                state.cobraInput.isNotBlank() && !state.busy, state.busy && !state.saving)
+            else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    name(Modifier.weight(1f))
+                    ImportSideboardToggle(state.includeSideboard, controller::sideboard)
+                }
+                ImportListField(state.text, controller::text, "Card list", "cube-list")
+            }
+        },
+        feedback = {
+            ImportError(state.error)
+            if (!state.cobraTab || state.imported) {
+                if (state.cobraTab) name(Modifier.fillMaxWidth())
+                ImportResultSummary(state.result, deck = false, lineNumbers = !state.cobraTab)
+            }
+        })
 }

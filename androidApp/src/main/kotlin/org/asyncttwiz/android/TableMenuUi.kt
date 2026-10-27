@@ -61,6 +61,7 @@ internal fun menuIcon(name: String): ImageVector {
         "face up" in n -> Icons.Outlined.FlipToFront
         "printed face" in n || n == "switch face" -> Icons.Outlined.FlipCameraAndroid
         "reset corner" in n || n == "reset counters" -> Icons.Outlined.SettingsBackupRestore
+        "keywords" in n -> Icons.Outlined.LocalOffer
         "note" in n -> Icons.AutoMirrored.Outlined.StickyNote2
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom

@@ -19,8 +19,10 @@
   separated by bold dividers. A reserved top label row shows `→ name` or tiny art
    plus card name; empty combat shows only its default player label, not guidance.
    Labels use approximately 11–12sp at default scale, follow card/title text sizing,
-   and reserve their full wrapped height above cards. Target art is text-height;
-   card-target lanes may widen for readable name wrapping, keeping cards centered.
+   and are always one row: every lane widens to fit its icon plus full name (no
+   wrapping/ellipsis), keeping cards centered; a too-wide combat area pans with the
+   table. Target art is text-height; the player lane shows the defending player's
+   round profile avatar plus name, or `→ name` without an avatar.
    Lane boundaries remain visibly thicker than ordinary pair dividers.
   Cross-lane drags onto attacker rows retarget whole pairs, keeping blockers
   attached; blocker-row drops still move the occurrence into the blocker role
@@ -42,7 +44,8 @@ damage are ordinary edits sent in one atomic batch/history group/Undo. Replay
 uses those recorded edits, never recalculates combat; existing edit concerned-field
 rules apply.
 
-Current-face MTGJSON keywords and whole words in permanent/EOT notes supply
+Current-face MTGJSON keywords (none for face-down cards) and whole words in
+permanent/EOT notes, including keyword-toggle notes such as `Flying, Trample`, supply
 deathtouch, trample, first/double strike and lifelink (life gain in the same batch).
 Infect, wither or unknown required numbers skip that dealer with an “assign
 manually” floating note. No deaths, movement, prevention or other rules are inferred.

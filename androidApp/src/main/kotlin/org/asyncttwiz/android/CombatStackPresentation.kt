@@ -33,13 +33,14 @@ data class CombatDropRegion(val label: String, val bounds: TableBounds, val dest
 data class CombatGeometry(val width: Float, val height: Float, val cards: List<OccurrenceDrawing>,
     val dividers: List<Float>, val destinations: List<CombatDropRegion>,
     val lanes: List<CombatLaneLabel> = emptyList(), val laneDividers: List<Float> = emptyList(), val labelHeight: Float = 0f)
+/** [accountId] marks a player lane drawn with that player's round avatar icon. */
 data class CombatLaneLabel(val cardId: String?, val label: String, val lines: List<String>, val bounds: TableBounds,
     val artwork: org.asyncttwiz.storage.ArtworkReference? = null, val fontSize: Float = 11.5f,
-    val padding: Float = 2f) {
+    val padding: Float = 2f, val accountId: String? = null) {
     val lineHeight get() = fontSize * 1.25f
     val artworkHeight get() = lineHeight
-    val artworkWidth get() = artworkHeight / 1.4f
-    val textInset get() = if (cardId != null) artworkWidth + 2 * padding else padding
+    val artworkWidth get() = if (accountId != null) artworkHeight else artworkHeight / 1.4f
+    val textInset get() = if (cardId != null || accountId != null) artworkWidth + 2 * padding else padding
 }
 data class StackGeometry(val width: Float, val height: Float, val count: Int,
     val visible: List<OccurrenceDrawing>, val orderedIds: List<String>)
@@ -53,9 +54,23 @@ object CombatStackPresentation {
     fun slotWidth(blockers: Int, attackers: Int, cardWidth: Float) =
         maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
 
+    /** Conservative bold-sans advance estimate (em per character), so a lane never clips its one-line name. */
+    fun laneTextWidth(text: String, fontSize: Float): Float = text.sumOf { c ->
+        when {
+            c in "iIjlf.,:;'!|’ " -> .32
+            c in "rt()[]-" -> .42
+            c in "mwMW" -> .92
+            c.isUpperCase() -> .72
+            c.isDigit() || c.isLetter() && c.code < 128 -> .6
+            else -> 1.0
+        }
+    }.toFloat() * fontSize * 1.06f
+
+    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.padding
+
     fun combat(board: BoardState, cardWidth: Float, cardHeight: Float,
         definitions: List<SubmittedDefinition> = emptyList(), names: Map<String, String> = emptyMap(), viewer: String = "",
-        titleScale: Float = 1f): CombatGeometry {
+        titleScale: Float = 1f, avatars: Map<String, Avatar> = emptyMap()): CombatGeometry {
         require(cardWidth > 0 && cardHeight >= cardWidth)
         val area = board.combat ?: return CombatGeometry(0f, 0f, emptyList(), emptyList(), emptyList())
         val margin = cardGap(cardWidth)
@@ -76,26 +91,27 @@ object CombatStackPresentation {
                 .coerceAtLeast(cardWidth + 2 * padding)
             val targetCard = board.cards.find { it.id == target }
             val hidden = targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
+            val defender = CombatStackRules.defendingPlayer(board)
+            val avatar = if (target == null) avatars[defender]?.takeIf { it.face in 0..15 } else null
+            val name = names[defender] ?: "Player"
             val label = when {
-                target == null -> "→ ${names[CombatStackRules.defendingPlayer(board)] ?: "Player"}"
+                target == null -> if (avatar != null) name else "→ $name"
                 hidden -> "→ Face-down card"
                 else -> definitions.find { it.digest == targetCard?.definition }?.definition?.faces
                     ?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
             }
-            val lane = CombatLaneLabel(target, label, emptyList(), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font)
-            // A single-card target lane still needs a readable name beside its thumbnail.
-            val width = if (target == null) cardSpan else maxOf(cardSpan,
-                font * .8f * minOf(8, label.length) + lane.textInset + lane.padding)
+            val lane = CombatLaneLabel(target, label, listOf(label), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font,
+                artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
+                accountId = defender.takeIf { avatar != null })
+            // Icon and full name always fit on one row; wide lanes widen the area, which then pans.
+            val width = maxOf(cardSpan, laneWidth(lane))
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth) +
                 (width - cardSpan) / members.size
-            val textWidth = width - lane.textInset - lane.padding
-            val columns = (textWidth / (font * .8f)).toInt().coerceAtLeast(1)
-            val lines = combatLabelLines(label, columns)
-            lanes += lane.copy(lines = lines, bounds = lane.bounds.copy(width = width))
+            lanes += lane.copy(bounds = lane.bounds.copy(width = width))
             if (laneX > 0) laneDividers += laneX
             laneX += width
         }
-        val labelHeight = maxOf(cardWidth * .5f, lanes.maxOf { it.lines.size * it.lineHeight + 2 * it.padding })
+        val labelHeight = maxOf(cardWidth * .5f, lanes.maxOf { it.lineHeight + 2 * it.padding })
         var x = 0f
         fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false) {
             // Display grouping can make two visual neighbors nonadjacent in recorded pair order.
@@ -137,7 +153,7 @@ object CombatStackPresentation {
             x += pairWidth
         }
         if (area.pairs.isEmpty()) {
-            x = cardWidth + 2 * padding
+            x = laneX // the default player lane's full name, at least one card slot
             insertion(null, null, x / 2, left = true, right = true)
         } else {
             dividers.forEachIndexed { index, at -> insertion(pairs[index].id, pairs[index + 1].id, at) }
@@ -146,16 +162,6 @@ object CombatStackPresentation {
         }
         return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
             lanes.map { it.copy(bounds = it.bounds.copy(height = labelHeight)) }, laneDividers, labelHeight)
-    }
-
-    private fun combatLabelLines(label: String, columns: Int): List<String> = buildList {
-        var remaining = label
-        while (remaining.length > columns) {
-            val boundary = remaining.lastIndexOf(' ', columns - 1).takeIf { it > 0 }?.plus(1) ?: columns
-            add(remaining.take(boundary))
-            remaining = remaining.drop(boundary)
-        }
-        if (remaining.isNotEmpty()) add(remaining)
     }
 
     fun stack(board: BoardState, cardWidth: Float, cardHeight: Float): StackGeometry {
@@ -226,9 +232,9 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
                     for (x in scene.dividers) drawLine(Color.Black.copy(alpha = if (x in scene.laneDividers) .7f else .22f),
                         Offset(x.dp.toPx(), 0f), Offset(x.dp.toPx(), size.height), (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
                 }
-                for (lane in scene.lanes) Text(lane.lines.joinToString("\n"), Modifier.offset(lane.bounds.x.dp, 0.dp)
+                for (lane in scene.lanes) Text(lane.label, Modifier.offset(lane.bounds.x.dp, 0.dp)
                     .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(lane.padding.dp),
-                    fontSize = lane.fontSize.sp, lineHeight = lane.lineHeight.sp)
+                    fontSize = lane.fontSize.sp, lineHeight = lane.lineHeight.sp, maxLines = 1, softWrap = false)
                 for (region in scene.destinations) {
                     val b = region.bounds
                     Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp)

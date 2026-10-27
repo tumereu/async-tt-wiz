@@ -90,7 +90,9 @@ class CombatStackPresentationTest {
         val commands = CombatCommands()
         val opened = CombatStackController.single(state, combatId(8), PlayAction.Combat(CombatAction.Open), commands::command).prediction
         val scene = CombatStackPresentation.combat(opened.board, 48f, 68f)
-        assertEquals(48f + 2 * CombatStackPresentation.slotMargin(48f), scene.width)
+        // One empty slot, widened so the default player lane fits its full name on one row.
+        assertEquals(maxOf(48f + 2 * CombatStackPresentation.slotMargin(48f),
+            CombatStackPresentation.laneWidth(scene.lanes.single())), scene.width)
         assertEquals(2, scene.destinations.size)
         assertTrue(scene.cards.isEmpty())
         assertTrue(scene.dividers.isEmpty())
@@ -144,7 +146,9 @@ class CombatStackPresentationTest {
         val area = initial.board.combat!!
         for (landscape in listOf(false, true)) for (pairs in listOf(area.pairs, area.pairs.take(1), emptyList())) {
             val state = initial.copy(board = initial.board.copy(combat = area.copy(pairs = pairs)))
-            val geometry = CombatStackPresentation.combat(state.board, 28f, 40f)
+            // Lanes fit their full target name, so the geometry uses the scene's player names.
+            val geometry = CombatStackPresentation.combat(state.board, 28f, 40f, state.definitions,
+                listOf(f.game.inviter, f.game.recipient).associate { it.accountId to it.username }, f.a)
             val home = TablePresentation.scene(f.game, state, f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape)
             val rows = home.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }

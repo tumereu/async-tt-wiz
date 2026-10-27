@@ -314,4 +314,21 @@ class PodScreensTest {
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertCountEquals(0)
         compose.onNodeWithText("Uploading set source and saving pod…").assertDoesNotExist()
     }
+
+    @Test fun waitingTextNamesPlayersHoldingPacksAndGridRoundsWhenKnown() {
+        val carol = AccountIdentity("carol", "Carol")
+        val booster = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(), PodSource("Cube", 540),
+            DraftSupply(90, 540), listOf(PodMember(alice), PodMember(bob, packsWaiting = 2), PodMember(carol)),
+            emptyList(), updatedAt = "now")
+        assertEquals("Waiting for Bob", podWaitingText(booster, alice.accountId))
+        val both = booster.copy(members = booster.members.map { if (it.account == carol) it.copy(packsWaiting = 1) else it })
+        assertEquals("Waiting for Bob, Carol", podWaitingText(both, alice.accountId))
+        val nobody = booster.copy(members = booster.members.map { it.copy(packsWaiting = 0) })
+        assertEquals("Waiting for other players", podWaitingText(nobody, alice.accountId))
+        val board = GridPublicBoard("grid", 3, List(9) { null }, bob.accountId)
+        val grid = booster.copy(settings = DraftSettings.grid(), members = listOf(PodMember(alice), PodMember(bob)),
+            grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(2, 6, false, listOf(alice.accountId, bob.accountId), listOf(board), emptyList()),
+                GridPrivateView(alice.accountId, emptyList(), null)))
+        assertEquals("Waiting for Bob · Round 2 of 6", podWaitingText(grid, alice.accountId))
+    }
 }

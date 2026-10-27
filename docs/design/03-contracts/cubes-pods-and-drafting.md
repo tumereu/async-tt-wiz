@@ -274,11 +274,13 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 └──────────────────────────────┘
 ```
 
-- Pod play tabs (Draft/Build/Stats): no title/hamburger bar in portrait; Back leaves
-  the pod. The unchanged pod overflow menu is a narrow, never-selected last tab.
-  Below the Draft tabs, a slim row shows 28dp avatars
-  with a green check when no packs wait (otherwise a tiny count when it fits),
-  and the column control at the end. No names or status captions.
+- Pod play screens (after setup), portrait and landscape: a 48dp header with a
+  hamburger that opens the navigation drawer as a modal (never a permanent side
+  area), a very small pod title and, under it, 28dp avatars with a green check when
+  no packs wait (otherwise a tiny count when it fits; plain avatars after the
+  draft). On the Draft tab the cards-per-row control sits at the header's end.
+  No names or status captions. The tabs (Draft/Build/Stats/⋮) follow below; the
+  pod overflow menu is a narrow, never-selected last tab. Back leaves the pod.
 - The card list scrolls vertically, including its compact cards-per-row control
   (1 to all; default 3 portrait, 5 landscape; saved per device/orientation).
   Trays and a full-width bottom Confirm stay fixed. No refresh loaders over cached data.
@@ -322,9 +324,11 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
   appear only after all required keeps are marked; unmarking a keep hides them again.
 - **Confirm** is enabled when the counts are exactly right. After Confirm the next
   queued pack appears immediately.
-- No pack waiting: centred “Waiting for other players” at 40% onSurface opacity,
-  without a button; Build stays accessible through its tab.
-- Avatars and compact cards-per-row −/+ icon buttons share one slim row; no
+- No pack waiting: centred, calm “Waiting for Bob, Carol” naming the members who
+  still hold packs (Grid: whose turn it is, plus “· Round 2 of 6”; booster rounds
+  are not in the client data, so only names show), with a borderless **Main menu**
+  link below. No Build button; Build stays accessible through its tab.
+- Avatars and compact cards-per-row −/+ icon buttons share the header; no
   separate column-control row in the card grid. The number has a small columns
   icon; holding icon/number shows “Cards per row” (Build: “Columns”).
 - The private response includes the caller's queued packs and their definitions.
@@ -369,8 +373,10 @@ each with a sticky header and count. Trash starts expanded (it is last).
   the columns. The control is right-aligned on the Main section bar; the separate
   deck-name row wraps without truncation and has a pen icon button. Tinted columns include
   their mana-value headers, with 2dp gaps and 48dp horizontal outer padding,
-  shared by the deck header, section headers and basics row. Widths animate
-  and changed column contents fade.
+  shared by the deck header, section headers and basics row. Cards in one column
+  sit 1dp apart. Widths animate.
+- Section colours: **Main green, Side blue, Trash red**, on the section headers
+  and the swipe projection.
 - A card is in Lands if its (front) face is a land; otherwise by mana value
   (X counts as 0). Within a column: color order W U B R G, multicolor, colorless,
   then name.
@@ -385,7 +391,11 @@ each with a sticky header and count. Trash starts expanded (it is last).
   | Side | Main | Trash |
   | Trash | Main | Side |
 
-  While dragging, the destination shows ("→ Side"); section counts update immediately.
+  While dragging, the card stays in place and a 70%-opaque projection follows the
+  finger, tilting up to 8° and tinted in the destination section's colour (full at
+  the 20dp commit distance). Releasing short of it snaps the projection back.
+  On commit the card fades out where it was and fades in at its new place while
+  cards whose positions change slide there (~250ms); section counts update immediately.
 - **Tap** opens a menu with the two destinations. **Hold** inspects exactly like the
   pick screen: release closes the preview, including for double-faced cards.
 - **Basics**: one compact W/U/B/R/G count row opens one dialog with all five

@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -48,6 +49,77 @@ class PodBuildViewTest {
             compose.runOnIdle { assertEquals("first" to PodDeckRules.swipe(source, PodDeckSwipe.LEFT), moves.last()) }
         }
         assertEquals(6, moves.size)
+    }
+
+    @Test fun swipeProjectionTargetAndColourFollowTheSwipeTable() {
+        assertEquals(PodPickGreen, PodDeckCategory.MAIN.podBuildColor())
+        assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildColor())
+        assertEquals(PodPickRed, PodDeckCategory.TRASH.podBuildColor())
+        for (category in PodDeckCategory.entries) {
+            assertNull(podBuildSwipeTarget(category, 0f))
+            assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.RIGHT), podBuildSwipeTarget(category, 1f))
+            assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.LEFT), podBuildSwipeTarget(category, -1f))
+        }
+        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAIN, 5f))
+        assertEquals(PodDeckCategory.TRASH, podBuildSwipeTarget(PodDeckCategory.MAIN, -5f))
+        assertEquals(PodDeckCategory.MAIN, podBuildSwipeTarget(PodDeckCategory.TRASH, 5f))
+        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.TRASH, -5f))
+    }
+
+    @Test fun cardStaysWhileItsProjectionFollowsTheFingerAndSnapsBackBelowTheThreshold() {
+        compose.setContent { MaterialTheme {
+            Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, true, { id, destination -> moves += id to destination }, {}) }
+        } }
+        compose.mainClock.autoAdvance = false
+        val card = compose.onNodeWithTag("pod-build-card-first")
+        val projection = compose.onNodeWithTag("pod-build-swipe-copy-first")
+        val original = card.fetchSemanticsNode().boundsInRoot
+        card.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(18f, 0f), delayMillis = 16) }
+        compose.mainClock.advanceTimeByFrame()
+        projection.assertExists().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Side"))
+        assertEquals(original, card.fetchSemanticsNode().boundsInRoot)
+        card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(-36f, 0f), delayMillis = 16) }
+        compose.mainClock.advanceTimeByFrame()
+        projection.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Trash"))
+        card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(8f, 0f), delayMillis = 16); up() }
+        compose.mainClock.advanceTimeByFrame()
+        projection.assertExists()
+        compose.mainClock.advanceTimeBy(250)
+        projection.assertDoesNotExist()
+        assertEquals(original, card.fetchSemanticsNode().boundsInRoot)
+        compose.runOnIdle { assertTrue(moves.isEmpty()) }
+
+        card.performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(60f, 0f), delayMillis = 16); up() }
+        compose.mainClock.advanceTimeBy(250)
+        projection.assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
+    }
+
+    @Test fun cardsInOneColumnSitOneDpApartAndAMovedCardFadesOutWhereItWas() {
+        var build by mutableStateOf(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"))))
+        compose.setContent { MaterialTheme {
+            PodBuildView(build, mapOf("first" to DraftCopy("first", "a"), "second" to DraftCopy("second", "b")),
+                mapOf("a" to card, "b" to card.copy(name = "Zed card")), null, true, false,
+                { id, destination -> build = build.copy(copies = build.copies.map { if (it.copyId == id) it.copy(category = destination) else it }) },
+                { _, _ -> }, {})
+        } }
+        val first = compose.onNodeWithTag("pod-build-card-first").getUnclippedBoundsInRoot()
+        val second = compose.onNodeWithTag("pod-build-card-second").getUnclippedBoundsInRoot()
+        assertEquals(first.left, second.left)
+        assertEquals(PodBuildCardGap, second.top - first.bottom)
+        assertEquals(1.dp, PodBuildCardGap)
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("pod-build-card-first").performTouchInput { swipeRight() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeByFrame()
+        compose.runOnIdle { assertEquals(PodDeckCategory.SIDE, build.copies.first().category) }
+        compose.onNodeWithTag("pod-build-leaving-first").assertExists()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithTag("pod-build-leaving-first").assertDoesNotExist()
+        compose.mainClock.autoAdvance = true
+        // The remaining card slid up into the freed place.
+        assertEquals(first.top, compose.onNodeWithTag("pod-build-card-second").getUnclippedBoundsInRoot().top)
+        compose.onNodeWithText("Side 1").assertExists()
     }
 
     @Test fun tapOffersTwoDestinationsAndHoldInspects() {

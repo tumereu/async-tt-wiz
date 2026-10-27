@@ -176,32 +176,50 @@ class NavigationPodsTest {
         compose.onNodeWithTag("pod-member-strip").assertIsDisplayed()
     }
 
-    @Test fun portraitPodPlayTabsUseFullScreenAndKeepOverflowAndBackNavigation() {
+    @Test fun portraitPodPlayHeaderHasModalHamburgerTitleAndAvatarsAboveTabs() = assertPodPlayHeader(false)
+
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun landscapePodPlayUsesTheModalHamburgerInsteadOfASideArea() = assertPodPlayHeader(true)
+
+    private fun assertPodPlayHeader(landscape: Boolean) {
         val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, ScreenFixtures.alex, DraftSettings(),
             PodSource("Cube", 540), DraftSupply(90, 540),
-            listOf(PodMember(ScreenFixtures.alex), PodMember(ScreenFixtures.riley)), emptyList(), updatedAt = "now")
+            listOf(PodMember(ScreenFixtures.alex), PodMember(ScreenFixtures.riley, packsWaiting = 1)), emptyList(), updatedAt = "now")
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.PODS))
         pods.seed(PodState(selected = detail.id, detail = detail))
         lateinit var back: OnBackPressedDispatcher
         compose.setContent { ScreenTheme {
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            AuthenticatedShell(fixtures.auth, false, pods = pods)
+            AuthenticatedShell(fixtures.auth, landscape, pods = pods)
         } }
         for (tab in listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS)) {
             compose.runOnIdle { pods.tab(tab) }
-            compose.onNodeWithContentDescription("Open navigation").assertDoesNotExist()
-            compose.onNodeWithText("Pod").assertDoesNotExist()
-            val tabs = compose.onNodeWithTag("pod-tabs").getUnclippedBoundsInRoot()
             val root = compose.onNodeWithTag("authenticated-identity").getUnclippedBoundsInRoot()
-            assertEquals(root.top, tabs.top)
+            val header = compose.onNodeWithTag("pod-play-header").getUnclippedBoundsInRoot()
+            val tabs = compose.onNodeWithTag("pod-tabs").getUnclippedBoundsInRoot()
+            assertEquals(root.top, header.top)
+            assertEquals(root.left, header.left)
+            assertEquals(root.right, header.right)
+            assertEquals(PodPlayHeaderHeight, header.bottom - header.top)
+            assertEquals(header.bottom, tabs.top)
             assertEquals(root.left, tabs.left)
-            assertEquals(root.right, tabs.right)
+            val menu = compose.onNodeWithContentDescription("Open navigation").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val title = compose.onNodeWithTag("pod-play-title").assertTextEquals("Pod").getUnclippedBoundsInRoot()
+            val avatar = compose.onNodeWithContentDescription("${ScreenFixtures.riley.username}'s avatar").getUnclippedBoundsInRoot()
+            assertTrue(title.left >= menu.right && title.bottom - title.top <= 16.dp)
+            assertTrue(avatar.top >= title.bottom && avatar.left >= menu.right && avatar.bottom <= header.bottom)
             compose.onNodeWithContentDescription("Pod actions").assertIsDisplayed().performClick()
             compose.onNodeWithText("Cancel draft").assertIsDisplayed()
             compose.onNodeWithText("Destroy").assertIsDisplayed()
             compose.onNode(isPopup()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Back) }
         }
+        compose.onNodeWithContentDescription("Open navigation").performClick()
+        compose.runOnIdle { assertTrue(fixtures.auth.state.drawerOpen) }
+        compose.onNodeWithContentDescription("Close navigation").assertIsDisplayed()
+        compose.runOnIdle { back.onBackPressed() }
+        compose.runOnIdle { assertFalse(fixtures.auth.state.drawerOpen); assertEquals("pod", pods.state.selected) }
+        compose.onNodeWithTag("pod-play-header").assertIsDisplayed()
         compose.runOnIdle { back.onBackPressed(); assertNull(pods.state.selected) }
-        compose.onNodeWithText("Pods").assertIsDisplayed()
+        compose.onAllNodesWithText("Pods").onFirst().assertIsDisplayed()
     }
 }

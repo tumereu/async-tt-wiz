@@ -12,6 +12,16 @@ object HandActions {
         val picked = RandomV1.handPick(selectedIds.ifEmpty { hand.cards }, seed)
         return PlayAction.RandomHand(handId, selectedIds, seed, result, picked)
     }
+
+    /** Morph/disguise cast: the hand card itself enters the Stack top FACE DOWN in one move, never a
+     * projection (which would reveal its hand source). Rules v24 keep it face down when it resolves. */
+    fun castFaceDown(state: PlayState, cardId: String): PlayAction.MoveCard {
+        val card = state.board.cards.single { it.id == cardId }
+        val hand = state.board.containers.single { it.id == card.containerId && it.zone == PlayZone.HAND }
+        return PlayAction.MoveCard(card.id, MoveSource(hand.id),
+            MoveDestination(CombatStackRules.stack(state.board).id, MoveInsertion.TOP),
+            expectedStackDigest = GameplayRules.stackDigest(state), faceDown = true)
+    }
 }
 
 internal object HandRules {

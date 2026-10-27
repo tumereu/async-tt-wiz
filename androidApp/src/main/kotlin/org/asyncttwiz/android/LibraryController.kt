@@ -56,6 +56,12 @@ class LibraryController(
         if (!available()) return LibrarySubmission(0, 1)
         return send(listOf(PlayAction.DismissContents(displayId, rest, seed())))
     }
+    /** The top card onto the Battlefield face down in one move, never revealed. */
+    fun manifestTop(): LibrarySubmission {
+        val current = current()?.takeIf { available() } ?: return LibrarySubmission(0, 1)
+        if (current.board.containers.none { it.id == libraryId && it.zone == PlayZone.LIBRARY }) return LibrarySubmission(0, 1)
+        return send(listOfNotNull(SharedLibraryActions.manifestTop(current.board, libraryId)))
+    }
     fun shuffle(): LibrarySubmission {
         if (!available()) return LibrarySubmission(0, 1)
         return send(listOf(PlayAction.ShuffleLibrary(libraryId, seed())))

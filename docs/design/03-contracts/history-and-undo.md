@@ -90,6 +90,11 @@ delta adds the container and the exact inverse removes it, so a later event that
 used the pile blocks undoing the creating move. Temp shuffles/looks/moves reuse the
 Library concerns.
 
+Rules v24 face-down casts and manifests are ordinary moves: they concern the card's
+covered/explicitlyCovered state, and a face-down Stack -> Battlefield resolve or
+manifest concerns the assigned public corner, so a later edit of that corner (or
+turning the card face up) blocks undoing them.
+
 <a id="30-current-undo-model--parent-pointer-navigation-d-159d-160"></a>
 
 ## 3.0 Current Undo/Redo model — editing the mutation tree

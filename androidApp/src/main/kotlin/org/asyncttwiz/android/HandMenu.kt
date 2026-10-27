@@ -10,6 +10,7 @@ internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bou
     val scope = TableScope(bound.contextViewId, ids)
     val moves = basicMoveTools(play, names, enabled, scope, bound.sources.filterKeys { it in ids }, toolkit::handle, toolkit::dismiss)
     return listOf(MenuControl("Play", enabled) { if (toolkit.playHand(ids)) toolkit.dismiss() },
+        MenuControl("Face down", enabled) { if (toolkit.castFaceDown(ids)) toolkit.dismiss() },
         MenuControl("Reveal", enabled && play.board.contentsDisplays.isEmpty()) {
             if (toolkit.submit(PlayAction.RevealHand(hand.id, ids))) toolkit.dismiss()
         }) + moves.filter { it.name in listOf("Graveyard", "Exile", "Library top", "Library bottom", "Shuffle into library") }

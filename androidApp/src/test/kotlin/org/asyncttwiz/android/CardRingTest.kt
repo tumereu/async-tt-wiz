@@ -147,7 +147,7 @@ class CardRingTest {
         val ids = CardRingPages.defaults.flatMap { it.actions } + CardRingPages.hand.flatMap { it.actions }
         val pages = CardRingPages.resolve(ids, inHand = true)
         assertEquals(listOf("Hand", "Random"), pages.map { it.name })
-        assertEquals(listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"), pages[0].actions)
+        assertEquals(listOf("inspect", "Play", "Face down", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"), pages[0].actions)
         assertEquals(listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom"), pages[1].actions)
     }
 

@@ -57,7 +57,7 @@ internal fun menuIcon(name: String): ImageVector {
         n == "declare blockers" -> Icons.Outlined.Shield
         "other side" in n || "reveal" in n -> Icons.Outlined.Visibility
         "inspect" in n || "view" in n || "contents" in n || n.startsWith("look") || n == "search" -> Icons.Outlined.ZoomIn
-        "face down" in n -> Icons.Outlined.Flip
+        "face down" in n || n.startsWith("manifest") -> Icons.Outlined.Flip
         "face up" in n -> Icons.Outlined.FlipToFront
         "printed face" in n || n == "switch face" -> Icons.Outlined.FlipCameraAndroid
         "reset corner" in n || n == "reset counters" -> Icons.Outlined.SettingsBackupRestore

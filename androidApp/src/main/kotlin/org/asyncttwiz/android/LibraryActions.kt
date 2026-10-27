@@ -60,6 +60,10 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             InlinePopupCell(MenuControl("Search", mayOpen) { show(ContentsSelection.ALL, 1) })
             InlinePopupCell(MenuControl("Shuffle", enabled) { finish(controller.shuffle()) })
+            InlinePopupCell(MenuControl("Manifest top", enabled &&
+                board.containers.singleOrNull { it.id == controller.libraryId }?.cards?.isNotEmpty() == true) {
+                finish(controller.manifestTop())
+            }, label = "Manifest")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             InlinePopupCell(MenuControl("Mulligan N…", enabled) { mulligan = true })

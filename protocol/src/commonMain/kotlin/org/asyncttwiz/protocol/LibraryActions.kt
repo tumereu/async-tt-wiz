@@ -271,6 +271,17 @@ object LibraryActions {
             MoveDestination(handId, MoveInsertion.UNORDERED)) }
     }
 
+    /** Manifest: the top card onto its owner's Battlefield main row FACE DOWN (public 2/2), never revealed. */
+    fun manifestTop(board: BoardState, libraryId: String): PlayAction.MoveCard? {
+        val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }
+        val top = library.cards.firstOrNull() ?: return null
+        val field = board.zoneContainer(library.accountId, PlayZone.BATTLEFIELD) ?: return null
+        val occupied = board.cards.filter { it.containerId == field.id }.mapNotNull { it.placement?.position }.toSet()
+        val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 1) !in occupied }
+        return PlayAction.MoveCard(top, MoveSource(libraryId, edge = MoveSourceEdge.TOP),
+            MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(column, 1)), faceDown = true)
+    }
+
     fun moveSlice(board: BoardState, libraryId: String, selection: ContentsSelection, count: Int,
         destination: MoveDestination): List<PlayAction.MoveCard> {
         val library = board.containers.single { it.id == libraryId && it.zone == PlayZone.LIBRARY }

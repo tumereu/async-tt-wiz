@@ -50,7 +50,8 @@ import kotlinx.serialization.json.*
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("moveCard") data class MoveCard(val cardId: String, val source: MoveSource,
         val destination: MoveDestination, val expectedStackDigest: String? = null,
-        /** Null uses zone-entry defaults; only Battlefield-to-Battlefield preserves explicit covering. */
+        /** Null uses zone-entry defaults; Battlefield-to-Battlefield (and, from rules v24, Stack-to-Battlefield)
+         * preserves explicit covering. True also puts a card onto the Stack face down (morph/disguise cast). */
         @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null,
         /** Pulling a top Stack projection moves its source and removes the projection in ONE Undo. */
         @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
@@ -397,12 +398,14 @@ object GameplayRules {
         return record(state, actor, command, next, transition)
     }
 
-    private fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
+    internal fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard,
         // Version 3 preserves Hand order/gaps; version 4 includes temporary hand-projection visibility;
         // version 5 expires reveal knowledge when a card leaves its display;
         // version 6 keeps cards upright outside the Battlefield.
         // Old recorded disclosures must still replay using the visibility rules they were made under.
-        coverRulesVersion: Int = 7): GameplayChange {
+        coverRulesVersion: Int = 7,
+        // Rules v24: a face-down card resolving from the Stack onto the Battlefield stays face down.
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         if (action.removeStackEntryId != null) return moveProjection(state, actor, command, action, coverRulesVersion)
         fun reject(reason: String) = GameplayChange(reason = reason)
         val board = state.board
@@ -513,7 +516,8 @@ object GameplayRules {
         val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
         val leaving = coverRulesVersion >= 7 && source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD
         val faceDown = !hiddenZone && if (leaving) target.zone == PlayZone.EXILE && card.isFaceDown
-            else (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD && target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
+            else (action.faceDown ?: ((source.zone == PlayZone.BATTLEFIELD || rulesVersion >= 24 && source.zone == PlayZone.STACK) &&
+                target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val front = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.firstOrNull()
         val publicFaceDown = FaceDownCorner.transition(source.zone == PlayZone.BATTLEFIELD && card.isFaceDown,
             target.zone == PlayZone.BATTLEFIELD && faceDown)
@@ -572,7 +576,8 @@ object GameplayRules {
             if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null,
             if (stackChanged) stackDigest(state) else null,
             if (stackChanged) stackDigest(state.copy(board = next)) else null, coverRulesVersion))
-        return record(state, actor, command, next, transition, contentsRulesVersion = if (coverRulesVersion >= 5) 2 else 1)
+        return record(state, actor, command, next, transition, contentsRulesVersion = if (coverRulesVersion >= 5) 2 else 1,
+            rulesVersion = rulesVersion)
     }
 
     /** Initial shuffle membership is immutable deck provenance, independent of edited owner/region.

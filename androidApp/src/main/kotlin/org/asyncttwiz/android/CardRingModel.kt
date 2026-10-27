@@ -21,7 +21,7 @@ internal object CardRingPages {
             "keywords", "eotKeywords")))
 
     val hand = listOf(
-        CardRingPage("Hand", listOf("inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
+        CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
         CardRingPage("Random", listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
 
     private fun defaultLayout(available: List<String>, token: Boolean) = defaults.mapIndexed { index, page ->

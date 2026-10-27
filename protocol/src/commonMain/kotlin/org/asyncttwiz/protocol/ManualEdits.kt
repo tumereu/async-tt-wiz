@@ -39,8 +39,10 @@ object ManualText {
 
 /** A permission calculation, not evidence of a logged inspection or a cache-based disclosure grant. */
 object ManualDisclosure {
+    /** The shared Stack has no holder: its real cards (e.g. a face-down cast) count as their owner's. */
     fun ownRegion(state: PlayState, card: PlayCard, viewer: String): Boolean =
-        state.board.containers.singleOrNull { it.id == card.containerId }?.accountId == viewer
+        state.board.containers.singleOrNull { it.id == card.containerId }?.let {
+            it.accountId == viewer || it.zone == PlayZone.STACK && card.owner == viewer } == true
 
     fun permittedFaces(state: PlayState, card: PlayCard, viewer: String, inspecting: Boolean): List<DefinitionFace> {
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()

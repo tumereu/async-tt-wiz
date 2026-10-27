@@ -26,7 +26,7 @@ class R23RulesTest {
 
     private fun card(state: PlayState, n: Int) = state.board.cards.single { it.id == gameplayId(n) }
 
-    @Test fun rulesVersionIs23() = assertEquals(23, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun rulesVersionIsAtLeast23() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 23)
 
     @Test fun coveringABattlefieldCardMakesItAPublic22AndUncoveringRestoresPrinted() {
         val start = gameplayFixture().withBattlefieldCards(gameplayId(10))

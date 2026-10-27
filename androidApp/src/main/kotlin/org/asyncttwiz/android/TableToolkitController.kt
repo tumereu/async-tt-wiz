@@ -164,7 +164,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                     MoveDestination(token.containerId, MoveInsertion.EMPTY, BoardPosition(column, row))), invocation)
             }
         }
-        if (action is PlayAction.MoveCard && action.removeStackEntryId == null && play.board.containers.any {
+        // A face-down cast moves the real card: a projection would reveal its hand source.
+        if (action is PlayAction.MoveCard && action.removeStackEntryId == null && action.faceDown != true && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
             return enqueue(BasicTableController.projection(play, action) ?: return false,
                 invocationId ?: UUID.randomUUID().toString())
@@ -373,6 +374,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             val destination = handPlayDestination(play, card) ?: return@all false
             basic.handle(TableIntent.Move(TableScope(id, listOf(id)), destination,
                 BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
+        }
+    }
+    /** Morph/disguise: every selected own hand card enters the Stack face down, as one batch. */
+    fun castFaceDown(ids: List<String>): Boolean = batchResult {
+        ids.isNotEmpty() && ids.distinct().all { id ->
+            val play = current() ?: return@all false
+            val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
+            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }) return@all false
+            submit(HandActions.castFaceDown(play, id))
         }
     }
     fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {

@@ -59,7 +59,7 @@ class LibraryActionsUiTest {
 
     @Test fun inlineRowsFitAndOneTapActionsUseTopCard() {
         render()
-        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan N…", "Mulligan −1"))
+        for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Manifest top", "Mulligan N…", "Mulligan −1"))
             compose.onNodeWithContentDescription(label).assertIsDisplayed().assertHeightIsAtLeast(48.dp)
         for ((action, zone) in listOf("Draw" to PlayZone.HAND, "Mill" to PlayZone.GRAVEYARD, "Exile" to PlayZone.EXILE)) {
             sent.clear(); click("$action 1")
@@ -75,6 +75,11 @@ class LibraryActionsUiTest {
         assertEquals(listOf<PlayAction>(PlayAction.ShowContents(library.id, ContentsSelection.ALL, 1, false)), sent)
         sent.clear(); click("Shuffle")
         assertEquals(library.id, sent.filterIsInstance<PlayAction.ShuffleLibrary>().single().containerId)
+        sent.clear(); click("Manifest top")
+        val manifest = sent.filterIsInstance<PlayAction.MoveCard>().single()
+        assertEquals(library.cards.first(), manifest.cardId)
+        assertEquals(true, manifest.faceDown)
+        assertEquals("a/BATTLEFIELD", manifest.destination.containerId)
         compose.onNodeWithContentDescription("Reveal all").assertDoesNotExist()
         compose.onNodeWithContentDescription("Bottom").assertDoesNotExist()
         compose.onNodeWithContentDescription("Close").assertDoesNotExist()

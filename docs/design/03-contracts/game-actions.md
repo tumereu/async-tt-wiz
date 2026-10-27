@@ -384,6 +384,15 @@ values may be printed defaults. Exception (rules v23): a face-down Battlefield c
 damage and notes are visible to and editable by both players. Turning it face up
 resets the corner to the shown face's printed default; other marks stay.
 
+Face-down casting (rules v24): Hand menu "Face down" moves the selected own hand
+cards themselves (not projections, which would reveal a hand source) onto the
+Stack top face down, one batch (`MoveCard` with `faceDown = true`). A face-down
+card moving Stack -> Battlefield without an explicit `faceDown` stays face down
+and gets the public 2/2 (every resolve path: bubbles, Manage Stack, drag); other
+destinations from the Stack turn it face up as before. Library menu "Manifest top"
+moves the top card onto its owner's Battlefield main row face down (2/2) in one
+move. No step discloses the face. Retained v23 events replay as recorded.
+
 Temp pile (rules v23): each player has one hidden "Temp" pile (a LIBRARY-zone
 container flagged `temp`, never that player's Library) for effects such as "put
 your graveyard on the bottom of your library in random order". It is created by

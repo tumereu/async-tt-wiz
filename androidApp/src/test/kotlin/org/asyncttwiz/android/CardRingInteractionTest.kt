@@ -59,7 +59,7 @@ class CardRingInteractionTest {
         render(play = play, contextId = hand.cards.first())
         compose.onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
         compose.onNodeWithContentDescription("Hand page").performClick()
-        for (name in listOf("Inspect", "Play", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"))
+        for (name in listOf("Inspect", "Play", "Face down", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"))
             compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
         for (name in listOf("Set corner", "Edit card note", "Declare without tapping", "Set damage", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()

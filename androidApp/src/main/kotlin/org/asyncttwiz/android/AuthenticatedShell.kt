@@ -173,8 +173,8 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                     .gameRowActions(lobby!!, game) { lobby.open(game.id); controller.drawer(false) }
                     .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
                     color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
-                    Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Avatar(game.opponent(controller.state.account!!.accountId))
                         Column(Modifier.weight(1f)) {
                             Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -201,11 +201,10 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                             .clickable { pods!!.open(pod.id); controller.navigate(ShellDestination.PODS) }
                             .semantics { selected = selectedPod }, shape = MaterialTheme.shapes.extraLarge,
                             color = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
-                            Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    pod.members.take(3).forEach { Avatar(it) }
-                                }
+                            Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AvatarStack(podNavigationAvatars(pod.members, controller.state.account?.accountId),
+                                    ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White)
                                 Column(Modifier.weight(1f)) {
                                     Text(pod.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                     Text(podStatus(pod), style = MaterialTheme.typography.bodySmall,

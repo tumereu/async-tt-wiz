@@ -114,6 +114,16 @@ class AvatarTest {
         assertEquals("?", avatarInitial(""))
     }
 
+    @Test fun podNavigationShowsOtherMembersAsCompactStack() {
+        val me = AccountIdentity("me", "Me")
+        val others = (1..4).map { AccountIdentity("o$it", "Other $it") }
+        assertEquals(AvatarStackContent(listOf(me), 0), podNavigationAvatars(listOf(me), "me"))
+        assertEquals(AvatarStackContent(others.take(1), 0), podNavigationAvatars(listOf(me, others[0]), "me"))
+        assertEquals(AvatarStackContent(others.take(2), 0), podNavigationAvatars(listOf(others[0], me, others[1]), "me"))
+        assertEquals(AvatarStackContent(others.take(2), 2), podNavigationAvatars(listOf(me) + others, "me"))
+        assertEquals(AvatarStackContent(emptyList(), 0), podNavigationAvatars(emptyList(), "me"))
+    }
+
     @Test fun unavailableArtworkStillShowsInitial() {
         compose.setContent { MaterialTheme { Avatar(AccountIdentity("stable", "Bob", AvatarIdentity("unavailable"))) } }
         compose.onNodeWithText("B").assertIsDisplayed()

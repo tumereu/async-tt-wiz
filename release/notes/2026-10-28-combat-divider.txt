@@ -1,0 +1,1 @@
+fix: In combat, the line between attack targets no longer cuts through the target name.

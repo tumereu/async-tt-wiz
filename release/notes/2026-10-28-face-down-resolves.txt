@@ -1,0 +1,1 @@
+mod: Playing a card face down from your hand puts it straight onto the battlefield.

@@ -1,0 +1,1 @@
+fix: Your opponent can no longer peek at the front of your face-down cards.

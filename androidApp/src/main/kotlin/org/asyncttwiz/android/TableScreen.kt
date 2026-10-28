@@ -53,7 +53,9 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
     val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
     val changes: TableChanges? = null, val ownPodDeckName: String? = null,
-    val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null)
+    val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
+    /** History lookup for personal status bubble hides; see [StatusBubbleRules]. */
+    val statusHistory: ((String) -> GameplayMutation?)? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -116,6 +118,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 nodes = playback?.tree?.nodes.orEmpty())
         }
     }
+    val reviewNodes = playback?.tree?.nodes
+    val liveNodes = displayTree?.nodes
+    val statusHistory = remember(reviewNodes, liveNodes) { { id: String -> reviewNodes?.get(id) ?: liveNodes?.get(id) } }
     var loadTimedOut by remember(game.id) { mutableStateOf(false) }
     var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
     LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {
@@ -262,7 +267,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                         !controller.acceptResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
                                     else history.cancelContinuation()
                                }),
-                          ownPodDeckName = state.ownPodDeckName,
+                          ownPodDeckName = state.ownPodDeckName, statusHistory = statusHistory,
                           liveView = position?.mode == HistoryMode.LIVE, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },

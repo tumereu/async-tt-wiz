@@ -43,6 +43,10 @@ internal fun menuIcon(name: String): ImageVector {
         n == "ready" -> Icons.Outlined.CheckCircleOutline
         n == "edit status" -> Icons.Outlined.Edit
         n == "clear status" -> Icons.Outlined.Close
+        n == "hide status bubble" -> Icons.Outlined.VisibilityOff
+        n == "show status bubble" -> Icons.Outlined.Visibility
+        n == "mute status bubble" -> Icons.Outlined.CommentsDisabled
+        n == "unmute status bubble" -> Icons.Outlined.ChatBubbleOutline
         // Single-value P/T steps ("+1/+0", "EOT −1/−0", ...): the sign of the changed value picks the icon.
         Regex("""(eot )?[+−-][01]/[+−-][01]""").matches(n) ->
             if (n.removePrefix("eot ").split("/").any { it == "+1" }) Icons.Outlined.ExposurePlus1 else Icons.Outlined.ExposureNeg1

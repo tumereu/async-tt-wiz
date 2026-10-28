@@ -1,0 +1,1 @@
+add: Tap a life total to hide a player's status bubble until they set a new one, or mute it to a small dot for this game.

@@ -56,8 +56,47 @@ internal fun PreparedTransfer.inverse(): PreparedTransfer {
     return copy(source = target, entries = entries.map { it.copy(section = target) })
 }
 
-/** A row swipe moves one copy once it travels [threshold] in either direction; shorter swipes spring back. */
-internal fun preparationSwipeThreshold(rowWidth: Float, maximum: Float): Float = minOf(rowWidth * .35f, maximum)
+/** A tile swipe moves one copy once it travels [threshold] in either direction; shorter swipes spring back. */
 internal fun preparationSwipeCommits(offset: Float, threshold: Float): Boolean = threshold > 0f && kotlin.math.abs(offset) >= threshold
 internal fun preparationSwipeProgress(offset: Float, threshold: Float): Float =
     if (threshold <= 0f) 0f else (kotlin.math.abs(offset) / threshold).coerceIn(0f, 1f)
+
+/** Type groups of the preparation view, in display order; a card joins the first one its front type line names. */
+internal enum class PreparationTypeGroup(val label: String, val type: String?) {
+    CREATURES("Creatures", "Creature"), PLANESWALKERS("Planeswalkers", "Planeswalker"), BATTLES("Battles", "Battle"),
+    INSTANTS("Instants", "Instant"), SORCERIES("Sorceries", "Sorcery"), ARTIFACTS("Artifacts", "Artifact"),
+    ENCHANTMENTS("Enchantments", "Enchantment"), LANDS("Lands", "Land"), OTHER("Other", null)
+}
+
+/** Card types only: subtypes after a dash and later faces never decide the group. */
+internal fun preparationTypeGroup(typeLine: String): PreparationTypeGroup {
+    val types = typeLine.substringBefore("//").substringBefore('—').substringBefore(" - ")
+        .split(' ', '\t').filter { it.isNotBlank() }.map { it.lowercase() }.toSet()
+    return PreparationTypeGroup.entries.firstOrNull { group -> group.type?.lowercase()?.let { it in types } == true }
+        ?: PreparationTypeGroup.OTHER
+}
+
+/** One tile: every copy of one card in one section. */
+internal data class PreparationTile(val digest: String, val definition: CardDefinition?, val quantity: Long) {
+    val name get() = definition?.name ?: "Card"
+}
+internal data class PreparationGroup(val type: PreparationTypeGroup, val tiles: List<PreparationTile>) {
+    val count get() = tiles.sumOf { it.quantity }
+}
+
+/** A section's moved cards (not stepper-supplied basics) by type group; empty groups are left out, tiles by name. */
+internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
+    definitions: Map<String, CardDefinition>): List<PreparationGroup> {
+    val tiles = deck.entries.filter { it.section == section && it.suppliedBasic == null }.groupBy { it.definition }
+        .map { (digest, entries) -> PreparationTile(digest, definitions[digest], entries.sumOf { it.quantity.toLong() }) }
+        .filter { it.quantity > 0 }
+    val byGroup = tiles.groupBy { preparationTypeGroup(it.definition?.faces?.firstOrNull()?.typeLine.orEmpty()) }
+    return PreparationTypeGroup.entries.mapNotNull { group ->
+        byGroup[group]?.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, PreparationTile::name).thenBy { it.digest })
+            ?.let { PreparationGroup(group, it) }
+    }
+}
+
+/** Tiles per row: as many of at least [minimum] wide as fit with [gap] between them, never fewer than one. */
+internal fun preparationColumns(width: Float, minimum: Float, gap: Float): Int =
+    if (minimum <= 0f) 1 else ((width + gap) / (minimum + gap)).toInt().coerceAtLeast(1)

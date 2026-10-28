@@ -24,12 +24,62 @@ class PreparationPresentationTest {
     }
 
     @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
-        val threshold = preparationSwipeThreshold(1000f, 300f)
-        assertEquals(300f, threshold); assertEquals(70f, preparationSwipeThreshold(200f, 300f))
-        assertFalse(preparationSwipeCommits(299f, threshold)); assertFalse(preparationSwipeCommits(-299f, threshold))
-        assertTrue(preparationSwipeCommits(300f, threshold)); assertTrue(preparationSwipeCommits(-450f, threshold))
-        assertFalse(preparationSwipeCommits(10f, preparationSwipeThreshold(0f, 300f))) // Unmeasured rows never move.
-        assertEquals(.5f, preparationSwipeProgress(-150f, threshold)); assertEquals(1f, preparationSwipeProgress(900f, threshold))
+        val threshold = 60f
+        assertFalse(preparationSwipeCommits(59f, threshold)); assertFalse(preparationSwipeCommits(-59f, threshold))
+        assertTrue(preparationSwipeCommits(60f, threshold)); assertTrue(preparationSwipeCommits(-450f, threshold))
+        assertFalse(preparationSwipeCommits(10f, 0f)) // An unmeasured threshold never moves.
+        assertEquals(.5f, preparationSwipeProgress(-30f, threshold)); assertEquals(1f, preparationSwipeProgress(900f, threshold))
+    }
+
+    @Test fun cardTypesUseTheFirstMatchingGroupFromTheFrontTypeLineOnly() {
+        assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Artifact Creature — Golem"))
+        assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Enchantment Creature - God"))
+        assertEquals(PreparationTypeGroup.PLANESWALKERS, preparationTypeGroup("Legendary Planeswalker — Jace"))
+        assertEquals(PreparationTypeGroup.BATTLES, preparationTypeGroup("Battle — Siege"))
+        assertEquals(PreparationTypeGroup.INSTANTS, preparationTypeGroup("Kindred Instant — Elf"))
+        assertEquals(PreparationTypeGroup.SORCERIES, preparationTypeGroup("Sorcery"))
+        assertEquals(PreparationTypeGroup.ARTIFACTS, preparationTypeGroup("Artifact Land"))
+        assertEquals(PreparationTypeGroup.ENCHANTMENTS, preparationTypeGroup("Enchantment — Aura"))
+        assertEquals(PreparationTypeGroup.LANDS, preparationTypeGroup("Basic Land — Forest"))
+        assertEquals(PreparationTypeGroup.INSTANTS, preparationTypeGroup("Instant // Sorcery"))
+        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup("Conspiracy"))
+        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup(""))
+        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
+    }
+
+    @Test fun groupsFollowTypeOrderSkipEmptyGroupsSortByNameAndLeaveSuppliedBasicsToSteppers() {
+        fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
+            .let { SubmittedDefinition(DeckJson.digest(it), it) }
+        val zebra = card("Zebra Scout", "Creature — Horse"); val ant = card("ant Soldier", "Creature — Insect")
+        val bolt = card("Bolt", "Instant"); val forest = card("Forest", "Basic Land — Forest")
+        val swamp = card("Swamp", "Basic Land — Swamp")
+        val definitions = listOf(zebra, ant, bolt, forest, swamp).associate { it.digest to it.definition }
+        val deck = PreparedDeck(id(), id(), "1", "Deck", null, id(), listOf(
+            PreparedEntry(forest.digest, SavedDeckSection.MAINBOARD, "0", 7),
+            PreparedEntry(zebra.digest, SavedDeckSection.MAINBOARD, "7", 2),
+            PreparedEntry(bolt.digest, SavedDeckSection.MAINBOARD, "9", 1),
+            PreparedEntry(ant.digest, SavedDeckSection.MAINBOARD, "10", 1),
+            PreparedEntry(zebra.digest, SavedDeckSection.MAINBOARD, "11", 1),
+            PreparedEntry(swamp.digest, SavedDeckSection.MAINBOARD, "12", 5, BasicLand.SWAMP),
+            PreparedEntry(bolt.digest, SavedDeckSection.SIDEBOARD, "17", 3)))
+        val main = preparationGroups(deck, SavedDeckSection.MAINBOARD, definitions)
+        assertEquals(listOf(PreparationTypeGroup.CREATURES, PreparationTypeGroup.INSTANTS, PreparationTypeGroup.LANDS), main.map { it.type })
+        assertEquals(listOf("ant Soldier" to 1L, "Zebra Scout" to 3L), main[0].tiles.map { it.name to it.quantity })
+        assertEquals(4L, main[0].count)
+        assertEquals(listOf("Forest" to 7L), main[2].tiles.map { it.name to it.quantity }) // Ordinary basics are tiles; supplied ones are not.
+        val side = preparationGroups(deck, SavedDeckSection.SIDEBOARD, definitions)
+        assertEquals(listOf(PreparationGroup(PreparationTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 3)))), side)
+        val unknown = deck.copy(entries = listOf(PreparedEntry("missing", SavedDeckSection.SIDEBOARD, "0", 2)))
+        assertEquals(listOf(PreparationTypeGroup.OTHER to "Card"), preparationGroups(unknown, SavedDeckSection.SIDEBOARD, definitions)
+            .map { it.type to it.tiles.single().name })
+        assertTrue(preparationGroups(unknown, SavedDeckSection.MAINBOARD, definitions).isEmpty())
+    }
+
+    @Test fun tilesFitAtLeastTheMinimumWidthAndAlwaysOnePerRow() {
+        assertEquals(4, preparationColumns(380f, 80f, 4f)) // Portrait phone.
+        assertEquals(10, preparationColumns(860f, 80f, 4f)) // Landscape phone.
+        assertEquals(1, preparationColumns(40f, 80f, 4f))
+        assertEquals(2, preparationColumns(164f, 80f, 4f))
     }
 
     @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {

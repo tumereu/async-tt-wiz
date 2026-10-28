@@ -467,7 +467,7 @@ internal fun PodBuildCard(
 
 /** A non-touchable window escapes the list's clipping, like the pick screen's swipe copy. */
 @Composable
-private fun PodBuildSwipeCopy(
+internal fun PodBuildSwipeCopy(
     key: String, reference: ArtworkReference?, name: String, width: Int, drag: Float, progress: Float,
     target: PodDeckCategory,
 ) {

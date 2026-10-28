@@ -76,8 +76,26 @@ class LobbyPodPolishTest {
         try {
             compose.setContent { ScreenTheme { PreparationScreen(fixture.lobby, "a", false) } }
             compose.onNodeWithContentDescription("Add Forest").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Inspect Meadow Sentinel in Mainboard").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Inspect Aegis Ward in Mainboard").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Meadow Sentinel, 3 copies, Mainboard").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Aegis Ward, 4 copies, Mainboard").assertIsDisplayed()
+        } finally { fixture.lobby.close() }
+    }
+
+    @Test fun preparationShowsBothSectionsInOneScrollWithTypeGroupsAndATapMenu() {
+        val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }
+        try {
+            compose.setContent { ScreenTheme { PreparationScreen(fixture.lobby, "a", false) } }
+            compose.onNodeWithText("Mainboard · 59").assertIsDisplayed()
+            compose.onNodeWithText("Creatures · 59").assertIsDisplayed()
+            val tile = compose.onNodeWithContentDescription("Meadow Sentinel, 3 copies, Mainboard").assertIsDisplayed()
+            assertEquals(listOf("Move one Meadow Sentinel to Sideboard", "Move all Meadow Sentinel to Sideboard", "Inspect Meadow Sentinel"),
+                tile.fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label })
+            tile.performTouchInput { click() }
+            compose.onNodeWithText("Move one to Sideboard").assertIsDisplayed()
+            compose.onNodeWithText("Move all 3 to Sideboard").assertIsDisplayed()
+            compose.onNodeWithText("Inspect").assertIsDisplayed()
+            compose.onNodeWithTag("preparation").performScrollToNode(hasText("Sideboard · 16"))
+            compose.onNodeWithText("Sideboard · 16").assertIsDisplayed()
         } finally { fixture.lobby.close() }
     }
 

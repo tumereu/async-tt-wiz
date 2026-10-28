@@ -44,7 +44,8 @@ import java.time.format.FormatStyle
 internal fun gameDate(game: GameSummary): String = runCatching {
     DateTimeFormatter.ofPattern("d MMM uuuu").withZone(ZoneId.systemDefault()).format(Instant.parse(game.createdAt))
 }.getOrDefault("")
-internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play" else when (game.invitationState) {
+internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
+    else if (game.invitationHeld) "Waiting for ${game.recipient.username}'s deck" else when (game.invitationState) {
     InvitationState.PENDING -> "Invitation pending"
     InvitationState.DECLINED -> "Invitation declined"
     InvitationState.ACCEPTED -> "Preparing"

@@ -115,7 +115,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             attentionHolder,
-            game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName)
+            game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
     }
 
     fun list(principal: AccountService.Principal, after: String?, invitations: Boolean): Result {
@@ -123,7 +123,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val actor = owner(principal)
-            val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
+            val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING")).and(GAME.POD_INVITATION_HELD.isFalse)
                 else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED")))
             val ids = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))

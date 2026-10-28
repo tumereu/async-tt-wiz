@@ -42,7 +42,9 @@ class GameService(private val runtime: ServiceRuntime) {
     }.getOrThrow()
     private fun authorize(game: GameRecord?, actor: UUID, recovery: Boolean = false): GameRecord {
         if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||
-            (!recovery && game.lifecycle !in listOf("LOBBY", "ACTIVE")))
+            (!recovery && game.lifecycle !in listOf("LOBBY", "ACTIVE")) ||
+            // A held pod challenge does not exist for its recipient until they submit their deck.
+            (game.podInvitationHeld == true && actor == game.recipientId))
             throw GameProtocolFailure("accessDenied")
         return game
     }
@@ -458,7 +460,7 @@ class GameService(private val runtime: ServiceRuntime) {
         val invitation = sql.selectFrom(INVITATION).where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
         when (command.action) {
             GameAction.AcceptInvitation, GameAction.DeclineInvitation -> {
-                if (account != game.recipientId) return "accessDenied"
+                if (account != game.recipientId || game.podInvitationHeld == true) return "accessDenied"
                 if (invitation.state != "PENDING") return "inapplicable"
                 if (command.action == GameAction.AcceptInvitation)
                     PodService(runtime).acceptChallenge(sql, lobby.summary(sql, game.id!!), command.requestId)

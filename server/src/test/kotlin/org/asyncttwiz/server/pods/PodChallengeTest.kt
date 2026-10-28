@@ -2,6 +2,7 @@ package org.asyncttwiz.server.pods
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
@@ -9,6 +10,7 @@ import org.asyncttwiz.server.cubes.CubeService
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.OwnedPostgres
 import org.asyncttwiz.server.decks.DeckService
+import org.asyncttwiz.server.game.GameProtocolFailure
 import org.asyncttwiz.server.game.GameService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -130,7 +132,8 @@ class PodChallengeTest {
         assertEquals(400, f.pods.challenge(f.a, pod, input(f.a.account.accountId)).status)
         assertEquals(409, f.pods.challenge(f.a, pod, input()).status)
         f.submit(f.a, pod)
-        assertEquals(409, f.pods.challenge(f.a, pod, input()).status)
+        // The challenger must have submitted; the opponent may still be building.
+        assertEquals(409, f.pods.challenge(f.b, pod, input(f.a.account.accountId)).status)
         f.submit(f.b, pod)
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(gameName = " ")).status)
         assertEquals(400, f.pods.challenge(f.a, pod, input().copy(basicDefinitions = basics.drop(1))).status)
@@ -327,5 +330,58 @@ class PodChallengeTest {
         assertEquals(200, f.pods.leave(f.b, pod, PodRequest(id())).status)
         assertEquals(404, f.pods.read(f.a, pod).status); assertEquals(404, f.lobby.head(f.a, ab.id).status)
         assertEquals(200, f.lobby.head(f.c, accepted.id).status)
+    }
+
+    @Test fun `challenge before the opponent submits is held until they submit then plays through to a started game`() = fixture { f ->
+        val pod = f.pod(sideboardLimit = 3)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        fun invitations(who: AccountService.Principal) = activity.page(who, "0").entries.filter { it.kind == ActivityKind.INVITATION }
+        f.submit(f.a, pod)
+        val game = f.challenge(pod)
+        assertTrue(game.invitationHeld)
+        assertFalse(json.encodeToString(game.copy(invitationHeld = false)).contains("invitationHeld")) // Older clients never see it.
+        // The recipient cannot see, open, accept or be notified about the held challenge.
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.isEmpty())
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.isEmpty())
+        assertEquals(404, f.lobby.head(f.b, game.id).status)
+        assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { f.stream(f.b, game) }.code)
+        assertTrue(invitations(f.b).isEmpty())
+        // The challenger sees it, prepares and gets ready meanwhile.
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.single().invitationHeld)
+        val owner = f.stream(f.a, game)
+        val deck = f.preparation(game).players.single { it.accountId == f.a.account.accountId }.deck!!
+        val card = deck.entries.first { it.section == SavedDeckSection.MAINBOARD && it.suppliedBasic == null }
+        assertEquals("accepted", owner.execute(GameAction.TransferPreparedCard(deck.id, deck.card(card, 0).id, card.firstIndex, card.section)).outcome)
+        assertEquals("accepted", owner.execute(GameAction.Ready).outcome)
+        assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, game.id).summary.lifecycle)
+
+        f.submit(f.b, pod)
+        val released = json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single()
+        assertEquals(game.id, released.id); assertFalse(released.invitationHeld)
+        assertFalse(json.decodeFromString<GameSummary>(f.lobby.head(f.a, game.id).body).invitationHeld)
+        assertEquals(game.id, invitations(f.b).single().gameId)
+        val recipient = f.stream(f.b, game)
+        assertEquals("accepted", recipient.execute(GameAction.AcceptInvitation).outcome)
+        assertTrue(f.preparation(game).players.single { it.accountId == f.a.account.accountId }.ready)
+        val theirs = f.preparation(game).players.single { it.accountId == f.b.account.accountId }.deck!!
+        val theirCard = theirs.entries.first { it.section == SavedDeckSection.MAINBOARD && it.suppliedBasic == null }
+        assertEquals("accepted", recipient.execute(GameAction.TransferPreparedCard(theirs.id, theirs.card(theirCard, 0).id,
+            theirCard.firstIndex, theirCard.section)).outcome)
+        assertEquals("accepted", recipient.execute(GameAction.Ready).outcome)
+        val started = f.games.head(f.a, game.id)
+        assertEquals(GameLifecycle.ACTIVE, started.summary.lifecycle)
+        assertEquals(80, started.play!!.board.cards.size) // Each main lost one card to the side.
+    }
+
+    @Test fun `held challenges are withdrawn when either player leaves and released per recipient`() = fixture { f ->
+        val pod = f.pod(three = true)
+        f.submit(f.a, pod)
+        val ab = f.challenge(pod); val ac = f.challenge(pod, opponent = f.c)
+        assertEquals(200, f.pods.leave(f.b, pod, PodRequest(id())).status)
+        assertEquals(404, f.lobby.head(f.a, ab.id).status)
+        assertEquals(200, f.lobby.head(f.a, ac.id).status)
+        f.submit(f.c, pod)
+        assertEquals(ac.id, json.decodeFromString<GameList>(f.lobby.list(f.c, null, true).body).games.single().id)
+        assertEquals("accepted", f.stream(f.c, ac).execute(GameAction.AcceptInvitation).outcome)
     }
 }

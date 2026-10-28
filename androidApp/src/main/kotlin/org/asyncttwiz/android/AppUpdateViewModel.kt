@@ -122,6 +122,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         problem = AppUpdateProblem("Could not open a browser for the download.", browserFallback = false)
     }
     val browserDownload get() = "$origin/app/apk"
+    val githubDownload get() = release?.githubUrl
     fun awaitingPermission(value: Boolean) { preferences.edit().putBoolean("awaiting-permission", value).apply() }
     fun permissionReturned(allowed: Boolean) {
         val awaiting = preferences.getBoolean("awaiting-permission", false)

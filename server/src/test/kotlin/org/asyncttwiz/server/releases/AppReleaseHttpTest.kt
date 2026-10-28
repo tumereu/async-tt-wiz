@@ -67,6 +67,27 @@ class AppReleaseHttpTest {
         }
     }
 
+    @Test fun `metadata with a GitHub mirror link is served unchanged and only an https link is accepted`() {
+        val apk = ByteArray(1_000) { (it % 251).toByte() }
+        val hash = MessageDigest.getInstance("SHA-256").digest(apk).joinToString("") { "%02x".format(it) }
+        Files.write(directory.resolve("$hash.apk"), apk)
+        val github = "https://github.com/tumereu/async-tt-wiz/releases/download/v1.2.3/async-tabletop-wizards-1.2.3.apk"
+        fun metadata(url: String) = """{"versionCode":42,"versionName":"1.2.3","sha256":"$hash","size":${apk.size},"githubUrl":$url}"""
+        withServer(AppReleaseHttp(directory)) { get ->
+            Files.writeString(directory.resolve("latest.json"), metadata("\"$github\""))
+            val latest = get("/app/latest")
+            assertEquals(200, latest.statusCode())
+            assertEquals(metadata("\"$github\""), latest.body().toString(Charsets.UTF_8))
+            assertEquals(200, get("/app/apk").statusCode())
+            listOf("\"http://github.com/a.apk\"", "\"https://github.com/${"a".repeat(500)}\"", "\"https:///a.apk\"",
+                "\"not a url\"", "42", "null").forEach {
+                Files.writeString(directory.resolve("latest.json"), metadata(it))
+                assertEquals(404, get("/app/latest").statusCode(), it)
+                assertEquals(404, get("/app/apk").statusCode(), it)
+            }
+        }
+    }
+
     @Test fun `unset directory returns not found`() {
         withServer(AppReleaseHttp(null)) { get ->
             assertEquals(404, get("/app/latest").statusCode())

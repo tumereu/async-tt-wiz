@@ -41,6 +41,15 @@ class AppUpdateTest {
         }
     }
 
+    @Test fun `metadata keeps only a valid https GitHub mirror link`() {
+        val text = """{"versionCode":42,"versionName":"1.2.3","sha256":"${release.sha256}","size":100,"githubUrl":"URL"}"""
+        val github = "https://github.com/tumereu/async-tt-wiz/releases/download/v1.2.3/async-tabletop-wizards-1.2.3.apk"
+        assertEquals(release.copy(githubUrl = github), AppRelease.parse(text.replace("URL", github)))
+        listOf("http://github.com/a.apk", "javascript:alert(1)", "https:///a.apk", "https://github.com/" + "a".repeat(500), "")
+            .forEach { assertEquals(release, AppRelease.parse(text.replace("URL", it))) }
+        assertEquals(release, AppRelease.parse(text.replace("\"URL\"", "42")))
+    }
+
     @Test fun `APK requires exact length and SHA256 including cache hits`() {
         val file = File.createTempFile("atw-update", ".apk")
         try {

@@ -6,9 +6,11 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
+import java.net.URI
 import java.net.UnknownHostException
 import java.security.MessageDigest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.int
@@ -16,7 +18,9 @@ import kotlinx.serialization.json.long
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-data class AppRelease(val versionCode: Int, val versionName: String, val sha256: String, val size: Long) {
+/** [githubUrl] is the same APK mirrored on GitHub Releases, offered as a second browser download. */
+data class AppRelease(val versionCode: Int, val versionName: String, val sha256: String, val size: Long,
+    val githubUrl: String? = null) {
     companion object {
         fun parse(text: String): AppRelease {
             require(text.length <= 16_384)
@@ -24,11 +28,16 @@ data class AppRelease(val versionCode: Int, val versionName: String, val sha256:
             return AppRelease(json.getValue("versionCode").jsonPrimitive.int,
                 json.getValue("versionName").jsonPrimitive.content,
                 json.getValue("sha256").jsonPrimitive.content,
-                json.getValue("size").jsonPrimitive.long).also {
+                json.getValue("size").jsonPrimitive.long,
+                // A bad mirror link only drops that link; the update itself still comes from the server.
+                (json["githubUrl"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf(::isHttpsUrl)).also {
                 require(it.versionCode > 0 && it.versionName.isNotBlank() && it.versionName.length <= 100)
                 require(it.sha256.matches(Regex("[0-9a-f]{64}")) && it.size in 1..536_870_912L)
             }
         }
+
+        private fun isHttpsUrl(url: String) = url.length <= 500 &&
+            runCatching { URI(url).let { it.scheme == "https" && !it.host.isNullOrEmpty() } }.getOrDefault(false)
     }
 }
 

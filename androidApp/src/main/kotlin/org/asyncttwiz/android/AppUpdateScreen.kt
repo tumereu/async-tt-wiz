@@ -2,39 +2,67 @@ package org.asyncttwiz.android
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.io.File
 
 /** The entry point replaces account/game UI with this screen while blocked. */
 @Composable
 fun AppUpdateScreen(updates: AppUpdateViewModel, install: (File) -> Unit) {
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(updates.error) {
-        updates.error?.let { snackbar.showSnackbar(it); updates.dismissError() }
-    }
+    val uris = LocalUriHandler.current
     LaunchedEffect(updates.installation) {
         updates.installation?.let { updates.consumeInstallation(); install(it) }
+    }
+    if (updates.downloading) {
+        // A large download over mobile data must not be cut off by the screen turning off.
+        val view = LocalView.current
+        DisposableEffect(view) { view.keepScreenOn = true; onDispose { view.keepScreenOn = false } }
     }
     when {
         updates.required -> {
             BackHandler { }
             Surface(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize()) {
-                    Column(Modifier.align(Alignment.Center).padding(24.dp),
+                // Scrolls when the failure help doesn't fit, e.g. on a landscape phone.
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxWidth().heightIn(min = maxHeight).verticalScroll(rememberScrollState()).padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
                         Text("Update required", style = MaterialTheme.typography.headlineMedium)
                         Text(updates.release?.versionName.orEmpty(), style = MaterialTheme.typography.titleLarge)
                         Button(onClick = updates::update, enabled = !updates.downloading) { Text("Update") }
-                        Box(Modifier.width(240.dp).height(24.dp), contentAlignment = Alignment.Center) {
-                            if (updates.downloading) LinearProgressIndicator(progress = { updates.progress }, modifier = Modifier.fillMaxWidth())
+                        Column(Modifier.width(240.dp).heightIn(min = 24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (updates.downloading) {
+                                LinearProgressIndicator(progress = { updates.progress }, modifier = Modifier.fillMaxWidth())
+                                updates.release?.let { release ->
+                                    val total = release.size / 1_000_000
+                                    Text("${(updates.progress * total).toInt()} / $total MB", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        updates.problem?.let { problem ->
+                            Text(problem.message, Modifier.widthIn(max = 360.dp), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                            problem.detail?.let {
+                                Text(it, Modifier.widthIn(max = 360.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (problem.browserFallback) {
+                                OutlinedButton(onClick = {
+                                    runCatching { uris.openUri(updates.browserDownload) }.onFailure { updates.browserFailed() }
+                                }, enabled = !updates.downloading) { Text("Download in browser") }
+                                Text("Then open the downloaded file and install it. No need to uninstall this app first.",
+                                    Modifier.widthIn(max = 360.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                            }
                         }
                     }
-                    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
                 }
             }
         }

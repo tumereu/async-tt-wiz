@@ -37,7 +37,8 @@ class MainActivity : ComponentActivity() {
         updates.permissionReturned(packageManager.canRequestPackageInstalls())
     }
     @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
-    private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+    // A successful install replaces this process, so any return means it was cancelled or failed.
+    private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { updates.installerReturned() }
     private fun installUpdate(apk: java.io.File) {
         try {
             if (!packageManager.canRequestPackageInstalls()) {

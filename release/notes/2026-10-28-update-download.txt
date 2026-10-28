@@ -1,0 +1,1 @@
+fix: App updates that fail now say why, continue where the download stopped, and offer a download in the browser instead.

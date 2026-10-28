@@ -34,7 +34,7 @@ class AppReleaseHttp(private val directory: Path?) {
             require(hash.matches(Regex("[0-9a-f]{64}")))
             val apk = root.resolve("$hash.apk")
             require(Files.isRegularFile(apk) && Files.size(apk) == json.getValue("size").jsonPrimitive.long && Files.size(apk) > 0)
-            bytes to apk
+            Triple(bytes, apk, json.getValue("versionName").jsonPrimitive.content)
         }.getOrNull()
         if (release == null) { response.status = 404; return true }
         if (route == "/app/latest") {
@@ -42,9 +42,27 @@ class AppReleaseHttp(private val directory: Path?) {
             response.setContentLengthLong(release.first.size.toLong())
             response.outputStream.write(release.first)
         } else {
+            val size = Files.size(release.second)
+            val tag = "\"${release.second.fileName.toString().removeSuffix(".apk")}\""
             response.contentType = "application/vnd.android.package-archive"
-            response.setContentLengthLong(Files.size(release.second))
-            Files.newInputStream(release.second).use { it.copyTo(response.outputStream) }
+            response.setHeader("Accept-Ranges", "bytes")
+            response.setHeader("ETag", tag)
+            // Browsers save the fallback download under a recognizable name.
+            val name = release.third.replace(Regex("[^0-9A-Za-z._-]"), "_")
+            response.setHeader("Content-Disposition", "attachment; filename=\"async-tabletop-wizards-$name.apk\"")
+            // Only an open-ended range of this same immutable APK resumes; anything else gets the whole file.
+            val start = request.getHeader("Range")?.takeIf { request.getHeader("If-Range").let { it == null || it == tag } }
+                ?.let { Regex("bytes=(\\d{1,18})-").matchEntire(it.trim())?.groupValues?.get(1)?.toLong() }
+            if (start != null && start >= size) {
+                response.status = 416; response.setHeader("Content-Range", "bytes */$size"); return true
+            }
+            val offset = start ?: 0L
+            if (start != null) {
+                response.status = 206
+                response.setHeader("Content-Range", "bytes $start-${size - 1}/$size")
+            }
+            response.setContentLengthLong(size - offset)
+            Files.newInputStream(release.second).use { it.skipNBytes(offset); it.copyTo(response.outputStream) }
         }
         return true
     }

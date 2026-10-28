@@ -54,4 +54,14 @@ class AppUpdateScreenTest {
         preferences.edit().putInt("incompatible-version", BuildConfig.VERSION_CODE - 1).commit()
         assertFalse(model().required)
     }
+
+    @Test fun `a failed update stays explained and offers the browser download`() {
+        preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100}""").commit()
+        val updates = model()
+        compose.setContent { MaterialTheme { AppUpdateScreen(updates, install = { error("No user update request") }) } }
+        compose.onNodeWithText("Download in browser").assertDoesNotExist()
+        updates.installerReturned()
+        compose.onNodeWithText("The update wasn't installed. Tap Update to try again.").assertIsDisplayed()
+        compose.onNodeWithText("Download in browser").assertIsDisplayed()
+    }
 }

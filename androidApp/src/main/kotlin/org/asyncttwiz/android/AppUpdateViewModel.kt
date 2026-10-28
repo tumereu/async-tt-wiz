@@ -30,7 +30,8 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         private set
     var progress by mutableStateOf(0f)
         private set
-    var error by mutableStateOf<String?>(null)
+    /** Stays on screen until the next attempt, so a player can read and report it. */
+    var problem by mutableStateOf<AppUpdateProblem?>(null)
         private set
     var installation by mutableStateOf<File?>(null)
         private set
@@ -77,61 +78,30 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun update() {
         if (downloading) return
-        downloading = true; progress = 0f; error = null
+        downloading = true; progress = 0f; problem = null
         val cached = release
         worker.execute {
             val fetched = runCatching { fetch() }.getOrNull()
             val target = newestAppRelease(cached, fetched?.first)
             val result = runCatching {
-                check(target != null && target.versionCode > BuildConfig.VERSION_CODE) { "Update not available" }
-                val directory = File(getApplication<Application>().cacheDir, "updates").apply { mkdirs() }
-                val apk = File(directory, "${target.sha256}.apk")
-                if (!verifyAppApk(apk, target)) {
-                    val part = File(directory, "download.part")
-                    try {
-                        client.newCall(Request.Builder().url("$origin/app/apk").build()).execute().use { response ->
-                            check(response.isSuccessful)
-                            val body = response.body!!
-                            check(body.contentLength() == target.size)
-                            body.byteStream().use { input ->
-                                part.outputStream().use { output ->
-                                    val buffer = ByteArray(64 * 1024)
-                                    var total = 0L
-                                    var lastPercent = -1
-                                    while (true) {
-                                        val count = input.read(buffer)
-                                        if (count == -1) break
-                                        total += count
-                                        check(total <= target.size)
-                                        output.write(buffer, 0, count)
-                                        val percent = (total * 100 / target.size).toInt()
-                                        if (percent != lastPercent) {
-                                            lastPercent = percent
-                                            main.post { progress = percent / 100f }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        check(verifyAppApk(part, target))
-                        check(part.renameTo(apk))
-                    } finally { part.delete() }
+                if (target == null || target.versionCode <= BuildConfig.VERSION_CODE)
+                    throw AppUpdateFailure("Update not available yet. Try again in a moment.", browserFallback = false)
+                downloadAppApk(client, "$origin/app/apk", target, File(getApplication<Application>().cacheDir, "updates")) { percent ->
+                    main.post { progress = percent / 100f }
                 }
-                // Also verify cache hits before every handoff to the system installer.
-                check(verifyAppApk(apk, target))
-                apk
             }
             main.post {
                 accept(fetched); downloading = false; initialCheck = false
-                result.fold({ installation = it }, { error = if (target == null || target.versionCode <= BuildConfig.VERSION_CODE)
-                    "Update not available" else "Update failed" })
+                result.fold({ installation = it }, { problem = appUpdateProblem(it) })
             }
         }
     }
 
     fun consumeInstallation() { installation = null }
-    fun dismissError() { error = null }
-    fun installerFailed() { error = "Could not open installer" }
+    fun installerFailed() { problem = AppUpdateProblem("Could not open the installer.") }
+    fun installerReturned() { problem = AppUpdateProblem("The update wasn't installed. Tap Update to try again.") }
+    fun browserFailed() { problem = AppUpdateProblem("Could not open a browser for the download.", browserFallback = false) }
+    val browserDownload get() = "$origin/app/apk"
     fun awaitingPermission(value: Boolean) { preferences.edit().putBoolean("awaiting-permission", value).apply() }
     fun permissionReturned(allowed: Boolean) {
         val awaiting = preferences.getBoolean("awaiting-permission", false)

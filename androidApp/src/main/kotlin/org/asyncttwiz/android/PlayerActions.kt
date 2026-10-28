@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.ImeAction
@@ -77,13 +78,21 @@ object PlayerStatusInput {
 }
 
 /** Own status: presets, pen (free text) and clear. The opponent's status is shown read-only. */
+/** Popups float over the table without a sheet, so plain text needs its own backing to stay readable. */
+@Composable
+private fun PlayerStatusLabel(text: String, maxLines: Int) {
+    Surface(shape = RoundedCornerShape(4.dp), color = Color.White, border = BorderStroke(1.dp, LocalInlinePopupColor.current.copy(alpha = .4f))) {
+        Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium,
+            color = MenuInk, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun PlayerStatusSection(player: PlayPlayer, own: Boolean, enabled: Boolean, close: () -> Unit,
     submit: (PlayAction) -> Boolean) {
     val color = LocalInlinePopupColor.current
     if (!own) {
-        if (player.status.isNotEmpty()) Text("Status: “${player.status}”", Modifier.padding(horizontal = 2.dp),
-            style = MaterialTheme.typography.bodyMedium, color = MenuInk)
+        if (player.status.isNotEmpty()) PlayerStatusLabel("Status: “${player.status}”", maxLines = 3)
         return
     }
     var editing by remember { mutableStateOf<String?>(null) }
@@ -91,8 +100,7 @@ private fun PlayerStatusSection(player: PlayPlayer, own: Boolean, enabled: Boole
         if (text != player.status) submit(PlayAction.SetStatus(text))
         editing = null; close()
     }
-    Text(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", Modifier.padding(horizontal = 2.dp),
-        style = MaterialTheme.typography.labelMedium, color = MenuInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    PlayerStatusLabel(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", maxLines = 1)
     val cells: List<Pair<MenuControl, @Composable () -> Unit>> = PlayerStatusInput.presets.map { preset ->
         MenuControl("Set status $preset", enabled, selected = player.status == preset) { set(preset) } to @Composable {
             Text(preset, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp, lineHeight = 13.sp,

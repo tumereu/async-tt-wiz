@@ -345,6 +345,12 @@ class GameService(private val runtime: ServiceRuntime) {
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(message.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), newMessage = true)
             }
+            // The other player's earlier Ready is otherwise never answered when this Ready starts the game.
+            if (gameplay == null && play != null && play.startRequestId == command.requestId) {
+                val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(play.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
+            }
             if (isGameplay && mutation == null && batchMutations.isEmpty()) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,

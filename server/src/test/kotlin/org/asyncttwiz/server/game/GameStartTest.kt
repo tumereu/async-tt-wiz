@@ -87,6 +87,40 @@ class GameStartTest {
         }
     }
 
+    @Test fun `the Ready that starts the game notifies only the player who readied earlier`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "NoticeA"); val b = account(runtime, "NoticeB")
+                val activity = org.asyncttwiz.server.activity.ActivityService(runtime)
+                fun start(present: Boolean): GameHead {
+                    val game = game(runtime, a, b); val games = GameService(runtime)
+                    val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
+                    recipient.execute(GameAction.AcceptInvitation)
+                    owner.execute(owner.select(deck(runtime, a))); recipient.execute(recipient.select(deck(runtime, b)))
+                    assertEquals("accepted", owner.execute(GameAction.Ready).outcome)
+                    assertEquals(0, number(db, "SELECT count(*) FROM account_activity WHERE kind='GAME' AND game_id='${game.id}'"))
+                    if (present) activity.heartbeat(a, GamePresence(game.id, id()))
+                    assertEquals("accepted", recipient.execute(GameAction.Ready).outcome)
+                    return games.head(a, game.id)
+                }
+                val head = start(present = false); val play = head.play!!
+                val where = "kind='GAME' AND game_id='${head.summary.id}'"
+                assertEquals(1, number(db, "SELECT count(*) FROM account_activity WHERE $where"))
+                assertEquals(1, number(db, "SELECT count(*) FROM account_activity WHERE $where AND account_id='${a.account.accountId}' " +
+                    "AND identity='${play.id}' AND author_id='${b.account.accountId}'"))
+                assertEquals(1, number(db, "SELECT count(*) FROM activity_summary WHERE $where AND account_id='${a.account.accountId}' " +
+                    "AND your_move=${head.summary.attentionHolder == a.account.accountId} AND seen_through < activity_id"))
+                // A player already looking at the game is not told again, as with any other game activity.
+                val watched = start(present = true)
+                assertEquals(1, number(db, "SELECT count(*) FROM activity_summary WHERE kind='GAME' AND game_id='${watched.summary.id}' " +
+                    "AND account_id='${a.account.accountId}' AND seen_through = activity_id"))
+                assertEquals(0, number(db, "SELECT count(*) FROM account_activity WHERE kind='GAME' AND account_id='${b.account.accountId}'"))
+            }
+        }
+    }
+
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }

@@ -503,11 +503,11 @@ class HistoryRuntimeIntegrationTest {
             val initial = quickNames()
             assertTrue("Untap all" in initial)
             assertTrue(x.session.gameplay(x.game, f.a, PlayAction.NextStep))
-            assertEquals(listOf("Draw + go to main"), quickNames())
+            assertEquals(listOf("Go to main"), quickNames()) // opening turn: no draw
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
             assertEquals(initial, quickNames())
             assertTrue(x.session.historyControl(x.game, f.a, GameAction.Redo))
-            assertEquals(listOf("Draw + go to main"), quickNames())
+            assertEquals(listOf("Go to main"), quickNames()) // opening turn: no draw
             assertEquals(3, x.commands().size)
         }
     }

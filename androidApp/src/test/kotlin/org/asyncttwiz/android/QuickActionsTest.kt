@@ -68,9 +68,9 @@ class QuickActionsTest {
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Untap, draw → main", "Mull N", "Mull −1"),
-            TurnPosition.UPKEEP to listOf("Draw + go to main"),
-            TurnPosition.DRAW to listOf("Draw one", "Draw one + next"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Go to main", "Mull N", "Mull −1"),
+            TurnPosition.UPKEEP to listOf("Go to main"),
+            TurnPosition.DRAW to listOf("Go to main"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
             TurnPosition.DECLARE_ATTACKERS to listOf("Select attackers", "No attack"),
             TurnPosition.COMBAT_DAMAGE to listOf("Deal combat damage", "Close + next"),
@@ -85,6 +85,9 @@ class QuickActionsTest {
         assertEquals(5, catalog(TurnPosition.UNTAP).size) // overflow, not dropped/clipped to three
         assertEquals(3, catalog(TurnPosition.UNTAP, "2").size)
         assertEquals(3, catalog(TurnPosition.UNTAP, "3").size) // not each player's first Untap
+        assertEquals(listOf("Untap all", "Untap all + next", "Untap, draw → main"), catalog(TurnPosition.UNTAP, "2").map { it.name })
+        assertEquals(listOf("Draw + go to main"), catalog(TurnPosition.UPKEEP, "2").map { it.name })
+        assertEquals(listOf("Draw one", "Draw one + next"), catalog(TurnPosition.DRAW, "2").map { it.name })
         assertEquals(7, (catalog(TurnPosition.UNTAP)[3].intent as TableActionIntent.Library).defaultCount)
         assertEquals(1, (catalog(TurnPosition.UNTAP)[4].intent as TableActionIntent.Library).defaultCount)
     }
@@ -164,7 +167,7 @@ class QuickActionsTest {
     @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {
         assertEquals("Untap, draw\n→ main", quickActionLabel("Untap, draw → main"))
         for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
-            val play = TableToolFixture.play(position)
+            val play = TableToolFixture.play(position, "3")
             val sent = mutableListOf<PlayAction>()
             val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())
             val action = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller).single { it.name == name }
@@ -176,6 +179,20 @@ class QuickActionsTest {
             assertTrue(sent.none { it == PlayAction.NextStep })
         }
         assertTrue(CombatOfferings.advanceAndClose(TableToolFixture.play(TurnPosition.END_COMBAT).board.turn))
+    }
+
+    @Test fun startingPlayersFirstTurnGoesToMainWithoutDrawing() {
+        for (position in listOf(TurnPosition.UNTAP, TurnPosition.UPKEEP, TurnPosition.DRAW)) {
+            val play = TableToolFixture.play(position)
+            val sent = mutableListOf<PlayAction>()
+            val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())
+            val actions = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller)
+            assertTrue(actions.none { "raw" in it.name }, position.name)
+            assertTrue(controller.perform(actions.single { it.name == "Go to main" }.intent))
+            assertEquals(listOf<PlayAction>(PlayAction.ChooseStep(TurnPosition.PRECOMBAT_MAIN)), sent)
+        }
+        // The other player's first turn is turn 2 and draws as usual.
+        assertTrue(catalog(TurnPosition.DRAW, "2").none { it.name == "Go to main" })
     }
 
     @Test fun allUnderlyingRoutesRemainOutsideTheirQuickWindows() {

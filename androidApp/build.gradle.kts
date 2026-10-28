@@ -226,6 +226,14 @@ android {
         buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
         manifestPlaceholders["resetHost"] = "desktop-b2kalvm.tail27cccc.ts.net"
     }
+    // Release shrinks and optimizes with R8 but keeps names, so problem-report stack traces stay
+    // readable. -PatwMinify=true applies the same setup to debug, for local device checks only.
+    val minifyDebug = providers.gradleProperty("atwMinify").orElse("false").get().toBooleanStrict()
+    listOfNotNull(buildTypes.getByName("release"), buildTypes.getByName("debug").takeIf { minifyDebug }).forEach {
+        it.isMinifyEnabled = true
+        it.isShrinkResources = true
+        it.proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+    }
     // One retained fixture shared with host migration verification; never packaged in the app.
     sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
 }

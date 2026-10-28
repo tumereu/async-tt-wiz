@@ -3,7 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -90,7 +89,7 @@ internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placehol
         Text(IMPORT_FROM_LINK, style = MaterialTheme.typography.titleMedium)
         ScreenTextField(value, onValue, Modifier.fillMaxWidth().testTag(tag), placeholder = placeholder,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { if (importEnabled) { start(); import() } }),
+            keyboardActions = submitKeyboardActions(importEnabled && !fetching) { start(); import() },
             trailingIcon = {
                 IconButton(onClick = { start(); pasteAndImport(clipboard.getText()?.text) }, Modifier.size(48.dp)) {
                     EntryIcon(pasteDescription, "paste")

@@ -31,13 +31,16 @@ internal fun MulliganDialog(controller: LibraryController, handIds: List<String>
         Surface(shape = MaterialTheme.shapes.medium) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ValueInputControl("Mulligan quantity", input, { input = it }, controller.available())
-                FilledIconButton(onClick = {
+                val mulligan = {
                     if (count != null) {
                         val result = controller.mulligan(handIds, count)
                         if (result.refused == 0 && result.submitted > 0) { quantity.write(count); complete() }
                     }
-                }, enabled = count != null && controller.available()) { Icon(menuIcon("Mulligan"), "Mulligan") }
+                }
+                val mayMulligan = count != null && controller.available()
+                ValueInputControl("Mulligan quantity", input, { input = it }, controller.available(),
+                    submitEnabled = mayMulligan, submit = mulligan)
+                FilledIconButton(onClick = mulligan, enabled = mayMulligan) { Icon(menuIcon("Mulligan"), "Mulligan") }
             }
         }
     }

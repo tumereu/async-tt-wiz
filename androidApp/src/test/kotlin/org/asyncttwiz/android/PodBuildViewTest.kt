@@ -418,6 +418,22 @@ class PodBuildViewTest {
         compose.runOnIdle { sideBySide.choose(9); assertEquals(3, sideBySide.count); sideBySide.choose(0); assertEquals(1, sideBySide.count) }
     }
 
+    @Test fun deckNameKeyboardDoneSavesTheName() {
+        var renamed: String? = null
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"))), mapOf("first" to DraftCopy("first", "digest")),
+                mapOf("digest" to card), null, true, false, { _, _ -> }, { _, _ -> }, {}, onRename = { renamed = it })
+        } }
+        compose.onNodeWithContentDescription("Name deck").performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement("  ")
+        compose.onNode(hasSetTextAction()).performImeAction()
+        compose.runOnIdle { assertNull(renamed) }
+        compose.onNode(hasSetTextAction()).performTextReplacement(" Fliers ")
+        compose.onNode(hasSetTextAction()).performImeAction()
+        compose.runOnIdle { assertEquals("Fliers", renamed) }
+        compose.onNode(hasSetTextAction()).assertDoesNotExist()
+    }
+
     @Test fun columnFeedReviewsEachCopyAndUndoMovesItBack() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"), PodDeckCopy("land"))))
         val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
@@ -430,31 +446,37 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
+        compose.onNodeWithContentDescription("Close review").performClick()
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
 
         compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 3").assertIsDisplayed()
         compose.onNodeWithText("◀ Side").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
-        compose.runOnIdle { assertTrue(moves.isEmpty()) }
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-card-second").performTouchInput { swipeLeft() }
-        compose.runOnIdle { assertEquals(listOf("second" to PodDeckCategory.SIDE), moves) }
-        compose.onNodeWithText("Kept 1 · 1 to Side").assertIsDisplayed()
         compose.onNodeWithText("Main 2").assertIsDisplayed()
-        // Lands is before MV 1, so there is no later column to go to.
-        compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Undo").assertIsEnabled().performClick()
-        compose.runOnIdle { assertEquals("second" to PodDeckCategory.MAIN, moves.last()) }
-        compose.onNodeWithTag("pod-build-feed-card-second").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Undo").performClick()
-        compose.runOnIdle { assertEquals(2, moves.size) }
+        compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAIN, moves.last()) }
         compose.onNodeWithTag("pod-build-feed-card-first").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(2, moves.size) }
+        compose.onNodeWithContentDescription("Undo").performClick()
+        compose.runOnIdle { assertEquals(2, moves.size) }
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("pod-build-feed-card-second").performTouchInput { swipeLeft() }
+        // The last decision closes the review; its summary shows briefly on the Build screen.
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+        compose.runOnIdle { assertEquals("second" to PodDeckCategory.SIDE, moves.last()) }
+        compose.onNodeWithText("Kept 1 · 1 to Side").assertIsDisplayed()
+        compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
     }
 
-    @Test fun columnFeedOffersTheNextColumnAndSectionFeedsCoverEveryColumn() {
+    @Test fun columnFeedClosesAtItsEndAndSectionFeedsCoverEveryColumn() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("land"), PodDeckCopy("first"),
             PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("trash", PodDeckCategory.TRASH))))
         val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
@@ -467,14 +489,14 @@ class PodBuildViewTest {
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
         assertEquals(listOf("Keep", "Move to Side"), actions.map { it.label })
         compose.runOnIdle { actions.first().action() }
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("Kept 1 · 0 to Side").assertIsDisplayed()
-        compose.onNodeWithText("Next: MV 1 →").performClick()
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
-        compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("Done").performClick()
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+        compose.onNodeWithText("Kept 0 · 1 to Side").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
 
         compose.onNodeWithTag("pod-build-feed-header-SIDE").performClick()

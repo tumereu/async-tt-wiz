@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -137,7 +138,8 @@ fun ContentsScreen(state: PlayState, pile: PileContents, viewer: String, onActio
             } finally { coordinator.cancel() }
         }) {
             Column(Modifier.fillMaxSize()) {
-                OutlinedTextField(search, { search = it; bubbleId = null; pendingAdvance = null }, Modifier.fillMaxWidth().ringInputTarget(draggable = true), label = { Text("Search by name") }, singleLine = true)
+                OutlinedTextField(search, { search = it; bubbleId = null; pendingAdvance = null }, Modifier.fillMaxWidth().ringInputTarget(draggable = true), label = { Text("Search by name") }, singleLine = true,
+                    keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
                 ContentsRows(state, viewer, entries, !pile.ordered,
                     onActions = { if (stack) { if (it == pile.cardIds.firstOrNull()) bubbleId = it } else onActions(it) }, onInspect = onInspect,
                     modifier = Modifier.weight(1f), onRotate = if (stack) { id -> bubbleId = null; onActions(id) } else onRotate,

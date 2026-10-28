@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -90,13 +91,18 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
         }
         }
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f)
-                .semantics { contentDescription = "Chat message draft" }, singleLine = false, placeholder = "Message", maxLines = 4)
-            if (staleDraft) ScreenIconButton("Clear draft", "delete", { controller.composeChat("") })
-            else ScreenIconButton("Send", "send", {
+            val send = {
                 controller.sendChat()
                 list.requestScrollToItem(0)
-            }, enabled = chat.canSend(game, game.id !in state.reconnectingGames))
+            }
+            val maySend = chat.canSend(game, game.id !in state.reconnectingGames)
+            // The keyboard's Send key sends like the button; a stale draft only closes the keyboard.
+            ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f)
+                .semantics { contentDescription = "Chat message draft" }, singleLine = false, placeholder = "Message", maxLines = 4,
+                keyboardOptions = imeOptions(ImeAction.Send),
+                keyboardActions = submitKeyboardActions(!staleDraft && maySend, keepKeyboard = true, submit = send))
+            if (staleDraft) ScreenIconButton("Clear draft", "delete", { controller.composeChat("") })
+            else ScreenIconButton("Send", "send", send, enabled = maySend)
         }
     }
     }

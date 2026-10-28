@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -137,11 +139,11 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
             }
             if (branded) Text("Sign in", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (state.page == AuthPage.REGISTER) {
-                EntryField("Username", state.username, !state.busy, "username", KeyboardType.Text,
+                EntryField("Username", state.username, !state.busy, "username", KeyboardType.Text, ImeAction.Next,
                     onValueChange = { controller.edit(username = it) })
                 Text("Your username is visible to players.", style = MaterialTheme.typography.bodySmall, color = Color(0xff6b7788))
             }
-            EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email,
+            EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email, ImeAction.Next,
                 onValueChange = { controller.edit(email = it) })
             if (state.page == AuthPage.REGISTER)
                 Text("Your email stays private.", style = MaterialTheme.typography.bodySmall, color = Color(0xff6b7788))
@@ -151,7 +153,8 @@ private fun FormCard(modifier: Modifier, state: AuthState, controller: AuthContr
                     .semantics { contentDescription = "Password" },
                     enabled = !state.busy, singleLine = true,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Go),
+                    keyboardActions = submitKeyboardActions(!state.busy, submit = controller::submit),
                     trailingIcon = {
                         IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
                             EntryIcon(if (visible) "Hide password" else "Show password", if (visible) "eye-off" else "eye")
@@ -211,8 +214,11 @@ private fun ResetEntry(controller: ResetController) {
             Surface(Modifier.widthIn(max = 400.dp).fillMaxWidth(), shape = RoundedCornerShape(8.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffcdd3dc))) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // The action key acts like the form's main button, only while that button shows and is enabled.
+                    val resetSubmittable = !state.checkFailed && state.page != ResetPage.INVALID && !state.busy && !state.checking
                     if (state.page == ResetPage.REQUEST) {
-                        EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email,
+                        EntryField("Email", state.email, !state.busy, "email", KeyboardType.Email, ImeAction.Go,
+                            submitKeyboardActions(resetSubmittable, submit = controller::submit),
                             onValueChange = { controller.edit(email = it) })
                     } else if (state.page == ResetPage.PASSWORD) {
                         Text("New password", fontWeight = FontWeight.SemiBold)
@@ -220,7 +226,8 @@ private fun ResetEntry(controller: ResetController) {
                             Modifier.fillMaxWidth().testTag("password").semantics { contentDescription = "New password" },
                             enabled = !state.busy, singleLine = true,
                             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Go),
+                            keyboardActions = submitKeyboardActions(resetSubmittable, submit = controller::submit),
                             trailingIcon = { IconButton(onClick = { visible = !visible }, enabled = !state.busy) {
                                 EntryIcon(if (visible) "Hide password" else "Show password", "eye")
                             } })
@@ -274,11 +281,12 @@ private fun ResetEntry(controller: ResetController) {
 
 @Composable
 private fun EntryField(label: String, value: String, enabled: Boolean, tag: String, type: KeyboardType,
-    onValueChange: (String) -> Unit) {
+    imeAction: ImeAction, keyboardActions: KeyboardActions = KeyboardActions.Default, onValueChange: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
         ScreenTextField(value, onValueChange, Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = label }, enabled = enabled,
-            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = type, autoCorrectEnabled = false))
+            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = type, autoCorrectEnabled = false, imeAction = imeAction),
+            keyboardActions = keyboardActions)
     }
 }
 

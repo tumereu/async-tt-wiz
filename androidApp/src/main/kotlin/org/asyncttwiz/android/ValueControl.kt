@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import org.asyncttwiz.protocol.TableActions
 
 import androidx.compose.foundation.border
@@ -60,7 +61,7 @@ internal fun ValueControl(value: String, set: MenuControl, minus: MenuControl, p
 
 @Composable
 internal fun ValueInputControl(name: String, input: TextFieldValue, change: (TextFieldValue) -> Unit,
-    enabled: Boolean, minimum: Int = 0) {
+    enabled: Boolean, minimum: Int = 0, submitEnabled: Boolean = false, submit: () -> Unit = {}) {
     val latestInput by rememberUpdatedState(input)
     val latestChange by rememberUpdatedState(change)
     fun selectAll() = latestChange(latestInput.copy(selection = TextRange(0, latestInput.text.length)))
@@ -79,7 +80,9 @@ internal fun ValueInputControl(name: String, input: TextFieldValue, change: (Tex
                         selectAll()
                     }
                 },
-                enabled = enabled, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                enabled = enabled, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = submitKeyboardActions(submitEnabled, submit = submit),
                 textStyle = androidx.compose.ui.text.TextStyle(color = MenuInk, textAlign = TextAlign.Center, fontSize = 12.sp))
         })
 }

@@ -69,10 +69,6 @@ internal fun podBuildFeed(
     return PodBuildFeed(category, target, column, labels, cards)
 }
 
-/** The next non-empty column after [column], for the end screen's "Next" button. */
-internal fun podBuildFeedNextColumn(buckets: List<List<PodBuildTile>>, column: Int): Int? =
-    (column + 1 until buckets.size).firstOrNull { buckets[it].isNotEmpty() }
-
 /** Width of each of [perRow] equal cards across [columnWidth], with [gap] between neighbours. */
 internal fun podBuildCardWidth(columnWidth: Int, perRow: Int, gap: Int): Int =
     ((columnWidth - gap * (perRow - 1)) / perRow.coerceAtLeast(1)).coerceAtLeast(1)

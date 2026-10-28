@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,8 +73,9 @@ internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = when (mo
 internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, members: Int,
     editable: Boolean, rename: (String) -> Unit, chooseSource: () -> Unit,
     change: ((DraftSettings) -> DraftSettings) -> Unit, reroll: (() -> Unit)? = null) {
+    // The other settings follow as choices, not fields: the action key only closes the keyboard.
     OutlinedTextField(name, rename, Modifier.fillMaxWidth(), label = { Text("Pod name") }, singleLine = true,
-        readOnly = !editable, trailingIcon = reroll?.let { action -> { ScreenIconButton("Suggest another pod name", "shuffle", action) } })
+        readOnly = !editable, keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = hideKeyboardActions(), trailingIcon = reroll?.let { action -> { ScreenIconButton("Suggest another pod name", "shuffle", action) } })
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(source?.let { if (it.kind == PodSourceKind.SET) it.setName ?: it.setCode.orEmpty() else it.cubeName }
             ?.takeIf { it.isNotBlank() } ?: "No source", Modifier.weight(1f))
@@ -146,13 +148,16 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
     val input = rememberDialogField((field.value(settings) ?: 0).toString())
     var unlimited by remember { mutableStateOf(field == PodSetting.SIDEBOARD && settings.sideboardLimit == null) }
     val range = field.range(settings)
+    val saveEnabled = unlimited || field.valid(input.text, settings)
+    val confirm = { save(if (unlimited) null else input.text.toInt()) }
     ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp), title = field.label, actions = {
         DialogCancelButton("Cancel", dismiss)
-        DialogMainButton("Save", { save(if (unlimited) null else input.text.toInt()) }, enabled = unlimited || field.valid(input.text, settings))
+        DialogMainButton("Save", confirm, enabled = saveEnabled)
     }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(input.value, { input.value = it }, Modifier.weight(1f).dialogField(input), enabled = !unlimited, singleLine = true,
-                label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = submitKeyboardActions(saveEnabled, submit = confirm))
             if (field == PodSetting.SIDEBOARD) OutlinedButton({ unlimited = !unlimited }, Modifier.size(56.dp)
                 .semantics { contentDescription = "Unlimited sideboard"; selected = unlimited },
                 contentPadding = PaddingValues(0.dp), shape = MaterialTheme.shapes.small,

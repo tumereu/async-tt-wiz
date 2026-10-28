@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -107,7 +108,8 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                     } else {
                         val name = rememberDialogField(state.draftName)
                         OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, label = { Text("Deck name") },
-                            modifier = Modifier.fillMaxWidth().dialogField(name), enabled = !state.mutating, singleLine = true)
+                            modifier = Modifier.fillMaxWidth().dialogField(name), enabled = !state.mutating, singleLine = true,
+                            keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(!state.mutating, submit = controller::confirm))
                     }
         }
     }

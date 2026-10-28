@@ -59,16 +59,13 @@ class PodBuildFeedModelTest {
         val (afterKeep, none) = afterDemote.undo()
         assertNull(none)
         assertEquals("a1", afterKeep.current?.copyId)
-        // Undo stays available on the end screen.
+        // Undo still works once finished (while the last card's flick plays).
         val (back, moved) = feed.decide(false).decide(false).decide(true).undo()
         assertEquals("b1", moved)
         assertFalse(back.finished)
     }
 
-    @Test fun nextColumnSkipsEmptyColumnsAndEndsAfterTheLast() {
-        assertEquals(2, podBuildFeedNextColumn(buckets, 0))
-        assertEquals(3, podBuildFeedNextColumn(buckets, 2))
-        assertNull(podBuildFeedNextColumn(buckets, 3))
+    @Test fun columnLabelsReadAsManaValues() {
         assertEquals("Lands", podBuildFeedColumnLabel("Lands"))
         assertEquals("MV 5+", podBuildFeedColumnLabel("5+"))
     }

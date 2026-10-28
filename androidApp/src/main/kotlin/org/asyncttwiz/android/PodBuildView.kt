@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -118,9 +119,9 @@ fun PodBuildView(
     val menus = remember { PodCardMenuOwner() }
     var inspected by remember { mutableStateOf<Pair<String, InspectedCard>?>(null) }
     val previewScroll = rememberScrollState()
-    var feedback by remember { mutableStateOf<Pair<Int, PodDeckCategory>?>(null) }
+    var feedback by remember { mutableStateOf<PodBuildFeedback?>(null) }
     var feedbackId by remember { mutableIntStateOf(0) }
-    LaunchedEffect(feedback) { if (feedback != null) { delay(850); feedback = null } }
+    LaunchedEffect(feedback) { feedback?.let { delay(it.millis); feedback = null } }
     // A confirmed move fades the card out where it was, fades it in where it lands and slides the rest.
     var leaving by remember { mutableStateOf<PodBuildLeaving?>(null) }
     var arriving by remember { mutableStateOf(emptySet<String>()) }
@@ -132,7 +133,7 @@ fun PodBuildView(
     val origin = remember { PodBuildAnchor() }
     val move: (String, PodDeckCategory) -> Unit = { id, destination ->
         if (editable) {
-            feedback = ++feedbackId to destination
+            feedback = PodBuildFeedback(++feedbackId, "→ ${destination.podBuildLabel()}")
             arriving = setOf(id)
             sliding = true
             settle++
@@ -242,7 +243,7 @@ fun PodBuildView(
             else Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton({
                     onUndo()?.let { (id, destination) ->
-                        feedback = ++feedbackId to destination
+                        feedback = PodBuildFeedback(++feedbackId, "→ ${destination.podBuildLabel()}")
                         arriving = setOf(id)
                     }
                     sliding = true
@@ -257,10 +258,10 @@ fun PodBuildView(
         leaving?.let { gone -> key(gone.sequence) {
             PodBuildLeavingCard(gone) { if (leaving?.sequence == gone.sequence) leaving = null }
         } }
-        feedback?.let { (_, category) ->
+        feedback?.let { shown ->
             Surface(Modifier.align(Alignment.TopCenter).padding(top = 8.dp), color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.small, shadowElevation = 4.dp) {
-                Text("→ ${category.podBuildLabel()}", Modifier.padding(12.dp))
+                Text(shown.text, Modifier.padding(12.dp))
             }
         }
     }
@@ -270,25 +271,23 @@ fun PodBuildView(
     })
     if (naming) {
         val name = rememberDialogField(deckName)
+        val save = { onRename(name.text.trim()); naming = false }
         ScreenDialog({ naming = false }, title = "Deck name", actions = {
             DialogCancelButton("Cancel", { naming = false })
-            DialogMainButton("Save name", { onRename(name.text.trim()); naming = false }, enabled = name.text.isNotBlank())
+            DialogMainButton("Save name", save, enabled = name.text.isNotBlank())
         }) {
             OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
-                singleLine = true, label = { Text("Name") })
+                singleLine = true, label = { Text("Name") }, keyboardOptions = imeOptions(ImeAction.Done),
+                keyboardActions = submitKeyboardActions(name.text.isNotBlank(), submit = save))
         }
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
     feed?.let { current ->
-        val next = current.column?.takeIf { current.finished }?.let { column ->
-            podBuildFeedNextColumn(podBuildColumns(build, current.category, copies, definitions, columns), column)
-                ?.takeIf { it < current.labels.size }
-        }
         PodBuildFeedDialog(current, podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total, editable,
-            nextLabel = next?.let { podBuildFeedColumnLabel(current.labels[it]) },
             onChange = { feed = it }, onMove = { id, category -> if (editable) onMove(id, category) },
-            onRevert = { id, category -> if (editable) onRevert(id, category) },
-            onNext = { next?.let { openFeed(current.category, it) } }, onClose = { feed = null })
+            onRevert = { id, category -> if (editable) onRevert(id, category) }, onClose = { feed = null },
+            // Reaching the end closes the review; its summary lingers on the Build screen (Build undo still reverts).
+            onFinish = { done -> feed = null; feedback = PodBuildFeedback(++feedbackId, done.summary, 2000) })
     }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
 }
@@ -504,3 +503,6 @@ internal fun PodBuildSwipeCopy(
         }
     }
 }
+
+/** The Build screen's brief top chip: where a card went, or a finished review's summary. */
+private data class PodBuildFeedback(val id: Int, val text: String, val millis: Long = 850)

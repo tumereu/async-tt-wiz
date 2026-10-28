@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,10 +28,13 @@ internal fun PlayerPicker(controller: LobbyController, select: ((AccountIdentity
         }
         Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (contacts) ScreenTextField(state.contactFilter, controller::filterContacts,
-                Modifier.fillMaxWidth().semantics { contentDescription = "Filter contacts" }, placeholder = "Filter contacts")
+                Modifier.fillMaxWidth().semantics { contentDescription = "Filter contacts" }, placeholder = "Filter contacts",
+                keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
             else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ScreenTextField(state.query, controller::query, Modifier.weight(1f)
-                    .semantics { contentDescription = "Search usernames" }, placeholder = "Search usernames")
+                    .semantics { contentDescription = "Search usernames" }, placeholder = "Search usernames",
+                    keyboardOptions = imeOptions(ImeAction.Search),
+                    keyboardActions = submitKeyboardActions(!state.searching, submit = controller::search))
                 ScreenIconButton("Search players", "search", controller::search, enabled = !state.searching)
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

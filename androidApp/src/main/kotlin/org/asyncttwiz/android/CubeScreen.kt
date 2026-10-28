@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -128,7 +129,8 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
             else {
                 val name = rememberDialogField(state.name)
                 OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, Modifier.fillMaxWidth().dialogField(name),
-                    label = { Text("Cube name") }, singleLine = true)
+                    label = { Text("Cube name") }, singleLine = true, keyboardOptions = imeOptions(ImeAction.Done),
+                    keyboardActions = submitKeyboardActions(!state.busy, submit = controller::confirm))
             }
         }
     }
@@ -153,7 +155,8 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
         input = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ScreenTextField(state.name, controller::name, Modifier.weight(1f).testTag("cube-name")
-                    .semantics { contentDescription = "Cube name" }, placeholder = "Cube name")
+                    .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
+                    keyboardOptions = imeOptions(ImeAction.Next))
                 ImportSideboardToggle(state.includeSideboard, controller::sideboard)
             }
             ImportListField(state.text, controller::text, "Card list", "cube-list")

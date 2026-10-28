@@ -1,0 +1,1 @@
+fix: The keyboard's Enter key now does what the screen's button does: sign in, search, send a chat message, save a name or a value.

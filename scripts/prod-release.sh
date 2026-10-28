@@ -9,7 +9,7 @@ PI_SETUP=${ATW_PI_SETUP:-$HOME/projects/pi5-setup}
 umask 077
 
 die() { echo "$*" >&2; exit 1; }
-usage() { die "Usage: $0 init-keystore | release <full-commit-sha> | install"; }
+usage() { die "Usage: $0 init-keystore | release <full-commit-sha | tag> | install"; }
 (( $# >= 1 )) || usage
 case "$1" in
 init-keystore)
@@ -87,7 +87,12 @@ if [[ $1 == install ]]; then
 fi
 
 commit=$2
-[[ $commit =~ ^[0-9a-f]{40}$ ]] || die "Release requires an explicit full 40-character owner-approved commit SHA."
+if [[ ! $commit =~ ^[0-9a-f]{40}$ ]]; then
+    # A tag from scripts/prep-release.sh names the approved commit; abbreviated SHAs stay refused.
+    commit=$(git rev-parse --quiet --verify "refs/tags/$2^{commit}") ||
+        die "Release requires an owner-approved tag or full 40-character commit SHA."
+    echo "Tag $2 is commit $commit."
+fi
 [[ $(git rev-parse --verify "$commit^{commit}") == "$commit" ]] || die "Commit not found."
 for file in release.p12 store-password key-password; do
     [[ -f $KEYS/$file ]] || die "Missing $KEYS/$file. Initialize and back up the production signing key first."

@@ -94,6 +94,8 @@ class GameResultLifecycleTest {
                 // Mutate actual board state through the shared/server adapter; restoration must ignore it.
                 f.owner.execute(GameAction.Play(PlayAction.SetLife(f.a.account.accountId, "1")))
                 f.owner.execute(GameAction.Play(PlayAction.SetTapped(f.initial.board.cards.first().id, true)))
+                assertTrue(f.initial.board.players.all { it.status == PlayerStatus.OPENING })
+                f.owner.execute(GameAction.Play(PlayAction.SetStatus("GG")))
                 val decks = DeckService(f.runtime)
                 assertEquals(200, decks.update(f.a, f.source.deck.id, UpdateDeck(id(), "Changed saved source", contents = DeckContentsImport(
                     listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, f.source.entries[0].definition, 1))))).status)
@@ -122,6 +124,8 @@ class GameResultLifecycleTest {
                 assertNotEquals(f.initial.id, fresh.id); assertNotEquals(f.initial.root, fresh.root)
                 assertEquals(fresh.root.id, fresh.currentNodeId); assertNull(fresh.currentGroup); assertNull(fresh.board.resultSuggestion)
                 assertTrue(fresh.board.players.all { it.life == "20" && it.counters.isEmpty() })
+                // A later play of the same game starts with both players mulliganing again.
+                assertTrue(fresh.board.players.all { it.status == PlayerStatus.OPENING })
                 assertTrue(fresh.board.cards.all { !it.tapped && it.covered && it.note.isEmpty() && !it.token })
                 assertTrue(fresh.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
                 assertEquals(TurnState(fresh.starter.accountId), fresh.board.turn)

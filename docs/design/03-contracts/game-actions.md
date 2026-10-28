@@ -138,6 +138,20 @@ Current numeric server state governs arithmetic; existing menu controls, absent/
 nonnumeric handling, grouping, Undo and request recovery apply. See the primary
 player-value section in board controls.
 
+**Player status (rules v26).** Each player has an optional short status
+(`PlayPlayer.status`, empty omitted on the wire): trimmed, at most 24 characters,
+one line without control characters. `SetStatus(text)` sets the ACTOR's own status
+(empty clears it); it is an ordinary recorded event with history text ("Status →
+Wait" / "Status cleared"), Undo/Redo under the general rule (its concerned tuple is
+that player's status), normal game activity for the opponent, and it never changes
+attention or turn. Every new play (including later plays of the same game) starts
+both players with the opening status "Mulliganing" (exact text). While the viewer's
+status is exactly that, their quick actions are Mull N, Mull −1 and Ready (clears the
+status); the starting player's turn-1 shortcuts stay hidden while either player still
+has it. A bubble by each life square shows the status; tapping your own life total
+offers presets (Wait, Ready, Thinking…, Got a response, No responses, BRB, GG), free
+text and Clear; the opponent's panel shows their full status read-only.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

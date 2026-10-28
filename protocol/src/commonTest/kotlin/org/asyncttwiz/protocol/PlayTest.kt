@@ -63,6 +63,9 @@ class PlayTest {
         assertNull(state.root.parentId); assertEquals(state.root.id, state.currentNodeId)
         assertEquals(TurnState(a.accountId), state.board.turn)
         assertEquals(listOf("20", "20"), state.board.players.map { it.life })
+        // Every new play starts with both players mulliganing (rules v26), until they set another status.
+        assertEquals(listOf(PlayerStatus.OPENING, PlayerStatus.OPENING), state.board.players.map { it.status })
+        assertEquals("Mulliganing", PlayerStatus.OPENING)
         assertEquals(listOf("RED", "BLUE", "GREEN", "YELLOW", "PURPLE", "GRAY"), CounterColor.entries.map { it.name })
         assertEquals(listOf(submitted), state.definitions)
         assertEquals(14, state.board.cards.size)

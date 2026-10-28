@@ -127,7 +127,9 @@ data class TableItem(
     val damage: String = "", val eotCorner: String = "", val eotNote: String = "",
     val touchBounds: TableBounds? = null,
     /** A player's Temp pile: a LIBRARY-zone pile that is never that player's Library. */
-    val temp: Boolean = false
+    val temp: Boolean = false,
+    /** LIFE only: the player's status, drawn as a bubble beside the square (never an input target). */
+    val status: String = ""
 )
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
@@ -399,8 +401,9 @@ object TablePresentation {
             val dock = TableBounds(0f, rowY, dockWidth, dockRow)
             val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth) else portraitDock)
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
-                "${name(player.accountId)}, life ${player.life}", player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP)
+                "${name(player.accountId)}, life ${player.life}" + player.status.takeIf { it.isNotEmpty() }?.let { ", status $it" }.orEmpty(),
+                player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
+                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP, status = player.status)
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             val landscapeTempHeight = minOf(pileHeight, counterHeight - 4f)
             val landscapeTempWidth = pileWidth * landscapeTempHeight / pileHeight

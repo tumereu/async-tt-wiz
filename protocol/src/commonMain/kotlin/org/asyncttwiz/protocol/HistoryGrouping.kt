@@ -83,6 +83,8 @@ object HistoryGrouping {
         is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
         is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "open_with", action.displayId)
         is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
+        // A status is a message to the other player, not a board edit: it joins the author's group, never leads it.
+        is PlayAction.SetStatus -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
         is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, "ads_click")
         is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
         is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.ClearCardCounter ->

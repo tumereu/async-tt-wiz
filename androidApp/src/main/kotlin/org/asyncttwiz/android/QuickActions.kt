@@ -33,9 +33,12 @@ data class QuickAction(val name: String, val glyph: String, val intent: TableAct
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
     const val contextualPositions = 3
-    fun openingMulligan(play: PlayState, viewer: String?) = play.board.turn.number == "1" &&
-        TurnPosition.of(play.board.turn) == TurnPosition.UNTAP && play.board.players.any { it.accountId == viewer }
-    fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) && play.board.turn.accountId != viewer
+    const val READY = "Ready"
+    /** While the viewer's status is exactly the opening status, they are still mulliganing: Mull N, Mull −1, Ready. */
+    fun openingMulligan(play: PlayState, viewer: String?) = PlayerStatus.opening(play.board, viewer)
+    /** Only mulligan offerings: no step arrow for a player who would not otherwise see the strip. */
+    fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) &&
+        play.board.turn.accountId != viewer && play.board.effectiveAttentionHolder != viewer
     fun visible(play: PlayState, viewer: String?) = viewer != null &&
         (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer || openingMulligan(play, viewer))
     fun contextual(play: PlayState, context: QuickContext, controller: TableActionController): List<QuickAction> {
@@ -51,7 +54,8 @@ object QuickActions {
         val turnPlayer = context.viewer == play.board.turn.accountId
         // Turn numbers count both players' turns, so "1" is only the starting player's first turn: no draw.
         val firstTurn = play.board.turn.number == "1"
-        if (turnPlayer) when (TurnPosition.of(play.board.turn)) {
+        // The starting player's turn-1 shortcuts wait until neither player is still mulliganing.
+        if (turnPlayer && !(firstTurn && PlayerStatus.anyOpening(play.board))) when (TurnPosition.of(play.board.turn)) {
             TurnPosition.UNTAP -> {
                 add("Untap all", "↶", controller.untap(play, false))
                 add("Untap all + next", "↶", controller.untap(play, true), "↦")
@@ -90,6 +94,7 @@ object QuickActions {
             val targets = context.viewer?.let { controller.targets(play, it) }
             add("Mull N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
             add("Mull −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
+            add(READY, "", TableActionIntent.Status(scope, ""))
             if (!turnPlayer) return result
         }
         if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&

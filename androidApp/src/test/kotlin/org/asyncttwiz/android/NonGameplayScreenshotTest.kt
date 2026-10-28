@@ -157,6 +157,17 @@ class NonGameplayScreenshotTest(private val screen: String) {
             assertEquals(a.width, b.width, .5f, "Paired actions must split the available row equally")
             assertEquals(a.top, b.top, .5f, "Paired actions must not stack")
         }
+        fun dialogActions(cancel: String?, main: String) {
+            val dialog = compose.onNode(isDialog()).fetchSemanticsNode().boundsInRoot
+            val b = compose.onNode(hasText(main) and hasClickAction()).fetchSemanticsNode().boundsInRoot
+            // Dialog semantics use their own window coordinates; the main action ends at the right edge.
+            assertTrue(dialog.right - b.right in 0f..40f, "The main dialog action sits at the right")
+            if (cancel != null) {
+                val a = compose.onNode(hasText(cancel) and hasClickAction()).fetchSemanticsNode().boundsInRoot
+                assertEquals(a.top, b.top, .5f, "Dialog actions share one row")
+                assertTrue(a.right <= b.left, "The main dialog action is rightmost")
+            }
+        }
         when (screen) {
             "games-loading" -> {
                 compose.onNodeWithText("Loading games…").assertDoesNotExist()
@@ -166,7 +177,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 compose.onNodeWithText("Download size: 450 MB.").assertIsDisplayed()
                 compose.onNodeWithText("Download").assertIsDisplayed()
                 compose.onNodeWithContentDescription("Not now").assertDoesNotExist()
-                paired(if (screen == "catalog-startup") "Exit" else "Not now", "Download")
+                dialogActions(if (screen == "catalog-startup") "Exit" else "Not now", "Download")
             }
             "catalog-checking" -> {
                 compose.onNodeWithText("Checking card records…").assertDoesNotExist()
@@ -220,9 +231,10 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  compose.onNodeWithText("Choose cover").assertIsDisplayed()
                  compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
              }
-            "create-game" -> paired("Cancel", "Create")
-            "delete-game" -> paired("Keep game", "Delete game")
-            "cancel-lobby" -> paired("Keep game", "Cancel game")
+            "create-game" -> dialogActions("Cancel", "Create")
+            "game-context" -> dialogActions(null, "Delete game")
+            "delete-game" -> dialogActions("Keep game", "Delete game")
+            "cancel-lobby" -> dialogActions("Keep game", "Cancel game")
             "gameplay-chat" -> compose.onNodeWithContentDescription("Send").assertIsDisplayed()
             "reconnecting" -> compose.onNodeWithText("Back to games list").assertIsDisplayed()
             "deck-art" -> {

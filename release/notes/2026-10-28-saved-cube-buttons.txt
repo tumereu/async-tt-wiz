@@ -1,0 +1,1 @@
+mod: Saved cube has an Edit button at the top like Saved deck, a separate Rename button, and no Back button.

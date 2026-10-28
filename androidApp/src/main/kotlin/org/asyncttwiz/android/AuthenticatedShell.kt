@@ -258,19 +258,14 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
     logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null) {
     Column(Modifier.fillMaxSize()) {
-        if (hamburger || destination != ShellDestination.MENU) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            if (hamburger) IconButton(onClick = open) { EntryIcon("Open navigation", "menu") }
-            if (hamburger && destination == ShellDestination.MENU) {
-                Spacer(Modifier.weight(1f))
-                WizardLogo(Modifier.padding(end = 16.dp), compact = true)
-            }
-            if (destination != ShellDestination.MENU)
-                Text(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title, Modifier.padding(12.dp).testTag("destination-title"), style = MaterialTheme.typography.titleLarge,
-                     fontWeight = FontWeight.Bold)
-            if (destination == ShellDestination.GAMES) {
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = { lobby?.contacts(true); navigate(ShellDestination.CONTACTS) }) { EntryIcon(null, "add"); Spacer(Modifier.width(8.dp)); Text("New game") }
-            }
+        if (destination == ShellDestination.MENU) {
+            if (hamburger) ScreenHeader("", open) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
+        } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
+            if (hamburger) open else null, Modifier.testTag("destination-title")) {
+            if (destination == ShellDestination.GAMES)
+                ScreenCreateAction("New game", "add", { lobby?.contacts(true); navigate(ShellDestination.CONTACTS) })
+            if (destination == ShellDestination.DECKS && deckImport != null)
+                ScreenCreateAction("Import deck", "import", deckImport::open, Modifier.testTag("import-deck"))
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             if (destination == ShellDestination.CONTACTS && lobby != null) ContactsContent(lobby)
@@ -345,11 +340,6 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                     }, Modifier.widthIn(max = 540.dp).fillMaxWidth())
                 }
             }
-            }
-        }
-        if (destination == ShellDestination.DECKS && deckImport != null) {
-            ScreenButton(onClick = deckImport::open, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("import-deck")) {
-                EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
             }
         }
     }

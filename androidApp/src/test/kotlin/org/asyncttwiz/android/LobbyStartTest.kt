@@ -152,6 +152,31 @@ class LobbyStartTest {
         assertNull(f.lobby.state.play); assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
+    @Test fun lobbyTapsWhileReconnectingRunOnceInOrderWhenTheConnectionIsReady() = Fixture().use { f ->
+        f.wire.listener.disconnected(false)
+        assertFalse(game.id in f.lobby.state.connectedGames)
+        f.lobby.starter(StarterChoice(owner.accountId)); f.lobby.starter(StarterChoice()); f.lobby.ready(); f.lobby.ready()
+        assertTrue(f.commands().isEmpty()); assertEquals(setOf(game.id), f.lobby.state.queuedGames)
+        f.lobby.sync(); f.connect(generation = "2"); f.head(game, f.base)
+        // The latest starter tap goes first; Ready waits for it instead of being refused as a double submission.
+        val starter = f.commands().single()
+        assertEquals(GameAction.SetStarter(StarterChoice()), starter.action)
+        assertEquals(setOf(game.id), f.lobby.state.queuedGames)
+        f.result(starter, "1")
+        f.head(game.copy(revision = "1"), StartRules.change(game, f.base, owner.accountId, starter.scope, starter.action).state!!)
+        assertEquals(listOf(GameAction.SetStarter(StarterChoice()), GameAction.Ready), f.commands().map { it.action })
+        assertTrue(f.lobby.state.queuedGames.isEmpty())
+        assertTrue(f.lobby.state.preparation!!.players.single { it.accountId == owner.accountId }.ready)
+    }
+
+    @Test fun waitingLobbyTapIsDroppedWhenLeavingTheGame() = Fixture().use { f ->
+        f.wire.listener.disconnected(false)
+        f.lobby.ready(); assertEquals(setOf(game.id), f.lobby.state.queuedGames)
+        f.lobby.back(); assertTrue(f.lobby.state.queuedGames.isEmpty())
+        f.lobby.open(game.id); f.connect(generation = "2"); f.head(game, f.base)
+        assertTrue(f.commands().isEmpty())
+    }
+
     @Test fun httpSummaryHighWaterCannotRetireReadinessBeforeItsAcceptedReplicaArrives() = Fixture().use { f ->
         f.lobby.ready(); val command = f.commands().single()
         val accepted = StartRules.change(game, f.base, owner.accountId, command.scope, command.action).state!!

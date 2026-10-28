@@ -82,9 +82,9 @@ internal class ReleaseNotePreferences(private val context: Context) {
 
 @Composable
 internal fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
-    ScreenDialog(dismiss, scroll = false) {
-        Text("What's new", style = MaterialTheme.typography.titleMedium)
-        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("whats-new-notes"),
+    ScreenDialog(dismiss, title = "What's new",
+        actions = { DialogMainButton("OK", dismiss, Modifier.testTag("whats-new-ok")) }) {
+        Column(Modifier.testTag("whats-new-notes"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             for ((kind, group) in ReleaseNotes.grouped(notes)) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(kind.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -94,9 +94,6 @@ internal fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
                 }
             }
             if (notes.isEmpty()) Text("No release notes yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(dismiss, Modifier.heightIn(min = 48.dp).testTag("whats-new-ok")) { Text("OK") }
         }
     }
 }

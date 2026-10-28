@@ -146,11 +146,10 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
     val input = rememberDialogField((field.value(settings) ?: 0).toString())
     var unlimited by remember { mutableStateOf(field == PodSetting.SIDEBOARD && settings.sideboardLimit == null) }
     val range = field.range(settings)
-    ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(field.label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            ScreenIconButton("Close setting", "close", dismiss)
-        }
+    ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp), title = field.label, actions = {
+        DialogCancelButton("Cancel", dismiss)
+        DialogMainButton("Save", { save(if (unlimited) null else input.text.toInt()) }, enabled = unlimited || field.valid(input.text, settings))
+    }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(input.value, { input.value = it }, Modifier.weight(1f).dialogField(input), enabled = !unlimited, singleLine = true,
                 label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
@@ -161,6 +160,5 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
                 Text(if (unlimited) "∞ ✓" else "∞")
             }
         }
-        ScreenButton({ save(if (unlimited) null else input.text.toInt()) }, enabled = unlimited || field.valid(input.text, settings)) { Text("Save") }
     }
 }

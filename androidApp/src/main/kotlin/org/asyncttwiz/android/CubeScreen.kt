@@ -34,18 +34,16 @@ internal fun ManageCollectionScreen(cubes: CubeController, decks: DeckLibraryCon
         SavedDeckScreen(decks, navigation, importDeck = importer?.let { editor -> { detail -> decks.dismiss(); editor.openEditor(detail) } }); return
     }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Manage decks", navigation)
+        ScreenHeader("Manage decks", navigation) {
+            if (cubeTab) ScreenCreateAction("New cube", "add", cubes::newCube, Modifier.testTag("new-cube"), enabled = !cubes.state.busy)
+            else if (importer != null) ScreenCreateAction("Import deck", "import", importer::open, Modifier.testTag("import-deck"))
+        }
         TabRow(selectedTabIndex = if (cubeTab) 1 else 0) {
             Tab(selected = !cubeTab, onClick = { cubeTab = false }, text = { Text("Decks") })
             Tab(selected = cubeTab, onClick = { cubeTab = true }, text = { Text("Cubes") })
         }
         Box(Modifier.weight(1f)) {
             if (cubeTab) CubeCollection(cubes) else if (decks != null) SavedDeckCollection(decks)
-        }
-        ScreenButton(onClick = { if (cubeTab) cubes.newCube() else importer?.open() },
-            modifier = Modifier.fillMaxWidth().padding(16.dp), enabled = !cubes.state.busy) {
-            EntryIcon(null, if (cubeTab) "add" else "import"); Spacer(Modifier.width(8.dp))
-            Text(if (cubeTab) "New cube" else "Import deck")
         }
     }
 }
@@ -87,21 +85,27 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ScreenHeader("Saved cube", navigation) {
-                ScreenIconButton("Back", "back", controller::back)
+                ScreenOutlinedButton(onClick = controller::edit, enabled = state.detail != null && !state.busy) {
+                    EntryIcon(null, "edit"); Spacer(Modifier.width(6.dp)); Text("Edit")
+                }
             }
             InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
                 val detail = state.detail
                 if (detail != null) LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
-                        Text("${detail.saved.cube.totalCopies} total copies")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ScreenIconButton("Edit cube", "edit", controller::edit)
-                            ScreenIconButton("Rename cube", "edit", { controller.dialog(CubeDialog.RENAME) })
-                            ScreenIconButton("Delete cube", "delete", { controller.dialog(CubeDialog.DELETE) })
-                        }
-                        if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
-                            EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
+                            Text("${detail.saved.cube.totalCopies} total copies")
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ScreenOutlinedButton(onClick = { controller.dialog(CubeDialog.RENAME) }) {
+                                    EntryIcon(null, "rename"); Spacer(Modifier.width(6.dp)); Text("Rename")
+                                }
+                                TextButton(onClick = { controller.dialog(CubeDialog.DELETE) }, Modifier.heightIn(min = 48.dp),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete cube") }
+                            }
+                            if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
+                                EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
+                            }
                         }
                     }
                     items(detail.saved.entries, key = { it.definition }) { entry ->
@@ -115,17 +119,16 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     }
     if (state.dialog != null) {
         val deleting = state.dialog == CubeDialog.DELETE
-        ScreenDialog(controller::dismiss,
-            error = state.error, dismissError = controller::dismissError) {
-            Text(if (deleting) "Delete cube?" else "Rename cube", style = MaterialTheme.typography.titleLarge)
+        ScreenDialog(controller::dismiss, error = state.error, dismissError = controller::dismissError,
+            title = if (deleting) "Delete cube?" else "Rename cube", actions = {
+                DialogCancelButton(if (deleting) "Keep cube" else "Cancel", controller::dismiss, enabled = !state.busy)
+                DialogMainButton(if (deleting) "Delete cube" else "Save name", controller::confirm, enabled = !state.busy, danger = deleting)
+            }) {
             if (deleting) Text("Delete ${state.detail?.saved?.cube?.name}? Deletion cannot be undone.")
             else {
                 val name = rememberDialogField(state.name)
-                OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, Modifier.dialogField(name), label = { Text("Cube name") })
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.busy) { Text("Cancel") }
-                ScreenButton(onClick = controller::confirm, enabled = !state.busy) { Text(if (deleting) "Delete cube" else "Save name") }
+                OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, Modifier.fillMaxWidth().dialogField(name),
+                    label = { Text("Cube name") }, singleLine = true)
             }
         }
     }

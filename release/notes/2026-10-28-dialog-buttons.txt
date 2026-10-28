@@ -1,0 +1,1 @@
+mod: Dialog buttons always sit in one row on the right, with the main action last and delete actions in red.

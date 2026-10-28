@@ -183,10 +183,12 @@ class MainActivity : ComponentActivity() {
                     state.destination, auth.lobby.state.selected, asked, catalogBlocked,
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
-                    AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation, game and draft alerts") },
-                        text = { Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.") },
-                        confirmButton = { TextButton(onClick = { dismiss(); permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }) { Text("Enable alerts") } },
-                        dismissButton = { TextButton(onClick = { dismiss() }) { Text("Not now") } })
+                    ScreenDialog({ dismiss() }, title = "Invitation, game and draft alerts", actions = {
+                        DialogCancelButton("Not now", { dismiss() })
+                        DialogMainButton("Enable alerts", { dismiss(); permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) })
+                    }) {
+                        Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.")
+                    }
                 }
                 Surface(Modifier.fillMaxSize().then(if (BuildConfig.DEBUG) Modifier.drawWithContent {
                     drawContent()

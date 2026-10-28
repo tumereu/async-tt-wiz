@@ -203,7 +203,7 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Add Plains").performClick()
         compose.runOnIdle { assertEquals(PodDeckBasics(plains = 39), requestedBasics); assertEquals(38, build.basics.plains) }
         compose.runOnIdle { build = build.copy(basics = requestedBasics!!) }
-        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Done").performClick()
         compose.onNodeWithText("Main 1 + 39 = 40").assertIsDisplayed()
         compose.onNodeWithText("Submit deck (40)").assertIsEnabled().performClick()
         compose.onNodeWithText("Submit deck?").assertIsDisplayed()
@@ -228,7 +228,7 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Add Forest").assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit basic lands").performClick()
         compose.onNodeWithContentDescription("Add Forest").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Done").performClick()
         val bounds = compose.onNodeWithTag("pod-build-card-first").fetchSemanticsNode().boundsInRoot
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
     }
@@ -281,14 +281,14 @@ class PodBuildViewTest {
         listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
             val add = compose.onNodeWithContentDescription("Add $name").performScrollTo().assertIsDisplayed()
             val bounds = add.getUnclippedBoundsInRoot()
-            val done = compose.onNodeWithContentDescription("Done").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val done = compose.onNodeWithText("Done").assertIsDisplayed().getUnclippedBoundsInRoot()
             val dialog = compose.onNode(isDialog()).getUnclippedBoundsInRoot()
             assertTrue(bounds.top >= dialog.top && bounds.bottom <= done.top)
             add.performTouchInput { click() }
             compose.onNodeWithContentDescription("Remove $name").assertIsEnabled().performTouchInput { click() }
             compose.runOnIdle { assertEquals(listOf(index to 1, index to -1), adjustments.takeLast(2)) }
         }
-        compose.onNodeWithContentDescription("Done").performClick()
+        compose.onNodeWithText("Done").performClick()
         compose.onNodeWithText("Basic lands").assertDoesNotExist()
         compose.runOnIdle { assertEquals(PodDeckBasics(), build.basics) }
     }

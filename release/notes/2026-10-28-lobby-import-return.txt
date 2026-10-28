@@ -1,0 +1,1 @@
+fix: After importing a deck from a game lobby you go straight back to choosing your deck, with the new deck selected.

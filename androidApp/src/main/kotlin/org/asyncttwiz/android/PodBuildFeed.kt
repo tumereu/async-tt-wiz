@@ -19,6 +19,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -28,9 +29,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.platform.LocalView
+import android.view.ViewGroup
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.PodDeckCategory
 import kotlin.math.abs
+import kotlin.math.floor
 
 private const val PodBuildFeedFlickMillis = 180
 
@@ -62,6 +67,9 @@ internal fun PodBuildFeedDialog(
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
+        // A wrap-content dialog window can flip between neighbouring pixel widths; pin it to the screen.
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect { window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
         ScreenTheme {
             Surface(Modifier.fillMaxSize().testTag("pod-build-feed"), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxSize()) {
@@ -79,8 +87,12 @@ internal fun PodBuildFeedDialog(
                     }
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center) {
-                        // Leave room for the hint row under the card.
-                        val cardWidth = minOf(maxWidth, (maxHeight - 40.dp) / 1.4f).coerceAtLeast(1.dp)
+                        // Leave room for the hint row under the card. Whole pixels, so the card never
+                        // rounds wider than the space it was sized for (that fed back into the window size).
+                        val density = LocalDensity.current
+                        val cardWidth = with(density) {
+                            floor(minOf(maxWidth.toPx(), (maxHeight - 40.dp).toPx() / 1.4f)).coerceAtLeast(1f).toDp()
+                        }
                         val current = feed.current
                         if (current == null) PodBuildFeedEnd(feed.summary, nextLabel, onNext, onClose)
                         else key(feed.position, current.copyId) {
@@ -124,6 +136,7 @@ private fun PodBuildFeedCardView(
     editable: Boolean, onDecide: (demote: Boolean, offset: Float) -> Unit,
 ) {
     val faces = remember(card.definition) { card.definition?.let(::podPreviewFaces).orEmpty().ifEmpty { listOf(0) } }
+    val faceCount by rememberUpdatedState(faces.size)
     var face by remember { mutableIntStateOf(0) }
     val offset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -131,6 +144,9 @@ private fun PodBuildFeedCardView(
     val widthPx = with(density) { width.toPx() }
     // Same feel as the pick screen: commit past 30% of the card width.
     val threshold = widthPx * .3f
+    // Gestures restart only with the card itself: a recomposition (size, flags) must never drop a swipe in progress.
+    val latestThreshold by rememberUpdatedState(threshold)
+    val latestEditable by rememberUpdatedState(editable)
     val latestDecide by rememberUpdatedState(onDecide)
     val name = card.definition?.name ?: "Card details unavailable"
     val progress = (abs(offset.value) / threshold).coerceIn(0f, 1f)
@@ -148,19 +164,19 @@ private fun PodBuildFeedCardView(
                 CustomAccessibilityAction("Move to ${target.podBuildLabel()}") { latestDecide(true, 0f); true },
             )
         }
-        .pointerInput(faces.size) { detectTapGestures(onTap = { if (faces.size > 1) face = (face + 1) % faces.size }) }
-        .pointerInput(editable, threshold) {
-            if (!editable) return@pointerInput
+        .pointerInput(Unit) { detectTapGestures(onTap = { if (faceCount > 1) face = (face + 1) % faceCount }) }
+        .pointerInput(Unit) {
             var dragged = 0f
             detectHorizontalDragGestures(
                 onDragStart = { dragged = offset.value },
                 onDragEnd = {
                     val x = dragged
-                    if (abs(x) >= threshold) latestDecide(x < 0f, x)
+                    if (latestEditable && abs(x) >= latestThreshold) latestDecide(x < 0f, x)
                     else scope.launch { offset.animateTo(0f, tween(150)) }
                 },
                 onDragCancel = { scope.launch { offset.animateTo(0f, tween(150)) } },
             ) { change, amount ->
+                if (!latestEditable) return@detectHorizontalDragGestures
                 change.consume()
                 dragged += amount
                 scope.launch { offset.snapTo(dragged) }
@@ -180,19 +196,20 @@ private fun PodBuildFeedFlickCard(flick: PodBuildFeedFlick, width: Dp, done: () 
     val currentDone by rememberUpdatedState(done)
     LaunchedEffect(Unit) { travel.animateTo(1f, tween(PodBuildFeedFlickMillis)); currentDone() }
     // Hint-row height below the card keeps the flying copy level with the card it replaced.
-    Box(Modifier.padding(bottom = 40.dp).size(width, width * 1.4f).graphicsLayer {
+    // Nothing in it handles pointers, so it never takes a touch meant for the next card.
+    Box(Modifier.padding(bottom = 40.dp).size(width, width * 1.4f).clearAndSetSemantics {}.graphicsLayer {
         translationX = flick.offset + direction * widthPx * travel.value
         rotationZ = 8f * direction
         alpha = 1f - travel.value
     }) {
         val faces = flick.card.definition?.let(::podPreviewFaces).orEmpty().ifEmpty { listOf(0) }
-        PodBuildFeedArtwork(flick.card, faces.first(), width)
+        PodBuildFeedArtwork(flick.card, faces.first(), width, touchable = false)
         Box(Modifier.matchParentSize().background(flick.color.copy(alpha = .35f), RoundedCornerShape(4.dp)))
     }
 }
 
 @Composable
-private fun PodBuildFeedArtwork(card: PodBuildFeedCard, face: Int, width: Dp) {
+private fun PodBuildFeedArtwork(card: PodBuildFeedCard, face: Int, width: Dp, touchable: Boolean = true) {
     val density = LocalDensity.current
     val definition = card.definition
     val name = definition?.faces?.getOrNull(face)?.name ?: definition?.name ?: "Card details unavailable"
@@ -202,5 +219,10 @@ private fun PodBuildFeedArtwork(card: PodBuildFeedCard, face: Int, width: Dp) {
     CardArtwork(reference?.copy(size = "large"), name,
         with(density) { width.roundToPx() }.coerceIn(1, 4096),
         with(density) { (width * 1.4f).roundToPx() }.coerceIn(1, 4096),
-        Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) }, previewReference = reference?.copy(size = "normal"))
+        Modifier.fillMaxSize(), placeholder = {
+            // The usual placeholder is a Surface, which blocks touches to anything beneath it.
+            if (touchable) PodCardPlaceholder(name)
+            else Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center) { Text(name, textAlign = TextAlign.Center) }
+        }, previewReference = reference?.copy(size = "normal"))
 }

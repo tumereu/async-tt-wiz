@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
+import java.time.LocalDate
 import groovy.json.JsonSlurper
 
 plugins {
@@ -58,6 +59,40 @@ val fcmEnabled = fcmConfiguredCount == fcmProperties.size
 
 abstract class NonFcmSources : Sync() {
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+}
+
+// Release notes: one `release/notes/<YYYY-MM-DD>-<slug>.txt` per note holding one `add:`/`mod:`/`fix:` line,
+// packaged as one JSON asset. Any malformed note fails the build.
+abstract class ReleaseNotesAsset : DefaultTask() {
+    @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE) abstract val notes: DirectoryProperty
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+    @TaskAction fun generate() {
+        val name = Regex("([0-9]{4}-[0-9]{2}-[0-9]{2})-[a-z0-9]+(?:-[a-z0-9]+)*\\.txt")
+        val line = Regex("(add|mod|fix): (.*)")
+        val entries = notes.get().asFile.listFiles().orEmpty().sortedBy { it.name }.map { file ->
+            val match = name.matchEntire(file.name)
+            require(file.isFile && match != null && runCatching { LocalDate.parse(match.groupValues[1]) }.isSuccess) {
+                "Release note ${file.name}: name must be <YYYY-MM-DD>-<lowercase-slug>.txt"
+            }
+            val body = file.readText().removeSuffix("\n").removeSuffix("\r")
+            require('\n' !in body && '\r' !in body) { "Release note ${file.name}: must be exactly one line" }
+            val note = line.matchEntire(body)
+            requireNotNull(note) { "Release note ${file.name}: line must start with 'add: ', 'mod: ' or 'fix: '" }
+            val text = note.groupValues[2].trim()
+            require(text.isNotEmpty()) { "Release note ${file.name}: text is empty" }
+            mapOf("id" to file.name.removeSuffix(".txt"), "kind" to note.groupValues[1], "text" to text)
+        }
+        val output = outputDirectory.get().asFile
+        output.mkdirs()
+        output.resolve("release-notes.json").writeText(groovy.json.JsonOutput.toJson(entries))
+    }
+}
+val releaseNotesAsset = tasks.register<ReleaseNotesAsset>("releaseNotesAsset") {
+    notes.set(rootProject.layout.projectDirectory.dir("release/notes"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/releaseNotes"))
+}
+androidComponents.onVariants { variant ->
+    variant.sources.assets!!.addGeneratedSourceDirectory(releaseNotesAsset) { it.outputDirectory }
 }
 
 android {

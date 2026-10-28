@@ -169,12 +169,18 @@ class MainActivity : ComponentActivity() {
                         auth.openActivity(route)
                     }
                 }
+                val catalogBlocked = catalog.state.busy || catalog.needsInitialDownloadConsent || catalog.promptPolicy.shouldPrompt(catalog.state)
+                val releaseNotes = remember { ReleaseNotePreferences(this@MainActivity) }
+                var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
+                // Only on the shell (never over an open game or pod), and not under another startup dialog.
+                val showWhatsNew = whatsNew.isNotEmpty() && state.account != null && !state.restoring && !state.busy &&
+                    notificationRoute == null && activityScreen.game == null && activityScreen.pod == null && !catalogBlocked
+                if (showWhatsNew) WhatsNewDialog(whatsNew) { releaseNotes.markSeen(whatsNew); whatsNew = emptyList() }
                 val permissionPrefs = remember { getSharedPreferences("notification-permission", 0) }
                 var asked by remember { mutableStateOf(permissionPrefs.getBoolean("asked", false)) }
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
-                if (ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
-                    state.destination, auth.lobby.state.selected, asked,
-                    catalog.state.busy || catalog.needsInitialDownloadConsent || catalog.promptPolicy.shouldPrompt(catalog.state),
+                if (whatsNew.isEmpty() && ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
+                    state.destination, auth.lobby.state.selected, asked, catalogBlocked,
                     checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
                     AlertDialog(onDismissRequest = { dismiss() }, title = { Text("Invitation, game and draft alerts") },

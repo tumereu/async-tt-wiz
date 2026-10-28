@@ -24,6 +24,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
         if (auth != null) ProfileSettings(auth, catalog)
         PlaybackSettings(preferences, accountId)
         CardSettings()
+        WhatsNewEntry()
         TextButton(onClick = logout, modifier = Modifier.heightIn(min = 48.dp).testTag("logout"),
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
             EntryIcon(null, "logout"); Spacer(Modifier.width(8.dp)); Text("Log out")
@@ -41,3 +42,11 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
 @Composable
 internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String = "", logout: () -> Unit) =
     SettingsContent(catalog, accountId, logout, null)
+
+@Composable
+private fun WhatsNewEntry() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("whats-new")) { Text("What's new") }
+    if (open) WhatsNewDialog(remember { ReleaseNotes.load(context) }) { open = false }
+}

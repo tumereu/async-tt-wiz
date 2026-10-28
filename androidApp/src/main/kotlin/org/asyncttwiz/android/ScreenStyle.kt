@@ -218,7 +218,7 @@ private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, place
 
 @Composable
 internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
-    error: String? = null, dismissError: () -> Unit = {},
+    error: String? = null, dismissError: () -> Unit = {}, scroll: Boolean = true,
     content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
@@ -226,7 +226,8 @@ internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, bu
             Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {
                 Box {
-                    Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+                    // Without [scroll], content scrolls its own part (e.g. a list above fixed buttons).
+                    Column(Modifier.imePadding().then(if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
                     Box(Modifier.matchParentSize(), contentAlignment = Alignment.BottomCenter) {
                         FloatingBusyPill(busyMessage)

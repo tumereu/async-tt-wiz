@@ -44,6 +44,10 @@ that satisfies the product overview, and mention the choice in your final reply.
   and report it instead of retrying.
 - Never weaken or delete a test just to make it pass, unless the test encodes
   behavior your task explicitly changes.
+- Every user-visible change gets a release note: one file per change,
+  `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
+  `mod: <text>` or `fix: <text>`. Plain words a player understands, no
+  technical terms. Internal-only work needs no note.
 - Commit your work on your current branch with a descriptive message when done.
   Do not push, merge, rebase other branches or touch other worktrees.
 - Finish with a short plain-text summary: what you built, what you tested, what

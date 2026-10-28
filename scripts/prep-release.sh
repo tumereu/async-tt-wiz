@@ -41,4 +41,4 @@ git tag -a "$tag" -m "Release $name (versionCode $code)"
 # Atomic: the tag is never published without the branch commits it points into.
 git push --atomic origin "HEAD:refs/heads/$branch" "refs/tags/$tag" ||
     die "Push failed; $tag exists locally. Retry with: git push --atomic origin HEAD:refs/heads/$branch refs/tags/$tag"
-echo "Prepared $tag ($(git rev-parse HEAD)). Release with: scripts/prod-release.sh release $tag"
+echo "Prepared $tag ($(git rev-parse HEAD)). Release with: scripts/prod-release.sh release $name"

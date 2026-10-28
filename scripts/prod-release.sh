@@ -88,10 +88,13 @@ fi
 
 commit=$2
 if [[ ! $commit =~ ^[0-9a-f]{40}$ ]]; then
-    # A tag from scripts/prep-release.sh names the approved commit; abbreviated SHAs stay refused.
-    commit=$(git rev-parse --quiet --verify "refs/tags/$2^{commit}") ||
-        die "Release requires an owner-approved tag or full 40-character commit SHA."
-    echo "Tag $2 is commit $commit."
+    # A tag from scripts/prep-release.sh (v1.2.3, or just 1.2.3) names the approved commit;
+    # abbreviated SHAs stay refused.
+    tag=$2
+    git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || tag=v$2
+    commit=$(git rev-parse --quiet --verify "refs/tags/$tag^{commit}") ||
+        die "Release requires an owner-approved tag (e.g. v1.2.3) or full 40-character commit SHA."
+    echo "Tag $tag is commit $commit."
 fi
 [[ $(git rev-parse --verify "$commit^{commit}") == "$commit" ]] || die "Commit not found."
 for file in release.p12 store-password key-password; do

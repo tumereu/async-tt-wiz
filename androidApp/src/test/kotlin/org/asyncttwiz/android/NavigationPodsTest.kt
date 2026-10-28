@@ -208,10 +208,18 @@ class NavigationPodsTest {
             val avatar = compose.onNodeWithContentDescription("${ScreenFixtures.riley.username}'s avatar").getUnclippedBoundsInRoot()
             assertTrue(title.left >= menu.right && title.bottom - title.top <= 16.dp)
             assertTrue(avatar.top >= title.bottom && avatar.left >= menu.right && avatar.bottom <= header.bottom)
+            val cog = compose.onNodeWithContentDescription("View settings").assertIsDisplayed().getUnclippedBoundsInRoot()
+            assertTrue(cog.left >= avatar.right && cog.right == header.right && cog.bottom <= header.bottom)
+            compose.onNodeWithContentDescription("View settings").performClick()
+            compose.onNodeWithText("Draft · cards per row").assertIsDisplayed()
+            compose.onNodeWithText("Build · columns").assertIsDisplayed()
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithText("Build · columns").assertDoesNotExist()
             compose.onNodeWithContentDescription("Pod actions").assertIsDisplayed().performClick()
             compose.onNodeWithText("Cancel draft").assertIsDisplayed()
             compose.onNodeWithText("Destroy").assertIsDisplayed()
-            compose.onNode(isPopup()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Back) }
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithText("Destroy").assertDoesNotExist()
         }
         compose.onNodeWithContentDescription("Open navigation").performClick()
         compose.runOnIdle { assertTrue(fixtures.auth.state.drawerOpen) }

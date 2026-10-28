@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -33,8 +32,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -102,12 +99,9 @@ fun PodBuildView(
     deckName: String = "Deck",
     onRename: (String) -> Unit = {},
     submitted: Boolean = !editable,
+    columnPreference: PodBuildColumns = rememberPodBuildColumns(),
 ) {
-    val context = LocalContext.current
-    val orientation = LocalConfiguration.current.orientation
-    val preferences = remember(context) { context.getSharedPreferences("pod-build", Context.MODE_PRIVATE) }
-    val preferenceKey = "columns-$orientation"
-    var columns by remember(preferences, preferenceKey) { mutableIntStateOf(preferences.getInt(preferenceKey, 7).coerceIn(2, 10)) }
+    val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
     var confirmSubmit by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
@@ -157,10 +151,6 @@ fun PodBuildView(
                             Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
                                 Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
-                            if (category == PodDeckCategory.MAIN) PodColumnControl("$columns", "Columns", columns, 2..10) { value ->
-                                columns = value
-                                preferences.edit().putInt(preferenceKey, columns).apply()
-                            }
                         }
                     }
                 }

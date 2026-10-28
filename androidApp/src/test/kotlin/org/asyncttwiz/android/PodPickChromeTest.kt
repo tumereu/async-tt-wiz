@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 class PodPickChromeTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun avatarBadgesNeverChangeTheSlimRowOrAvatarPositions() {
+    @Test fun avatarBadgesNeverChangeTheSlimRowAndTheHeaderCogDrivesThePickGrid() {
         val alice = AccountIdentity("alice", "Alice")
         val bob = AccountIdentity("bob", "Bob")
         var waiting by mutableIntStateOf(0)
@@ -33,14 +33,15 @@ class PodPickChromeTest {
         var navigations = 0
         compose.setContent { ScreenTheme { Column {
             val columns = rememberPodPickColumns()
+            val build = rememberPodBuildColumns()
             val pack = DraftPrivatePack("pack", 1, (1..15).map { DraftCopy("$it", "card") })
             PodPlayHeader(detail.copy(members = detail.members.map {
                 if (it.account.accountId == alice.accountId) it.copy(packsWaiting = waiting) else it
-            }), { navigations++ }) { PodPickColumnControl(columns, pack.cards.size) }
+            }), { navigations++ }) { PodViewSettingsButton(columns, build) }
             PodDraftTabs(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), PodTab.DRAFT, {}) {
                 IconButton({}, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
             }
-            PodPickView(pack, detail.settings, emptyMap(), false, { _, _ -> }, chrome = {}, columns = columns)
+            PodPickView(pack, detail.settings, emptyMap(), false, { _, _ -> }, columns = columns)
         } } }
         val aliceAvatar = compose.onNodeWithContentDescription("Alice's avatar")
         val bobAvatar = compose.onNodeWithContentDescription("Bob's avatar")
@@ -55,9 +56,12 @@ class PodPickChromeTest {
         val title = compose.onNodeWithTag("pod-play-title").assertTextEquals("Pod").fetchSemanticsNode().boundsInRoot
         val menu = compose.onNodeWithContentDescription("Open navigation").fetchSemanticsNode().boundsInRoot
         assertTrue(aliceBounds.top >= title.bottom && title.left >= menu.right)
-        val control = compose.onNodeWithContentDescription("Cards per row").fetchSemanticsNode().boundsInRoot
-        assertTrue(control.top >= header.top && control.bottom <= header.bottom)
-        assertTrue(control.left >= bobBounds.right)
+        // Layout settings live behind the cog at the header's right end, not in the pick area.
+        compose.onNodeWithContentDescription("Cards per row").assertDoesNotExist()
+        val cog = compose.onNodeWithContentDescription("View settings").fetchSemanticsNode().boundsInRoot
+        assertTrue(cog.top >= header.top && cog.bottom <= header.bottom)
+        assertTrue(cog.left >= bobBounds.right)
+        assertEquals(header.right, cog.right, .5f)
         val tabs = compose.onNodeWithTag("pod-tabs").fetchSemanticsNode().boundsInRoot
         assertEquals(header.bottom, tabs.top)
         val overflow = compose.onNodeWithContentDescription("Pod actions").fetchSemanticsNode().boundsInRoot
@@ -67,13 +71,19 @@ class PodPickChromeTest {
         compose.onNodeWithContentDescription("Pod actions").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
         compose.onNodeWithContentDescription("Open navigation").performClick()
         compose.runOnIdle { assertEquals(1, navigations) }
+        compose.onNodeWithContentDescription("View settings").performClick()
+        compose.onNodeWithText("Draft · cards per row").assertIsDisplayed()
+        compose.onNodeWithText("Build · columns").assertIsDisplayed()
         compose.onNodeWithContentDescription("Cards per row")
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(3f) }
+        // The panel stays open while values change.
         compose.onNodeWithContentDescription("More cards per row").performClick()
         compose.onNodeWithContentDescription("Cards per row").assert(hasText("4"))
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithText("Draft · cards per row").assertDoesNotExist()
         val firstCard = compose.onNodeWithTag("pod-pick-card-1").fetchSemanticsNode().boundsInRoot
         assertTrue(firstCard.top >= tabs.bottom && firstCard.top - tabs.bottom < 8)
-        // The header's control drives the grid below it: four cards per row.
+        // The panel's value drives the grid below it: four cards per row.
         assertEquals(firstCard.top, compose.onNodeWithTag("pod-pick-card-4").fetchSemanticsNode().boundsInRoot.top, .5f)
         assertTrue(compose.onNodeWithTag("pod-pick-card-5").fetchSemanticsNode().boundsInRoot.top > firstCard.bottom)
         for (count in listOf(1, 9, 10, 100)) {

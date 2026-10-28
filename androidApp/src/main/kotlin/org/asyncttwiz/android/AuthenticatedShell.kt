@@ -194,6 +194,8 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             }
             if (!pods?.state?.pods.isNullOrEmpty()) {
                 Column {
+                    val stackWidth = pods?.state?.pods.orEmpty().maxOfOrNull {
+                        podNavigationAvatars(it.members, controller.state.account?.accountId).width } ?: 32.dp
                     for (pod in pods?.state?.pods.orEmpty()) {
                         val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
                         Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
@@ -204,7 +206,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                             Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 AvatarStack(podNavigationAvatars(pod.members, controller.state.account?.accountId),
-                                    ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White)
+                                    ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
                                 Column(Modifier.weight(1f)) {
                                     Text(pod.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                     Text(podStatus(pod), style = MaterialTheme.typography.bodySmall,

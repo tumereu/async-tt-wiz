@@ -8,6 +8,7 @@ import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.protocol.Avatar as AvatarIdentity
 import org.junit.Rule
 import org.junit.After
+import androidx.compose.ui.unit.dp
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -122,6 +123,9 @@ class AvatarTest {
         assertEquals(AvatarStackContent(others.take(2), 0), podNavigationAvatars(listOf(others[0], me, others[1]), "me"))
         assertEquals(AvatarStackContent(others.take(2), 2), podNavigationAvatars(listOf(me) + others, "me"))
         assertEquals(AvatarStackContent(emptyList(), 0), podNavigationAvatars(emptyList(), "me"))
+        // A lone avatar takes no more room than a game row's; only a real stack widens the column.
+        assertEquals(listOf(32.dp, 52.dp, 60.dp), listOf(podNavigationAvatars(listOf(me, others[0]), "me").width,
+            podNavigationAvatars(listOf(me) + others.take(2), "me").width, podNavigationAvatars(listOf(me) + others, "me").width))
     }
 
     @Test fun unavailableArtworkStillShowsInitial() {

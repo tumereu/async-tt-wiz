@@ -52,7 +52,10 @@ fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 3
 }
 
 /** Who a pod row shows: up to two other members plus how many more; only yourself when nobody else is there. */
-internal data class AvatarStackContent(val shown: List<AccountIdentity>, val more: Int)
+internal data class AvatarStackContent(val shown: List<AccountIdentity>, val more: Int) {
+    /** One 32dp avatar, each further avatar adds 20dp, a "+N" badge ends at 60dp. */
+    val width: Dp get() = if (more > 0) 60.dp else 32.dp + 20.dp * (shown.size - 1).coerceAtLeast(0)
+}
 
 internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String?): AvatarStackContent {
     val others = members.filter { it.accountId != selfId }
@@ -60,11 +63,11 @@ internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String
     return AvatarStackContent(others.take(2), (others.size - 2).coerceAtLeast(0))
 }
 
-/** Fixed 60dp-wide stack so rows line up; later circles overlap earlier ones by 12dp with a [ring] edge. */
+/** [width] is shared by every row so names line up; later circles overlap earlier ones by 12dp with a [ring] edge. */
 @Composable
-internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Modifier = Modifier) {
+internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Modifier = Modifier, width: Dp = content.width) {
     val step = 20.dp
-    Box(modifier.width(60.dp).height(32.dp), contentAlignment = Alignment.CenterStart) {
+    Box(modifier.width(width).height(32.dp), contentAlignment = Alignment.CenterStart) {
         content.shown.forEachIndexed { index, account ->
             Avatar(account, Modifier.offset(x = step * index)
                 .then(if (index > 0) Modifier.border(2.dp, ring, CircleShape) else Modifier))

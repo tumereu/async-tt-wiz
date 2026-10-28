@@ -45,3 +45,18 @@ data class ReconnectEpisode(val id: String, val gameId: String, val startedAt: S
 /** Stable diagnostic labels without action payloads (chat text, card data, etc.). */
 fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${action::class.simpleName}"
     else this::class.simpleName ?: "Unknown"
+
+/** Player-sent diagnostics; accepted without an account so it also works from the update gate. */
+@Serializable
+data class ProblemReport(val reportedAt: String, val appVersion: String, val versionCode: Int, val buildType: String,
+    val device: String, val android: String, val description: String = "", val problem: String = "",
+    val log: String = "", val logcat: String = "") {
+    companion object {
+        const val MAX_BYTES = 524_288
+        const val MAX_DESCRIPTION = 2_000
+        const val MAX_PROBLEM = 1_000
+    }
+}
+
+@Serializable
+data class ProblemReportReceipt(val code: String)

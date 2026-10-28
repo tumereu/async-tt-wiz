@@ -154,7 +154,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         } catch (failure: ActivityFetchFailure) {
             if (failure.status == 401) { clear(binding); authenticationRequired?.invoke(token) }
             failure
-        } catch (_: Exception) { ActivityFetchFailure(0) }
+        } catch (failure: Exception) { AppLog.warn("activity", "Activity fetch failed", failure); ActivityFetchFailure(0) }
     }
     private fun periodic(binding: String) {
         jobs.enqueueUniquePeriodicWork("activity-periodic", ExistingPeriodicWorkPolicy.UPDATE,

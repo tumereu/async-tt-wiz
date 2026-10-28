@@ -78,10 +78,12 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     directory.mkdirs()
     val apk = File(directory, "${target.sha256}.apk")
     // Also verify cache hits before every handoff to the system installer.
-    if (verifyAppApk(apk, target)) return apk
+    if (verifyAppApk(apk, target)) { AppLog.info("update", "Using verified download of ${target.versionName}"); return apk }
     val part = File(directory, "${target.sha256}.part")
     directory.listFiles()?.filter { it != part }?.forEach { it.delete() }
     if (part.length() > target.size) part.delete()
+    AppLog.info("update", "Downloading ${target.versionName} (${target.versionCode}), ${target.size} bytes, " +
+        "${part.length()} already saved, ${directory.usableSpace} bytes free")
     if (directory.usableSpace < target.size - part.length() + 16_000_000L)
         throw AppUpdateFailure("Not enough free storage for the update (needs about ${target.size / 1_000_000 + 16} MB). " +
             "Free some space and try again.")
@@ -91,16 +93,21 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     while (part.length() < target.size) {
         val before = part.length()
         val failure = try { downloadAppApkPart(client, url, target, part, progress); null } catch (failure: IOException) { failure }
+        AppLog.info("update", "Attempt ended at ${part.length()} / ${target.size} bytes (${part.length() - before} new)")
         if (part.length() >= target.size) break
         if (part.length() > before) attempt = 0
-        if (++attempt == 3) throw failure ?: EOFException("Download ended early")
+        if (++attempt == 3) throw (failure ?: EOFException("Download ended early"))
+            .also { AppLog.warn("update", "Giving up after 3 attempts without progress", it) }
+        AppLog.warn("update", "Download interrupted, retrying in ${2 * attempt} s (no progress $attempt/3)", failure)
         sleep(2_000L * attempt)
     }
     if (!verifyAppApk(part, target)) {
+        AppLog.warn("update", "Downloaded file failed verification (${part.length()} bytes)")
         part.delete()
         throw AppUpdateFailure("The downloaded update was damaged. Tap Update to try again.")
     }
     check(part.renameTo(apk))
+    AppLog.info("update", "Download verified")
     return apk
 }
 
@@ -110,12 +117,16 @@ private fun downloadAppApkPart(client: OkHttpClient, url: String, target: AppRel
         // If-Range: a newer release published meanwhile is sent whole instead of appended.
         if (offset > 0) header("Range", "bytes=$offset-").header("If-Range", "\"${target.sha256}\"")
     }.build()
+    AppLog.info("update", "Requesting from offset $offset")
     client.newCall(request).execute().use { response ->
+        AppLog.info("update", "HTTP ${response.code}, Content-Range ${response.header("Content-Range")}, " +
+            "length ${response.body?.contentLength()}, protocol ${response.protocol}")
         if (!response.isSuccessful)
             throw AppUpdateFailure("The update server isn't responding (error ${response.code}). Try again later.")
         val start = if (response.code == 206 && response.header("Content-Range").orEmpty().startsWith("bytes $offset-")) offset else 0L
         val body = response.body!!
         if (body.contentLength() != -1L && body.contentLength() != target.size - start) {
+            AppLog.warn("update", "Unexpected length ${body.contentLength()} from $start; discarding partial download")
             part.delete()
             throw AppUpdateFailure("A newer update appeared during the download. Tap Update to get it.")
         }
@@ -128,7 +139,7 @@ private fun downloadAppApkPart(client: OkHttpClient, url: String, target: AppRel
                     val count = input.read(buffer)
                     if (count == -1) break
                     total += count
-                    if (total > target.size) { part.delete(); throw AppUpdateFailure("The downloaded update was damaged. Tap Update to try again.") }
+                    if (total > target.size) { AppLog.warn("update", "Received more than ${target.size} bytes"); part.delete(); throw AppUpdateFailure("The downloaded update was damaged. Tap Update to try again.") }
                     output.write(buffer, 0, count)
                     val percent = (total * 100 / target.size).toInt()
                     if (percent != lastPercent) {

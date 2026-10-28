@@ -117,7 +117,10 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
             }
             return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw DeckFailure("invalid_response") }
         } catch (failure: DeckFailure) { throw failure
-        } catch (_: Exception) { throw DeckFailure("network") }
+        } catch (failure: Exception) {
+            AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
+            throw DeckFailure("network")
+        }
     }
     override fun close() = client.close()
     companion object { const val MAX_BODY = 16 * 1024 * 1024 }

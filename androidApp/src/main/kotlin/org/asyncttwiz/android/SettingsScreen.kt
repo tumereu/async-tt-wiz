@@ -25,6 +25,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
         PlaybackSettings(preferences, accountId)
         CardSettings()
         WhatsNewEntry()
+        ProblemReportEntry { auth?.sessionToken() }
         TextButton(onClick = logout, modifier = Modifier.heightIn(min = 48.dp).testTag("logout"),
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
             EntryIcon(null, "logout"); Spacer(Modifier.width(8.dp)); Text("Log out")
@@ -49,4 +50,35 @@ private fun WhatsNewEntry() {
     var open by remember { mutableStateOf(false) }
     TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("whats-new")) { Text("What's new") }
     if (open) WhatsNewDialog(remember { ReleaseNotes.load(context) }) { open = false }
+}
+
+@Composable
+private fun ProblemReportEntry(token: () -> String?) {
+    var open by remember { mutableStateOf(false) }
+    TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = 48.dp).testTag("report-problem")) { Text("Report a problem") }
+    if (open) ProblemReportDialog(token) { open = false }
+}
+
+@Composable
+internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val reports = remember { ProblemReportSender(scope) }
+    var description by remember { mutableStateOf("") }
+    val state = reports.state
+    ScreenDialog(dismiss, title = "Report a problem", actions = {
+        if (state is ProblemReportState.Sent) DialogMainButton("Close", dismiss)
+        else {
+            DialogCancelButton("Cancel", dismiss)
+            DialogMainButton(if (state is ProblemReportState.Failed) "Try again" else "Send",
+                { reports.send(description, token = token()) }, Modifier.testTag("send-report"),
+                enabled = state != ProblemReportState.Sending)
+        }
+    }) {
+        Text("Describe what went wrong, if you like. The report includes the app's recent log and your device model, " +
+            "but no passwords or email addresses.", style = MaterialTheme.typography.bodySmall)
+        ScreenTextField(description, { description = it.take(org.asyncttwiz.protocol.ProblemReport.MAX_DESCRIPTION) },
+            Modifier.fillMaxWidth().heightIn(min = 120.dp).testTag("report-description"), singleLine = false,
+            enabled = state == ProblemReportState.Idle || state is ProblemReportState.Failed, placeholder = "What happened?")
+        ProblemReportStatus(state)
+    }
 }

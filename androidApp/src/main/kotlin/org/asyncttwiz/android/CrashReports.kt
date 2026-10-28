@@ -91,6 +91,14 @@ internal class CrashExceptionHandler(private val store: CrashReportStore,
 class TabletopApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        AppLog.install(File(filesDir, "app-log.txt"))
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, failure ->
+            // Logging must never replace Android's crash handling.
+            try { AppLog.error("crash", "Uncaught exception on thread ${thread.name}", failure) } catch (_: Throwable) {
+            } finally { previous?.uncaughtException(thread, failure) }
+        }
+        AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
         if (BuildConfig.DEBUG) DebugCrashes.install(this)
         AndroidTokenCatalog.source(this)
     }

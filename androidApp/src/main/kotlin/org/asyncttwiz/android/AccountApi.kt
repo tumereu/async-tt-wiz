@@ -93,6 +93,11 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
         return true
     }
 
+    /** Public: also works before login. A session, when there is one, only attaches the account. */
+    internal suspend fun sendProblemReport(report: org.asyncttwiz.protocol.ProblemReport, token: String?): String =
+        decode<org.asyncttwiz.protocol.ProblemReportReceipt>(call(HttpMethod.Post, "/app/problem-reports",
+            AccountJson.format.encodeToString(report), token?.takeIf(::validToken))).code
+
     override suspend fun requestReset(email: String) {
         validateScalars(email, "email")
         call(HttpMethod.Post, "/password-reset-requests", AccountJson.format.encodeToString(RequestPasswordReset(email)))
@@ -131,7 +136,10 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
             }
             return text
         } catch (failure: AccountFailure) { throw failure
-        } catch (_: Exception) { throw AccountFailure("network") }
+        } catch (failure: Exception) {
+            AppLog.warn("http", "${method.value} $path failed", failure)
+            throw AccountFailure("network")
+        }
     }
 
     private inline fun <reified T> decode(text: String): T = try {
@@ -141,10 +149,10 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     override fun close() = client.close()
 
     companion object {
-        fun client() = HttpClient(Android) {
+        fun client(requestTimeout: Long = 20_000) = HttpClient(Android) {
             followRedirects = false // Never forward credentials to another origin.
             expectSuccess = false
-            install(HttpTimeout) { requestTimeoutMillis = 20_000; connectTimeoutMillis = 8_000; socketTimeoutMillis = 15_000 }
+            install(HttpTimeout) { requestTimeoutMillis = requestTimeout; connectTimeoutMillis = 8_000; socketTimeoutMillis = 15_000 }
             // No Logging, cookie jar, disk HTTP cache or global default Authorization header.
         }
 

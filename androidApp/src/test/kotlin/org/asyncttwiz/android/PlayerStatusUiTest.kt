@@ -37,10 +37,57 @@ class PlayerStatusUiTest {
             if (landscape) 412f else 892f, landscape)
         val life = scene.items.single { it.id == "life/$owner" }
         assertEquals(if (owner == "a") own else other, life.status)
-        compose.onNodeWithContentDescription(life.label).performClick()
+        lifeLabel = life.label
+        reopen()
+        return sent
+    }
+
+    private var lifeLabel = ""
+    private fun reopen() {
+        compose.onNodeWithContentDescription(lifeLabel).performClick()
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-        return sent
+    }
+    private fun choose(action: String) {
+        compose.onNodeWithContentDescription(action).performScrollTo().performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
+    }
+
+    @Test fun opponentPanelHasHideShowAndMuteUnmuteTogglesThatStayLocal() {
+        val sent = open("b", other = "Got a response")
+        compose.onNodeWithContentDescription("Show status bubble").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Unmute status bubble").assertDoesNotExist()
+        choose("Hide status bubble")
+        reopen()
+        compose.onNodeWithContentDescription("Hide status bubble").assertDoesNotExist()
+        choose("Show status bubble")
+        reopen()
+        choose("Mute status bubble")
+        reopen()
+        compose.onNodeWithContentDescription("Hide status bubble").assertExists()
+        compose.onNodeWithContentDescription("Unmute status bubble").assertExists()
+        choose("Unmute status bubble")
+        reopen()
+        compose.onNodeWithContentDescription("Mute status bubble").assertExists()
+        // Full text remains in the panel; nothing is sent to the game.
+        compose.onNodeWithText("Status: “Got a response”").assertIsDisplayed()
+        assertTrue(sent.isEmpty())
+    }
+
+    @Test fun ownPanelAlsoHasTheTogglesAndOnlyMuteWithoutAStatus() {
+        val sent = open("a", own = "BRB")
+        compose.onNodeWithContentDescription("Hide status bubble").assertExists()
+        choose("Mute status bubble")
+        assertTrue(sent.isEmpty())
+        compose.onNodeWithContentDescription(lifeLabel).assertExists()
+    }
+
+    @Test fun noStatusOffersMuteButNoHide() {
+        open("b")
+        compose.onNodeWithContentDescription("Hide status bubble").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Show status bubble").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mute status bubble").assertExists()
     }
 
     @Test fun ownPanelOffersPresetsAndAPresetSetsTheStatusAndClosesThePanel() {

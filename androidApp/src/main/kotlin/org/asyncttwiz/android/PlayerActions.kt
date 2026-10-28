@@ -46,7 +46,7 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
             if (landscape && player.counters.values.none(TablePresentation::nonzero)) {
                 InlinePopupCell(MenuControl("Counters") { actions.player(state, player.accountId, counters = true) })
             }
-            PlayerStatusSection(player, own = player.accountId == viewer, enabled = enabled, close = actions::close, submit = submit)
+            PlayerStatusSection(state, player, own = player.accountId == viewer, enabled = enabled, close = actions::close, submit = submit)
         } else {
             for (pair in CounterColor.entries.chunked(2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (counter in pair) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -87,12 +87,30 @@ private fun PlayerStatusLabel(text: String, maxLines: Int) {
     }
 }
 
+/** Personal Hide/Show and Mute/Unmute toggles; each icon and label names what a tap will do. Local to this device. */
 @Composable
-private fun PlayerStatusSection(player: PlayPlayer, own: Boolean, enabled: Boolean, close: () -> Unit,
+private fun StatusBubbleToggles(state: PlayState, player: PlayPlayer, close: () -> Unit) {
+    val bubbles = LocalStatusBubbles.current ?: return
+    val hidden = bubbles.modes(state)[player.accountId] == StatusBubbleMode.NONE
+    val muted = bubbles.muted(player.accountId)
+    fun toggle(action: String, run: () -> Unit) = MenuControl(action) { run(); close() }
+    Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
+        if (player.status.isNotEmpty()) {
+            if (hidden) InlinePopupCell(toggle("Show status bubble") { bubbles.hide(state, player.accountId, hidden = false) }, "Show")
+            else InlinePopupCell(toggle("Hide status bubble") { bubbles.hide(state, player.accountId, hidden = true) }, "Hide")
+        }
+        if (muted) InlinePopupCell(toggle("Unmute status bubble") { bubbles.mute(player.accountId, false) }, "Unmute")
+        else InlinePopupCell(toggle("Mute status bubble") { bubbles.mute(player.accountId, true) }, "Mute")
+    }
+}
+
+@Composable
+private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boolean, enabled: Boolean, close: () -> Unit,
     submit: (PlayAction) -> Boolean) {
     val color = LocalInlinePopupColor.current
     if (!own) {
         if (player.status.isNotEmpty()) PlayerStatusLabel("Status: “${player.status}”", maxLines = 3)
+        StatusBubbleToggles(state, player, close)
         return
     }
     var editing by remember { mutableStateOf<String?>(null) }
@@ -114,6 +132,7 @@ private fun PlayerStatusSection(player: PlayPlayer, own: Boolean, enabled: Boole
     for (row in cells.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for ((control, content) in row) RingPress(control, Modifier.width(96.dp).height(36.dp), color) { content() }
     }
+    StatusBubbleToggles(state, player, close)
     editing?.let { initial ->
         val field = rememberDialogField(initial)
         val save = { set(PlayerStatusInput.clean(field.text)) }

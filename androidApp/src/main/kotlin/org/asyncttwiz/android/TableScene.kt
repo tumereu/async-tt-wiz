@@ -237,7 +237,13 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 coordinator.pointFromPixels(center.x - screenOrigin.x, center.y - screenOrigin.y))
             preview = coordinator.preview
         }) }
-    CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes) {
+    val context = LocalContext.current
+    val statusStore = remember(context, accountId, game.id) { StatusBubbleStore(context, accountId, game.id) }
+    val statusBubbles = remember(statusStore, runtime.statusHistory) { StatusBubbles(statusStore, runtime.statusHistory ?: { null }) }
+    val statusVersion = statusBubbles.version
+    val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
+    CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes,
+        LocalStatusBubbles provides statusBubbles) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
@@ -426,7 +432,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
-                    pingPulse?.value ?: 0f)
+                    pingPulse?.value ?: 0f, statusModes)
             }
             runtime.ownPodDeckName?.let { name ->
                 scene.items.firstOrNull { it.owner == accountId && it.zone == PlayZone.LIBRARY && it.drawHandId != null }?.let { library ->
@@ -826,6 +832,10 @@ internal object StatusBubble {
     const val HEIGHT = 18f
     const val TAIL = 5f
     const val MAX_WIDTH = 168f
+    /** A muted status: a small dot on the life square's corner on the bubble's side. */
+    const val DOT = 8f
+    fun dot(life: TableBounds, below: Boolean): TableBounds =
+        TableBounds(life.right - DOT / 2, (if (below) life.bottom else life.y) - DOT / 2, DOT, DOT)
     fun bounds(life: TableBounds, below: Boolean, textWidth: Float): TableBounds {
         val width = maxOf(textWidth + 2 * PADDING, 28f)
         val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - HEIGHT
@@ -867,7 +877,7 @@ private class TableDrawCache(density: Float) {
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
-    cache: TableDrawCache, pingPhase: Float = 0f) {
+    cache: TableDrawCache, pingPhase: Float = 0f, statusModes: Map<String, StatusBubbleMode> = emptyMap()) {
     val density = density
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
@@ -1305,6 +1315,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     // Status bubbles are drawn only: taps and drags reach whatever lies beneath them.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.status.isNotEmpty() && it.visible.isNotEmpty() }) {
         val color = if (i.owner == viewer) OwnTableColor else OpponentTableColor
+        val mode = statusModes[i.owner] ?: StatusBubbleMode.BUBBLE
+        if (mode == StatusBubbleMode.NONE) continue
+        if (mode == StatusBubbleMode.DOT) {
+            val dot = StatusBubble.dot(i.bounds, below = i.valueDragSide == ValueDragSide.TOP)
+            drawCircle(Color.White, (StatusBubble.DOT / 2 + 1f) * density, xy(dot.center.x, dot.center.y))
+            drawCircle(color, StatusBubble.DOT / 2 * density, xy(dot.center.x, dot.center.y))
+            continue
+        }
         val previousSize = paint.textSize
         paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
         val canvasWidth = this.size.width / density

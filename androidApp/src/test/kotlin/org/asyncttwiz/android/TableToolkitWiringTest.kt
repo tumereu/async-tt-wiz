@@ -134,7 +134,9 @@ class TableToolkitWiringTest {
 
     @Test fun turnShortcutsShareOneInvocationAndUndoTheWholeReproducibleDrawShortcut() {
         for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
-            val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+            // The starting player's first turn offers no draw shortcuts.
+            val f = BasicTableFixture(); f.connect(f.root.copy(board = f.root.board.copy(turn = f.root.board.turn.copy(number = "3"))))
+            val ui = toolkit(f)
             try {
                 assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true))
                 assertTrue(ui.submit(PlayAction.SetTapped(f.id(40), true)))

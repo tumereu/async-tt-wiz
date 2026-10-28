@@ -30,13 +30,14 @@ class ActivityRuntimeIntegrationTest {
                 val r2 = activity.register(second, RegisterInstallation(id(), id(), "runtime-two"))
                 activity.register(f.b, RegisterInstallation(id(), id()))
                 val before = activity.page(f.b, null).nextCursor
+                val beforeA = activity.page(f.a, null).nextCursor // after the game-start notice
                 val life = f.owner.command(PlayAction.AdjustLife(f.a.account.accountId, "1"))
                 val result = f.owner.execute(life)
                 val accepted = f.games.head(f.b, f.game.id)
                 val group = accepted.play!!.currentGroup!!
                 val first = activity.page(f.b, before).entries.single()
                 assertEquals(group.id, first.identity); assertEquals(group.author, first.authorId)
-                assertTrue(activity.page(f.a, "0").entries.isEmpty())
+                assertTrue(activity.page(f.a, beforeA).entries.isEmpty())
                 assertEquals(result, f.owner.admit(life))
                 assertFalse(f.games.executeOne())
                 assertEquals(listOf(first), activity.page(f.b, before).entries)
@@ -98,7 +99,7 @@ class ActivityRuntimeIntegrationTest {
                 CREATE TRIGGER runtime_fail_outbox BEFORE INSERT ON game_outbox FOR EACH ROW EXECUTE FUNCTION runtime_fail_outbox();""")
             try {
                 assertThrows(Exception::class.java) { f.games.executeOne() }
-                assertEquals(0L, number(db, "SELECT count(*) FROM account_activity WHERE kind='GAME'"))
+                assertEquals(0L, number(db, "SELECT count(*) FROM account_activity WHERE kind='GAME' AND identity<>'${head.play!!.id}'"))
                 assertEquals(0L, number(db, "SELECT count(*) FROM gameplay_mutation"))
                 assertEquals(0L, number(db, "SELECT count(*) FROM gameplay_group"))
                 assertEquals(0L, number(db, "SELECT count(*) FROM game_inbox WHERE request_id='${input.requestId}' AND result IS NOT NULL"))

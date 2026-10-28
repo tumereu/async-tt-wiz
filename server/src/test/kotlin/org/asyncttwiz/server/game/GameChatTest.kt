@@ -216,7 +216,7 @@ class GameChatTest {
                 assertEquals("22", head.play!!.board.players.first { it.accountId == f.a.account.accountId }.life)
                 assertEquals(before.play!!.root, head.play!!.root)
                 assertEquals(1, count(db, "gameplay_mutation")); assertEquals(0, count(db, "game_play_mutation"))
-                assertEquals(3, count(db, "account_activity WHERE kind='GAME'")) // Both chats count as activity, without invented board groups.
+                assertEquals(4, count(db, "account_activity WHERE kind='GAME'")) // Game start plus both chats and the edit, without invented board groups.
                 val activity = org.asyncttwiz.server.activity.ActivityService(runtime)
                 val groupTarget = activity.target(f.b, ActivityKind.GAME, f.game.id, head.play!!.currentGroup!!.id)
                 assertEquals(ActivityDestination.GROUP, groupTarget.destination)

@@ -23,8 +23,8 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     val state = controller.state
     val keyboard = LocalSoftwareKeyboardController.current
     val clipboard = LocalClipboardManager.current
-    LaunchedEffect(state.fromUrl) {
-        if (state.fromUrl) controller.prefillUrl { clipboard.getText()?.text }
+    LaunchedEffect(state.linkDialog) {
+        if (state.linkDialog) controller.prefillUrl { clipboard.getText()?.text }
     }
     LaunchedEffect(catalog?.state?.installed, catalog?.state?.busy) {
         controller.catalogChanged(catalog?.state?.installed, catalog?.state?.busy == true)
@@ -66,21 +66,13 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
             }
         }
     }
-    val metadata: @Composable () -> Unit = {
-        DeckMetadataHeader(state.name, controller.currentCover, controller::name,
-            if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
-    }
     ImportScaffold(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist",
-        openNavigation, landscape, state.fromUrl, controller::fromUrl, controller.canSave, state.saving, controller::save, "save-deck",
+        openNavigation, landscape, controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-deck",
         input = {
             modes()
-            if (state.fromUrl) ImportLinkField(state.url, controller::url, "Deck link or site:ID", "deck-url", "Paste deck link",
-                controller::pasteUrl, controller::importUrl, state.url.isNotBlank() && !state.saving && (!state.busy || state.fetchingUrl),
-                state.fetchingUrl)
-            else {
-                metadata()
-                ImportListField(state.text, controller::edit, "Deck list", "deck-list")
-            }
+            DeckMetadataHeader(state.name, controller.currentCover, controller::name,
+                if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
+            ImportListField(state.text, controller::edit, "Deck list", "deck-list")
         },
         feedback = {
             ImportError(state.error)
@@ -88,16 +80,16 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                 enabled = !state.busy && !state.saving && catalog?.state?.busy != true, modifier = Modifier.testTag("retry-lookup")) {
                 EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text("Retry lookup")
             }
-            if (!state.fromUrl || state.imported) {
-                if (state.fromUrl) metadata()
-                ImportResultSummary(state.result, deck = true, lineNumbers = !state.fromUrl)
-            }
+            ImportResultSummary(state.result, deck = true, lineNumbers = true)
         })
+    if (state.linkDialog) ImportLinkDialog(state.url, controller::url, "Deck link or site:ID", "deck-url", "Paste deck link",
+        controller::pasteUrl, controller::importUrl, state.url.isNotBlank() && !state.saving && (!state.busy || state.fetchingUrl),
+        state.fetchingUrl, state.linkError, controller::closeLink)
     if (state.discard) ScreenDialog(controller::keepEditing) {
         Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(controller::keepEditing, Modifier.weight(1f)) { Text("Keep editing") }
-            ScreenButton(controller::exit, Modifier.weight(1f)) { Text("Discard") }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            ScreenOutlinedButton(controller::keepEditing) { Text("Keep editing") }
+            ScreenButton(controller::exit) { Text("Discard") }
         }
     }
 }

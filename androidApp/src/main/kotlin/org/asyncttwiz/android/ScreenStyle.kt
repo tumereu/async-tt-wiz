@@ -264,6 +264,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "import" -> Icons.Outlined.ContentPaste
     "paste" -> Icons.Outlined.ContentPaste
     "download" -> Icons.Outlined.FileDownload
+    "link" -> Icons.Outlined.Link
     "save" -> Icons.Outlined.Save
     "delete" -> Icons.Outlined.DeleteOutline
     "cover" -> Icons.Outlined.Image

@@ -64,16 +64,13 @@ A cube is created from either:
   `cubecobra.com/cube/<page>/<id>` link is found anywhere in the input (shared
   text, scheme/`www` optional, query ignored); fetch failures show their reason.
 
-The editor uses the deck import layout with **Link | Paste list** tabs (Link is
-Cube Cobra), showing only the selected source's fields. Read clipboard once on
-first opening Link in an editor session, prefill only a Cube Cobra URL/ID, and
-require explicit Import for typed/prefilled text; the field's paste icon pastes
-and imports at once. A fetched snapshot stays on Link with a preview (name,
-card count, substitutions, problems); its list is the Paste list draft for
-correction, and a new cube defaults its name to the Cube Cobra ID. Paste list
-has name + **Include sideboard** on one row and resolves automatically after
-edits. One full-width **Save** ends both tabs. Resolution feedback has a fixed
-area; imports/saves do not block the screen or add background-refresh loaders.
+The new/edit cube editor is the deck import screen (name + **Include
+sideboard** on one row, no cover), resolving the list automatically after edits.
+Its top-bar **Import from link** dialog takes a Cube Cobra URL/ID with the same
+clipboard, paste-and-import and Cancel rules as decks; success fills the list
+(replacing it) and, for an unnamed cube, the name with the Cube Cobra ID. One
+full-width **Save** ends the screen. Resolution feedback has a fixed area;
+imports/saves do not block the screen or add background-refresh loaders.
 
 Before saving, show total copies. A requested printing that is missing may be
 replaced by another printing of the same card; list substitutions before saving.

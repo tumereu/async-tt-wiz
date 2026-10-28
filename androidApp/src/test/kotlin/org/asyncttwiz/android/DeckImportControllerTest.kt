@@ -7,36 +7,66 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 
 class DeckImportControllerTest {
-    @Test fun urlImportUsesParsedPipelineRetainsSiteNameAndRequiresExplicitConfirmation() {
+    @Test fun linkImportUsesParsedPipelineFillsTheEditorAndClosesTheDialog() {
         val worker = Worker(); var fetches = 0; var reads = 0
         val parsed = DeckTextParser.parse("Deck\n2 Rune Bear\nSideboard\n1 Rune Shield")
         var received: ParsedDeck? = null
         val controller = DeckImportController({ error("Use parsed pipeline") }, worker) { it() }
         controller.connectUrl({ received = it; result(it.text) }, { fetches++; ImportedDeck("Site deck", parsed) })
-        controller.open(); controller.fromUrl(true)
+        controller.open(); controller.edit("1 Replaced")
+        controller.prefillUrl { reads++; "https://archidekt.com/decks/999" }
+        assertEquals(0, reads, "The clipboard is read only once the dialog opens")
+        controller.openLink()
         controller.prefillUrl { reads++; "https://archidekt.com/decks/123" }
-        controller.fromUrl(false); controller.fromUrl(true)
+        controller.closeLink(); controller.openLink()
         controller.prefillUrl { reads++; "https://archidekt.com/decks/456" }
         assertEquals(1, reads); assertEquals(0, fetches)
         assertEquals("https://archidekt.com/decks/123", controller.state.url)
-        controller.importUrl(); assertTrue(controller.state.busy); worker.drain()
+        controller.importUrl(); assertTrue(controller.state.busy); assertTrue(controller.state.linkDialog); worker.drain()
         assertEquals(1, fetches); assertEquals(parsed, received)
         assertEquals("Site deck", controller.state.name); assertEquals(parsed.text, controller.state.text)
-        assertTrue(controller.state.fromUrl); assertTrue(controller.state.imported); assertFalse(controller.state.busy)
+        assertFalse(controller.state.linkDialog); assertFalse(controller.state.busy)
         assertEquals(result(parsed.text), controller.state.result)
+        // The result is an ordinary draft: closing it asks to discard.
+        controller.back(); assertTrue(controller.state.discard)
         controller.close()
     }
 
-    @Test fun urlFailureKeepsDraftAndSuggestsPasteAndCorrectionsFenceDelayedResults() {
+    @Test fun linkImportKeepsATypedNameAndAResolvedCover() {
+        val worker = Worker()
+        val printing = { id: String -> CatalogPrinting(id, id, "SET", "1", "English", "", null, false, emptyList(), """{"name":"$id"}""") }
+        val resolve = { text: String -> DeckImportResult(text, text.lines().filter { it.matches(Regex("\\d+ .+")) }.map {
+            ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing(it.substringAfter(' '))), listOf(1)) }, emptyList(), null) }
+        var next = "1 Bear\n1 Shield"
+        val controller = DeckImportController(resolve, worker) { it() }
+        controller.connectUrl({ resolve(it.text) }, { ImportedDeck("Site deck", DeckTextParser.parse(next)) })
+        controller.open(); controller.name("My deck"); controller.edit("1 Shield\n1 Owl"); controller.lookup(); worker.drain()
+        val shield = controller.coverCards.first { it.definition.name == "Shield" }.digest
+        controller.chooseCover(); controller.cover(shield)
+        controller.openLink(); controller.url("archidekt:1"); controller.importUrl(); worker.drain()
+        assertEquals("My deck", controller.state.name)
+        assertEquals(listOf("Bear", "Shield"), controller.state.result!!.entries.map { it.printing.name })
+        assertEquals(shield, controller.state.cover); assertEquals("Shield", controller.currentCover!!.name)
+        next = "1 Owl"
+        controller.openLink(); controller.importUrl(); worker.drain()
+        assertNull(controller.state.cover); assertEquals("Owl", controller.currentCover!!.name)
+        controller.close()
+    }
+
+    @Test fun linkFailureStaysInTheDialogKeepsTheDraftAndCorrectionsFenceDelayedResults() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
         val controller = DeckImportController(::result, worker) { posts += it }
         controller.connectUrl(::resultParsed, { error("403") })
-        controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
+        controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.openLink()
         controller.url("https://archidekt.com/decks/456")
         controller.importUrl(); worker.drain(); posts.removeFirst()()
         assertEquals("1 Retained", controller.state.text); assertEquals("Retained", controller.state.name)
-        assertTrue(controller.state.error!!.contains("Paste list")); assertFalse(controller.state.busy)
+        assertTrue(controller.state.linkDialog); assertNull(controller.state.error)
+        assertTrue(controller.state.linkError!!.contains("Paste the list")); assertFalse(controller.state.busy)
+        controller.url("not a link"); controller.importUrl()
+        assertEquals("Enter a supported deck URL or site:ID.", controller.state.linkError)
         controller.connectUrl(::resultParsed, { ImportedDeck("Remote", DeckTextParser.parse("2 Remote")) })
+        controller.url("archidekt:456")
         controller.importUrl(); worker.drain(); controller.url("archidekt:123"); posts.removeFirst()()
         assertEquals("Retained", controller.state.name); assertFalse(controller.state.busy)
         controller.importUrl(); worker.drain(); controller.edit("3 Corrected"); posts.removeFirst()()
@@ -46,17 +76,17 @@ class DeckImportControllerTest {
         controller.close()
     }
 
-    @Test fun nameChangesAndTabSwitchesDropDelayedUrlImports() {
+    @Test fun cancelAndBackDropDelayedLinkImports() {
         val changes: List<(DeckImportController) -> Unit> = listOf(
-            { it.name("Corrected name") },
-            { it.fromUrl(false) },
-            { it.fromUrl(false); it.fromUrl(true) }
+            { it.closeLink() },
+            { it.back() },
+            { it.closeLink(); it.openLink() }
         )
         changes.forEach { change ->
             val worker = Worker(); val posts = ArrayDeque<() -> Unit>()
             val controller = DeckImportController(::result, worker) { posts += it }
             controller.connectUrl(::resultParsed, { ImportedDeck("Remote", DeckTextParser.parse("2 Remote")) })
-            controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.fromUrl(true)
+            controller.open(); controller.edit("1 Retained"); controller.name("Retained"); controller.openLink()
             controller.url("archidekt:123"); controller.importUrl(); worker.drain()
             change(controller)
             val corrected = controller.state
@@ -64,6 +94,7 @@ class DeckImportControllerTest {
             assertEquals(corrected, controller.state)
             assertEquals("1 Retained", controller.state.text)
             assertFalse(controller.state.busy); assertFalse(controller.state.fetchingUrl)
+            assertFalse(controller.state.discard)
             controller.close()
         }
     }
@@ -72,12 +103,12 @@ class DeckImportControllerTest {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var fetches = 0
         val controller = DeckImportController(::result, worker) { posts += it }
         controller.connectUrl(::resultParsed, { ImportedDeck("Remote ${++fetches}", DeckTextParser.parse("$fetches Remote")) })
-        controller.open(); controller.name("Retained"); controller.fromUrl(true); controller.url("archidekt:123")
+        controller.open(); controller.openLink(); controller.url("archidekt:123")
         controller.importUrl(); worker.drain()
         controller.importUrl(); worker.drain()
         assertEquals(2, fetches)
         posts.removeFirst()()
-        assertEquals("Retained", controller.state.name); assertEquals("", controller.state.text)
+        assertEquals("", controller.state.name); assertEquals("", controller.state.text)
         assertTrue(controller.state.busy); assertTrue(controller.state.fetchingUrl)
         posts.removeFirst()()
         assertEquals("Remote 2", controller.state.name); assertEquals("2 Remote", controller.state.text)

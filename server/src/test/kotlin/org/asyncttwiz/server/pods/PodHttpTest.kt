@@ -1086,12 +1086,14 @@ class PodHttpTest {
         val started = f.start(pod)
         f.finish(pod, listOf(f.a, f.b))
         val attempt = started.draftAttemptId!!
-        val mainCount = f.get(f.a, pod).build!!.copies.size
-        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1001 - mainCount)))
+        // The unlimited Side starts with 17 of each basic, and those count toward the deck size too.
+        val fixedCount = f.get(f.a, pod).build!!.let { it.copies.size + it.sideBasics.total.toInt() }
+        assertEquals(85, fixedCount - f.get(f.a, pod).build!!.copies.size)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1001 - fixedCount)))
         val response = f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400)
         assertEquals("deck_too_large", json.decodeFromString<PodError>(response).code)
         assertFalse(f.get(f.a, pod).submitted)
-        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1000 - mainCount)))
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 1000 - fixedCount)))
         f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
         assertTrue(f.get(f.a, pod).submitted)
     }

@@ -20,6 +20,9 @@ class PodBuildModelsTest {
             PodDeckCopy("side", PodDeckCategory.SIDE) + PodDeckCopy("trash", PodDeckCategory.TRASH), PodDeckBasics(3, 3, 3, 2, 1))
         assertEquals("Main 27 + 14 = 41", podBuildMainTitle(build, copies, definitions))
         assertEquals("Main 0 + 0 = 0", podBuildMainTitle(PodDeckBuild(), emptyMap(), emptyMap()))
+        // Side uses the same split, with a drafted land joining the side basics; no lands keeps a plain count.
+        assertEquals("Side 0 + 3 = 3", podBuildSideTitle(build.copy(sideBasics = PodDeckBasics(plains = 2)), copies, definitions))
+        assertEquals("Side 1", podBuildSideTitle(build.copy(copies = listOf(PodDeckCopy("0", PodDeckCategory.SIDE))), copies, definitions))
     }
 
     @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {

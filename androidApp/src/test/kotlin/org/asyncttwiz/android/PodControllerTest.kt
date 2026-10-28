@@ -293,6 +293,16 @@ class PodControllerTest {
         assertEquals(f.api.saved.build, f.controller.state.detail!!.build)
     }
 
+    @Test fun buildUndoRestoresTheBasicsRowThatChanged(): Unit = Fixture().use { f ->
+        f.open()
+        f.controller.adjustBasic(1, 1, side = true); f.controller.adjustBasic(0, 1)
+        f.controller.undoBuild(); f.controller.undoBuild()
+        assertEquals(PodDeckBasics(), f.controller.state.detail!!.build!!.basics)
+        assertEquals(PodDeckBasics(), f.controller.state.detail!!.build!!.sideBasics)
+        f.deliver()
+        assertEquals(listOf(true, false, false, true), f.api.calls.filter { it.first == "basics" }.map { (it.second as SetPodBasics).side })
+    }
+
     @Test fun feedRevertDropsItsMoveFromTheBuildUndoStack(): Unit = Fixture().use { f ->
         f.open()
         f.controller.adjustBasic(2, 1)

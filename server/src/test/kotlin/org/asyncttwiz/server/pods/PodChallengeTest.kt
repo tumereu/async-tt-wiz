@@ -42,14 +42,14 @@ class PodChallengeTest {
             cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube",
                 definitions.map { SavedCubeEntry(it.digest, if (uniqueCards) 1 else 90) })).body)
         }
-        fun pod(three: Boolean = false): String {
+        fun pod(three: Boolean = false, sideboardLimit: Int? = 1): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), "Surviving pod name", cube.cube.id)).body).id
             for (member in if (three) listOf(b, c) else listOf(b)) {
                 assertEquals(200, pods.invite(a, pod, InviteToPod(id(), member.account.accountId)).status)
                 assertEquals(200, pods.invitation(member, pod, PodRequest(id()), true).status)
             }
             // Each member receives three automatic one-card packs.
-            assertEquals(200, pods.update(a, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 1, sideboardLimit = 1))).status)
+            assertEquals(200, pods.update(a, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 1, sideboardLimit = sideboardLimit))).status)
             assertEquals(200, pods.start(a, pod, PodRequest(id())).status)
             return pod
         }
@@ -93,6 +93,33 @@ class PodChallengeTest {
             while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
             test(Fixture(runtime, uniqueCards))
         }
+    }
+
+    @Test fun `side basics start at seventeen when unlimited and become sideboard lands in challenge decks`() = fixture { f ->
+        assertEquals(PodDeckBuild().sideBasics, f.detail(f.a, f.pod()).build!!.sideBasics)
+        val pod = f.pod(sideboardLimit = null)
+        val seventeen = PodDeckBasics(17, 17, 17, 17, 17)
+        assertEquals(seventeen, f.detail(f.a, pod).build!!.sideBasics)
+        val attempt = f.detail(f.a, pod).draftAttemptId!!
+        assertEquals(400, f.pods.basics(f.a, pod, SetPodBasics(id(), attempt, PodDeckBasics(island = -1), side = true)).status)
+        val side = json.decodeFromString<PodDetail>(f.pods.basics(f.a, pod, SetPodBasics(id(), attempt, PodDeckBasics(island = 2), side = true)).body)
+        assertEquals(PodDeckBasics(island = 2), side.build!!.sideBasics); assertEquals(PodDeckBasics(), side.build!!.basics)
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val game = f.challenge(pod)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.AcceptInvitation).outcome)
+        val decks = f.preparation(game).players.associate { it.accountId to it.deck!! }
+        for ((player, expected) in listOf(f.a to PodDeckBasics(island = 2), f.b to seventeen)) {
+            val deck = decks.getValue(player.account.accountId)
+            assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(deck))
+            assertEquals(expected, PodGamePreparation.basics(deck, SavedDeckSection.SIDEBOARD))
+            assertEquals(1 + expected.total, deck.count(SavedDeckSection.SIDEBOARD))
+        }
+        val deck = decks.getValue(f.a.account.accountId)
+        val stream = f.stream(f.a, game)
+        assertEquals("accepted", stream.execute(GameAction.SetPodGameBasics(deck.id, PodDeckBasics(forest = 3), basics, SavedDeckSection.SIDEBOARD)).outcome)
+        val edited = f.preparation(game).players.single { it.accountId == f.a.account.accountId }.deck!!
+        assertEquals(PodDeckBasics(forest = 3), PodGamePreparation.basics(edited, SavedDeckSection.SIDEBOARD))
+        assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(edited))
     }
 
     @Test fun `challenge authorization submitted decks name basics validation idempotency and parallel games`() = fixture { f ->

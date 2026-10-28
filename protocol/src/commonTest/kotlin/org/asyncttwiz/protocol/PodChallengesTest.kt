@@ -89,6 +89,31 @@ class PodChallengesTest {
             GameAction.SelectDeck(id(31), "1"), null, emptyList()).reason)
     }
 
+    @Test fun sideBasicsAreSideboardCopiesEditedSeparatelyAndCountTowardTheSideLimit() {
+        fun section(current: LobbyPreparation, basics: PodDeckBasics, section: SavedDeckSection) = PodGamePreparation.setBasics(game, current,
+            id(2), scope, GameAction.SetPodGameBasics(deck.id, basics, definitions, section))
+        val main = edit().state!!
+        val side = section(main, PodDeckBasics(island = 1), SavedDeckSection.SIDEBOARD).state!!
+        val prepared = side.players[0].deck!!
+        assertEquals(40L, prepared.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, prepared.count(SavedDeckSection.SIDEBOARD))
+        assertEquals(PodDeckBasics(plains = 38), PodGamePreparation.basics(prepared))
+        assertEquals(PodDeckBasics(island = 1), PodGamePreparation.basics(prepared, SavedDeckSection.SIDEBOARD))
+        assertEquals(SavedDeckSection.SIDEBOARD, prepared.entries.single { it.suppliedBasic == BasicLand.ISLAND }.section)
+        assertNotNull(StartRules.change(game, side, id(2), scope, GameAction.Ready).state)
+        val over = section(side, PodDeckBasics(island = 2), SavedDeckSection.SIDEBOARD).state!!
+        assertEquals("sideboardLimit", StartRules.change(game, over, id(2), scope, GameAction.Ready).reason)
+        val mainAgain = edit(over, PodDeckBasics(plains = 39)).state!!.players[0].deck!!
+        assertEquals(PodDeckBasics(island = 2), PodGamePreparation.basics(mainAgain, SavedDeckSection.SIDEBOARD))
+        assertEquals(PodDeckBasics(plains = 39), PodGamePreparation.basics(mainAgain))
+        assertEquals(over, section(over, PodDeckBasics(island = 2), SavedDeckSection.SIDEBOARD).state)
+        assertEquals("invalidBasics", section(main, PodDeckBasics(island = 961), SavedDeckSection.SIDEBOARD).reason)
+        val basic = prepared.entries.single { it.suppliedBasic == BasicLand.ISLAND }
+        assertEquals("useBasicStepper", PreparationRules.transfer(game, side, id(2), scope,
+            GameAction.TransferPreparedCard(prepared.id, prepared.card(basic, 0).id, basic.firstIndex, basic.section)).reason)
+        val legacy = """{"type":"setPodGameBasics","deckId":"${deck.id}","basics":{},"basicDefinitions":[]}"""
+        assertEquals(SavedDeckSection.MAINBOARD, (GameWire.json.decodeFromString<GameAction>(legacy) as GameAction.SetPodGameBasics).section)
+    }
+
     @Test fun editsFenceScopeOwnershipDefinitionsAndCodec() {
         val action = GameAction.SetPodGameBasics(deck.id, PodDeckBasics(plains = 38), definitions)
         assertEquals("preparedDeckChanged", PodGamePreparation.setBasics(game, state, id(3), scope, action).reason)

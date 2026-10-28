@@ -39,8 +39,8 @@ object PodGamePreparation {
         return result
     }
 
-    fun basics(deck: PreparedDeck) = BasicLand.entries.fold(PodDeckBasics()) { counts, land ->
-        land.withCount(counts, deck.entries.filter { it.suppliedBasic == land }.sumOf { it.quantity })
+    fun basics(deck: PreparedDeck, section: SavedDeckSection = SavedDeckSection.MAINBOARD) = BasicLand.entries.fold(PodDeckBasics()) { counts, land ->
+        land.withCount(counts, deck.entries.filter { it.suppliedBasic == land && it.section == section }.sumOf { it.quantity })
     }
 
     fun readyProblem(state: LobbyPreparation?, actor: String): String? {
@@ -65,15 +65,15 @@ object PodGamePreparation {
         val deck = current.players.find { it.accountId == actor }?.deck ?: return reject("preparedDeckChanged")
         if (deck.id != action.deckId) return reject("preparedDeckChanged")
         if (basicDefinitions(action.basicDefinitions) != deck.basicDefinitions) return reject("invalidBasicDefinitions")
-        val fixed = deck.entries.filter { it.suppliedBasic == null }
+        val fixed = deck.entries.filter { it.suppliedBasic == null || it.section != action.section }
         if (!action.basics.valid || fixed.sumOf { it.quantity.toLong() } + action.basics.total > DeckValidation.MAX_CARDS)
             return reject("invalidBasics")
-        if (basics(deck) == action.basics) return PreparationChange(current)
+        if (basics(deck, action.section) == action.basics) return PreparationChange(current)
         var index = maxOf(GameWire.ordinal(deck.nextCardIndex), deck.entries.maxOfOrNull {
             GameWire.ordinal(it.firstIndex) + it.quantity } ?: 0)
         val entries = fixed + BasicLand.entries.mapNotNull { land ->
             land.count(action.basics).takeIf { it > 0 }?.let { count ->
-                PreparedEntry(deck.basicDefinitions.getValue(land), SavedDeckSection.MAINBOARD, index.toString(), count, land)
+                PreparedEntry(deck.basicDefinitions.getValue(land), action.section, index.toString(), count, land)
                     .also { index += count }
             }
         }

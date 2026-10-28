@@ -44,7 +44,7 @@ internal data class PodNotesKey(val pod: String, val attempt: String)
 /** One reversible Build change: where a copy was before a move, or the basics before a tap. */
 internal sealed interface PodBuildStep {
     data class Move(val copyId: String, val from: PodDeckCategory, val to: PodDeckCategory) : PodBuildStep
-    data class Basics(val previous: PodDeckBasics) : PodBuildStep
+    data class Basics(val previous: PodDeckBasics, val side: Boolean = false) : PodBuildStep
 }
 internal const val PodBuildUndoLimit = 50
 private data class PodBuildHistory(val pod: String, val attempt: String, val steps: List<PodBuildStep>)
@@ -402,15 +402,17 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             if (it.copyId == copyId) it.copy(category = category) else it
         }) }, send = { api.move(it, detail.id, input) }))
     }
-    fun basics(basics: PodDeckBasics) {
+    fun basics(basics: PodDeckBasics, side: Boolean = false) {
         val detail = editable() ?: return
         if (!basics.valid) return
-        detail.build?.basics?.takeIf { it != basics }?.let { record(detail, PodBuildStep.Basics(it)) }
-        sendBasics(detail, basics)
+        detail.build?.let { if (side) it.sideBasics else it.basics }?.takeIf { it != basics }?.let {
+            record(detail, PodBuildStep.Basics(it, side))
+        }
+        sendBasics(detail, basics, side)
     }
-    private fun sendBasics(detail: PodDetail, basics: PodDeckBasics) {
-        val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics)
-        enqueue(Write(detail.id, input.draftAttemptId, predict = { it.copy(basics = basics) },
+    private fun sendBasics(detail: PodDetail, basics: PodDeckBasics, side: Boolean) {
+        val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics, side)
+        enqueue(Write(detail.id, input.draftAttemptId, predict = { if (side) it.copy(sideBasics = basics) else it.copy(basics = basics) },
             send = { api.basics(it, detail.id, input) }))
     }
     private fun buildSteps(detail: PodDetail?): List<PodBuildStep> =
@@ -427,13 +429,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         buildHistory = buildHistory?.copy(steps = steps.dropLast(1))
         return when (step) {
             is PodBuildStep.Move -> { sendMove(detail, step.copyId, step.from); step.copyId to step.from }
-            is PodBuildStep.Basics -> { sendBasics(detail, step.previous); null }
+            is PodBuildStep.Basics -> { sendBasics(detail, step.previous, step.side); null }
         }
     }
     /** Relative so taps faster than recomposition each count against the latest predicted build. */
-    fun adjustBasic(index: Int, delta: Int) {
-        val current = state.detail?.build?.basics ?: return
-        basics(current.podBuildAdjust(index, delta))
+    fun adjustBasic(index: Int, delta: Int, side: Boolean = false) {
+        val current = state.detail?.build?.let { if (side) it.sideBasics else it.basics } ?: return
+        basics(current.podBuildAdjust(index, delta), side)
     }
     fun deckName(name: String) {
         val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return

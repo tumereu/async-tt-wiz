@@ -1,0 +1,1 @@
+mod: When preparing a deck, swipe a card sideways to move one copy to the other side; hold a card for more choices.

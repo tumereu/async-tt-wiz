@@ -108,6 +108,7 @@ fun PodBuildView(
     onUndo: () -> Pair<String, PodDeckCategory>? = { null },
     /** The review feed's Undo moving a copy back, which also drops that move from [onUndo]'s history. */
     onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
+    onAdjustSideBasic: (index: Int, delta: Int) -> Unit = { _, _ -> },
 ) {
     val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
@@ -168,7 +169,8 @@ fun PodBuildView(
                             .then(if (reviewable) Modifier.testTag("pod-build-feed-header-$category")
                                 .clickable(onClickLabel = "Review one by one") { openFeed(category, null) } else Modifier),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build, copies, definitions) else "${category.podBuildLabel()} $count",
+                            Text(when (category) { PodDeckCategory.MAIN -> podBuildMainTitle(build, copies, definitions); PodDeckCategory.SIDE -> podBuildSideTitle(build, copies, definitions)
+                                else -> "${category.podBuildLabel()} $count" },
                                 Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
                             if (reviewable) Text("Review ›", color = sectionColor.copy(alpha = .8f),
@@ -177,6 +179,7 @@ fun PodBuildView(
                     }
                 }
                 if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }
+                if (category == PodDeckCategory.SIDE) item("side-basics") { PodBuildBasics(build.sideBasics, editable, onAdjustSideBasic, side = true) }
                 item("columns-$category") {
                     BoxWithConstraints(Modifier.fillMaxWidth().then(if (sliding) Modifier.animateItem(fadeInSpec = null,
                         fadeOutSpec = null, placementSpec = tween(PodBuildSettleMillis)) else Modifier)
@@ -348,12 +351,13 @@ private fun PodBuildLeavingCard(leaving: PodBuildLeaving, done: () -> Unit) {
 }
 
 @Composable
-private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit) {
+private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit, side: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     Box(Modifier.padding(horizontal = PodBuildSidePadding, vertical = 4.dp)) {
         Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()
-                .height(48.dp).testTag("pod-build-basics").semantics { contentDescription = "Edit basic lands" }) {
+                .height(48.dp).testTag(if (side) "pod-build-side-basics" else "pod-build-basics")
+                .semantics { contentDescription = if (side) "Edit Side basic lands" else "Edit basic lands" }) {
             Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 DraftColor.entries.forEachIndexed { index, color ->
                     CardText("{${color.name}} ${basics.podBuildValues()[index]}", Modifier.weight(1f), maxLines = 1)
@@ -361,7 +365,7 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
             }
         }
     }
-    if (open && editable) ScreenDialog({ open = false }, title = "Basic lands",
+    if (open && editable) ScreenDialog({ open = false }, title = if (side) "Side basic lands" else "Basic lands",
         actions = { DialogMainButton("Done", { open = false }) }) {
             listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
                 val count = basics.podBuildValues()[index]

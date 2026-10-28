@@ -39,11 +39,20 @@ internal fun podBuildCount(build: PodDeckBuild, category: PodDeckCategory): Int 
     build.copies.count { it.category == category }
 
 /** "Main X + Y = Z": X nonland pool cards, Y every land in Main (drafted lands and basics). */
-internal fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String {
-    val main = build.copies.filter { it.category == PodDeckCategory.MAIN }
-    val drafted = main.count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
-    val lands = drafted + build.basics.total
-    return "Main ${main.size - drafted} + $lands = ${main.size + build.basics.total}"
+internal fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
+    podBuildLandTitle("Main", build, PodDeckCategory.MAIN, build.basics, copies, definitions)
+
+/** Same nonland + lands split as Main; a plain count while Side has no lands at all. */
+internal fun podBuildSideTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
+    podBuildLandTitle("Side", build, PodDeckCategory.SIDE, build.sideBasics, copies, definitions)
+
+private fun podBuildLandTitle(label: String, build: PodDeckBuild, category: PodDeckCategory, basics: PodDeckBasics,
+    copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String {
+    val cards = build.copies.filter { it.category == category }
+    val drafted = cards.count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
+    val lands = drafted + basics.total
+    return if (category == PodDeckCategory.SIDE && lands == 0L) "$label ${cards.size}"
+        else "$label ${cards.size - drafted} + $lands = ${cards.size + basics.total}"
 }
 
 internal fun podBuildSubmitEnabled(

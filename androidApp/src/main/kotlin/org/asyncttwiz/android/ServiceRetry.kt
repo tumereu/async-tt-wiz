@@ -10,6 +10,7 @@ internal suspend fun <T> serviceRetry(wait: (suspend (Long) -> Unit)? = null,
         if (!current()) throw kotlinx.coroutines.CancellationException("Request owner changed")
         try { return action() } catch (failure: Exception) {
             if (!transientServiceFailure(failure) || attempt == delays.size) throw failure
+            AppLog.info("http", "Retrying after ${failure.javaClass.simpleName}")
             if (wait == null) delay(delays[attempt]) else wait(delays[attempt])
         }
     }

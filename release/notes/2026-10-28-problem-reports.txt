@@ -1,0 +1,1 @@
+add: Send a problem report from Settings, or when an update fails.

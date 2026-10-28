@@ -398,15 +398,20 @@ class GameSession(private val connection: GameConnection, private val credential
                     if (!closed && epoch == generation && credential() == current && sameAccount()) action()
                 }
                 override fun opened() = deliver {
+                    AppLog.info("game", "Connected")
                     reconnectTrace.stepAll("socketConnectedHttpAuthenticated")
                     send(GameHello(processId, installationId, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                 }
                 override fun message(message: GameServerMessage) = deliver {
                     val failure = runCatching { receive(message) }.exceptionOrNull()
-                    if (failure != null) connectionUnavailable("streamError:${message::class.simpleName}:${failure.javaClass.simpleName}")
+                    if (failure != null) {
+                        AppLog.warn("game", "Could not apply ${message::class.simpleName}", failure)
+                        connectionUnavailable("streamError:${message::class.simpleName}:${failure.javaClass.simpleName}")
+                    }
                 }
                 override fun disconnected(unauthorized: Boolean) = disconnected(unauthorized, "socketDisconnected")
                 override fun disconnected(unauthorized: Boolean, cause: String) = deliver {
+                    AppLog.warn("game", "Connection lost: $cause")
                     connectionUnavailable(cause)
                     if (unauthorized) authenticationRequired(current)
                 }

@@ -42,16 +42,18 @@ class MainActivity : ComponentActivity() {
     private fun installUpdate(apk: java.io.File) {
         try {
             if (!packageManager.canRequestPackageInstalls()) {
+                AppLog.info("update", "Asking for permission to install updates")
                 updates.awaitingPermission(true)
                 installPermission.launch(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     android.net.Uri.parse("package:$packageName")))
             } else {
+                AppLog.info("update", "Opening the installer")
                 val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.updates", apk)
                 installer.launch(android.content.Intent(android.content.Intent.ACTION_VIEW)
                     .setDataAndType(uri, "application/vnd.android.package-archive")
                     .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
             }
-        } catch (_: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed() }
+        } catch (failure: RuntimeException) { updates.awaitingPermission(false); updates.installerFailed(failure) }
     }
     internal fun gameInput() = ViewModelProvider(this)[AuthViewModel::class.java].heartbeat.input()
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {

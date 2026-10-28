@@ -68,7 +68,10 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
                 throw LobbyFailure(runCatching { DeckJson.format.decodeFromString<LobbyError>(text).code }.getOrDefault("unavailable"))
             return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw LobbyFailure("invalid_response") }
         } catch (failure: LobbyFailure) { throw failure
-        } catch (_: Exception) { throw LobbyFailure("network") }
+        } catch (failure: Exception) {
+            AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
+            throw LobbyFailure("network")
+        }
     }
     override fun close() = client.close()
 }

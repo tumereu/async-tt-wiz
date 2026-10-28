@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,11 +57,12 @@ fun AppUpdateScreen(updates: AppUpdateViewModel, install: (File) -> Unit) {
                             }
                             if (problem.browserFallback) {
                                 OutlinedButton(onClick = {
-                                    runCatching { uris.openUri(updates.browserDownload) }.onFailure { updates.browserFailed() }
+                                    runCatching { uris.openUri(updates.browserDownload) }.onFailure { updates.browserFailed(it) }
                                 }, enabled = !updates.downloading) { Text("Download in browser") }
                                 Text("Then open the downloaded file and install it. No need to uninstall this app first.",
                                     Modifier.widthIn(max = 360.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                             }
+                            ProblemReportAction(updates.reports, updates::sendReport)
                         }
                     }
                 }
@@ -70,5 +72,27 @@ fun AppUpdateScreen(updates: AppUpdateViewModel, install: (File) -> Unit) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         }
         else -> Unit
+    }
+}
+
+/** Sending never blocks the other update actions; the code stays readable and selectable. */
+@Composable
+internal fun ProblemReportAction(reports: ProblemReportSender, send: () -> Unit) {
+    val state = reports.state
+    if (state !is ProblemReportState.Sent)
+        TextButton(onClick = send, enabled = state != ProblemReportState.Sending) { Text("Send problem report") }
+    ProblemReportStatus(state)
+}
+
+@Composable
+internal fun ProblemReportStatus(state: ProblemReportState) {
+    when (state) {
+        ProblemReportState.Idle -> Unit
+        ProblemReportState.Sending -> Text("Sending report…", style = MaterialTheme.typography.bodySmall)
+        is ProblemReportState.Sent -> SelectionContainer {
+            Text("Report sent — code ${state.code}", Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center)
+        }
+        is ProblemReportState.Failed -> Text(state.message, Modifier.widthIn(max = 360.dp), textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }

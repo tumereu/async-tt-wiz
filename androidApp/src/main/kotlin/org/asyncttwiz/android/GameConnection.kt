@@ -82,9 +82,12 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                 webSocket.close(code, null)
                 listener.disconnected(false, "socketClose:$code:${reason.take(123)}")
             }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = listener.disconnected(response?.code == 401,
-                if (t is java.net.SocketTimeoutException && t.message?.contains("ping", ignoreCase = true) == true) "socketPingTimeout"
-                else "socketFailure:${t.javaClass.simpleName}:http=${response?.code}")
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                AppLog.warn("game", "Socket failed (HTTP ${response?.code})", t)
+                listener.disconnected(response?.code == 401,
+                    if (t is java.net.SocketTimeoutException && t.message?.contains("ping", ignoreCase = true) == true) "socketPingTimeout"
+                    else "socketFailure:${t.javaClass.simpleName}:http=${response?.code}")
+            }
         })
     }
     override fun send(message: GameClientMessage) = socket?.send(GameWire.json.encodeToString(message)) == true
@@ -105,7 +108,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                         require(GameWire.ordinal(it.readThrough) <= GameWire.ordinal(it.throughRevision))
                     }
                 }
-            }.getOrNull()
+            }.onFailure { AppLog.warn("game", "Chat read state failed", it) }.getOrNull()
             complete(state)
         }
         return true
@@ -127,7 +130,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                         require(it.gameId == gameId && it.messages.size <= ChatPaging.SIZE)
                     }
                 }
-            }.getOrNull()
+            }.onFailure { AppLog.warn("game", "Chat page failed", it) }.getOrNull()
             complete(page)
         }
         return true
@@ -162,6 +165,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                         requireNotNull(it.body).byteStream().bounded(GameplaySync.MAX_CHUNK_BYTES).inputStream() }
                 }
             }
+            result.exceptionOrNull()?.takeIf { it !is BaselineRejected }?.let { AppLog.warn("game", "Baseline download failed", it) }
             val rejection = result.exceptionOrNull() as? BaselineRejected
             if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
         }
@@ -213,6 +217,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     GameplayBaseline(snapshot, manifest.statuses)
                 } finally { Files.deleteIfExists(file) }
             }
+            result.exceptionOrNull()?.takeIf { it !is BaselineRejected }?.let { AppLog.warn("game", "Baseline download failed", it) }
             val rejection = result.exceptionOrNull() as? BaselineRejected
             if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
         }

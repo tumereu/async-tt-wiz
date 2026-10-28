@@ -79,7 +79,10 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
             return try { DeckJson.format.decodeFromString<T>(text) } catch (_: Exception) { throw PodFailure("invalid_response") }
         } catch (failure: PodFailure) { throw failure
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
-        } catch (_: Exception) { throw PodFailure("network") }
+        } catch (failure: Exception) {
+            AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
+            throw PodFailure("network")
+        }
     }
     override fun close() = client.close()
 }

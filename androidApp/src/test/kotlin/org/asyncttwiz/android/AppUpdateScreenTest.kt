@@ -64,4 +64,14 @@ class AppUpdateScreenTest {
         compose.onNodeWithText("The update wasn't installed. Tap Update to try again.").assertIsDisplayed()
         compose.onNodeWithText("Download in browser").assertIsDisplayed()
     }
+
+    @Test fun `a failed update offers a problem report next to the browser download`() {
+        preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100}""").commit()
+        val updates = model()
+        compose.setContent { MaterialTheme { AppUpdateScreen(updates, install = { error("No user update request") }) } }
+        compose.onNodeWithText("Send problem report").assertDoesNotExist()
+        updates.installerFailed()
+        compose.onNodeWithText("Send problem report").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithText("Download in browser").assertIsEnabled()
+    }
 }

@@ -621,6 +621,12 @@ Cancel game, not a prohibition of this separately confirmed Delete game action.
   ending to the other player; it is not an immediate unilateral end to play.
   A proposed win/loss is relative to the proposing player, so both players can
   understand the same proposed outcome.
+- **Optional reason (rules v25).** The proposer may add a short free-text reason
+  (`SuggestResult.note`, e.g. "Infinite combo"): trimmed, at most 200 characters,
+  one line without control characters; invalid input is rejected. It is part of the
+  suggestion (`ResultSuggestion.note`), shown to both players under the suggestion
+  line on the outcome panel and in the history text, and restored exactly by
+  Undo/Redo. An empty reason is omitted on the wire, so older events are unchanged.
 - **The suggestion is shared, undoable board state.** Record it through the normal
   mutation/history model; Undo uses the current selective eligibility rules
   (D-224 onward).

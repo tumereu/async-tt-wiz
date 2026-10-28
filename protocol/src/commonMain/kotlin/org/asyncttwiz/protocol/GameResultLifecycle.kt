@@ -1,12 +1,23 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 /** Win/loss is always relative to author, never relative to the receiving screen. */
 @Serializable enum class SuggestedResult { WIN, LOSS, DRAW }
-@Serializable data class ResultSuggestion(val id: String, val author: String, val outcome: SuggestedResult)
+/** [note] is the author's optional reason shown to both players (rules v25); empty is omitted on the wire. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class ResultSuggestion(val id: String, val author: String, val outcome: SuggestedResult,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "")
 /** Relevant from/to tuple for history replay and selective Undo integration; no board snapshot. */
 @Serializable data class ResultSuggestionChange(val from: ResultSuggestion?, val to: ResultSuggestion?)
+
+object ResultNotes {
+    const val MAX_LENGTH = 200
+    /** Already trimmed, at most [MAX_LENGTH] characters, one line without control characters. */
+    fun valid(note: String): Boolean = note == note.trim() && note.length <= MAX_LENGTH &&
+        note.none { it.isISOControl() } && DeckValidation.text(note)
+}
 
 data class ResultAcceptance(val preparation: LobbyPreparation? = null, val reason: String? = null)
 

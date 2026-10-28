@@ -252,11 +252,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
     fun captureResult(): ResultTarget? = state.detail?.let { ResultActions.capture(it, state.play) }
-    fun suggestResult(target: ResultTarget, outcome: SuggestedResult): Boolean {
+    fun suggestResult(target: ResultTarget, outcome: SuggestedResult, note: String = ""): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         if (ResultActions.capture(game, state.play) != target) return false
-        return !closed && gameplay(PlayAction.SuggestResult(outcome))
+        return !closed && gameplay(PlayAction.SuggestResult(outcome, ResultNoteInput.clean(note)))
     }
     fun acceptResult(target: ResultAcceptanceTarget): Boolean {
         val game = state.detail ?: return false

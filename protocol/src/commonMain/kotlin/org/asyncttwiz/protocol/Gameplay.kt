@@ -28,7 +28,10 @@ import kotlinx.serialization.json.*
     @EncodeDefault(EncodeDefault.Mode.NEVER) val libraryInsertion: MoveInsertion? = null)
 
 @Serializable sealed interface PlayAction {
-    @Serializable @SerialName("suggestResult") data class SuggestResult(val outcome: SuggestedResult) : PlayAction
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @Serializable @SerialName("suggestResult") data class SuggestResult(val outcome: SuggestedResult,
+        /** Optional reason (rules v25), see [ResultNotes]. */
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "") : PlayAction
     @Serializable @SerialName("declineResult") data class DeclineResult(val suggestionId: String) : PlayAction
     @Serializable @SerialName("withdrawResult") data class WithdrawResult(val suggestionId: String) : PlayAction
     @Serializable @SerialName("setTapped") data class SetTapped(val cardId: String, val tapped: Boolean) : PlayAction
@@ -123,7 +126,7 @@ data class GameplayChange(val state: PlayState? = null, val mutation: GameplayMu
 /** The sole gameplay processor, used for volatile prediction and authoritative execution alike. */
 object GameplayRules {
     fun valid(action: PlayAction): Boolean = when (action) {
-        is PlayAction.SuggestResult -> true
+        is PlayAction.SuggestResult -> ResultNotes.valid(action.note)
         is PlayAction.DeclineResult -> DeckValidation.uuid(action.suggestionId)
         is PlayAction.WithdrawResult -> DeckValidation.uuid(action.suggestionId)
         is PlayAction.SetTapped -> DeckValidation.uuid(action.cardId)
@@ -228,7 +231,8 @@ object GameplayRules {
             }
             is PlayAction.SuggestResult -> {
                 if (board.resultSuggestion != null) return reject("inapplicable")
-                val suggestion = ResultSuggestion(CommandIds.uuidV5(command.requestId, "result-suggestion"), actor, action.outcome)
+                val suggestion = ResultSuggestion(CommandIds.uuidV5(command.requestId, "result-suggestion"), actor,
+                    action.outcome, action.note)
                 next = board.copy(resultSuggestion = suggestion)
                 transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(null, suggestion))
             }

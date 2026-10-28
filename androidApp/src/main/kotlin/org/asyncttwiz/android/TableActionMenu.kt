@@ -6,6 +6,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
@@ -99,11 +101,16 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             MenuButton(choice.first, Modifier.fillMaxWidth(), enabled) { outcome = choice }
     }
     outcome?.let { chosen ->
-        AlertDialog(onDismissRequest = { outcome = null }, title = { TrackGameDialogInput(); Text("Suggest ${chosen.first.lowercase().removeSuffix(" game")}?") },
-            confirmButton = { TextButton(enabled = enabled, onClick = {
-                if (perform(TableActionIntent.Ending(scope, chosen.second))) onDismiss()
-            }) { Text("Confirm") } },
-            dismissButton = { TextButton(onClick = { outcome = null }) { Text("Cancel") } })
+        var note by remember(chosen) { mutableStateOf("") }
+        val confirm = { if (perform(TableActionIntent.Ending(scope, chosen.second, note = ResultNoteInput.clean(note)))) onDismiss() }
+        ScreenDialog({ outcome = null }, title = "Suggest ${chosen.first.lowercase().removeSuffix(" game")}?", actions = {
+            DialogCancelButton("Cancel", { outcome = null })
+            DialogMainButton("Confirm", confirm, enabled = enabled)
+        }) {
+            OutlinedTextField(note, { note = ResultNoteInput.typed(it) }, Modifier.fillMaxWidth().testTag("resultNote"),
+                label = { Text("Reason (optional)") }, placeholder = { Text("Infinite combo") }, singleLine = true,
+                keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(enabled, submit = confirm))
+        }
     }
     if (die) TableMenuPanel({ die = false }, title = "Roll die") {
         val mayRoll = enabled && (sides.text.toIntOrNull() ?: 0) > 0

@@ -44,7 +44,7 @@ sealed interface TableActionIntent {
         val areaId: String?, val sourceIds: List<String> = emptyList()) : TableActionIntent
     data class Token(override val scope: TableActionScope) : TableActionIntent
     data class Ending(override val scope: TableActionScope, val tool: EndingTool,
-        val suggestionId: String? = null) : TableActionIntent
+        val suggestionId: String? = null, val note: String = "") : TableActionIntent
     data class Stack(override val scope: TableActionScope, val target: ExplicitStackTarget) : TableActionIntent
     data class Player(override val scope: TableActionScope, val accountId: String) : TableActionIntent
 }

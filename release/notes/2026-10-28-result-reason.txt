@@ -1,0 +1,1 @@
+add: When you suggest a game result you can add a short reason, like "infinite combo", which your opponent sees with the suggestion.

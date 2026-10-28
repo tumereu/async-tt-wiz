@@ -6,7 +6,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
-const val CURRENT_GAMEPLAY_RULES_VERSION = 24
+const val CURRENT_GAMEPLAY_RULES_VERSION = 25
 
 @Serializable data class GameScope(val gameId: String, val preparationId: String? = null,
     val invitationId: String? = null, val playId: String? = null)

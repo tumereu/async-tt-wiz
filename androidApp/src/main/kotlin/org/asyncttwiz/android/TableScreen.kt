@@ -181,9 +181,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             controller::gameplay, ending = { intent ->
                 val target = controller.captureResult()
                 if (target == null) false else when (intent.tool) {
-                    EndingTool.SUGGEST_WIN -> controller.suggestResult(target, SuggestedResult.WIN)
-                    EndingTool.SUGGEST_LOSS -> controller.suggestResult(target, SuggestedResult.LOSS)
-                    EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW)
+                    EndingTool.SUGGEST_WIN -> controller.suggestResult(target, SuggestedResult.WIN, intent.note)
+                    EndingTool.SUGGEST_LOSS -> controller.suggestResult(target, SuggestedResult.LOSS, intent.note)
+                    EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW, intent.note)
                     EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
                         ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
                 }

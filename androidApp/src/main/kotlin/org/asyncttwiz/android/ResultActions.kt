@@ -8,7 +8,17 @@ data class ResultAcceptanceTarget(val play: ResultTarget, val suggestionId: Stri
 
 /** Group-playback presentation marker. The pending-outcome lock instead uses the live endpoint. */
 data class ResultPlaybackGate(val play: ResultTarget, val suggestionId: String)
-data class ResultPresentation(val target: ResultAcceptanceTarget, val text: String, val canAccept: Boolean)
+data class ResultPresentation(val target: ResultAcceptanceTarget, val text: String, val canAccept: Boolean,
+    /** The suggester's optional reason, shown to both players. */
+    val note: String = "")
+
+/** Typing aid for the optional result reason: one line, at most [ResultNotes.MAX_LENGTH] characters. */
+object ResultNoteInput {
+    fun typed(value: String): String = value.map { if (it.isISOControl()) ' ' else it }.joinToString("")
+        .take(ResultNotes.MAX_LENGTH).let { if (it.lastOrNull()?.isHighSurrogate() == true) it.dropLast(1) else it }
+    /** What is sent: trimmed and always valid, so a stray character never blocks the suggestion. */
+    fun clean(value: String): String = typed(value).trim().takeIf(ResultNotes::valid).orEmpty()
+}
 
 object ResultActions {
     /** The live accepted endpoint, never the board at the personal review cursor, owns the lock.
@@ -47,6 +57,6 @@ object ResultActions {
             SuggestedResult.LOSS -> "$author proposed ${if (suggestion.author == viewer) "your" else "their"} loss."
             SuggestedResult.DRAW -> "$author proposed a draw."
         }
-        return ResultPresentation(ResultAcceptanceTarget(target, suggestion.id), text, suggestion.author != viewer)
+        return ResultPresentation(ResultAcceptanceTarget(target, suggestion.id), text, suggestion.author != viewer, suggestion.note)
     }
 }

@@ -40,6 +40,32 @@ class TokenMenuUiTest {
         compose.onNodeWithText("Suggest draw?").assertIsDisplayed()
         compose.onNodeWithText("Confirm").performClick()
         assertEquals(EndingTool.SUGGEST_DRAW, (sent.single() as TableActionIntent.Ending).tool)
+        assertEquals("", (sent.single() as TableActionIntent.Ending).note)
+        assertTrue(dismissed)
+    }
+
+    @Test fun suggestionDialogHasOptionalReasonAndKeyboardDoneConfirmsWithTheTrimmedReason() {
+        val play = LiveTableFixture.menuPlay()
+        val controller = TableToolkitController("a", { play }, { true }, { _, _ -> error("No gameplay submission") }).table
+        val sent = mutableListOf<TableActionIntent>()
+        var dismissed = false
+        compose.setContent { ScreenTheme {
+            TableActionMenu(play, "a", QuickContext(), controller, Color.Blue, { dismissed = true },
+                perform = { sent += it; true })
+        } }
+        compose.onNodeWithContentDescription("Suggest game end").performClick()
+        compose.onNodeWithContentDescription("My loss").performClick()
+        compose.onNodeWithText("Reason (optional)").assertIsDisplayed()
+        compose.onNodeWithTag("resultNote").performClick()
+        compose.onNodeWithText("Infinite combo").assertIsDisplayed()
+        compose.onNodeWithTag("resultNote").performTextInput("  Infinite combo\twith Twin  ")
+        compose.onNodeWithTag("resultNote").performTextInput("x".repeat(300))
+        compose.runOnIdle { assertTrue(sent.isEmpty()) }
+        compose.onNodeWithTag("resultNote").performImeAction()
+        val ending = sent.single() as TableActionIntent.Ending
+        assertEquals(EndingTool.SUGGEST_LOSS, ending.tool)
+        assertEquals(("  Infinite combo with Twin  " + "x".repeat(300)).take(ResultNotes.MAX_LENGTH).trim(), ending.note)
+        assertTrue(ResultNotes.valid(ending.note))
         assertTrue(dismissed)
     }
 

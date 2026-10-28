@@ -510,11 +510,12 @@ class GameSession(private val connection: GameConnection, private val credential
         captured(command)
         error = null; flush(); statusChanged(); return command
     }
-    fun suggestResult(game: GameSummary, actor: String, target: ResultTarget, outcome: SuggestedResult): Boolean {
+    fun suggestResult(game: GameSummary, actor: String, target: ResultTarget, outcome: SuggestedResult,
+        note: String = ""): Boolean {
         val current = summary(game)
         val play = play(current) ?: return false
         if (ResultActions.capture(current, play) != target) return false
-        return gameplay(current, actor, PlayAction.SuggestResult(outcome))
+        return gameplay(current, actor, PlayAction.SuggestResult(outcome, ResultNoteInput.clean(note)))
     }
     fun acceptResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean =
         measureLatency(game, GameAction.AcceptResult(target.suggestionId)) {

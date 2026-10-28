@@ -445,6 +445,53 @@ class PodHttpTest {
         f.send(f.c, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id), 404)
     }
 
+    @Test fun `deck notes are private per attempt, editable after submitting and cleared by cancellation`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1))
+        f.start(pod)
+        fun code(body: String) = json.decodeFromString<PodError>(body).code
+        fun rows() = f.db.connection().use { connection ->
+            connection.prepareStatement("select count(*) from pod_deck_notes where pod_id = ?").use { statement ->
+                statement.setObject(1, UUID.fromString(pod)); statement.executeQuery().use { it.next(); it.getInt(1) }
+            }
+        }
+        val attempt = f.get(f.a, pod).draftAttemptId!!
+        assertNull(f.get(f.a, pod).notes)
+        val notes = PodDeckNotes("Splash red?\nCut the 6-drop", listOf(1, 2, 0, 0, 0, 0, 3, 99))
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, notes))
+        assertEquals(notes, f.get(f.a, pod).notes)
+        val changed = notes.copy(text = "Latest", counters = List(8) { 0 })
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, changed))
+        assertEquals(changed, f.get(f.a, pod).notes)
+        // Private: B's view never carries A's notes, and B's own are separate.
+        assertNull(f.get(f.b, pod).notes)
+        f.send(f.b, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, PodDeckNotes("B")))
+        assertEquals("B", f.get(f.b, pod).notes!!.text); assertEquals(changed, f.get(f.a, pod).notes)
+        f.send(f.c, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, notes), 404)
+        for (invalid in listOf(notes.copy(text = "x".repeat(PodDeckNotes.MAX_TEXT + 1)), notes.copy(text = "bell\u0007"),
+            notes.copy(counters = List(7) { 0 }), notes.copy(counters = List(7) { 0 } + 100), notes.copy(counters = List(7) { 0 } + -1)))
+            assertEquals("invalid_notes", code(f.send(f.a, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, invalid), 400)))
+        assertEquals("draft_attempt_expired", code(f.send(f.a, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(id(), notes), 409)))
+        // Kept after the draft and still editable after submitting.
+        f.finish(pod, listOf(f.a, f.b))
+        assertEquals(changed, f.get(f.a, pod).notes)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 40)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/notes", SetPodDeckNotes(attempt, notes))
+        assertEquals(notes, f.get(f.a, pod).notes)
+        assertEquals(2, rows())
+        // A new attempt starts empty; the cancelled attempt's notes are gone.
+        val other = f.create().id
+        f.join(other); f.configure(other, DraftSettings(packsPerPlayer = 1, cardsPerPack = 4)); f.start(other)
+        val second = f.get(f.a, other).draftAttemptId!!
+        f.send(f.a, "PUT", "/v1/pods/$other/build/notes", SetPodDeckNotes(second, notes))
+        f.send(f.a, "POST", "/v1/pods/$other/cancel", PodDraftRequest(id(), second))
+        assertNull(f.get(f.a, other).notes)
+        assertEquals("draft_attempt_expired", code(f.send(f.a, "PUT", "/v1/pods/$other/build/notes", SetPodDeckNotes(second, notes), 409)))
+        assertEquals(2, rows())
+    }
+
     @Test fun `auto start arms only with pending invitations and can be cancelled`() = fixture { f ->
         val pod = f.create().id
         assertEquals("no_pending_invitations", json.decodeFromString<PodError>(autoStart(f, pod, true, 409)).code)

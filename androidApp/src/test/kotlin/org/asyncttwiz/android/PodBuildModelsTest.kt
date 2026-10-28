@@ -5,11 +5,21 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
-    @Test fun mainHeaderCountsOnlyMainCopiesPlusAllBasics() {
-        val build = PodDeckBuild((0 until 27).map { PodDeckCopy("$it") } +
-            PodDeckCopy("side", PodDeckCategory.SIDE) + PodDeckCopy("trash", PodDeckCategory.TRASH), PodDeckBasics(3, 3, 3, 2, 2))
-        assertEquals("Main 27 + 13 = 40", podBuildMainTitle(build))
-        assertEquals("Main 0 + 0 = 0", podBuildMainTitle(PodDeckBuild()))
+    @Test fun mainHeaderSplitsNonlandCardsFromAllMainLands() {
+        val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))
+        val land = CardDefinition("Dual", listOf(DefinitionFace("front", "Dual", typeLine = "Land — Island Swamp")))
+        // A back-face land does not count; only the front face's type line.
+        val mdfc = CardDefinition("Pathway", listOf(DefinitionFace("front", "Spell side", typeLine = "Sorcery"),
+            DefinitionFace("back", "Land side", typeLine = "Land")))
+        val copies = (0 until 25).associate { "$it" to DraftCopy("$it", "spell") } + mapOf("land" to DraftCopy("land", "land"),
+            "land2" to DraftCopy("land2", "land"), "mdfc" to DraftCopy("mdfc", "mdfc"), "side" to DraftCopy("side", "land"),
+            "trash" to DraftCopy("trash", "land"))
+        val definitions = mapOf("spell" to spell, "land" to land, "mdfc" to mdfc)
+        val build = PodDeckBuild((0 until 25).map { PodDeckCopy("$it") } + PodDeckCopy("land") + PodDeckCopy("land2") +
+            PodDeckCopy("mdfc") + PodDeckCopy("missing") +
+            PodDeckCopy("side", PodDeckCategory.SIDE) + PodDeckCopy("trash", PodDeckCategory.TRASH), PodDeckBasics(3, 3, 3, 2, 1))
+        assertEquals("Main 27 + 14 = 41", podBuildMainTitle(build, copies, definitions))
+        assertEquals("Main 0 + 0 = 0", podBuildMainTitle(PodDeckBuild(), emptyMap(), emptyMap()))
     }
 
     @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {

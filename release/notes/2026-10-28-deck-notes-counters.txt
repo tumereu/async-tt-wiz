@@ -1,0 +1,1 @@
+add: Stats has private deck notes and eight tally counters, saved for this draft and visible only to you.

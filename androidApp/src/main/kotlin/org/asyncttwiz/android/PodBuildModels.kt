@@ -38,9 +38,12 @@ internal fun podBuildColumns(
 internal fun podBuildCount(build: PodDeckBuild, category: PodDeckCategory): Int =
     build.copies.count { it.category == category }
 
-internal fun podBuildMainTitle(build: PodDeckBuild): String {
-    val cards = podBuildCount(build, PodDeckCategory.MAIN)
-    return "Main $cards + ${build.basics.total} = ${cards + build.basics.total}"
+/** "Main X + Y = Z": X nonland pool cards, Y every land in Main (drafted lands and basics). */
+internal fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String {
+    val main = build.copies.filter { it.category == PodDeckCategory.MAIN }
+    val drafted = main.count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
+    val lands = drafted + build.basics.total
+    return "Main ${main.size - drafted} + $lands = ${main.size + build.basics.total}"
 }
 
 internal fun podBuildSubmitEnabled(

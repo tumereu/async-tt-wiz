@@ -103,6 +103,11 @@ fun PodBuildView(
     submitted: Boolean = !editable,
     columnPreference: PodBuildColumns = rememberPodBuildColumns(),
     sideBySide: PodBuildColumns = rememberPodBuildSideBySide(),
+    canUndo: Boolean = false,
+    /** Reverts the latest Build change; returns the moved copy and where it went back to. */
+    onUndo: () -> Pair<String, PodDeckCategory>? = { null },
+    /** The review feed's Undo moving a copy back, which also drops that move from [onUndo]'s history. */
+    onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
 ) {
     val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
@@ -163,7 +168,7 @@ fun PodBuildView(
                             .then(if (reviewable) Modifier.testTag("pod-build-feed-header-$category")
                                 .clickable(onClickLabel = "Review one by one") { openFeed(category, null) } else Modifier),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
+                            Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build, copies, definitions) else "${category.podBuildLabel()} $count",
                                 Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
                             if (reviewable) Text("Review ›", color = sectionColor.copy(alpha = .8f),
@@ -187,14 +192,19 @@ fun PodBuildView(
                                     val label = PodDeckColumns.buckets(columns)[index].label
                                     val reviewable = feedable && bucket.isNotEmpty()
                                     // Tappable labels read in the section colour on a faint chip; touch expands to 48dp.
-                                    Text(label, Modifier.fillMaxWidth().then(if (reviewable) Modifier
+                                    // The copy count sits on its own line under the label.
+                                    Column(Modifier.fillMaxWidth().then(if (reviewable) Modifier
                                         .testTag("pod-build-feed-label-$category-$index")
                                         .clip(RoundedCornerShape(4.dp)).background(sectionColor.copy(alpha = .1f))
                                         .clickable(onClickLabel = "Review ${podBuildFeedColumnLabel(label)} one by one") {
                                             openFeed(category, index)
-                                        } else Modifier).padding(vertical = 8.dp),
-                                        textAlign = TextAlign.Center, fontSize = 11.sp,
-                                        color = if (reviewable) sectionColor else Color.Unspecified)
+                                        } else Modifier).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        val color = if (reviewable) sectionColor else Color.Unspecified
+                                        Text(label, fontSize = 11.sp, color = color, textAlign = TextAlign.Center)
+                                        Text("${bucket.sumOf { it.copyIds.size }}", Modifier.testTag("pod-build-column-count-$category-$index"),
+                                            fontSize = 10.sp, lineHeight = 12.sp, textAlign = TextAlign.Center,
+                                            color = if (reviewable) sectionColor.copy(alpha = .8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                     PodBuildGrid(sideBySide.count) {
                                         // Keyed by card, not copy, so a stack that loses one copy stays in place.
                                         bucket.forEach { tile -> key(tile.digest) {
@@ -226,8 +236,19 @@ fun PodBuildView(
         }
         Surface(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }
-            else Button({ confirmSubmit = true }, Modifier.fillMaxSize(), enabled = submitEnabled,
-                shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
+            else Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton({
+                    onUndo()?.let { (id, destination) ->
+                        feedback = ++feedbackId to destination
+                        arriving = setOf(id)
+                    }
+                    sliding = true
+                    settle++
+                }, Modifier.size(48.dp).testTag("pod-build-undo").semantics { contentDescription = "Undo last change" },
+                    enabled = editable && canUndo) { TableChromeIcon("undo") }
+                Button({ confirmSubmit = true }, Modifier.weight(1f).fillMaxHeight(), enabled = submitEnabled,
+                    shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
+            }
         }
       }
         leaving?.let { gone -> key(gone.sequence) {
@@ -263,6 +284,7 @@ fun PodBuildView(
         PodBuildFeedDialog(current, podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total, editable,
             nextLabel = next?.let { podBuildFeedColumnLabel(current.labels[it]) },
             onChange = { feed = it }, onMove = { id, category -> if (editable) onMove(id, category) },
+            onRevert = { id, category -> if (editable) onRevert(id, category) },
             onNext = { next?.let { openFeed(current.category, it) } }, onClose = { feed = null })
     }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }

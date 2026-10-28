@@ -2,9 +2,13 @@ package org.asyncttwiz.android
 
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
@@ -37,6 +42,9 @@ fun PodStatsView(
     copies: Map<String, DraftCopy>,
     definitions: Map<String, CardDefinition>,
     modifier: Modifier = Modifier,
+    /** The caller's private notes; null hides the notes and counters. */
+    notes: PodDeckNotes? = null,
+    onNotes: ((PodDeckNotes) -> PodDeckNotes) -> Unit = {},
 ) {
     val stats = remember(build, copies, definitions) { podStats(build, copies, definitions) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -55,14 +63,91 @@ fun PodStatsView(
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    PodStatsDonut("Pips", podStatsShares(stats.pips).mapKeys { it.key.name }, podStatsPalette.take(5), Modifier.weight(1f))
-                    PodStatsDonut("Sources", podStatsShares(stats.sources).mapKeys { it.key.name }, podStatsPalette.take(5), Modifier.weight(1f))
+                    PodStatsMana(stats, Modifier.weight(1f))
                     if (wide) PodStatsColors(stats, Modifier.weight(1f))
                 }
             }
             if (!wide) item {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     PodStatsColors(stats, Modifier.widthIn(max = 240.dp).fillMaxWidth())
+                }
+            }
+            if (notes != null) item("notes") { PodStatsNotes(notes, onNotes) }
+        }
+    }
+}
+
+/** Pips and land sources per color as plain numbers, then the cards grouped by their colored cost symbols. */
+@Composable
+private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
+    val style = MaterialTheme.typography.bodyMedium
+    Column(modifier.testTag("pod-stats-mana"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.width(40.dp))
+            Text("Pips", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+            Text("Land sources", Modifier.weight(1.5f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+        }
+        for (color in DraftColor.entries) Row(Modifier.fillMaxWidth().testTag("pod-stats-mana-${color.name}")
+            .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+            CardText("{${color.name}}", Modifier.width(40.dp), style = MaterialTheme.typography.titleMedium)
+            Text(podStatsPipText(stats.pips.getValue(color)), Modifier.weight(1f), style = style, textAlign = TextAlign.End)
+            Text("${stats.sources.getValue(color)}", Modifier.weight(1.5f), style = style, textAlign = TextAlign.End)
+        }
+        if (stats.colorlessLands > 0) Text("Lands without a color: ${stats.colorlessLands}", style = MaterialTheme.typography.labelMedium)
+        if (stats.pipPatterns.isNotEmpty() || stats.noPips > 0) Spacer(Modifier.height(8.dp))
+        stats.pipPatterns.forEachIndexed { index, (pattern, count) ->
+            CardText("$count× $pattern", Modifier.testTag("pod-stats-pattern-$index"), style = style)
+        }
+        if (stats.noPips > 0) Text("${stats.noPips}× no colored pips", Modifier.testTag("pod-stats-no-pips"), style = style)
+    }
+}
+
+private val podStatsCounterNames = listOf("White", "Blue", "Black", "Red", "Green", "Colorless", "Gold", "Neutral")
+
+/** Private free text plus eight tally counters, saved on the server for this draft attempt. */
+@Composable
+private fun PodStatsNotes(notes: PodDeckNotes, onNotes: ((PodDeckNotes) -> PodDeckNotes) -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(notes.text, { text -> onNotes { it.copy(text = text) } },
+            Modifier.fillMaxWidth().heightIn(min = 120.dp).testTag("pod-stats-notes"),
+            label = { Text("Notes") }, supportingText = { Text("${notes.text.length} / ${PodDeckNotes.MAX_TEXT}") })
+        notes.counters.chunked(4).forEachIndexed { row, values ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                values.forEachIndexed { column, value ->
+                    val index = row * 4 + column
+                    PodStatsCounter(index, value, { delta -> onNotes { it.podNotesAdjust(index, delta) } }, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PodStatsCounter(index: Int, value: Int, onAdjust: (Int) -> Unit, modifier: Modifier) {
+    val name = podStatsCounterNames[index]
+    Surface(modifier.testTag("pod-stats-counter-$index"), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "$name $value" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                when (index) {
+                    in 0..5 -> CardText("{${"WUBRGC"[index]}}", style = MaterialTheme.typography.titleMedium)
+                    else -> Canvas(Modifier.size(18.dp)) {
+                        val radius = size.minDimension * .47f
+                        drawCircle(if (index == 6) podStatsPalette[5] else podStatsPalette[6], radius)
+                        drawCircle(Color(0xff536066), radius, style = Stroke(size.minDimension * .045f))
+                    }
+                }
+                Text("$value", style = MaterialTheme.typography.titleMedium)
+            }
+            Row(Modifier.fillMaxWidth()) {
+                listOf(-1 to "−", 1 to "+").forEach { (delta, glyph) ->
+                    val enabled = if (delta < 0) value > 0 else value < PodDeckNotes.MAX_COUNTER
+                    Box(Modifier.weight(1f).height(40.dp).clickable(enabled = enabled) { onAdjust(delta) }
+                        .semantics { contentDescription = "${if (delta < 0) "Decrease" else "Increase"} $name" },
+                        contentAlignment = Alignment.Center) {
+                        Text(glyph, style = MaterialTheme.typography.titleMedium,
+                            color = LocalContentColor.current.copy(alpha = if (enabled) 1f else .38f))
+                    }
                 }
             }
         }

@@ -233,6 +233,29 @@ class PodBuildViewTest {
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
     }
 
+    @Test fun columnLabelsCountCopiesAndTheUndoSlotSitsLeftOfSubmit() {
+        var canUndo by mutableStateOf(false)
+        var undos = 0
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"))),
+                mapOf("first" to DraftCopy("first", "digest"), "second" to DraftCopy("second", "digest")), mapOf("digest" to card), null,
+                true, false, { _, _ -> }, { _, _ -> }, {}, canUndo = canUndo,
+                onUndo = { undos++; "first" to PodDeckCategory.SIDE })
+        } }
+        compose.onNodeWithTag("pod-build-column-count-MAIN-2", useUnmergedTree = true).assertTextEquals("2")
+        compose.onNodeWithTag("pod-build-column-count-MAIN-0", useUnmergedTree = true).assertTextEquals("0")
+        val undo = compose.onNodeWithTag("pod-build-undo").assertIsNotEnabled()
+        val bar = undo.getUnclippedBoundsInRoot()
+        val submit = compose.onNodeWithText("Submit deck (2)").getUnclippedBoundsInRoot()
+        assertEquals(48.dp, bar.right - bar.left)
+        assertTrue(bar.right <= submit.left)
+        assertEquals(bar.left, compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot().left)
+        compose.runOnIdle { canUndo = true }
+        compose.onNodeWithContentDescription("Undo last change").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(1, undos) }
+        compose.onNodeWithText("→ Side").assertIsDisplayed()
+    }
+
     @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.TRASH))),
@@ -241,6 +264,7 @@ class PodBuildViewTest {
         } }
         compose.onNodeWithText("✓ Submitted").assertIsDisplayed()
         compose.onNodeWithText("Submit deck (0)").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-undo").assertDoesNotExist()
         compose.onNodeWithContentDescription("Add Plains").assertDoesNotExist()
         compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-first"))
         compose.onNodeWithTag("pod-build-card-first").assertIsDisplayed()
@@ -259,7 +283,7 @@ class PodBuildViewTest {
         assertEquals(bounds.left + 48.dp, basics.left)
         assertEquals(bounds.right - 48.dp, basics.right)
         assertEquals(basics.left, compose.onNodeWithText("Deck").getUnclippedBoundsInRoot().left)
-        assertEquals(basics.left, compose.onNodeWithText("Main 1 + 0 = 1").getUnclippedBoundsInRoot().left)
+        assertEquals(basics.left, compose.onNodeWithText("Main 0 + 1 = 1").getUnclippedBoundsInRoot().left)
         for (category in PodDeckCategory.entries) {
             compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-${category.name}"))
             assertEquals(basics.left, compose.onNodeWithTag("pod-build-card-${category.name}").getUnclippedBoundsInRoot().left)

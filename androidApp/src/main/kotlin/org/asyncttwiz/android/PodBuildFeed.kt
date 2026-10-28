@@ -52,6 +52,7 @@ internal fun PodBuildFeedDialog(
     onMove: (copyId: String, category: PodDeckCategory) -> Unit,
     onNext: () -> Unit,
     onClose: () -> Unit,
+    onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
 ) {
     val keepColor = feed.category.podBuildColor()
     val demoteColor = feed.target.podBuildColor()
@@ -77,7 +78,7 @@ internal fun PodBuildFeedDialog(
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ActionSquare("Undo", "↶", editable && feed.canUndo, icon = { TableChromeIcon("undo") }, onClick = {
                             val (previous, restore) = latestFeed.undo()
-                            restore?.let { onMove(it, previous.category) }
+                            restore?.let { onRevert(it, previous.category) }
                             onChange(previous)
                         })
                         Text(feed.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = keepColor,

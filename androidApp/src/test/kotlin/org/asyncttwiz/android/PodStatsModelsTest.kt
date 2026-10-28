@@ -38,6 +38,45 @@ class PodStatsModelsTest {
         assertEquals(1.5, pips[DraftColor.G])
     }
 
+    @Test fun pipPatternsKeepColoredAndColorlessSymbolsInPrintedOrderAndDropGenericXAndSnow() {
+        assertEquals("{U}", podStatsPipPattern("{3}{U}"))
+        assertEquals("{R/W}{R/W}", podStatsPipPattern("{1}{r/w}{R/W}"))
+        assertEquals("{U}{U}{B}", podStatsPipPattern("{X}{U}{U}{B}"))
+        assertEquals("{C}{2/G}{W/P}", podStatsPipPattern("{10}{C}{2/G}{S}{W/P}{Y}{Z}"))
+        assertEquals("{G}", podStatsPipPattern("{G} // {R}{R}"))
+        assertEquals("", podStatsPipPattern("{4}"))
+        assertEquals("", podStatsPipPattern(""))
+        assertEquals(listOf("0", "4", "½", "4½", "1.3"), listOf(0.0, 4.0, .5, 4.5, 4.0 / 3).map(::podStatsPipText))
+    }
+
+    @Test fun mainCardsGroupByPipPatternMostCommonFirstAndLandsWithoutColorAreCounted() {
+        val definitions = mapOf("u" to card("Bird", "Creature", "{1}{U}"), "u2" to card("Fish", "Instant", "{U}"),
+            "rw" to card("Boros", "Creature", "{R/W}{R/W}"), "ub" to card("Grixis", "Sorcery", "{U}{U}{B}"),
+            "art" to card("Artifact", "Artifact", "{3}"), "waste" to card("Waste", "Land", text = "{T}: Add {C}."),
+            "dual" to card("Dual", "Land — Island Swamp"), "back" to card("Back", "Land"))
+        val copies = listOf("u" to "u", "u-b" to "u", "u2" to "u2", "u2-b" to "u2", "rw" to "rw", "rw-b" to "rw", "ub" to "ub",
+            "art" to "art", "waste" to "waste", "dual" to "dual", "side" to "back").associate { (id, digest) -> id to DraftCopy(id, digest) }
+        val build = PodDeckBuild(copies.keys.filter { it != "side" }.map { PodDeckCopy(it) } +
+            PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckBasics(island = 2))
+        val stats = podStats(build, copies, definitions)
+        assertEquals(listOf("{U}" to 4, "{R/W}{R/W}" to 2, "{U}{U}{B}" to 1), stats.pipPatterns)
+        assertEquals(1, stats.noPips)
+        assertEquals(1, stats.colorlessLands) // Waste; Dual has colors, basics always do, Side is ignored
+        assertEquals(3L, stats.sources[DraftColor.U]); assertEquals(1L, stats.sources[DraftColor.B])
+        assertEquals(0L, stats.sources[DraftColor.R]) // Nonland costs never count as sources.
+    }
+
+    @Test fun notesSanitizeAndCountersStayWithinTheirRange() {
+        val notes = PodDeckNotes("a\r\nb\tc\u0000", listOf(1, 2, 3)).podNotesSanitized()
+        assertEquals("a\nbc", notes.text)
+        assertEquals(listOf(1, 2, 3, 0, 0, 0, 0, 0), notes.counters)
+        assertTrue(notes.valid)
+        assertEquals(PodDeckNotes.MAX_COUNTER, notes.podNotesAdjust(2, 500).counters[2])
+        assertEquals(0, notes.podNotesAdjust(0, -3).counters[0])
+        assertFalse(PodDeckNotes(counters = List(7) { 0 }).valid)
+        assertFalse(PodDeckNotes("x".repeat(PodDeckNotes.MAX_TEXT + 1)).valid)
+    }
+
     @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideTrashOrNonlandSources() {
         val definitions = mapOf(
             "creature" to card("Elf", "Creature — Elf", "{G}", "{T}: Add {G}."),

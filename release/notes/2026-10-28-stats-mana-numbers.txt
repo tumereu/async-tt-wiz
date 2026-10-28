@@ -1,0 +1,1 @@
+mod: Stats shows pips and land sources per color as plain numbers instead of pie charts, plus a list of your cards grouped by their colored mana symbols.

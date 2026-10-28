@@ -1,0 +1,364 @@
+{
+ "source": "Scryfall API /cards/<id> and MTGJSON v5 set files, 2026-10-28, trimmed to the fields artwork uses",
+ "scryfall": [
+  {
+   "object": "card",
+   "id": "05c76dd4-2583-4cd6-a56f-13a83ed7c2d5",
+   "name": "Punchcard // Punchcard",
+   "layout": "double_faced_token",
+   "card_faces": [
+    {
+     "name": "Punchcard",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/front/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066",
+      "large": "https://cards.scryfall.io/large/front/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066"
+     }
+    },
+    {
+     "name": "Punchcard",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/back/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066",
+      "large": "https://cards.scryfall.io/large/back/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066",
+      "art_crop": "https://cards.scryfall.io/art_crop/back/0/5/05c76dd4-2583-4cd6-a56f-13a83ed7c2d5.jpg?1789278066"
+     }
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "228e551e-023a-4c9a-8f32-58dae6ffdf7f",
+   "name": "Valakut Awakening // Valakut Stoneforge",
+   "layout": "modal_dfc",
+   "card_faces": [
+    {
+     "name": "Valakut Awakening",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/front/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350",
+      "large": "https://cards.scryfall.io/large/front/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350"
+     }
+    },
+    {
+     "name": "Valakut Stoneforge",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/back/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350",
+      "large": "https://cards.scryfall.io/large/back/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350",
+      "art_crop": "https://cards.scryfall.io/art_crop/back/2/2/228e551e-023a-4c9a-8f32-58dae6ffdf7f.jpg?1783929350"
+     }
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "318c363b-61cc-4e2f-8f86-a4287539ea07",
+   "name": "Invasion of Alara // Awaken the Maelstrom",
+   "layout": "transform",
+   "card_faces": [
+    {
+     "name": "Invasion of Alara",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/front/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955",
+      "large": "https://cards.scryfall.io/large/front/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955"
+     }
+    },
+    {
+     "name": "Awaken the Maelstrom",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/back/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955",
+      "large": "https://cards.scryfall.io/large/back/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955",
+      "art_crop": "https://cards.scryfall.io/art_crop/back/3/1/318c363b-61cc-4e2f-8f86-a4287539ea07.jpg?1783951955"
+     }
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "a8bfc03f-227c-4a5d-b172-067ea5860bf9",
+   "name": "Fang, Fearless l'Cie",
+   "layout": "meld",
+   "image_uris": {
+    "normal": "https://cards.scryfall.io/normal/front/a/8/a8bfc03f-227c-4a5d-b172-067ea5860bf9.jpg?1783906447",
+    "large": "https://cards.scryfall.io/large/front/a/8/a8bfc03f-227c-4a5d-b172-067ea5860bf9.jpg?1783906447",
+    "art_crop": "https://cards.scryfall.io/art_crop/front/a/8/a8bfc03f-227c-4a5d-b172-067ea5860bf9.jpg?1783906447"
+   },
+   "all_parts": [
+    {
+     "component": "meld_part",
+     "name": "Fang, Fearless l'Cie",
+     "id": "a8bfc03f-227c-4a5d-b172-067ea5860bf9"
+    },
+    {
+     "component": "meld_result",
+     "name": "Ragnarok, Divine Deliverance",
+     "id": "a951cc35-bd29-467f-b28c-5d57340e7450"
+    },
+    {
+     "component": "meld_part",
+     "name": "Vanille, Cheerful l'Cie",
+     "id": "f1083637-7c43-44e0-8029-ad56cca8cc19"
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "a951cc35-bd29-467f-b28c-5d57340e7450",
+   "name": "Ragnarok, Divine Deliverance",
+   "layout": "meld",
+   "image_uris": {
+    "normal": "https://cards.scryfall.io/normal/front/a/9/a951cc35-bd29-467f-b28c-5d57340e7450.jpg?1783906450",
+    "large": "https://cards.scryfall.io/large/front/a/9/a951cc35-bd29-467f-b28c-5d57340e7450.jpg?1783906450",
+    "art_crop": "https://cards.scryfall.io/art_crop/front/a/9/a951cc35-bd29-467f-b28c-5d57340e7450.jpg?1783906450"
+   },
+   "all_parts": [
+    {
+     "component": "meld_part",
+     "name": "Fang, Fearless l'Cie",
+     "id": "a8bfc03f-227c-4a5d-b172-067ea5860bf9"
+    },
+    {
+     "component": "meld_result",
+     "name": "Ragnarok, Divine Deliverance",
+     "id": "a951cc35-bd29-467f-b28c-5d57340e7450"
+    },
+    {
+     "component": "meld_part",
+     "name": "Vanille, Cheerful l'Cie",
+     "id": "f1083637-7c43-44e0-8029-ad56cca8cc19"
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "af609bad-083f-42e4-a102-7a0da8e7a85f",
+   "name": "Command Tower // Command Tower",
+   "layout": "reversible_card",
+   "card_faces": [
+    {
+     "name": "Command Tower",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/front/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886",
+      "large": "https://cards.scryfall.io/large/front/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886"
+     }
+    },
+    {
+     "name": "Command Tower",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/back/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886",
+      "large": "https://cards.scryfall.io/large/back/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886",
+      "art_crop": "https://cards.scryfall.io/art_crop/back/a/f/af609bad-083f-42e4-a102-7a0da8e7a85f.jpg?1789415886"
+     }
+    }
+   ]
+  },
+  {
+   "object": "card",
+   "id": "d8999135-ddb1-4e4c-b885-e25f23dac3d3",
+   "name": "Elesh Norn // The Argent Etchings",
+   "layout": "transform",
+   "card_faces": [
+    {
+     "name": "Elesh Norn",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/front/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075",
+      "large": "https://cards.scryfall.io/large/front/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075",
+      "art_crop": "https://cards.scryfall.io/art_crop/front/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075"
+     }
+    },
+    {
+     "name": "The Argent Etchings",
+     "image_uris": {
+      "normal": "https://cards.scryfall.io/normal/back/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075",
+      "large": "https://cards.scryfall.io/large/back/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075",
+      "art_crop": "https://cards.scryfall.io/art_crop/back/d/8/d8999135-ddb1-4e4c-b885-e25f23dac3d3.jpg?1783917075"
+     }
+    }
+   ]
+  }
+ ],
+ "mtgjson": [
+  {
+   "uuid": "f3a5ac3a-7540-536a-8cfb-a9eb2ef6791c",
+   "name": "Valakut Awakening // Valakut Stoneforge",
+   "setCode": "ZNR",
+   "number": "174",
+   "side": "a",
+   "otherFaceIds": [
+    "833aa414-f3da-5e3a-8abf-f312610f1820"
+   ],
+   "faceName": "Valakut Awakening",
+   "layout": "modal_dfc",
+   "identifiers": {
+    "scryfallId": "228e551e-023a-4c9a-8f32-58dae6ffdf7f"
+   }
+  },
+  {
+   "uuid": "833aa414-f3da-5e3a-8abf-f312610f1820",
+   "name": "Valakut Awakening // Valakut Stoneforge",
+   "setCode": "ZNR",
+   "number": "174",
+   "side": "b",
+   "otherFaceIds": [
+    "f3a5ac3a-7540-536a-8cfb-a9eb2ef6791c"
+   ],
+   "faceName": "Valakut Stoneforge",
+   "layout": "modal_dfc",
+   "identifiers": {
+    "scryfallId": "228e551e-023a-4c9a-8f32-58dae6ffdf7f"
+   }
+  },
+  {
+   "uuid": "cd624224-94be-5a95-8e48-704e79f20a93",
+   "name": "Elesh Norn // The Argent Etchings",
+   "setCode": "MOM",
+   "number": "12",
+   "side": "a",
+   "otherFaceIds": [
+    "029993c5-80e2-5996-9c45-0db28f177b29"
+   ],
+   "faceName": "Elesh Norn",
+   "layout": "transform",
+   "identifiers": {
+    "scryfallId": "d8999135-ddb1-4e4c-b885-e25f23dac3d3"
+   }
+  },
+  {
+   "uuid": "029993c5-80e2-5996-9c45-0db28f177b29",
+   "name": "Elesh Norn // The Argent Etchings",
+   "setCode": "MOM",
+   "number": "12",
+   "side": "b",
+   "otherFaceIds": [
+    "cd624224-94be-5a95-8e48-704e79f20a93"
+   ],
+   "faceName": "The Argent Etchings",
+   "layout": "transform",
+   "identifiers": {
+    "scryfallId": "d8999135-ddb1-4e4c-b885-e25f23dac3d3"
+   }
+  },
+  {
+   "uuid": "60f7db0d-743f-59a4-b62f-16cef07ef47f",
+   "name": "Invasion of Alara // Awaken the Maelstrom",
+   "setCode": "MOM",
+   "number": "230",
+   "side": "a",
+   "otherFaceIds": [
+    "99550742-8719-53e7-b929-7ee18bef6eb8"
+   ],
+   "faceName": "Invasion of Alara",
+   "layout": "transform",
+   "identifiers": {
+    "scryfallId": "318c363b-61cc-4e2f-8f86-a4287539ea07"
+   }
+  },
+  {
+   "uuid": "99550742-8719-53e7-b929-7ee18bef6eb8",
+   "name": "Invasion of Alara // Awaken the Maelstrom",
+   "setCode": "MOM",
+   "number": "230",
+   "side": "b",
+   "otherFaceIds": [
+    "60f7db0d-743f-59a4-b62f-16cef07ef47f"
+   ],
+   "faceName": "Awaken the Maelstrom",
+   "layout": "transform",
+   "identifiers": {
+    "scryfallId": "318c363b-61cc-4e2f-8f86-a4287539ea07"
+   }
+  },
+  {
+   "uuid": "f73959fe-4ed2-5a27-b218-d0979d6b1b75",
+   "name": "Fang, Fearless l'Cie // Ragnarok, Divine Deliverance",
+   "setCode": "FIN",
+   "number": "526",
+   "side": "a",
+   "otherFaceIds": [
+    "bd42102d-9ec8-5ddc-81cd-f2ee99c9d5e8"
+   ],
+   "faceName": "Fang, Fearless l'Cie",
+   "layout": "meld",
+   "identifiers": {
+    "scryfallId": "a8bfc03f-227c-4a5d-b172-067ea5860bf9"
+   }
+  },
+  {
+   "uuid": "bd42102d-9ec8-5ddc-81cd-f2ee99c9d5e8",
+   "name": "Ragnarok, Divine Deliverance",
+   "setCode": "FIN",
+   "number": "526b",
+   "side": "b",
+   "otherFaceIds": [
+    "aed50dfb-16cd-54d4-9b02-3daeab2e606a",
+    "f73959fe-4ed2-5a27-b218-d0979d6b1b75"
+   ],
+   "faceName": "Ragnarok, Divine Deliverance",
+   "layout": "meld",
+   "identifiers": {
+    "scryfallId": "a951cc35-bd29-467f-b28c-5d57340e7450"
+   }
+  },
+  {
+   "uuid": "0c2c8750-f28f-5ce6-8a4c-9ac228a775d0",
+   "name": "Command Tower // Command Tower",
+   "setCode": "SLD",
+   "number": "2794",
+   "side": "a",
+   "otherFaceIds": [
+    "caa43a23-5ff3-55eb-814e-4799bad392b7"
+   ],
+   "faceName": "Command Tower",
+   "layout": "reversible_card",
+   "identifiers": {
+    "scryfallId": "af609bad-083f-42e4-a102-7a0da8e7a85f"
+   }
+  },
+  {
+   "uuid": "caa43a23-5ff3-55eb-814e-4799bad392b7",
+   "name": "Command Tower // Command Tower",
+   "setCode": "SLD",
+   "number": "2794",
+   "side": "b",
+   "otherFaceIds": [
+    "0c2c8750-f28f-5ce6-8a4c-9ac228a775d0"
+   ],
+   "faceName": "Command Tower",
+   "layout": "reversible_card",
+   "identifiers": {
+    "scryfallId": "af609bad-083f-42e4-a102-7a0da8e7a85f"
+   }
+  },
+  {
+   "uuid": "c050a72f-8e40-53a2-8045-1d14701570cb",
+   "name": "Punchcard // Punchcard",
+   "setCode": "SOS",
+   "number": "14",
+   "side": "a",
+   "otherFaceIds": [
+    "2bdaf7d7-547a-5ce7-816f-881e7826c030"
+   ],
+   "faceName": "Punchcard",
+   "layout": "double_faced_token",
+   "identifiers": {
+    "scryfallId": "05c76dd4-2583-4cd6-a56f-13a83ed7c2d5"
+   }
+  },
+  {
+   "uuid": "2bdaf7d7-547a-5ce7-816f-881e7826c030",
+   "name": "Punchcard // Punchcard",
+   "setCode": "SOS",
+   "number": "14",
+   "side": "b",
+   "otherFaceIds": [
+    "c050a72f-8e40-53a2-8045-1d14701570cb"
+   ],
+   "faceName": "Punchcard",
+   "layout": "double_faced_token",
+   "identifiers": {
+    "scryfallId": "05c76dd4-2583-4cd6-a56f-13a83ed7c2d5"
+   }
+  }
+ ]
+}

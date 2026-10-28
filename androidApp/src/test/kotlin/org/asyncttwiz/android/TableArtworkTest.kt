@@ -14,7 +14,8 @@ class TableArtworkTest {
             })
             assertTrue(DeckValidation.definition(definition))
             val submitted = SubmittedDefinition(DeckJson.digest(definition), DeckJson.normalized(definition))
-            assertEquals((0..15).toList(), gameArtworkReferences(listOf(submitted)).map { it.face })
+            val warmed = gameArtworkReferences(listOf(submitted))
+            for (size in listOf("normal", "large")) assertEquals((0..15).toList(), warmed.filter { it.size == size }.map { it.face })
             assertTrue(InspectedCard.retained(submitted.digest, definition).artwork.drop(16).all { it == null })
             val initial = TableFixture.play(board = 1, hand = 1)
             val play = initial.copy(definitions = listOf(submitted), board = initial.board.copy(cards = initial.board.cards.map {
@@ -46,7 +47,7 @@ class TableArtworkTest {
         assertEquals(TableArtworkMode.TYPE_ICON, tableArtworkMode(null, true))
     }
 
-    @Test fun gameWarmupIncludesNormalAndCropForEachFaceAndCustomImagesOnlyOnce() {
+    @Test fun warmupUsesExactlyTheTableThenInspectorReferencesForEachFace() {
         val definition = CardDefinition("Card", listOf(
             DefinitionFace("front", "Front", scryfallId = printing),
             DefinitionFace("back", "Back", scryfallId = printing),
@@ -54,10 +55,44 @@ class TableArtworkTest {
             DefinitionFace("missing", "Missing")))
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val references = gameArtworkReferences(listOf(submitted, submitted))
-        assertEquals(listOf(0 to "normal", 0 to "art_crop", 1 to "normal", 1 to "art_crop", 2 to "normal"),
+        assertEquals(listOf(0 to "art_crop", 1 to "art_crop", 2 to "normal", 0 to "large", 1 to "large", 2 to "large"),
             references.map { it.face to it.size })
         assertTrue(references.all { it.version == submitted.digest })
         assertEquals(custom.customUrl, references.last().customUrl)
+        // The very keys the inspector and the table request, so warmed entries are reused as-is.
+        val inspected = InspectedCard.retained(submitted.digest, definition).artwork.filterNotNull()
+            .filter { it.printing != null || it.customUrl != null }
+        assertEquals(inspected, references.drop(3))
+        val initial = TableFixture.play(board = 1, hand = 1)
+        val play = initial.copy(definitions = listOf(submitted), board = initial.board.copy(cards = initial.board.cards.map {
+            it.copy(definition = submitted.digest, faceId = "front")
+        }))
+        val shown = TableFixture.scene(play).items.mapNotNull { it.artwork }.toSet()
+        assertTrue(shown.isNotEmpty() && shown.all { it in references })
+    }
+
+    @Test fun gameWarmupStartsWithTheViewersHandThenBattlefield() {
+        fun definition(name: String) = CardDefinition(name, listOf(DefinitionFace(java.util.UUID.randomUUID().toString(), name,
+            scryfallId = java.util.UUID.nameUUIDFromBytes(name.toByteArray()).toString())))
+        val initial = TableFixture.play(board = 1, hand = 1)
+        val viewer = initial.board.players.first().accountId
+        val hand = initial.board.containers.single { it.accountId == viewer && it.zone == PlayZone.HAND && !it.temp }
+        val field = initial.board.containers.single { it.accountId == viewer && it.zone == PlayZone.BATTLEFIELD && !it.temp }
+        val names = mapOf(hand.id to "Hand", field.id to "Field")
+        val definitions = initial.board.cards.associate { card ->
+            val digestOf = definition(names[card.containerId] ?: "Other ${card.id}")
+            card.id to SubmittedDefinition(DeckJson.digest(digestOf), digestOf)
+        }
+        // Definition order deliberately puts the hand last.
+        val play = initial.copy(definitions = definitions.values.distinct().sortedBy { if (it.definition.name == "Hand") 1 else 0 },
+            board = initial.board.copy(cards = initial.board.cards.map { card ->
+                definitions.getValue(card.id).let { card.copy(definition = it.digest, faceId = it.definition.faces.single().faceId) }
+            }))
+        val order = gameArtworkReferences(play, viewer).filter { it.size == "art_crop" }.map { reference ->
+            play.definitions.single { it.digest == reference.version }.definition.name
+        }
+        assertEquals(listOf("Hand", "Field"), order.take(2))
+        assertEquals(play.definitions.size, order.size)
     }
 
     @Test fun sceneRequestsTableVariantsWhileInspectionKeepsFullImagesAndCoveredCardsStayHidden() {

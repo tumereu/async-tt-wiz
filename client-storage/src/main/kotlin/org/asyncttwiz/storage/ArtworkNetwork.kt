@@ -10,6 +10,8 @@ import java.net.URI
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /** Resolves immediately before each new connection. OkHttp connects to these vetted addresses,
  * not a second unchecked DNS lookup; TLS still verifies the original hostname. */
@@ -57,26 +59,67 @@ fun interface ArtworkTransport {
     fun get(url: String, maximum: Long, etag: String, modified: String): ArtworkResponse
 }
 
-/** One installation-wide throttle shared by metadata, images and redirects. No bursts. */
+/** One installation-wide spacing for provider API (metadata) requests, including their redirects:
+ * Scryfall asks for 50-100 ms between api.scryfall.com calls. No bursts. A provider Retry-After
+ * cools down every artwork request, throttled or not. */
 class ArtworkThrottle(private val now: () -> Long = System::currentTimeMillis,
-    private val sleep: (Long) -> Unit = Thread::sleep) {
+    private val sleep: (Long) -> Unit = Thread::sleep, private val interval: Long = 100) {
     private var next = 0L
     private var blocked = 0L
     @Synchronized fun acquire() {
-        check(now() >= blocked) { "Artwork provider cooling down" }
+        cooling()
         val wait = next - now()
         if (wait > 0) sleep(wait)
-        next = now() + 200
+        next = now() + interval
     }
+    @Synchronized fun cooling() = check(now() >= blocked) { "Artwork provider cooling down" }
     @Synchronized fun retryAfter(until: Long) { blocked = maxOf(blocked, until) }
 }
+
+enum class ArtworkPriority { VISIBLE, PREFETCH }
+
+/** Bounded concurrent artwork downloads. Waiting visible requests are always admitted before
+ * waiting prefetch; a prefetch ticket is promoted when a visible request joins its download. */
+class ArtworkGate(val permits: Int = 6) {
+    class Ticket internal constructor(visible: Boolean) {
+        @Volatile var visible = visible
+            internal set
+    }
+    init { require(permits in 1..16) }
+    private val lock = ReentrantLock()
+    private val changed = lock.newCondition()
+    private val waiting = ArrayList<Ticket>()
+    private var active = 0
+
+    fun ticket(priority: ArtworkPriority) = Ticket(priority == ArtworkPriority.VISIBLE)
+    fun promote(ticket: Ticket) = lock.withLock {
+        if (!ticket.visible) { ticket.visible = true; changed.signalAll() }
+    }
+    /** Interruptible while waiting: a cancelled caller never occupies a download slot. */
+    fun <T> run(ticket: Ticket, block: () -> T): T {
+        lock.lockInterruptibly()
+        try {
+            waiting += ticket
+            try { while (active >= permits || next() !== ticket) changed.await() }
+            finally { waiting.remove(ticket); changed.signalAll() }
+            active++
+        } finally { lock.unlock() }
+        try { return block() } finally { lock.withLock { active--; changed.signalAll() } }
+    }
+    private fun next() = waiting.firstOrNull { it.visible } ?: waiting.firstOrNull()
+}
+
+/** Scryfall's image CDN (cards.scryfall.io) is not rate limited; only its API is. Image downloads
+ * are bounded by [ArtworkGate] concurrency instead. */
+fun scryfallApiRequest(uri: URI): Boolean = uri.host.equals("api.scryfall.com", ignoreCase = true)
 
 /** Dedicated client has NO service auth, cookie storage, proxy credentials or automatic redirects.
  * No network Coil module is installed: all artwork bytes pass through this boundary. */
 class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPolicy(),
     private val userAgent: String = "AsyncTabletopWizards/0.1.0 (artwork client)",
     private val throttle: ArtworkThrottle = ArtworkThrottle(),
-    private val now: () -> Long = System::currentTimeMillis) : ArtworkTransport, AutoCloseable {
+    private val now: () -> Long = System::currentTimeMillis,
+    private val throttled: (URI) -> Boolean = ::scryfallApiRequest) : ArtworkTransport, AutoCloseable {
     private val client = OkHttpClient.Builder().dns(object : Dns {
         override fun lookup(hostname: String) = policy.addresses(hostname)
     }).proxy(Proxy.NO_PROXY)
@@ -90,7 +133,7 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
         repeat(4) { redirects ->
             policy.validate(uri.toString())
             policy.addresses(uri.host)
-            throttle.acquire()
+            if (throttled(uri)) throttle.acquire() else throttle.cooling()
             check(System.nanoTime() < deadline)
             val request = Request.Builder().url(uri.toString()).header("User-Agent", userAgent)
                 .header("Accept", "application/json, image/png, image/jpeg, image/webp")

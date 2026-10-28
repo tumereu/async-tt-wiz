@@ -95,22 +95,26 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
     private val policy: ArtworkUrlPolicy = ArtworkUrlPolicy(),
     private val apiBase: String = "https://api.scryfall.com/cards/",
     private val now: () -> Long = System::currentTimeMillis,
-    private val imageCheck: (ByteArray, String) -> Boolean = Companion::raster) {
-    private val pending = ConcurrentHashMap<String, CompletableFuture<ArtworkEntry?>>()
+    private val imageCheck: (ByteArray, String) -> Boolean = Companion::raster,
+    private val gate: ArtworkGate = ArtworkGate()) {
+    private class Pending(val future: CompletableFuture<ArtworkEntry?>, val ticket: ArtworkGate.Ticket)
+    private val pending = ConcurrentHashMap<String, Pending>()
     private val connection = AtomicLong()
     private val failedConnections = ConcurrentHashMap<String, Long>()
     private val loadedUrls = ConcurrentHashMap<String, String>()
     init { policy.validate(apiBase); require(apiBase.endsWith('/')) }
 
-    fun load(reference: ArtworkReference): ByteArray? {
+    /** Blocking. Thread interruption is a cancellation, never a provider failure: it records no
+     * failure window and a joined caller simply takes the download over. */
+    fun load(reference: ArtworkReference, priority: ArtworkPriority = ArtworkPriority.VISIBLE): ByteArray? {
         return try {
             val urls = sequence {
                 reference.customUrl?.let { yield(it) }
-                yieldAll(resolve(reference))
+                yieldAll(resolve(reference, priority))
             }.distinct()
             for (url in urls) {
                 policy.validate(url)
-                val entry = fetch("image|${reference.key}|$url", url, MAX_IMAGE, image = true)
+                val entry = fetch("image|${reference.key}|$url", url, MAX_IMAGE, image = true, priority)
                 if (entry?.status == 200) {
                     loadedUrls[reference.key] = url
                     return entry.bytes
@@ -147,29 +151,33 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
         }
     }
 
-    private fun resolve(reference: ArtworkReference, visited: Set<String> = emptySet()): List<String> {
+    private fun resolve(reference: ArtworkReference, priority: ArtworkPriority, visited: Set<String> = emptySet()): List<String> {
         val id = reference.printing ?: return emptyList()
         if (id in visited || visited.size >= 3 || runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false).not()) return emptyList()
-        val entry = fetch("metadata-v2|$apiBase|$id|${reference.version}", "$apiBase$id", 1024 * 1024, image = false)
+        val entry = fetch("metadata-v2|$apiBase|$id|${reference.version}", "$apiBase$id", 1024 * 1024, image = false, priority)
             ?.takeIf { it.status == 200 } ?: return emptyList()
         val card = JsonParser.parseString(entry.bytes.toString(Charsets.UTF_8)).asJsonObject
         check(card.get("object")?.asString == "card" && card.get("id")?.asString == id)
         val top = card.getAsJsonObject("image_uris")
         val faces = card.getAsJsonArray("card_faces")?.map { it.asJsonObject }.orEmpty()
-        val named = reference.faceName?.let { name -> faces.firstOrNull { it.get("name")?.asString == name } }
+        // Reversible cards and some double-faced tokens print the SAME name on both sides: the
+        // provider index is exact when its name agrees; the name only corrects a differing index.
+        val indexed = faces.getOrNull(reference.face)
+        val named = reference.faceName?.let { name -> indexed?.takeIf { it.get("name")?.asString == name }
+            ?: faces.firstOrNull { it.get("name")?.asString == name } }
         val layout = card.get("layout")?.asString
         // Spell parts share a physical image, even when MTGJSON labels the row b/c.
         // A named top-level printing (meld parts and separately printed token sides) is also exact.
         val shared = layout in setOf("split", "aftermath", "adventure", "flip", "room")
         val topMatches = reference.faceName != null && card.get("name")?.asString == reference.faceName
         val images = if (top != null && (shared || topMatches || reference.face == 0)) top else
-            (named ?: faces.getOrNull(reference.face))?.getAsJsonObject("image_uris")
+            (named ?: indexed)?.getAsJsonObject("image_uris")
         if (layout == "meld" && reference.faceName != null && !topMatches) {
             val result = card.getAsJsonArray("all_parts")?.firstOrNull {
                 it.asJsonObject.get("component")?.asString == "meld_result" &&
                     it.asJsonObject.get("name")?.asString == reference.faceName
             }?.asJsonObject?.get("id")?.asString
-            if (result != null) return resolve(reference.copy(printing = result, face = 0), visited + id)
+            if (result != null) return resolve(reference.copy(printing = result, face = 0), priority, visited + id)
         }
         if (images == null) return emptyList()
         // Never replace an art crop with a full card, or a physical back with a front.
@@ -177,41 +185,67 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
             listOf(reference.size, "normal", "large", "png", "small").distinct()
         return sizes.mapNotNull { images.get(it)?.asString }.distinct()
     }
-    private fun fetch(key: String, url: String, maximum: Long, image: Boolean): ArtworkEntry? {
-        val future = CompletableFuture<ArtworkEntry?>()
-        val existing = pending.putIfAbsent(key, future)
-        if (existing != null) return existing.get()
+    private fun fetch(key: String, url: String, maximum: Long, image: Boolean, priority: ArtworkPriority): ArtworkEntry? {
+        while (true) {
+            val mine = Pending(CompletableFuture(), gate.ticket(priority))
+            val existing = pending.putIfAbsent(key, mine)
+            if (existing == null) return own(key, url, maximum, image, mine)
+            if (priority == ArtworkPriority.VISIBLE) gate.promote(existing.ticket)
+            try { return existing.future.get() }
+            // The owner was cancelled (e.g. its card scrolled away): this caller downloads instead.
+            catch (_: java.util.concurrent.CancellationException) { continue }
+        }
+    }
+
+    private fun own(key: String, url: String, maximum: Long, image: Boolean, mine: Pending): ArtworkEntry? {
+        var result: ArtworkEntry? = null
+        var cancelled = true
         try {
-            val old = cache.read(key)
-            val generation = connection.get()
-            val sameConnection = (failedConnections[key] ?: 0L) == generation
-            if (old != null && old.expires > now() && (old.status == 200 || sameConnection))
-                return old.also { future.complete(it) }
-            val response = try { transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) }
-                catch (_: Exception) { ArtworkResponse(503) }
-            val valid = response.status == 200 && response.bytes.size <= maximum &&
-                if (image) raster(response.bytes, response.type) && imageCheck(response.bytes, response.type) else validMetadata(response.bytes)
-            val failures = if (valid || response.status == 304) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(6)
-            val expiry = now() + when {
-                valid || response.status == 304 -> DAY
-                else -> ArtworkRetrySchedule.backoff(failures)
-            }
-            val entry = when {
-                valid -> ArtworkEntry(200, expiry, 0, response.type, response.etag, response.modified, response.bytes)
-                response.status == 304 && old?.status == 200 -> old.copy(expires = expiry, failures = 0)
-                // Reuse good cached bytes during an outage, with backoff before revalidation.
-                old?.status == 200 -> old.copy(expires = maxOf(expiry, response.retryAt), failures = failures)
-                else -> ArtworkEntry(if (response.status == 404) 404 else 503, maxOf(expiry, response.retryAt),
-                    failures, "", "", "", byteArrayOf())
-            }
-            cache.write(key, entry)
-            if (entry.status != 200) failedConnections[key] = generation else failedConnections.remove(key)
-            future.complete(entry)
-            return entry
-        } catch (error: Exception) {
-            future.complete(null)
+            result = download(key, url, maximum, image, mine.ticket)
+            cancelled = false
+            return result
+        } catch (interrupted: InterruptedException) {
+            throw interrupted
+        } catch (_: Exception) {
+            cancelled = false
             return null
-        } finally { pending.remove(key, future) }
+        } finally {
+            // Unpublish before completing, so a joined caller that takes over cannot rejoin this attempt.
+            pending.remove(key, mine)
+            if (cancelled) mine.future.cancel(false) else mine.future.complete(result)
+        }
+    }
+
+    private fun download(key: String, url: String, maximum: Long, image: Boolean, ticket: ArtworkGate.Ticket): ArtworkEntry {
+        val old = cache.read(key)
+        val generation = connection.get()
+        val sameConnection = (failedConnections[key] ?: 0L) == generation
+        if (old != null && old.expires > now() && (old.status == 200 || sameConnection)) return old
+        if (Thread.currentThread().isInterrupted) throw InterruptedException()
+        val response = try { gate.run(ticket) { transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) } }
+            catch (error: Exception) {
+                // A cancelled request (interrupted wait, throttle sleep or socket) is not an outage.
+                if (error is InterruptedException || Thread.currentThread().isInterrupted) throw InterruptedException()
+                ArtworkResponse(503)
+            }
+        val valid = response.status == 200 && response.bytes.size <= maximum &&
+            if (image) raster(response.bytes, response.type) && imageCheck(response.bytes, response.type) else validMetadata(response.bytes)
+        val failures = if (valid || response.status == 304) 0 else ((old?.failures ?: 0) + 1).coerceAtMost(6)
+        val expiry = now() + when {
+            valid || response.status == 304 -> DAY
+            else -> ArtworkRetrySchedule.backoff(failures)
+        }
+        val entry = when {
+            valid -> ArtworkEntry(200, expiry, 0, response.type, response.etag, response.modified, response.bytes)
+            response.status == 304 && old?.status == 200 -> old.copy(expires = expiry, failures = 0)
+            // Reuse good cached bytes during an outage, with backoff before revalidation.
+            old?.status == 200 -> old.copy(expires = maxOf(expiry, response.retryAt), failures = failures)
+            else -> ArtworkEntry(if (response.status == 404) 404 else 503, maxOf(expiry, response.retryAt),
+                failures, "", "", "", byteArrayOf())
+        }
+        cache.write(key, entry)
+        if (entry.status != 200) failedConnections[key] = generation else failedConnections.remove(key)
+        return entry
     }
     private fun validMetadata(bytes: ByteArray): Boolean = runCatching {
         // Bound nesting before Gson's tree parser, not after it.

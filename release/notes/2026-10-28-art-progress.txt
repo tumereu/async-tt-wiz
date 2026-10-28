@@ -1,0 +1,1 @@
+add: Inspecting a card whose picture is still loading shows the download progress.

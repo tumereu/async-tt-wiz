@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.DraftPrivatePack
+import org.asyncttwiz.storage.ArtworkPriority
 import org.asyncttwiz.storage.ArtworkReference
 
 internal const val PodArtPrefetchParallelism = 4
@@ -60,7 +61,7 @@ internal fun PodArtPrefetch(packs: List<DraftPrivatePack>, definitions: Map<Stri
     val prefetcher = remember(context, width, height) {
         ArtworkPrefetcher(scope) { reference ->
             PublicArtwork.get(context).loader.execute(ImageRequest.Builder(context)
-                .data(CardArtworkRequest(reference, width, height)).size(width, height).build())
+                .data(CardArtworkRequest(reference, width, height, ArtworkPriority.PREFETCH)).size(width, height).build())
         }
     }
     DisposableEffect(prefetcher) { onDispose { prefetcher.cancel() } }

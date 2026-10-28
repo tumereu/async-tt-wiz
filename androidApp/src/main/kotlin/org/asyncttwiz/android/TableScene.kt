@@ -91,7 +91,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
     accepted: PlayState? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
-    PrefetchGameArtwork(play.definitions)
+    PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.id, accountId) { mutableStateOf(TableLayoutState()) }
     val selectionState: MutableState<TableSelection> = toolkit?.selectionState ?: remember(play.id, accountId) { mutableStateOf(TableSelection()) }
     var layout by layoutState

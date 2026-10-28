@@ -70,7 +70,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                         with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),
                                         Modifier.requiredSize(width * scale, height * scale)
                                             // Inspection always shows the whole printed card, including token corners.
-                                            .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier))
+                                            .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier),
+                                        placeholder = { InspectorArtworkPlaceholder(card.artwork[state.face], "Artwork for ${face.name}") })
                                     // The owner's own face-down card: the front stays readable but is plainly marked.
                                     if (faceDown) Box(Modifier.requiredSize(width * scale, height * scale)
                                         .background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {

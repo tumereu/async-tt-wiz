@@ -36,7 +36,8 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
                 Box(Modifier.fillMaxWidth().height(336.dp).horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
                     .semantics { contentDescription = "Card artwork viewport" }, contentAlignment = Alignment.TopCenter) {
                     CardArtwork(reference, face.name, with(density) { (240.dp * scale).roundToPx() },
-                        with(density) { (336.dp * scale).roundToPx() }, Modifier.requiredSize(240.dp * scale, 336.dp * scale))
+                        with(density) { (336.dp * scale).roundToPx() }, Modifier.requiredSize(240.dp * scale, 336.dp * scale),
+                        placeholder = { InspectorArtworkPlaceholder(reference, face.name) })
                 }
                 ScreenOutlinedButton(onClick = controller::zoom) { EntryIcon(null, "search"); Spacer(Modifier.width(8.dp)); Text(if (state.enlarged) "Fit artwork" else "Enlarge artwork") }
             }

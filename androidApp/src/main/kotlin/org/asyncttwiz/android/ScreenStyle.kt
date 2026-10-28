@@ -172,7 +172,7 @@ internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, 
 internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {}) {
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
-    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+    Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (navigation != null) IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") }
         Text(title, Modifier.weight(1f).then(titleModifier), style = MaterialTheme.typography.titleLarge,

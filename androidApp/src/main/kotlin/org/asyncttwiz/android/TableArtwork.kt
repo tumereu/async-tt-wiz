@@ -1,13 +1,14 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runInterruptible
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.DefinitionFace
+import org.asyncttwiz.protocol.PlayContainer
+import org.asyncttwiz.protocol.PlayState
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.protocol.DeckJson
 import kotlinx.serialization.json.*
@@ -41,20 +42,44 @@ internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Bool
     else -> TableArtworkMode.ART_CROP
 }
 
-internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> = definitions.flatMap { submitted ->
-    submitted.definition.faces.flatMapIndexed { index, face ->
-        face.tableArtwork(index, submitted.digest)?.let { listOf(it, it.forTable()) }.orEmpty()
+/** Exactly what the table (art crop, or a custom full card) and then the inspector (large) request for
+ * every face, in definition order: all table images first, since they are what a player sees first. */
+internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List<ArtworkReference> {
+    val faces = definitions.flatMap { submitted ->
+        submitted.definition.faces.mapIndexedNotNull { index, face -> face.tableArtwork(index, submitted.digest) }
     }
-}.distinct()
+    return (faces.map { it.forTable() } + faces.map { it.copy(size = "large") }).distinct()
+}
 
-/** Warm only retained game definitions, through the same bounded public repository as visible art. */
-@Composable
-internal fun PrefetchGameArtwork(definitions: List<SubmittedDefinition>) {
-    val context = LocalContext.current
-    val references = remember(definitions) { gameArtworkReferences(definitions) }
-    LaunchedEffect(references) {
-        if (references.isEmpty()) return@LaunchedEffect
-        val repository = PublicArtwork.get(context).repository
-        for (reference in references) runInterruptible(Dispatchers.IO) { repository.load(reference) }
+/** The viewer's hand, then their battlefield, then the shared battlefield/Stack, then everything else. */
+internal fun gameArtworkReferences(play: PlayState, viewer: String): List<ArtworkReference> {
+    val byDigest = play.definitions.associateBy { it.digest }
+    val cards = play.board.cards.associateBy { it.id }
+    fun rank(container: PlayContainer) = when {
+        container.accountId == viewer && container.zone == PlayZone.HAND -> 0
+        container.accountId == viewer && container.zone == PlayZone.BATTLEFIELD -> 1
+        container.zone == PlayZone.BATTLEFIELD || container.zone == PlayZone.STACK -> 2
+        else -> 3
     }
+    val ordered = play.board.containers.sortedBy(::rank).flatMap { it.cards }.mapNotNull { cards[it]?.definition } +
+        play.definitions.map { it.digest }
+    return gameArtworkReferences(ordered.distinct().mapNotNull(byDigest::get))
+}
+
+/** Warm the retained game definitions in the background queue while this game is open. */
+@Composable
+internal fun PrefetchGameArtwork(play: PlayState, viewer: String) {
+    val context = LocalContext.current
+    // Ordered by the board when the game opens (or its definitions change), not on every move.
+    val references = remember(play.gameId, viewer, play.definitions) { gameArtworkReferences(play, viewer) }
+    DisposableEffect(play.gameId, references) {
+        val tag = "game:${play.gameId}"
+        PublicArtwork.prefetch(context, tag, references)
+        onDispose { PublicArtwork.cancelPrefetch(tag) }
+    }
+}
+
+/** Saved deck cards in the sizes the table and the inspector use, downloaded ahead of any game. */
+internal fun prefetchDeckArtwork(context: android.content.Context, deckId: String, definitions: List<SubmittedDefinition>) {
+    PublicArtwork.prefetch(context, "deck:$deckId", gameArtworkReferences(definitions))
 }

@@ -27,6 +27,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private var retryPlan: DeckSavePlan? = null
     private var saveAction: (() -> ((DeckSavePlan) -> SavedDeck)?)? = null
     private var saved: (SavedDeck) -> Unit = {}
+    /** Called on the worker after an accepted save (import or edit) with the saved definitions. */
+    var acceptedDefinitions: (deckId: String, definitions: List<SubmittedDefinition>) -> Unit = { _, _ -> }
     private var catalogMetadata: CatalogMetadata? = null
     private var catalogInstalling = false
     private var relookupAfterCurrent = false
@@ -251,6 +253,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                  if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target, input.mode,
                        cover, retained, input.editing)
                 val result = action(checkNotNull(plan))
+                runCatching { acceptedDefinitions(result.deck.id, plan.definitions.definitions) }
                 post { if (!closed && generation == epoch && state.active) {
                     // A merged list is a delta, not an editable snapshot: never save it again after acceptance.
                     if (input.mode == DeckImportMode.MERGE ||

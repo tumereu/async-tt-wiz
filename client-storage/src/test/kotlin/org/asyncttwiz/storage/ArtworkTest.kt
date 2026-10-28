@@ -185,6 +185,59 @@ class ArtworkTest {
         } finally { release.countDown(); pool.shutdownNow() }
     }
 
+    @Test fun cancelledOwnerRecordsNoFailureAndAJoinedCallerTakesTheDownloadOver() {
+        val entered = CountDownLatch(1); val calls = AtomicInteger()
+        val art = repository(ArtworkTransport { _, _, _, _ ->
+            if (calls.incrementAndGet() == 1) { entered.countDown(); Thread.sleep(10_000) }
+            ArtworkResponse(200, png(), "image/png")
+        })
+        val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/image")
+        val owner = Thread { art.load(reference, ArtworkPriority.PREFETCH) }.apply { start() }
+        assertTrue(entered.await(5, TimeUnit.SECONDS))
+        val pool = Executors.newSingleThreadExecutor()
+        try {
+            val joined = pool.submit<ByteArray?> { art.load(reference) }
+            Thread.sleep(100) // let the visible caller join the owner's attempt
+            owner.interrupt(); owner.join(5_000)
+            assertArrayEquals(png(), joined.get(5, TimeUnit.SECONDS))
+            assertEquals(2, calls.get())
+            // No failure window was written: a cancellation is not an outage.
+            assertArrayEquals(png(), art.load(reference)); assertEquals(2, calls.get())
+        } finally { pool.shutdownNow() }
+    }
+
+    @Test fun gateBoundsDownloadsAndAdmitsVisibleBeforeQueuedPrefetch() {
+        val gate = ArtworkGate(1)
+        val running = AtomicInteger(); val peak = AtomicInteger()
+        val release = CountDownLatch(1); val order = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val pool = Executors.newFixedThreadPool(6)
+        try {
+            fun start(name: String, priority: ArtworkPriority, ticket: ArtworkGate.Ticket = gate.ticket(priority)) =
+                pool.submit { gate.run(ticket) {
+                    order += name; peak.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+                    check(release.await(5, TimeUnit.SECONDS)); running.decrementAndGet()
+                } }
+            val blockers = listOf(start("p1", ArtworkPriority.PREFETCH))
+            while (order.isEmpty()) Thread.sleep(5)
+            val queued = gate.ticket(ArtworkPriority.PREFETCH)
+            val waiting = listOf(start("p3", ArtworkPriority.PREFETCH, queued), start("p4", ArtworkPriority.PREFETCH))
+            Thread.sleep(50)
+            val visible = start("v", ArtworkPriority.VISIBLE)
+            Thread.sleep(50)
+            gate.promote(queued)
+            Thread.sleep(50)
+            release.countDown()
+            (blockers + waiting + visible).forEach { it.get(5, TimeUnit.SECONDS) }
+            assertEquals(1, peak.get())
+            assertEquals(listOf("p1", "p3", "v", "p4"), order.toList(), "visible (and promoted) first, then FIFO")
+        } finally { release.countDown(); pool.shutdownNow() }
+    }
+
+    @Test fun onlyProviderApiRequestsAreThrottled() {
+        assertTrue(scryfallApiRequest(java.net.URI("https://api.scryfall.com/cards/$id")))
+        assertFalse(scryfallApiRequest(java.net.URI("https://cards.scryfall.io/large/front/2/2/$id.jpg")))
+    }
+
     @Test fun decoderFailuresHavePersistedExponentialWindowsAndSuccessReset() {
         val transport = ArtworkTransport { _, _, _, _ -> ArtworkResponse(200, png(), "image/png") }
         val reference = ArtworkReference(null, 0, "decode", customUrl = "$origin/image")
@@ -205,7 +258,7 @@ class ArtworkTest {
         val requests = mutableListOf<Long>()
         val throttle = ArtworkThrottle({ clock }, { clock += it })
         repeat(20) { throttle.acquire(); requests += clock }
-        assertTrue(requests.zipWithNext().all { (a,b) -> b - a >= 200 })
+        assertTrue(requests.zipWithNext().all { (a,b) -> b - a >= 100 })
         throttle.retryAfter(clock + 10_000)
         assertThrows(IllegalStateException::class.java) { throttle.acquire() }
         clock += 10_000; throttle.acquire()

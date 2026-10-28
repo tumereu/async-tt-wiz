@@ -31,8 +31,14 @@ import coil3.key.Keyer
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,8 +50,10 @@ import kotlinx.coroutines.sync.withPermit
 import org.asyncttwiz.storage.*
 import java.io.File
 
-/** Explicit decode target participates in the key: a small thumbnail cannot substitute for inspection. */
-data class CardArtworkRequest(val reference: ArtworkReference, val width: Int, val height: Int) {
+/** Explicit decode target participates in the key: a small thumbnail cannot substitute for inspection.
+ * Priority only orders downloads; a prefetched decode is the same memory-cache entry. */
+data class CardArtworkRequest(val reference: ArtworkReference, val width: Int, val height: Int,
+    val priority: ArtworkPriority = ArtworkPriority.VISIBLE) {
     init { require(width in 1..4096 && height in 1..4096) }
     val key get() = "${reference.key}|${width}x$height"
 }
@@ -77,10 +85,32 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     val memoryBudget = minOf(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 8)
     val disk = ArtworkDiskCache(directory)
     private val application = context.applicationContext
+    // Only provider API metadata is spaced (also when a debug mirror serves it); image bytes are
+    // bounded by the repository's download gate, separately from the decode permits below.
     private val transport = HttpArtworkTransport(policy,
-        "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})")
+        "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})",
+        throttled = { scryfallApiRequest(it) || it.toString().startsWith(apiBase) })
     val repository = HttpArtworkRepository(disk, transport, policy, apiBase,
-        imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null })
+        imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null }, gate = ArtworkGate(DOWNLOADS))
+    private val failed = MutableStateFlow<Set<String>>(emptySet())
+    /** Reference keys whose latest attempt failed; their own loads keep retrying in the background. */
+    val unavailable: StateFlow<Set<String>> = failed
+    private fun attempted(reference: ArtworkReference, loaded: Boolean) = failed.update { keys ->
+        when {
+            loaded -> if (reference.key in keys) keys - reference.key else keys
+            reference.key in keys -> keys
+            keys.size >= 1024 -> setOf(reference.key)
+            else -> keys + reference.key
+        }
+    }
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** Downloads (no decode) into the disk cache at prefetch priority, one attempt per reference. */
+    internal val prefetch = ArtworkPrefetchQueue(background) { reference ->
+        val bytes = runInterruptible { repository.load(reference, ArtworkPriority.PREFETCH) }
+        currentCoroutineContext().ensureActive()
+        attempted(reference, bytes != null)
+        bytes != null
+    }
     private val connectivity = application.getSystemService(ConnectivityManager::class.java)
     private val connection = MutableStateFlow(0L)
     private var online = false
@@ -106,16 +136,17 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
                 var image: Bitmap? = null
                 while (image == null) {
                     currentCoroutineContext().ensureActive()
-                    image = decodes.withPermit { withContext(Dispatchers.IO) {
-                        val bytes = runInterruptible { repository.load(data.reference) }
-                        currentCoroutineContext().ensureActive()
-                        bytes?.let {
-                            ArtworkDecoder.decode(it, data.width, data.height, memoryBudget).also { bitmap ->
-                                if (bitmap == null) repository.rejectDecoded(data.reference)
-                                else repository.decoded(data.reference)
-                            }
+                    // Network waits never hold a decode permit.
+                    val bytes = withContext(Dispatchers.IO) { runInterruptible { repository.load(data.reference, data.priority) } }
+                    currentCoroutineContext().ensureActive()
+                    image = bytes?.let { decodes.withPermit { withContext(Dispatchers.IO) {
+                        ArtworkDecoder.decode(it, data.width, data.height, memoryBudget).also { bitmap ->
+                            if (bitmap == null) repository.rejectDecoded(data.reference)
+                            else repository.decoded(data.reference)
                         }
-                    } }
+                    } } }
+                    currentCoroutineContext().ensureActive()
+                    attempted(data.reference, image != null)
                     if (image == null) {
                         retry.failed()
                         val generation = connection.value
@@ -138,10 +169,15 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
         else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) loader.memoryCache?.trimToSize(memoryBudget / 2)
     }
     override fun close() {
+        background.cancel()
         connectivity.unregisterNetworkCallback(networkCallback)
         application.unregisterComponentCallbacks(this)
         loader.shutdown()
         transport.close()
+    }
+    companion object {
+        /** Concurrent image/metadata downloads; Scryfall's CDN is unthrottled, its API is spaced. */
+        const val DOWNLOADS = 6
     }
 }
 
@@ -159,8 +195,28 @@ internal class ArtworkServiceProvider {
 
 object PublicArtwork {
     private val provider = ArtworkServiceProvider()
+    private val starting = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val wanted = HashMap<String, List<ArtworkReference>>()
     suspend fun get(context: Context): CardArtworkService = provider.get(context)
     internal fun current(): CardArtworkService? = provider.current()
+
+    /** Non-blocking: replaces the batch [tag] in the process-wide background queue. */
+    internal fun prefetch(context: Context, tag: String, references: List<ArtworkReference>) {
+        val ready = synchronized(this) {
+            current()?.also { wanted.remove(tag); it.prefetch.submit(tag, references) }
+                ?: run { wanted[tag] = references; null }
+        }
+        if (ready == null) starting.launch {
+            val service = get(context.applicationContext)
+            synchronized(this@PublicArtwork) { wanted.remove(tag)?.let { service.prefetch.submit(tag, it) } }
+        }
+    }
+
+    /** Queued work of [tag] is dropped; at most the bounded in-flight attempts finish. */
+    internal fun cancelPrefetch(tag: String) = synchronized(this) {
+        wanted.remove(tag)
+        current()?.prefetch?.cancel(tag)
+    }
 }
 
 /** Same bounded, pannable viewport for gameplay inspection and draft face stacks. */

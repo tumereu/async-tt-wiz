@@ -1,5 +1,6 @@
 package org.asyncttwiz.storage
 
+import com.google.gson.JsonParser
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -51,6 +52,39 @@ class ArtworkResolutionTest {
             }
             assertTrue(urls.all { it in listOf("$origin/cards/$id", "$origin/cards/$resultId", "$origin/front", "$origin/back") })
         }
+    }
+
+    /** Trimmed real provider data: modal_dfc (Valakut Awakening), transform (Elesh Norn), battle
+     * (Invasion of Alara), meld (Fang + Ragnarok), reversible_card (Command Tower, same name on both
+     * sides) and double_faced_token (Punchcard // Punchcard). Every row shows its own physical side. */
+    @Test fun realDoubleFacedProviderRowsResolveTheirOwnPhysicalSide() {
+        val fixture = JsonParser.parseString(javaClass.getResource("/artwork/double-faced.json")!!.readText()).asJsonObject
+        val cards = fixture.getAsJsonArray("scryfall").associate { it.asJsonObject.get("id").asString to it.toString() }
+        val base = "https://api.scryfall.com/cards/"
+        val requested = mutableListOf<String>()
+        val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("real").toFile()),
+            ArtworkTransport { url, _, _, _ ->
+                requested += url
+                cards[url.removePrefix(base)]?.let { ArtworkResponse(200, it.toByteArray(), "application/json") }
+                    ?: ArtworkResponse(200, png + url.toByteArray(), "image/png")
+            }, ArtworkUrlPolicy(), base)
+        val rows = fixture.getAsJsonArray("mtgjson").map { it.asJsonObject }
+        assertEquals(setOf("modal_dfc", "transform", "meld", "reversible_card", "double_faced_token"),
+            rows.map { it.get("layout").asString }.toSet())
+        for (row in rows) for (size in listOf("large", "art_crop")) {
+            val scryfall = row.getAsJsonObject("identifiers").get("scryfallId").asString
+            val side = row.get("side").asString
+            val printing = CatalogPrinting(row.get("uuid").asString, row.get("name").asString, row.get("setCode").asString,
+                row.get("number").asString, "English", side, scryfall, row.get("layout").asString.endsWith("token"),
+                row.getAsJsonArray("otherFaceIds").map { it.asString }, row.toString())
+            val reference = ArtworkReference.from(printing, "catalog-v1", size)!!
+            // Meld results are their own printing; every other side b is the physical back image.
+            val physical = if (side == "b" && row.get("layout").asString != "meld") "back" else "front"
+            val expected = "https://cards.scryfall.io/$size/$physical/${scryfall[0]}/${scryfall[1]}/$scryfall.jpg"
+            val loaded = repository.load(reference)?.drop(png.size)?.toByteArray()?.toString(Charsets.UTF_8)
+            assertEquals(expected, loaded?.substringBefore('?'), "${row.get("name").asString} $side $size")
+        }
+        assertTrue(requested.none { it.startsWith(base) && it.removePrefix(base) !in cards })
     }
 
     @Test fun independentlyPrintedTokenBackAndMeldFrontUseTheirOwnTopLevelImagesDespiteSideLetters() {

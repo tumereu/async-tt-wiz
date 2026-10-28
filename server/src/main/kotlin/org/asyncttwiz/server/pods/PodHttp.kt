@@ -39,7 +39,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
-                action in listOf("invitations", "accept", "decline", "start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("build/move", "build/basics", "build/name") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -67,6 +67,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")
                     action == "start" -> pods.start(principal, id, json.decodeFromString<PodRequest>(text))
+                    action == "auto-start" -> pods.autoStart(principal, id, json.decodeFromString<SetPodAutoStart>(text))
                      action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
                      action == "grid/select" -> pods.selectGrid(principal, id, json.decodeFromString<SelectPodGrid>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))

@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 
 /** Account activity, never board state, covered-card names, read receipts or player progress.
  * Only the authenticated feed carries display content; ActivityPushHint stays opaque. */
-@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED }
+@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
  * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. */
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,

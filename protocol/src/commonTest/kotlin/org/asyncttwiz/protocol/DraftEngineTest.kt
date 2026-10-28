@@ -416,14 +416,20 @@ class DraftEngineTest {
                         assertEquals(state.log.filter { it.player == player }.flatMap { it.kept }, state.pools.getValue(player))
                     }
                     val queued = state.queues.values.flatten()
-                    assertEquals(queued.size, queued.toSet().size)
+                    val held = state.held.values.flatten()
+                    assertEquals(queued.size + held.size, (queued + held).toSet().size)
                     if (!state.finished) assertEquals(state.seating.minOf { state.openedRound(it) }, state.round)
+                    for ((player, ids) in state.queues) for (id in ids)
+                        assertTrue(state.packs.first { it.id == id }.round <= state.openedRound(player))
+                    for ((player, ids) in state.held) for (id in ids)
+                        assertTrue(state.packs.first { it.id == id }.round > state.openedRound(player))
                     for (pack in state.packs) {
                         val opened = pack.round <= state.openedRound(pack.initialPlayer)
                         if (pack.id in queued) {
                             assertTrue(opened && pack.round >= state.round)
                             assertTrue(pack.cards.size > settings.keep)
-                        } else if (opened) assertTrue(pack.cards.isEmpty())
+                        } else if (pack.id in held) assertTrue(opened && pack.cards.isNotEmpty())
+                        else if (opened) assertTrue(pack.cards.isEmpty())
                         else assertEquals(9, pack.cards.size)
                     }
                 }

@@ -98,7 +98,7 @@ described below; other screens show picking/waiting/building/submitted status.
 
 | Phase | Content |
 | --- | --- |
-| Setup | One page: source, mode, all settings, sideboard limit, members and invitations. Creator: **Start** (enabled at ≥2 accepted members). Overflow: Destroy (creator) / Leave (others). |
+| Setup | One page: source, mode, all settings, sideboard limit, members and invitations. Creator: **Start** (enabled at ≥2 accepted members), or **Start when everyone accepts** while invitations are pending. Overflow: Destroy (creator) / Leave (others). |
 | Drafting | Tabs **Draft · Build · Stats**. Overflow: Cancel draft and Destroy (creator) / Leave (others). |
 | After the draft | Tabs **Build · Stats · Games**. |
 
@@ -127,6 +127,16 @@ Only setup keeps the member strip above the content; Build/Stats/Games do not.
   with system back, a search spinner and centred empty-list state.
 - **Start** needs at least 2 accepted members; there is no Ready step. Start
   freezes members and settings; invitations still pending lapse.
+- Round 21 **auto-start**: while invitations are pending the creator's Start
+  button is **Start when everyone accepts**. It arms a server-side start (kept
+  across settings edits); the button then reads "Starts when N more accept ·
+  Cancel" and tapping it cancels. Members see "Starts automatically when everyone
+  accepts". When the last pending invitation is accepted the server starts the
+  draft exactly like Start (same checks and notifications). A decline, or a start
+  check failing at that moment, switches auto-start off and leaves the pod in
+  setup; the creator gets a notification and a setup line ("Bob declined;
+  auto-start is off" or why it could not start). The overflow also offers
+  **Start now** (confirm: pending invitations will be cancelled).
 - Start shuffles seating randomly and generates the draft on the server. Nobody
   needs to be online for the draft to proceed.
 - One completed draft per pod.
@@ -176,9 +186,15 @@ Rules:
   final pick remains). The server decides from pack sizes: each pick removes
   keep + burn (all cards near the end), the discard threshold applies, and an
   automatic award is not a pick. Early packs pass in their own round's direction
-  and join queues in arrival order. A near-end Librarian spend can return cards to
-  a pack that was predicted empty; it keeps passing and queues normally. Pods
-  saved before this rule pick it up at their next pick.
+  and join queues in arrival order. Pods saved before this rule pick it up at
+  their next pick.
+- Round 21: a pack of a round the receiver has not opened yet is **held** for
+  them: it is not shown (not current, upcoming or in the waiting count), cannot
+  be picked and sends no your-pick notification. When the receiver opens that
+  round, held packs join their queue first (arrival order), then their own new
+  packs, and the your-pick notification fires then. So a member always finishes
+  their round's packs before seeing the next round's. Held packs are live: they
+  count for the early-opening prediction and for draft completion.
 - A pick takes **keep** cards into the pool (into Main) and removes **burn** cards
   from the draft. Burned cards never enter anyone's pool.
 - **End of a pack:** if remaining cards ≤ keep, the server awards them
@@ -199,8 +215,12 @@ trips by three. Synergy example with k = 3: 6 rounds, 9 picks each per round.
   the catalog definition with settings; the pod freezes it and serves it to members.
 - A manual pick may spend any number of owned Librarians: keep increases by one
   per copy, burns shrink first if necessary. The server validates copy ownership,
-  uniqueness and exact keep counts atomically. After keeps, burns and the normal
-  discard threshold, spent copies leave the pool/build and enter the passed pack.
+  uniqueness and exact keep counts atomically. Spent copies always leave the
+  pool/build. After keeps, burns and the normal discard threshold, they enter the
+  passed pack only if it would still reach another player for a manual pick
+  without them (more than keep cards left, above the discard threshold). On a
+  pack's final pick (nothing left, the rest discarded, or left for an automatic
+  award) they are burned with the rest, so a spend never keeps a pack alive.
   A Librarian picked or automatically awarded later is spendable again; unspent
   copies are ordinary deckbuilding cards. Automatic awards never spend Librarians.
 - The keep tray ends with a hold-preview Librarian chip and remaining count. Tap

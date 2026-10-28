@@ -63,7 +63,8 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 if (state.selected == null && state.creating == null) {
                     ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
                 } else {
-                    state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
+                    state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase,
+                        startNow = it.pendingInvitations.isNotEmpty() && podCanStart(it)) }
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -100,19 +101,21 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             PodConfirmation.LEAVE -> "Leave pod"
             PodConfirmation.CANCEL -> "Cancel draft"
             PodConfirmation.SUBMIT -> "Submit deck"
+            PodConfirmation.START -> "Start now"
         }, actions = {
             DialogCancelButton(when (action) {
                 PodConfirmation.DESTROY, PodConfirmation.LEAVE -> "Keep pod"
                 PodConfirmation.CANCEL -> "Keep draft"
-                PodConfirmation.SUBMIT -> "Cancel"
+                PodConfirmation.SUBMIT, PodConfirmation.START -> "Cancel"
             }, controller::dismissConfirmation, enabled = !state.uncertain && state.pending == 0)
             DialogMainButton(if (state.uncertain) "Retry" else when (action) {
                 PodConfirmation.DESTROY -> "Destroy"
                 PodConfirmation.LEAVE -> "Leave"
                 PodConfirmation.CANCEL -> "Cancel draft"
                 PodConfirmation.SUBMIT -> "Submit"
+                PodConfirmation.START -> "Start now"
             }, if (state.uncertain) controller::retry else controller::confirm,
-                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT)
+                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT && action != PodConfirmation.START)
         }) {
             Text(podConfirmationText(action, state.detail))
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -134,12 +137,17 @@ internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss:
 }
 
 @Composable
-private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodPhase, compact: Boolean = false) {
+private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodPhase, compact: Boolean = false,
+    startNow: Boolean = false) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         if (compact) IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
         else ScreenIconButton("Pod actions", "more", { expanded = true })
         DropdownMenu(expanded, { expanded = false }) {
+            // Starting is otherwise "Start when everyone accepts" while invitations are pending.
+            if (creator && phase == PodPhase.SETUP && startNow) DropdownMenuItem(text = { Text("Start now") }, onClick = {
+                expanded = false; controller.requestConfirmation(PodConfirmation.START)
+            })
             if (creator && phase == PodPhase.DRAFTING) DropdownMenuItem(text = { Text("Cancel draft") }, onClick = {
                 expanded = false; controller.requestConfirmation(PodConfirmation.CANCEL)
             })
@@ -246,7 +254,15 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
         if (creator) {
             ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
                 enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
-            ScreenButton(controller::start, enabled = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain && podCanStart(detail)) { Text("Start draft") }
+            detail.autoStartOff?.let { Text(podAutoStartOffText(it), color = MaterialTheme.colorScheme.error) }
+            val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
+            if (detail.pendingInvitations.isEmpty())
+                ScreenButton(controller::start, enabled = idle && podCanStart(detail)) { Text("Start draft") }
+            else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
+            else ScreenButton({ controller.autoStart(true) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
+        } else if (detail.autoStart) {
+            Text("Starts automatically when everyone accepts", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

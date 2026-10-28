@@ -51,5 +51,6 @@ internal fun podActivityText(kind: ActivityKind, name: String? = null): String =
     ActivityKind.POD_DRAFT_COMPLETE -> "Draft complete: build your deck"
     ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
     ActivityKind.POD_DESTROYED -> "Pod destroyed"
+    ActivityKind.POD_AUTO_START_OFF -> name?.let { "Auto-start off — $it" } ?: "Auto-start off"
     else -> "Game activity"
 }

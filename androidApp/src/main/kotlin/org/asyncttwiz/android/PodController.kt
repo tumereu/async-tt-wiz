@@ -14,7 +14,7 @@ internal fun podDefaultTab(phase: PodPhase, submitted: Boolean): PodTab = when {
     submitted -> PodTab.GAMES
     else -> PodTab.BUILD
 }
-enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT }
+enum class PodConfirmation { DESTROY, LEAVE, CANCEL, SUBMIT, START }
 data class NewPodDraft(val name: String, val cubeId: String? = null, val mode: DraftMode = DraftMode.BOOSTER,
     val setSource: PodSetSource? = null, val settings: DraftSettings = DraftSettings())
 data class PodSetupEdit(val name: String, val settings: DraftSettings, val cubeId: String? = null, val revision: Long = 0,
@@ -202,6 +202,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PodRequest(requestId())
         enqueue(Write(detail.id, send = { api.start(it, detail.id, input) }))
     }
+    /** Arms (or cancels) the server-side start that fires when the last pending invitation is accepted. */
+    fun autoStart(enabled: Boolean) {
+        val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
+        if (state.pending > 0 || state.uncertain || state.setup != null || state.sourcePreview != null) return
+        if (enabled && detail.pendingInvitations.isEmpty()) return
+        val input = SetPodAutoStart(requestId(), enabled)
+        enqueue(Write(detail.id, send = { api.autoStart(it, detail.id, input) }))
+    }
     fun pick(keep: List<String>, burn: List<String>, librarians: List<String> = emptyList()) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING } ?: return
         val pack = detail.draft?.head ?: return
@@ -263,6 +271,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }
         if (action in listOf(PodConfirmation.SUBMIT, PodConfirmation.CANCEL) && submit == null) return
+        if (action == PodConfirmation.START && (state.setup != null || state.sourcePreview != null || !podCanStart(detail))) return
         enqueue(Write(detail.id, attempt = detail.draftAttemptId, submit = action == PodConfirmation.SUBMIT,
             exit = action in listOf(PodConfirmation.LEAVE, PodConfirmation.DESTROY), send = { token ->
             when (action) {
@@ -270,6 +279,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
                 PodConfirmation.CANCEL -> api.cancel(token, detail.id, submit!!)
                 PodConfirmation.SUBMIT -> api.submit(token, detail.id, submit!!)
+                PodConfirmation.START -> api.start(token, detail.id, input)
             }
         }))
         if (action == PodConfirmation.SUBMIT) state = state.copy(tab = PodTab.GAMES)
@@ -476,6 +486,20 @@ internal fun podConfirmationText(action: PodConfirmation, detail: PodDetail): St
         "This cancels the draft for all ${detail.members.size} players and discards all picks." else "Leave this pod?"
     PodConfirmation.CANCEL -> "Discard all picks and return to setup?"
     PodConfirmation.SUBMIT -> "Submit and lock your deck? Main, Side and basics cannot be changed afterwards."
+    PodConfirmation.START -> "Start the draft now with the ${detail.members.size} accepted members? " +
+        "${podPendingCount(detail.pendingInvitations.size)} will be cancelled."
+}
+private fun podPendingCount(count: Int) = if (count == 1) "The pending invitation" else "The $count pending invitations"
+/** The creator's Start control while invitations are pending: arm, or show progress and cancel. */
+internal fun podAutoStartLabel(detail: PodDetail): String =
+    if (detail.autoStart) "Starts when ${detail.pendingInvitations.size} more accept · Cancel" else "Start when everyone accepts"
+internal fun podAutoStartOffText(off: PodAutoStartOff): String = when (off.reason) {
+    "declined" -> "${off.account?.username ?: "An invitee"} declined; auto-start is off"
+    "not_enough_members" -> "Could not start automatically: not enough members. Auto-start is off"
+    "invalid_settings" -> "Could not start automatically: the settings do not fit the members. Auto-start is off"
+    "insufficient_supply" -> "Could not start automatically: the source does not have enough cards. Auto-start is off"
+    "librarian_definition_unavailable", "invalid_definition" -> "Could not start automatically: Librarian unavailable. Auto-start is off"
+    else -> "Could not start automatically (${off.reason}). Auto-start is off"
 }
 private fun podError(failure: Exception): String = when ((failure as? PodFailure)?.code) {
     "invalid_settings" -> "Invalid settings."

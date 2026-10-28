@@ -1,0 +1,1 @@
+add: If an update fails, you can download it from the server or from GitHub.

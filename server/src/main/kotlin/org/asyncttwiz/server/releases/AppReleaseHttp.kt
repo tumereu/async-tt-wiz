@@ -2,9 +2,11 @@ package org.asyncttwiz.server.releases
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.int
@@ -32,6 +34,11 @@ class AppReleaseHttp(private val directory: Path?) {
             require(json.getValue("versionName").jsonPrimitive.content.isNotBlank())
             val hash = json.getValue("sha256").jsonPrimitive.content
             require(hash.matches(Regex("[0-9a-f]{64}")))
+            // Optional GitHub Releases mirror the app offers as a second browser download.
+            json["githubUrl"]?.let { github ->
+                val url = (github as JsonPrimitive).also { require(it.isString) }.content
+                require(url.length <= 500 && URI(url).let { it.scheme == "https" && !it.host.isNullOrEmpty() })
+            }
             val apk = root.resolve("$hash.apk")
             require(Files.isRegularFile(apk) && Files.size(apk) == json.getValue("size").jsonPrimitive.long && Files.size(apk) > 0)
             Triple(bytes, apk, json.getValue("versionName").jsonPrimitive.content)

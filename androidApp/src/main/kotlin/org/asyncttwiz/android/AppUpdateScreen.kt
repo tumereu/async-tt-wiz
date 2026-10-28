@@ -56,9 +56,12 @@ fun AppUpdateScreen(updates: AppUpdateViewModel, install: (File) -> Unit) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (problem.browserFallback) {
-                                OutlinedButton(onClick = {
-                                    runCatching { uris.openUri(updates.browserDownload) }.onFailure { updates.browserFailed(it) }
-                                }, enabled = !updates.downloading) { Text("Download in browser") }
+                                listOfNotNull("Download from server" to updates.browserDownload,
+                                    updates.githubDownload?.let { "Download from GitHub" to it }).forEach { (label, url) ->
+                                    OutlinedButton(onClick = {
+                                        runCatching { uris.openUri(url) }.onFailure { updates.browserFailed(it) }
+                                    }, enabled = !updates.downloading) { Text(label) }
+                                }
                                 Text("Then open the downloaded file and install it. No need to uninstall this app first.",
                                     Modifier.widthIn(max = 360.dp), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                             }

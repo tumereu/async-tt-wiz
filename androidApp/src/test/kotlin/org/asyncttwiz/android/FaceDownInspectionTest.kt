@@ -52,26 +52,30 @@ class FaceDownInspectionTest {
         }
     }
 
-    @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndTheOpponentNeverSeesIt() {
+    @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndOnlyADeliberateInspectShowsItToTheOpponent() {
         val viewer = mutableStateOf(f.a)
         val container = mutableStateOf("a/BATTLEFIELD")
         val explicit = mutableStateOf(false)
         compose.setContent {
             val (play, card) = state(container.value)
             MaterialTheme {
-                // Even a (stale or forged) explicit inspection naming the face shows nothing to the opponent.
+                // Only the deliberate, logged "Inspect other side" (explicit) shows the opponent the front.
                 GameplayCardInspection(play, viewer.value, ManualInspection(play.gameId, play.id, card.id,
                     listOf(card.faceId), explicit = explicit.value), {})
             }
         }
         compose.onNodeWithText("Face down").assertIsDisplayed()
         compose.onAllNodesWithText("Secret morph").onFirst().assertExists()
-        for (place in listOf("a/BATTLEFIELD", "stack", "a/EXILE", "a/GRAVEYARD")) for (forced in listOf(false, true)) {
-            compose.runOnIdle { viewer.value = f.b; container.value = place; explicit.value = forced }
+        for (place in listOf("a/BATTLEFIELD", "stack", "a/EXILE", "a/GRAVEYARD")) {
+            compose.runOnIdle { viewer.value = f.b; container.value = place; explicit.value = false }
             compose.waitForIdle()
             compose.onNodeWithText("Covered card").assertIsDisplayed()
             compose.onAllNodesWithText("Secret morph", substring = true).assertCountEquals(0)
             compose.onAllNodesWithText("Morph {3}{U}", substring = true).assertCountEquals(0)
+            compose.runOnIdle { explicit.value = true }
+            compose.waitForIdle()
+            compose.onNodeWithText("Face down").assertIsDisplayed()
+            compose.onNodeWithText("Morph {3}{U}").assertExists()
         }
         compose.runOnIdle { viewer.value = f.a; container.value = "stack"; explicit.value = false }
         compose.waitForIdle()

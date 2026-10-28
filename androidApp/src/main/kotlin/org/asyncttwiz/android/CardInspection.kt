@@ -154,8 +154,8 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
     val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card)
-    // A face-down front is the owner's alone, even for an explicit (logged) inspection or a stale snapshot.
-    val allowed = if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else if (inspection.explicit) inspection.faceIds else
+    // Only the deliberate, logged "Inspect other side" shows an opponent a face-down front; ordinary inspects never do.
+    val allowed = if (inspection.explicit) inspection.faceIds else if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else
         ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
     val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
     if (faces.isEmpty()) {

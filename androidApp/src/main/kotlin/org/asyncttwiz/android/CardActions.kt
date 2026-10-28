@@ -64,9 +64,8 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val entries = mutableListOf<RingEntry>()
     fun add(id: String, label: String, control: MenuControl) { entries += RingEntry(id, label, control) }
     add("inspect", "Inspect", MenuControl("Inspect") { if (inspect != null) inspect() else actions.inspect(state, viewer) })
-    // An opponent never sees a face-down card's front, not even through a logged inspection.
-    add("otherSide", "Other side", MenuControl("Inspect other side",
-        enabled && other != null && !ManualDisclosure.faceDownFrontHidden(state, card, viewer)) {
+    // The deliberate, logged way to see another face, also an opponent's face-down front.
+    add("otherSide", "Other side", MenuControl("Inspect other side", enabled && other != null) {
         other?.let { submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
     })
     add("flip", if (card.covered) "Face up" else "Face down",

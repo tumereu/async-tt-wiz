@@ -14,17 +14,35 @@ class CubeControllerTest {
         val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
             fetchCobra = { fetches++; DeckTextParser.parse("1 Retained card") })
         controller.newCube()
+        controller.prefillCobra { reads++; "https://cubecobra.com/cube/list/early" }
+        assertEquals(0, reads, "The clipboard is read only once the dialog opens")
+        controller.openLink()
         controller.prefillCobra { reads++; "https://cubecobra.com/cube/list/fixture" }
-        controller.cobraTab(false); controller.cobraTab(true)
+        controller.closeLink(); controller.openLink()
         controller.prefillCobra { reads++; "another" }
         assertEquals(1, reads); assertEquals(0, fetches)
         assertEquals("https://cubecobra.com/cube/list/fixture", controller.state.cobraInput)
-        controller.importCobra(); worker.drain()
-        assertEquals(1, fetches); assertTrue(controller.state.cobraTab); assertTrue(controller.state.imported)
-        assertEquals("fixture", controller.state.name)
-        controller.back(); controller.newCube(); controller.cobraInput("typed")
+        controller.importCobra(); assertTrue(controller.state.fetching); worker.drain()
+        assertEquals(1, fetches); assertFalse(controller.state.linkDialog); assertFalse(controller.state.fetching)
+        assertEquals("fixture", controller.state.name); assertEquals("1 Retained card", controller.state.text)
+        controller.back(); controller.newCube(); controller.openLink(); controller.cobraInput("typed")
         controller.prefillCobra { reads++; "another" }
         assertEquals("typed", controller.state.cobraInput); assertEquals(2, reads)
+        controller.close(); worker.drain()
+    }
+
+    @Test fun cobraImportReplacesTheListKeepsATypedNameAndCancelDropsTheFetch() {
+        val worker = Worker(); val api = Api(); var fetches = 0
+        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+            fetchCobra = { fetches++; DeckTextParser.parse("1 Retained card") })
+        controller.newCube(); controller.name("My cube"); controller.text("5 Old card")
+        controller.openLink(); controller.cobraInput("fixture"); controller.importCobra()
+        controller.closeLink(); worker.drain()
+        assertFalse(controller.state.busy); assertEquals("5 Old card", controller.state.text)
+        controller.openLink(); controller.importCobra(); worker.drain()
+        assertEquals(1, fetches, "The cancelled fetch never ran")
+        assertEquals("My cube", controller.state.name); assertEquals("1 Retained card", controller.state.text)
+        assertEquals("fixture", controller.state.provenance); assertTrue(controller.canSave)
         controller.close(); worker.drain()
     }
 
@@ -40,8 +58,9 @@ class CubeControllerTest {
         assertEquals("synergy", controller.state.provenance)
         controller.back(); controller.newCube()
         failure = CubeCobraFailure("Cube Cobra cube missing was not found.")
-        controller.cobraInput("cubecobra.com/cube/overview/missing"); controller.importCobra(); worker.drain()
-        assertEquals("Cube Cobra cube missing was not found.", controller.state.error)
+        controller.openLink(); controller.cobraInput("cubecobra.com/cube/overview/missing"); controller.importCobra(); worker.drain()
+        assertEquals("Cube Cobra cube missing was not found.", controller.state.linkError)
+        assertTrue(controller.state.linkDialog); assertNull(controller.state.error)
         assertTrue(controller.state.editing)
         controller.close(); worker.drain()
     }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -27,14 +28,15 @@ import org.asyncttwiz.storage.DeckSection
 import org.asyncttwiz.storage.ImportIssue
 
 /**
- * Deck and cube imports share one layout: Link | Paste list tabs, the tab's input, its result
- * feedback and one full-width Save at the bottom. Portrait stacks input above feedback (the Paste
- * list text area takes the free height, its feedback area is fixed); landscape puts the feedback
- * and Save in a right column. Feedback never moves the input or Save.
+ * Deck and cube imports share one screen: the paste-list editor. The top bar has an
+ * "Import from link" action (icon and label; an icon with a tooltip on narrow portrait screens), the input
+ * column holds name/cover and the full-height list, then its result feedback and one full-width Save
+ * at the bottom. Portrait stacks input above a fixed feedback area; landscape puts the feedback and
+ * Save in a right column. Feedback never moves the input or Save.
  */
 @Composable
 internal fun ImportScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean,
-    linkTab: Boolean, onTab: (Boolean) -> Unit, canSave: Boolean, saving: Boolean, save: () -> Unit,
+    openLink: () -> Unit, linkEnabled: Boolean, canSave: Boolean, saving: Boolean, save: () -> Unit,
     saveTag: String, input: @Composable ColumnScope.() -> Unit, feedback: @Composable ColumnScope.() -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
@@ -47,10 +49,11 @@ internal fun ImportScaffold(title: String, navigation: (() -> Unit)?, landscape:
         }
     }
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title, navigation)
-        TabRow(selectedTabIndex = if (linkTab) 0 else 1) {
-            Tab(linkTab, onClick = { onTab(true) }, text = { Text("Link") })
-            Tab(!linkTab, onClick = { onTab(false) }, text = { Text("Paste list") })
+        ScreenHeader(title, navigation) {
+            val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
+            if (landscape || LocalConfiguration.current.screenWidthDp >= 400) ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
+                EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text("Import from link")
+            } else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
         }
         if (landscape) Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp), content = input)
@@ -60,39 +63,48 @@ internal fun ImportScaffold(title: String, navigation: (() -> Unit)?, landscape:
                 saveButton()
             }
         } else Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(if (linkTab) Modifier.fillMaxWidth() else Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp), content = input)
-            Column((if (linkTab) Modifier.weight(1f) else Modifier.height(96.dp)).fillMaxWidth()
-                .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
+            Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp), content = input)
+            Column(Modifier.height(96.dp).fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
             saveButton()
         }
     }
 }
 
+internal const val IMPORT_FROM_LINK = "Import from link"
+
 /**
- * A link field with a paste icon inside it and a full-width Import button under it. The paste icon
- * pastes the clipboard and imports at once; typed or keyboard-pasted text waits for Import.
+ * The link dialog: a link field with a paste icon inside it, progress and errors, and Cancel /
+ * Import at the bottom right. The paste icon pastes the clipboard and imports at once; typed or
+ * keyboard-pasted text waits for Import. A successful import closes the dialog and fills the editor.
  */
 @Composable
-internal fun ImportLinkField(value: String, onValue: (String) -> Unit, placeholder: String, tag: String,
+internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placeholder: String, tag: String,
     pasteDescription: String, pasteAndImport: (String?) -> Unit, import: () -> Unit,
-    importEnabled: Boolean, fetching: Boolean) {
+    importEnabled: Boolean, fetching: Boolean, error: String?, dismiss: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val start = { keyboard?.hide(); focus.clearFocus() }
-    ScreenTextField(value, onValue, Modifier.fillMaxWidth().testTag(tag), placeholder = placeholder,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-        keyboardActions = KeyboardActions(onGo = { if (importEnabled) { start(); import() } }),
-        trailingIcon = {
-            IconButton(onClick = { start(); pasteAndImport(clipboard.getText()?.text) }, Modifier.size(48.dp)) {
-                EntryIcon(pasteDescription, "paste")
+    ScreenDialog(dismiss) {
+        Text(IMPORT_FROM_LINK, style = MaterialTheme.typography.titleMedium)
+        ScreenTextField(value, onValue, Modifier.fillMaxWidth().testTag(tag), placeholder = placeholder,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+            keyboardActions = KeyboardActions(onGo = { if (importEnabled) { start(); import() } }),
+            trailingIcon = {
+                IconButton(onClick = { start(); pasteAndImport(clipboard.getText()?.text) }, Modifier.size(48.dp)) {
+                    EntryIcon(pasteDescription, "paste")
+                }
+            })
+        ImportError(error)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            ScreenOutlinedButton(dismiss, Modifier.testTag("cancel-link")) { Text("Cancel") }
+            ScreenButton(onClick = { start(); import() }, Modifier.testTag("import-link"), enabled = importEnabled && !fetching) {
+                if (fetching) CircularProgressIndicator(Modifier.size(20.dp), LocalContentColor.current, 2.dp)
+                else EntryIcon(null, "download")
+                Spacer(Modifier.width(8.dp)); Text("Import")
             }
-        })
-    ScreenButton(onClick = { start(); import() }, Modifier.fillMaxWidth().testTag("import-link"), enabled = importEnabled) {
-        if (fetching) CircularProgressIndicator(Modifier.size(20.dp), LocalContentColor.current, 2.dp)
-        else EntryIcon(null, "download")
-        Spacer(Modifier.width(8.dp)); Text("Import")
+        }
     }
 }
 

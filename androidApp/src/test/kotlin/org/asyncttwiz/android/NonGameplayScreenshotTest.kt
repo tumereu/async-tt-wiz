@@ -60,7 +60,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
              "decks", "deck-detail", "deck-edit", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
-            "import-save", "reconnecting", "gameplay-chat")
+            "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
     @Test fun portrait() = capture(false)
@@ -127,7 +127,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
                                     "deck-detail", "deck-art", "choose-cover", "delete-deck" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
-                                     "deck-edit", "deck-edit-cover", "import-edit", "import-errors", "import-save" ->
+                                     "deck-edit", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-link" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
                                     else -> ShellContent(when (screen) {
                                         "play", "games-loading", "game-context", "delete-game" -> ShellDestination.GAMES
@@ -192,6 +192,13 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "play" -> paired("Accept", "Decline")
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
             "choose-cover" -> paired("Use cover", "Cancel")
+              "import-link" -> {
+                  compose.onNodeWithTag("deck-url").assertIsDisplayed()
+                  val cancel = compose.onNodeWithTag("cancel-link").fetchSemanticsNode().boundsInRoot
+                  val import = compose.onNodeWithTag("import-link").fetchSemanticsNode().boundsInRoot
+                  assertEquals(cancel.top, import.top, .5f, "Dialog actions share one row")
+                  assertTrue(import.left >= cancel.right, "The main action is rightmost")
+              }
               "import-save" -> {
                   compose.onNodeWithTag("save-deck").assertIsDisplayed().assertIsEnabled()
                   compose.onNodeWithTag("deck-list").assertExists()
@@ -313,7 +320,9 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
         }, if (screen == "import-errors") listOf(ImportIssue(3, "Unknown Card could not be resolved.")) else emptyList(),
             CatalogMetadata("2026-10-20", "fixture", "fixture"))
          importer.seed(DeckImportState(active = true, text = text, name = "Training deck", result = result,
-             preview = screen.startsWith("import-save"), target = if (screen == "import-edit") decks.first().id else null))
+             preview = screen.startsWith("import-save"), target = if (screen == "import-edit") decks.first().id else null,
+             linkDialog = screen == "import-link", url = if (screen == "import-link") "https://archidekt.com/decks/123" else "",
+             clipboardRead = true))
          if (screen.startsWith("deck-edit")) {
              importer.openEditor(library.state.detail!!)
              val resolved = DeckEditorSource(library.state.detail!!).resolve(importer.state.text) { error("No new cards") }

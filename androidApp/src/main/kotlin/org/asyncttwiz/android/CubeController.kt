@@ -15,8 +15,8 @@ data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boo
     val error: String? = null, val editing: Boolean = false, val target: String? = null,
     val name: String = "", val text: String = "", val includeSideboard: Boolean = false,
     val cobraInput: String = "", val provenance: String? = null, val result: DeckImportResult? = null,
-    val dialog: CubeDialog? = null, val cobraTab: Boolean = true, val clipboardRead: Boolean = false,
-    val saving: Boolean = false, val imported: Boolean = false)
+    val dialog: CubeDialog? = null, val linkDialog: Boolean = false, val clipboardRead: Boolean = false,
+    val saving: Boolean = false, val fetching: Boolean = false, val linkError: String? = null)
 
 /** Only accepted server data is collection state; editor, lookup and retry intent are volatile. */
 class CubeController(private val api: Cubes, private val credential: () -> String?,
@@ -39,8 +39,9 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun clear() { epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
-        if (state.busy) { epoch++; state = state.copy(busy = false, saving = false) }
+        if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
         if (state.dialog != null) { dismiss(); return }
+        if (state.linkDialog) { closeLink(); return }
         if (state.editing) { source = null; cobraSource = null; pendingSave = null; state = state.copy(editing = false, result = null, error = null); return }
         state = state.copy(selected = null, detail = null, error = null)
         refresh()
@@ -79,8 +80,8 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (state.busy) return
         source = null; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
-            provenance = null, includeSideboard = false, result = null, error = null, cobraTab = true, clipboardRead = false,
-            imported = false)
+            provenance = null, includeSideboard = false, result = null, error = null, linkDialog = false, clipboardRead = false,
+            linkError = null)
     }
     fun edit() {
         if (state.busy) return
@@ -88,20 +89,29 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
             text = retained.text, includeSideboard = false, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
-            result = null, error = null, cobraTab = false, clipboardRead = false, imported = false)
+            result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null)
         lookup()
     }
     private fun editInput() {
-        if (state.busy && !state.saving) { epoch++; state = state.copy(busy = false) }
+        if (state.busy && !state.saving) { epoch++; state = state.copy(busy = false, fetching = false) }
         pendingSave = null
     }
     fun name(value: String) { editInput(); pendingUpdate = null; state = state.copy(name = value, error = null) }
     fun text(value: String) { editInput(); state = state.copy(text = value, result = null, error = null) }
     fun sideboard(value: Boolean) { editInput(); state = state.copy(includeSideboard = value, result = null) }
-    fun cobraInput(value: String) { editInput(); state = state.copy(cobraInput = value, error = null) }
-    fun cobraTab(value: Boolean) { state = state.copy(cobraTab = value, error = null) }
+    fun cobraInput(value: String) {
+        if (state.fetching) { epoch++; state = state.copy(busy = false, fetching = false) }
+        state = state.copy(cobraInput = value, linkError = null)
+    }
+    /** The top bar's "Import from link": a Cube Cobra dialog over the unchanged editor. */
+    fun openLink() { if (state.editing && !state.saving) state = state.copy(linkDialog = true, linkError = null) }
+    /** Cancel drops a pending fetch; the editor stays as it was. */
+    fun closeLink() {
+        if (state.fetching) { epoch++; state = state.copy(busy = false, fetching = false) }
+        state = state.copy(linkDialog = false, linkError = null)
+    }
     fun prefillCobra(read: () -> String?) {
-        if (state.clipboardRead || !state.editing || !state.cobraTab) return
+        if (state.clipboardRead || !state.editing || !state.linkDialog) return
         val match = ImportClipboard.cube(read())
         state = state.copy(clipboardRead = true, cobraInput = if (state.cobraInput.isBlank()) match.orEmpty() else state.cobraInput)
     }
@@ -109,7 +119,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun pasteCobra(clip: String?) {
         if (!state.editing || state.saving) return
         val text = clip?.trim().orEmpty()
-        if (text.isEmpty()) { state = state.copy(error = "Clipboard is empty."); return }
+        if (text.isEmpty()) { state = state.copy(linkError = "Clipboard is empty."); return }
         cobraInput(ImportClipboard.cube(text) ?: text)
         importCobra()
     }
@@ -137,15 +147,16 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun importCobra() {
         if (!state.editing || state.busy) return
         val id = try { CubeCobraImport.cubeId(state.cobraInput) } catch (_: Exception) {
-            state = state.copy(error = "Enter a Cube Cobra URL or cube id."); return
+            state = state.copy(linkError = "Enter a Cube Cobra URL or cube id."); return
         }
-        work { _ ->
+        work(link = true) { _ ->
             val parsed = fetchCobra(id)
             val result = resolveCobra(parsed)
             return@work {
                 source = null; cobraSource = parsed; pendingSave = null
+                // An ordinary editable paste list: the list is replaced and a typed name is kept.
                 state = state.copy(text = parsed.text, name = state.name.ifBlank { id }, provenance = id,
-                    includeSideboard = false, result = result, imported = true)
+                    includeSideboard = false, result = result, linkDialog = false, linkError = null, error = null)
             }
         }
     }
@@ -213,29 +224,31 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             }
         }
     }
-    private fun work(onFailure: () -> Unit = {}, action: suspend (() -> Boolean) -> (() -> Unit)?) {
+    /** A [link] request is the link dialog's fetch: its progress and failure show in the dialog. */
+    private fun work(onFailure: () -> Unit = {}, link: Boolean = false, action: suspend (() -> Boolean) -> (() -> Unit)?) {
         if (closed || state.busy) return
         val generation = ++epoch
         val token = credential()
-        state = state.copy(busy = true, error = null)
+        state = if (link) state.copy(busy = true, fetching = true, linkError = null) else state.copy(busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
             try {
                 val apply = runBlocking { action { !closed && generation == epoch && credential() == token } }
                 post { if (!closed && generation == epoch) {
                     // Credential expiry fences data, not completion. Keep ambiguous save intent for retry.
-                    state = state.copy(busy = false, saving = false)
+                    state = state.copy(busy = false, saving = false, fetching = false)
                     if (credential() == token) apply?.invoke() else onFailure()
                 } }
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) {
                     onFailure()
-                    state = state.copy(busy = false, saving = false)
-                    if (credential() == token) state = state.copy(error = if (failure is CubeCobraFailure) failure.message else when ((failure as? DeckFailure)?.code) {
+                    state = state.copy(busy = false, saving = false, fetching = false)
+                    val message = if (failure is CubeCobraFailure) failure.message else when ((failure as? DeckFailure)?.code) {
                         "invalid_cube" -> "Check the cube name and quantities (maximum 3000 copies)."
                         "not_found" -> "Cube is no longer available."
                         else -> "Cube request failed. Try again."
-                    })
+                    }
+                    if (credential() == token) state = if (link) state.copy(linkError = message) else state.copy(error = message)
                 } }
             }
         }

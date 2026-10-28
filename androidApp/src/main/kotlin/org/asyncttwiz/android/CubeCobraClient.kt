@@ -47,9 +47,9 @@ internal fun fetchDeckUrl(location: DeckImportLocation): ImportedDeck = runBlock
     AccountApi.client().use { client ->
         suspend fun read(url: String, accept: String): String {
             val response = client.get(url) { header("Accept", accept) }
-            check(response.status.value == 200) { "${location.site.label} could not be loaded. Try Paste list." }
+            check(response.status.value == 200) { "${location.site.label} could not be loaded. Paste the list instead." }
             val bytes = response.bodyAsChannel().readRemaining(DeckApi.MAX_BODY.toLong() + 1).readByteArray()
-            check(bytes.size <= DeckApi.MAX_BODY) { "Deck response is too large. Try Paste list." }
+            check(bytes.size <= DeckApi.MAX_BODY) { "Deck response is too large. Paste the list instead." }
             return bytes.decodeToString(throwOnInvalidSequence = true)
         }
         val body = read(location.endpoint, "application/json")

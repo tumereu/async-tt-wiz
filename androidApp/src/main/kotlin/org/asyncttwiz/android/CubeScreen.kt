@@ -131,13 +131,13 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     }
 }
 
-/** New/edit cube: the deck import layout, with Cube Cobra as the link source. */
+/** New/edit cube: the deck import screen (name only, cubes have no cover), with Cube Cobra as the link source. */
 @Composable
 private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit)?, landscape: Boolean) {
     val state = controller.state
     val clipboard = LocalClipboardManager.current
-    LaunchedEffect(state.cobraTab) {
-        if (state.cobraTab) controller.prefillCobra { clipboard.getText()?.text }
+    LaunchedEffect(state.linkDialog) {
+        if (state.linkDialog) controller.prefillCobra { clipboard.getText()?.text }
     }
     // Pasted lists resolve on their own, like deck lists; a failed attempt waits for the next edit.
     LaunchedEffect(state.text, state.includeSideboard, state.busy) {
@@ -145,29 +145,21 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
         val current = controller.state
         if (current.text.isNotBlank() && current.result == null && current.error == null && !current.busy) controller.lookup()
     }
-    val name: @Composable (Modifier) -> Unit = { modifier ->
-        ScreenTextField(state.name, controller::name, modifier.testTag("cube-name").semantics { contentDescription = "Cube name" },
-            placeholder = "Cube name")
-    }
-    ImportScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape, state.cobraTab,
-        controller::cobraTab, controller.canSave, state.saving, controller::save, "save-cube",
+    ImportScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape,
+        controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-cube",
         input = {
-            if (state.cobraTab) ImportLinkField(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
-                "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,
-                state.cobraInput.isNotBlank() && !state.busy, state.busy && !state.saving)
-            else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    name(Modifier.weight(1f))
-                    ImportSideboardToggle(state.includeSideboard, controller::sideboard)
-                }
-                ImportListField(state.text, controller::text, "Card list", "cube-list")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ScreenTextField(state.name, controller::name, Modifier.weight(1f).testTag("cube-name")
+                    .semantics { contentDescription = "Cube name" }, placeholder = "Cube name")
+                ImportSideboardToggle(state.includeSideboard, controller::sideboard)
             }
+            ImportListField(state.text, controller::text, "Card list", "cube-list")
         },
         feedback = {
             ImportError(state.error)
-            if (!state.cobraTab || state.imported) {
-                if (state.cobraTab) name(Modifier.fillMaxWidth())
-                ImportResultSummary(state.result, deck = false, lineNumbers = !state.cobraTab)
-            }
+            ImportResultSummary(state.result, deck = false, lineNumbers = true)
         })
+    if (state.linkDialog) ImportLinkDialog(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
+        "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,
+        state.cobraInput.isNotBlank() && !state.busy, state.fetching, state.linkError, controller::closeLink)
 }

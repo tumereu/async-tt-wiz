@@ -14,8 +14,8 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val saving: Boolean = false, val error: String? = null, val target: String? = null,
     val mode: DeckImportMode = DeckImportMode.OVERWRITE, val editing: Boolean = false,
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
-    val lookupFailed: Boolean = false, val fromUrl: Boolean = false, val url: String = "",
-    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val imported: Boolean = false)
+    val lookupFailed: Boolean = false, val linkDialog: Boolean = false, val url: String = "",
+    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -39,25 +39,30 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun connectUrl(resolve: (ParsedDeck) -> DeckImportResult, fetch: (DeckImportLocation) -> ImportedDeck = ::fetchDeckUrl) {
         resolveParsed = resolve; fetchUrl = fetch
     }
-    fun fromUrl(value: Boolean) {
-        if (value != state.fromUrl) cancelUrlFetch()
-        state = state.copy(fromUrl = value, error = null)
+    /** The top bar's "Import from link": a dialog over the unchanged editor. */
+    fun openLink() {
+        if (!closed && state.active && !state.saving) state = state.copy(linkDialog = true, linkError = null)
+    }
+    /** Cancel drops a pending fetch; the editor stays as it was. */
+    fun closeLink() {
+        cancelUrlFetch()
+        state = state.copy(linkDialog = false, linkError = null)
     }
     fun prefillUrl(read: () -> String?) {
-        if (state.clipboardRead || !state.active || !state.fromUrl) return
+        if (state.clipboardRead || !state.active || !state.linkDialog) return
         val match = ImportClipboard.deck(read())
         state = state.copy(clipboardRead = true, url = if (state.url.isBlank()) match.orEmpty() else state.url)
     }
     fun url(value: String) {
         if (closed || !state.active) return
         cancelUrlFetch()
-        state = state.copy(url = value, error = null)
+        state = state.copy(url = value, linkError = null)
     }
     /** The Link field's paste icon: paste the clipboard and import it at once (typed text waits for Import). */
     fun pasteUrl(clip: String?) {
         if (closed || !state.active || state.saving) return
         val text = clip?.trim().orEmpty()
-        if (text.isEmpty()) { state = state.copy(error = "Clipboard is empty."); return }
+        if (text.isEmpty()) { state = state.copy(linkError = "Clipboard is empty."); return }
         url(ImportClipboard.deck(text) ?: text)
         importUrl()
     }
@@ -70,10 +75,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     fun importUrl() {
         if (closed || !state.active || (state.busy && !state.fetchingUrl) || state.saving) return
         val location = DeckUrlImport.location(state.url) ?: run {
-            state = state.copy(error = "Enter a supported deck URL or site:ID."); return
+            state = state.copy(linkError = "Enter a supported deck URL or site:ID."); return
         }
         val generation = ++epoch
-        state = state.copy(busy = true, fetchingUrl = true, error = null)
+        state = state.copy(busy = true, fetchingUrl = true, linkError = null)
         worker.execute {
             if (generation != epoch) return@execute
             val fetched = runCatching { fetchUrl(location) }
@@ -81,13 +86,16 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             val resolved = imported?.let { runCatching { resolveParsed(it.parsed) } }
             post { if (!closed && generation == epoch && state.active) {
                 if (imported == null) state = state.copy(busy = false, fetchingUrl = false,
-                    error = "${location.site.label} could not be loaded. Try Paste list.")
+                    linkError = "${location.site.label} could not be loaded. Paste the list instead.")
                 else {
-                    source = null; retryPlan = null; chosenCover = null
-                    state = state.copy(text = imported.parsed.text, name = imported.name, result = resolved?.getOrNull(),
-                        busy = false, fetchingUrl = false, imported = true, cover = null, preview = false,
-                        lookupFailed = resolved?.isFailure == true,
+                    // An ordinary editable paste list: the list is replaced, a typed name is kept and
+                    // the cover stays while it is still one of the cards (the sources have no cover).
+                    source = null; retryPlan = null
+                    state = state.copy(text = imported.parsed.text, name = state.name.ifBlank { imported.name },
+                        result = resolved?.getOrNull(), busy = false, fetchingUrl = false, linkDialog = false,
+                        linkError = null, preview = false, lookupFailed = resolved?.isFailure == true,
                         error = if (resolved?.isFailure == true) "Card records could not be read. Retry lookup." else null)
+                    if (state.cover != null && coverCards.none { it.digest == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
                 }
             } }
         }
@@ -117,7 +125,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     }
     fun cancel() {
         saveAfterLookup = false
-        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover || state.url != initial.url)
+        if (state.text != initial.text || state.name != initial.name || state.cover != initial.cover)
             state = state.copy(discard = true)
         else exit()
     }
@@ -271,7 +279,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (inspection.state != null) inspection.close() else if (state.choosingCover) closeCover()
+    fun back() { if (inspection.state != null) inspection.close() else if (state.linkDialog) closeLink()
+        else if (state.choosingCover) closeCover()
         else if (state.discard) keepEditing() else if (state.preview) editList() else cancel() }
     override fun close() { closed = true; exit(); worker.shutdownNow() }
 }

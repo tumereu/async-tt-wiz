@@ -31,6 +31,12 @@ data class PodState(
     val sourcePreview: PodSource? = null,
 )
 
+/** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
+fun interface PodMarksScheduler { fun schedule(delayMillis: Long, task: () -> Unit): () -> Unit }
+/** Local pick marks belong to one visit of a pack: the same pack can come back later with fewer cards. */
+internal data class PodMarksKey(val pod: String, val attempt: String, val pack: String, val pick: Int)
+internal const val PodMarksDelayMillis = 500L
+
 /** All operations are serialized, including a read after each write. Setup edits, build edits and queued picks predict.
  * An ambiguous write remains at the head with its original request id until retried. */
 class PodController(private val api: Pods, private val cubes: Cubes, private val credential: () -> String?,
@@ -38,7 +44,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val suggest: () -> String = ::gameNameSuggestion,
     private val wait: (suspend (Long) -> Unit)? = null,
     setRepository: PodSetRepository? = null,
-    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") }) : AutoCloseable {
+    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") },
+    /** Saves head-pack marks on the server, outside the serialized queue so a pick never waits for them. */
+    private val marksScheduler: PodMarksScheduler? = null) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -58,6 +66,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val deckName: String? = null, val submit: Boolean = false,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
+    /** Keep/burn/Librarian marks survive tab switches here, and app restarts through the server copy. */
+    private val pickMarks = mutableStateMapOf<PodMarksKey, PodPickMarks>()
+    private data class MarksWrite(val key: PodMarksKey, val marks: PodPickMarks, val token: String, val retries: Int = 0)
+    private val marksLock = Any()
+    /** Latest unsent marks (coalesced) and packs already picked locally; shared with the scheduler thread. */
+    private var marksPending: MarksWrite? = null
+    private val pickedPacks = mutableSetOf<PodMarksKey>()
+    private var marksCancel: (() -> Unit)? = null
     internal val setPicker = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
         failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
@@ -73,6 +89,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         setPicker.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
+        pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
+        synchronized(marksLock) { marksPending = null; pickedPacks.clear() }
     }
     fun dismissError() { state = state.copy(error = null, notice = null) }
     fun open(id: String) {
@@ -219,7 +237,71 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.uncertain || !PodPickRules(pack, detail.settings, librarians.size)
                 .canConfirm(PodPickMarks(keeps = keep, burns = burn, librarians = librarians), false)) return
         val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList(), librarians.toList())
+        // The pick supersedes any unsent marks for this pack; a marks write already in flight is refused by the server.
+        val key = PodMarksKey(detail.id, attempt, pack.id, pack.pick)
+        synchronized(marksLock) { pickedPacks += key; if (marksPending?.key == key) marksPending = null }
         enqueue(Write(detail.id, attempt, pick = true, draftPick = input, send = { api.pick(it, detail.id, input) }))
+    }
+    private fun marksKey(detail: PodDetail?, pack: DraftPrivatePack?): PodMarksKey? {
+        val attempt = detail?.draftAttemptId ?: return null
+        return pack?.let { PodMarksKey(detail.id, attempt, it.id, it.pick) }
+    }
+    /** The marks shown for [pack] in the open pod. */
+    internal fun marks(pack: DraftPrivatePack?): PodPickMarks =
+        marksKey(state.detail, pack)?.let { pickMarks[it] } ?: PodPickMarks(pack?.id)
+    /** Local intent for the head pack; saved to the server ~[PodMarksDelayMillis] after the last change, latest wins. */
+    internal fun mark(pack: DraftPrivatePack?, marks: PodPickMarks) {
+        val detail = state.detail ?: return
+        if (pack == null || detail.draft?.head?.id != pack.id) return
+        val key = marksKey(detail, pack) ?: return
+        val value = marks.copy(packId = pack.id)
+        if (pickMarks[key] == value) return
+        pickMarks[key] = value
+        val scheduler = marksScheduler ?: return
+        val token = credential() ?: return
+        synchronized(marksLock) {
+            if (key in pickedPacks) return
+            marksPending = MarksWrite(key, value, token)
+        }
+        scheduleMarks(scheduler, PodMarksDelayMillis)
+    }
+    private fun scheduleMarks(scheduler: PodMarksScheduler, delay: Long) {
+        marksCancel?.invoke()
+        marksCancel = scheduler.schedule(delay, ::sendMarks)
+    }
+    /** Runs on the scheduler thread; never touches Compose state directly. */
+    private fun sendMarks() {
+        val write = synchronized(marksLock) { marksPending.also { marksPending = null } } ?: return
+        val input = SetPodDraftMarks(write.key.attempt, write.key.pack, write.marks.keeps, write.marks.burns, write.marks.librarians)
+        try { runBlocking { api.marks(write.token, write.key.pod, input) } }
+        catch (failure: Exception) {
+            // Marks are a convenience: a refusal (pack already picked, attempt over) is dropped; a lost connection retries a little.
+            if (!transientServiceFailure(failure) || write.retries >= 3) return
+            post {
+                if (closed) return@post
+                val scheduler = marksScheduler ?: return@post
+                val retry = synchronized(marksLock) {
+                    if (marksPending != null || write.key in pickedPacks) false
+                    else { marksPending = write.copy(retries = write.retries + 1); true }
+                }
+                if (retry) scheduleMarks(scheduler, PodMarksDelayMillis * 10)
+            }
+        }
+    }
+    /** Keeps local marks only for the pod's current packs and adopts saved head marks when there are none locally. */
+    private fun syncMarks(detail: PodDetail) {
+        val draft = detail.draft
+        val current = (listOfNotNull(draft?.head) + draft?.queuedPacks.orEmpty()).mapNotNull { marksKey(detail, it) }.toSet()
+        pickMarks.keys.filter { it.pod == detail.id && it !in current }.forEach { pickMarks.remove(it) }
+        val head = draft?.head ?: return
+        val key = marksKey(detail, head) ?: return
+        synchronized(marksLock) { pickedPacks.removeAll { it.pod == detail.id && it !in current }; if (key in pickedPacks) return }
+        val saved = draft.marks?.takeIf { it.packId == head.id } ?: return
+        if (key in pickMarks) return
+        val cards = head.cards.map { it.id }.toSet()
+        val owned = draft.pool.filter { it.librarian }.map { it.id }.toSet()
+        pickMarks[key] = PodPickMarks(head.id, saved.keeps.filter { it in cards }, saved.burns.filter { it in cards },
+            saved.librarians.filter { it in owned })
     }
     fun gridSelect(gridId: String, line: GridLineType, index: Int) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.GRID } ?: return
@@ -335,6 +417,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.selected != detail.id) return
         val changed = accepted?.phase != detail.phase || accepted?.submitted != detail.submitted
         accepted = detail
+        syncMarks(detail)
         if (changed) state = state.copy(tab = podDefaultTab(detail.phase, detail.submitted))
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
     }
@@ -437,8 +520,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         writes.removeAt(0)
                         // Later queued picks depend on this head having been accepted. Restore the
                         // authoritative queue instead of sending them out of order after a rejection.
-                        if (write.draftPick != null) writes.removeAll {
-                            it.draftPick != null && it.pod == write.pod && it.attempt == write.attempt
+                        if (write.draftPick != null) {
+                            writes.removeAll { it.draftPick != null && it.pod == write.pod && it.attempt == write.attempt }
+                            // The head comes back; its marks may be saved again.
+                            synchronized(marksLock) { pickedPacks.removeAll { it.pod == write.pod && it.attempt == write.attempt } }
                         }
                         if (write.setupRevision != null) {
                             // Later full-settings snapshots depend on this rejected edit; drop them too.

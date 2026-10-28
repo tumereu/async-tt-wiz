@@ -65,7 +65,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } },
-        librarianDefinition = { podLibrarianDefinition(catalog.repository) }, setRepository = StoredPodSets {
+        librarianDefinition = { podLibrarianDefinition(catalog.repository) },
+        marksScheduler = Executors.newSingleThreadScheduledExecutor { Thread(it, "pod-marks").apply { isDaemon = true } }.let { marks ->
+            PodMarksScheduler { delay, task ->
+                val scheduled = marks.schedule(Runnable(task), delay, java.util.concurrent.TimeUnit.MILLISECONDS)
+                val cancel: () -> Unit = { scheduled.cancel(false) }
+                cancel
+            }
+        }, setRepository = StoredPodSets {
             org.asyncttwiz.storage.SetSourceRepository(java.io.File(application.noBackupFilesDir, "mtg-set-sources"),
                 catalog.repository, if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
                     org.asyncttwiz.storage.HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)

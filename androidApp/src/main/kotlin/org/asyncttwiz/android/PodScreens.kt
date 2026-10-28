@@ -304,7 +304,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
                     librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
-                    waitingText = waiting, onMainMenu = mainMenu)
+                    waitingText = waiting, onMainMenu = mainMenu,
+                    savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
+                    orientation = podPickOrientationText(detail))
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
@@ -385,7 +387,26 @@ internal fun podWaitingText(detail: PodDetail, accountId: String): String {
     val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
     val round = grid?.takeIf { !it.finished }?.let { it.round to it.rounds }
         ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
-    return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")
+    val draft = detail.draft
+    if (grid != null || draft == null) return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")
+    // Booster and Glimpse say whether packs still come back to this player; the round goes on its own line.
+    val status = when {
+        draft.incoming > 0 -> "$who · ${draft.incoming} ${if (draft.incoming == 1) "pack will" else "packs will"} come back to you"
+        names.isEmpty() -> "All your picks are done · other players are finishing"
+        else -> "All your picks are done · ${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
+    }
+    return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
+}
+
+/** The pick screen's orientation line: "Round 2/6 · Pick 2 · from Matti", or "… · your pack" before its first pick. */
+internal fun podPickOrientationText(detail: PodDetail): String? {
+    val draft = detail.draft ?: return null
+    val head = draft.head ?: return null
+    val from = head.passedBy?.let { id ->
+        "from " + (detail.members.firstOrNull { it.account.accountId == id }?.account?.username ?: "another player")
+    } ?: "your pack"
+    val round = if (draft.rounds > 0 && draft.round in 1..draft.rounds) "Round ${draft.round}/${draft.rounds} · " else ""
+    return "${round}Pick ${head.pick} · $from"
 }
 
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */

@@ -1,0 +1,1 @@
+fix: Your keep and burn choices in a draft are kept when you switch tabs or close the app.

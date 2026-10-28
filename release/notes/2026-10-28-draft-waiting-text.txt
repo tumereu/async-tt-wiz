@@ -1,0 +1,1 @@
+mod: While you wait in a draft, you see how many packs will still come back to you, or that all your picks are done.

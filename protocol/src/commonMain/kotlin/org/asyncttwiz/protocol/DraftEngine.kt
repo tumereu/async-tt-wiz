@@ -57,7 +57,20 @@ data class DraftState(
 @Serializable enum class DraftPickRejection { NOT_YOUR_PACK, NOT_HEAD_OF_QUEUE, WRONG_COUNTS, UNKNOWN_CARD, DRAFT_FINISHED, INVALID_LIBRARIANS }
 data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickRejection? = null)
 
-@Serializable data class DraftPrivatePack(val id: String, val number: Int, val cards: List<DraftCopy>)
+@Serializable data class DraftPrivatePack(
+    val id: String, val number: Int, val cards: List<DraftCopy>,
+    /** One-based pick number of this pack: manual picks already taken from it + 1. */
+    val pick: Int = 1,
+    /** Member whose manual pick passed the pack to the caller; null while it is the caller's own unpicked pack. */
+    val passedBy: String? = null,
+)
+/** The caller's saved keep/burn/Librarian marks for their current head pack; local intent, never validated as a pick. */
+@Serializable data class DraftMarks(
+    val packId: String,
+    val keeps: List<String> = emptyList(),
+    val burns: List<String> = emptyList(),
+    val librarians: List<String> = emptyList(),
+)
 @Serializable data class DraftPrivateView(
     val player: String,
     val head: DraftPrivatePack?,
@@ -67,6 +80,10 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
     /** The caller's own 1-based round (members may open rounds early) and the round count; 0 when unknown. */
     val round: Int = 0,
     val rounds: Int = 0,
+    /** Live packs of the caller's opened rounds, outside their queue, that can still reach them for a manual pick. */
+    val incoming: Int = 0,
+    /** Present only when the saved marks belong to [head]. */
+    val marks: DraftMarks? = null,
 )
 /** No card/pack identities or log. Picks include automatic awards; waiting is not finished until the draft ends. */
 @Serializable data class DraftMemberStatus(val player: String, val packsWaiting: Int, val picksMade: Int, val finished: Boolean)
@@ -184,11 +201,15 @@ object DraftEngine {
         val copies = state.copies.associateBy { it.id }
         val queue = state.queues.getValue(player)
         val packs = state.packs.associateBy { it.id }
-        val visible = queue.map { id -> packs.getValue(id).let { DraftPrivatePack(it.id, it.number, it.cards.map(copies::getValue)) } }
+        val picks = state.log.filter { !it.automatic && it.packId in queue }.groupBy { it.packId }
+        val visible = queue.map { id -> packs.getValue(id).let { pack ->
+            val taken = picks[id].orEmpty()
+            DraftPrivatePack(pack.id, pack.number, pack.cards.map(copies::getValue), taken.size + 1, taken.lastOrNull()?.player)
+        } }
         return DraftPrivateView(player, visible.firstOrNull(),
             (queue.size - 1).coerceAtLeast(0), state.pools.getValue(player).map(copies::getValue), visible.drop(1),
             if (state.finished) state.settings.rounds else (state.openedRound(player) + 1).coerceAtMost(state.settings.rounds),
-            state.settings.rounds)
+            state.settings.rounds, if (state.finished) 0 else Working(state).incoming(player))
     }
 
     fun publicStatus(state: DraftState) = DraftPublicStatus(
@@ -206,6 +227,8 @@ object DraftEngine {
         private val pools = source.pools.mapValues { it.value.toMutableList() }
         private val log = source.log.toMutableList()
         private val opened = source.seating.associateWith { source.openedRound(it) }.toMutableMap()
+        /** Manual picks taken from each pack; with round, orders a member's queue (fresh packs first). */
+        private val picks = source.log.filter { !it.automatic }.groupingBy { it.packId }.eachCount().toMutableMap()
 
         fun applyPick(pick: DraftPick, burned: List<String>): DraftState {
             val index = packIndexes.getValue(pick.packId)
@@ -223,6 +246,7 @@ object DraftEngine {
             pools.getValue(pick.player).addAll(pick.keep)
             log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(),
                 burned.toList() + (if (returned) emptyList() else pick.librarians), discarded, librarians = pick.librarians.toList()))
+            picks[pack.id] = (picks[pack.id] ?: 0) + 1
             if (packs[index].cards.isNotEmpty()) arrive(index, passTo(pick.player, pack.round))
             return settle()
         }
@@ -239,28 +263,49 @@ object DraftEngine {
          * awards are not picks. A Cogwork Librarian spend removes the same net keep + burn while the pack travels on and
          * burns the Librarians on a final pick, so it never lets a pack reach further than predicted.
          */
-        private fun canReach(player: String, upTo: Int): Boolean {
-            val keep = source.settings.keep
-            val removed = keep + source.settings.burn
-            val holders = (queues.entries + held.entries).flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
-            for (pack in packs) {
-                if (pack.cards.isEmpty() || pack.round > upTo) continue
-                val queued = holders[pack.id]
-                // Unopened packs that are already small enough are awarded on arrival.
-                if (queued == null && pack.cards.size <= keep) continue
-                var holder = queued ?: pack.initialPlayer
-                var size = pack.cards.size
-                while (true) {
-                    if (holder == player) return true
-                    size = if (size <= removed) 0 else size - removed
-                    if (size <= source.settings.discardRemainingAt || size <= keep) break
-                    holder = passTo(holder, pack.round)
-                }
-            }
-            return false
+        private fun canReach(player: String, upTo: Int): Boolean = reaching(player, upTo).any()
+
+        /** Packs outside [player]'s queue that can still come to them for a manual pick (see [canReach]). */
+        fun incoming(player: String): Int {
+            val queued = queues.getValue(player).toSet()
+            return reaching(player, opened.getValue(player)).count { it.id !in queued }
         }
 
-        private fun arrive(index: Int, player: String) {
+        private fun reaching(player: String, upTo: Int): Sequence<DraftPack> {
+            val holders = (queues.entries + held.entries).flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
+            return packs.asSequence().filter { it.cards.isNotEmpty() && it.round <= upTo && reaches(it, holders[it.id], player) }
+        }
+
+        private fun reaches(pack: DraftPack, queued: String?, player: String): Boolean {
+            val keep = source.settings.keep
+            val removed = keep + source.settings.burn
+            // Unopened packs that are already small enough are awarded on arrival.
+            if (queued == null && pack.cards.size <= keep) return false
+            var holder = queued ?: pack.initialPlayer
+            var size = pack.cards.size
+            while (true) {
+                if (holder == player) return true
+                size = if (size <= removed) 0 else size - removed
+                if (size <= source.settings.discardRemainingAt || size <= keep) return false
+                holder = passTo(holder, pack.round)
+            }
+        }
+
+        /**
+         * A visible queue runs by round, then manual picks already taken (fresh packs first), then arrival. An arrival
+         * never goes ahead of the head of a non-empty queue unless [protectHead] is false (a member opening a round
+         * with an empty queue), since the member may be looking at or marking that head.
+         */
+        private fun enqueue(player: String, id: String, protectHead: Boolean) {
+            val queue = queues.getValue(player)
+            fun rank(pack: String) = packs[packIndexes.getValue(pack)].round.toLong() * 1_000_000 + (picks[pack] ?: 0)
+            val rank = rank(id)
+            val start = if (protectHead && queue.isNotEmpty()) 1 else 0
+            val at = (start until queue.size).firstOrNull { rank(queue[it]) > rank } ?: queue.size
+            queue.add(at, id)
+        }
+
+        private fun arrive(index: Int, player: String, protectHead: Boolean = true) {
             val pack = packs[index]
             // A later-round pack waits unseen until the receiver has no more packs of their own round to pick.
             if (pack.round > opened.getValue(player)) held.getValue(player).add(pack.id)
@@ -269,7 +314,7 @@ object DraftEngine {
                 pools.getValue(player).addAll(pack.cards)
                 log.add(DraftPickLog(player, pack.id, pack.round, pack.cards, automatic = true))
                 packs[index] = pack.copy(cards = emptyList())
-            } else queues.getValue(player).add(pack.id)
+            } else enqueue(player, pack.id, protectHead)
         }
 
         fun settle(): DraftState {
@@ -283,12 +328,14 @@ object DraftEngine {
                     val current = opened.getValue(player)
                     if (current >= last || canReach(player, current)) continue
                     opened[player] = current + 1
-                    // Release packs held for this round first: they arrived before the member's own packs open.
+                    // Released held packs arrived before the member's own packs open; the queue rule orders them all.
+                    // An empty queue has no head to protect, so fresh own packs can come before half-picked held ones.
                     val released = held.getValue(player).filter { id -> packs[packIndexes.getValue(id)].round <= current + 1 }
                     held.getValue(player).removeAll(released.toSet())
-                    for (id in released) arrive(packIndexes.getValue(id), player)
+                    val protectHead = queues.getValue(player).isNotEmpty()
+                    for (id in released) arrive(packIndexes.getValue(id), player, protectHead)
                     for (index in packs.indices) {
-                        if (packs[index].round == current + 1 && packs[index].initialPlayer == player) arrive(index, player)
+                        if (packs[index].round == current + 1 && packs[index].initialPlayer == player) arrive(index, player, protectHead)
                     }
                     changed = true
                 }

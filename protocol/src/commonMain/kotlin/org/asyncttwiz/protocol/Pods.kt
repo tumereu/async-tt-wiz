@@ -70,6 +70,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */
 @Serializable data class PickPod(val requestId: String, val draftAttemptId: String, val packId: String, val keep: List<String>, val burn: List<String> = emptyList(), val librarians: List<String> = emptyList())
+/** PUT /v1/pods/{id}/draft/marks. Saves the caller's marks for their current head pack only (409 otherwise); latest wins.
+ * Not request-identified: the marks are local intent, cleared when that pack is picked, and the pick is validated as before. */
+@Serializable data class SetPodDraftMarks(val draftAttemptId: String, val packId: String, val keeps: List<String> = emptyList(),
+    val burns: List<String> = emptyList(), val librarians: List<String> = emptyList())
 /** POST /v1/pods/{id}/grid/select; index is zero-based (0..2). */
 @Serializable data class SelectPodGrid(val requestId: String, val draftAttemptId: String, val gridId: String,
     val line: GridLineType, val index: Int)

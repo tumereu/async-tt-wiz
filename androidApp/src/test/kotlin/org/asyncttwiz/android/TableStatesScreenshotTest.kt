@@ -214,6 +214,9 @@ class TableStatesScreenshotTest {
             assertTrue(cards.isNotEmpty())
             assertTrue(scene.combatLabels.all { label -> cards.all { label.bounds.bottom < it.bounds.y } })
             if (kind == "combat-targets") assertEquals(1, scene.combatLaneDividers.size)
+            // Dividers start below the lane headers so each header visibly spans its lane.
+            assertTrue((scene.combatLaneDividers + scene.combatDividers).all { (from, _) ->
+                scene.combatLabels.all { from.y >= it.bounds.bottom - .01f } })
         }
         if (kind == "stack-preview") {
             compose.onRoot().performTouchInput { cancel() }

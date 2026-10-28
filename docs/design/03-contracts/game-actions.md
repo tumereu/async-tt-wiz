@@ -392,6 +392,13 @@ and gets the public 2/2 (every resolve path: bubbles, Manage Stack, drag); other
 destinations from the Stack turn it face up as before. Library menu "Manifest top"
 moves the top card onto its owner's Battlefield main row face down (2/2) in one
 move. No step discloses the face. Retained v23 events replay as recorded.
+Being always a 2/2 permanent, a face-down cast then auto-resolves to the owner's
+non-land Battlefield row exactly like a permanent hand double-tap: a separate
+history group (the opponent's playback pauses at the Stack entry) in the same
+batch/invocation, so one Undo removes both. An opponent never sees a face-down
+card's front (any zone except Hand/Library, not even via Inspect other side); own
+side follows D-252 (zone holder, or owner on the Stack), whose inspector marks
+the art "Face down".
 
 Temp pile (rules v23): each player has one hidden "Temp" pile (a LIBRARY-zone
 container flagged `temp`, never that player's Library) for effects such as "put

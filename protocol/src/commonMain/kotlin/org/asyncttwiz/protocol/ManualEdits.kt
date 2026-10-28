@@ -44,6 +44,15 @@ object ManualDisclosure {
         state.board.containers.singleOrNull { it.id == card.containerId }?.let {
             it.accountId == viewer || it.zone == PlayZone.STACK && card.owner == viewer } == true
 
+    /** A face-down card outside Hand/Library (Battlefield, Stack, Graveyard, Exile, or a frozen snapshot). */
+    fun faceDownOutsideHiddenZones(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
+        board.containers.singleOrNull { it.id == card.containerId }?.zone.let { it != PlayZone.HAND && it != PlayZone.LIBRARY }
+
+    /** An opponent never sees a face-down card's front by any route, explicit (logged) inspection included.
+     * "Own" is the D-252 region rule: the zone's holder, or the card's owner on the shared Stack. */
+    fun faceDownFrontHidden(state: PlayState, card: PlayCard, viewer: String): Boolean =
+        faceDownOutsideHiddenZones(state.board, card) && !ownRegion(state, card, viewer)
+
     fun permittedFaces(state: PlayState, card: PlayCard, viewer: String, inspecting: Boolean): List<DefinitionFace> {
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
         return if (inspecting && ownRegion(state, card, viewer)) faces

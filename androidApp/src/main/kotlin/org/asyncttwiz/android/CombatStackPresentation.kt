@@ -230,7 +230,8 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
             Box(Modifier.size(scene.width.dp, scene.height.dp)) {
                 Canvas(Modifier.fillMaxSize()) {
                     for (x in scene.dividers) drawLine(Color.Black.copy(alpha = if (x in scene.laneDividers) .7f else .22f),
-                        Offset(x.dp.toPx(), 0f), Offset(x.dp.toPx(), size.height), (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
+                        Offset(x.dp.toPx(), scene.labelHeight.dp.toPx()), Offset(x.dp.toPx(), size.height),
+                        (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
                 }
                 for (lane in scene.lanes) Text(lane.label, Modifier.offset(lane.bounds.x.dp, 0.dp)
                     .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(lane.padding.dp),

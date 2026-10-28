@@ -501,9 +501,10 @@ object TablePresentation {
                 row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
-        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
+        // Dividers start below the lane headers, so each target label visibly spans its whole lane.
+        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.labelHeight), camera) to
              world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
-        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
+        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.labelHeight), camera) to
             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
         val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds), fontSize = lane.fontSize * zoom,
             padding = lane.padding * zoom,

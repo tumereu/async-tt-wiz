@@ -34,7 +34,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
     markedOptions: List<Pair<Int, StackTextOption>> = emptyList(),
     token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false,
     peekScroll: ScrollState? = null, stackEntryId: String? = null,
-    textOptions: List<StackTextOption> = emptyList()) {
+    textOptions: List<StackTextOption> = emptyList(), faceDown: Boolean = false) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
@@ -71,6 +71,11 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                         Modifier.requiredSize(width * scale, height * scale)
                                             // Inspection always shows the whole printed card, including token corners.
                                             .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier))
+                                    // The owner's own face-down card: the front stays readable but is plainly marked.
+                                    if (faceDown) Box(Modifier.requiredSize(width * scale, height * scale)
+                                        .background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
+                                        Text("Face down", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                                    }
                                 }
                             }
                             if (!peek) MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
@@ -147,7 +152,9 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     BackHandler(enabled = peek, onBack = close)
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
-    val allowed = if (inspection.explicit) inspection.faceIds else
+    val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card)
+    // A face-down front is the owner's alone, even for an explicit (logged) inspection or a stale snapshot.
+    val allowed = if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else if (inspection.explicit) inspection.faceIds else
         ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
     val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
     if (faces.isEmpty()) {
@@ -189,7 +196,8 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
              projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll,
-             stackEntryId = inspection.stackEntryId, textOptions = inspection.stackEntryId?.let { StackText.options(state, it) }.orEmpty())
+             stackEntryId = inspection.stackEntryId, textOptions = inspection.stackEntryId?.let { StackText.options(state, it) }.orEmpty(),
+             faceDown = faceDown)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
     }

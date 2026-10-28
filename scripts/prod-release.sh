@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
-ORIGIN=https://pi5-8gb.tail27cccc.ts.net:10000
+ORIGIN=https://atw.dotfresh.dev
 KEYS=$HOME/.config/atw-release
 STATE=${XDG_DATA_HOME:-$HOME/.local/share}/atw-release
 PI_SETUP=${ATW_PI_SETUP:-$HOME/projects/pi5-setup}
@@ -128,7 +128,7 @@ print(code)
 PY
 ) ;;
 404) published=0 ;;
-000|502|503|504) # Backend down (e.g. first release after a wipe; Funnel answers 502): never go below a code this machine already built.
+000|502|503|504|530) # Backend down (e.g. first release after a wipe; Cloudflare answers 502, or 530 without a tunnel): never go below a code this machine already built.
     published=$(python3 - "$STATE/releases" <<'PY'
 import json, pathlib, sys
 codes = [json.loads(p.read_text())["versionCode"] for p in pathlib.Path(sys.argv[1]).glob("*/latest.json")]

@@ -1,0 +1,1 @@
+fix: The app now reaches the server through a faster, more reliable connection, so drafts and downloads stop failing.

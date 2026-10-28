@@ -390,11 +390,11 @@ internal fun podWaitingText(detail: PodDetail, accountId: String): String {
         ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
     val draft = detail.draft
     if (grid != null || draft == null) return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")
-    // Booster and Glimpse say whether packs still come back to this player; the round goes on its own line.
+    // Booster and Glimpse say whether packs still come back to this player; each part goes on its own line.
     val status = when {
-        draft.incoming > 0 -> "$who · ${draft.incoming} ${if (draft.incoming == 1) "pack will" else "packs will"} come back to you"
-        names.isEmpty() -> "All your picks are done · other players are finishing"
-        else -> "All your picks are done · ${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
+        draft.incoming > 0 -> "$who\n${draft.incoming} ${if (draft.incoming == 1) "pack will" else "packs will"} come back to you"
+        names.isEmpty() -> "All your picks are done\nOther players are finishing"
+        else -> "All your picks are done\n${names.joinToString(", ")} ${if (names.size == 1) "is" else "are"} finishing"
     }
     return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
 }

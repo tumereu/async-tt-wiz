@@ -85,16 +85,16 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     if (directory.usableSpace < target.size - part.length() + 16_000_000L)
         throw AppUpdateFailure("Not enough free storage for the update (needs about ${target.size / 1_000_000 + 16} MB). " +
             "Free some space and try again.")
-    // Mobile connections drop: retry a few times, each attempt continuing from what is already saved.
+    // The public tunnel cuts long downloads every 10-30 MB, and mobile connections drop: keep continuing
+    // from what is already saved while attempts make progress; give up after 3 attempts in a row without any.
     var attempt = 0
     while (part.length() < target.size) {
-        try { downloadAppApkPart(client, url, target, part, progress) }
-        catch (failure: IOException) {
-            if (++attempt == 3) throw failure
-            sleep(2_000L * attempt)
-            continue
-        }
-        if (part.length() < target.size && ++attempt == 3) throw EOFException("Download ended early")
+        val before = part.length()
+        val failure = try { downloadAppApkPart(client, url, target, part, progress); null } catch (failure: IOException) { failure }
+        if (part.length() >= target.size) break
+        if (part.length() > before) attempt = 0
+        if (++attempt == 3) throw failure ?: EOFException("Download ended early")
+        sleep(2_000L * attempt)
     }
     if (!verifyAppApk(part, target)) {
         part.delete()

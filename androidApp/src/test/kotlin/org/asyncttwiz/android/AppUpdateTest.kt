@@ -99,7 +99,7 @@ class AppUpdateTest {
         } finally { directory.deleteRecursively() }
     }
 
-    @Test fun `a server without range support restarts the download and repeated drops give up`() {
+    @Test fun `a server without range support restarts, cuts keep resuming while they progress, stalls give up`() {
         val directory = Files.createTempDirectory("atw-update").toFile()
         try {
             File(directory, "${target.sha256}.part").writeBytes(apk.copyOf(50_000))
@@ -110,7 +110,16 @@ class AppUpdateTest {
             assertEquals(listOf("${target.sha256}.apk"), directory.list()!!.toList())
             File(directory, "${target.sha256}.apk").delete()
             var requests = 0
-            withApkServer({ _, start, exchange -> requests++; sendFrom(exchange, start ?: 0, 10_000) }) { url ->
+            // Each cut still makes progress, so the download keeps resuming until it completes.
+            withApkServer({ _, start, exchange -> requests++; sendFrom(exchange, start ?: 0, minOf(40_000, apk.size - (start ?: 0).toInt())) }) { url ->
+                assertArrayEquals(apk, downloadAppApk(OkHttpClient(), url, target, directory, {}) {}.readBytes())
+            }
+            assertEquals(8, requests)
+            File(directory, "${target.sha256}.apk").delete()
+            File(directory, "${target.sha256}.part").writeBytes(apk.copyOf(30_000))
+            requests = 0
+            // A server that never gets further gives up after three attempts in a row, keeping the part.
+            withApkServer({ _, start, exchange -> requests++; sendFrom(exchange, start ?: 0, 0) }) { url ->
                 val failure = runCatching { downloadAppApk(OkHttpClient(), url, target, directory, {}) {} }.exceptionOrNull()
                 assertTrue(failure is IOException)
                 assertEquals("The download was interrupted. Tap Update to continue where it stopped.", appUpdateProblem(failure!!).message)

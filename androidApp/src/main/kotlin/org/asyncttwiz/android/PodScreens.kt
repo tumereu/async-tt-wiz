@@ -421,7 +421,7 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
         Text("Members", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
-                if (member.account.accountId != accountId && member.submitted && lobby != null)
+                if (podChallengeOffered(detail, member, accountId) && lobby != null)
                     FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
                         enabled = mine?.submitted == true && !lobby.state.mutating) {
                         Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
@@ -435,13 +435,21 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
                 Row(Modifier.fillMaxWidth().clickable { lobby?.open(game.id) }.heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Avatar(opponent)
-                    Text(game.gameName, Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        Text(game.gameName)
+                        if (game.invitationHeld) Text(gameStatus(game), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Text("vs ${opponent.username}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
     }
 }
+
+/** Once the draft is over any other member can be challenged; one still building gets the invitation on submitting. */
+internal fun podChallengeOffered(detail: PodDetail, member: PodMember, accountId: String) =
+    detail.phase == PodPhase.DRAFTED && member.account.accountId != accountId
 
 @Composable
 internal fun MemberLine(account: AccountIdentity, status: String, trailing: @Composable RowScope.() -> Unit = {}) {

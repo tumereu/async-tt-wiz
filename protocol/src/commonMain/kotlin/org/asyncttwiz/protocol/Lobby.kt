@@ -9,12 +9,15 @@ import kotlinx.serialization.Serializable
 @Serializable data class CreateInvitation(val requestId: String, val recipient: String, val gameName: String)
 @Serializable enum class InvitationState { PENDING, ACCEPTED, DECLINED }
 @Serializable enum class GameLifecycle { LOBBY, ACTIVE, CANCELLED, DELETED }
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameSummary(val id: String, val gameName: String, val createdAt: String,
     val inviter: AccountIdentity, val recipient: AccountIdentity, val preparationRound: String,
     val invitationId: String, val invitationState: InvitationState, val lifecycle: GameLifecycle = GameLifecycle.LOBBY,
     val revision: String = "0", val playId: String? = null,
     val attentionHolder: String? = null, val updatedAt: String = createdAt,
-    val podId: String? = null, val podName: String? = null)
+    val podId: String? = null, val podName: String? = null,
+    /** Pod challenge waiting for the opponent's deck; only the challenger sees the game meanwhile. Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val invitationHeld: Boolean = false)
 @Serializable data class GameList(val games: List<GameSummary>, val next: String? = null)
 @Serializable data class LobbyError(val code: String)
 

@@ -421,6 +421,7 @@ class PodService(private val runtime: ServiceRuntime) {
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             val deck = build.copy(copies = build.copies.filter { it.category != PodDeckCategory.TRASH })
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(deck)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 for (recipient in members(sql, row.id!!)) ActivityService.record(sql, recipient.accountId!!,
                     ActivityKind.POD_DECKS_READY, row.id!!, row.draftAttemptId!!, owner)
@@ -444,30 +445,46 @@ class PodService(private val runtime: ServiceRuntime) {
                 return@mutate error(400, "invalid_opponent")
             val players = members(sql, row.id!!).associateBy { it.accountId.toString() }
             if (input.opponentId !in players) return@mutate error(404, "opponent_not_member")
-            if (row.phase != "DRAFTED" || listOf(owner.toString(), input.opponentId).any { players.getValue(it).submittedDeck == null })
+            // Only the challenger's deck must be submitted; an opponent still building receives the invitation on submit.
+            if (row.phase != "DRAFTED" || players.getValue(owner.toString()).submittedDeck == null)
                 return@mutate error(409, "deck_not_submitted")
+            val held = players.getValue(input.opponentId).submittedDeck == null
             val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
                 ?: return@mutate error(400, "invalid_basic_definitions")
-            val builds = listOf(owner.toString(), input.opponentId).associateWith {
-                json.decodeFromString<PodDeckBuild>(players.getValue(it).submittedDeck!!.data())
-            }
-            // Match the existing tabletop's bounded physical deck representation.
-            if (builds.values.any { it.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + it.basics.total + it.sideBasics.total > DeckValidation.MAX_CARDS })
+            val build = json.decodeFromString<PodDeckBuild>(players.getValue(owner.toString()).submittedDeck!!.data())
+            // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
+            if (build.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
                 return@mutate error(400, "invalid_deck")
             val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
                 .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
                 .set(GAME.CURRENT_INVITATION, invitation).set(GAME.POD_ID, row.id).set(GAME.POD_NAME, row.name)
-                .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).execute()
+                .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).set(GAME.POD_INVITATION_HELD, held).execute()
             sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
             val lobby = LobbyService(runtime)
             val summary = lobby.summary(sql, game)
             // The recipient's locked deck remains pod-private until they accept the invitation.
-            saveChallengeDeck(sql, row, summary, owner.toString(), builds.getValue(owner.toString()), basics,
-                input.basicDefinitions, input.requestId)
-            ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
+            saveChallengeDeck(sql, row, summary, owner.toString(), build, basics, input.basicDefinitions, input.requestId)
+            if (!held) ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
+
+    /** Challenges sent while [recipient] was still building become ordinary pending invitations once they submit. */
+    private fun releaseChallenges(sql: DSLContext, pod: UUID, recipient: UUID) {
+        // Pod lock is held; lock games in identity order like withdrawal.
+        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.RECIPIENT_ID.eq(recipient))
+            .and(GAME.LIFECYCLE.eq("LOBBY")).and(GAME.POD_INVITATION_HELD.isTrue).orderBy(GAME.ID).forUpdate().fetch()
+        for (row in games) {
+            sql.update(GAME).set(GAME.POD_INVITATION_HELD, false).set(GAME.REVISION, row.revision!! + 1)
+                .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(row.id)).execute()
+            val summary = LobbyService(runtime).summary(sql, row.id!!)
+            val revision = GameRevision(summary.id, row.revision.toString(), summary.revision, UUID.randomUUID().toString(),
+                recipient.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
+            sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
+                .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+            ActivityService.record(sql, recipient, ActivityKind.INVITATION, row.id!!, row.currentInvitation!!, row.inviterId)
+        }
+    }
 
     /** Called under the game lock, in the same transaction as invitation acceptance. */
     internal fun acceptChallenge(sql: DSLContext, summary: GameSummary, requestId: String) {

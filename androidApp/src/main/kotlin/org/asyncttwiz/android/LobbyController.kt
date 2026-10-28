@@ -168,7 +168,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val mine = accountId()
         val listed = (game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE) && sessionAvailable(game.id)
         val inGames = listed && (game.inviter.accountId == mine || game.invitationState == InvitationState.ACCEPTED)
-        val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING
+        val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING && !game.invitationHeld
         state = state.copy(games = updatedGameRows(state.games, game, inGames),
             invitations = updatedGameRows(state.invitations, game, inInvites),
             detail = if (state.selected == game.id) game else state.detail)
@@ -829,7 +829,7 @@ internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFa
     "request_conflict" -> "This request could not be reused. Close the dialog and try again."
     "not_configured" -> "The game service is not configured in this build."
     "basic_definitions_unavailable" -> "The five English M21 basic lands are missing. Update card records and retry."
-    "deck_not_submitted" -> "Both players must submit their pod decks before a challenge."
+    "deck_not_submitted" -> "Submit your pod deck before challenging."
     "opponent_not_member", "not_found" -> "This pod or player is no longer available."
     "invalid_opponent" -> "Choose another member of this pod."
     "invalid_basic_definitions" -> "Basic land definitions were refused. Update card records and retry."

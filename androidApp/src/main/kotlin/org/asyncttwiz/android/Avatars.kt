@@ -51,6 +51,35 @@ fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 3
     }
 }
 
+/** Who a pod row shows: up to two other members plus how many more; only yourself when nobody else is there. */
+internal data class AvatarStackContent(val shown: List<AccountIdentity>, val more: Int)
+
+internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String?): AvatarStackContent {
+    val others = members.filter { it.accountId != selfId }
+    if (others.isEmpty()) return AvatarStackContent(members.take(1), 0)
+    return AvatarStackContent(others.take(2), (others.size - 2).coerceAtLeast(0))
+}
+
+/** Fixed 60dp-wide stack so rows line up; later circles overlap earlier ones by 12dp with a [ring] edge. */
+@Composable
+internal fun AvatarStack(content: AvatarStackContent, ring: Color, modifier: Modifier = Modifier) {
+    val step = 20.dp
+    Box(modifier.width(60.dp).height(32.dp), contentAlignment = Alignment.CenterStart) {
+        content.shown.forEachIndexed { index, account ->
+            Avatar(account, Modifier.offset(x = step * index)
+                .then(if (index > 0) Modifier.border(2.dp, ring, CircleShape) else Modifier))
+        }
+        if (content.more > 0) {
+            Box(Modifier.offset(x = 36.dp).size(24.dp).clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant).border(2.dp, ring, CircleShape),
+                contentAlignment = Alignment.Center) {
+                Text("+${content.more}", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+            }
+        }
+    }
+}
+
 internal class AvatarPromptMemory(context: Context) {
     private val preferences = context.getSharedPreferences("avatar-chooser", Context.MODE_PRIVATE)
     fun shouldShow(account: AccountIdentity) = account.avatar == null && !preferences.getBoolean(account.accountId, false)

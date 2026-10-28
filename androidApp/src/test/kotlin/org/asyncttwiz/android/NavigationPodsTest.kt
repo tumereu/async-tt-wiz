@@ -80,7 +80,7 @@ class NavigationPodsTest {
         }
         compose.onNodeWithTag("navigation-pod-${pod.id}")
             .assert(hasText(pod.name)).assert(hasText("Your pick · 2 packs"))
-            .assert(hasContentDescription("alex's avatar")).assert(hasContentDescription("riley's avatar"))
+            .assert(!hasContentDescription("alex's avatar")).assert(hasContentDescription("riley's avatar"))
     }
 
     @Test fun everyMemberPodAppearsWithoutInvitationsOrMainMenuThreeItemLimit() {

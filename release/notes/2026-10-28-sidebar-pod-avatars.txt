@@ -1,0 +1,1 @@
+mod: Pods in the side menu show the other players as a compact stack, and menu rows have more room at the edges.

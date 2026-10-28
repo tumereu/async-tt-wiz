@@ -53,8 +53,8 @@ class HandMenuTest {
         assertNull(opponent.capture)
         assertTrue(handMenuTools(opponent, play, bound, TableSelection(), emptyMap(), true).isEmpty())
     }
-    @Test fun faceDownCastsTheWholeSelectionOntoTheStackInOneBatchWithoutProjections() {
-        val (play, ids) = handPlay("Creature", "Creature")
+    @Test fun faceDownCastsAndAutoResolvesTheWholeSelectionInOneBatchWithoutProjections() {
+        val (play, ids) = handPlay("Creature", "Instant")
         val singles = mutableListOf<PlayAction>()
         val batches = mutableListOf<List<PlayAction>>()
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> singles += action; true },
@@ -64,9 +64,16 @@ class HandMenuTest {
         handMenuTools(toolkit, play, bound, TableSelection(ids = ids.toSet()), emptyMap(), true).single { it.name == "Face down" }.click()
         assertTrue(singles.isEmpty())
         val moves = batches.single().map { assertIs<PlayAction.MoveCard>(it) }
-        assertEquals(ids, moves.map { it.cardId })
+        // Each card: Hand -> Stack face down, then the manual resolver Stack -> Battlefield, whatever its printed type.
+        assertEquals(ids.flatMap { listOf(it, it) }, moves.map { it.cardId })
         val stack = CombatStackRules.stack(play.board).id
-        assertTrue(moves.all { it.faceDown == true && it.destination.containerId == stack && it.removeStackEntryId == null })
+        val field = play.board.zoneContainer(f.a, PlayZone.BATTLEFIELD)!!.id
+        for ((cast, resolve) in moves.chunked(2)) {
+            assertTrue(cast.faceDown == true && cast.destination.containerId == stack && cast.removeStackEntryId == null)
+            assertEquals(stack, resolve.source.containerId)
+            assertEquals(field, resolve.destination.containerId)
+            assertEquals(1, resolve.destination.position?.y)
+        }
         // The batch applies in order and nothing is disclosed to the opponent.
         var state = play
         for ((index, move) in moves.withIndex()) {
@@ -77,7 +84,8 @@ class HandMenuTest {
             state = change.state!!
         }
         assertTrue(ids.all { id -> state.board.cards.single { it.id == id }.let {
-            it.isFaceDown && it.containerId == stack && !CardVisibility.isVisibleFaceUp(state.board, it, f.b) } })
+            it.isFaceDown && it.containerId == field && it.corner == "2/2" && !CardVisibility.isVisibleFaceUp(state.board, it, f.b) } })
+        assertTrue(CombatStackRules.stack(state.board).cards.isEmpty())
         assertTrue(state.board.stackEffects.isEmpty())
     }
     @Test fun manifestTopSendsOneFaceDownMoveFromTheLibraryTopToTheBattlefield() {

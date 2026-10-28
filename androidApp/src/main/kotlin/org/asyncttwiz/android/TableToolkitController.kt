@@ -376,13 +376,20 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
         }
     }
-    /** Morph/disguise: every selected own hand card enters the Stack face down, as one batch. */
+    /** Morph/disguise: every selected own hand card enters the Stack face down and, being always a 2/2
+     * permanent, auto-resolves onto the Battlefield like a hand double-tap: separate history group, same
+     * invocation (one-step Undo), all in one batch. */
     fun castFaceDown(ids: List<String>): Boolean = batchResult {
         ids.isNotEmpty() && ids.distinct().all { id ->
             val play = current() ?: return@all false
             val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
             if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }) return@all false
-            submit(HandActions.castFaceDown(play, id))
+            if (!submit(HandActions.castFaceDown(play, id))) return@all false
+            val next = current()?.takeIf { enabled() && id in CombatStackRules.stack(it.board).cards } ?: return@all true
+            // Exactly the manual resolver, as the double-tap uses: rules v24 keep it face down as a 2/2.
+            for (action in StackMenuActions.destination(next, id, PlayZone.BATTLEFIELD))
+                if (!enqueue(action, invocation)) break
+            true
         }
     }
     fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {

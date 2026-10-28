@@ -383,7 +383,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
     val toggle = { if (controlsEnabled) { if (current.playing) pause() else play() } }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedIconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
+            IconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
                 enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
             run {
                 var captured by remember { mutableStateOf<String?>(null) }
@@ -411,7 +411,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                     }
                 }
             }
-            OutlinedIconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
+            IconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
                 enabled = nextEnabled && controlsEnabled) { TableChromeIcon("next") }
         }
     }

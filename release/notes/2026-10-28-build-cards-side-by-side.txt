@@ -1,0 +1,1 @@
+add: New view setting "Build · cards side by side" shows 1 to 3 cards next to each other in every Build column.

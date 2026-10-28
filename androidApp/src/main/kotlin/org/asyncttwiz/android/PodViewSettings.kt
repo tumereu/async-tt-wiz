@@ -17,13 +17,18 @@ import androidx.compose.ui.unit.dp
 
 internal val PodPickColumnRange = 1..15
 internal val PodBuildColumnRange = 2..10
+internal val PodBuildSideBySideRange = 1..3
 
-/** Personal per-orientation Build column count; shared by the view settings panel and the Build view. */
+/** Personal per-orientation Build count setting (columns, or cards side by side within a column);
+ * shared by the view settings panel and the Build view. */
 @Stable
-class PodBuildColumns internal constructor(private val preferences: SharedPreferences, private val key: String) {
-    var count by mutableIntStateOf(preferences.getInt(key, 7).coerceIn(PodBuildColumnRange))
+class PodBuildColumns internal constructor(
+    private val preferences: SharedPreferences, private val key: String,
+    internal val range: IntRange = PodBuildColumnRange, default: Int = 7,
+) {
+    var count by mutableIntStateOf(preferences.getInt(key, default).coerceIn(range))
         private set
-    fun choose(value: Int) { count = value.coerceIn(PodBuildColumnRange); preferences.edit().putInt(key, count).apply() }
+    fun choose(value: Int) { count = value.coerceIn(range); preferences.edit().putInt(key, count).apply() }
 }
 
 @Composable
@@ -34,9 +39,21 @@ internal fun rememberPodBuildColumns(): PodBuildColumns {
     return remember(preferences, orientation) { PodBuildColumns(preferences, "columns-$orientation") }
 }
 
+/** How many cards sit side by side inside each Build column; 1 by default in both orientations. */
+@Composable
+internal fun rememberPodBuildSideBySide(): PodBuildColumns {
+    val context = LocalContext.current.applicationContext
+    val orientation = LocalConfiguration.current.orientation
+    val preferences = remember(context) { context.getSharedPreferences("pod-build", Context.MODE_PRIVATE) }
+    return remember(preferences, orientation) {
+        PodBuildColumns(preferences, "side-by-side-$orientation", PodBuildSideBySideRange, 1)
+    }
+}
+
 /** Header cog opening a small floating panel with every pod view's layout setting; values apply live. */
 @Composable
-internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns) {
+internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns,
+    sideBySide: PodBuildColumns = rememberPodBuildSideBySide()) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton({ open = true }, Modifier.size(48.dp)) { EntryIcon("View settings", "settings") }
@@ -48,6 +65,10 @@ internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns
                 }
                 PodViewSettingRow("Build · columns") {
                     PodColumnControl("${build.count}", "Columns", build.count, PodBuildColumnRange, build::choose)
+                }
+                PodViewSettingRow("Build · cards side by side") {
+                    PodColumnControl("${sideBySide.count}", "Cards side by side", sideBySide.count,
+                        PodBuildSideBySideRange, sideBySide::choose)
                 }
             }
         }

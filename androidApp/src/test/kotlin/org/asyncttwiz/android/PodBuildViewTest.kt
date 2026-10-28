@@ -221,7 +221,8 @@ class PodBuildViewTest {
                 mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card.copy(name = longName)), null,
                 true, false, { _, _ -> }, { _, _ -> }, {})
         } }
-        assertTrue(with(compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        // Columns live in the header's view settings panel, not in the Main bar.
+        compose.onNodeWithContentDescription("Columns").assertDoesNotExist()
         // The single tappable basic-land area retains the standard 48dp touch target.
         assertTrue(with(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot()) { bottom - top } <= 48.dp)
         compose.onNodeWithContentDescription("Add Forest").assertDoesNotExist()
@@ -230,8 +231,6 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Done").performClick()
         val bounds = compose.onNodeWithTag("pod-build-card-first").fetchSemanticsNode().boundsInRoot
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
-        compose.onNodeWithContentDescription("More columns").performClick()
-        compose.onNodeWithContentDescription("Columns").assert(hasText("8"))
     }
 
     @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
@@ -299,13 +298,22 @@ class PodBuildViewTest {
     fun landscapeUsesItsOwnColumnPreferenceAndFitsAllColumns() {
         val preferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0)
         preferences.edit().putInt("columns-1", 3).putInt("columns-2", 10).commit()
-        compose.setContent { MaterialTheme {
-            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {})
-        } }
-        compose.onNodeWithContentDescription("Columns").assert(hasText("10"))
+        compose.setContent { MaterialTheme { Column {
+            val columns = rememberPodBuildColumns()
+            PodViewSettingsButton(null, columns)
+            PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {},
+                Modifier.weight(1f), columnPreference = columns)
+        } } }
         compose.onAllNodesWithText("8+").onFirst().assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-column-MAIN-9").assertExists()
+        compose.onNodeWithContentDescription("View settings").performClick()
+        compose.onNodeWithText("Draft · cards per row").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Columns").assert(hasText("10"))
         compose.onNodeWithContentDescription("Columns").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(4f) }
         compose.onNodeWithContentDescription("Columns").assert(hasText("4"))
+        // Applies live behind the open panel.
+        compose.onNodeWithTag("pod-build-column-MAIN-3").assertExists()
+        compose.onNodeWithTag("pod-build-column-MAIN-4").assertDoesNotExist()
         compose.runOnIdle {
             assertEquals(4, preferences.getInt("columns-2", 0))
             assertEquals(3, preferences.getInt("columns-1", 0))
@@ -314,7 +322,7 @@ class PodBuildViewTest {
 
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun columnControlSharesMainBarAndLongDeckNamesAreNotTruncated() {
+    fun mainBarHasNoColumnControlAndLongDeckNamesAreNotTruncated() {
         val name = "A wonderfully long deck name that needs more than one line to show in full"
         compose.setContent { ScreenTheme {
             PodBuildView(PodDeckBuild(), emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> }, {}, deckName = name)
@@ -324,10 +332,8 @@ class PodBuildViewTest {
         assertTrue(nameLayouts.single().lineCount > 1)
         assertFalse(nameLayouts.single().hasVisualOverflow)
         val main = compose.onNodeWithText("Main 0 + 0 = 0").getUnclippedBoundsInRoot()
-        val control = compose.onNodeWithContentDescription("Columns").getUnclippedBoundsInRoot()
+        compose.onNodeWithContentDescription("Columns").assertDoesNotExist()
         val pen = compose.onNodeWithContentDescription("Name deck").getUnclippedBoundsInRoot()
-        assertEquals((main.top.value + main.bottom.value) / 2, (control.top.value + control.bottom.value) / 2, 1f)
-        assertTrue(main.right <= control.left)
         assertTrue(pen.bottom <= main.top)
     }
 }

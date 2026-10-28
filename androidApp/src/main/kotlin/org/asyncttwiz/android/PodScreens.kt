@@ -261,10 +261,12 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
     val pickColumns = rememberPodPickColumns()
-    val head = detail.draft?.head?.takeIf { selected == PodTab.DRAFT && detail.settings.mode != DraftMode.GRID }
+    val buildColumns = rememberPodBuildColumns()
     val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
-        PodPlayHeader(detail, navigation) { head?.let { PodPickColumnControl(pickColumns, it.cards.size) } }
+        PodPlayHeader(detail, navigation) {
+            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns)
+        }
         PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
         }
@@ -274,14 +276,14 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
-                    state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(), chrome = {},
+                    state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
                     librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu)
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
-                    detail.deckName, controller::deckName, detail.submitted)
+                    detail.deckName, controller::deckName, detail.submitted, buildColumns)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
@@ -307,7 +309,7 @@ internal fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab)
 
 internal val PodPlayHeaderHeight = 48.dp
 
-/** Hamburger (modal drawer), a very small pod title and the readiness avatars under it. */
+/** Hamburger (modal drawer), a very small pod title, the readiness avatars under it and a trailing view settings cog. */
 @Composable
 internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailing: @Composable () -> Unit = {}) {
     Surface {

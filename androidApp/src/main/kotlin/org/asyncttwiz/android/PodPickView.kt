@@ -69,10 +69,6 @@ fun PodPickView(
     busy: Boolean,
     onConfirm: (keep: List<String>, burn: List<String>) -> Unit,
     modifier: Modifier = Modifier,
-    chrome: @Composable (@Composable () -> Unit) -> Unit = { control ->
-        Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically) { control() }
-    },
     librarians: List<DraftCopy> = emptyList(),
     onConfirmLibrarians: ((List<String>, List<String>, List<String>) -> Unit)? = null,
     nextPack: DraftPrivatePack? = null,
@@ -89,12 +85,7 @@ fun PodPickView(
     val previewScroll = rememberScrollState()
     PodArtPrefetch(listOfNotNull(pack, nextPack), definitions, tileSize)
     if (pack == null) {
-        Column(modifier.fillMaxSize()) {
-            chrome {}
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                PodPickWaiting(waitingText, onMainMenu)
-            }
-        }
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
         return
     }
 
@@ -116,7 +107,6 @@ fun PodPickView(
     }
 
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        chrome { PodPickColumnControl(columns, pack.cards.size) }
         key(pack.id) {
             LazyVerticalGrid(GridCells.Fixed(columnCount), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
                 state = rememberLazyGridState(), horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -159,12 +149,12 @@ private fun rememberPodPickPreferences() = LocalContext.current.applicationConte
     remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
 }
 
-/** Personal per-orientation cards-per-row choice, hoisted so the pod header can host its control. */
+/** Personal per-orientation cards-per-row choice, hoisted so the header's view settings panel can change it. */
 @Stable
 class PodPickColumns internal constructor(private val preferences: SharedPreferences, private val key: String, default: Int) {
     var preferred by mutableIntStateOf(preferences.getInt(key, default))
         private set
-    fun choose(value: Int) { preferred = value; preferences.edit().putInt(key, value).apply() }
+    fun choose(value: Int) { preferred = value.coerceIn(PodPickColumnRange); preferences.edit().putInt(key, preferred).apply() }
     fun columns(cards: Int) = preferred.coerceIn(1, cards.coerceAtLeast(1))
 }
 
@@ -174,12 +164,6 @@ internal fun rememberPodPickColumns(): PodPickColumns {
     val preferences = rememberPodPickPreferences()
     val key = if (landscape) "columns-landscape" else "columns-portrait"
     return remember(preferences, key) { PodPickColumns(preferences, key, if (landscape) 5 else 3) }
-}
-
-@Composable
-internal fun PodPickColumnControl(columns: PodPickColumns, cards: Int) {
-    val value = columns.columns(cards)
-    PodColumnControl("$value", "Cards per row", value, 1..cards.coerceAtLeast(1), columns::choose)
 }
 
 internal const val PodHoldMillis = 150L

@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
@@ -330,7 +331,7 @@ class PodPickViewTest {
     @Test fun missingArtworkKeepsCardShapeAndCompactTraysScrollWithoutGrowing() {
         val longName = "A very long card name that must never expand a card tile or tray even when no artwork has loaded".repeat(2)
         show(settings = DraftSettings(keep = 1, burn = 14), cardDefinitions = definitions.mapValues { (_, definition) -> definition.copy(name = longName) })
-        assertTrue(with(compose.onNodeWithContentDescription("Cards per row").getUnclippedBoundsInRoot()) { bottom - top } <= 40.dp)
+        compose.onNodeWithContentDescription("Cards per row").assertDoesNotExist()
         val cardBounds = card("1").fetchSemanticsNode().boundsInRoot
         assertTrue(abs(cardBounds.height / cardBounds.width - 1.4f) < .01f)
         val results = mutableListOf<TextLayoutResult>()
@@ -372,24 +373,52 @@ class PodPickViewTest {
         compose.onNodeWithTag("pod-pick-tray-14").performScrollTo().assertIsDisplayed()
     }
 
+    private fun showWithSettings(currentPack: () -> DraftPrivatePack?) {
+        compose.setContent { ScreenTheme { Surface { Column {
+            val columns = rememberPodPickColumns()
+            PodViewSettingsButton(columns, rememberPodBuildColumns())
+            PodPickView(currentPack(), DraftSettings.glimpse(), definitions, false, { _, _ -> }, columns = columns)
+        } } } }
+    }
+
+    /** Cards 1..[count] share the first row and the next card starts a new one. */
+    private fun assertRowOf(count: Int) {
+        val first = card("1").fetchSemanticsNode().boundsInRoot
+        assertEquals(first.top, card("$count").fetchSemanticsNode().boundsInRoot.top, .5f)
+        // A card not composed at all lies outside the visible first row as well.
+        compose.onAllNodesWithTag("pod-pick-card-${count + 1}").fetchSemanticsNodes().firstOrNull()
+            ?.let { assertTrue(it.boundsInRoot.top > first.bottom) }
+    }
+
     @Test fun portraitColumnChoiceIsSavedAndClampedToCurrentPackSize() {
         var current by mutableStateOf(pack)
-        show(currentPack = { current })
+        showWithSettings { current }
+        compose.onNodeWithContentDescription("View settings").performClick()
         val slider = compose.onNodeWithContentDescription("Cards per row")
         slider.assertColumns(3, 15)
+        assertRowOf(3)
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(7f) }
-        compose.runOnIdle { assertEquals(7, preferences.getInt("columns-portrait", 0)); current = pack.copy(id = "short", cards = pack.cards.take(2)) }
-        slider.assertColumns(2, 2)
-        compose.runOnIdle { current = pack.copy(id = "next") }
+        compose.runOnIdle { assertEquals(7, preferences.getInt("columns-portrait", 0)) }
+        assertRowOf(7)
+        compose.runOnIdle { current = pack.copy(id = "short", cards = pack.cards.take(2)) }
+        // The panel keeps the preference; the view clamps it to the two cards left.
         slider.assertColumns(7, 15)
+        val first = card("1").fetchSemanticsNode().boundsInRoot
+        val second = card("2").fetchSemanticsNode().boundsInRoot
+        assertEquals(first.top, second.top, .5f)
+        assertTrue(first.width > compose.onNodeWithTag("pod-pick-list").fetchSemanticsNode().boundsInRoot.width / 3f)
+        compose.runOnIdle { current = pack.copy(id = "next") }
+        assertRowOf(7)
     }
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeUsesFiveColumnsAndKeepsControlsVisible() {
         preferences.edit().putInt("columns-portrait", 7).commit()
-        show()
-        compose.onNodeWithContentDescription("Cards per row")
-            .assertColumns(5, 15)
+        showWithSettings { pack }
+        assertRowOf(5)
+        compose.onNodeWithContentDescription("View settings").performClick()
+        compose.onNodeWithContentDescription("Cards per row").assertColumns(5, 15)
+        androidx.test.espresso.Espresso.pressBack()
         card("1").assertIsDisplayed()
         compose.onNodeWithTag("pod-pick-keep-tray").assertIsDisplayed()
         compose.onNodeWithTag("pod-pick-burn-tray").assertIsDisplayed()
@@ -406,7 +435,7 @@ class PodPickViewTest {
         val bounds = waiting.fetchSemanticsNode().boundsInRoot
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
         assertEquals(root.center.x, bounds.center.x, 1f)
-        assertEquals((root.height + 40f) / 2f, bounds.center.y, 1f)
+        assertEquals(root.height / 2f, bounds.center.y, 1f)
     }
 
     @Test fun waitingDecisionDependsOnQueueNotPendingConfirmation() {
@@ -424,7 +453,7 @@ class PodPickViewTest {
     @Test fun waitingNamesWhoWeWaitForWithACentredMainMenuLink() {
         var menus = 0
         compose.setContent { ScreenTheme { Surface {
-            PodPickView(null, DraftSettings.glimpse(), definitions, false, { _, _ -> }, chrome = {},
+            PodPickView(null, DraftSettings.glimpse(), definitions, false, { _, _ -> },
                 waitingText = "Waiting for Bob", onMainMenu = { menus++ })
         } } }
         val text = compose.onNodeWithText("Waiting for Bob").assertIsDisplayed().assertHasNoClickAction()

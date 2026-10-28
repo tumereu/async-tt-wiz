@@ -32,7 +32,9 @@ private val Teal = Color(0xff107e7a)
 @Composable
 fun AccountEntry(controller: AuthController, reset: ResetController, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
-    cubes: CubeController? = null, exit: () -> Unit = {}, pods: PodController? = null) {
+    cubes: CubeController? = null, exit: () -> Unit = {}, pods: PodController? = null,
+    /** False while What's new is pending: visible catalog dialogs wait; background checks do not. */
+    catalogPrompts: Boolean = true) {
     val state = controller.state
     val context = androidx.compose.ui.platform.LocalContext.current
     val avatarMemory = remember { AvatarPromptMemory(context) }
@@ -61,7 +63,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
             Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 reset.state != null -> ResetEntry(reset)
-                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby, cubes, pods)
+                state.account != null -> AuthenticatedShell(controller, landscape, catalog, deckImport, decks, lobby, cubes, pods, catalogPrompts)
                 state.logoutFailed -> Column(Modifier.align(Alignment.Center).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(onClick = controller::logout) { Text("Retry sign-out") }
@@ -115,7 +117,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
                 else -> null
             }, modifier = Modifier.align(Alignment.BottomCenter))
         }
-        if (catalog != null && catalog.needsInitialDownloadConsent) {
+        if (catalogPrompts && catalog != null && catalog.needsInitialDownloadConsent) {
             CatalogStartupDialog(catalog.state, download = catalog::consent, dismiss = exit)
         }
     }

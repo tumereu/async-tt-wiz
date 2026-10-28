@@ -1,0 +1,1 @@
+fix: What's new appears right when the app opens instead of after a delay

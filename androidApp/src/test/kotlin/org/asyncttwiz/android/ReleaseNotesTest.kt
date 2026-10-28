@@ -55,6 +55,15 @@ class ReleaseNotesTest {
         assertEquals(notes.drop(2), ReleaseNotes.unseen(notes, ReleaseNotes.seenRecord(stored, notes, freshInstall = true)))
     }
 
+    @Test fun dialogShowsAtOnceExceptOverAnOpenGameOrPod() {
+        assertTrue(ReleaseNotes.showDialog(notes, pendingNotificationRoute = false, ActivityScreen.NONE))
+        assertTrue(ReleaseNotes.showDialog(notes, false, ActivityScreen(podList = true)))
+        assertFalse(ReleaseNotes.showDialog(emptyList(), false, ActivityScreen.NONE))
+        assertFalse(ReleaseNotes.showDialog(notes, pendingNotificationRoute = true, ActivityScreen.NONE))
+        assertFalse(ReleaseNotes.showDialog(notes, false, ActivityScreen(game = "g1")))
+        assertFalse(ReleaseNotes.showDialog(notes, false, ActivityScreen(pod = "p1")))
+    }
+
     @Test fun preferencesSettleTheRecordOnceAndMarkSeen() {
         val preferences = ReleaseNotePreferences(context)
         val first = preferences.unseen(notes)

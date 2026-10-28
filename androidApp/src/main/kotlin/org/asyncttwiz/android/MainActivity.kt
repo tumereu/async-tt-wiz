@@ -175,10 +175,9 @@ class MainActivity : ComponentActivity() {
                 val catalogBlocked = catalog.state.busy || catalog.needsInitialDownloadConsent || catalog.promptPolicy.shouldPrompt(catalog.state)
                 val releaseNotes = remember { ReleaseNotePreferences(this@MainActivity) }
                 var whatsNew by remember { mutableStateOf(releaseNotes.unseen()) }
-                // Only on the shell (never over an open game or pod), and not under another startup dialog.
-                val showWhatsNew = whatsNew.isNotEmpty() && state.account != null && !state.restoring && !state.busy &&
-                    notificationRoute == null && activityScreen.game == null && activityScreen.pod == null && !catalogBlocked
-                if (showWhatsNew) WhatsNewDialog(whatsNew) { releaseNotes.markSeen(whatsNew); whatsNew = emptyList() }
+                // From the first frame (even over sign-in); catalog and permission prompts wait for it instead.
+                if (ReleaseNotes.showDialog(whatsNew, notificationRoute != null, activityScreen))
+                    WhatsNewDialog(whatsNew) { releaseNotes.markSeen(whatsNew); whatsNew = emptyList() }
                 val permissionPrefs = remember { getSharedPreferences("notification-permission", 0) }
                 var asked by remember { mutableStateOf(permissionPrefs.getBoolean("asked", false)) }
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
@@ -199,7 +198,8 @@ class MainActivity : ComponentActivity() {
                     DebugLatency.drawn()
                 } else Modifier)) {
                     if (storage.state == StorageState.Ready) {
-                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods)
+                        AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods,
+                            catalogPrompts = whatsNew.isEmpty())
                     }
                     else Column(
                         modifier = Modifier.fillMaxSize().padding(24.dp),

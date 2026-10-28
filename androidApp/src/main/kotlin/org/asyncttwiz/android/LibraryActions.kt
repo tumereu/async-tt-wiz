@@ -85,15 +85,16 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     if (editing != null) {
         BackHandler { editing = null }
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-        ValueInputControl("$editing quantity", text, { text = it }, enabled)
+        val confirmEnabled = (if (editing in listOf("Look", "Reveal")) mayOpen else enabled) &&
+            text.text.toIntOrNull()?.let { it >= 0 } == true
+        val confirm = {
+            val action = editing
+            val count = text.text.toIntOrNull()?.takeIf { it >= 0 }
+            if (action != null && count != null) { quantities.write(action, count); editing = null; perform(action, count) }
+        }
+        ValueInputControl("$editing quantity", text, { text = it }, enabled, submitEnabled = confirmEnabled, submit = confirm)
         // The floating row has no title, so the confirm cell names the action it performs.
-        InlinePopupCell(MenuControl(editing ?: "OK", enabled = (if (editing in listOf("Look", "Reveal")) mayOpen else enabled) &&
-            text.text.toIntOrNull()?.let { it >= 0 } == true) {
-            text.text.toIntOrNull()?.takeIf { it >= 0 }?.let { count ->
-                val action = editing ?: return@MenuControl
-                quantities.write(action, count); editing = null; perform(action, count)
-            }
-        })
+        InlinePopupCell(MenuControl(editing ?: "OK", enabled = confirmEnabled, click = confirm))
         }
     }
     if (mulligan) MulliganDialog(controller, displayedHand, owner, { mulligan = false }) {

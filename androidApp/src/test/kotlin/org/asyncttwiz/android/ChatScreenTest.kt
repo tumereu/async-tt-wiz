@@ -75,6 +75,19 @@ class ChatScreenTest {
         compose.onNodeWithText("Checking delivery…").assertDoesNotExist()
     }
 
+    @Test fun keyboardSendKeySendsLikeTheSendButton() {
+        open()
+        compose.onNodeWithContentDescription("Chat messages").performScrollToIndex(30)
+        compose.onNodeWithText("Message 100").assertDoesNotExist()
+        compose.runOnIdle { lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(draft = ChatDraft(game.playId!!, "Reply")))) }
+        compose.onNodeWithContentDescription("Chat message draft")
+            .assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.ImeAction,
+                androidx.compose.ui.text.input.ImeAction.Send))
+            .performImeAction()
+        // Sending returns the transcript to the latest message, as the button does.
+        compose.onNodeWithText("Message 100").assertIsDisplayed()
+    }
+
     @Test fun keyboardShrinksOnlyMessageViewportAndKeepsLatestAboveComposer() = checkKeyboardResize(300)
 
     @Test

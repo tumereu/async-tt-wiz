@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -27,6 +28,7 @@ internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((Strin
         }
         if (onName == null) Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
         else ScreenTextField(name, onName, Modifier.weight(1f).testTag("deck-name")
-            .semantics { contentDescription = "Deck name" }, enabled = enabled, placeholder = "Deck name")
+            .semantics { contentDescription = "Deck name" }, enabled = enabled, placeholder = "Deck name",
+            keyboardOptions = imeOptions(ImeAction.Next))
     }
 }

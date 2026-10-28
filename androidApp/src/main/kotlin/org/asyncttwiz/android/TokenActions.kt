@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -325,7 +326,8 @@ internal fun TokenCatalogDialog(controller: TokenLinkController, definitions: Li
     }
     TableMenuPanel(controller::close, title = "Create token") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(search.query, { search.search(it) }, Modifier.fillMaxWidth(), label = { Text("Search tokens") }, singleLine = true)
+            OutlinedTextField(search.query, { search.search(it) }, Modifier.fillMaxWidth(), label = { Text("Search tokens") }, singleLine = true,
+                keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
             if (loading || search.loading || search.selecting) LinearProgressIndicator(Modifier.fillMaxWidth())
             catalogError?.let { Text(it) }
             favoriteError?.let { Text(it) }

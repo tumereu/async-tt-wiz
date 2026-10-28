@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -443,6 +444,7 @@ private fun GameNameDialog(controller: LobbyController) {
                                         value = value.copy(selection = TextRange(0, value.text.length))
                                 }
                              }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain,
+                         keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(!state.mutating, submit = controller::create),
                          trailingIcon = { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } })
                  // Rare retry state; errors themselves float, so no permanently reserved gap.
                  if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)

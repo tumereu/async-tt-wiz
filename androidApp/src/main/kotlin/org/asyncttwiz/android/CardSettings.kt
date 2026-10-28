@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -86,7 +87,8 @@ internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingP
     }) {
         Text("Scale (${range.start}–${range.endInclusive}×)")
         ScreenTextField(input.value, { input.value = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input").dialogField(input),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            keyboardActions = submitKeyboardActions(parsed != null) { parsed?.let(save) })
         if (parsed == null) Text("Enter a finite number", color = MaterialTheme.colorScheme.error)
     }
 }

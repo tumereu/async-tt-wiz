@@ -210,9 +210,9 @@ internal fun ScreenTextField(value: String, onValueChange: (String) -> Unit, mod
 @Composable
 internal fun ScreenTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, singleLine: Boolean = true, keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    textStyle: TextStyle = MaterialTheme.typography.bodyLarge) {
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge, keyboardActions: KeyboardActions = KeyboardActions.Default) {
     BasicTextField(value, onValueChange, modifier.heightIn(min = 48.dp), enabled = enabled, singleLine = singleLine,
-        keyboardOptions = keyboardOptions, maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, maxLines = if (singleLine) 1 else Int.MAX_VALUE,
         textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
         decorationBox = { field -> ScreenTextFieldDecoration(value.text.isEmpty(), singleLine, null, null, field) })
 }

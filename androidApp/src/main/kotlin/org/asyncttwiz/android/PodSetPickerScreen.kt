@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,7 +26,8 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
             listOf("Cubes", "Sets").forEachIndexed { index, title -> Tab(tab == index, { tab = index }, text = { Text(title) }) }
         }
         if (tab == 0) {
-            OutlinedTextField(cubeQuery, { cubeQuery = it }, Modifier.fillMaxWidth(), label = { Text("Search cubes") }, singleLine = true)
+            OutlinedTextField(cubeQuery, { cubeQuery = it }, Modifier.fillMaxWidth(), label = { Text("Search cubes") }, singleLine = true,
+                keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
             Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
                 val cubes = controller.state.cubes.filter { it.name.contains(cubeQuery.trim(), true) }
                 if (!controller.state.cubesLoaded && controller.state.loading && cubes.isEmpty()) CircularProgressIndicator()
@@ -43,7 +45,8 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
 @Composable
 internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
     redownload: (String) -> Unit, retry: () -> Unit) {
-    OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true)
+    OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true,
+        keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
     val rows = state.filtered
     Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
     if (!state.loaded && state.busy && rows.isEmpty()) CircularProgressIndicator()

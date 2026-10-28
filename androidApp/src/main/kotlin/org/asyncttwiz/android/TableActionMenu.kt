@@ -106,10 +106,10 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             dismissButton = { TextButton(onClick = { outcome = null }) { Text("Cancel") } })
     }
     if (die) TableMenuPanel({ die = false }, title = "Roll die") {
-        ValueInputControl("Die sides", sides, { sides = it }, enabled, minimum = 1)
-        MenuButton("Roll die", Modifier.fillMaxWidth(), enabled && (sides.text.toIntOrNull() ?: 0) > 0) {
-            sides.text.toIntOrNull()?.let { if (controller.rollDie(scope, it)) onDismiss() }
-        }
+        val mayRoll = enabled && (sides.text.toIntOrNull() ?: 0) > 0
+        val roll = { sides.text.toIntOrNull()?.let { if (controller.rollDie(scope, it)) onDismiss() }; Unit }
+        ValueInputControl("Die sides", sides, { sides = it }, enabled, minimum = 1, submitEnabled = mayRoll, submit = roll)
+        MenuButton("Roll die", Modifier.fillMaxWidth(), mayRoll, onClick = roll)
     }
 }
 

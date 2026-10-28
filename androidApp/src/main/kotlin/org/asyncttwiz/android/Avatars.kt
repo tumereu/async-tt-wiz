@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.text.input.ImeAction
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -152,7 +153,8 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
                 Icon(Icons.Outlined.Casino, "Reroll avatars")
             }
         }
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search by card name") }, singleLine = true)
+        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search by card name") }, singleLine = true,
+            keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (!ready) {
                 val state = catalog?.state ?: CatalogUiState()
@@ -213,7 +215,8 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
                         Text("Edit profile", style = MaterialTheme.typography.headlineSmall)
                         AvatarPicker(account.copy(username = name, avatar = avatar), catalog, { avatar = it }, Modifier.height(256.dp), compact = true)
                         OutlinedTextField(nameField.value, { nameField.value = it }, Modifier.fillMaxWidth().dialogField(nameField),
-                            label = { Text("Username") }, singleLine = true)
+                            label = { Text("Username") }, singleLine = true, keyboardOptions = imeOptions(ImeAction.Done),
+                            keyboardActions = submitKeyboardActions(!state.profileBusy) { controller.saveProfile(name, avatar) })
                         DialogActionsRow {
                             DialogCancelButton("Cancel", { controller.editProfile(false) })
                             DialogMainButton("Save", { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy)

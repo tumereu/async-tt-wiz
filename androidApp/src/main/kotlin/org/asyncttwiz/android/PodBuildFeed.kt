@@ -41,23 +41,26 @@ private const val PodBuildFeedFlickMillis = 180
 
 private data class PodBuildFeedFlick(val sequence: Int, val card: PodBuildFeedCard, val offset: Float, val left: Boolean, val color: Color)
 
-/** Full-screen one-card-at-a-time review of a Build column or section; system Back closes it. */
+/**
+ * Full-screen one-card-at-a-time review of a Build column or section; the corner ✕ and system Back close it.
+ * Once the last card's flick has played, [onFinish] gets the finished feed (the caller closes it).
+ */
 @Composable
 internal fun PodBuildFeedDialog(
     feed: PodBuildFeed,
     mainCount: Long,
     editable: Boolean,
-    nextLabel: String?,
     onChange: (PodBuildFeed) -> Unit,
     onMove: (copyId: String, category: PodDeckCategory) -> Unit,
-    onNext: () -> Unit,
     onClose: () -> Unit,
+    onFinish: (PodBuildFeed) -> Unit = { onClose() },
     onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
 ) {
     val keepColor = feed.category.podBuildColor()
     val demoteColor = feed.target.podBuildColor()
     var flick by remember { mutableStateOf<PodBuildFeedFlick?>(null) }
     val latestFeed by rememberUpdatedState(feed)
+    val latestFinish by rememberUpdatedState(onFinish)
     val decide: (Boolean, Float) -> Unit = { demote, offset ->
         val current = latestFeed
         current.current?.takeIf { editable }?.let { card ->
@@ -74,7 +77,7 @@ internal fun PodBuildFeedDialog(
         ScreenTheme {
             Surface(Modifier.fillMaxSize().testTag("pod-build-feed"), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxSize()) {
-                    Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 4.dp, end = 16.dp),
+                    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ActionSquare("Undo", "↶", editable && feed.canUndo, icon = { TableChromeIcon("undo") }, onClick = {
                             val (previous, restore) = latestFeed.undo()
@@ -85,6 +88,7 @@ internal fun PodBuildFeedDialog(
                             maxLines = 1)
                         Text(feed.progress, style = MaterialTheme.typography.labelLarge)
                         Text("Main $mainCount", style = MaterialTheme.typography.labelLarge, color = PodPickGreen)
+                        ScreenIconButton("Close review", "close", onClose)
                     }
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center) {
@@ -95,8 +99,8 @@ internal fun PodBuildFeedDialog(
                             floor(minOf(maxWidth.toPx(), (maxHeight - 40.dp).toPx() / 1.4f)).coerceAtLeast(1f).toDp()
                         }
                         val current = feed.current
-                        if (current == null) PodBuildFeedEnd(feed.summary, nextLabel, onNext, onClose)
-                        else key(feed.position, current.copyId) {
+                        // Past the last card only its flick shows; the feed closes when it has played.
+                        if (current != null) key(feed.position, current.copyId) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 PodBuildFeedCardView(current, cardWidth, keepColor, demoteColor, feed.target, editable,
                                     onDecide = decide)
@@ -108,24 +112,16 @@ internal fun PodBuildFeedDialog(
                             }
                         }
                         flick?.let { gone -> key(gone.sequence) {
-                            PodBuildFeedFlickCard(gone, cardWidth) { if (flick?.sequence == gone.sequence) flick = null }
+                            PodBuildFeedFlickCard(gone, cardWidth) {
+                                if (flick?.sequence == gone.sequence) {
+                                    flick = null
+                                    latestFeed.takeIf { it.finished }?.let(latestFinish)
+                                }
+                            }
                         } }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PodBuildFeedEnd(summary: String, nextLabel: String?, onNext: () -> Unit, onClose: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Text(summary, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (nextLabel != null) {
-                DialogCancelButton("Done", onClose)
-                DialogMainButton("Next: $nextLabel →", onNext)
-            } else DialogMainButton("Done", onClose)
         }
     }
 }

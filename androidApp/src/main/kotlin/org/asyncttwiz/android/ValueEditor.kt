@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,7 +43,7 @@ internal fun ValueEditor(draft: ValueDraft, current: String?, enabled: Boolean, 
                 singleLine = !draft.field.multiline, minLines = if (draft.field.multiline) 3 else 1,
                 maxLines = if (draft.field.multiline) 8 else 1, isError = !draft.valid,
                 keyboardOptions = KeyboardOptions(imeAction = if (draft.field.multiline) ImeAction.Default else ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { complete() }))
+                keyboardActions = submitKeyboardActions(enabled && draft.valid, submit = ::complete))
             if (!draft.valid) Text("Text is invalid or too long", color = MaterialTheme.colorScheme.error)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

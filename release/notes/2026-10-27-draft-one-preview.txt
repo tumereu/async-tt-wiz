@@ -1,0 +1,1 @@
+fix: Only one card preview opens at a time while drafting and building.

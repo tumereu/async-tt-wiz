@@ -1,0 +1,1 @@
+add: Select all cards in a card panel at once.

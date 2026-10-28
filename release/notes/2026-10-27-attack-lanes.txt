@@ -1,0 +1,1 @@
+mod: Attack targets show the defending player's picture and full name.

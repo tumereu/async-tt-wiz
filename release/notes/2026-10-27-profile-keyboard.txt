@@ -1,0 +1,1 @@
+fix: The keyboard no longer covers the avatars when editing your profile.

@@ -1,0 +1,1 @@
+add: A Temp pile for cards set aside face down.

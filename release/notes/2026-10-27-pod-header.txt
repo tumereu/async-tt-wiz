@@ -1,0 +1,1 @@
+mod: Drafts have a header with the menu, the pod name and who is ready.

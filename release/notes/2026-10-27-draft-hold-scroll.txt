@@ -1,0 +1,1 @@
+fix: Holding a card to preview it no longer blocks swiping or scrolling.

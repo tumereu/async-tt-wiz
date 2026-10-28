@@ -1,0 +1,1 @@
+fix: Hidden cards no longer reveal counters, notes or power and toughness.

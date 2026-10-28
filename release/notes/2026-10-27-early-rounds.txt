@@ -1,0 +1,1 @@
+mod: In drafts, your next round's packs open as soon as no pack can come back to you.

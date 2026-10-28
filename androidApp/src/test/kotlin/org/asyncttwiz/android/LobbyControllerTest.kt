@@ -140,6 +140,32 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    @Test fun backgroundPollFailuresStayQuietForThirtySeconds() {
+        val worker = Worker(); var failing = false; var now = 0L
+        val api = object : Api() {
+            override suspend fun contacts(token: String, after: String?): ContactList {
+                if (failing) throw LobbyFailure("network")
+                return super.contacts(token, after)
+            }
+        }
+        val controller = LobbyController(api, { "token" }, worker, { it() }, clock = { now })
+        try {
+            controller.refresh(); worker.drain()
+            assertTrue(controller.state.loaded)
+            failing = true
+            controller.refresh(background = true); worker.drain()
+            assertNull(controller.state.error); assertFalse(controller.state.unreachable)
+            assertEquals(listOf(recipient), controller.state.contacts)
+            now += 30_000; controller.refresh(background = true); worker.drain()
+            assertTrue(controller.state.unreachable); assertNull(controller.state.error)
+            // A refresh the player caused still reports its failure.
+            controller.refresh(); worker.drain()
+            assertNotNull(controller.state.error)
+            failing = false; controller.refresh(background = true); worker.drain()
+            assertFalse(controller.state.unreachable)
+        } finally { controller.close(); worker.drain() }
+    }
+
     @Test fun failedSearchRefreshKeepsPreviouslyAcceptedResults() {
         val worker = Worker(); var failing = false
         val api = object : Api() {
@@ -223,10 +249,10 @@ class LobbyControllerTest {
     }
 
     @Test fun backgroundRefreshRetainsAcceptedListsAndReportsRealErrors() {
-        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false
+        val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false; var code = "network"
         val api = object : Api() {
             override suspend fun contacts(token: String, after: String?): ContactList {
-                if (failing) throw LobbyFailure("network")
+                if (failing) throw LobbyFailure(code)
                 return super.contacts(token, after)
             }
         }
@@ -236,12 +262,15 @@ class LobbyControllerTest {
             controller.refresh(); deliver()
             failing = true
             controller.refresh(); worker.drain()
+            // A short outage during background refreshes keeps the lists without an error.
             controller.foreground(); deliver()
-            assertNotNull(controller.state.error)
+            assertNull(controller.state.error)
             assertEquals(listOf(recipient), controller.state.contacts)
             controller.sync()
             assertTrue(controller.state.backgroundLoading)
             deliver()
+            assertNull(controller.state.error)
+            code = "invalid_request"; controller.sync(); deliver()
             assertNotNull(controller.state.error)
             controller.query("Player"); controller.search(); deliver()
             assertEquals(listOf(recipient), controller.state.results)

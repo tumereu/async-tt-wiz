@@ -71,7 +71,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 when {
                     state.creating != null -> NewPodScreen(controller)
                     state.selected != null -> InitialLoadArea(state.detail != null, failed = state.error != null,
-                        retry = controller::refresh, loading = state.loading) {
+                        retry = { controller.refresh(requested = true) }, loading = state.loading) {
                         state.detail?.let { detail ->
                             Column(Modifier.fillMaxSize()) {
                                 if (detail.phase == PodPhase.SETUP) PodMemberStrip(detail)
@@ -81,7 +81,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                             }
                         }
                     }
-                    else -> PodsList(state, controller::open, controller::respond, controller::refresh)
+                    else -> PodsList(state, controller::open, controller::respond) { controller.refresh(requested = true) }
                 }
                 if (!pickTab) {
                     FloatingTransientError(state.error ?: state.notice, controller::dismissError, Modifier.align(Alignment.BottomCenter))

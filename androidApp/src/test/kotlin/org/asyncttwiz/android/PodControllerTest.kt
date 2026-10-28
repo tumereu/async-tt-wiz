@@ -54,9 +54,10 @@ class PodControllerTest {
         var gridFailure: String? = null
         var pickFailure: String? = null
         var afterRead: () -> Unit = {}
-        override suspend fun list(token: String) = listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
+        var readFailure: String? = null
+        override suspend fun list(token: String) = readFailure?.let { throw PodFailure(it) } ?: listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
         override suspend fun detail(token: String, id: String): PodDetail {
-            reads++; readIds += id; if (missing) throw PodFailure("not_found"); afterRead()
+            reads++; readIds += id; if (missing) throw PodFailure("not_found"); readFailure?.let { throw PodFailure(it) }; afterRead()
             return secondPod?.takeIf { it.id == id } ?: saved
         }
         override suspend fun create(token: String, input: CreatePod): PodDetail {
@@ -119,6 +120,37 @@ class PodControllerTest {
         override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "destroy" to input; missing = true; return PodAcknowledged(id) }
         override fun close() = Unit
     }
+    @Test fun automaticRefreshFailuresStayQuietForThirtySeconds(): Unit = Fixture().use { f ->
+        f.open()
+        f.api.readFailure = "network"
+        f.controller.refresh(); f.deliver()
+        assertNull(f.controller.state.error); assertFalse(f.controller.state.unreachable)
+        assertNotNull(f.controller.state.detail)
+        f.now += 29_000; f.controller.refresh(); f.deliver()
+        assertFalse(f.controller.state.unreachable)
+        f.now += 1_000; f.controller.refresh(); f.deliver()
+        assertTrue(f.controller.state.unreachable); assertNull(f.controller.state.error)
+        f.api.readFailure = null; f.controller.refresh(); f.deliver()
+        assertFalse(f.controller.state.unreachable)
+        // The outage clock restarts after a success.
+        f.api.readFailure = "network"; f.now += 60_000; f.controller.refresh(); f.deliver()
+        assertFalse(f.controller.state.unreachable)
+    }
+
+    @Test fun requestedRefreshAndFirstLoadReportFailures(): Unit = Fixture().use { f ->
+        f.api.readFailure = "network"
+        f.open()
+        // Nothing shown yet: the read keeps retrying for about ten seconds before reporting.
+        assertEquals(firstLoadRetryDelays, f.waits)
+        assertNull(f.controller.state.detail); assertNotNull(f.controller.state.error)
+        f.api.readFailure = null; f.controller.refresh(requested = true); f.deliver()
+        assertNotNull(f.controller.state.detail); assertNull(f.controller.state.error)
+        f.api.readFailure = "network"; f.waits.clear()
+        f.controller.refresh(requested = true); f.deliver()
+        assertEquals(quickRetryDelays, f.waits)
+        assertNotNull(f.controller.state.error)
+    }
+
     @Test fun nameEditsPredictImmediatelyAndRevertOnRejection(): Unit = Fixture().use { f ->
         f.open()
         f.controller.deckName("My private deck")
@@ -210,8 +242,10 @@ class PodControllerTest {
         var token: String? = "token"
         var sources = listOf(cube)
         val sets = Sets()
-        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, {}, sets,
-            librarianDefinition = librarian)
+        val waits = mutableListOf<Long>()
+        var now = 0L
+        val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
+            librarianDefinition = librarian, clock = { now })
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
                 worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()

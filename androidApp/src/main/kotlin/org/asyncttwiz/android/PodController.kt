@@ -29,6 +29,8 @@ data class PodState(
     val pending: Int = 0, val picking: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val notice: String? = null,
     val sourcePreview: PodSource? = null,
+    /** Automatic refreshes have kept failing for a while; the shown pod data may be stale. */
+    val unreachable: Boolean = false,
 )
 
 /** All operations are serialized, including a read after each write. Setup edits, build edits and queued picks predict.
@@ -38,7 +40,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val suggest: () -> String = ::gameNameSuggestion,
     private val wait: (suspend (Long) -> Unit)? = null,
     setRepository: PodSetRepository? = null,
-    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") }) : AutoCloseable {
+    private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") },
+    clock: () -> Long = ::monotonicMillis) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
     @Volatile private var epoch = 0L
@@ -46,6 +49,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var active = false
     private var lastCredential = credential()
     private var refreshPending = false
+    /** The pending refresh was asked for by the player (Retry), so its failure is reported at once. */
+    private var refreshRequested = false
+    private val quietFailures = QuietRefreshFailures(clock)
     private var cubesPending = false
     private var accepted: PodDetail? = null
     private var editRevision = 0L
@@ -69,7 +75,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
 
     fun clear() {
-        epoch++; active = false; refreshPending = false; cubesPending = false
+        epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
+        quietFailures.succeeded()
         setPicker.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
@@ -99,7 +106,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             confirmation = null, choosingMember = false, error = null, sourcePreview = null)
         refresh()
     }
-    fun refresh() { if (!closed) { refreshPending = true; pump() } }
+    fun refresh(requested: Boolean = false) {
+        if (!closed) { refreshPending = true; refreshRequested = refreshRequested || requested; pump() }
+    }
     fun hint(hint: ActivityHint) {
         if (!hint.kind.isPodActivity()) return
         if (hint.kind == ActivityKind.POD_DRAFT_CANCELLED || hint.kind == ActivityKind.POD_DESTROYED) {
@@ -109,7 +118,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Always refresh the list (Quick continue too); refresh the open detail in the same pass.
         refresh()
     }
-    fun retry() { syncCredential(); state = state.copy(uncertain = false, error = null); refreshPending = true; pump() }
+    fun retry() { syncCredential(); state = state.copy(uncertain = false, error = null); refreshPending = true; refreshRequested = true; pump() }
     fun tab(tab: PodTab) { state = state.copy(tab = tab) }
     fun newPod(cubeId: String? = null) {
         if (writes.isNotEmpty()) return
@@ -362,9 +371,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val readCubes = cubesPending
         if (write == null && !read && !readCubes) return
         active = true
-        if (read) refreshPending = false
+        val requested = read && refreshRequested
+        if (read) { refreshPending = false; refreshRequested = false }
         cubesPending = false
         val generation = epoch; val selected = state.selected
+        // Nothing shown yet: ride out a short outage on the loading indicator instead of failing fast.
+        val firstLoad = read && (if (selected != null) state.detail == null else !state.loaded)
+        val readDelays = if (firstLoad) firstLoadRetryDelays else quickRetryDelays
         val previousError = state.error
         state = state.copy(loading = true)
         worker.execute {
@@ -388,10 +401,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         if (id != null) try { detail = serviceRetry(wait, ::current) { api.detail(token, id) } }
                         catch (failure: PodFailure) { if (failure.code != "not_found") throw failure else detail = null }
                     } else if (read && selected != null) {
-                        try { detail = serviceRetry(wait, ::current) { api.detail(token, selected) } }
+                        try { detail = serviceRetry(wait, ::current, readDelays) { api.detail(token, selected) } }
                         catch (failure: PodFailure) { if (failure.code != "not_found") throw failure }
                     }
-                    val list = if (read || write != null) serviceRetry(wait, ::current) { api.list(token) } else null
+                    val list = if (read || write != null) serviceRetry(wait, ::current, readDelays) { api.list(token) } else null
                     val sources = if (readCubes) {
                         val all = linkedMapOf<String, CubeSummary>(); val cursors = mutableSetOf<String>(); var after: String? = null
                         do {
@@ -404,8 +417,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     Triple(detail, list, sources)
                 }
                 post { if (complete()) {
+                    quietFailures.succeeded()
                     // A queued refresh must not erase a newer source-preparation failure.
-                    state = state.copy(loading = false, error = state.error.takeUnless { it == previousError })
+                    state = state.copy(loading = false, unreachable = false, error = state.error.takeUnless { it == previousError })
                     if (write != null) {
                         writes.removeAt(0)
                         if (write.setupRevision == state.setup?.revision) state = state.copy(setup = null)
@@ -432,6 +446,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 } }
             } catch (failure: Exception) {
                 post { if (complete()) {
+                    if (write == null && !requested && !firstLoad && transientServiceFailure(failure)) {
+                        // An automatic refresh of shown data: keep it and let the next poll retry.
+                        state = state.copy(unreachable = quietFailures.failed())
+                        if (readCubes) cubesPending = true
+                        render()
+                        return@post
+                    }
                     val uncertain = write != null && (transientServiceFailure(failure) || (failure as? PodFailure)?.code == "invalid_response")
                     if (write != null && !uncertain) {
                         writes.removeAt(0)

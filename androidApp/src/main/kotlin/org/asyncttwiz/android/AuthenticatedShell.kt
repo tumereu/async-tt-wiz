@@ -123,6 +123,10 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                 ?: lobby.state.searchError ?: lobby.state.connectionMessage,
             lobby::dismissSessionError, Modifier.align(Alignment.BottomCenter))
         FloatingTransientError(state.profileError, controller::dismissProfileError, Modifier.align(Alignment.BottomCenter))
+        val messageShown = state.profileError != null || lobby?.state?.let { it.error != null || it.searchError != null || it.connectionMessage != null } == true ||
+            pods?.state?.let { it.error != null || it.notice != null || it.uncertain } == true
+        ServerUnreachableNote(!tabletop && !messageShown && (lobby?.state?.unreachable == true || pods?.state?.unreachable == true),
+            Modifier.align(Alignment.BottomCenter))
     }
     // Own the single dialog host here, outside route/orientation branches, not in MainActivity.
     // This also keeps dialogs available when the authenticated shell is composed on its own.

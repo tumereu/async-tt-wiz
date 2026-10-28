@@ -29,7 +29,9 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
     val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null,
     /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */
-    val queuedGames: Set<String> = emptySet()) {
+    val queuedGames: Set<String> = emptySet(),
+    /** Background refreshes have kept failing for a while; the shown lists may be stale. */
+    val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
 }
 
@@ -42,7 +44,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
     treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
-    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null) : AutoCloseable {
+    private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
+    clock: () -> Long = ::monotonicMillis) : AutoCloseable {
     var state by mutableStateOf(LobbyState())
         private set
     @Volatile private var epoch = 0L
@@ -50,6 +53,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     @Volatile private var lifecycleVersion = 0L
     @Volatile private var inForeground = true
     private var refreshError: String? = null
+    private val quietFailures = QuietRefreshFailures(clock)
     private var closed = false
     private var searchVersion = 0L
     private var pendingCreate: CreateInvitation? = null
@@ -114,7 +118,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             }
         } finally { runningQueued = false }
     }
-    fun clear() { queuedActions.clear(); historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { queuedActions.clear(); historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; quietFailures.succeeded(); inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -697,6 +701,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val version = ++refreshVersion; val lifecycle = lifecycleVersion
         fun current() = generation == epoch && version == refreshVersion && inForeground
         val atStart = latest.toMap()
+        // Nothing shown yet: ride out a short outage on the loading indicator instead of failing fast.
+        val firstLoad = !state.loaded
+        val delays = if (firstLoad) firstLoadRetryDelays else quickRetryDelays
         state = state.copy(busy = true, backgroundLoading = background,
             error = if (background || state.draft != null) state.error else null)
         worker.execute {
@@ -711,11 +718,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                     } while (after != null)
                     return current()
                 }
-                if (!pages { cursor -> serviceRetry(current = ::current) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = ::current) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = ::current) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
                 val detail = selected?.let {
-                    try { serviceRetry(current = ::current) { api.head(token, it) } } catch (failure: LobbyFailure) {
+                    try { serviceRetry(current = ::current, delays = delays) { api.head(token, it) } } catch (failure: LobbyFailure) {
                         if (failure.code == "not_found") null else throw failure
                     }
                 }
@@ -723,7 +730,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             } }
             post { if (!closed && generation == epoch && version == refreshVersion) {
                 val data = result.getOrNull()
+                val failure = result.exceptionOrNull()
                 if (data != null) {
+                    quietFailures.succeeded()
+                    state = state.copy(unreachable = false)
                     // Omission removes an old row. Only a revision learned since this read began
                     // can override omission; retained old lists must not resurrect cancelled games.
                     val newer = latest.values.filter { atStart[it.id] != it }
@@ -744,8 +754,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                     else {
                         session.watch(games); connectionState()
                     }
+                } else if (background && !firstLoad && failure != null && transientServiceFailure(failure)) {
+                    // A background poll of shown lists: keep them and let the next poll retry.
+                    state = state.copy(busy = false, backgroundLoading = false, unreachable = quietFailures.failed())
                 } else {
-                    val failure = result.exceptionOrNull()
                     val silent = failure == null || lobbyLifecycleInterruption(failure,
                         interrupted = lifecycle != lifecycleVersion || !inForeground)
                     val previousError = refreshError

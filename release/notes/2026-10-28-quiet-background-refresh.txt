@@ -1,0 +1,1 @@
+fix: Short connection drops no longer show errors while the app refreshes pods and games in the background.

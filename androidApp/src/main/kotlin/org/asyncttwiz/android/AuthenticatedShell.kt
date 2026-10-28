@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, catalog: CatalogViewModel? = null,
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
-    cubes: CubeController? = null, pods: PodController? = null) {
+    cubes: CubeController? = null, pods: PodController? = null, catalogPrompts: Boolean = true) {
     val state = controller.state
     var collectionCubes by remember { mutableStateOf(false) }
     if (catalog != null && state.avatarChooser) { AvatarChooser(controller, catalog); return }
@@ -130,7 +130,7 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
         SetupCancellationDialogs(lobby)
         GameDeletionDialogs(lobby)
     }
-    if (!tabletop && catalog != null && catalog.promptPolicy.shouldPrompt(catalog.state)) {
+    if (catalogPrompts && !tabletop && catalog != null && catalog.promptPolicy.shouldPrompt(catalog.state)) {
         CatalogStartupDialog(catalog.state,
             download = { catalog.promptPolicy.dismiss(catalog.state); catalog.consent() },
             dismiss = { catalog.promptPolicy.dismiss(catalog.state) })

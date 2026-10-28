@@ -49,6 +49,11 @@ internal object ReleaseNotes {
 
     fun unseen(all: List<ReleaseNote>, seen: Set<String>): List<ReleaseNote> = all.filter { it.id !in seen }
 
+    /** Shown from the first frame, whatever the sign-in or catalog state; never over an open game or pod,
+     *  nor while a notification is about to open one. */
+    fun showDialog(unseen: List<ReleaseNote>, pendingNotificationRoute: Boolean, screen: ActivityScreen): Boolean =
+        unseen.isNotEmpty() && !pendingNotificationRoute && screen.game == null && screen.pod == null
+
     @Volatile private var loaded: List<ReleaseNote>? = null
     fun load(context: Context): List<ReleaseNote> = loaded ?: runCatching {
         parse(context.assets.open(ASSET).use { it.readBytes().decodeToString() })

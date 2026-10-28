@@ -1,0 +1,1 @@
+mod: Preparing a deck shows your cards as pictures grouped by type, main deck and sideboard on one scrolling page; swipe a card to move it, hold to look at it, tap for more.

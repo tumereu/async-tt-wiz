@@ -78,6 +78,9 @@ class PodControllerTest {
         override suspend fun accept(token: String, id: String, input: PodRequest): PodDetail { calls += "accept" to input; return saved }
         override suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "decline" to input; return PodAcknowledged(id) }
         override suspend fun start(token: String, id: String, input: PodRequest): PodDetail { calls += "start" to input; saved = detail(); return saved }
+        override suspend fun autoStart(token: String, id: String, input: SetPodAutoStart): PodDetail {
+            calls += "autoStart" to input; saved = saved.copy(autoStart = input.enabled, autoStartOff = null); return saved
+        }
         override suspend fun pick(token: String, id: String, input: PickPod): PodDetail {
             calls += "pick" to input
             pickFailure?.let { throw PodFailure(it) }
@@ -719,6 +722,50 @@ class PodControllerTest {
         assertEquals(id, f.controller.state.selected)
     }
 
+    private val invitee = AccountIdentity(UUID.randomUUID().toString(), "Carol")
+
+    @Test fun autoStartArmsOnlyWithPendingInvitationsAndCancels() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.autoStart(true); f.deliver()
+        assertTrue(f.api.calls.isEmpty()) // nobody pending: the ordinary Start draft applies
+        f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee)); f.controller.refresh(); f.deliver()
+        assertEquals("Start when everyone accepts", podAutoStartLabel(f.controller.state.detail!!))
+        f.controller.autoStart(true); f.deliver()
+        assertEquals(SetPodAutoStart((f.api.calls.single().second as SetPodAutoStart).requestId, true), f.api.calls.single().second)
+        assertTrue(f.controller.state.detail!!.autoStart)
+        assertEquals("Starts when 1 more accept · Cancel", podAutoStartLabel(f.controller.state.detail!!))
+        f.controller.autoStart(false); f.deliver()
+        assertEquals(listOf(true, false), f.api.calls.map { (it.second as SetPodAutoStart).enabled })
+        assertFalse(f.controller.state.detail!!.autoStart)
+        // Unsaved setup edits block arming like they block Start.
+        f.controller.editSetup(name = "Renamed"); f.controller.autoStart(true)
+        assertEquals(2, f.api.calls.count { it.first == "autoStart" })
+    }
+
+    @Test fun startNowConfirmationStartsWithPendingInvitationsAndSaysTheyAreCancelled() = Fixture(PodPhase.SETUP).use { f ->
+        f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee))
+        f.open()
+        val text = podConfirmationText(PodConfirmation.START, f.controller.state.detail!!)
+        assertEquals("Start the draft now with the 2 accepted members? The pending invitation will be cancelled.", text)
+        f.controller.requestConfirmation(PodConfirmation.START); f.controller.confirm(); f.deliver()
+        assertEquals("start", f.api.calls.single().first)
+        assertEquals(PodPhase.DRAFTING, f.controller.state.detail!!.phase)
+        assertNull(f.controller.state.confirmation)
+    }
+
+    @Test fun autoStartOffHintRefreshesAndNoticeTextExplainsWhy() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        val reads = f.api.reads
+        f.api.saved = f.api.saved.copy(autoStartOff = PodAutoStartOff("declined", other))
+        f.controller.hint(ActivityHint("4", ActivityKind.POD_AUTO_START_OFF, id, UUID.randomUUID().toString())); f.deliver()
+        assertTrue(f.api.reads > reads)
+        assertEquals(PodAutoStartOff("declined", other), f.controller.state.detail!!.autoStartOff)
+        assertEquals("Bob declined; auto-start is off", podAutoStartOffText(f.controller.state.detail!!.autoStartOff!!))
+        assertEquals("Could not start automatically: the source does not have enough cards. Auto-start is off",
+            podAutoStartOffText(PodAutoStartOff("insufficient_supply")))
+        assertEquals("Auto-start off — Pod", podActivityText(ActivityKind.POD_AUTO_START_OFF, "Pod"))
+    }
+
     @Test fun startInviteAndConfirmedLifecycleActionsHaveRequestsAndRefresh() {
         Fixture(PodPhase.SETUP).use { f ->
             f.open(); assertTrue(podCanStart(f.controller.state.detail!!))
@@ -726,7 +773,7 @@ class PodControllerTest {
             assertEquals(listOf("invite", "start"), f.api.calls.map { it.first })
             assertEquals(PodPhase.DRAFTING, f.controller.state.detail!!.phase)
         }
-        for (action in PodConfirmation.entries) Fixture(if (action == PodConfirmation.SUBMIT) PodPhase.DRAFTED else PodPhase.DRAFTING).use { f ->
+        for (action in PodConfirmation.entries - PodConfirmation.START) Fixture(if (action == PodConfirmation.SUBMIT) PodPhase.DRAFTED else PodPhase.DRAFTING).use { f ->
             f.open(); f.controller.requestConfirmation(action)
             assertTrue(f.api.calls.isEmpty())
             val text = podConfirmationText(action, f.api.saved)
@@ -734,7 +781,7 @@ class PodControllerTest {
             f.controller.dismissConfirmation(); assertNull(f.controller.state.confirmation)
             f.controller.confirm(); assertTrue(f.api.calls.isEmpty())
             f.controller.requestConfirmation(action); f.controller.confirm(); f.deliver()
-            val expected = when (action) { PodConfirmation.DESTROY -> "destroy"; PodConfirmation.LEAVE -> "leave"; PodConfirmation.CANCEL -> "cancel"; PodConfirmation.SUBMIT -> "submit" }
+            val expected = when (action) { PodConfirmation.DESTROY -> "destroy"; PodConfirmation.LEAVE -> "leave"; PodConfirmation.CANCEL -> "cancel"; PodConfirmation.SUBMIT -> "submit"; PodConfirmation.START -> "start" }
             assertEquals(expected, f.api.calls.single().first)
             val input = f.api.calls.single().second
             if (input is PodDraftRequest) { assertEquals(attempt, input.draftAttemptId); assertTrue(DeckValidation.uuid(input.requestId)) }

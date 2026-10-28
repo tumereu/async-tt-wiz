@@ -22,6 +22,11 @@ data class DraftState(
      * where every member had opened exactly [round].
      */
     val opened: Map<String, Int> = emptyMap(),
+    /**
+     * Packs passed to a member ahead of their [openedRound], in arrival order. They are live packs but stay out of
+     * [queues] (and so out of every projection, pick check and your-pick hint) until that member opens their round.
+     */
+    val held: Map<String, List<String>> = emptyMap(),
 ) {
     val finished: Boolean get() = round == settings.rounds
     /** Direction of the lowest live round; every pack passes in its own round's direction. */
@@ -197,6 +202,7 @@ object DraftEngine {
         private val packs = source.packs.toMutableList()
         private val packIndexes = packs.withIndex().associate { it.value.id to it.index }
         private val queues = source.queues.mapValues { it.value.toMutableList() }
+        private val held = source.seating.associateWith { source.held[it].orEmpty().toMutableList() }
         private val pools = source.pools.mapValues { it.value.toMutableList() }
         private val log = source.log.toMutableList()
         private val opened = source.seating.associateWith { source.openedRound(it) }.toMutableMap()
@@ -204,16 +210,19 @@ object DraftEngine {
         fun applyPick(pick: DraftPick, burned: List<String>): DraftState {
             val index = packIndexes.getValue(pick.packId)
             val pack = packs[index]
-            queues.getValue(pick.player).removeAt(0)
+            queues.getValue(pick.player).remove(pick.packId)
             val removed = (pick.keep + burned).toSet()
             val remaining = pack.cards.filter { it !in removed }
             val discard = remaining.isNotEmpty() && remaining.size <= source.settings.discardRemainingAt
             val discarded = if (discard) remaining else emptyList()
-            // Apply keeps, burns and the ordinary discard threshold before returning Librarians.
-            packs[index] = pack.copy(cards = (if (discard) emptyList() else remaining) + pick.librarians)
+            // Spent Librarians re-enter the pack only when, without them, it still travels on for a manual pick. On a
+            // pack's final pick (emptied, discarded or left for an automatic award) they burn with the rest instead.
+            val returned = !discard && remaining.size > source.settings.keep
+            packs[index] = pack.copy(cards = (if (discard) emptyList() else remaining) + (if (returned) pick.librarians else emptyList()))
             pools.getValue(pick.player).removeAll(pick.librarians.toSet())
             pools.getValue(pick.player).addAll(pick.keep)
-            log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(), burned.toList(), discarded, librarians = pick.librarians.toList()))
+            log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(),
+                burned.toList() + (if (returned) emptyList() else pick.librarians), discarded, librarians = pick.librarians.toList()))
             if (packs[index].cards.isNotEmpty()) arrive(index, passTo(pick.player, pack.round))
             return settle()
         }
@@ -227,13 +236,13 @@ object DraftEngine {
         /**
          * Whether a live or unopened pack of rounds up to [upTo] can still reach [player] for a manual pick, assuming
          * every pick removes keep + burn cards (all of them near the end) and applies the discard threshold. Automatic
-         * awards are not picks. A near-end Cogwork Librarian spend can return cards to a pack that would have emptied;
-         * such a pack simply keeps passing and queues behind whatever the receiver already has.
+         * awards are not picks. A Cogwork Librarian spend removes the same net keep + burn while the pack travels on and
+         * burns the Librarians on a final pick, so it never lets a pack reach further than predicted.
          */
         private fun canReach(player: String, upTo: Int): Boolean {
             val keep = source.settings.keep
             val removed = keep + source.settings.burn
-            val holders = queues.entries.flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
+            val holders = (queues.entries + held.entries).flatMap { (owner, ids) -> ids.map { it to owner } }.toMap()
             for (pack in packs) {
                 if (pack.cards.isEmpty() || pack.round > upTo) continue
                 val queued = holders[pack.id]
@@ -253,8 +262,10 @@ object DraftEngine {
 
         private fun arrive(index: Int, player: String) {
             val pack = packs[index]
+            // A later-round pack waits unseen until the receiver has no more packs of their own round to pick.
+            if (pack.round > opened.getValue(player)) held.getValue(player).add(pack.id)
             // Automatic awards happen on arrival, even behind a pack that still needs a manual choice.
-            if (pack.cards.size <= source.settings.keep) {
+            else if (pack.cards.size <= source.settings.keep) {
                 pools.getValue(player).addAll(pack.cards)
                 log.add(DraftPickLog(player, pack.id, pack.round, pack.cards, automatic = true))
                 packs[index] = pack.copy(cards = emptyList())
@@ -272,6 +283,10 @@ object DraftEngine {
                     val current = opened.getValue(player)
                     if (current >= last || canReach(player, current)) continue
                     opened[player] = current + 1
+                    // Release packs held for this round first: they arrived before the member's own packs open.
+                    val released = held.getValue(player).filter { id -> packs[packIndexes.getValue(id)].round <= current + 1 }
+                    held.getValue(player).removeAll(released.toSet())
+                    for (id in released) arrive(packIndexes.getValue(id), player)
                     for (index in packs.indices) {
                         if (packs[index].round == current + 1 && packs[index].initialPlayer == player) arrive(index, player)
                     }
@@ -281,7 +296,7 @@ object DraftEngine {
             val finished = opened.values.all { it >= last } && packs.all { it.cards.isEmpty() }
             return source.copy(packs = packs.toList(), round = if (finished) source.settings.rounds else opened.values.min(),
                 queues = queues.mapValues { it.value.toList() }, pools = pools.mapValues { it.value.toList() }, log = log.toList(),
-                opened = opened.toMap())
+                opened = opened.toMap(), held = held.filterValues { it.isNotEmpty() }.mapValues { it.value.toList() })
         }
     }
 }

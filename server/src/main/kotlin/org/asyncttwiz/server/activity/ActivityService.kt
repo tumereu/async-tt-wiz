@@ -230,7 +230,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))
                 .and(POD.PHASE.eq("SETUP")))
+            // Auto-start notices concern only the creator, while the pod is still in setup and not re-armed.
+            val autoStartOff = DSL.exists(DSL.selectOne().from(POD).where(POD.ID.eq(resource)).and(POD.CREATOR_ID.eq(owner))
+                .and(POD.PHASE.eq("SETUP")).and(POD.AUTO_START.isFalse))
             return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
+                .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff))
         }
 
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.

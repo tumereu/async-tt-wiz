@@ -366,17 +366,114 @@ class PodHttpTest {
         assertEquals(2, waitingA.draft!!.pool.size)
         assertPrivacy(f, pod)
         val roundTwo = early.draft!!.head!!.id
-        f.pick(f.b, pod) // B's round-two pack queues behind A's remaining round-one pack
-        val queuedA = f.get(f.a, pod).draft!!
-        assertEquals(bPack, queuedA.head!!.id); assertEquals(listOf(roundTwo), queuedA.queuedPacks.map { it.id })
+        f.pick(f.b, pod) // B's round-two pack is held for A until A's remaining round-one pack is picked
+        val heldA = f.get(f.a, pod)
+        assertEquals(bPack, heldA.draft!!.head!!.id); assertTrue(heldA.draft!!.queuedPacks.isEmpty())
+        assertEquals(0, heldA.draft!!.packsBehind)
+        assertEquals(1, heldA.members.first { it.account == f.a.account }.packsWaiting)
         assertEquals(2, hints(f.a))
-        f.pick(f.a, pod) // A opens round two behind the pack already waiting; no extra hint
+        f.pick(f.a, pod) // A opens round two: the held pack first, then A's own; the release notifies A
         assertEquals(roundTwo, f.get(f.a, pod).draft!!.head!!.id)
         assertEquals(1, f.get(f.a, pod).draft!!.packsBehind)
-        assertEquals(2, hints(f.a))
+        assertEquals(3, hints(f.a))
         f.finish(pod, listOf(f.a, f.b))
         assertEquals(6, f.get(f.a, pod).draft!!.pool.size); assertEquals(6, f.get(f.b, pod).draft!!.pool.size)
         assertEquals(2, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
+    }
+
+    private fun autoStart(f: Fixture, pod: String, enabled: Boolean, status: Int = 200, who: SessionCreated = f.a) =
+        f.send(who, "POST", "/v1/pods/$pod/auto-start", SetPodAutoStart(id(), enabled), status)
+    private fun invite(f: Fixture, pod: String, who: SessionCreated) =
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), who.account.accountId))
+    private fun respond(f: Fixture, pod: String, who: SessionCreated, accept: Boolean) =
+        f.send(who, "POST", "/v1/pods/$pod/${if (accept) "accept" else "decline"}", PodRequest(id()))
+
+    @Test fun `auto start arms only with pending invitations and can be cancelled`() = fixture { f ->
+        val pod = f.create().id
+        assertEquals("no_pending_invitations", json.decodeFromString<PodError>(autoStart(f, pod, true, 409)).code)
+        invite(f, pod, f.b)
+        autoStart(f, pod, true, 403, f.b)
+        val armed = json.decodeFromString<PodDetail>(autoStart(f, pod, true))
+        assertTrue(armed.autoStart); assertNull(armed.autoStartOff)
+        assertEquals(PodPhase.SETUP, armed.phase)
+        val cancelled = json.decodeFromString<PodDetail>(autoStart(f, pod, false))
+        assertFalse(cancelled.autoStart)
+        respond(f, pod, f.b, true)
+        assertEquals(PodPhase.SETUP, f.get(f.a, pod).phase) // cancelled: accepting does not start
+        assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
+    }
+
+    @Test fun `armed pod starts when the last invitation is accepted and settings edits keep it armed`() = fixture { f ->
+        val pod = f.create().id
+        invite(f, pod, f.b); invite(f, pod, f.c)
+        autoStart(f, pod, true)
+        f.configure(pod, DraftSettings(packsPerPlayer = 2, cardsPerPack = 15, colorBalance = false))
+        assertTrue(f.get(f.a, pod).autoStart)
+        respond(f, pod, f.b, true)
+        val waiting = f.get(f.b, pod)
+        assertEquals(PodPhase.SETUP, waiting.phase); assertTrue(waiting.autoStart) // members see it armed
+        assertNull(waiting.autoStartOff)
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod))
+        val started = json.decodeFromString<PodDetail>(respond(f, pod, f.c, true))
+        assertEquals(PodPhase.DRAFTING, started.phase)
+        assertNotNull(started.draft!!.head)
+        assertFalse(started.autoStart)
+        assertEquals(3, started.members.size); assertTrue(started.pendingInvitations.isEmpty())
+        for (who in listOf(f.a, f.b, f.c)) assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
+    }
+
+    @Test fun `a decline switches auto start off and tells the creator`() = fixture { f ->
+        val pod = f.create().id
+        invite(f, pod, f.b); invite(f, pod, f.c)
+        autoStart(f, pod, true)
+        respond(f, pod, f.b, false)
+        val creator = f.get(f.a, pod)
+        assertEquals(PodPhase.SETUP, creator.phase); assertFalse(creator.autoStart)
+        assertEquals(PodAutoStartOff("declined", f.b.account), creator.autoStartOff)
+        assertEquals(1, f.count(ActivityKind.POD_AUTO_START_OFF, pod, f.a))
+        assertTrue(f.activity(f.a).entries.any { it.kind == ActivityKind.POD_AUTO_START_OFF && it.authorId == f.b.account.accountId })
+        respond(f, pod, f.c, true)
+        val joined = f.get(f.c, pod)
+        assertEquals(PodPhase.SETUP, joined.phase)
+        assertNull(joined.autoStartOff) // creator-only notice
+        // Arming again clears the notice; with nobody pending it cannot be armed.
+        invite(f, pod, f.b)
+        assertNull(json.decodeFromString<PodDetail>(autoStart(f, pod, true)).autoStartOff)
+        assertTrue(f.activity(f.a).entries.none { it.kind == ActivityKind.POD_AUTO_START_OFF })
+        respond(f, pod, f.b, true)
+        assertEquals(PodPhase.SETUP, f.get(f.a, pod).phase) // 3 x 45 cards exceed the 90-card cube
+    }
+
+    @Test fun `an armed pod that cannot start at the last acceptance stays in setup and tells the creator why`() = fixture { f ->
+        val pod = f.create().id
+        invite(f, pod, f.b); invite(f, pod, f.c)
+        autoStart(f, pod, true)
+        respond(f, pod, f.b, true)
+        val last = json.decodeFromString<PodDetail>(respond(f, pod, f.c, true))
+        assertEquals(PodPhase.SETUP, last.phase); assertFalse(last.autoStart)
+        assertNull(last.autoStartOff)
+        val creator = f.get(f.a, pod)
+        assertEquals(PodAutoStartOff("insufficient_supply"), creator.autoStartOff)
+        assertEquals(3, creator.members.size)
+        assertEquals(1, f.count(ActivityKind.POD_AUTO_START_OFF, pod, f.a))
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod))
+        // An ordinary start after fixing the settings clears the notice.
+        f.configure(pod, DraftSettings(packsPerPlayer = 2, colorBalance = false))
+        val started = f.start(pod)
+        assertEquals(PodPhase.DRAFTING, started.phase); assertNull(started.autoStartOff)
+    }
+
+    @Test fun `start now with pending invitations lapses them`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod); invite(f, pod, f.c)
+        autoStart(f, pod, true)
+        val started = f.start(pod)
+        assertEquals(PodPhase.DRAFTING, started.phase); assertFalse(started.autoStart)
+        assertTrue(started.pendingInvitations.isEmpty()); assertEquals(2, started.members.size)
+        assertTrue(f.list(f.c).invitations.isEmpty())
+        f.send(f.c, "POST", "/v1/pods/$pod/accept", PodRequest(id()), 409)
+        assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
     }
 
     @Test fun `setup authorization supply snapshots invitation lifecycle and limits`() = fixture { f ->

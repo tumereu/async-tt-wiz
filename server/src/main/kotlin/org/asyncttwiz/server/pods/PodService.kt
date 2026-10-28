@@ -200,43 +200,72 @@ class PodService(private val runtime: ServiceRuntime) {
             if (accept && members(sql, row.id!!).size >= 8) return@mutate error(409, "pod_full")
             sql.update(INVITE).set(INVITE.STATE, if (accept) "ACCEPTED" else "DECLINED")
                 .where(INVITE.POD_ID.eq(row.id)).and(INVITE.ACCOUNT_ID.eq(owner)).execute()
-            if (accept) sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
+            if (accept) {
+                sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
+                // The last acceptance starts an armed pod exactly as the creator's Start would.
+                if (row.autoStart == true && pending(sql, row.id!!).isEmpty())
+                    begin(sql, row)?.let { failure -> autoStartOff(sql, row, code(failure)) }
+            } else if (row.autoStart == true) autoStartOff(sql, row, "declined", owner)
             save(sql, row)
             if (accept) detail(sql, row, owner) else acknowledged(row)
         }
+
+    fun autoStart(principal: AccountService.Principal, id: String, input: SetPodAutoStart): Result =
+        mutate(principal, id, input.requestId, "setPodAutoStart", json.encodeToJsonElement(input)) { sql, owner, row ->
+            creator(row, owner)?.let { return@mutate it }
+            if (row.phase != "SETUP") return@mutate error(409, "not_setup")
+            if (input.enabled && pending(sql, row.id!!).isEmpty()) return@mutate error(409, "no_pending_invitations")
+            row.autoStart = input.enabled; row.autoStartOffReason = null; row.autoStartOffAccount = null
+            save(sql, row); detail(sql, row, owner)
+        }
+
+    private fun code(failure: Result) = json.decodeFromString<PodError>(failure.body).code
+
+    /** Switches auto-start off and tells the creator why; [author] is the member who declined, if any. */
+    private fun autoStartOff(sql: DSLContext, row: PodRecord, reason: String, author: UUID? = null) {
+        row.autoStart = false; row.autoStartOffReason = reason; row.autoStartOffAccount = author
+        ActivityService.record(sql, row.creatorId!!, ActivityKind.POD_AUTO_START_OFF, row.id!!, UUID.randomUUID(), author)
+    }
 
     fun start(principal: AccountService.Principal, id: String, input: PodRequest): Result =
         mutate(principal, id, input.requestId, "startPod", json.encodeToJsonElement(input)) { sql, owner, row ->
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
-            val players = members(sql, row.id!!).map { it.accountId.toString() }
-            if (players.size < 2) return@mutate error(409, "not_enough_members")
-            val settings = settings(row); val cube = source(row)
-            if (settings.validate(players.size).isNotEmpty()) return@mutate error(400, "invalid_settings")
-            validateLibrarian(settings)?.let { return@mutate it }
-            if (!supply(row, players.size).sufficient) return@mutate error(409, "insufficient_supply")
-            val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
-            row.draftAttemptId = UUID.randomUUID()
-            sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
-            val set = setSource(row)
-            if (settings.mode == DraftMode.GRID) {
-                val next = if (set == null) GridEngine.start(players, cube, settings, seed) else {
-                    // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
-                    val needed = settings.supply(players.size, emptyList()).needed.toInt()
-                    val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
-                    val cards = SetBoosters.generate(set, (needed + minPack - 1) / minPack, seed).flatMap { it.cards }.take(needed)
-                    GridEngine.startWithCards(players, cards, settings, seed)
-                }
-                advanceGrid(sql, row, null, next)
-            } else {
-                val digests = librarianDigests(sql, (cube.map { it.definition } + set?.cards.orEmpty().map { it.definition }).toSet())
-                val next = if (set == null) DraftEngine.start(players, cube.map { it.copy(librarian = it.definition in digests) }, settings, seed) else
-                    DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack)
-                        .map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
-                advance(sql, row, null, next)
-            }
+            begin(sql, row)?.let { return@mutate it }
             detail(sql, row, owner)
         }
+
+    /** Starts the draft from setup, or returns why it cannot start. Pending invitations lapse. */
+    private fun begin(sql: DSLContext, row: PodRecord): Result? {
+        val players = members(sql, row.id!!).map { it.accountId.toString() }
+        if (players.size < 2) return error(409, "not_enough_members")
+        val settings = settings(row); val cube = source(row)
+        if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
+        validateLibrarian(settings)?.let { return it }
+        if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
+        row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null
+        val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
+        row.draftAttemptId = UUID.randomUUID()
+        sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
+        val set = setSource(row)
+        if (settings.mode == DraftMode.GRID) {
+            val next = if (set == null) GridEngine.start(players, cube, settings, seed) else {
+                // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
+                val needed = settings.supply(players.size, emptyList()).needed.toInt()
+                val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
+                val cards = SetBoosters.generate(set, (needed + minPack - 1) / minPack, seed).flatMap { it.cards }.take(needed)
+                GridEngine.startWithCards(players, cards, settings, seed)
+            }
+            advanceGrid(sql, row, null, next)
+        } else {
+            val digests = librarianDigests(sql, (cube.map { it.definition } + set?.cards.orEmpty().map { it.definition }).toSet())
+            val next = if (set == null) DraftEngine.start(players, cube.map { it.copy(librarian = it.definition in digests) }, settings, seed) else
+                DraftEngine.startWithPacks(players, SetBoosters.generate(set, settings.packsPerPlayer * players.size, seed, settings.cardsPerPack)
+                    .map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
+            advance(sql, row, null, next)
+        }
+        return null
+    }
 
     fun pick(principal: AccountService.Principal, id: String, input: PickPod): Result =
         mutate(principal, id, input.requestId, "pickPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
@@ -503,6 +532,8 @@ class PodService(private val runtime: ServiceRuntime) {
         row.updatedAt = sql.update(POD).set(POD.NAME, row.name).set(POD.PHASE, row.phase).set(POD.SETTINGS, row.settings)
             .set(POD.SOURCE_NAME, row.sourceName).set(POD.SOURCE_SNAPSHOT, row.sourceSnapshot)
             .set(POD.DRAFT_ATTEMPT_ID, row.draftAttemptId).set(POD.DRAFT_STATE, row.draftState)
+            .set(POD.AUTO_START, row.autoStart).set(POD.AUTO_START_OFF_REASON, row.autoStartOffReason)
+            .set(POD.AUTO_START_OFF_ACCOUNT, row.autoStartOffAccount)
             .set(POD.UPDATED_AT, DSL.currentOffsetDateTime()).where(POD.ID.eq(row.id)).returning(POD.UPDATED_AT).fetchSingle().updatedAt
     }
     private fun creator(row: PodRecord, owner: UUID): Result? = if (row.creatorId != owner) error(403, "creator_only") else null
@@ -579,7 +610,10 @@ class PodService(private val runtime: ServiceRuntime) {
             }, pending(sql, row.id!!).map { identity(sql, it.accountId!!) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) json.decodeFromString<PodDeckBuild>(mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { json.decodeFromString<PodDeckBuild>(it.data()) }, cards,
-            row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck")
+            row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck",
+            row.phase == "SETUP" && row.autoStart == true,
+            row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
+                ?.let { PodAutoStartOff(it, row.autoStartOffAccount?.let { account -> identity(sql, account) }) })
         return Result(status, json.encodeToString(result))
     }
 

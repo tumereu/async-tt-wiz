@@ -60,20 +60,35 @@ class LibrarianDraftTest {
             DraftPick(player, pack.id, pack.cards.take(2).map { it.id }, librarians = listOf(pack.cards.first().id))).reason)
     }
 
-    @Test fun `burns shrink before returned librarians arrive and picked up librarian is spendable`() {
-        var state = start(size = 4, burn = 2, librarians = 2)
-        val a = state.seating.first(); val b = state.seating.last()
+    @Test fun `a final pick spend burns the librarians with the rest of the pack`() {
+        val state = start(size = 4, burn = 2, librarians = 2)
+        val a = state.seating.first()
         val av = DraftEngine.privateView(state, a)
         val pack = av.head!!
         val spent = av.pool.map { it.id }
-        state = DraftEngine.pick(state, DraftPick(a, pack.id, pack.cards.take(3).map { it.id }, librarians = spent)).state!!
-        assertEquals(listOf(pack.cards.last().id), state.log.last().burned)
-        assertEquals(spent, state.packs.first { it.id == pack.id }.cards)
-        // B first acts on their original pack, then picks one of A's returned Librarians.
+        // Keep 3 of 4 leaves one card to burn and nothing for anyone else, so the Librarians do not pass on.
+        val next = DraftEngine.pick(state, DraftPick(a, pack.id, pack.cards.take(3).map { it.id }, librarians = spent)).state!!
+        assertEquals(listOf(pack.cards.last().id) + spent, next.log.last().burned)
+        assertTrue(next.packs.first { it.id == pack.id }.cards.isEmpty())
+        assertTrue(next.pools.values.flatten().none { it in spent })
+    }
+
+    @Test fun `a mid pack spend returns the librarian and the picked up librarian is spendable`() {
+        var state = start(size = 8, burn = 2, librarians = 2)
+        val a = state.seating.first(); val b = state.seating.last()
+        val av = DraftEngine.privateView(state, a)
+        val pack = av.head!!
+        val spent = av.pool.take(1).map { it.id }
+        state = DraftEngine.pick(state, DraftPick(a, pack.id, pack.cards.take(2).map { it.id },
+            pack.cards.drop(2).take(2).map { it.id }, spent)).state!!
+        assertEquals(pack.cards.drop(4).map { it.id } + spent, state.packs.first { it.id == pack.id }.cards)
+        // B first acts on their original pack, then picks A's returned Librarian.
         val bv = DraftEngine.privateView(state, b).head!!
         state = DraftEngine.pick(state, DraftPick(b, bv.id, listOf(bv.cards.first().id), bv.cards.drop(1).take(2).map { it.id })).state!!
         val returned = DraftEngine.privateView(state, b).head!!
-        state = DraftEngine.pick(state, DraftPick(b, returned.id, listOf(spent.first()))).state!!
+        assertEquals(pack.id, returned.id)
+        state = DraftEngine.pick(state, DraftPick(b, returned.id, listOf(spent.first()),
+            returned.cards.filter { it.id != spent.first() }.take(2).map { it.id })).state!!
         assertTrue(DraftEngine.privateView(state, b).pool.any { it.id == spent.first() && it.librarian })
         // A fresh actionable pack plus the actual newly owned pool exercises ownership, not initial allocation.
         val fresh = start()
@@ -84,7 +99,7 @@ class LibrarianDraftTest {
             head.cards.drop(2).take(2).map { it.id }, listOf(spent.first()))).reason)
     }
 
-    @Test fun `automatic awards do not spend and returned librarians survive discard threshold`() {
+    @Test fun `automatic awards do not spend and a spend at the discard threshold burns the librarians`() {
         val automatic = start(size = 1, burn = 0)
         assertTrue(automatic.finished)
         assertTrue(automatic.log.all { it.automatic && it.librarians.isEmpty() })
@@ -93,9 +108,12 @@ class LibrarianDraftTest {
         val player = state.seating.first()
         val view = DraftEngine.privateView(state, player)
         val pack = view.head!!
+        val spent = view.pool.map { it.id }
         val result = DraftEngine.pick(state, DraftPick(player, pack.id, pack.cards.take(3).map { it.id },
-            listOf(pack.cards[3].id), view.pool.map { it.id })).state!!
-        assertEquals(view.pool.map { it.id }, result.packs.first { it.id == pack.id }.cards)
+            listOf(pack.cards[3].id), spent)).state!!
+        assertTrue(result.packs.first { it.id == pack.id }.cards.isEmpty())
         assertEquals(pack.cards.drop(4).map { it.id }, result.log.last().discarded)
+        assertEquals(listOf(pack.cards[3].id) + spent, result.log.last().burned)
+        assertTrue(result.pools.values.flatten().none { it in spent })
     }
 }

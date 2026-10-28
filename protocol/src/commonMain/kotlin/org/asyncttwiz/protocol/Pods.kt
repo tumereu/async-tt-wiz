@@ -41,7 +41,13 @@ import kotlinx.serialization.Serializable
     val updatedAt: String, val grid: PodGridView? = null,
     /** Caller-only; never included in member projections or shared game state. */
     val deckName: String = "$name deck",
+    /** Setup only: the server starts the draft when the last pending invitation is accepted. */
+    val autoStart: Boolean = false,
+    /** Creator-only: why auto-start last switched itself off, until it is armed again or the draft starts. */
+    val autoStartOff: PodAutoStartOff? = null,
 )
+/** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
+@Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
 /** POST /v1/pods: exactly one of cubeId/setSource is required.
  * GET /v1/pods returns PodList, GET /v1/pods/{id} returns PodDetail. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -57,6 +63,9 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.
  * Leave is membership-scoped, even while drafting: it cancels whichever draft is current. */
 @Serializable data class PodRequest(val requestId: String)
+/** POST /v1/pods/{id}/auto-start (creator, setup). Arming needs a pending invitation; settings edits keep it armed.
+ * A decline, or a start failure at the last acceptance, switches it off and notifies the creator. */
+@Serializable data class SetPodAutoStart(val requestId: String, val enabled: Boolean)
 /** POST /v1/pods/{id}/{submit,cancel}. The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
 /** POST /v1/pods/{id}/pick. Counts and ownership are checked by the server engine. */

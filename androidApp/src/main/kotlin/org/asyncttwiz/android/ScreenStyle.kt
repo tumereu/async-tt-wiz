@@ -167,13 +167,29 @@ internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, 
     }
 }
 
+/** The one title row of every regular screen: optional hamburger, title, trailing actions. */
 @Composable
-internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {}) {
+    // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
+    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (navigation != null) IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") }
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+        Text(title, Modifier.weight(1f).then(titleModifier), style = MaterialTheme.typography.titleLarge,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         actions()
+    }
+}
+
+/** A list screen's single create action at the top right ("New game", "New pod", "Import deck", …). */
+@Composable
+internal fun ScreenCreateAction(label: String, icon: String, onClick: () -> Unit, modifier: Modifier = Modifier,
+    enabled: Boolean = true) {
+    FilledTonalButton(onClick, modifier.heightIn(min = 40.dp), enabled, shape = RoundedCornerShape(6.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.primary),
+        contentPadding = PaddingValues(start = 10.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)) {
+        EntryIcon(null, icon); Spacer(Modifier.width(6.dp)); Text(label, maxLines = 1)
     }
 }
 
@@ -216,18 +232,34 @@ private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, place
     }
 }
 
+/**
+ * Regular-screen dialog. [title] gives every dialog the same heading; [close] adds a title-row ✕ (with that
+ * description) only for dialogs without a cancel button. [actions] stay pinned below the scrolling content,
+ * right aligned, main action last: use [DialogCancelButton] and [DialogMainButton].
+ */
 @Composable
 internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
-    error: String? = null, dismissError: () -> Unit = {},
-    content: @Composable ColumnScope.() -> Unit) {
+    error: String? = null, dismissError: () -> Unit = {}, title: String? = null, close: String? = null,
+    actions: (@Composable RowScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit = {}) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
         ScreenTheme {
             Surface(modifier.padding(16.dp).widthIn(max = 380.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 border = BorderStroke(1.dp, ScreenBorder)) {
                 Box {
-                    Column(Modifier.imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+                    Column(Modifier.imePadding()) {
+                        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+                            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = if (actions == null) 16.dp else 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (title != null) Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                if (close != null) ScreenIconButton(close, "close", dismiss)
+                            }
+                            content()
+                        }
+                        if (actions != null) DialogActionsRow(Modifier.padding(16.dp), actions)
+                    }
                     Box(Modifier.matchParentSize(), contentAlignment = Alignment.BottomCenter) {
                         FloatingBusyPill(busyMessage)
                         FloatingTransientError(error, dismissError)
@@ -236,6 +268,27 @@ internal fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, bu
             }
         }
     }
+}
+
+/** One bottom row of dialog actions, right aligned; the main action goes last. */
+@Composable
+internal fun DialogActionsRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically, content = content)
+}
+
+/** Dialog dismiss action: outlined, left of the main action. */
+@Composable
+internal fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    ScreenOutlinedButton(onClick, modifier, enabled) { Text(label) }
+}
+
+/** Dialog main action: filled, rightmost; red when it destroys or removes something. */
+@Composable
+internal fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    danger: Boolean = false) {
+    ScreenButton(onClick, modifier, enabled, colors = if (danger) ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { Text(label) }
 }
 
 internal fun screenIcon(kind: String): ImageVector = when (kind) {
@@ -255,6 +308,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "person" -> Icons.Outlined.PersonAddAlt
     "key" -> Icons.Outlined.Key
     "edit" -> Icons.Outlined.Edit
+    "rename" -> Icons.Outlined.DriveFileRenameOutline
     "prepare" -> Icons.Outlined.Tune
     "ready" -> Icons.Outlined.Check
     "pending" -> Icons.Outlined.HourglassEmpty

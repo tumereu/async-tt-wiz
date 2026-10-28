@@ -95,25 +95,19 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         val deleting = state.dialog == DeckDialog.DELETE
         ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) {
             if (deleting) "Deleting deck…" else "Saving deck name…"
-        } else null, error = state.error, dismissError = controller::dismissError) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (deleting) "Delete saved deck?" else "Rename deck", Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleSmall)
-                        ScreenIconButton("Cancel and close dialog", "close", controller::dismiss)
-                    }
+        } else null, error = state.error, dismissError = controller::dismissError,
+            title = if (deleting) "Delete saved deck?" else "Rename deck", actions = {
+                DialogCancelButton(if (deleting) "Keep deck" else "Cancel", controller::dismiss)
+                DialogMainButton(if (deleting) "Delete saved deck" else "Save name", controller::confirm,
+                    enabled = !state.mutating, danger = deleting)
+            }) {
                     if (deleting) {
-                        Text(state.detail?.saved?.deck?.name.orEmpty(), Modifier.padding(vertical = 12.dp), fontWeight = FontWeight.Bold)
+                        Text(state.detail?.saved?.deck?.name.orEmpty(), fontWeight = FontWeight.Bold)
                         Text("Deletion cannot be undone.")
                     } else {
                         val name = rememberDialogField(state.draftName)
                         OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, label = { Text("Deck name") },
                             modifier = Modifier.fillMaxWidth().dialogField(name), enabled = !state.mutating, singleLine = true)
-                    }
-                    Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text(if (deleting) "Keep deck" else "Cancel") }
-                        ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating,
-                            colors = if (deleting) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                                else ButtonDefaults.buttonColors()) { EntryIcon(null, if (deleting) "delete" else "save"); Spacer(Modifier.width(6.dp)); Text(if (deleting) "Delete saved deck" else "Save name") }
                     }
         }
     }
@@ -126,8 +120,8 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val actions: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating && state.draftCover != null) { EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use cover") }
             ScreenOutlinedButton(onClick = controller::dismiss, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel") }
+            ScreenButton(onClick = controller::confirm, Modifier.weight(1f), enabled = !state.mutating && state.draftCover != null) { EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use cover") }
         }
     }
     ScreenBusyOverlay(if (state.mutating) "Saving cover…" else null) {

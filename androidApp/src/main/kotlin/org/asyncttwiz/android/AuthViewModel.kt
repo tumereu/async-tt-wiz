@@ -105,9 +105,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             main.post { if (token != null && token == controller.sessionToken()) hints.forEach(pods::hint) }
         }
         deckImport.connectSave(saveApi, controller::sessionToken, saved = {
-            lobby.importedForPicker()
-            controller.navigate(ShellDestination.DECKS)
-            decks.open(it.deck.id)
+            // An import started from a lobby's Choose deck returns there with the new deck highlighted.
+            if (!lobby.importedForPicker(it.deck)) {
+                controller.navigate(ShellDestination.DECKS)
+                decks.open(it.deck.id)
+            }
         })
     }
     private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); cubes.clear(); pods.clear(); lobby.clear() }

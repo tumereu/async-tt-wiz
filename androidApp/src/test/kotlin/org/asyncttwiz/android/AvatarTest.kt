@@ -72,10 +72,10 @@ class AvatarTest {
         compose.onNodeWithContentDescription("Reroll avatars").assertIsNotEnabled()
         compose.onNodeWithText("Skip").assertDoesNotExist()
         compose.onNodeWithText("Username").assertIsDisplayed().performTextReplacement("Unsaved")
-        compose.onNodeWithContentDescription("Save profile").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Cancel profile").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Save").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed().performClick()
         assertEquals(ScreenFixtures.alex.username, fixture.auth.state.account!!.username)
-        compose.onNodeWithContentDescription("Save profile").assertDoesNotExist()
+        compose.onNodeWithText("Save").assertDoesNotExist()
     }
 
     @Test fun waitingChooserBecomesAvailableInPlaceWhenCatalogIsInstalled() {

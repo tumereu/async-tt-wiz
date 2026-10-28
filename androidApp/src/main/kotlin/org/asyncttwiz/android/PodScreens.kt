@@ -61,7 +61,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         Column(Modifier.fillMaxSize()) {
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
-                    ScreenIconButton("New pod", "add", { controller.newPod() })
+                    ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
                 } else {
                     state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase) }
                 }
@@ -93,20 +93,29 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
     }
     if (controller.setPicker.state.open) PodSourcePickerDialog(controller, manageCubes)
-    if (state.confirmation != null && state.detail != null) ScreenDialog(controller::dismissConfirmation) {
+    if (state.confirmation != null && state.detail != null) {
         val action = state.confirmation
-        Text(when (action) {
+        ScreenDialog(controller::dismissConfirmation, title = when (action) {
             PodConfirmation.DESTROY -> "Destroy pod"
             PodConfirmation.LEAVE -> "Leave pod"
             PodConfirmation.CANCEL -> "Cancel draft"
             PodConfirmation.SUBMIT -> "Submit deck"
-        }, style = MaterialTheme.typography.titleLarge)
-        Text(podConfirmationText(action, state.detail))
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(controller::dismissConfirmation, enabled = !state.uncertain && state.pending == 0) { Text("Back") }
-            ScreenButton(if (state.uncertain) controller::retry else controller::confirm,
-                enabled = !state.loading && (state.pending == 0 || state.uncertain)) { Text(if (state.uncertain) "Retry" else "Confirm") }
+        }, actions = {
+            DialogCancelButton(when (action) {
+                PodConfirmation.DESTROY, PodConfirmation.LEAVE -> "Keep pod"
+                PodConfirmation.CANCEL -> "Keep draft"
+                PodConfirmation.SUBMIT -> "Cancel"
+            }, controller::dismissConfirmation, enabled = !state.uncertain && state.pending == 0)
+            DialogMainButton(if (state.uncertain) "Retry" else when (action) {
+                PodConfirmation.DESTROY -> "Destroy"
+                PodConfirmation.LEAVE -> "Leave"
+                PodConfirmation.CANCEL -> "Cancel draft"
+                PodConfirmation.SUBMIT -> "Submit"
+            }, if (state.uncertain) controller::retry else controller::confirm,
+                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT)
+        }) {
+            Text(podConfirmationText(action, state.detail))
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
 }

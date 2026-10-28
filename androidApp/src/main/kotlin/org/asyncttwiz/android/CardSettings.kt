@@ -80,15 +80,13 @@ internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingP
     dismiss: () -> Unit, save: (Float) -> Unit) {
     val input = rememberDialogField(value.toString())
     val parsed = input.text.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)
-    ScreenDialog(dismiss) {
-        Text(label, style = MaterialTheme.typography.titleMedium)
+    ScreenDialog(dismiss, title = label, actions = {
+        DialogCancelButton("Cancel", dismiss)
+        DialogMainButton("Save", { parsed?.let(save) }, Modifier.testTag("card-scale-save"), enabled = parsed != null)
+    }) {
         Text("Scale (${range.start}–${range.endInclusive}×)")
         ScreenTextField(input.value, { input.value = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input").dialogField(input),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
         if (parsed == null) Text("Enter a finite number", color = MaterialTheme.colorScheme.error)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(dismiss) { Text("Cancel") }
-            TextButton({ parsed?.let(save) }, enabled = parsed != null, modifier = Modifier.testTag("card-scale-save")) { Text("Save") }
-        }
     }
 }

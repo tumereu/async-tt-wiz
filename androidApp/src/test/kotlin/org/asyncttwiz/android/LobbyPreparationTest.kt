@@ -169,6 +169,39 @@ class LobbyPreparationTest {
         assertFalse(f.lobby.importedForPicker()); assertTrue(f.wire.frames.filterIsInstance<GameCommand>().isEmpty())
     }
 
+    @Test fun deckSavedFromPickerImportComesBackHighlightedButNotConfirmed() = Fixture().use { f ->
+        f.lobby.chooseDeck(); f.drain(); f.lobby.highlightDeck(alternate.deck); f.lobby.importForPicker()
+        val imported = source.copy(deck = source.deck.copy(id = id(), name = "Imported"))
+        f.decks = listOf(source, alternate, imported)
+        assertTrue(f.lobby.importedForPicker(imported.deck))
+        assertEquals(imported.deck, f.lobby.state.picker!!.draft); assertFalse(f.lobby.state.picker!!.importing)
+        f.drain()
+        assertEquals(imported.deck, f.lobby.state.picker!!.draft)
+        assertEquals(1, f.lobby.state.picker!!.decks.count { it.id == imported.deck.id })
+        assertTrue(f.wire.frames.filterIsInstance<GameCommand>().isEmpty())
+        // Saves that did not start in the picker report false: the caller opens the Saved deck page.
+        assertFalse(f.lobby.importedForPicker(imported.deck))
+        f.lobby.closePicker(); assertFalse(f.lobby.importedForPicker(imported.deck))
+    }
+
+    @Test fun chooseDeckWorksWhileReconnectingAndTheSelectionIsSentOnceConnected() {
+        for (leave in listOf(false, true)) Fixture().use { f ->
+            f.wire.listener.disconnected(false); f.drain()
+            assertFalse(game.id in f.lobby.state.connectedGames)
+            f.lobby.chooseDeck(); f.drain()
+            assertEquals(listOf(source.deck, alternate.deck), f.lobby.state.picker!!.decks)
+            f.lobby.highlightDeck(source.deck); f.lobby.confirmDeck(); f.drain(); f.lobby.confirmDeck(); f.drain()
+            assertTrue(f.lobby.state.picker!!.confirming); assertNull(f.lobby.state.picker!!.error)
+            assertEquals(setOf(game.id), f.lobby.state.queuedGames)
+            if (leave) f.lobby.closePicker()
+            f.lobby.sync(); f.drain(); f.ready(generation = "2")
+            val commands = f.wire.frames.filterIsInstance<GameCommand>()
+            if (leave) assertTrue(commands.isEmpty())
+            else assertEquals(GameAction.SelectDeck(source.deck.id, source.deck.revision), commands.single().action)
+            assertNull(f.lobby.state.picker); assertTrue(f.lobby.state.queuedGames.isEmpty())
+        }
+    }
+
     @Test fun sameAccountReauthKeepsPickerAndUncertainOriginalButLogoutAndAccountSwitchFenceBoth() {
         for (switch in listOf(false, true)) Fixture().use { f ->
             f.lobby.chooseDeck(); f.drain(); f.lobby.highlightDeck(source.deck)

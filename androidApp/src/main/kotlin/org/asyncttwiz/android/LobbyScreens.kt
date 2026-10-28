@@ -73,13 +73,12 @@ internal fun ContactsContent(controller: LobbyController) {
         }
         FloatingTransientError(state.error, controller::dismissSessionError, Modifier.align(Alignment.BottomCenter))
     }
-    state.removingContact?.let { contact -> ScreenDialog(controller::dismissRemoveContact) {
-        Text("Remove ${contact.username}?", style = MaterialTheme.typography.titleMedium)
+    state.removingContact?.let { contact -> ScreenDialog(controller::dismissRemoveContact, title = "Remove ${contact.username}?",
+        actions = {
+            DialogCancelButton("Cancel", controller::dismissRemoveContact)
+            DialogMainButton("Remove", controller::removeContact, danger = true)
+        }) {
         Text("Existing games and invitations will not change.")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(controller::dismissRemoveContact, Modifier.weight(1f)) { Text("Cancel") }
-            ScreenButton(controller::removeContact, Modifier.weight(1f)) { Text("Remove") }
-        }
     } }
     GameNameDialog(controller)
 }
@@ -87,6 +86,7 @@ internal fun ContactsContent(controller: LobbyController) {
 private fun lobbyBusyMessage(state: LobbyState, loading: String): String? = when {
     state.searching -> "Searching players…"
     state.mutating -> if (state.draft != null) "Creating game…" else "Saving changes…"
+    state.selected != null && state.selected in state.queuedGames && state.selected !in state.connectedGames -> "Connecting…"
     state.pendingGames.isNotEmpty() -> "Checking game outcome…"
     state.busy && !state.backgroundLoading && !state.loaded -> loading
     else -> null
@@ -144,30 +144,18 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
 @Composable
 internal fun GameDeletionDialogs(controller: LobbyController) {
     controller.state.gameContext?.let { game ->
-        ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(game.gameName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                ScreenIconButton("Close game actions", "close", controller::dismissGameContext)
-            }
-            TextButton(onClick = { controller.requestGameDeletion(game) }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                EntryIcon(null, "delete"); Spacer(Modifier.width(8.dp)); Text("Delete game")
-            }
-        }
+        // A context menu without a cancel button keeps its ✕; its one action sits at the right.
+        ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
+            close = "Close game actions", actions = {
+                DialogMainButton("Delete game", { controller.requestGameDeletion(game) }, danger = true)
+            })
     }
     controller.state.deletion?.let { capture ->
-        ScreenDialog(controller::dismissGameDeletion) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(capture.title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                ScreenIconButton("Keep game", "close", controller::dismissGameDeletion)
-            }
+        ScreenDialog(controller::dismissGameDeletion, title = capture.title, actions = {
+            DialogCancelButton("Keep game", controller::dismissGameDeletion)
+            DialogMainButton("Delete game", { controller.confirmGameDeletion() }, danger = true)
+        }) {
             Text(capture.warning)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ScreenOutlinedButton(onClick = controller::dismissGameDeletion, Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Keep game") }
-                ScreenOutlinedButton(onClick = { controller.confirmGameDeletion() }, Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    EntryIcon(null, "delete"); Spacer(Modifier.width(6.dp)); Text("Delete game")
-                }
-            }
         }
     }
 }
@@ -210,9 +198,9 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
                         PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                             if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck, enabled = game.lifecycle == GameLifecycle.LOBBY &&
-                                game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
-                                 modifier = Modifier.weight(1f)) {
+                             // Lobby actions stay enabled while the connection (re)opens; taps run once it is ready.
+                             if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck,
+                                enabled = game.lifecycle == GameLifecycle.LOBBY, modifier = Modifier.weight(1f)) {
                                 EntryIcon(null, "decks"); Spacer(Modifier.width(8.dp))
                                 Text(if (ownPlayer?.deck == null) "Choose deck" else "Change deck")
                             }
@@ -231,14 +219,14 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                              Text(gameStatus(game), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                          }
                         if (game.inviter.accountId == accountId && game.invitationState == InvitationState.DECLINED)
-                            ScreenOutlinedButton(onClick = { controller.reinvite(game) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames) {
+                            ScreenOutlinedButton(onClick = { controller.reinvite(game) }) {
                                 EntryIcon(null, "send"); Spacer(Modifier.width(8.dp)); Text("Reinvite")
                             }
                     } }
                 }
                 val starter: @Composable () -> Unit = {
                  StartingPlayerControl(game, state.preparation?.startingChoice ?: StarterChoice(),
-                     enabled = game.id in state.connectedGames && game.id !in state.pendingGames && state.preparation != null,
+                     enabled = state.preparation != null,
                      choose = controller::starter)
                 }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -253,17 +241,14 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                 if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
             }
-            val enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
-                own != null && (own.ready || reason == null)
+            val enabled = own != null && (own.ready || reason == null)
             val readyContent: @Composable RowScope.() -> Unit = {
                 EntryIcon(null, if (own?.ready == true) "withdraw" else "ready"); Spacer(Modifier.width(8.dp))
                 Text(if (own?.ready == true) "Withdraw Ready" else "Ready")
             }
             if (own?.ready == true) ScreenOutlinedButton(onClick = controller::withdrawReady, enabled = enabled,
                 modifier = Modifier.fillMaxWidth(), content = readyContent)
-            else ScreenButton(onClick = controller::ready,
-                enabled = state.detail?.id in state.connectedGames && state.detail?.id !in state.pendingGames &&
-                    own != null && (own.ready || reason == null), modifier = Modifier.fillMaxWidth(), content = readyContent)
+            else ScreenButton(onClick = controller::ready, enabled = enabled, modifier = Modifier.fillMaxWidth(), content = readyContent)
         }
         }
         }
@@ -319,43 +304,25 @@ internal fun Modifier.gameRowActions(controller: LobbyController, game: GameSumm
 internal fun SetupCancellationDialogs(controller: LobbyController) {
     val cancellation = controller.setupCancellation
     cancellation.context?.let { game ->
-        SetupCancellationDialog(cancellation::dismissContext) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(game.gameName, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                ScreenIconButton("Close game actions", "close", cancellation::dismissContext)
-            }
-            TextButton(onClick = { controller.requestCancelSetup(game) }) {
-                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Cancel game")
-            }
-        }
+        ScreenDialog(cancellation::dismissContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
+            close = "Close game actions", actions = {
+                DialogMainButton("Cancel game", { controller.requestCancelSetup(game) }, danger = true)
+            })
     }
     cancellation.confirmation?.let { game ->
         val connected = game.id in controller.state.connectedGames
         val pending = game.id in controller.state.pendingGames
         ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null,
-            error = cancellation.error, dismissError = cancellation::clearError) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Cancel ${game.gameName}?", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                ScreenIconButton("Close cancellation", "close", cancellation::dismiss)
-            }
+            error = cancellation.error, dismissError = cancellation::clearError, title = "Cancel ${game.gameName}?", actions = {
+                DialogCancelButton("Keep game", cancellation::dismiss)
+                DialogMainButton("Cancel game", controller::confirmCancelSetup, enabled = connected && !pending, danger = true)
+            }) {
             Text("Removes this unstarted game and its pending invitation.")
             Box(Modifier.fillMaxWidth().height(36.dp)) {
                 if (!connected) Text("Disconnected. Reconnect to check the game.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ScreenOutlinedButton(onClick = cancellation::dismiss, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Keep game") }
-                ScreenOutlinedButton(onClick = controller::confirmCancelSetup, enabled = connected && !pending,
-                    modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    EntryIcon(null, "cancel"); Spacer(Modifier.width(6.dp)); Text("Cancel game")
-                }
-            }
         }
     }
-}
-
-@Composable
-private fun SetupCancellationDialog(dismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    ScreenDialog(dismiss, content = content)
 }
 
 @Composable
@@ -398,7 +365,8 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
 @OptIn(ExperimentalMaterial3Api::class)
 private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit)?, hamburger: (() -> Unit)?) {
     val picker = controller.state.picker ?: return
-    ScreenBusyOverlay(if (picker.confirming) "Loading deck…" else null) {
+    val connecting = picker.game.id in controller.state.queuedGames && picker.game.id !in controller.state.connectedGames
+    ScreenBusyOverlay(if (picker.confirming) (if (connecting) "Connecting…" else "Loading deck…") else null) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Choose deck", hamburger)
         InitialLoadArea(picker.loaded || picker.decks.isNotEmpty(), Modifier.weight(1f).fillMaxWidth(), picker.error != null, controller::refreshPicker, loading = picker.loading) {
@@ -433,8 +401,8 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
             ScreenOutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
             }
-            ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming &&
-                picker.game.id in controller.state.connectedGames && picker.game.id !in controller.state.pendingGames, modifier = Modifier.weight(1f)) {
+            ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming,
+                modifier = Modifier.weight(1f)) {
                 EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use selected deck")
             }
         }
@@ -451,11 +419,10 @@ private fun GameNameDialog(controller: LobbyController) {
     LaunchedEffect(draft.name) { if (value.text != draft.name) value = TextFieldValue(draft.name, TextRange(0, draft.name.length)) }
     val focus = rememberOpenFocus(draft.recipient.accountId)
     ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null,
-        error = state.error, dismissError = controller::dismissSessionError) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("New game", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    ScreenIconButton("Cancel game creation", "close", controller::dismiss, enabled = !state.mutating)
-                }
+        error = state.error, dismissError = controller::dismissSessionError, title = "New game", actions = {
+            DialogCancelButton("Cancel", controller::dismiss, enabled = !state.mutating)
+            DialogMainButton("Create", controller::create, enabled = !state.mutating)
+        }) {
                 Text("Invite ${draft.recipient.username}")
                     OutlinedTextField(value, { next -> value = next; controller.name(next.text) },
                          Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Game name" }
@@ -479,11 +446,5 @@ private fun GameNameDialog(controller: LobbyController) {
                          trailingIcon = { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } })
                  // Rare retry state; errors themselves float, so no permanently reserved gap.
                  if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ScreenOutlinedButton(onClick = controller::dismiss, enabled = !state.mutating, modifier = Modifier.weight(1f)) { EntryIcon(null, "close"); Spacer(Modifier.width(6.dp)); Text("Cancel") }
-                    ScreenButton(onClick = controller::create, enabled = !state.mutating, modifier = Modifier.weight(1f)) {
-                         EntryIcon(null, "send"); Spacer(Modifier.width(4.dp)); Text("Create", maxLines = 1)
-                    }
-                }
     }
 }

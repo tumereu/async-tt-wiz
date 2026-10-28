@@ -1,0 +1,1 @@
+mod: Screen titles look the same and stay in the same place on every screen.

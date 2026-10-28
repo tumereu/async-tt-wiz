@@ -222,19 +222,19 @@ fun PodBuildView(
             }
         }
     }
-    if (confirmSubmit && submitEnabled) AlertDialog(
-        onDismissRequest = { confirmSubmit = false },
-        title = { Text("Submit deck?") },
-        confirmButton = { Button(onClick = { confirmSubmit = false; onSubmit() }) { Text("Submit") } },
-        dismissButton = { OutlinedButton(onClick = { confirmSubmit = false }) { Text("Cancel") } },
-    )
+    if (confirmSubmit && submitEnabled) ScreenDialog({ confirmSubmit = false }, title = "Submit deck?", actions = {
+        DialogCancelButton("Cancel", { confirmSubmit = false })
+        DialogMainButton("Submit", { confirmSubmit = false; onSubmit() })
+    })
     if (naming) {
         val name = rememberDialogField(deckName)
-        AlertDialog(onDismissRequest = { naming = false }, title = { Text("Deck name") },
-            text = { OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.dialogField(name),
-                singleLine = true, label = { Text("Name") }) },
-            confirmButton = { FilledIconButton({ onRename(name.text.trim()); naming = false }, enabled = name.text.isNotBlank()) { EntryIcon("Save name", "ready") } },
-            dismissButton = { OutlinedIconButton({ naming = false }) { EntryIcon("Cancel", "close") } })
+        ScreenDialog({ naming = false }, title = "Deck name", actions = {
+            DialogCancelButton("Cancel", { naming = false })
+            DialogMainButton("Save name", { onRename(name.text.trim()); naming = false }, enabled = name.text.isNotBlank())
+        }) {
+            OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
+                singleLine = true, label = { Text("Name") })
+        }
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
@@ -290,8 +290,8 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
             }
         }
     }
-    if (open && editable) AlertDialog(onDismissRequest = { open = false }, title = { Text("Basic lands") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+    if (open && editable) ScreenDialog({ open = false }, title = "Basic lands",
+        actions = { DialogMainButton("Done", { open = false }) }) {
             listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
                 val count = basics.podBuildValues()[index]
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -301,7 +301,7 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
                     OutlinedIconButton({ onAdjust(index, 1) }, enabled = count < Int.MAX_VALUE) { Text("+", Modifier.semantics { contentDescription = "Add $name" }) }
                 }
             }
-        } }, confirmButton = { FilledIconButton({ open = false }) { EntryIcon("Done", "ready") } })
+    }
 }
 
 @Composable

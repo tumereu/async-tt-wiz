@@ -105,6 +105,27 @@ class LobbyDeckScreensTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    @Test fun listScreensShareOneTitleRowWithTheCreateActionAtTheTopRight() {
+        val fixture = ScreenFixtures()
+        fixture.lobby.seed(LobbyState(loaded = true))
+        var destination by mutableStateOf(ShellDestination.GAMES)
+        compose.setContent { ScreenTheme { ShellContent(destination, true, {}, {}, null, fixture.importer, fixture.library, fixture.lobby, "a") } }
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        val title = compose.onNodeWithTag("destination-title").fetchSemanticsNode().boundsInRoot
+        fun assertTopRight(action: SemanticsNodeInteraction) {
+            val bounds = action.fetchSemanticsNode().boundsInRoot
+            assertTrue(root.right - bounds.right <= 16f, "Create action belongs at the right edge")
+            assertTrue(bounds.top < title.bottom && bounds.bottom > title.top, "Create action shares the title row")
+        }
+        assertTopRight(compose.onNode(hasText("New game") and hasClickAction()))
+        compose.runOnIdle { destination = ShellDestination.DECKS }
+        assertEquals(title.topLeft, compose.onNodeWithTag("destination-title").fetchSemanticsNode().boundsInRoot.topLeft)
+        assertTopRight(compose.onNodeWithTag("import-deck").assertTextContains("Import deck"))
+        compose.runOnIdle { destination = ShellDestination.SETTINGS }
+        assertEquals(title.topLeft, compose.onNodeWithTag("destination-title").fetchSemanticsNode().boundsInRoot.topLeft)
+        compose.onNodeWithTag("import-deck").assertDoesNotExist()
+    }
+
     @Test fun menuWaitsForFirstSnapshotAndRefreshAndMoveBadgeKeepGeometry() {
         val fixture = ScreenFixtures()
         val game = fixture.lobby.state.games.first().copy(attentionHolder = "a")

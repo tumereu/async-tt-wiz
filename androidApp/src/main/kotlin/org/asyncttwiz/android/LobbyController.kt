@@ -27,7 +27,9 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
-    val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null) {
+    val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null,
+    /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */
+    val queuedGames: Set<String> = emptySet()) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
 }
 
@@ -80,7 +82,39 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         tableChanges = { gameId, batch -> if (state.selected == gameId) historyOwner?.liveChanges(batch) }, personalChat = personalChat,
         openedGame = { state.selected }) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
-    fun clear() { historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    /** A lobby tap made while the game connection (re)opens, or while an earlier request is in flight. */
+    private class QueuedLobbyAction(val gameId: String, val kind: String, val run: () -> Unit)
+    private val queuedActions = mutableListOf<QueuedLobbyAction>()
+    private var runningQueued = false
+    private fun canSendNow(gameId: String) = gameId in state.connectedGames && gameId !in state.pendingGames
+    /** Runs [run] now when the game connection is ready, otherwise once it is. A newer tap of the same
+     * control ([kind]) replaces an older waiting one, so nothing is submitted twice. */
+    private fun whenReady(gameId: String, kind: String, run: () -> Unit) {
+        if (closed) return
+        if (canSendNow(gameId) && queuedActions.none { it.gameId == gameId }) { run(); return }
+        queuedActions.removeAll { it.gameId == gameId && it.kind == kind }
+        queuedActions.add(QueuedLobbyAction(gameId, kind, run))
+        queuedChanged()
+        session?.tick()
+    }
+    private fun dropQueued(kind: String? = null) {
+        if (queuedActions.removeAll { kind == null || it.kind == kind }) queuedChanged()
+    }
+    private fun queuedChanged() {
+        val games = queuedActions.map { it.gameId }.toSet()
+        if (games != state.queuedGames) state = state.copy(queuedGames = games)
+    }
+    private fun runQueued() {
+        if (runningQueued) return
+        runningQueued = true
+        try {
+            while (!closed) {
+                val next = queuedActions.firstOrNull { canSendNow(it.gameId) } ?: break
+                queuedActions.remove(next); queuedChanged(); next.run()
+            }
+        } finally { runningQueued = false }
+    }
+    fun clear() { queuedActions.clear(); historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refreshError = null; inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -114,6 +148,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = state.selected?.let(wire::chatLoaded) == true)
+        // Never re-enter the session from its own status callback; run waiting taps right after it.
+        if (queuedActions.any { canSendNow(it.gameId) }) post(::runQueued)
     }
     fun dismissSessionError() { session?.dismissError(); state = state.copy(error = null, searchError = null) }
     private fun accepted(game: GameSummary) {
@@ -183,7 +219,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun reinvite(game: GameSummary) {
         if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return
-        session?.submit(game, GameAction.Reinvite)
+        whenReady(game.id, "reinvite") { session?.submit(game, GameAction.Reinvite) }
     }
     internal fun offersSetupCancellation(game: GameSummary): Boolean {
         val current = session?.summary(game) ?: game
@@ -313,25 +349,34 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private fun readiness(action: GameAction) {
         val game = state.detail ?: return
         val actor = accountId() ?: return
-        if (!closed) session?.readiness(game, actor, action)
+        if (closed) return
+        if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action); return }
+        // Ready/Withdraw toggle one control; the latest waiting tap of each control wins.
+        whenReady(game.id, if (action is GameAction.SetStarter) "starter" else "ready") {
+            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action) }
+        }
     }
+    /** The picker is personal and lists saved decks over HTTP, so it opens without the game connection. */
     fun chooseDeck() {
         val game = state.detail ?: return
-        if (closed || deckApi == null || game.podId != null || state.preparation?.podRules != null || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames ||
-            game.id in state.pendingGames || (game.inviter.accountId != accountId() && game.invitationState != InvitationState.ACCEPTED)) return
+        if (closed || deckApi == null || game.podId != null || state.preparation?.podRules != null || game.lifecycle != GameLifecycle.LOBBY ||
+            (game.inviter.accountId != accountId() && game.invitationState != InvitationState.ACCEPTED)) return
         state = state.copy(picker = DeckPickerState(game))
         refreshPicker()
     }
-    fun closePicker() { pickerVersion++; state = state.copy(picker = null) }
+    fun closePicker() { pickerVersion++; dropQueued("deck"); state = state.copy(picker = null) }
     fun dismissPickerError() { state = state.copy(picker = state.picker?.copy(error = null)) }
     fun highlightDeck(deck: DeckSummary) {
         val picker = state.picker ?: return
         if (!picker.confirming && deck in picker.decks) state = state.copy(picker = picker.copy(draft = deck, error = null))
     }
     fun importForPicker() { state.picker?.takeIf { !it.confirming }?.let { state = state.copy(picker = it.copy(importing = true)) } }
-    fun importedForPicker(): Boolean {
-        if (state.picker?.importing != true) return false
-        state = state.copy(picker = state.picker!!.copy(importing = false)); refreshPicker(); return true
+    /** Back from an import started in the picker; a just-saved [saved] deck comes back highlighted, not confirmed. */
+    fun importedForPicker(saved: DeckSummary? = null): Boolean {
+        val picker = state.picker?.takeIf { it.importing } ?: return false
+        state = state.copy(picker = picker.copy(importing = false, draft = saved ?: picker.draft,
+            decks = if (saved == null) picker.decks else listOf(saved) + picker.decks.filter { it.id != saved.id }))
+        refreshPicker(); return true
     }
     fun refreshPicker() {
         val picker = state.picker ?: return
@@ -363,7 +408,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val api = deckApi ?: return
         val token = credential() ?: return
         val actor = accountId() ?: return
-        if (closed || picker.confirming || picker.loading || picker.game.id !in state.connectedGames || picker.game.id in state.pendingGames) return
+        if (closed || picker.confirming || picker.loading) return
         val generation = epoch; val version = ++pickerVersion
         state = state.copy(picker = picker.copy(confirming = true, error = null))
         worker.execute {
@@ -377,16 +422,26 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                 }
                 saved to definitions
             } }
-            post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let { current ->
-                val data = result.getOrNull()
-                if (data != null && state.detail?.preparationRound == picker.game.preparationRound &&
-                    session?.selectDeck(picker.game, actor, data.first, data.second) == true) closePicker()
-                else state = state.copy(picker = current.copy(confirming = false, error = when ((result.exceptionOrNull() as? DeckFailure)?.code) {
+            fun current() = !closed && generation == epoch && version == pickerVersion && state.picker != null
+            fun failed(failure: Throwable?) = state.picker?.let { current ->
+                state = state.copy(picker = current.copy(confirming = false, error = when ((failure as? DeckFailure)?.code) {
                     "source_changed" -> "This saved deck changed. Refresh and choose it again."
                     "not_found" -> "This saved deck was deleted. Refresh and choose another deck."
                     null -> "This game changed or is disconnected. Reconnect and choose again."
-                    else -> deckError(result.exceptionOrNull() as? Exception ?: DeckFailure("network"))
+                    else -> deckError(failure as? Exception ?: DeckFailure("network"))
                 }))
+            }
+            post { if (current()) {
+                val data = result.getOrNull()
+                // The deck read needs no game connection; only the selection waits for it (still "Loading deck…").
+                if (data == null) failed(result.exceptionOrNull())
+                else whenReady(picker.game.id, "deck") {
+                    if (current()) {
+                        if (state.detail?.preparationRound == picker.game.preparationRound &&
+                            session?.selectDeck(picker.game, actor, data.first, data.second) == true) closePicker()
+                        else failed(null)
+                    }
+                }
             } }
         }
     }
@@ -627,11 +682,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             error = "This notification is no longer current. Showing the current game.")
         else if (target.destination == ActivityDestination.GROUP) state = state.copy(error = null)
     }
-    fun open(id: String) { if (!state.mutating) { resetHistory(); routeVersion++; setupCancellation.clear(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { resetHistory(); routeVersion++; setupCancellation.clear(); dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { resetHistory(); routeVersion++; state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { dropQueued(); resetHistory(); routeVersion++; state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (inForeground && !state.busy && !state.mutating) refresh(background = true) }

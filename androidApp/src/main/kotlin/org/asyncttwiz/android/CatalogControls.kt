@@ -22,9 +22,11 @@ internal fun CatalogProgress.label(): String {
 @Composable
 internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, dismiss: () -> Unit) {
     val initial = state.installed == null
-    ScreenDialog(if (initial) ({}) else dismiss) {
-        Text(if (state.installed == null) "Download card records?" else "Update card records?",
-            style = MaterialTheme.typography.titleLarge)
+    ScreenDialog(if (initial) ({}) else dismiss, title = if (state.installed == null) "Download card records?" else "Update card records?",
+        actions = {
+            DialogCancelButton(if (initial) "Exit" else "Not now", dismiss)
+            DialogMainButton("Download", download)
+        }) {
         Text(if (initial) "The app needs the card catalog to work. Artwork downloads separately, only when needed."
             else "Card records are needed to import decks. Artwork downloads separately, only when needed.")
         Text(if (initial && state.size == null) "Approximate download size: 450 MB (varies by catalog version)." else catalogDownloadEstimate(state))
@@ -32,14 +34,6 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
             else "A metered connection may incur data charges. You’re currently using an unmetered connection.",
             style = MaterialTheme.typography.bodyMedium)
         Text("Indexed records may use up to 4 GB of storage.", style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(dismiss, Modifier.weight(1f)) {
-                EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text(if (initial) "Exit" else "Not now")
-            }
-            ScreenButton(download, Modifier.weight(1f)) {
-                EntryIcon(null, "download"); Spacer(Modifier.width(8.dp)); Text("Download")
-            }
-        }
     }
 }
 
@@ -47,16 +41,14 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
 @Composable
 internal fun CatalogControls(controller: CatalogViewModel) {
     val state = controller.state
-    if (state.fullRefresh != null) ScreenDialog(controller::dismissFullRefresh) {
-        Text("Refresh full catalog?", style = MaterialTheme.typography.titleLarge)
+    if (state.fullRefresh != null) ScreenDialog(controller::dismissFullRefresh, title = "Refresh full catalog?", actions = {
+        DialogCancelButton("Cancel", controller::dismissFullRefresh)
+        DialogMainButton("Refresh full catalog", controller::confirmFullRefresh)
+    }) {
         Text("This re-downloads and replaces all card records. Normal updates download only new and recent sets.")
         Text(state.fullSize?.let { "Download size: ${catalogMb(it)} MB." } ?: "Download size unavailable (up to 4 GB).")
         Text("Allow up to 4 GB for indexed records. Your installed catalog stays available if the refresh fails.")
         if (state.metered) Text("You’re on a metered connection. This download may incur data charges.")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(controller::dismissFullRefresh, Modifier.weight(1f)) { Text("Cancel") }
-            ScreenButton(controller::confirmFullRefresh, Modifier.weight(1f)) { Text("Refresh full catalog") }
-        }
     }
     InitialLoadArea(state.loaded, Modifier.widthIn(max = 540.dp).fillMaxWidth()
         .heightIn(min = if (state.loaded) 0.dp else 160.dp).testTag("catalog-controls")) {

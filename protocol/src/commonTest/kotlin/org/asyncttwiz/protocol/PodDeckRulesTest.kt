@@ -85,6 +85,24 @@ class PodDeckRulesTest {
         assertEquals(build, Json.decodeFromString<PodDeckBuild>(Json.encodeToString(build)))
     }
 
+    @Test fun sideBasicsCountTowardSideLimitAndCapacityButNotMain() {
+        val pool = List(45) { "copy-$it" }
+        val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, if (index < 40) PodDeckCategory.MAIN else PodDeckCategory.SIDE) },
+            sideBasics = PodDeckBasics(island = 10))
+        assertTrue(PodDeckRules.validate(build, pool, 15).isEmpty())
+        assertEquals(listOf(PodDeckIssue.SIDEBOARD_LIMIT), PodDeckRules.validate(build, pool, 14))
+        assertTrue(PodDeckRules.validate(build, pool).isEmpty())
+        assertEquals(listOf(PodDeckIssue.MAIN_TOO_SMALL), PodDeckRules.validate(build.copy(copies = build.copies.map {
+            if (it.copyId == "copy-0") it.copy(category = PodDeckCategory.SIDE) else it }, sideBasics = PodDeckBasics(island = 40)), pool))
+        assertContains(PodDeckRules.validate(build.copy(sideBasics = PodDeckBasics(island = -1)), pool), PodDeckIssue.NEGATIVE_BASICS)
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(build.copy(sideBasics = PodDeckBasics(island = 956)), pool))
+        assertTrue(PodDeckRules.validate(build.copy(sideBasics = PodDeckBasics(island = 955)), pool).isEmpty())
+        assertEquals(PodDeckBasics(17, 17, 17, 17, 17), PodDeckRules.initialBuild(null).sideBasics)
+        assertEquals(PodDeckBuild(), PodDeckRules.initialBuild(15))
+        assertEquals(PodDeckBuild(), DeckJson.format.decodeFromString<PodDeckBuild>("""{"copies":[],"basics":{}}"""))
+        assertEquals(build, DeckJson.format.decodeFromString<PodDeckBuild>(DeckJson.format.encodeToString(build)))
+    }
+
     @Test fun manaValueAndColorsCoverGenericVariableHybridPhyrexianAndColorless() {
         val cases = listOf(
             Triple("", 0.0, emptySet()),

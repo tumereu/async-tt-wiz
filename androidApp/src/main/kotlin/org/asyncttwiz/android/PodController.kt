@@ -329,17 +329,17 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             if (it.copyId == copyId) it.copy(category = category) else it
         }) }, send = { api.move(it, detail.id, input) }))
     }
-    fun basics(basics: PodDeckBasics) {
+    fun basics(basics: PodDeckBasics, side: Boolean = false) {
         val detail = editable() ?: return
         if (!basics.valid) return
-        val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics)
-        enqueue(Write(detail.id, input.draftAttemptId, predict = { it.copy(basics = basics) },
+        val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics, side)
+        enqueue(Write(detail.id, input.draftAttemptId, predict = { if (side) it.copy(sideBasics = basics) else it.copy(basics = basics) },
             send = { api.basics(it, detail.id, input) }))
     }
     /** Relative so taps faster than recomposition each count against the latest predicted build. */
-    fun adjustBasic(index: Int, delta: Int) {
-        val current = state.detail?.build?.basics ?: return
-        basics(current.podBuildAdjust(index, delta))
+    fun adjustBasic(index: Int, delta: Int, side: Boolean = false) {
+        val current = state.detail?.build?.let { if (side) it.sideBasics else it.basics } ?: return
+        basics(current.podBuildAdjust(index, delta), side)
     }
     fun deckName(name: String) {
         val detail = state.detail?.takeIf { it.draftAttemptId != null && it.phase != PodPhase.SETUP } ?: return

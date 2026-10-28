@@ -30,7 +30,8 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 24
         val cardId: String, val cardIndex: String, val source: SavedDeckSection) : GameAction
     @Serializable @SerialName("sendChat") data class SendChat(val text: String) : GameAction
     @Serializable @SerialName("setPodGameBasics") data class SetPodGameBasics(val deckId: String,
-        val basics: PodDeckBasics, val basicDefinitions: List<SubmittedDefinition>) : GameAction
+        val basics: PodDeckBasics, val basicDefinitions: List<SubmittedDefinition>,
+        val section: SavedDeckSection = SavedDeckSection.MAINBOARD) : GameAction
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,

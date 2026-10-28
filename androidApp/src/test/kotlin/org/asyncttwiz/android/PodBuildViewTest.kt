@@ -266,6 +266,21 @@ class PodBuildViewTest {
         }
     }
 
+    @Test fun sideBasicsHaveTheirOwnStepperRowUnderTheSideHeader() {
+        var build by mutableStateOf(PodDeckBuild(sideBasics = PodDeckBasics(island = 17)))
+        val side = mutableListOf<Pair<Int, Int>>()
+        compose.setContent { ScreenTheme {
+            PodBuildView(build, emptyMap(), emptyMap(), null, true, false, { _, _ -> }, { _, _ -> fail("Main basics changed") }, {},
+                onAdjustSideBasic = { index, delta -> side += index to delta; build = build.copy(sideBasics = build.sideBasics.podBuildAdjust(index, delta)) })
+        } }
+        compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-side-basics"))
+        compose.onNodeWithText("Side 0 + 17 = 17").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Edit Side basic lands").performClick()
+        compose.onNodeWithText("Side basic lands").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Add Island").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf(1 to 1), side); assertEquals(18, build.sideBasics.island) }
+    }
+
     @Test
     @Config(qualifiers = "w800dp-h360dp-land-mdpi")
     fun allBasicLandSteppersAreReachableInShortLandscapeDialog() {

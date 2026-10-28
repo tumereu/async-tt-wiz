@@ -79,8 +79,9 @@ import kotlinx.serialization.Serializable
     val line: GridLineType, val index: Int)
 /** PUT /v1/pods/{id}/build/move. */
 @Serializable data class MovePodCopy(val requestId: String, val draftAttemptId: String, val copyId: String, val category: PodDeckCategory)
-/** PUT /v1/pods/{id}/build/basics. */
-@Serializable data class SetPodBasics(val requestId: String, val draftAttemptId: String, val basics: PodDeckBasics)
+/** PUT /v1/pods/{id}/build/basics. [side] sets the Side lands instead of Main. */
+@Serializable data class SetPodBasics(val requestId: String, val draftAttemptId: String, val basics: PodDeckBasics,
+    val side: Boolean = false)
 /** PUT /v1/pods/{id}/build/name. Changes only the caller's private deck name. */
 @Serializable data class SetPodDeckName(val requestId: String, val draftAttemptId: String, val name: String)
 @Serializable data class PodAcknowledged(val podId: String)

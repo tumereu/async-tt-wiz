@@ -270,17 +270,40 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun ready() = readiness(GameAction.Ready)
     fun withdrawReady() = readiness(GameAction.WithdrawReady)
-    fun changePodBasic(land: BasicLand, delta: Int): Boolean {
+    fun changePodBasic(land: BasicLand, delta: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD): Boolean {
+        val actor = accountId() ?: return false
+        val preparation = state.preparation ?: return false
+        val deck = preparation.players.find { it.accountId == actor }?.deck ?: return false
+        if (delta !in listOf(-1, 1)) return false
+        val counts = PodGamePreparation.basics(deck, section)
+        val count = land.count(counts).toLong() + delta
+        if (count !in 0..DeckValidation.MAX_CARDS.toLong() || !setPodBasics(land.withCount(counts, count.toInt()), section)) return false
+        preparationUndo = preparationUndo.push(preparation.gameId, preparation.roundId, deck.id, PreparationStep.Basics(section, counts))
+        return true
+    }
+    private fun setPodBasics(basics: PodDeckBasics, section: SavedDeckSection): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         val preparation = state.preparation ?: return false
         val deck = preparation.players.find { it.accountId == actor }?.deck ?: return false
-        if (closed || preparation.podRules == null || delta !in listOf(-1, 1)) return false
-        val counts = PodGamePreparation.basics(deck)
-        val count = land.count(counts).toLong() + delta
-        if (count !in 0..DeckValidation.MAX_CARDS.toLong()) return false
+        if (closed || preparation.podRules == null) return false
         val definitions = BasicLand.entries.map { basic -> preparation.definitions.find { it.digest == deck.basicDefinitions[basic] } ?: return false }
-        return session?.readiness(game, actor, GameAction.SetPodGameBasics(deck.id, land.withCount(counts, count.toInt()), definitions)) == true
+        return session?.readiness(game, actor, GameAction.SetPodGameBasics(deck.id, basics, definitions, section)) == true
+    }
+    /** Personal, last 50 transfers and basic taps of the shown preparation round; each undo is an ordinary request. */
+    internal var preparationUndo by mutableStateOf(PreparationUndo())
+        private set
+    internal fun preparationUndoStep(): PreparationStep? = preparationUndo.last(state.preparation, accountId())
+    fun undoPreparation(): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        if (closed || game.lifecycle != GameLifecycle.LOBBY) return false
+        val done = when (val step = preparationUndoStep() ?: return false) {
+            is PreparationStep.Moved -> session?.transfer(game, actor, step.transfer.inverse()) == true
+            is PreparationStep.Basics -> setPodBasics(step.previous, step.section)
+        }
+        if (done) preparationUndo = preparationUndo.pop()
+        return done
     }
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean {
         val game = state.detail ?: return false
@@ -489,7 +512,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun transfer(captured: PreparedTransfer): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
-        return !closed && session?.transfer(game, actor, captured) == true
+        if (closed || session?.transfer(game, actor, captured) != true) return false
+        preparationUndo = preparationUndo.push(captured.gameId, captured.roundId, captured.deckId, PreparationStep.Moved(captured))
+        return true
     }
     fun query(value: String) { searchVersion++; state = state.copy(query = value, results = emptyList(), searching = false, searched = false, searchError = null) }
     fun search() {

@@ -248,6 +248,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
         row.draftAttemptId = UUID.randomUUID()
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
+        sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
         val set = setSource(row)
         if (settings.mode == DraftMode.GRID) {
             val next = if (set == null) GridEngine.start(players, cube, settings, seed) else {
@@ -354,7 +355,7 @@ class PodService(private val runtime: ServiceRuntime) {
 
     fun basics(principal: AccountService.Principal, id: String, input: SetPodBasics): Result =
         editBuild(principal, id, input.requestId, "setPodBasics", json.encodeToJsonElement(input), input.draftAttemptId) { build ->
-            if (!input.basics.valid) null else build.copy(basics = input.basics)
+            if (!input.basics.valid) null else if (input.side) build.copy(sideBasics = input.basics) else build.copy(basics = input.basics)
         }
 
     fun deckName(principal: AccountService.Principal, id: String, input: SetPodDeckName): Result =
@@ -421,7 +422,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 json.decodeFromString<PodDeckBuild>(players.getValue(it).submittedDeck!!.data())
             }
             // Match the existing tabletop's bounded physical deck representation.
-            if (builds.values.any { it.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + it.basics.total > DeckValidation.MAX_CARDS })
+            if (builds.values.any { it.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + it.basics.total + it.sideBasics.total > DeckValidation.MAX_CARDS })
                 return@mutate error(400, "invalid_deck")
             val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
@@ -462,9 +463,11 @@ class PodService(private val runtime: ServiceRuntime) {
             PreparedEntry(copies.getValue(copy.copyId).definition,
                 if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD,
                 (index++).toString(), 1)
-        } + BasicLand.entries.mapNotNull { land -> land.count(build.basics).takeIf { it > 0 }?.let { count ->
-            PreparedEntry(basics.getValue(land), SavedDeckSection.MAINBOARD, index.toString(), count, land).also { index += count }
-        } }
+        } + listOf(SavedDeckSection.MAINBOARD to build.basics, SavedDeckSection.SIDEBOARD to build.sideBasics).flatMap { (section, counts) ->
+            BasicLand.entries.mapNotNull { land -> land.count(counts).takeIf { it > 0 }?.let { count ->
+                PreparedEntry(basics.getValue(land), section, index.toString(), count, land).also { index += count }
+            } }
+        }
         val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
             row.name!!, entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
         val definitions = PreparationStore.definitions(sql, entries.map { it.definition }.toSet()) + basicDefinitions

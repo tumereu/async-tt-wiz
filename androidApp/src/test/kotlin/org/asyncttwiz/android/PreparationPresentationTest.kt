@@ -23,15 +23,35 @@ class PreparationPresentationTest {
         assertEquals("Deck", gameDeckName(actor, null, secret))
     }
 
-    @Test fun tapAndRecognizedDragHaveOneCapturedReleaseAndCancelOutsideOrConsumedSendNothing() {
-        val captured = capture()
-        assertSame(captured, PreparationGesture(captured, 8f).release(false))
-        val drag = PreparationGesture(captured, 8f); drag.move(9f); drag.move(1f)
-        assertTrue(drag.dragging); assertNull(drag.release(false))
-        assertSame(captured, drag.release(true)) // Release chooses the captured object, never captures a later row.
-        val cancel = PreparationGesture(captured, 8f); cancel.move(20f); cancel.cancel(); assertNull(cancel.release(true))
-        val scroll = PreparationGesture(captured, 8f); scroll.move(2f, consumed = true); assertNull(scroll.release(false))
-        assertNull(PreparationGesture(null, 8f).release(true))
+    @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
+        val threshold = preparationSwipeThreshold(1000f, 300f)
+        assertEquals(300f, threshold); assertEquals(70f, preparationSwipeThreshold(200f, 300f))
+        assertFalse(preparationSwipeCommits(299f, threshold)); assertFalse(preparationSwipeCommits(-299f, threshold))
+        assertTrue(preparationSwipeCommits(300f, threshold)); assertTrue(preparationSwipeCommits(-450f, threshold))
+        assertFalse(preparationSwipeCommits(10f, preparationSwipeThreshold(0f, 300f))) // Unmeasured rows never move.
+        assertEquals(.5f, preparationSwipeProgress(-150f, threshold)); assertEquals(1f, preparationSwipeProgress(900f, threshold))
+    }
+
+    @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {
+        val one = capture(false)
+        val moved = PreparationRules.previewTransfer(base, actor, one)
+        val back = one.inverse()
+        assertEquals(SavedDeckSection.SIDEBOARD, back.source); assertEquals(one.entries.map { it.firstIndex }, back.entries.map { it.firstIndex })
+        assertEquals(base.players[0].deck!!.entries, PreparationRules.previewTransfer(moved, actor, back).players[0].deck!!.entries)
+        var undo = PreparationUndo().push(base.gameId, base.roundId, deck.id, PreparationStep.Moved(one))
+            .push(base.gameId, base.roundId, deck.id, PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics(island = 3)))
+        assertEquals(PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics(island = 3)), undo.last(moved, actor))
+        undo = undo.pop()
+        assertEquals(PreparationStep.Moved(one), undo.last(moved, actor))
+        assertNull(undo.last(moved.copy(roundId = id()), actor)); assertNull(undo.last(moved, id()))
+        assertNull(undo.last(moved.copy(players = listOf(PlayerPreparation(actor, deck = deck.copy(id = id())))), actor))
+        assertNull(undo.pop().last(moved, actor))
+        val other = undo.push(id(), base.roundId, deck.id, PreparationStep.Moved(one))
+        assertEquals(1, other.steps.size)
+        val full = (1..60).fold(PreparationUndo()) { stack, count ->
+            stack.push(base.gameId, base.roundId, deck.id, PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = count))) }
+        assertEquals(PreparationUndo.LIMIT, full.steps.size)
+        assertEquals(PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = 11)), full.steps.first())
     }
 
     @Test fun actualDisplayedPartialTransferAndRollbackReplaceFeedbackButReceiptsAndIdenticalReadsDoNot() {

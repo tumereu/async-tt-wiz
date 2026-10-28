@@ -310,8 +310,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     orientation = podPickOrientationText(detail))
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
-                    controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
-                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide)
+                    controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
+                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
+                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) })
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

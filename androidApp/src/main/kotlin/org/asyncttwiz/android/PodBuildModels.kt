@@ -43,6 +43,11 @@ internal fun podBuildMainTitle(build: PodDeckBuild): String {
     return "Main $cards + ${build.basics.total} = ${cards + build.basics.total}"
 }
 
+internal fun podBuildSideTitle(build: PodDeckBuild): String {
+    val cards = podBuildCount(build, PodDeckCategory.SIDE)
+    return if (build.sideBasics.total == 0L) "Side $cards" else "Side $cards + ${build.sideBasics.total} = ${cards + build.sideBasics.total}"
+}
+
 internal fun podBuildSubmitEnabled(
     build: PodDeckBuild, copies: Map<String, DraftCopy>, sideboardLimit: Int?, editable: Boolean, canSubmit: Boolean,
 ): Boolean = editable && canSubmit && PodDeckRules.validate(build, copies.keys.toList(), sideboardLimit).isEmpty()

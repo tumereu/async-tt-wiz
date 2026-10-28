@@ -15,10 +15,16 @@ import kotlinx.serialization.Serializable
     val valid: Boolean get() = listOf(plains, island, swamp, mountain, forest).all { it >= 0 }
     val total: Long get() = plains.toLong() + island + swamp + mountain + forest
 }
-@Serializable data class PodDeckBuild(val copies: List<PodDeckCopy> = emptyList(), val basics: PodDeckBasics = PodDeckBasics())
+/** [basics] are Main lands, [sideBasics] Side lands; both are supplied, not drafted. */
+@Serializable data class PodDeckBuild(val copies: List<PodDeckCopy> = emptyList(), val basics: PodDeckBasics = PodDeckBasics(),
+    val sideBasics: PodDeckBasics = PodDeckBasics())
 @Serializable enum class PodDeckIssue { MAIN_TOO_SMALL, UNKNOWN_COPY, DUPLICATE_COPY, MISSING_COPY, NEGATIVE_BASICS, SIDEBOARD_LIMIT, DECK_TOO_LARGE }
 
 object PodDeckRules {
+    /** New builds: plenty of Side lands when the Side is unlimited, none when every Side card counts. */
+    fun initialBuild(sideboardLimit: Int?): PodDeckBuild =
+        PodDeckBuild(sideBasics = if (sideboardLimit == null) PodDeckBasics(17, 17, 17, 17, 17) else PodDeckBasics())
+
     fun swipe(category: PodDeckCategory, direction: PodDeckSwipe): PodDeckCategory = when (category) {
         PodDeckCategory.MAIN -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.SIDE else PodDeckCategory.TRASH
         PodDeckCategory.SIDE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.TRASH
@@ -47,15 +53,15 @@ object PodDeckRules {
         val assigned = ids.toSet()
         val owned = pool.toSet()
         return buildList {
-            if (!build.basics.valid) add(PodDeckIssue.NEGATIVE_BASICS)
+            if (!build.basics.valid || !build.sideBasics.valid) add(PodDeckIssue.NEGATIVE_BASICS)
             if (build.copies.count { it.category == PodDeckCategory.MAIN }.toLong() + build.basics.total < 40)
                 add(PodDeckIssue.MAIN_TOO_SMALL)
-            if (build.copies.count { it.category != PodDeckCategory.TRASH }.toLong() + build.basics.total > DeckValidation.MAX_CARDS)
+            if (build.copies.count { it.category != PodDeckCategory.TRASH }.toLong() + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
                 add(PodDeckIssue.DECK_TOO_LARGE)
             if (assigned.any { it !in owned }) add(PodDeckIssue.UNKNOWN_COPY)
             if (assigned.size != ids.size) add(PodDeckIssue.DUPLICATE_COPY)
             if (owned.any { it !in assigned }) add(PodDeckIssue.MISSING_COPY)
-            if (sideboardLimit != null && build.copies.count { it.category == PodDeckCategory.SIDE } > sideboardLimit)
+            if (sideboardLimit != null && build.copies.count { it.category == PodDeckCategory.SIDE } + build.sideBasics.total > sideboardLimit)
                 add(PodDeckIssue.SIDEBOARD_LIMIT)
         }
     }

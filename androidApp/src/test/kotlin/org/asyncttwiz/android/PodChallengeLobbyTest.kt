@@ -171,6 +171,36 @@ class PodChallengeLobbyTest {
         f.wire.listener.disconnected(); assertFalse(f.controller.changePodBasic(BasicLand.ISLAND, 1))
     }
 
+    @Test fun sideBasicsAndTransfersUndoAsOrdinaryInverseRequestsUntilTheRoundChanges() = Fixture().use { f ->
+        f.challenge()
+        val card = CardDefinition("Pool card", listOf(DefinitionFace(id(), "Pool card")))
+        val pool = SubmittedDefinition(DeckJson.digest(card), card)
+        val deck = PreparedDeck(id(), pod, "1", "Limited pod", null, id(), listOf(
+            PreparedEntry(definitions[0].digest, SavedDeckSection.MAINBOARD, "0", 40, BasicLand.PLAINS),
+            PreparedEntry(pool.digest, SavedDeckSection.MAINBOARD, "40", 2)), PodGamePreparation.basicDefinitions(definitions)!!, "42")
+        val preparation = LobbyPreparation(game.id, game.preparationRound, listOf(PlayerPreparation(a.accountId, deck = deck),
+            PlayerPreparation(b.accountId, deck = deck.copy(id = id()))), definitions + pool, podRules = PodGameRules())
+        f.head(preparation)
+        assertNull(f.controller.preparationUndoStep())
+        assertTrue(f.controller.changePodBasic(BasicLand.ISLAND, 1, SavedDeckSection.SIDEBOARD))
+        val side = f.wire.frames.filterIsInstance<GameCommand>().single()
+        assertEquals(SavedDeckSection.SIDEBOARD, (side.action as GameAction.SetPodGameBasics).section)
+        assertEquals(PodDeckBasics(island = 1), (side.action as GameAction.SetPodGameBasics).basics)
+        assertEquals(PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics()), f.controller.preparationUndoStep())
+        f.wire.listener.message(GameResult(side.requestId, side.scope, "rejected", "invalidBasics", "1"))
+        assertTrue(f.controller.undoPreparation()); assertNull(f.controller.preparationUndoStep())
+        val undone = f.wire.frames.filterIsInstance<GameCommand>().last().action as GameAction.SetPodGameBasics
+        assertEquals(SavedDeckSection.SIDEBOARD, undone.section); assertEquals(PodDeckBasics(), undone.basics)
+        f.wire.listener.message(GameResult(f.wire.frames.filterIsInstance<GameCommand>().last().requestId, side.scope, "rejected", "invalidBasics", "1"))
+        val captured = f.controller.captureTransfer(pool.digest, SavedDeckSection.MAINBOARD, false)!!
+        assertTrue(f.controller.transfer(captured))
+        assertEquals(PreparationStep.Moved(captured), f.controller.preparationUndoStep())
+        assertTrue(f.controller.undoPreparation()); assertNull(f.controller.preparationUndoStep())
+        val back = f.wire.frames.filterIsInstance<GameCommand>().map { it.action }.filterIsInstance<GameAction.TransferPreparedCard>()
+        assertEquals(listOf(SavedDeckSection.MAINBOARD, SavedDeckSection.SIDEBOARD), back.map { it.source }.distinct())
+        assertEquals(1, back.map { it.cardId }.distinct().size) // The same copy goes back.
+    }
+
     @Test fun fixedM21EnglishLowestCollectorNumberIgnoresOtherSetsPromosAndCatalogBuildDate() {
         val repository = CatalogRepository(temporary.newFolder("catalog")) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
         val chosen = mutableListOf<String>()

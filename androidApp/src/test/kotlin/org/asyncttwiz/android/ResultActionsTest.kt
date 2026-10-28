@@ -62,11 +62,15 @@ class ResultActionsTest {
     }
 
     @Test fun resultSuggestionPredictsSharedMutationButReceiptOrResultCannotReturnOrResetBoard() = Fixture().use { f ->
-        assertTrue(f.session.suggestResult(active, a.accountId, target, SuggestedResult.LOSS))
+        assertTrue(f.session.suggestResult(active, a.accountId, target, SuggestedResult.LOSS, " Infinite combo "))
         val command = f.commands().single()
         assertEquals(GameScope(game.id, playId = initial.id), command.scope); assertTrue(GameWire.valid(command))
         val prediction = f.session.play(active)!!
         assertEquals(SuggestedResult.LOSS, prediction.board.resultSuggestion!!.outcome)
+        assertEquals("Infinite combo", prediction.board.resultSuggestion!!.note)
+        val shown = ResultActions.pendingPresentation(active, prediction, b.accountId)!!
+        assertEquals("Infinite combo", shown.note)
+        assertEquals("Infinite combo", ResultActions.pendingPresentation(active, prediction, a.accountId)!!.note)
         assertEquals(initial, f.session.acceptedPlay(active)); assertEquals(HistoryCategory.S.key, prediction.currentGroup!!.category)
         assertFalse(f.session.suggestResult(active, a.accountId, target, SuggestedResult.WIN))
         f.message(GameReceipt(command.requestId, command.scope, "1")); f.result(command)

@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
@@ -30,6 +32,8 @@ internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultCo
         shadowElevation = 2.dp) {
         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(model.text, style = MaterialTheme.typography.titleSmall)
+            if (model.note.isNotEmpty()) Text("“${model.note}”", style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedIconButton(onClick = { controls?.reject?.invoke(model.target) }, enabled = controls?.enabled == true) {
                     Icon(if (model.canAccept) menuIcon("Cancel") else Icons.AutoMirrored.Outlined.Undo,

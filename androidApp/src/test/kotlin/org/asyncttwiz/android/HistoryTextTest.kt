@@ -361,6 +361,8 @@ class HistoryTextTest {
         assertEquals("Blank blue counter 0 → 0", format(PlayAction.ClearCardCounter(token.id, CounterColor.BLUE), before = before).description)
         assertEquals("Blank removed", format(PlayAction.RemoveToken(token.id), before = before).description)
         assertEquals("Result suggested → Draw", format(PlayAction.SuggestResult(SuggestedResult.DRAW)).description)
+        assertEquals("Result suggested → Loss: “Infinite combo”",
+            format(PlayAction.SuggestResult(SuggestedResult.LOSS, "Infinite combo")).description)
     }
 
     @Test fun everyActionFamilyHasShortLabelsWithoutWireIdsOrMutationDumps() {

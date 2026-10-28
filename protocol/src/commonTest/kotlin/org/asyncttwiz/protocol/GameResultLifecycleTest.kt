@@ -175,4 +175,49 @@ class GameResultLifecycleTest {
             GameScope(game.id, invitationId = game.invitationId, playId = game.playId))) assertFalse(GameWire.valid(accept.copy(scope = scope)))
         assertFalse(GameWire.valid(accept.copy(action = GameAction.AcceptResult("bad"))))
     }
+
+    @Test fun rulesVersionIs25() = assertEquals(25, CURRENT_GAMEPLAY_RULES_VERSION)
+
+    @Test fun noteIsValidatedTrimmedSingleLineAndAtMost200Characters() {
+        fun valid(note: String) = GameWire.valid(command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS, note))))
+        assertTrue(valid("")); assertTrue(valid("Infinite combo")); assertTrue(valid("x".repeat(200)))
+        assertTrue(valid("Splinter Twin ✨ combo"))
+        for (bad in listOf("x".repeat(201), " combo", "combo ", "two\nlines", "tab\there", "nul\u0000", "bell\u0007"))
+            assertFalse(valid(bad), bad)
+        assertEquals("invalidInput", GameplayRules.change(play(), a.accountId,
+            command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS, "combo\n")))).reason)
+    }
+
+    @Test fun noteRoundTripsAndEmptyNoteKeepsTheOldWireShape() {
+        val noted = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS, "Infinite combo")))
+        val encoded = GameWire.json.encodeToString<GameClientMessage>(noted)
+        assertTrue("\"note\":\"Infinite combo\"" in encoded)
+        assertEquals(noted, GameWire.decodeClient(encoded))
+        val plain = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS)))
+        assertFalse("note" in GameWire.json.encodeToString<GameClientMessage>(plain))
+        assertFalse("note" in GameWire.json.encodeToString(ResultSuggestion.serializer(), ResultSuggestion(id(1), id(2), SuggestedResult.WIN)))
+    }
+
+    @Test fun noteIsPartOfTheSuggestionAndHistoryRestoresItExactly() {
+        val proposalCommand = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS, "Infinite combo")))
+        val change = GameplayRules.change(play(), a.accountId, proposalCommand)
+        val suggestion = change.state!!.board.resultSuggestion!!
+        assertEquals("Infinite combo", suggestion.note); assertEquals(SuggestedResult.LOSS, suggestion.outcome)
+        val event = change.mutation!!
+        assertEquals(ResultSuggestionChange(null, suggestion), event.transition.resultSuggestion)
+        assertEquals(change.state, GameplayHistory.apply(play(), event))
+        assertEquals(play(), GameplayHistory.unapply(change.state, event))
+        assertEquals(change, GameplayHistory.replay(play(), event))
+        assertEquals("replayBlocked", GameplayHistory.replay(play(), event.copy(transition = event.transition.copy(
+            resultSuggestion = ResultSuggestionChange(null, suggestion.copy(note = "Other"))))).reason)
+
+        val proposed = GameplayTree(play()).play(a.accountId, proposalCommand).tree!!
+        val withdrawn = proposed.play(a.accountId, command(GameAction.Play(PlayAction.WithdrawResult(suggestion.id)), 12)).tree!!
+        val restored = SelectiveUndo.change(withdrawn, a.accountId, command(GameAction.Undo, 13)).tree!!
+        assertEquals(suggestion, restored.stateAt(restored.currentNodeId)!!.board.resultSuggestion)
+        val unproposed = SelectiveUndo.change(restored, a.accountId, command(GameAction.Undo, 14)).tree!!
+        assertNull(unproposed.stateAt(unproposed.currentNodeId)!!.board.resultSuggestion)
+        val reproposed = SelectiveUndo.change(unproposed, a.accountId, command(GameAction.Redo, 15)).tree!!
+        assertEquals(suggestion, reproposed.stateAt(reproposed.currentNodeId)!!.board.resultSuggestion)
+    }
 }

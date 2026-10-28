@@ -48,7 +48,7 @@ class R24RulesTest {
         return change.state!!
     }
 
-    @Test fun rulesVersionIs24() = assertEquals(24, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun rulesVersionIsAtLeast24() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 24)
 
     @Test fun castingFaceDownPutsTheHandCardOntoTheStackWithoutRevealingIt() {
         val cast = castFaceDown()

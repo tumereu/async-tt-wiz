@@ -233,7 +233,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             SuggestedResult.WIN -> "Result suggested → Win"
             SuggestedResult.LOSS -> "Result suggested → Loss"
             SuggestedResult.DRAW -> "Result suggested → Draw"
-        }, "Suggest result")
+        } + action.note.takeIf { it.isNotEmpty() }?.let { ": “$it”" }.orEmpty(), "Suggest result")
     }
     return if (event.schemaVersion !in 1..2) text("Table changed", "Change") else result
 }

@@ -37,6 +37,18 @@ class ResultTablePanelTest {
         assertEquals(Icons.Outlined.Download, menuIcon("Draw N"))
     }
 
+    @Test fun panelShowsTheSuggestersReasonUnderTheSuggestionLineOnlyWhenPresent() {
+        val target = ResultAcceptanceTarget(ResultTarget("game", "play"), "suggestion")
+        var note by mutableStateOf("Infinite combo")
+        compose.setContent { MaterialTheme {
+            ResultTablePanel(ResultPresentation(target, "Alice proposed their loss.", true, note), null)
+        } }
+        compose.onNodeWithText("Alice proposed their loss.").assertIsDisplayed()
+        compose.onNodeWithText("“Infinite combo”").assertIsDisplayed()
+        compose.runOnIdle { note = "" }
+        compose.onNodeWithText("“", substring = true).assertDoesNotExist()
+    }
+
     @Test fun singleValuePowerToughnessStepsUseSignedIcons() {
         assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("+1/+0"))
         assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("EOT +0/+1"))

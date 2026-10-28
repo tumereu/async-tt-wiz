@@ -32,6 +32,8 @@ interface Pods : Closeable {
     suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail
     suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged
     suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged
+    /** Best-effort save of the caller's head-pack marks; refused (409) once that pack is no longer the head. */
+    suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = PodAcknowledged(id)
 }
 
 class PodApi(private val origin: String, private val client: HttpClient = AccountApi.client(),
@@ -61,6 +63,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail = call(token, path(id, "/cancel"), DeckJson.format.encodeToString(input))
     override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/leave"), DeckJson.format.encodeToString(input))
     override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id), DeckJson.format.encodeToString(input), HttpMethod.Delete)
+    override suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = call(token, path(id, "/draft/marks"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     private suspend inline fun <reified T> call(token: String, path: String, body: String? = null, verb: HttpMethod? = null): T {
         if (origin.isEmpty()) throw PodFailure("not_configured")
         if (!AccountApi.validToken(token)) throw PodFailure("authentication_required")

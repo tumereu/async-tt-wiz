@@ -19,6 +19,7 @@ import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION as INVITE
+import org.asyncttwiz.server.generated.tables.PodDraftMarks.POD_DRAFT_MARKS as MARKS
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER as MEMBER
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.asyncttwiz.server.generated.tables.SavedCube.SAVED_CUBE
@@ -275,9 +276,63 @@ class PodService(private val runtime: ServiceRuntime) {
             val previous = state(row)!!
             val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn, input.librarians))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
+            // The marks belonged to the pack just picked.
+            clearMarks(sql, row.id!!, owner)
             advance(sql, row, previous, result.state!!)
             detail(sql, row, owner)
         }
+
+    /**
+     * Stores the caller's marks for their current head pack (latest wins). Not request-identified: replays and reordering
+     * only ever overwrite private intent, and a mark for any other pack is refused, so a late write cannot outlive a pick.
+     */
+    fun saveMarks(principal: AccountService.Principal, id: String, input: SetPodDraftMarks): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!DeckValidation.uuid(input.draftAttemptId)) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            // A share lock orders this after (or before) a pick of the same pack, which takes the pod row for update.
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            member(sql, row, owner)?.let { return@transaction it }
+            if (row.draftAttemptId?.toString() != input.draftAttemptId) return@transaction error(409, "draft_attempt_expired")
+            if (row.phase != "DRAFTING") return@transaction error(409, "not_drafting")
+            val draft = state(row) ?: return@transaction error(409, "wrong_draft_mode")
+            val player = owner.toString()
+            if (draft.queues[player]?.firstOrNull() != input.packId) return@transaction error(409, "not_head_of_queue")
+            val cards = draft.packs.first { it.id == input.packId }.cards.toSet()
+            val owned = draft.pools.getValue(player).toSet()
+            val librarians = draft.copies.filter { it.librarian && it.id in owned }.map { it.id }.toSet()
+            val selected = input.keeps + input.burns
+            if (selected.distinct().size != selected.size || selected.any { it !in cards } ||
+                input.librarians.distinct().size != input.librarians.size || input.librarians.any { it !in librarians })
+                return@transaction error(400, "invalid_marks")
+            sql.insertInto(MARKS).set(MARKS.POD_ID, row.id).set(MARKS.DRAFT_ATTEMPT_ID, row.draftAttemptId)
+                .set(MARKS.ACCOUNT_ID, owner).set(MARKS.PACK_ID, input.packId).set(MARKS.KEEPS, encoded(input.keeps))
+                .set(MARKS.BURNS, encoded(input.burns)).set(MARKS.LIBRARIANS, encoded(input.librarians))
+                .set(MARKS.UPDATED_AT, DSL.currentOffsetDateTime())
+                .onConflict(MARKS.POD_ID, MARKS.DRAFT_ATTEMPT_ID, MARKS.ACCOUNT_ID).doUpdate()
+                .set(MARKS.PACK_ID, input.packId).set(MARKS.KEEPS, encoded(input.keeps))
+                .set(MARKS.BURNS, encoded(input.burns)).set(MARKS.LIBRARIANS, encoded(input.librarians))
+                .set(MARKS.UPDATED_AT, DSL.currentOffsetDateTime()).execute()
+            Result(200, json.encodeToString(PodAcknowledged(row.id.toString())))
+        }
+    }
+
+    private fun marks(sql: DSLContext, row: PodRecord, owner: UUID, head: DraftPrivatePack?): DraftMarks? {
+        val attempt = row.draftAttemptId ?: return null
+        head ?: return null
+        val saved = sql.selectFrom(MARKS).where(MARKS.POD_ID.eq(row.id)).and(MARKS.DRAFT_ATTEMPT_ID.eq(attempt))
+            .and(MARKS.ACCOUNT_ID.eq(owner)).fetchOne()?.takeIf { it.packId == head.id } ?: return null
+        return DraftMarks(head.id, json.decodeFromString(saved.keeps!!.data()), json.decodeFromString(saved.burns!!.data()),
+            json.decodeFromString(saved.librarians!!.data()))
+    }
+
+    private fun clearMarks(sql: DSLContext, pod: UUID, owner: UUID? = null) {
+        sql.deleteFrom(MARKS).where(MARKS.POD_ID.eq(pod))
+            .and(if (owner == null) DSL.trueCondition() else MARKS.ACCOUNT_ID.eq(owner)).execute()
+    }
 
     fun selectGrid(principal: AccountService.Principal, id: String, input: SelectPodGrid): Result =
         mutate(principal, id, input.requestId, "selectPodGrid", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
@@ -468,6 +523,7 @@ class PodService(private val runtime: ServiceRuntime) {
 
     private fun reset(sql: DSLContext, row: PodRecord, author: UUID) {
         clearDraftHints(sql, row.id!!)
+        clearMarks(sql, row.id!!)
         notify(sql, row, ActivityKind.POD_DRAFT_CANCELLED, author)
         row.phase = "SETUP"; row.draftAttemptId = null; row.draftState = null
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckBuild())).set(MEMBER.SUBMITTED_DECK, null as JSONB?)
@@ -493,6 +549,7 @@ class PodService(private val runtime: ServiceRuntime) {
         }
         if (next.finished && previous?.finished != true) {
             clearDraftHints(sql, row.id!!)
+            clearMarks(sql, row.id!!)
             notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
         }
         save(sql, row)
@@ -581,7 +638,7 @@ class PodService(private val runtime: ServiceRuntime) {
     /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only. */
     private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200): Result {
         val draft = state(row)
-        val view = draft?.let { DraftEngine.privateView(it, owner.toString()) }
+        val view = draft?.let { DraftEngine.privateView(it, owner.toString()) }?.let { it.copy(marks = marks(sql, row, owner, it.head)) }
         val public = draft?.let(DraftEngine::publicStatus)
         val grid = gridState(row)
         val gridView = grid?.let { PodGridView(GridEngine.publicView(it), GridEngine.privateView(it, owner.toString())) }

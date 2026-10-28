@@ -18,6 +18,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -61,8 +63,9 @@ import kotlin.math.roundToInt
 internal val PodPickGreen = Color(0xFF237A38)
 internal val PodPickRed = Color(0xFFB3261E)
 
+/** Without [onMarks] the marks live only in this composition (previews and tests). */
 @Composable
-fun PodPickView(
+internal fun PodPickView(
     pack: DraftPrivatePack?,
     settings: DraftSettings,
     definitions: Map<String, CardDefinition>,
@@ -75,9 +78,14 @@ fun PodPickView(
     columns: PodPickColumns = rememberPodPickColumns(),
     waitingText: String = "Waiting for other players",
     onMainMenu: (() -> Unit)? = null,
+    savedMarks: PodPickMarks? = null,
+    onMarks: ((PodPickMarks) -> Unit)? = null,
+    /** One line above the cards, e.g. "Round 2/6 · Pick 2 · from Matti"; scrolls away with them. */
+    orientation: String? = null,
 ) {
-    val packMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
-    val marks = (packMarks[pack] ?: PodPickMarks()).forPack(pack)
+    val localMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
+    val marks = ((if (onMarks != null) savedMarks else localMarks[pack]) ?: PodPickMarks()).forPack(pack)
+    val setMarks: (PodPickMarks) -> Unit = { next -> if (onMarks != null) onMarks(next) else if (pack != null) localMarks[pack] = next }
     var inspected by remember(pack?.id) { mutableStateOf<DraftCopy?>(null) }
     // One card menu for the whole screen: the latest tap wins over simultaneous ones.
     var menuFor by remember(pack?.id) { mutableStateOf<String?>(null) }
@@ -95,9 +103,9 @@ fun PodPickView(
     val burnIds = rules.burnIds(marks)
     val copies = remember(pack) { pack.cards.associateBy { it.id } }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
-        packMarks[pack] = marks.toggle(id, kind, rules)
+        setMarks(marks.toggle(id, kind, rules))
     }
-    val unmark: (String) -> Unit = { id -> packMarks[pack] = marks.unmark(id) }
+    val unmark: (String) -> Unit = { id -> setMarks(marks.unmark(id)) }
     val inspect: (DraftCopy, Boolean) -> Unit = { copy, open ->
         if (open) {
             previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
@@ -111,6 +119,11 @@ fun PodPickView(
             LazyVerticalGrid(GridCells.Fixed(columnCount), Modifier.weight(1f).fillMaxWidth().testTag("pod-pick-list"),
                 state = rememberLazyGridState(), horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+                if (orientation != null) item(key = "orientation", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(orientation, Modifier.fillMaxWidth().testTag("pod-pick-orientation"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 items(pack.cards, key = { it.id }) { copy ->
                     PodPickCard(copy, definitions[copy.definition], marks.markOf(copy.id),
                         automaticBurn = rules.automaticBurns && copy.id in burnIds,
@@ -131,8 +144,8 @@ fun PodPickView(
             onInspectScroll = { previewScroll.dispatchRawDelta(it) },
             librarianSlots = settings.librarians > 0,
             spent = marks.librarians, librarians = librarians,
-            spend = { packMarks[pack] = marks.spendLibrarian(librarians.map { it.id }, pack, settings) },
-            refund = { packMarks[pack] = marks.refundLibrarian(it, pack, settings) })
+            spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
+            refund = { setMarks(marks.refundLibrarian(it, pack, settings)) })
         Button(onClick = { if (rules.canConfirm(marks, busy)) {
             if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
             else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())

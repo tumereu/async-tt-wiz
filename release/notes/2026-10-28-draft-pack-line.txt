@@ -1,0 +1,1 @@
+add: The pick screen shows the round, the pick number and who passed you the pack.

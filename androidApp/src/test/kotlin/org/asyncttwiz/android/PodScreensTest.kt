@@ -17,6 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertTrue
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -322,7 +323,17 @@ class PodScreensTest {
             emptyList(), updatedAt = "now")
         assertEquals("Waiting for Bob", podWaitingText(booster, alice.accountId))
         val withRound = booster.copy(draft = org.asyncttwiz.protocol.DraftPrivateView(alice.accountId, null, 0, emptyList(), round = 3, rounds = 6))
-        assertEquals("Waiting for Bob · Round 3 of 6", podWaitingText(withRound, alice.accountId))
+        assertEquals("All your picks are done · Bob is finishing\nRound 3 of 6", podWaitingText(withRound, alice.accountId))
+        val incoming = withRound.copy(draft = withRound.draft!!.copy(incoming = 3))
+        assertEquals("Waiting for Bob · 3 packs will come back to you\nRound 3 of 6", podWaitingText(incoming, alice.accountId))
+        assertEquals("Waiting for Bob · 1 pack will come back to you\nRound 3 of 6",
+            podWaitingText(incoming.copy(draft = incoming.draft!!.copy(incoming = 1)), alice.accountId))
+        val idle = withRound.copy(members = withRound.members.map { it.copy(packsWaiting = 0) })
+        assertEquals("All your picks are done · other players are finishing\nRound 3 of 6", podWaitingText(idle, alice.accountId))
+        assertEquals("Waiting for other players · 2 packs will come back to you\nRound 3 of 6",
+            podWaitingText(idle.copy(draft = idle.draft!!.copy(incoming = 2)), alice.accountId))
+        val pair = withRound.copy(members = withRound.members.map { if (it.account == carol) it.copy(packsWaiting = 1) else it })
+        assertEquals("All your picks are done · Bob, Carol are finishing\nRound 3 of 6", podWaitingText(pair, alice.accountId))
         val both = booster.copy(members = booster.members.map { if (it.account == carol) it.copy(packsWaiting = 1) else it })
         assertEquals("Waiting for Bob, Carol", podWaitingText(both, alice.accountId))
         val nobody = booster.copy(members = booster.members.map { it.copy(packsWaiting = 0) })
@@ -332,5 +343,18 @@ class PodScreensTest {
             grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(2, 6, false, listOf(alice.accountId, bob.accountId), listOf(board), emptyList()),
                 GridPrivateView(alice.accountId, emptyList(), null)))
         assertEquals("Waiting for Bob · Round 2 of 6", podWaitingText(grid, alice.accountId))
+    }
+
+    @Test fun pickOrientationNamesRoundPickAndWhoPassedThePack() {
+        val pack = org.asyncttwiz.protocol.DraftPrivatePack("pack", 1, emptyList(), pick = 2, passedBy = bob.accountId)
+        val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(), PodSource("Cube", 540),
+            DraftSupply(90, 540), listOf(PodMember(alice), PodMember(bob)), emptyList(), updatedAt = "now",
+            draft = org.asyncttwiz.protocol.DraftPrivateView(alice.accountId, pack, 0, emptyList(), round = 2, rounds = 6))
+        assertEquals("Round 2/6 · Pick 2 · from Bob", podPickOrientationText(detail))
+        val own = detail.copy(draft = detail.draft!!.copy(head = pack.copy(pick = 1, passedBy = null)))
+        assertEquals("Round 2/6 · Pick 1 · your pack", podPickOrientationText(own))
+        val departed = detail.copy(draft = detail.draft!!.copy(head = pack.copy(passedBy = "gone")))
+        assertEquals("Round 2/6 · Pick 2 · from another player", podPickOrientationText(departed))
+        assertNull(podPickOrientationText(detail.copy(draft = detail.draft!!.copy(head = null))))
     }
 }

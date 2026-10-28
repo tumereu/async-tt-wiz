@@ -80,10 +80,10 @@ class DraftEarlyOpeningTest {
         assertEquals(listOf(pack(state, 1, 1)), queue(state, 0))
         assertEquals(listOf(pack(state, 1, 2)), held(state, 0))
         assertEquals(1, state.log.last().round)
-        state = pick(state, 0) // final round-0 pick: A opens, the earlier round-1 arrival first
+        state = pick(state, 0) // final round-0 pick: A opens, own fresh pack before the half-picked round-1 arrival
         assertEquals(listOf(1, 1), listOf(opened(state, 0), opened(state, 1)))
         assertEquals(1, state.round)
-        assertEquals(listOf(pack(state, 1, 2), pack(state, 0, 2)), queue(state, 0))
+        assertEquals(listOf(pack(state, 0, 2), pack(state, 1, 2)), queue(state, 0))
         assertTrue(state.log.filter { it.packId == pack(state, 1, 1) }.all { it.round == 0 })
         val final = finish(state)
         assertTrue(final.pools.values.all { it.size == 6 })
@@ -144,11 +144,11 @@ class DraftEarlyOpeningTest {
         assertEquals(listOf(1, 1, 0), state.seating.indices.map { opened(state, it) })
         assertEquals(listOf(pack(state, 1, 2)), queue(state, 1))
         assertEquals(0, state.round)
-        state = pick(state, 2) // B0 2 -> 1, awarded to A; C opens last: the held A1 first, then C's own pack
+        state = pick(state, 2) // B0 2 -> 1, awarded to A; C opens last: own fresh pack first, then the held, picked A1
         assertEquals(listOf(1, 1, 1), state.seating.indices.map { opened(state, it) })
         assertEquals(1, state.round)
         assertTrue(held(state, 2).isEmpty())
-        assertEquals(listOf(pack(state, 0, 2), pack(state, 2, 2)), queue(state, 2))
+        assertEquals(listOf(pack(state, 2, 2), pack(state, 0, 2)), queue(state, 2))
         assertEquals(1, DraftEngine.privateView(state, c).packsBehind)
         val final = finish(state)
         assertTrue(final.pools.values.all { it.size == 6 })

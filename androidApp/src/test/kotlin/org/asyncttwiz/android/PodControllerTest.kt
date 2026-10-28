@@ -53,6 +53,7 @@ class PodControllerTest {
         var updateFailure: String? = null
         var gridFailure: String? = null
         var pickFailure: String? = null
+        var marksFailure: String? = null
         var afterRead: () -> Unit = {}
         var readFailure: String? = null
         override suspend fun list(token: String) = readFailure?.let { throw PodFailure(it) } ?: listed ?: PodList(if (missing) emptyList() else listOf(summary(saved)), emptyList())
@@ -118,6 +119,11 @@ class PodControllerTest {
         override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
         override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "leave" to input; missing = true; return PodAcknowledged(id) }
         override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "destroy" to input; missing = true; return PodAcknowledged(id) }
+        override suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged {
+            calls += "marks" to input
+            marksFailure?.let { throw PodFailure(it) }
+            return PodAcknowledged(id)
+        }
         override fun close() = Unit
     }
     @Test fun automaticRefreshFailuresStayQuietForThirtySeconds(): Unit = Fixture().use { f ->
@@ -224,6 +230,58 @@ class PodControllerTest {
         assertEquals(PodTab.GAMES, f.controller.state.tab)
     }
 
+    @Test fun marksSurviveTabSwitchesAndSaveDebouncedLatestWinsOffThePickQueue(): Unit = Fixture().use { f ->
+        f.open()
+        val pack = f.controller.state.detail!!.draft!!.head!!
+        f.controller.mark(pack, PodPickMarks(keeps = listOf("burn")))
+        f.controller.mark(pack, PodPickMarks(keeps = listOf(copy.id), burns = listOf("burn")))
+        assertEquals(PodPickMarks(pack.id, listOf(copy.id), listOf("burn")), f.controller.marks(pack))
+        assertEquals(listOf(PodMarksDelayMillis), f.timers.map { it.first }) // the earlier change was coalesced
+        assertTrue(f.worker.tasks.isEmpty() && f.api.calls.isEmpty())
+        f.controller.tab(PodTab.BUILD); f.controller.tab(PodTab.DRAFT); f.controller.refresh(); f.deliver()
+        assertEquals(PodPickMarks(pack.id, listOf(copy.id), listOf("burn")), f.controller.marks(pack))
+        f.fire()
+        assertEquals(listOf(SetPodDraftMarks(attempt, pack.id, listOf(copy.id), listOf("burn"))),
+            f.api.calls.filter { it.first == "marks" }.map { it.second })
+        // Only the head can be marked.
+        f.controller.mark(nextPack, PodPickMarks(keeps = listOf("next-copy")))
+        assertTrue(f.timers.isEmpty())
+        assertEquals(PodPickMarks(nextPack.id), f.controller.marks(nextPack))
+    }
+
+    @Test fun aPickSupersedesUnsentMarksAndDropsTheirPack(): Unit = Fixture().use { f ->
+        f.open()
+        val pack = f.controller.state.detail!!.draft!!.head!!
+        f.controller.mark(pack, PodPickMarks(keeps = listOf(copy.id)))
+        f.controller.pick(listOf(copy.id), emptyList())
+        f.fire() // the debounce fires after the confirm: nothing is sent for the picked pack
+        f.deliver()
+        assertEquals(listOf("pick"), f.api.calls.map { it.first })
+        assertEquals(nextPack.id, f.controller.state.detail!!.draft!!.head!!.id)
+        assertEquals(PodPickMarks(pack.id), f.controller.marks(pack))
+        // A refused marks write (e.g. a pack picked meanwhile) is dropped quietly.
+        f.api.marksFailure = "not_head_of_queue"
+        f.controller.mark(nextPack, PodPickMarks(keeps = listOf("next-copy")))
+        f.fire(); f.deliver()
+        assertNull(f.controller.state.error)
+        assertTrue(f.timers.isEmpty())
+    }
+
+    @Test fun savedMarksAreAdoptedOnlyWithoutLocalMarks(): Unit = Fixture().use { f ->
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(
+            marks = DraftMarks(head.id, keeps = listOf(copy.id, "unknown"), burns = listOf("burn"))))
+        f.open()
+        assertEquals(PodPickMarks(head.id, listOf(copy.id), listOf("burn")), f.controller.marks(head))
+        f.controller.mark(head, PodPickMarks(keeps = listOf("burn")))
+        f.controller.refresh(); f.deliver()
+        assertEquals(PodPickMarks(head.id, listOf("burn")), f.controller.marks(head))
+        // Marks saved for another pack are never shown.
+        f.controller.clear()
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(marks = DraftMarks(nextPack.id, listOf("next-copy"))))
+        f.open()
+        assertEquals(PodPickMarks(head.id), f.controller.marks(head))
+    }
+
     private fun cubes(sources: () -> List<CubeSummary> = { listOf(cube) }) = object : Cubes {
         override suspend fun listCubes(token: String, after: String?) = CubeList(sources())
         override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
@@ -244,8 +302,13 @@ class PodControllerTest {
         val sets = Sets()
         val waits = mutableListOf<Long>()
         var now = 0L
+        /** Pending marks timers by delay; cancelling removes them. */
+        val timers = mutableListOf<Pair<Long, () -> Unit>>()
         val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
-            librarianDefinition = librarian, clock = { now })
+            librarianDefinition = librarian, clock = { now }, marksScheduler = { delay, task ->
+                val timer = delay to task; timers += timer; { timers.remove(timer); Unit }
+            })
+        fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second() }
         fun deliver() {
             while (worker.tasks.isNotEmpty() || posts.isNotEmpty()) {
                 worker.drain(); while (posts.isNotEmpty()) posts.removeFirst()()

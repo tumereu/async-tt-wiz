@@ -372,9 +372,12 @@ class PodHttpTest {
         assertEquals(0, heldA.draft!!.packsBehind)
         assertEquals(1, heldA.members.first { it.account == f.a.account }.packsWaiting)
         assertEquals(2, hints(f.a))
-        f.pick(f.a, pod) // A opens round two: the held pack first, then A's own; the release notifies A
-        assertEquals(roundTwo, f.get(f.a, pod).draft!!.head!!.id)
-        assertEquals(1, f.get(f.a, pod).draft!!.packsBehind)
+        f.pick(f.a, pod) // A opens round two: A's own fresh pack first, then the held, picked one; the release notifies A
+        val opened = f.get(f.a, pod).draft!!
+        assertEquals(3, opened.head!!.cards.size); assertEquals(1, opened.head!!.pick); assertNull(opened.head!!.passedBy)
+        assertEquals(roundTwo, opened.queuedPacks.single().id)
+        assertEquals(f.b.account.accountId, opened.queuedPacks.single().passedBy)
+        assertEquals(1, opened.packsBehind)
         assertEquals(3, hints(f.a))
         f.finish(pod, listOf(f.a, f.b))
         assertEquals(6, f.get(f.a, pod).draft!!.pool.size); assertEquals(6, f.get(f.b, pod).draft!!.pool.size)
@@ -387,6 +390,60 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), who.account.accountId))
     private fun respond(f: Fixture, pod: String, who: SessionCreated, accept: Boolean) =
         f.send(who, "POST", "/v1/pods/$pod/${if (accept) "accept" else "decline"}", PodRequest(id()))
+
+    @Test fun `draft marks are private to the caller head pack and cleared by the pick and cancellation`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings.glimpse().copy(packsPerPlayer = 2, cardsPerPack = 6, packsOpenAtOnce = 2))
+        f.start(pod)
+        fun rows() = f.db.connection().use { connection ->
+            connection.prepareStatement("select count(*) from pod_draft_marks where pod_id = ?").use { statement ->
+                statement.setObject(1, UUID.fromString(pod)); statement.executeQuery().use { it.next(); it.getInt(1) }
+            }
+        }
+        fun code(body: String) = json.decodeFromString<PodError>(body).code
+        val mine = f.get(f.a, pod)
+        val attempt = mine.draftAttemptId!!
+        val head = mine.draft!!.head!!
+        assertEquals(1, head.pick); assertNull(head.passedBy); assertNull(mine.draft!!.marks)
+        val marks = SetPodDraftMarks(attempt, head.id, listOf(head.cards[0].id), listOf(head.cards[1].id, head.cards[2].id))
+        f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks", marks)
+        assertEquals(DraftMarks(head.id, marks.keeps, marks.burns), f.get(f.a, pod).draft!!.marks)
+        // Latest wins.
+        val changed = marks.copy(keeps = listOf(head.cards[3].id))
+        f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks", changed)
+        assertEquals(DraftMarks(head.id, changed.keeps, changed.burns), f.get(f.a, pod).draft!!.marks)
+        // Private: B sees none of A's marks and cannot write marks for a pack that is not B's head.
+        assertNull(f.get(f.b, pod).draft!!.marks)
+        assertEquals("not_head_of_queue", code(f.send(f.b, "PUT", "/v1/pods/$pod/draft/marks", marks, 409)))
+        assertEquals("not_head_of_queue", code(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks",
+            marks.copy(packId = mine.draft!!.queuedPacks.single().id), 409)))
+        assertEquals("invalid_marks", code(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks",
+            marks.copy(keeps = listOf(mine.draft!!.queuedPacks.single().cards[0].id)), 400)))
+        assertEquals("invalid_marks", code(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks",
+            marks.copy(burns = marks.keeps), 400)))
+        assertEquals("draft_attempt_expired", code(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks",
+            marks.copy(draftAttemptId = id()), 409)))
+        assertEquals(1, rows())
+        // The pick clears them; a late write for the picked pack is refused.
+        f.pick(f.a, pod)
+        assertEquals(0, rows())
+        val next = f.get(f.a, pod).draft!!
+        assertNull(next.marks)
+        assertEquals("not_head_of_queue", code(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks", changed, 409)))
+        // Picked packs arrive with orientation data.
+        val passed = f.get(f.b, pod).draft!!.queuedPacks.last()
+        assertEquals(2, passed.pick); assertEquals(f.a.account.accountId, passed.passedBy)
+        val other = f.get(f.b, pod).draft!!.head!!
+        f.send(f.b, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id, listOf(other.cards[0].id)))
+        assertEquals(DraftMarks(other.id, listOf(other.cards[0].id)), f.get(f.b, pod).draft!!.marks)
+        assertNull(f.get(f.a, pod).draft!!.marks)
+        f.send(f.a, "POST", "/v1/pods/$pod/cancel", PodDraftRequest(id(), attempt))
+        assertEquals(0, rows())
+        assertEquals("draft_attempt_expired", code(f.send(f.b, "PUT", "/v1/pods/$pod/draft/marks",
+            SetPodDraftMarks(attempt, other.id), 409)))
+        f.send(f.c, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id), 404)
+    }
 
     @Test fun `auto start arms only with pending invitations and can be cancelled`() = fixture { f ->
         val pod = f.create().id

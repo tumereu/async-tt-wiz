@@ -21,6 +21,8 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
     private val client = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS).callTimeout(10, TimeUnit.MINUTES)
         .followRedirects(false).followSslRedirects(false).build()
+    // GitHub answers release downloads with a redirect to its file host; https only.
+    private val github = client.newBuilder().followRedirects(true).followSslRedirects(false).build()
     private val origin = BuildConfig.ACCOUNT_ORIGIN
     var release by mutableStateOf(runCatching { AppRelease.parse(preferences.getString("latest", "")!!) }.getOrNull())
         private set
@@ -94,7 +96,11 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             val result = runCatching {
                 if (target == null || target.versionCode <= BuildConfig.VERSION_CODE)
                     throw AppUpdateFailure("Update not available yet. Try again in a moment.", browserFallback = false)
-                downloadAppApk(client, "$origin/app/apk", target, File(getApplication<Application>().cacheDir, "updates")) { percent ->
+                // GitHub is the main source; the server's copy stays a browser fallback, used here only for
+                // releases published without a GitHub link.
+                val mirror = target.githubUrl
+                downloadAppApk(if (mirror != null) github else client, mirror ?: "$origin/app/apk", target,
+                    File(getApplication<Application>().cacheDir, "updates"), ifRange = mirror == null) { percent ->
                     main.post { progress = percent / 100f }
                 }
             }

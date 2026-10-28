@@ -18,7 +18,7 @@ import kotlinx.serialization.json.long
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-/** [githubUrl] is the same APK mirrored on GitHub Releases, offered as a second browser download. */
+/** [githubUrl] is the same APK on GitHub Releases: the app downloads it from there, the server copy is the fallback. */
 data class AppRelease(val versionCode: Int, val versionName: String, val sha256: String, val size: Long,
     val githubUrl: String? = null) {
     companion object {
@@ -29,7 +29,7 @@ data class AppRelease(val versionCode: Int, val versionName: String, val sha256:
                 json.getValue("versionName").jsonPrimitive.content,
                 json.getValue("sha256").jsonPrimitive.content,
                 json.getValue("size").jsonPrimitive.long,
-                // A bad mirror link only drops that link; the update itself still comes from the server.
+                // A bad GitHub link only drops it; the update then comes from the server.
                 (json["githubUrl"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf(::isHttpsUrl)).also {
                 require(it.versionCode > 0 && it.versionName.isNotBlank() && it.versionName.length <= 100)
                 require(it.sha256.matches(Regex("[0-9a-f]{64}")) && it.size in 1..536_870_912L)
@@ -83,7 +83,7 @@ fun appUpdateProblem(failure: Throwable): AppUpdateProblem {
 
 /** Keeps a partial download across failures and app restarts, and resumes it on the next attempt. */
 fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, directory: File,
-    sleep: (Long) -> Unit = Thread::sleep, progress: (Int) -> Unit): File {
+    sleep: (Long) -> Unit = Thread::sleep, ifRange: Boolean = true, progress: (Int) -> Unit): File {
     directory.mkdirs()
     val apk = File(directory, "${target.sha256}.apk")
     // Also verify cache hits before every handoff to the system installer.
@@ -91,7 +91,7 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     val part = File(directory, "${target.sha256}.part")
     directory.listFiles()?.filter { it != part }?.forEach { it.delete() }
     if (part.length() > target.size) part.delete()
-    AppLog.info("update", "Downloading ${target.versionName} (${target.versionCode}), ${target.size} bytes, " +
+    AppLog.info("update", "Downloading ${target.versionName} (${target.versionCode}) from ${url.substringBefore('?')}, ${target.size} bytes, " +
         "${part.length()} already saved, ${directory.usableSpace} bytes free")
     if (directory.usableSpace < target.size - part.length() + 16_000_000L)
         throw AppUpdateFailure("Not enough free storage for the update (needs about ${target.size / 1_000_000 + 16} MB). " +
@@ -101,7 +101,7 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     var attempt = 0
     while (part.length() < target.size) {
         val before = part.length()
-        val failure = try { downloadAppApkPart(client, url, target, part, progress); null } catch (failure: IOException) { failure }
+        val failure = try { downloadAppApkPart(client, url, target, part, ifRange, progress); null } catch (failure: IOException) { failure }
         AppLog.info("update", "Attempt ended at ${part.length()} / ${target.size} bytes (${part.length() - before} new)")
         if (part.length() >= target.size) break
         if (part.length() > before) attempt = 0
@@ -120,18 +120,21 @@ fun downloadAppApk(client: OkHttpClient, url: String, target: AppRelease, direct
     return apk
 }
 
-private fun downloadAppApkPart(client: OkHttpClient, url: String, target: AppRelease, part: File, progress: (Int) -> Unit) {
+private fun downloadAppApkPart(client: OkHttpClient, url: String, target: AppRelease, part: File, ifRange: Boolean,
+    progress: (Int) -> Unit) {
     val offset = part.length()
     val request = Request.Builder().url(url).apply {
-        // If-Range: a newer release published meanwhile is sent whole instead of appended.
-        if (offset > 0) header("Range", "bytes=$offset-").header("If-Range", "\"${target.sha256}\"")
+        if (offset > 0) header("Range", "bytes=$offset-")
+        // Our server tags the APK by its SHA-256, so a newer release published meanwhile is sent whole instead of
+        // appended. Other hosts use their own tags; there a mixed file is caught by the final checksum.
+        if (offset > 0 && ifRange) header("If-Range", "\"${target.sha256}\"")
     }.build()
     AppLog.info("update", "Requesting from offset $offset")
     client.newCall(request).execute().use { response ->
         AppLog.info("update", "HTTP ${response.code}, Content-Range ${response.header("Content-Range")}, " +
             "length ${response.body?.contentLength()}, protocol ${response.protocol}")
         if (!response.isSuccessful)
-            throw AppUpdateFailure("The update server isn't responding (error ${response.code}). Try again later.")
+            throw AppUpdateFailure("The download server isn't responding (error ${response.code}). Try again later.")
         val start = if (response.code == 206 && response.header("Content-Range").orEmpty().startsWith("bytes $offset-")) offset else 0L
         val body = response.body!!
         if (body.contentLength() != -1L && body.contentLength() != target.size - start) {

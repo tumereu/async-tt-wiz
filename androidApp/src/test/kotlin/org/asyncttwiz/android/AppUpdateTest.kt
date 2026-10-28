@@ -149,4 +149,29 @@ class AppUpdateTest {
         assertFalse(appUpdateProblem(AppUpdateFailure("Update not available yet.", browserFallback = false)).browserFallback)
         assertEquals(AppUpdateProblem("Update failed.", "IllegalStateException: boom"), appUpdateProblem(IllegalStateException("boom")))
     }
+
+    @Test fun `GitHub downloads follow the redirect to its file host and resume without our If-Range tag`() {
+        val directory = Files.createTempDirectory("atw-update").toFile()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val ifRanges = mutableListOf<String?>()
+        var requests = 0
+        server.createContext("/releases/download") { exchange ->
+            exchange.responseHeaders.add("Location", "http://127.0.0.1:${server.address.port}/objects/app.apk?signature=1")
+            exchange.sendResponseHeaders(302, -1); exchange.close()
+        }
+        server.createContext("/objects") { exchange ->
+            val start = exchange.requestHeaders.getFirst("Range")?.removePrefix("bytes=")?.removeSuffix("-")?.toLong()
+            ifRanges += exchange.requestHeaders.getFirst("If-Range")
+            try { sendFrom(exchange, start ?: 0, if (requests++ == 0) 100_000 else apk.size - (start ?: 0).toInt()) }
+            catch (_: IOException) {} finally { exchange.close() }
+        }
+        server.start()
+        try {
+            val client = OkHttpClient.Builder().followRedirects(true).followSslRedirects(false).build()
+            val file = downloadAppApk(client, "http://127.0.0.1:${server.address.port}/releases/download/v1.2.3/app.apk",
+                target, directory, ifRange = false, sleep = {}) {}
+            assertArrayEquals(apk, file.readBytes())
+            assertEquals(listOf<String?>(null, null), ifRanges)
+        } finally { server.stop(0); directory.deleteRecursively() }
+    }
 }

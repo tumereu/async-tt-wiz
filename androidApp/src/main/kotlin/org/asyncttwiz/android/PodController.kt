@@ -38,6 +38,16 @@ fun interface PodMarksScheduler { fun schedule(delayMillis: Long, task: () -> Un
 /** Local pick marks belong to one visit of a pack: the same pack can come back later with fewer cards. */
 internal data class PodMarksKey(val pod: String, val attempt: String, val pack: String, val pick: Int)
 internal const val PodMarksDelayMillis = 500L
+/** Private deck notes belong to one draft attempt. */
+internal data class PodNotesKey(val pod: String, val attempt: String)
+
+/** One reversible Build change: where a copy was before a move, or the basics before a tap. */
+internal sealed interface PodBuildStep {
+    data class Move(val copyId: String, val from: PodDeckCategory, val to: PodDeckCategory) : PodBuildStep
+    data class Basics(val previous: PodDeckBasics) : PodBuildStep
+}
+internal const val PodBuildUndoLimit = 50
+private data class PodBuildHistory(val pod: String, val attempt: String, val steps: List<PodBuildStep>)
 
 /** All operations are serialized, including a read after each write. Setup edits, build edits and queued picks predict.
  * An ambiguous write remains at the head with its original request id until retried. */
@@ -80,6 +90,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var marksPending: MarksWrite? = null
     private val pickedPacks = mutableSetOf<PodMarksKey>()
     private var marksCancel: (() -> Unit)? = null
+    /** Deck notes, saved like marks: debounced, latest wins, off the serialized queue; adopted from the server when absent. */
+    private val deckNotes = mutableStateMapOf<PodNotesKey, PodDeckNotes>()
+    private data class NotesWrite(val key: PodNotesKey, val notes: PodDeckNotes, val token: String, val retries: Int = 0)
+    private var notesPending: NotesWrite? = null
+    private var notesCancel: (() -> Unit)? = null
+    /** Build undo for the open pod's current attempt; survives tab switches, not restarts. */
+    private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     internal val setPicker = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
         failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
@@ -97,7 +114,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
         pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
-        synchronized(marksLock) { marksPending = null; pickedPacks.clear() }
+        deckNotes.clear(); notesCancel?.invoke(); notesCancel = null; buildHistory = null
+        synchronized(marksLock) { marksPending = null; pickedPacks.clear(); notesPending = null }
     }
     fun dismissError() { state = state.copy(error = null, notice = null) }
     fun open(id: String) {
@@ -105,6 +123,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         flushSetup()
         setPicker.dismiss()
         accepted = null
+        if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
             confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null)
         refresh()
@@ -312,6 +331,47 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         pickMarks[key] = PodPickMarks(head.id, saved.keeps.filter { it in cards }, saved.burns.filter { it in cards },
             saved.librarians.filter { it in owned })
     }
+    private fun notesKey(detail: PodDetail?): PodNotesKey? =
+        detail?.takeIf { it.phase != PodPhase.SETUP }?.draftAttemptId?.let { PodNotesKey(detail.id, it) }
+    /** The open pod's notes for its current attempt; null when there is no attempt to keep notes for. */
+    internal fun notes(): PodDeckNotes? = notesKey(state.detail)?.let { deckNotes[it] ?: PodDeckNotes() }
+    /** Relative, like basics taps; saved ~[PodMarksDelayMillis] after the last change, also after submitting. */
+    internal fun editNotes(change: (PodDeckNotes) -> PodDeckNotes) {
+        val key = notesKey(state.detail) ?: return
+        val current = deckNotes[key] ?: PodDeckNotes()
+        val next = change(current).podNotesSanitized()
+        if (next == current || !next.valid) return
+        deckNotes[key] = next
+        val scheduler = marksScheduler ?: return
+        val token = credential() ?: return
+        synchronized(marksLock) { notesPending = NotesWrite(key, next, token) }
+        scheduleNotes(scheduler, PodMarksDelayMillis)
+    }
+    private fun scheduleNotes(scheduler: PodMarksScheduler, delay: Long) {
+        notesCancel?.invoke()
+        notesCancel = scheduler.schedule(delay, ::sendNotes)
+    }
+    private fun sendNotes() {
+        val write = synchronized(marksLock) { notesPending.also { notesPending = null } } ?: return
+        try { runBlocking { api.notes(write.token, write.key.pod, SetPodDeckNotes(write.key.attempt, write.notes)) } }
+        catch (failure: Exception) {
+            if (!transientServiceFailure(failure) || write.retries >= 3) return
+            post {
+                if (closed) return@post
+                val scheduler = marksScheduler ?: return@post
+                val retry = synchronized(marksLock) {
+                    if (notesPending != null) false else { notesPending = write.copy(retries = write.retries + 1); true }
+                }
+                if (retry) scheduleNotes(scheduler, PodMarksDelayMillis * 10)
+            }
+        }
+    }
+    private fun syncNotes(detail: PodDetail) {
+        val key = notesKey(detail)
+        deckNotes.keys.filter { it.pod == detail.id && it != key }.forEach { deckNotes.remove(it) }
+        if (key == null || key in deckNotes) return
+        detail.notes?.let { deckNotes[key] = it.podNotesSanitized() }
+    }
     fun gridSelect(gridId: String, line: GridLineType, index: Int) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.GRID } ?: return
         val grid = detail.grid ?: return
@@ -323,7 +383,20 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun move(copyId: String, category: PodDeckCategory) {
         val detail = editable() ?: return
+        val from = detail.build?.copies?.firstOrNull { it.copyId == copyId }?.category ?: return
+        if (from != category) record(detail, PodBuildStep.Move(copyId, from, category))
+        sendMove(detail, copyId, category)
+    }
+    /** The review feed's own Undo: moves the copy back and drops that move from the Build undo stack. */
+    fun revertMove(copyId: String, category: PodDeckCategory) {
+        val detail = editable() ?: return
         if (detail.build?.copies?.none { it.copyId == copyId } != false) return
+        val steps = buildSteps(detail)
+        val index = steps.indexOfLast { it is PodBuildStep.Move && it.copyId == copyId && it.from == category }
+        if (index >= 0) buildHistory = buildHistory?.copy(steps = steps.filterIndexed { i, _ -> i != index })
+        sendMove(detail, copyId, category)
+    }
+    private fun sendMove(detail: PodDetail, copyId: String, category: PodDeckCategory) {
         val input = MovePodCopy(requestId(), detail.draftAttemptId!!, copyId, category)
         enqueue(Write(detail.id, input.draftAttemptId, predict = { build -> build.copy(copies = build.copies.map {
             if (it.copyId == copyId) it.copy(category = category) else it
@@ -332,9 +405,30 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun basics(basics: PodDeckBasics) {
         val detail = editable() ?: return
         if (!basics.valid) return
+        detail.build?.basics?.takeIf { it != basics }?.let { record(detail, PodBuildStep.Basics(it)) }
+        sendBasics(detail, basics)
+    }
+    private fun sendBasics(detail: PodDetail, basics: PodDeckBasics) {
         val input = SetPodBasics(requestId(), detail.draftAttemptId!!, basics)
         enqueue(Write(detail.id, input.draftAttemptId, predict = { it.copy(basics = basics) },
             send = { api.basics(it, detail.id, input) }))
+    }
+    private fun buildSteps(detail: PodDetail?): List<PodBuildStep> =
+        buildHistory?.takeIf { detail != null && it.pod == detail.id && it.attempt == detail.draftAttemptId }?.steps.orEmpty()
+    private fun record(detail: PodDetail, step: PodBuildStep) {
+        buildHistory = PodBuildHistory(detail.id, detail.draftAttemptId!!, (buildSteps(detail) + step).takeLast(PodBuildUndoLimit))
+    }
+    val canUndoBuild: Boolean get() = editable()?.let { buildSteps(it).isNotEmpty() } == true
+    /** Sends the inverse of the latest Build change as an ordinary edit. Returns the moved copy and its destination. */
+    fun undoBuild(): Pair<String, PodDeckCategory>? {
+        val detail = editable() ?: return null
+        val steps = buildSteps(detail)
+        val step = steps.lastOrNull() ?: return null
+        buildHistory = buildHistory?.copy(steps = steps.dropLast(1))
+        return when (step) {
+            is PodBuildStep.Move -> { sendMove(detail, step.copyId, step.from); step.copyId to step.from }
+            is PodBuildStep.Basics -> { sendBasics(detail, step.previous); null }
+        }
     }
     /** Relative so taps faster than recomposition each count against the latest predicted build. */
     fun adjustBasic(index: Int, delta: Int) {
@@ -373,7 +467,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 PodConfirmation.START -> api.start(token, detail.id, input)
             }
         }))
-        if (action == PodConfirmation.SUBMIT) state = state.copy(tab = PodTab.GAMES)
+        if (action == PodConfirmation.SUBMIT) { buildHistory = null; state = state.copy(tab = PodTab.GAMES) }
     }
     private fun requestId() = UUID.randomUUID().toString()
 
@@ -427,6 +521,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val changed = accepted?.phase != detail.phase || accepted?.submitted != detail.submitted
         accepted = detail
         syncMarks(detail)
+        syncNotes(detail)
+        if (buildHistory?.pod == detail.id && (detail.submitted || buildHistory?.attempt != detail.draftAttemptId)) buildHistory = null
         if (changed) state = state.copy(tab = podDefaultTab(detail.phase, detail.submitted))
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
     }

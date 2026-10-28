@@ -1,0 +1,1 @@
+add: Build has an undo button next to Submit that takes back your last card moves and basic land changes, one at a time.

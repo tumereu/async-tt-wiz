@@ -311,8 +311,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
-                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide)
-                PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
+                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
+                    controller.canUndoBuild, controller::undoBuild, controller::revertMove)
+                PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }
         }

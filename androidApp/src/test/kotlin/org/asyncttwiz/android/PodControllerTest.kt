@@ -124,6 +124,12 @@ class PodControllerTest {
             marksFailure?.let { throw PodFailure(it) }
             return PodAcknowledged(id)
         }
+        var notesFailure: String? = null
+        override suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged {
+            calls += "notes" to input
+            notesFailure?.let { throw PodFailure(it) }
+            return PodAcknowledged(id)
+        }
         override fun close() = Unit
     }
     @Test fun automaticRefreshFailuresStayQuietForThirtySeconds(): Unit = Fixture().use { f ->
@@ -265,6 +271,110 @@ class PodControllerTest {
         f.fire(); f.deliver()
         assertNull(f.controller.state.error)
         assertTrue(f.timers.isEmpty())
+    }
+
+    @Test fun buildUndoRevertsMovesAndBasicTapsInReverseAsOrdinaryEditsDuringTheDraft(): Unit = Fixture().use { f ->
+        f.open()
+        assertFalse(f.controller.canUndoBuild); assertNull(f.controller.undoBuild())
+        f.controller.move("copy", PodDeckCategory.SIDE)
+        f.controller.adjustBasic(0, 1); f.controller.adjustBasic(0, 1)
+        f.controller.move("copy", PodDeckCategory.SIDE) // no change, no step
+        f.controller.tab(PodTab.STATS); f.controller.tab(PodTab.BUILD)
+        assertTrue(f.controller.canUndoBuild)
+        assertNull(f.controller.undoBuild()); assertEquals(1, f.controller.state.detail!!.build!!.basics.plains)
+        assertNull(f.controller.undoBuild()); assertEquals(0, f.controller.state.detail!!.build!!.basics.plains)
+        assertEquals("copy" to PodDeckCategory.MAIN, f.controller.undoBuild())
+        assertEquals(PodDeckCategory.MAIN, f.controller.state.detail!!.build!!.copies.single().category)
+        assertFalse(f.controller.canUndoBuild); assertNull(f.controller.undoBuild())
+        f.deliver()
+        assertEquals(listOf(PodDeckCategory.SIDE, PodDeckCategory.SIDE, PodDeckCategory.MAIN),
+            f.api.calls.filter { it.first == "move" }.map { (it.second as MovePodCopy).category })
+        assertEquals(listOf(1, 2, 1, 0), f.api.calls.filter { it.first == "basics" }.map { (it.second as SetPodBasics).basics.plains })
+        assertEquals(f.api.saved.build, f.controller.state.detail!!.build)
+    }
+
+    @Test fun feedRevertDropsItsMoveFromTheBuildUndoStack(): Unit = Fixture().use { f ->
+        f.open()
+        f.controller.adjustBasic(2, 1)
+        f.controller.move("copy", PodDeckCategory.SIDE)
+        f.controller.revertMove("copy", PodDeckCategory.MAIN)
+        assertEquals(PodDeckCategory.MAIN, f.controller.state.detail!!.build!!.copies.single().category)
+        assertNull(f.controller.undoBuild()) // the basics tap, not the reverted move
+        assertEquals(0, f.controller.state.detail!!.build!!.basics.swamp)
+        assertFalse(f.controller.canUndoBuild)
+        f.deliver()
+        assertEquals(listOf(PodDeckCategory.SIDE, PodDeckCategory.MAIN),
+            f.api.calls.filter { it.first == "move" }.map { (it.second as MovePodCopy).category })
+    }
+
+    @Test fun buildUndoKeepsTheLatestFiftyStepsAndClearsWithAnotherPodOrAttemptAndOnSubmit(): Unit = Fixture(PodPhase.DRAFTED).use { f ->
+        f.open()
+        repeat(PodBuildUndoLimit + 10) { f.controller.adjustBasic(0, 1) }
+        var undone = 0
+        while (f.controller.canUndoBuild) { f.controller.undoBuild(); undone++ }
+        assertEquals(PodBuildUndoLimit, undone)
+        assertEquals(10, f.controller.state.detail!!.build!!.basics.plains)
+        f.deliver()
+        f.controller.adjustBasic(0, 1); f.deliver()
+        val other = UUID.randomUUID().toString()
+        f.api.secondPod = f.api.saved.copy(id = other)
+        f.controller.open(other); f.deliver(); f.open()
+        assertFalse(f.controller.canUndoBuild)
+        f.controller.adjustBasic(0, 1); f.deliver()
+        f.api.saved = f.api.saved.copy(draftAttemptId = UUID.randomUUID().toString())
+        f.controller.refresh(); f.deliver()
+        assertFalse(f.controller.canUndoBuild)
+        f.api.saved = f.api.saved.copy(draftAttemptId = attempt)
+        f.controller.refresh(); f.deliver()
+        f.controller.adjustBasic(0, 30)
+        assertTrue(f.controller.canUndoBuild)
+        f.controller.submit(); f.deliver()
+        assertTrue(f.controller.state.detail!!.submitted)
+        assertFalse(f.controller.canUndoBuild); assertNull(f.controller.undoBuild())
+    }
+
+    @Test fun deckNotesSurviveTabSwitchesSaveDebouncedLatestWinsAndStayEditableAfterSubmit(): Unit = Fixture(PodPhase.DRAFTED).use { f ->
+        f.open()
+        assertEquals(PodDeckNotes(), f.controller.notes())
+        f.controller.editNotes { it.copy(text = "Splash red") }
+        f.controller.editNotes { it.podNotesAdjust(0, 1) }
+        f.controller.editNotes { it.podNotesAdjust(0, -5) }
+        f.controller.editNotes { it.podNotesAdjust(7, 1) }
+        f.controller.editNotes { it.podNotesAdjust(6, 200) }
+        val expected = PodDeckNotes("Splash red", listOf(0, 0, 0, 0, 0, 0, PodDeckNotes.MAX_COUNTER, 1))
+        assertEquals(listOf(PodMarksDelayMillis), f.timers.map { it.first })
+        f.controller.tab(PodTab.BUILD); f.controller.tab(PodTab.STATS)
+        assertEquals(expected, f.controller.notes())
+        assertTrue(f.api.calls.none { it.first == "notes" })
+        f.fire()
+        assertEquals(listOf(SetPodDeckNotes(attempt, expected)), f.api.calls.filter { it.first == "notes" }.map { it.second })
+        f.controller.adjustBasic(0, 40); f.controller.submit(); f.deliver()
+        f.controller.editNotes { it.copy(text = "After submit") }
+        f.fire()
+        assertEquals("After submit", (f.api.calls.last { it.first == "notes" }.second as SetPodDeckNotes).notes.text)
+        // A lost connection retries a little later.
+        f.api.notesFailure = "network"
+        f.controller.editNotes { it.copy(text = "Retry") }
+        f.fire(); f.deliver()
+        assertEquals(listOf(PodMarksDelayMillis * 10), f.timers.map { it.first })
+        f.api.notesFailure = null; f.fire()
+        assertEquals(listOf("After submit", "Retry", "Retry"), f.api.calls.filter { it.first == "notes" }.map { (it.second as SetPodDeckNotes).notes.text }.drop(1))
+    }
+
+    @Test fun savedNotesAreAdoptedOnlyWithoutLocalNotesAndEditsAreSanitized(): Unit = Fixture().use { f ->
+        val saved = PodDeckNotes("Saved", (1..8).toList())
+        f.api.saved = f.api.saved.copy(notes = saved)
+        f.open()
+        assertEquals(saved, f.controller.notes())
+        f.controller.editNotes { it.copy(text = "Local\r\nline\u0007") }
+        assertEquals("Local\nline", f.controller.notes()!!.text)
+        f.api.saved = f.api.saved.copy(notes = PodDeckNotes("Other device"))
+        f.controller.refresh(); f.deliver()
+        assertEquals("Local\nline", f.controller.notes()!!.text)
+        f.controller.editNotes { it.copy(text = "x".repeat(3000)) }
+        assertEquals(PodDeckNotes.MAX_TEXT, f.controller.notes()!!.text.length)
+        assertTrue(f.controller.notes()!!.valid)
+        Fixture(PodPhase.SETUP).use { setup -> setup.open(); assertNull(setup.controller.notes()) }
     }
 
     @Test fun savedMarksAreAdoptedOnlyWithoutLocalMarks(): Unit = Fixture().use { f ->

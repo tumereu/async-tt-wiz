@@ -45,7 +45,15 @@ import kotlinx.serialization.Serializable
     val autoStart: Boolean = false,
     /** Creator-only: why auto-start last switched itself off, until it is armed again or the draft starts. */
     val autoStartOff: PodAutoStartOff? = null,
+    /** Caller-only notes for the current draft attempt; null until first saved. */
+    val notes: PodDeckNotes? = null,
 )
+/** A member's private deck notes and tally counters (W, U, B, R, G, C, gold, neutral) for one draft attempt. */
+@Serializable data class PodDeckNotes(val text: String = "", val counters: List<Int> = List(COUNTERS) { 0 }) {
+    val valid: Boolean get() = text.length <= MAX_TEXT && DeckValidation.text(text) &&
+        text.none { it.isISOControl() && it != '\n' } && counters.size == COUNTERS && counters.all { it in 0..MAX_COUNTER }
+    companion object { const val MAX_TEXT = 2000; const val COUNTERS = 8; const val MAX_COUNTER = 99 }
+}
 /** reason is "declined" (account = who declined) or the start error code that prevented the automatic start. */
 @Serializable data class PodAutoStartOff(val reason: String, val account: AccountIdentity? = null)
 /** POST /v1/pods: exactly one of cubeId/setSource is required.
@@ -74,6 +82,9 @@ import kotlinx.serialization.Serializable
  * Not request-identified: the marks are local intent, cleared when that pack is picked, and the pick is validated as before. */
 @Serializable data class SetPodDraftMarks(val draftAttemptId: String, val packId: String, val keeps: List<String> = emptyList(),
     val burns: List<String> = emptyList(), val librarians: List<String> = emptyList())
+/** PUT /v1/pods/{id}/build/notes. Caller-private, allowed while the attempt is current (also after submitting).
+ * Not request-identified: latest wins, like draft marks. */
+@Serializable data class SetPodDeckNotes(val draftAttemptId: String, val notes: PodDeckNotes)
 /** POST /v1/pods/{id}/grid/select; index is zero-based (0..2). */
 @Serializable data class SelectPodGrid(val requestId: String, val draftAttemptId: String, val gridId: String,
     val line: GridLineType, val index: Int)

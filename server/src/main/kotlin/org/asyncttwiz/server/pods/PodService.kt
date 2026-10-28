@@ -19,6 +19,7 @@ import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION as INVITE
+import org.asyncttwiz.server.generated.tables.PodDeckNotes.POD_DECK_NOTES as NOTES
 import org.asyncttwiz.server.generated.tables.PodDraftMarks.POD_DRAFT_MARKS as MARKS
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER as MEMBER
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
@@ -334,6 +335,35 @@ class PodService(private val runtime: ServiceRuntime) {
             .and(if (owner == null) DSL.trueCondition() else MARKS.ACCOUNT_ID.eq(owner)).execute()
     }
 
+    /** Stores the caller's private notes for the current attempt (latest wins), during the draft and after it, submitted or not. */
+    fun saveNotes(principal: AccountService.Principal, id: String, input: SetPodDeckNotes): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!DeckValidation.uuid(input.draftAttemptId)) return error(400, "invalid_request")
+        if (!input.notes.valid) return error(400, "invalid_notes")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            member(sql, row, owner)?.let { return@transaction it }
+            if (row.draftAttemptId?.toString() != input.draftAttemptId) return@transaction error(409, "draft_attempt_expired")
+            sql.insertInto(NOTES).set(NOTES.POD_ID, row.id).set(NOTES.DRAFT_ATTEMPT_ID, row.draftAttemptId)
+                .set(NOTES.ACCOUNT_ID, owner).set(NOTES.NOTE, input.notes.text).set(NOTES.COUNTERS, encoded(input.notes.counters))
+                .set(NOTES.UPDATED_AT, DSL.currentOffsetDateTime())
+                .onConflict(NOTES.POD_ID, NOTES.DRAFT_ATTEMPT_ID, NOTES.ACCOUNT_ID).doUpdate()
+                .set(NOTES.NOTE, input.notes.text).set(NOTES.COUNTERS, encoded(input.notes.counters))
+                .set(NOTES.UPDATED_AT, DSL.currentOffsetDateTime()).execute()
+            Result(200, json.encodeToString(PodAcknowledged(row.id.toString())))
+        }
+    }
+
+    private fun notes(sql: DSLContext, row: PodRecord, owner: UUID): PodDeckNotes? {
+        val attempt = row.draftAttemptId ?: return null
+        val saved = sql.selectFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).and(NOTES.DRAFT_ATTEMPT_ID.eq(attempt))
+            .and(NOTES.ACCOUNT_ID.eq(owner)).fetchOne() ?: return null
+        return PodDeckNotes(saved.note!!, json.decodeFromString(saved.counters!!.data()))
+    }
+
     fun selectGrid(principal: AccountService.Principal, id: String, input: SelectPodGrid): Result =
         mutate(principal, id, input.requestId, "selectPodGrid", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
@@ -524,6 +554,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun reset(sql: DSLContext, row: PodRecord, author: UUID) {
         clearDraftHints(sql, row.id!!)
         clearMarks(sql, row.id!!)
+        sql.deleteFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).execute()
         notify(sql, row, ActivityKind.POD_DRAFT_CANCELLED, author)
         row.phase = "SETUP"; row.draftAttemptId = null; row.draftState = null
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckBuild())).set(MEMBER.SUBMITTED_DECK, null as JSONB?)
@@ -670,7 +701,8 @@ class PodService(private val runtime: ServiceRuntime) {
             row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck",
             row.phase == "SETUP" && row.autoStart == true,
             row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
-                ?.let { PodAutoStartOff(it, row.autoStartOffAccount?.let { account -> identity(sql, account) }) })
+                ?.let { PodAutoStartOff(it, row.autoStartOffAccount?.let { account -> identity(sql, account) }) },
+            notes(sql, row, owner))
         return Result(status, json.encodeToString(result))
     }
 

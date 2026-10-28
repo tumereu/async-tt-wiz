@@ -490,13 +490,13 @@ class PodBuildViewTest {
         assertEquals(listOf("Keep", "Move to Side"), actions.map { it.label })
         compose.runOnIdle { actions.first().action() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
-        compose.onNodeWithText("Kept 1 · 0 to Side").assertIsDisplayed()
+        compose.onNodeWithText("Kept 1").assertIsDisplayed()
         compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
-        compose.onNodeWithText("Kept 0 · 1 to Side").assertIsDisplayed()
+        compose.onNodeWithText("1 to Side").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
 
         compose.onNodeWithTag("pod-build-feed-header-SIDE").performClick()

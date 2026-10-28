@@ -46,7 +46,7 @@ class PodBuildFeedModelTest {
         assertNull(done.current)
         assertEquals("Kept 2 · 1 to Side", done.summary)
         assertSame(done, done.decide(true))
-        assertEquals("Kept 0 · 2 to Trash", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!.decide(true).decide(true).summary)
+        assertEquals("2 to Trash", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!.decide(true).decide(true).summary)
     }
 
     @Test fun undoStepsBackOneCardAndOnlyReturnsMovedCopies() {

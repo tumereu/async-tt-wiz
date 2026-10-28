@@ -34,7 +34,9 @@ internal data class PodBuildFeed(
 
     val progress: String get() = "${minOf(position + 1, cards.size)} / ${cards.size}"
 
-    val summary: String get() = "Kept ${demoted.count { !it }} · ${demoted.count { it }} to ${target.podBuildLabel()}"
+    /** Zero parts are left out ("Kept 3", "2 to Side"); an empty review says "Kept 0". */
+    val summary: String get() = listOfNotNull(demoted.count { !it }.takeIf { it > 0 }?.let { "Kept $it" },
+        demoted.count { it }.takeIf { it > 0 }?.let { "$it to ${target.podBuildLabel()}" }).joinToString(" · ").ifEmpty { "Kept 0" }
 
     fun decide(demote: Boolean): PodBuildFeed = if (finished) this else copy(demoted = demoted + demote)
 

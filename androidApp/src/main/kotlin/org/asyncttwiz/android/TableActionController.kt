@@ -47,6 +47,8 @@ sealed interface TableActionIntent {
         val suggestionId: String? = null, val note: String = "") : TableActionIntent
     data class Stack(override val scope: TableActionScope, val target: ExplicitStackTarget) : TableActionIntent
     data class Player(override val scope: TableActionScope, val accountId: String) : TableActionIntent
+    /** The viewer's own status; empty clears it (Ready). */
+    data class Status(override val scope: TableActionScope, val text: String) : TableActionIntent
 }
 
 data class PlayerValueTarget(val scope: TableActionScope, val accountId: String, val color: CounterColor? = null)
@@ -110,6 +112,7 @@ class TableActionController(private val state: () -> PlayState?, private val can
             is TableActionIntent.Next -> return submit(PlayAction.NextStep)
             is TableActionIntent.End -> return submit(PlayAction.EndTurn)
             is TableActionIntent.Choose -> return submit(PlayAction.ChooseStep(intent.position))
+            is TableActionIntent.Status -> return submit(PlayAction.SetStatus(intent.text))
             is TableActionIntent.Orient -> return send(intent.cardIds.distinct().filter { id ->
                 play.board.cards.any { card -> card.id == id && play.board.containers.any {
                     it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }

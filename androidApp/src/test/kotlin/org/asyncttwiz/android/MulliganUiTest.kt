@@ -35,7 +35,8 @@ class MulliganUiTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("mulligan-quantities", 0).edit().clear().commit()
         val f = BasicTableFixture()
-        f.connect(f.root.copy(board = f.root.board.copy(turn = TurnState(f.other))))
+        f.connect(f.root.copy(board = f.root.board.copy(turn = TurnState(f.other),
+            players = f.root.board.players.map { it.copy(status = PlayerStatus.OPENING) })))
         val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
         fun click(name: String) {
             compose.mainClock.advanceTimeBy(350)

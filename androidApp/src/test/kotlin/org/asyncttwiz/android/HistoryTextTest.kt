@@ -43,6 +43,12 @@ class HistoryTextTest {
         return changed
     }
 
+    @Test fun statusChangesReadAsStatusSetOrCleared() {
+        val set = format(PlayAction.SetStatus("Wait"), author = f.b, viewer = f.a)
+        assertEquals("Status → Wait", set.description); assertEquals("Status", set.label)
+        assertEquals("Status cleared", format(PlayAction.SetStatus("")).description)
+    }
+
     @Test fun scalarEditsShowRecordedBeforeAndAfterValuesNotRequestedDeltas() {
         val before = placed(f.a, PlayZone.BATTLEFIELD).let { base -> base.copy(board = base.board.copy(
             cards = base.board.cards.map { if (it.id == id(9)) it.copy(corner = "2/2", counters = mapOf(CounterColor.RED to "2")) else it })) }

@@ -68,7 +68,7 @@ class QuickActionsTest {
 
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
-            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Go to main", "Mull N", "Mull −1"),
+            TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Go to main"),
             TurnPosition.UPKEEP to listOf("Go to main"),
             TurnPosition.DRAW to listOf("Go to main"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
@@ -82,14 +82,12 @@ class QuickActionsTest {
             assertTrue(catalog(position, context = QuickContext(playable = false)).isEmpty())
         }
         assertEquals(3, QuickActions.contextualPositions)
-        assertEquals(5, catalog(TurnPosition.UNTAP).size) // overflow, not dropped/clipped to three
+        assertEquals(3, catalog(TurnPosition.UNTAP).size)
         assertEquals(3, catalog(TurnPosition.UNTAP, "2").size)
         assertEquals(3, catalog(TurnPosition.UNTAP, "3").size) // not each player's first Untap
         assertEquals(listOf("Untap all", "Untap all + next", "Untap, draw → main"), catalog(TurnPosition.UNTAP, "2").map { it.name })
         assertEquals(listOf("Draw + go to main"), catalog(TurnPosition.UPKEEP, "2").map { it.name })
         assertEquals(listOf("Draw one", "Draw one + next"), catalog(TurnPosition.DRAW, "2").map { it.name })
-        assertEquals(7, (catalog(TurnPosition.UNTAP)[3].intent as TableActionIntent.Library).defaultCount)
-        assertEquals(1, (catalog(TurnPosition.UNTAP)[4].intent as TableActionIntent.Library).defaultCount)
     }
 
     @Test fun declarationsRequireCapturedSelectionOnlyAtDeclareAttackers() {
@@ -115,7 +113,7 @@ class QuickActionsTest {
             assertEquals(plain, actions.dropLast(1))
             assertEquals(TableActionIntent.Stack(TableActionScope(TableToolFixture.id(1), TableToolFixture.id(2)), target), actions.last().intent)
         }
-        assertEquals(6, catalog(TurnPosition.UNTAP, context = QuickContext(stackTarget =
+        assertEquals(4, catalog(TurnPosition.UNTAP, context = QuickContext(stackTarget =
             ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT))).size)
     }
 
@@ -126,21 +124,24 @@ class QuickActionsTest {
             val defender = QuickContext(viewer = TableToolFixture.id(8))
             val actions = QuickActions.contextual(play, defender, controller)
             assertEquals(when (position) {
-                TurnPosition.UNTAP -> listOf("Mull N", "Mull −1")
                 TurnPosition.DECLARE_BLOCKERS -> listOf("No blocks + next")
                 else -> emptyList()
             }, actions.map { it.name })
             assertTrue(QuickActions.contextual(play, QuickContext(), controller).isEmpty())
             val target = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)
-            if (position != TurnPosition.UNTAP)
-                assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
+            assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
         }
     }
 
-    @Test fun openingMulligansUseEachViewersOwnHandAndLibraryAndOnlyTheOpeningUntap() {
+    private fun withStatus(play: PlayState, vararg statuses: Pair<String, String>) = play.copy(board = play.board.copy(
+        players = play.board.players.map { player -> statuses.firstOrNull { it.first == player.accountId }
+            ?.let { player.copy(status = it.second) } ?: player }))
+
+    @Test fun openingMulligansUseEachViewersOwnHandAndLibraryWhileTheirStatusIsTheOpeningStatus() {
         val first = TableToolFixture.play()
+        val mulliganing = first.board.players.map { it.accountId to PlayerStatus.OPENING }.toTypedArray()
         for (viewer in first.board.players.map { it.accountId }) {
-            val play = first.copy(board = first.board.copy(attentionHolder = first.board.turn.accountId))
+            val play = withStatus(first.copy(board = first.board.copy(attentionHolder = first.board.turn.accountId)), *mulliganing)
             val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
             assertTrue(QuickActions.visible(play, viewer))
             assertEquals(viewer != play.board.turn.accountId, QuickActions.mulliganOnly(play, viewer))
@@ -148,20 +149,64 @@ class QuickActionsTest {
                 stackTarget = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)), controller)
             val mulligans = actions.mapNotNull { it.intent as? TableActionIntent.Library }
             assertEquals(listOf(LibraryTool.MULLIGAN_N, LibraryTool.MULLIGAN_MINUS_ONE), mulligans.map { it.tool })
+            val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == viewer }.cards
+            assertEquals(listOf(7, (hand.size - 1).coerceAtLeast(0)), mulligans.map { it.defaultCount })
             for (intent in mulligans) {
                 assertEquals(viewer, intent.targets.accountId)
                 assertEquals(play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == viewer }.cards, intent.handIds)
                 assertEquals(play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == viewer }.id, intent.targets.libraryId)
             }
-            if (viewer != play.board.turn.accountId) assertEquals(2, actions.size)
+            // Turn-1 shortcuts are hidden for the starting player too; the opponent sees only Mull/Ready.
+            assertEquals(listOf("Mull N", "Mull −1", "Ready"), actions.take(3).map { it.name })
+            if (viewer != play.board.turn.accountId) assertEquals(3, actions.size)
+            else assertEquals(4, actions.size) // + the explicit Stack target
         }
+        // Mulliganing does not depend on the step: it lasts until the status changes.
         val other = TableToolFixture.id(8)
-        for (play in listOf(TableToolFixture.play(number = "2"), TableToolFixture.play(TurnPosition.UPKEEP))) {
+        val upkeep = withStatus(TableToolFixture.play(TurnPosition.UPKEEP), other to PlayerStatus.OPENING)
+        assertTrue(QuickActions.visible(upkeep, other)); assertTrue(QuickActions.mulliganOnly(upkeep, other))
+        for (play in listOf(TableToolFixture.play(number = "2"), TableToolFixture.play(TurnPosition.UPKEEP), TableToolFixture.play())) {
             assertFalse(QuickActions.visible(play, other))
             assertFalse(QuickActions.openingMulligan(play, other))
         }
-        assertFalse(QuickActions.visible(first, null))
-        assertFalse(QuickActions.visible(first, "spectator"))
+        assertFalse(QuickActions.visible(withStatus(first, *mulliganing), null))
+        assertFalse(QuickActions.visible(withStatus(first, *mulliganing), "spectator"))
+    }
+
+    @Test fun startingPlayersTurnOneShortcutsWaitWhileEitherPlayerHasExactlyTheOpeningStatus() {
+        val starter = TableToolFixture.id(7); val other = TableToolFixture.id(8)
+        val normal = listOf("Untap all", "Untap all + next", "Go to main")
+        fun names(play: PlayState, viewer: String = starter) = QuickActions.contextual(play, QuickContext(viewer = viewer),
+            TableActionController({ play }, { true }, { true }, RecordingRoutes())).map { it.name }
+        val base = TableToolFixture.play()
+        assertEquals(listOf("Mull N", "Mull −1", "Ready"), names(withStatus(base, starter to PlayerStatus.OPENING, other to PlayerStatus.OPENING)))
+        // The starter is done, the opponent is still mulliganing: no shortcuts yet, and the opponent still sees Mull/Ready.
+        val waiting = withStatus(base, starter to "", other to PlayerStatus.OPENING)
+        assertEquals(emptyList(), names(waiting))
+        assertEquals(listOf("Mull N", "Mull −1", "Ready"), names(waiting, other))
+        assertEquals(emptyList(), names(withStatus(TableToolFixture.play(TurnPosition.UPKEEP), other to PlayerStatus.OPENING)))
+        // Any other status counts as done: cleared, a preset, or edited opening text.
+        for (status in listOf("", "Ready", "Wait", "Mulliganing…", "mulliganing", "Mulligan to 6")) {
+            assertEquals(normal, names(withStatus(base, starter to status, other to status)), status)
+            assertFalse(QuickActions.openingMulligan(withStatus(base, other to status), other))
+        }
+        // From turn 2 an unchanged opening status no longer hides the turn player's shortcuts.
+        assertEquals(listOf("Untap all", "Untap all + next", "Untap, draw → main"),
+            names(withStatus(TableToolFixture.play(number = "2"), other to PlayerStatus.OPENING)))
+    }
+
+    @Test fun readyClearsTheViewersOwnStatus() {
+        val other = TableToolFixture.id(8)
+        val play = withStatus(TableToolFixture.play(), other to PlayerStatus.OPENING)
+        val sent = mutableListOf<PlayAction>()
+        val controller = TableActionController({ play }, { true }, { sent += it; true }, RecordingRoutes())
+        val ready = QuickActions.contextual(play, QuickContext(viewer = other), controller).single { it.name == "Ready" }
+        assertTrue(controller.perform(ready.intent))
+        assertEquals(listOf<PlayAction>(PlayAction.SetStatus("")), sent)
+        val change = GameplayRules.change(play, other, GameCommand(TableToolFixture.id(40),
+            GameScope(play.gameId, playId = play.id), GameAction.Play(sent.single()), TableToolFixture.id(41), "1"))
+        assertEquals("", change.state!!.board.players.single { it.accountId == other }.status)
+        assertFalse(QuickActions.openingMulligan(change.state!!, other))
     }
 
     @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {

@@ -118,6 +118,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.AdjustLife -> life(action.accountId, action.delta, true)
         is PlayAction.SetPlayerCounter -> counter(CounterTarget.PLAYER, action.accountId, action.color, action.value, false)
         is PlayAction.AdjustPlayerCounter -> counter(CounterTarget.PLAYER, action.accountId, action.color, action.delta, true)
+        is PlayAction.SetStatus -> text(if (action.text.isEmpty()) "Status cleared" else "Status → ${historyPlainText(action.text)}", "Status")
         PlayAction.NextStep -> turn("Next step")
         PlayAction.EndTurn -> turn("End turn")
         is PlayAction.ChooseStep -> turn("Choose step", action.position)

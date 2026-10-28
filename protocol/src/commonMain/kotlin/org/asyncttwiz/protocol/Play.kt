@@ -6,8 +6,24 @@ import kotlinx.serialization.Serializable
 @Serializable data class StarterChoice(val accountId: String? = null) // null means Random
 @Serializable enum class PlayZone { LIBRARY, HAND, BATTLEFIELD, GRAVEYARD, EXILE, STACK }
 @Serializable enum class CounterColor { RED, BLUE, GREEN, YELLOW, PURPLE, GRAY }
+/** [status] is the player's short shared status (rules v26), e.g. "Wait"; empty is omitted on the wire. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayPlayer(val accountId: String, val life: String = "20",
-    val counters: Map<CounterColor, String> = emptyMap())
+    val counters: Map<CounterColor, String> = emptyMap(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val status: String = "")
+
+/** Rules v26: a player's own short status shown in a bubble by their life total. */
+object PlayerStatus {
+    const val MAX_LENGTH = 24
+    /** Both players start each new play with this exact status until they set another one. */
+    const val OPENING = "Mulliganing"
+    /** Empty (cleared), or already trimmed, at most [MAX_LENGTH] characters, one line without control characters. */
+    fun valid(text: String): Boolean = text == text.trim() && text.length <= MAX_LENGTH &&
+        text.none { it.isISOControl() } && DeckValidation.text(text)
+    fun opening(board: BoardState, accountId: String?): Boolean =
+        board.players.any { it.accountId == accountId && it.status == OPENING }
+    fun anyOpening(board: BoardState): Boolean = board.players.any { it.status == OPENING }
+}
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayCard(val id: String, val definition: String, val owner: String,
     val containerId: String, val faceId: String, val covered: Boolean = true, val tapped: Boolean = false,
@@ -203,7 +219,7 @@ object StartRules {
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         val needed = cards.map { it.definition }.toSet()
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
-            BoardState(players.map { PlayPlayer(it.accountId) }, cards.sortedBy { it.id }, containers, TurnState(starter.accountId)),
+            BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers, TurnState(starter.accountId)),
             needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)
     }
 }

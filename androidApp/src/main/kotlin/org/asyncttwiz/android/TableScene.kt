@@ -819,6 +819,32 @@ private fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) 
     }
 }
 
+/** One-line speech bubble attached to a life square: below the top player's, above the bottom player's. */
+internal object StatusBubble {
+    const val TEXT = 11f
+    const val PADDING = 6f
+    const val HEIGHT = 18f
+    const val TAIL = 5f
+    const val MAX_WIDTH = 168f
+    fun bounds(life: TableBounds, below: Boolean, textWidth: Float): TableBounds {
+        val width = maxOf(textWidth + 2 * PADDING, 28f)
+        val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - HEIGHT
+        return TableBounds(life.x, y, width, HEIGHT)
+    }
+    /** The whole text when it fits, otherwise the longest prefix followed by an ellipsis. */
+    fun fit(text: String, maxWidth: Float, measure: (String) -> Float): String {
+        if (measure(text) <= maxWidth) return text
+        var end = text.length
+        while (end > 0) {
+            if (end < text.length && text[end].isLowSurrogate()) { end--; continue }
+            val candidate = text.substring(0, end).trimEnd() + "…"
+            if (measure(candidate) <= maxWidth) return candidate
+            end--
+        }
+        return "…"
+    }
+}
+
 /** Retained across tap endpoints: don't rebuild every text metric/path on the first rotation frame. */
 private class TableDrawCache(density: Float) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
@@ -1275,6 +1301,33 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 drawCircle(ink, 1.7f * density, xy(cx, cy))
             }
         }
+    }
+    // Status bubbles are drawn only: taps and drags reach whatever lies beneath them.
+    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.status.isNotEmpty() && it.visible.isNotEmpty() }) {
+        val color = if (i.owner == viewer) OwnTableColor else OpponentTableColor
+        val previousSize = paint.textSize
+        paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
+        val canvasWidth = this.size.width / density
+        val maxText = (minOf(StatusBubble.MAX_WIDTH, canvasWidth - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
+        val label = StatusBubble.fit(i.status, maxText) { cache.measure(it) / density }
+        val bubble = StatusBubble.bounds(i.bounds, below = i.valueDragSide == ValueDragSide.TOP, cache.measure(label) / density)
+        val tipX = i.bounds.center.x
+        val tail = androidx.compose.ui.graphics.Path().apply {
+            val base = if (i.valueDragSide == ValueDragSide.TOP) bubble.y + .5f else bubble.bottom - .5f
+            val tip = if (i.valueDragSide == ValueDragSide.TOP) bubble.y - StatusBubble.TAIL else bubble.bottom + StatusBubble.TAIL
+            moveTo((tipX - 5f) * density, base * density); lineTo(tipX * density, tip * density)
+            lineTo((tipX + 5f) * density, base * density); close()
+        }
+        drawRoundRect(Color.White, xy(bubble.x, bubble.y), size(bubble.width, bubble.height), CornerRadius(6 * density))
+        drawPath(tail, Color.White)
+        drawRoundRect(color, xy(bubble.x, bubble.y), size(bubble.width, bubble.height), CornerRadius(6 * density), style = Stroke(density))
+        drawPath(tail, color, style = Stroke(density))
+        // Hide the outline where the tail joins the bubble.
+        drawLine(Color.White, xy(tipX - 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom),
+            xy(tipX + 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom), 1.5f * density)
+        paint.color = android.graphics.Color.rgb(32, 42, 46)
+        text(label, bubble.x + StatusBubble.PADDING, bubble.center.y - cache.centerOffset() / density, label.length)
+        paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
     }
     for (ping in pings) {
         val p = annotations.endpoint(ping.target) ?: continue

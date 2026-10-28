@@ -4,12 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 @Composable
@@ -39,6 +45,7 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
             if (landscape && player.counters.values.none(TablePresentation::nonzero)) {
                 InlinePopupCell(MenuControl("Counters") { actions.player(state, player.accountId, counters = true) })
             }
+            PlayerStatusSection(player, own = player.accountId == viewer, enabled = enabled, close = actions::close, submit = submit)
         } else {
             for (pair in CounterColor.entries.chunked(2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (counter in pair) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -57,5 +64,60 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
             }
         }
     }
+    }
+}
+
+/** Typing aid for the status field: one line, at most [PlayerStatus.MAX_LENGTH] characters. */
+object PlayerStatusInput {
+    val presets = listOf("Wait", "Ready", "Thinking…", "Got a response", "No responses", "BRB", "GG")
+    fun typed(value: String): String = value.map { if (it.isISOControl()) ' ' else it }.joinToString("")
+        .take(PlayerStatus.MAX_LENGTH).let { if (it.lastOrNull()?.isHighSurrogate() == true) it.dropLast(1) else it }
+    /** What is sent: trimmed and always valid; blank clears the status. */
+    fun clean(value: String): String = typed(value).trim().takeIf(PlayerStatus::valid).orEmpty()
+}
+
+/** Own status: presets, pen (free text) and clear. The opponent's status is shown read-only. */
+@Composable
+private fun PlayerStatusSection(player: PlayPlayer, own: Boolean, enabled: Boolean, close: () -> Unit,
+    submit: (PlayAction) -> Boolean) {
+    val color = LocalInlinePopupColor.current
+    if (!own) {
+        if (player.status.isNotEmpty()) Text("Status: “${player.status}”", Modifier.padding(horizontal = 2.dp),
+            style = MaterialTheme.typography.bodyMedium, color = MenuInk)
+        return
+    }
+    var editing by remember { mutableStateOf<String?>(null) }
+    fun set(text: String) {
+        if (text != player.status) submit(PlayAction.SetStatus(text))
+        editing = null; close()
+    }
+    Text(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", Modifier.padding(horizontal = 2.dp),
+        style = MaterialTheme.typography.labelMedium, color = MenuInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val cells: List<Pair<MenuControl, @Composable () -> Unit>> = PlayerStatusInput.presets.map { preset ->
+        MenuControl("Set status $preset", enabled, selected = player.status == preset) { set(preset) } to @Composable {
+            Text(preset, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp, lineHeight = 13.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, color = MenuInk.copy(alpha = if (enabled) 1f else .38f))
+        }
+    } + listOfNotNull(MenuControl("Edit status", enabled) { editing = player.status } to @Composable {
+        MenuIcon("Edit status", Modifier.size(20.dp), tint = color.copy(alpha = if (enabled) 1f else .35f))
+    }, if (player.status.isEmpty()) null else MenuControl("Clear status", enabled) { set("") } to @Composable {
+        MenuIcon("Clear status", Modifier.size(20.dp), tint = color.copy(alpha = if (enabled) 1f else .35f))
+    })
+    for (row in cells.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for ((control, content) in row) RingPress(control, Modifier.width(96.dp).height(36.dp), color) { content() }
+    }
+    editing?.let { initial ->
+        val field = rememberDialogField(initial)
+        val save = { set(PlayerStatusInput.clean(field.text)) }
+        ScreenDialog({ editing = null }, title = "Status", actions = {
+            DialogCancelButton("Cancel", { editing = null })
+            DialogMainButton("Save", save, enabled = enabled)
+        }) {
+            OutlinedTextField(field.value, { field.value = it.copy(text = PlayerStatusInput.typed(it.text)) },
+                Modifier.fillMaxWidth().dialogField(field).testTag("statusText"), label = { Text("Status") },
+                placeholder = { Text("Wait") }, singleLine = true,
+                supportingText = { Text("${field.text.length}/${PlayerStatus.MAX_LENGTH}") },
+                keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(enabled, submit = save))
+        }
     }
 }

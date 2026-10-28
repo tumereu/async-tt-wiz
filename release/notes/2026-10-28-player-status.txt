@@ -1,0 +1,1 @@
+add: Show a short status like "Wait" or "Ready" in a bubble by your life total; tap your life total to set it. Games start with both players mulliganing until they tap Ready.

@@ -40,6 +40,9 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
+        n == "ready" -> Icons.Outlined.CheckCircleOutline
+        n == "edit status" -> Icons.Outlined.Edit
+        n == "clear status" -> Icons.Outlined.Close
         // Single-value P/T steps ("+1/+0", "EOT −1/−0", ...): the sign of the changed value picks the icon.
         Regex("""(eot )?[+−-][01]/[+−-][01]""").matches(n) ->
             if (n.removePrefix("eot ").split("/").any { it == "+1" }) Icons.Outlined.ExposurePlus1 else Icons.Outlined.ExposureNeg1

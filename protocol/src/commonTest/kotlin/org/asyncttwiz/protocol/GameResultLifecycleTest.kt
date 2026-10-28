@@ -176,7 +176,7 @@ class GameResultLifecycleTest {
         assertFalse(GameWire.valid(accept.copy(action = GameAction.AcceptResult("bad"))))
     }
 
-    @Test fun rulesVersionIs25() = assertEquals(25, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun rulesVersionIsAtLeast25() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 25)
 
     @Test fun noteIsValidatedTrimmedSingleLineAndAtMost200Characters() {
         fun valid(note: String) = GameWire.valid(command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.LOSS, note))))

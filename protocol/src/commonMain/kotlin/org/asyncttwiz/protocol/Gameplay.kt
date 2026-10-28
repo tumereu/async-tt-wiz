@@ -41,6 +41,8 @@ import kotlinx.serialization.json.*
         val color: CounterColor, val value: String) : PlayAction
     @Serializable @SerialName("adjustPlayerCounter") data class AdjustPlayerCounter(val accountId: String,
         val color: CounterColor, val delta: String) : PlayAction
+    /** Rules v26: the ACTOR's own status, see [PlayerStatus]; empty clears it. Never changes attention. */
+    @Serializable @SerialName("setStatus") data class SetStatus(val text: String) : PlayAction
     @Serializable @SerialName("nextStep") data object NextStep : PlayAction
     @Serializable @SerialName("passAttention") data object PassAttention : PlayAction
     @Serializable @SerialName("endTurn") data object EndTurn : PlayAction
@@ -136,6 +138,7 @@ object GameplayRules {
             GameplayNumbers.integer(action.delta)
         is PlayAction.SetPlayerCounter -> DeckValidation.uuid(action.accountId) && DeckValidation.text(action.value)
         is PlayAction.AdjustPlayerCounter -> DeckValidation.uuid(action.accountId) && TableActions.numeric(action.delta)
+        is PlayAction.SetStatus -> PlayerStatus.valid(action.text)
         PlayAction.PassAttention, PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.FlipCoin -> true
         is PlayAction.RollDie -> action.sides.matches(Regex("[1-9][0-9]*")) &&
             action.sides.toIntOrNull()?.let { action.value in 1..it } == true
@@ -283,6 +286,12 @@ object GameplayRules {
                 if (player.life == value) return GameplayChange(state)
                 next = board.copy(players = board.players.map { if (it.accountId == account) it.copy(life = value) else it })
                 transition = GameplayTransition(listOf(GameplayFieldChange(account, GameplayField.LIFE, player.life, value)))
+            }
+            is PlayAction.SetStatus -> {
+                val player = board.players.single { it.accountId == actor }
+                if (player.status == action.text) return GameplayChange(state)
+                next = board.copy(players = board.players.map { if (it.accountId == actor) it.copy(status = action.text) else it })
+                transition = GameplayTransition(listOf(GameplayFieldChange(actor, GameplayField.STATUS, player.status, action.text)))
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
             is PlayAction.RevealHand, is PlayAction.RandomHand -> return HandRules.change(state, actor, command, action)

@@ -7,8 +7,8 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
@@ -40,6 +42,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -84,7 +87,6 @@ private data class PodBuildLeaving(val sequence: Int, val tile: PodBuildTile, va
 private class PodBuildAnchor { var coordinates: LayoutCoordinates? = null }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun PodBuildView(
     build: PodDeckBuild,
     copies: Map<String, DraftCopy>,
@@ -100,6 +102,7 @@ fun PodBuildView(
     onRename: (String) -> Unit = {},
     submitted: Boolean = !editable,
     columnPreference: PodBuildColumns = rememberPodBuildColumns(),
+    sideBySide: PodBuildColumns = rememberPodBuildSideBySide(),
 ) {
     val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
@@ -130,27 +133,41 @@ fun PodBuildView(
             onMove(id, destination)
         }
     }
+    var feed by remember { mutableStateOf<PodBuildFeed?>(null) }
+    val openFeed: (PodDeckCategory, Int?) -> Unit = { category, column ->
+        if (editable) feed = podBuildFeed(category, podBuildColumns(build, category, copies, definitions, columns),
+            PodDeckColumns.buckets(columns).map { it.label }, column)
+    }
     Box(modifier.onGloballyPositioned { origin.coordinates = it }) {
       Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-            IconButton({ naming = true }) { EntryIcon("Name deck", "edit") }
-        }
+        // Nothing sticks: the name, headers and columns all scroll away together.
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("pod-build"), contentPadding = PaddingValues(bottom = 12.dp)) {
+            item("name") {
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    IconButton({ naming = true }) { EntryIcon("Name deck", "edit") }
+                }
+            }
             for (category in PodDeckCategory.entries) {
                 val count = podBuildCount(build, category)
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 val sectionColor = category.podBuildColor()
-                stickyHeader(key = "header-$category") {
+                val feedable = editable && podBuildFeedDemotion(category) != null
+                item(key = "header-$category") {
                     Surface(color = sectionColor.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer),
                         modifier = Modifier.fillMaxWidth().then(if (sliding) Modifier.animateItem(fadeInSpec = null,
                             fadeOutSpec = null, placementSpec = tween(PodBuildSettleMillis)) else Modifier)) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).heightIn(min = 40.dp),
+                        val reviewable = feedable && count > 0
+                        Row(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).heightIn(min = 40.dp)
+                            .then(if (reviewable) Modifier.testTag("pod-build-feed-header-$category")
+                                .clickable(onClickLabel = "Review one by one") { openFeed(category, null) } else Modifier),
                             verticalAlignment = Alignment.CenterVertically) {
                             Text(if (category == PodDeckCategory.MAIN) podBuildMainTitle(build) else "${category.podBuildLabel()} $count",
                                 Modifier.weight(1f).padding(vertical = 8.dp), color = sectionColor,
                                 style = MaterialTheme.typography.titleSmall)
+                            if (reviewable) Text("Review ›", color = sectionColor.copy(alpha = .8f),
+                                style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -167,28 +184,39 @@ fun PodBuildView(
                             buckets.forEachIndexed { index, bucket ->
                                 Column(Modifier.width(width).testTag("pod-build-column-$category-$index"),
                                     verticalArrangement = Arrangement.spacedBy(PodBuildCardGap)) {
-                                    Text(PodDeckColumns.buckets(columns)[index].label,
-                                        Modifier.fillMaxWidth().padding(vertical = 6.dp), textAlign = TextAlign.Center, fontSize = 11.sp)
-                                    // Keyed by card, not copy, so a stack that loses one copy stays in place.
-                                    bucket.forEach { tile -> key(tile.digest) {
-                                        val tileKey = tile.copyIds.first()
-                                        Box(Modifier.podBuildSlide(sliding)) {
-                                            PodBuildCard(tile, category, editable, move, onInspect = { open ->
-                                                val card = tile.definition?.takeIf { it.faces.isNotEmpty() }
-                                                    ?.let { InspectedCard.retained(tile.digest, it) }
-                                                if (open && card != null) {
-                                                    menus.open = null
-                                                    previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
-                                                    inspected = tileKey to card
-                                                } else if (!open && inspected?.first == tileKey) inspected = null
-                                            }, onInspectScroll = { previewScroll.dispatchRawDelta(it) }, menus = menus,
-                                                fadeIn = tile.copyIds.any { it in arriving },
-                                                onLeave = { bounds ->
-                                                    val offset = origin.coordinates?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
-                                                    leaving = PodBuildLeaving((leaving?.sequence ?: 0) + 1, tile, bounds.translate(-offset))
-                                                })
-                                        }
-                                    } }
+                                    val label = PodDeckColumns.buckets(columns)[index].label
+                                    val reviewable = feedable && bucket.isNotEmpty()
+                                    // Tappable labels read in the section colour on a faint chip; touch expands to 48dp.
+                                    Text(label, Modifier.fillMaxWidth().then(if (reviewable) Modifier
+                                        .testTag("pod-build-feed-label-$category-$index")
+                                        .clip(RoundedCornerShape(4.dp)).background(sectionColor.copy(alpha = .1f))
+                                        .clickable(onClickLabel = "Review ${podBuildFeedColumnLabel(label)} one by one") {
+                                            openFeed(category, index)
+                                        } else Modifier).padding(vertical = 8.dp),
+                                        textAlign = TextAlign.Center, fontSize = 11.sp,
+                                        color = if (reviewable) sectionColor else Color.Unspecified)
+                                    PodBuildGrid(sideBySide.count) {
+                                        // Keyed by card, not copy, so a stack that loses one copy stays in place.
+                                        bucket.forEach { tile -> key(tile.digest) {
+                                            val tileKey = tile.copyIds.first()
+                                            Box(Modifier.podBuildSlide(sliding)) {
+                                                PodBuildCard(tile, category, editable, move, onInspect = { open ->
+                                                    val card = tile.definition?.takeIf { it.faces.isNotEmpty() }
+                                                        ?.let { InspectedCard.retained(tile.digest, it) }
+                                                    if (open && card != null) {
+                                                        menus.open = null
+                                                        previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                                        inspected = tileKey to card
+                                                    } else if (!open && inspected?.first == tileKey) inspected = null
+                                                }, onInspectScroll = { previewScroll.dispatchRawDelta(it) }, menus = menus,
+                                                    fadeIn = tile.copyIds.any { it in arriving },
+                                                    onLeave = { bounds ->
+                                                        val offset = origin.coordinates?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
+                                                        leaving = PodBuildLeaving((leaving?.sequence ?: 0) + 1, tile, bounds.translate(-offset))
+                                                    })
+                                            }
+                                        } }
+                                    }
                                 }
                             }
                         }
@@ -227,7 +255,38 @@ fun PodBuildView(
         }
     }
     LaunchedEffect(submitEnabled) { if (!submitEnabled) confirmSubmit = false }
+    feed?.let { current ->
+        val next = current.column?.takeIf { current.finished }?.let { column ->
+            podBuildFeedNextColumn(podBuildColumns(build, current.category, copies, definitions, columns), column)
+                ?.takeIf { it < current.labels.size }
+        }
+        PodBuildFeedDialog(current, podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total, editable,
+            nextLabel = next?.let { podBuildFeedColumnLabel(current.labels[it]) },
+            onChange = { feed = it }, onMove = { id, category -> if (editable) onMove(id, category) },
+            onNext = { next?.let { openFeed(current.category, it) } }, onClose = { feed = null })
+    }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
+}
+
+/** Lays its cards out [perRow] wide, row-major, all of one width with [PodBuildCardGap] between them.
+ * A single layout parent keeps keyed cards (and their slide animation) when they change rows. */
+@Composable
+private fun PodBuildGrid(perRow: Int, content: @Composable () -> Unit) {
+    Layout(content, Modifier.fillMaxWidth()) { measurables, constraints ->
+        val gap = PodBuildCardGap.roundToPx()
+        val width = constraints.maxWidth
+        val cardWidth = podBuildCardWidth(width, perRow, gap)
+        val placeables = measurables.map { it.measure(Constraints.fixedWidth(cardWidth)) }
+        val rows = placeables.chunked(perRow)
+        val heights = rows.map { row -> row.maxOf { it.height } }
+        val tops = heights.runningFold(0) { top, height -> top + height + gap }
+        layout(width, (heights.sum() + gap * (rows.size - 1)).coerceAtLeast(0)) {
+            placeables.forEachIndexed { index, placeable ->
+                val (row, column) = podBuildGridSlot(index, perRow)
+                placeable.place(column * (cardWidth + gap), tops[row])
+            }
+        }
+    }
 }
 
 /** While [enabled], a changed position within the parent slides from the old place instead of jumping. */

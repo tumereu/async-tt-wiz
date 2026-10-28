@@ -336,4 +336,131 @@ class PodBuildViewTest {
         val pen = compose.onNodeWithContentDescription("Name deck").getUnclippedBoundsInRoot()
         assertTrue(pen.bottom <= main.top)
     }
+
+    private fun movingBuild(initial: PodDeckBuild): Pair<() -> PodDeckBuild, (String, PodDeckCategory) -> Unit> {
+        var build by mutableStateOf(initial)
+        return { build } to { id, destination ->
+            moves += id to destination
+            build = build.copy(copies = build.copies.map { if (it.copyId == id) it.copy(category = destination) else it })
+        }
+    }
+
+    @Test fun cardsSideBySideDefaultToOneAndLayOutRowByRowAtEqualWidths() {
+        val preferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0)
+        lateinit var sideBySide: PodBuildColumns
+        val ids = listOf("a", "b", "c")
+        compose.setContent { MaterialTheme { Column {
+            sideBySide = rememberPodBuildSideBySide()
+            PodViewSettingsButton(null, rememberPodBuildColumns(), sideBySide)
+            PodBuildView(PodDeckBuild(ids.map { PodDeckCopy(it) }), ids.associateWith { DraftCopy(it, it) },
+                ids.associateWith { card.copy(name = "Card $it") }, null, true, false, { _, _ -> }, { _, _ -> }, {},
+                Modifier.weight(1f), sideBySide = sideBySide)
+        } } }
+        assertEquals(1, sideBySide.count)
+        fun bounds(id: String) = compose.onNodeWithTag("pod-build-card-$id").getUnclippedBoundsInRoot()
+        assertEquals(bounds("a").left, bounds("b").left)
+        compose.onNodeWithContentDescription("View settings").performClick()
+        compose.onNodeWithText("Build · cards side by side").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Fewer cards side by side").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("More cards side by side").performClick()
+        compose.waitForIdle()
+        assertEquals(2, sideBySide.count)
+        assertEquals(2, preferences.getInt("side-by-side-1", 0))
+        val (a, b, c) = ids.map(::bounds)
+        assertEquals(a.top, b.top)
+        assertEquals(a.right - a.left, b.right - b.left)
+        assertEquals(a.right - a.left, c.right - c.left)
+        assertEquals(PodBuildCardGap, b.left - a.right)
+        assertEquals(a.left, c.left)
+        assertEquals(PodBuildCardGap, c.top - a.bottom)
+        assertTrue(kotlin.math.abs((a.bottom - a.top) / (a.right - a.left) - 1.4f) < .05f)
+        compose.onNodeWithContentDescription("More cards side by side").performClick()
+        compose.onNodeWithContentDescription("More cards side by side").assertIsNotEnabled()
+        compose.runOnIdle { sideBySide.choose(9); assertEquals(3, sideBySide.count); sideBySide.choose(0); assertEquals(1, sideBySide.count) }
+    }
+
+    @Test fun columnFeedReviewsEachCopyAndUndoMovesItBack() {
+        val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"), PodDeckCopy("land"))))
+        val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
+        compose.setContent { MaterialTheme {
+            PodBuildView(build(), mapOf("first" to DraftCopy("first", "digest"), "second" to DraftCopy("second", "digest"),
+                "land" to DraftCopy("land", "land")), mapOf("digest" to card, "land" to land), null, true, false, move, { _, _ -> }, {})
+        } }
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
+        compose.onNodeWithText("Main · Lands").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
+        compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+        compose.onNodeWithText("Main 3").assertIsDisplayed()
+        compose.onNodeWithText("◀ Side").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
+        compose.runOnIdle { assertTrue(moves.isEmpty()) }
+        compose.onNodeWithText("2 / 2").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-card-second").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals(listOf("second" to PodDeckCategory.SIDE), moves) }
+        compose.onNodeWithText("Kept 1 · 1 to Side").assertIsDisplayed()
+        compose.onNodeWithText("Main 2").assertIsDisplayed()
+        // Lands is before MV 1, so there is no later column to go to.
+        compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Undo").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals("second" to PodDeckCategory.MAIN, moves.last()) }
+        compose.onNodeWithTag("pod-build-feed-card-second").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Undo").performClick()
+        compose.runOnIdle { assertEquals(2, moves.size) }
+        compose.onNodeWithTag("pod-build-feed-card-first").assertIsDisplayed()
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+    }
+
+    @Test fun columnFeedOffersTheNextColumnAndSectionFeedsCoverEveryColumn() {
+        val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("land"), PodDeckCopy("first"),
+            PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("trash", PodDeckCategory.TRASH))))
+        val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
+        val copies = listOf("land", "first", "side", "trash").associateWith { DraftCopy(it, if (it == "land") "land" else "digest") }
+        compose.setContent { MaterialTheme {
+            PodBuildView(build(), copies, mapOf("digest" to card, "land" to land), null, true, false, move, { _, _ -> }, {})
+        } }
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
+        val actions = compose.onNodeWithTag("pod-build-feed-card-land").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+        assertEquals(listOf("Keep", "Move to Side"), actions.map { it.label })
+        compose.runOnIdle { actions.first().action() }
+        compose.onNodeWithText("Kept 1 · 0 to Side").assertIsDisplayed()
+        compose.onNodeWithText("Next: MV 1 →").performClick()
+        compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
+        compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
+
+        compose.onNodeWithTag("pod-build-feed-header-SIDE").performClick()
+        compose.onNodeWithText("Side · MV 1").assertIsDisplayed()
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+        compose.onNodeWithText("◀ Trash").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals("first" to PodDeckCategory.TRASH, moves.last()) }
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithText("Trash 2").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-header-TRASH").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-feed-label-TRASH-2").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h400dp-port-mdpi")
+    fun submittedBuildOffersNoFeedAndTheDeckNameScrollsAway() {
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"))), mapOf("first" to DraftCopy("first", "digest")),
+                mapOf("digest" to card), null, false, false, { _, _ -> fail("read-only") }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithTag("pod-build-feed-header-MAIN").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build-feed-label-MAIN-2").assertDoesNotExist()
+        compose.onNodeWithText("Deck").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build").performTouchInput { swipeUp() }
+        compose.onNodeWithText("Deck").assertIsNotDisplayed()
+    }
 }

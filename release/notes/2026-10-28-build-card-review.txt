@@ -1,0 +1,1 @@
+add: Review your Build cards one at a time: tap a column label (like "2" or "Lands") or the Main or Side header, then swipe right to keep a card or left to move it down a pile.

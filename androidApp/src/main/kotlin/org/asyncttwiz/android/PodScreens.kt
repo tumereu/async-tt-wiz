@@ -287,10 +287,11 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val definitions = detail.definitions.associate { it.digest to it.definition }
     val pickColumns = rememberPodPickColumns()
     val buildColumns = rememberPodBuildColumns()
+    val buildSideBySide = rememberPodBuildSideBySide()
     val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
-            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns)
+            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide)
         }
         PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
@@ -308,7 +309,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, controller::adjustBasic, controller::submit, Modifier.fillMaxSize(),
-                    detail.deckName, controller::deckName, detail.submitted, buildColumns)
+                    detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize())
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

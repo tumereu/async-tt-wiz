@@ -1,0 +1,1 @@
+mod: In the life total menu, the life buttons now sit right next to the life total they change.

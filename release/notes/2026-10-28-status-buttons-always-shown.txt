@@ -1,0 +1,1 @@
+mod: Status Hide and Clear buttons are always in the same place, greyed out when there is no status.

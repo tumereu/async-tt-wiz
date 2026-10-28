@@ -24,7 +24,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.HorizontalAlignmentLine
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -118,6 +121,14 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
         }
     }
     }
+}
+
+private val InlinePopupFocusLine = HorizontalAlignmentLine(::minOf)
+
+/** Marks the part of a panel that a popup opened beside its anchor lines up with (e.g. the life row by the life square). */
+internal fun Modifier.inlinePopupFocus() = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    layout(placeable.width, placeable.height, mapOf(InlinePopupFocusLine to placeable.height / 2)) { placeable.place(0, 0) }
 }
 
 internal data class InlinePopupAnchor(val id: String, val bounds: TableBounds?, val own: Boolean)
@@ -229,10 +240,11 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
                 maxHeight = if (sheet) minOf(height.roundToPx(), maxH) else maxH))
             val screenW = constraints.maxWidth.toDp().value; val screenH = constraints.maxHeight.toDp().value
             val childW = child.width.toDp().value; val childH = child.height.toDp().value
+            val focus = child[InlinePopupFocusLine].takeIf { it != AlignmentLine.Unspecified }?.toDp()?.value ?: (childH / 2)
             // An explicit placement pins the top-left corner (e.g. beside the card panels); it is only clamped on screen.
             val bounds = placement?.let { b -> TableBounds(b.x.coerceIn(0f, (screenW - childW).coerceAtLeast(0f)),
                 b.y.coerceIn(0f, (screenH - childH).coerceAtLeast(0f)), childW, childH) }
-                ?: inlinePopupBounds(screenW, screenH, card, own, childW, childH)
+                ?: inlinePopupBounds(screenW, screenH, card, own, childW, childH, focus)
             layout(constraints.maxWidth, constraints.maxHeight) {
                 child.place(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx())
             }
@@ -243,8 +255,8 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
 
 /** Prefer a free region beside the captured anchor; clamp measured content on tight screens. */
 internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
-    desiredWidth: Float, desiredHeight: Float): TableBounds {
-    CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight)?.let { return it.square }
+    desiredWidth: Float, desiredHeight: Float, focusY: Float = desiredHeight / 2): TableBounds {
+    CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight, focusY)?.let { return it.square }
     val w = desiredWidth.coerceAtMost((width - 24).coerceAtLeast(0f))
     val h = desiredHeight.coerceAtMost((height - 24).coerceAtLeast(0f))
     val y = if (anchor.y >= h + 20) anchor.y - h - 8 else anchor.bottom + 8

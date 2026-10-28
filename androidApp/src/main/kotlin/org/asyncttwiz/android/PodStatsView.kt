@@ -98,7 +98,8 @@ private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
         stats.pipPatterns.forEachIndexed { index, (pattern, count) ->
             CardText("$count× $pattern", Modifier.testTag("pod-stats-pattern-$index"), style = style)
         }
-        if (stats.noPips > 0) Text("${stats.noPips}× no colored pips", Modifier.testTag("pod-stats-no-pips"), style = style)
+        if (stats.noPips > 0) Text("${stats.noPips}× ∅", Modifier.testTag("pod-stats-no-pips")
+            .semantics { contentDescription = "${stats.noPips}× no colored pips" }, style = style)
     }
 }
 

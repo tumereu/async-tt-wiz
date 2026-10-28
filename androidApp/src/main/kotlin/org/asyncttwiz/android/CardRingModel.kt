@@ -107,8 +107,9 @@ internal object CardRingGeometry {
     const val squareSide = gridSide + 24f
     private const val margin = 12f
     private const val gap = 8f
+    /** Beside the card, [focusY] (default: the middle) of the popup is lined up with the card's center. */
     fun place(width: Float, height: Float, card: TableBounds, own: Boolean,
-        popupWidth: Float = squareSide, popupHeight: Float = squareSide): CardRingPlacement? {
+        popupWidth: Float = squareSide, popupHeight: Float = squareSide, focusY: Float = popupHeight / 2): CardRingPlacement? {
         val screen = TableBounds(margin, margin, (width - 2 * margin).coerceAtLeast(0f), (height - 2 * margin).coerceAtLeast(0f))
         val spaces = listOf(
             screen.copy(height = (card.y - gap - screen.y).coerceIn(0f, screen.height)),
@@ -127,7 +128,7 @@ internal object CardRingGeometry {
         val y = (when (side) {
             0 -> region.bottom - popupHeight
             1 -> region.y
-            else -> card.center.y - popupHeight / 2
+            else -> card.center.y - focusY
         }).coerceIn(region.y, region.bottom - popupHeight)
         return CardRingPlacement(TableBounds(x, y, popupWidth, popupHeight), CardRingSide.entries[side])
     }

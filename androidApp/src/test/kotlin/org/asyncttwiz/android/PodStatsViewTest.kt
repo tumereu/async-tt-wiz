@@ -93,7 +93,7 @@ class PodStatsViewTest {
         } }
         compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("2")).assert(hasText("0"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertTextEquals("2× {U}")
-        compose.onNodeWithTag("pod-stats-no-pips").assertTextEquals("1× no colored pips")
+        compose.onNodeWithTag("pod-stats-no-pips").assertTextEquals("1× ∅").assertContentDescriptionEquals("1× no colored pips")
         compose.onNodeWithText("Lands without a color: 1").assertIsDisplayed()
     }
 

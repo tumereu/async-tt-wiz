@@ -48,6 +48,8 @@ object HistoryGrouping {
     /** From this gameplay rules version a step change into Declare blockers ends a history group: it joins only the
      * author's preceding attacker declaration, otherwise stands alone, and nothing joins the group after it. */
     const val BLOCKERS_BOUNDARY_RULES_VERSION = 29
+    /** From this gameplay rules version closing a card panel (with its rest moves and shuffle) is its own history step. */
+    const val PANEL_CLOSE_STEP_RULES_VERSION = 29
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
@@ -175,9 +177,12 @@ object HistoryGrouping {
             transition.fields.any { it.field == GameplayField.STEP && it.to == TurnPosition.DECLARE_BLOCKERS.step } &&
             transition.fields.none { it.field == GameplayField.PHASE && it.to != TurnPosition.DECLARE_BLOCKERS.phase })
             casting.copy(endsGroup = true) else casting
+        // Rules v29: closing a panel never joins its session group, and nothing joins the close.
+        val closing = if (action is PlayAction.DismissContents && transition != null &&
+            transition.rulesVersion >= PANEL_CLOSE_STEP_RULES_VERSION) blockers.copy(isolated = true) else blockers
         val panel = transition?.contents?.from ?: transition?.contents?.to
         return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
-            blockers.copy(panelSession = panel.id) else blockers
+            closing.copy(panelSession = panel.id) else closing
     }
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */

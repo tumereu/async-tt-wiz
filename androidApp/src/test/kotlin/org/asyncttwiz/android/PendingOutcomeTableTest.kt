@@ -23,7 +23,7 @@ class PendingOutcomeTableTest {
         repeat(4) { compose.runOnIdle { f.worker.drain() }; compose.waitForIdle() }
     }
 
-    private fun pendingTable(opponent: Boolean) {
+    private fun pendingTable(opponent: Boolean, continueBefore: Boolean = false) {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(
             cards = f.root.board.cards.map { card -> when (card.id) {
@@ -75,7 +75,23 @@ class PendingOutcomeTableTest {
                 .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
-            compose.onNodeWithContentDescription("Continue playing from here").assertIsNotEnabled()
+            // A point before the suggestion is not locked: the player may continue from it and play on.
+            compose.onNodeWithContentDescription("Continue playing from here").assertIsEnabled()
+            if (continueBefore) {
+                val before = f.lobby.history.playback!!.position.cursorId
+                compose.onNodeWithContentDescription("Continue playing from here")
+                    .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
+                drain(f)
+                compose.runOnIdle { assertEquals(before, f.lobby.history.armed); assertFalse(f.lobby.resultLocked()) }
+                compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
+                compose.onRoot().performTouchInput { swipe(Offset(hand.x, hand.y), Offset(field.x, field.y)) }
+                drain(f)
+                val sent = f.commands().single()
+                assertEquals(Continuation(before, true), sent.continuation)
+                assertIs<GameAction.Play>(sent.action)
+                compose.runOnIdle { assertNull(f.lobby.state.play!!.board.resultSuggestion) }
+                return
+            }
             compose.onNodeWithContentDescription("Next").assertIsEnabled()
                 .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             drain(f)
@@ -95,4 +111,5 @@ class PendingOutcomeTableTest {
 
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
+    @Test fun continuingFromBeforeTheSuggestionUnlocksTheTableOnTheNewBranch() = pendingTable(true, continueBefore = true)
 }

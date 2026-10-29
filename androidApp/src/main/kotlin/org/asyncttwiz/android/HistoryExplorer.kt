@@ -133,7 +133,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                             val zoom = viewport.zoom
                              if (x >= -24f * zoom && x <= maxWidth.value + 24 * zoom && y >= -16 * zoom && y <= maxHeight.value + 32 * zoom) {
                                  val event = events.getValue(range.targetId)
-                                val text = texts[event.id]
+                                val text = graph.chipText(range.id, texts)
                                 HistoryEventChip(event.copy(description = text?.description ?: event.description),
                                     authorColors[event.author] ?: Color(0xff59656a), graph.rangeOf[state.selectedNodeId] == range.id,
                                     Modifier.offset { IntOffset(((x - 10) * density).roundToInt(), ((y - 10) * density).roundToInt()) }
@@ -168,7 +168,7 @@ fun HistoryExplorer(controller: HistoryExplorerController,
                     if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp))
                     FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
                 }
-                Text(state.selectedNodeId?.let { id -> texts[id]?.description ?: graph?.eventsById?.get(id)?.description }.orEmpty(),
+                Text(state.selectedNodeId?.let { id -> graph?.selectedText(id, texts) ?: texts[id]?.description }.orEmpty(),
                     style = MaterialTheme.typography.labelSmall, minLines = 2, maxLines = 2)
             }
         }

@@ -298,12 +298,15 @@ class ResultActionsTest {
     @Test fun timelineLocksOnlyOnceTheShownBoardIncludesTheSuggestion() {
         val proposed = proposed()
         // Reviewing a point before the suggestion (or another branch without it) is not locked.
-        assertFalse(ResultActions.blocksAt(active, proposed, proposed, initial, reviewing = true))
-        assertTrue(ResultActions.blocksAt(active, proposed, proposed, proposed, reviewing = true))
+        assertFalse(ResultActions.blocksAt(active, proposed, proposed, initial, inTimeline = true))
+        assertTrue(ResultActions.blocksAt(active, proposed, proposed, proposed, inTimeline = true))
         // At the live end the live endpoint decides, whatever board is on screen.
-        assertTrue(ResultActions.blocksAt(active, proposed, proposed, initial, reviewing = false))
-        assertFalse(ResultActions.blocksAt(active, initial, initial, initial, reviewing = false))
-        assertFalse(ResultActions.blocksAt(game, proposed, proposed, proposed, reviewing = true))
+        assertTrue(ResultActions.blocksAt(active, proposed, proposed, initial, inTimeline = false))
+        assertFalse(ResultActions.blocksAt(active, initial, initial, initial, inTimeline = false))
+        assertFalse(ResultActions.blocksAt(game, proposed, proposed, proposed, inTimeline = true))
+        // A timeline board that is not known yet is never looser than the live end.
+        assertTrue(ResultActions.blocksAt(active, proposed, proposed, null, inTimeline = true))
+        assertFalse(ResultActions.blocksAt(active, initial, initial, null, inTimeline = true))
     }
 
     @Test fun pendingResultStillLetsPlayersLookAtCards() {

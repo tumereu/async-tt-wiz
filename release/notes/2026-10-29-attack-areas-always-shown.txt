@@ -1,0 +1,1 @@
+add: During combat there is now an area for every planeswalker and battle you can attack, even before anyone attacks it, so you can drag attackers straight onto it.

@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
@@ -7,8 +9,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 /** The production overlay tree, mounted once alongside the Canvas and using its captured IDs. */
@@ -41,9 +50,14 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
 
     when (val panel = toolkit.panel) {
         "attackTarget" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Attack →") {
-            for ((id, label) in attackTargetChoices(play, names, toolkit.viewer)) MenuButton(label, enabled = enabled) {
+            // Only a target shared by every selected attacker counts as current (null is the player).
+            val targets = CombatStackController.attackerPairs(play.board, bound.viewIds).map { it.attackTarget }.distinct()
+            val defender = listOf(game.inviter, game.recipient).find { it.accountId == CombatStackRules.defendingPlayer(play.board) }
+            for ((id, label) in attackTargetChoices(play, names, toolkit.viewer)) {
+                val current = targets.size == 1 && targets.single() == id
+                AttackTargetRow(play, id, label, defender, current = current, enabled = enabled && !current) {
                 if (toolkit.setAttackTarget(bound, id)) toolkit.dismiss()
-            }
+            } }
         }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
             perform = { toolkit.handle(it) }, cardActions = { id -> toolkit.openCard(TableScope(id, listOf(id))) })
@@ -214,10 +228,36 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
         add(MenuControl(destination.label, enabled) { if (toolkit.place(bound, destination.destination)) toolkit.dismiss() })
 }
 
+/** The same targets, in the same order, as the combat area's lanes. */
 internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
-    listOf(null to "→ ${names[CombatStackRules.defendingPlayer(play.board)] ?: "Player"}") +
-        play.board.cards.filter { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) &&
-            CombatStackRules.canAttack(play, it.id) }.map { card ->
-            card.id to (play.definitions.find { it.digest == card.definition }?.definition?.faces
+    listOf(null to (names[CombatStackRules.defendingPlayer(play.board)] ?: "Player")) +
+        CombatStackPresentation.attackTargets(play.board, play.definitions, viewer).map { id ->
+            val card = play.board.cards.single { it.id == id }
+            id to (play.definitions.find { it.digest == card.definition }?.definition?.faces
                 ?.find { it.faceId == card.faceId }?.name ?: "Card")
         }
+
+/** Target picture (player avatar or card art) beside its full name; the current target is marked and inert. */
+@Composable
+private fun AttackTargetRow(play: PlayState, cardId: String?, label: String, defender: AccountIdentity?,
+    current: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val ink = MenuInk.copy(alpha = if (enabled || current) 1f else .38f)
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).heightIn(min = 44.dp)
+        .border(if (current) 2.dp else 1.dp, if (current) OwnTableColor else MenuBorder, MaterialTheme.shapes.extraSmall)
+        .ringInputTarget().pressFeedback(enabled).clickable(enabled = enabled, onClick = onClick)
+        .semantics { contentDescription = "Attack $label${if (current) ", current target" else ""}" }
+        .padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        val card = cardId?.let { id -> play.board.cards.find { it.id == id } }
+        if (card == null) {
+            if (defender != null) Avatar(defender, size = 32.dp)
+        } else {
+            val definition = play.definitions.find { it.digest == card.definition }?.definition
+            val face = definition?.faces?.find { it.faceId == card.faceId }
+            val art = face?.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
+            CardArtwork(art, "", 192, 140, Modifier.size(32.dp, 32.dp).clip(MaterialTheme.shapes.extraSmall), crop = true)
+        }
+        Text(label, Modifier.weight(1f).padding(start = 8.dp), color = ink, fontSize = 13.sp, lineHeight = 15.sp,
+            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (current) Icon(menuIcon("Accept"), null, Modifier.size(18.dp), tint = OwnTableColor)
+    }
+}

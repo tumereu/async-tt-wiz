@@ -28,8 +28,9 @@ internal fun TableScene.combatDestination(point: TablePoint, scope: TableScope?)
         val slots = rows.filter { it.destination.role == row.destination.role }
         val index = combatInsertionIndex(slots.map { it.bounds.center.x }, point.x, origin.bounds.center.x)
         val boundary = if (index == 0) slots.first().bounds.x else slots[index - 1].bounds.right
-        return combatDrops.first { it.destination.pairId == null && it.destination.role == row.destination.role &&
-            kotlin.math.abs(it.landing.x - boundary) < .1f }.destination.copy(attackTarget = row.destination.attackTarget)
+        return (combatDrops.firstOrNull { it.destination.pairId == null && it.destination.pairGap != null &&
+            it.destination.role == row.destination.role && kotlin.math.abs(it.landing.x - boundary) < .1f }?.destination ?: row.destination)
+            .copy(attackTarget = row.destination.attackTarget)
     }
     val remaining = cards.filter { it.sourceId !in sources }
     val index = combatInsertionIndex(remaining.map { it.bounds.center.x }, point.x, origin?.bounds?.center?.x)

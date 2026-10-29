@@ -47,9 +47,8 @@ internal fun menuIcon(name: String): ImageVector {
         n == "show status bubble" -> Icons.Outlined.Visibility
         n == "mute status bubble" -> Icons.Outlined.CommentsDisabled
         n == "unmute status bubble" -> Icons.Outlined.ChatBubbleOutline
-        // Single-value P/T steps ("+1/+0", "EOT −1/−0", ...): the sign of the changed value picks the icon.
-        Regex("""(eot )?[+−-][01]/[+−-][01]""").matches(n) ->
-            if (n.removePrefix("eot ").split("/").any { it == "+1" }) Icons.Outlined.ExposurePlus1 else Icons.Outlined.ExposureNeg1
+        // Single-value P/T steps ("P/T +1/+0", "EOT P/T +0/−1", ...): generated "+/·"-style glyphs.
+        powerToughnessStep(name) != null -> powerToughnessStepIcon(powerToughnessStep(name)!!)
         n == "draw + go to main" -> Icons.Outlined.Download
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward

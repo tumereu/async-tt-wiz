@@ -90,9 +90,8 @@ class CombatStackPresentationTest {
         val commands = CombatCommands()
         val opened = CombatStackController.single(state, combatId(8), PlayAction.Combat(CombatAction.Open), commands::command).prediction
         val scene = CombatStackPresentation.combat(opened.board, 48f, 68f)
-        // One empty slot, widened so the default player lane fits its full name on one row.
-        assertEquals(maxOf(48f + 2 * CombatStackPresentation.slotMargin(48f),
-            CombatStackPresentation.laneWidth(scene.lanes.single())), scene.width)
+        // One empty slot: an empty lane stays one card slot wide and shortens its name instead.
+        assertEquals(48f + 2 * CombatStackPresentation.slotMargin(48f), scene.width)
         assertEquals(2, scene.destinations.size)
         assertTrue(scene.cards.isEmpty())
         assertTrue(scene.dividers.isEmpty())

@@ -58,7 +58,7 @@ class CombatMenuInteractionTest {
         val toolkit = render(menu = true, targeted = true)
         compose.ringPage(1)
         compose.onNodeWithContentDescription("Attack →").performClick()
-        compose.onNodeWithText("→ Bob").performClick()
+        compose.onNodeWithText("Bob").performClick()
         assertEquals(2, batches.single().size)
         val targets = batches.single().map { assertIs<CombatAction.SetAttackTarget>(assertIs<PlayAction.Combat>(it).action) }
         assertEquals(setOf(f.id("pair1"), f.id("pair2")), targets.map { it.pairId }.toSet())

@@ -129,7 +129,10 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             val captured = d.source?.source()?.placement ?: return false
             val card = state.board.cards.singleOrNull { it.id == d.cardId } ?: return false
             if (card.id in ids || card.containerId != target.id || card.placement != captured) return false
-            if ((target.cards.filter { id -> state.board.cards.single { it.id == id }.placement == captured } + ids).distinct().size > 3) return false
+            val members = (target.cards.filter { id -> state.board.cards.single { it.id == id }.placement == captured } + ids).distinct()
+            // Rules v30: a pile of one token kind may grow past three; one drop still adds at most three.
+            if (members.size > TokenStacks.PILE_LIMIT && (ids.size > TokenStacks.PILE_LIMIT ||
+                    !TokenStacks.fits(members.map { id -> state.board.cards.single { it.id == id } }))) return false
             captured
         }
         val pileRight = pileTarget?.let { p -> target.cards.firstOrNull { id ->
@@ -145,7 +148,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         } else emptyMap()
         if (positions.isNotEmpty()) {
             for ((position, members) in ids.groupBy { positions.getValue(it) }) {
-                if (members.size > 3 || state.board.cards.any { it.id !in ids && it.containerId == target.id && it.placement?.position == position }) return false
+                if (!TokenStacks.fits(members.map { id -> state.board.cards.single { it.id == id } }) || state.board.cards.any { it.id !in ids && it.containerId == target.id && it.placement?.position == position }) return false
             }
         }
         var prefix: String? = null

@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.TokenStacks
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.floor
@@ -458,7 +459,7 @@ class TableGestureCoordinator(
                 return hit.zone?.let { TableDestination.Container(hit.id, it) }
             if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.BATTLEFIELD && !hit.projection) {
                 val members = scene.items.filter { it.viewport == hit.viewport && it.footprint == hit.footprint }.mapNotNull { it.cardId }
-                if ((members + scope?.cardIds.orEmpty()).distinct().size > 3) return null
+                if (!tokenPileFits(scene, members, scope?.cardIds.orEmpty())) return null
                 return TableDestination.CardPile(requireNotNull(hit.cardId), scene.sources[hit.cardId])
             }
             if (hit.kind != TableItemKind.CARD) return null
@@ -474,6 +475,15 @@ class TableGestureCoordinator(
 }
 
 private val String?.isCardPanel get() = this?.startsWith("cardPanel/") == true
+/** A Battlefield pile holds three cards, or any number of one token kind (rules v30). A drop adds at most three
+ * at once (the pile gap move binds at most two pending cards). */
+internal fun tokenPileFits(scene: TableScene, members: List<String>, adding: List<String>): Boolean {
+    val all = (members + adding).distinct()
+    if (all.size <= TokenStacks.PILE_LIMIT) return true
+    if (adding.distinct().size > TokenStacks.PILE_LIMIT) return false
+    val kinds = all.map { id -> scene.items.firstOrNull { it.cardId == id && !it.projection && it.viewport != "combat" }?.tokenKind }
+    return kinds.first() != null && kinds.all { it == kinds.first() }
+}
 /** A Graveyard or Exile pile control (not a card inside a panel). */
 internal val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
 /** Cards of one panel viewport under the rectangle (every copy of a grouped row); nothing outside that panel. */

@@ -513,6 +513,20 @@ off. Either player may toggle either player's piles. The pile menu adds All to
 Temp N (the whole pile in order onto that pile's top, one batch, creating it if
 needed) and on/off buttons for piles 2–4.
 
+**Token stacks (rules v30).** A newly created token (Create token or Clone) goes on
+top of a pile on its battlefield when every card in that pile is a token of the
+same definition and face with the same corner and the same entered-turn value, and
+the new token and every member are untapped, face up and free of counters, damage,
+notes, until-end-of-turn marks, links, combat and Stack occurrences, attack-lane
+targets, panels and text marks. Of several such piles the largest wins, then the
+first in row, then column order; otherwise the token starts a new pile as before.
+Only creation stacks: untapping, moving or clearing counters later never does. A
+pile of tokens of one definition and face may hold more than three cards (any move
+onto it is allowed); every other pile still holds three at most. The table shows
+"×N" on the top card of a pile of more than three, and a rectangle selection that
+touches such a pile selects all of it. Events recorded under older rules keep their
+recorded placement.
+
 Covering a card does not remove its identity from synchronized data. No tooltip,
 notification, default log summary, or background preview should unnecessarily
 spoil a covered card. Explicit inspection can expose it.

@@ -22,6 +22,50 @@ object TokenCatalog {
         sourceVersion = "blank-v1", token = true).let { SubmittedDefinition(DeckJson.digest(it), it) }
 }
 
+/** Rules v30: a newly created token (Create or Clone) goes on top of a Battlefield pile of identical fresh
+ * tokens instead of starting a pile of its own. Only creation stacks; untapping, moving or losing counters
+ * later never does. A pile of tokens of one kind may then hold more than three cards. */
+object TokenStacks {
+    const val RULES_VERSION = 30
+    /** Battlefield piles hold at most this many cards, except a pile of tokens of one kind. */
+    const val PILE_LIMIT = 3
+
+    /** Same token: same submitted definition (name, P/T, text, art) and the same face shown. */
+    fun sameKind(a: PlayCard, b: PlayCard): Boolean =
+        a.token && b.token && a.definition == b.definition && a.faceId == b.faceId
+
+    /** Whether [cards] may share one Battlefield pile under [rulesVersion]. */
+    fun fits(cards: List<PlayCard>, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean =
+        cards.size <= PILE_LIMIT || rulesVersion >= RULES_VERSION && cards.all { sameKind(it, cards.first()) }
+
+    /** Nothing that would show a stacked token apart from the new one: untapped, face up, no counters,
+     * damage, notes or until-end-of-turn marks, no links, combat, Stack, panel or text-mark ties. */
+    fun fresh(board: BoardState, card: PlayCard): Boolean {
+        if (!card.token || card.tapped || card.covered || card.explicitlyCovered || card.counters.isNotEmpty() ||
+            card.note.isNotEmpty() || card.damage.isNotEmpty() || card.eotCorner.isNotEmpty() || card.eotNote.isNotEmpty())
+            return false
+        val endpoint = LinkEndpoint(LinkEndpointKind.CARD, card.id)
+        return board.links.none { it.first == endpoint || it.second == endpoint } &&
+            CombatStackRules.occurrences(board.combat).none { it.sourceId == card.id } &&
+            board.combat?.pairs.orEmpty().none { it.attackTarget == card.id } &&
+            board.stackEffects.none { it.sourceId == card.id } &&
+            board.contentsDisplays.none { card.id in it.cardIds } && card.id !in board.stackTextMarks
+    }
+
+    /** The pile [token] joins in [container]: every member the same kind, looking the same (same corner,
+     * same entered-this-turn mark) and fresh. Of several, the largest; then the first in reading order
+     * (row, then column). Null starts a new pile. */
+    fun target(board: BoardState, container: PlayContainer, token: PlayCard): PlayPlacement? {
+        if (!fresh(board, token)) return null
+        val byId = board.cards.associateBy { it.id }
+        return container.cards.mapNotNull { byId[it] }.filter { it.placement != null }.groupBy { it.placement!! }
+            .filterValues { members -> members.all { sameKind(it, token) && it.corner == token.corner &&
+                it.enteredTurn == token.enteredTurn && fresh(board, it) } }
+            .entries.sortedWith(compareByDescending<Map.Entry<PlayPlacement, List<PlayCard>>> { it.value.size }
+                .thenBy { it.key.position.y }.thenBy { it.key.position.x }).firstOrNull()?.key
+    }
+}
+
 /** Extension of GameplayRules, not a second state processor. All outputs use the existing record path. */
 object TokenLinkRules {
     fun validDefinition(value: SubmittedDefinition) = DeckValidation.definition(value.definition) &&
@@ -35,7 +79,8 @@ object TokenLinkRules {
     fun pair(first: LinkEndpoint, second: LinkEndpoint): Pair<LinkEndpoint, LinkEndpoint> =
         if ("${first.kind}/${first.id}" <= "${second.kind}/${second.id}") first to second else second to first
 
-    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction): GameplayChange {
+    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         val board = state.board
         fun reject(reason: String) = GameplayChange(reason = reason)
         when (action) {
@@ -56,24 +101,28 @@ object TokenLinkRules {
                 val tokenId = CommandIds.uuidV5(command.requestId, "token/0")
                 val pileId = CommandIds.uuidV5(command.requestId, "pile/0")
                 if (occupied(board, tokenId) || occupied(board, pileId)) return reject("inapplicable")
-                // A fresh free-standing logical cell. Never insert in an existing pile or displace cards.
+                // A fresh free-standing logical cell. Never displace cards (rules v30 may join a token pile, below).
                 val positions = board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position }.toSet()
                 var x = 0
                 while (BoardPosition(x, 0) in positions) x++
                 val face = definition.definition.faces.first()
-                val token = PlayCard(tokenId, definition.digest, actor, container.id, read?.faceId ?: face.faceId,
+                val fresh = PlayCard(tokenId, definition.digest, actor, container.id, read?.faceId ?: face.faceId,
                     covered = read?.covered ?: false, tapped = read?.tapped ?: false, corner = read?.corner ?: face.defaultCorner(),
                     counters = read?.counters ?: emptyMap(), note = read?.note ?: "", token = true,
                     placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false,
                     // Rules v29: created on the Battlefield = entered this turn (also in the recorded token presence).
                     enteredTurn = board.turn.number)
+                // Rules v30: on top of a pile of identical fresh tokens instead (the new pile ID is then unused).
+                val stack = if (rulesVersion >= TokenStacks.RULES_VERSION) TokenStacks.target(board, container, fresh) else null
+                val token = if (stack == null) fresh else fresh.copy(placement = stack)
                 val presence = TokenPresence(token, CardLocation(container.id, token.placement))
                 val next = GameplayRules.canonicalBoard(board.copy(cards = (board.cards + token).sortedBy { it.id },
                     containers = board.containers.map {
-                        if (it.id == container.id) it.copy(cards = it.cards + token.id) else it
+                        if (it.id != container.id) it else it.copy(cards = if (stack == null) it.cards + token.id else listOf(token.id) + it.cards)
                     }))
                 return GameplayRules.record(state.copy(definitions = (state.definitions + definition).distinctBy { it.digest }.sortedBy { it.digest }),
-                    actor, command, next, GameplayTransition(tokens = listOf(TokenChange(null, presence)), cloneRead = read))
+                    actor, command, next, GameplayTransition(tokens = listOf(TokenChange(null, presence)), cloneRead = read),
+                    rulesVersion = rulesVersion)
             }
             is PlayAction.RemoveToken -> {
                 val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")

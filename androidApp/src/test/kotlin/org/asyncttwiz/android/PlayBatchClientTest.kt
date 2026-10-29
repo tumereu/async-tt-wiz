@@ -26,11 +26,14 @@ class PlayBatchClientTest {
                     val command = f.commands().drop(count).single()
                     val actions = command.playActions()
                     val row = if ("Land" in type) 0 else 1
-                    assertEquals(if (row == 0) 1 else 2, actions.size)
+                    // Rules v30: the second identical token stacks onto the first one's pile, with no row move.
+                    assertEquals(if (row == 0 || index > 0) 1 else 2, actions.size)
                     assertIs<PlayAction.CreateToken>(actions.first())
-                    if (row != 0) assertIs<PlayAction.MoveCard>(actions.last())
+                    if (row != 0 && index == 0) assertIs<PlayAction.MoveCard>(actions.last())
                     val tokens = f.play.board.cards.filter { it.token }
-                    assertEquals((0..index).map { BoardPosition(it, row) }.toSet(), tokens.map { it.placement!!.position }.toSet())
+                    assertEquals(index + 1, tokens.size)
+                    assertEquals(setOf(BoardPosition(0, row)), tokens.map { it.placement!!.position }.toSet())
+                    assertEquals(1, tokens.map { it.placement }.distinct().size)
                     assertEquals(2, f.play.definitions.single { it.digest == submitted.digest }.definition.faces.size)
                 }
                 assertTrue(f.lobby.historyControl(GameAction.Undo))

@@ -18,7 +18,7 @@ class KeepTopRevealedTest {
             BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), cards,
                 listOf(PlayContainer(libraryId, PlayZone.LIBRARY, a, cards.map { it.id }),
                     PlayContainer(handId, PlayZone.HAND, a), PlayContainer(id(12), PlayZone.GRAVEYARD, a)), TurnState(a)),
-            listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a), librarySecret = seed)
+            listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a), librarySecret = seed).withLibraryLayers()
     }
     private fun command(state: PlayState, action: GameAction) = GameCommand(id(request++),
         GameScope(state.gameId, playId = state.id), action, id(9), "1")
@@ -113,32 +113,38 @@ class KeepTopRevealedTest {
         assertTop(after)
     }
 
-    @Test fun bothActorsReseedOnlyTheUnknownMiddleAfterEachDrawIncludingASingleUnknownCard() {
+    @Test fun bothActorsReseedOnlyTheHiddenLayerAfterEachDrawUntilOneCardIsLeftKnown() {
         var before = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).state!!
         repeat(5) { draws ->
             val old = library(before)
-            assertEquals(5 - draws, old.unknownMiddle.size)
+            val hidden = LibraryLayers.segments(old).filter { !it.layer.ordered }
+            // 5, 4, 3, 2 hidden cards; a single remaining hidden card's place is known.
+            assertEquals(if (draws < 4) 5 - draws else 0, hidden.sumOf { it.cards.size })
             assertTop(before)
             for (actor in listOf(a, b)) {
                 val reseeds = LibraryKnowledge.reseeds(before, actor)
-                val reseed = reseeds.single()
-                assertEquals(old.unknownMiddle, reseed.from)
-                assertEquals(RandomV1.shuffle(old.unknownMiddle, LibraryKnowledge.seed(before, actor, libraryId),
-                    "branch-reseed-v1"), reseed.to)
-                assertFalse(old.cards.first() in reseed.to)
+                assertEquals(hidden.map { it.layer.id }, reseeds.map { it.layerId })
+                for ((segment, reseed) in hidden.zip(reseeds)) {
+                    assertEquals(segment.cards, reseed.from)
+                    assertEquals(RandomV1.shuffle(segment.cards, LibraryKnowledge.seed(before, actor, libraryId, segment.layer.id),
+                        LibraryLayers.RESEED_ALGORITHM), reseed.to)
+                    assertFalse(old.cards.first() in reseed.to)
+                }
                 val after = assertNotNull(LibraryKnowledge.applyReseeds(before, reseeds, false))
                 assertEquals(old.cards.first(), library(after).cards.first())
-                assertEquals(old.knownTop, library(after).knownTop)
-                assertEquals(old.knownBottom, library(after).knownBottom)
+                assertEquals(old.layers.map { Triple(it.id, it.ordered, if (it.ordered) it.cards else it.cards.toSet()) },
+                    library(after).layers.map { Triple(it.id, it.ordered, if (it.ordered) it.cards else it.cards.toSet()) })
                 assertTop(after)
                 assertEquals(before, LibraryKnowledge.applyReseeds(after, reseeds, true))
-                // Rebase a retained result against a different incoming unknown order, never the known edge.
+                if (reseeds.isEmpty()) continue
+                // Rebase a retained result against a different incoming hidden order, never the known top.
                 val reordered = before.copy(board = before.board.copy(containers = before.board.containers.map {
-                    if (it.id == libraryId) it.copy(cards = it.knownTop + it.unknownMiddle.reversed() + it.knownBottom) else it
+                    if (it.id == libraryId) it.copy(cards = it.cards.take(1) + it.cards.drop(1).reversed(),
+                        layers = it.layers.map { l -> if (l.ordered) l else l.copy(cards = l.cards.reversed()) }) else it
                 }))
                 val rebased = assertNotNull(LibraryKnowledge.rebaseReseeds(reordered, reseeds))
-                assertEquals(old.unknownMiddle.reversed(), rebased.single().from)
-                assertEquals(reseed.to, rebased.single().to)
+                assertEquals(hidden.single().cards.reversed(), rebased.single().from)
+                assertEquals(reseeds.single().to, rebased.single().to)
                 assertEquals(after, LibraryKnowledge.applyReseeds(reordered, rebased, false))
             }
             before = exact(before, LibraryActions.draw(before.board, libraryId, handId, 1).single()).state!!

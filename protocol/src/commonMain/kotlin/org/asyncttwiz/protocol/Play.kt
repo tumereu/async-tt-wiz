@@ -44,19 +44,16 @@ object PlayerStatus {
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayContainer(val id: String, val zone: PlayZone, val accountId: String? = null,
     val cards: List<String> = emptyList(),
-    /** Library cards are knownTop + unknown middle + knownBottom, all top first.
-     * Old snapshots have no knowledge metadata and therefore start entirely unknown. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownTop: List<String> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownBottom: List<String> = emptyList(),
+    /** Rules v29: a LIBRARY-zone container's [cards] split into layers, top first, see [LibraryLayers].
+     * Empty for every other zone and for an empty library. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val layers: List<LibraryLayer> = emptyList(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val keepTopRevealed: Boolean = false,
     /** Rules v23: a player's lazily-created Temp pile. It is a LIBRARY-zone container (hidden faces,
      * unknown order after shuffle) but never "the" Library: owner lookups must exclude it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val temp: Boolean = false,
     /** Rules v29: which of the player's Temp piles (1..4) this is. Only meaningful when [temp]; old
      * snapshots have only pile 1 and therefore omit it. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tempNumber: Int = 1) {
-    val unknownMiddle: List<String> get() = cards.subList(knownTop.size, cards.size - knownBottom.size)
-}
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tempNumber: Int = 1)
 
 /** A player's Temp piles, numbered 1..[COUNT]. Pile 1 (rules v23) is always shown and can never be
  * turned off; piles 2..4 (rules v29) exist only while turned on. Every pile is created lazily, by the
@@ -256,7 +253,8 @@ object StartRules {
             shuffles.add(InitialShuffle(player.accountId, seed, order))
             for (zone in PlayZone.entries.filter { it != PlayZone.STACK }) containers.add(PlayContainer(
                 if (zone == PlayZone.LIBRARY) library else CommandIds.uuidV5(playId, "container/${player.accountId}/${zone.name}"),
-                zone, player.accountId, if (zone == PlayZone.LIBRARY) order else emptyList()))
+                zone, player.accountId, if (zone == PlayZone.LIBRARY) order else emptyList(),
+                layers = if (zone == PlayZone.LIBRARY) LibraryLayers.initial(CommandIds.uuidV5(library, "layer/0"), order) else emptyList()))
         }
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         val needed = cards.map { it.definition }.toSet()

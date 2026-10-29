@@ -64,6 +64,11 @@ import kotlinx.serialization.json.*
         @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null,
         /** Pulling a top Stack projection moves its source and removes the projection in ONE Undo. */
         @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
+    /** Rules v29: puts [cardIds] (from any zones, all owned by the Library's player) onto the top or bottom
+     * of [libraryId] in random order, as ONE event and ONE unordered layer. The fresh client [seed] fixes
+     * their hidden concrete order; it is a literal input, never rerolled on replay. */
+    @Serializable @SerialName("moveToLibraryRandom") data class MoveToLibraryRandom(val libraryId: String,
+        val cardIds: List<String>, val bottom: Boolean, val seed: String) : PlayAction
     @Serializable @SerialName("shuffleLibrary") data class ShuffleLibrary(val containerId: String,
         val seed: String, val algorithm: String = "shuffle-v1") : PlayAction
     @Serializable @SerialName("setKeepTopRevealed") data class SetKeepTopRevealed(val containerId: String,
@@ -164,6 +169,9 @@ object GameplayRules {
             (action.expectedStackDigest == null || DeckValidation.digest(action.expectedStackDigest)) &&
             (action.removeStackEntryId == null || DeckValidation.uuid(action.removeStackEntryId))
         is PlayAction.SetKeepTopRevealed -> DeckValidation.uuid(action.containerId)
+        is PlayAction.MoveToLibraryRandom -> DeckValidation.uuid(action.libraryId) && action.cardIds.isNotEmpty() &&
+            action.cardIds.size <= LibraryRules.MAX_RANDOM_MOVE && action.cardIds.all(DeckValidation::uuid) &&
+            action.cardIds.distinct().size == action.cardIds.size && runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.ShuffleLibrary -> DeckValidation.uuid(action.containerId) && action.algorithm == "shuffle-v1" &&
             runCatching { RandomV1.decodeSeed(action.seed) }.isSuccess
         is PlayAction.Mulligan -> listOf(action.libraryId, action.handId).all(DeckValidation::uuid) &&
@@ -316,6 +324,7 @@ object GameplayRules {
                 transition = GameplayTransition()
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
+            is PlayAction.MoveToLibraryRandom -> return LibraryRules.toLibraryRandom(state, actor, command, action)
             is PlayAction.RevealHand, is PlayAction.RandomHand -> return HandRules.change(state, actor, command, action)
             is PlayAction.SetKeepTopRevealed, is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
             is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
@@ -353,7 +362,7 @@ object GameplayRules {
                     revealedIds = it.revealedIds - removedFromPanel)
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
-        }), action)
+        }), action, command.requestId)
         val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
             .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }
         val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)
@@ -589,7 +598,7 @@ object GameplayRules {
         val from = location(board, card.id, orderedHand = coverRulesVersion >= 3, orderedPiles = orderedPiles)
         val to = location(next, card.id, orderedHand = coverRulesVersion >= 3, orderedPiles = orderedPiles)
         if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds } &&
-            LibraryKnowledge.after(board, next, action) == board) return GameplayChange(state)
+            LibraryKnowledge.after(board, next, action, command.requestId) == board) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
             GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),

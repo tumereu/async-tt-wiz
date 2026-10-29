@@ -22,6 +22,8 @@ import kotlinx.serialization.Serializable
 object LibraryRules {
     /** Either player may close (dismiss) any panel from this rules version on. */
     const val ANY_PLAYER_CLOSES_RULES_VERSION = 29
+    /** Bound for one random-order move: more than any Library holds in practice. */
+    const val MAX_RANDOM_MOVE = 1000
 
     fun slice(cards: List<String>, selection: ContentsSelection, count: Int): List<String> {
         require(count >= 0)
@@ -74,7 +76,7 @@ object LibraryRules {
                         .filter { it.from != it.to }
                 }
                 record(board.copy(cards = cards, containers = board.containers.map { when (it.id) {
-                    library.id -> it.copy(cards = order.drop(drawn.size), knownTop = emptyList(), knownBottom = emptyList())
+                    library.id -> it.copy(cards = order.drop(drawn.size))
                     hand.id -> it.copy(cards = drawn)
                     else -> it
                 } }), GameplayTransition(fields = fields, disclosures = drawn.map { id ->
@@ -199,6 +201,36 @@ object LibraryRules {
     }
 
     private val specialZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
+
+    /** Rules v29: ONE event that moves each card exactly as an ordinary move onto the Library edge would
+     * (same zone-leaving resets and cleanup), in the seeded order, then records them as one unordered layer. */
+    internal fun toLibraryRandom(state: PlayState, actor: String, command: GameCommand,
+        action: PlayAction.MoveToLibraryRandom): GameplayChange {
+        val board = state.board
+        val library = board.containers.singleOrNull { it.id == action.libraryId && it.zone == PlayZone.LIBRARY }
+            ?: return GameplayChange(reason = "missingReference")
+        val cards = action.cardIds.map { id -> board.cards.singleOrNull { it.id == id } ?: return GameplayChange(reason = "missingReference") }
+        if (cards.any { it.token || it.owner != library.accountId }) return GameplayChange(reason = "inapplicable")
+        val order = RandomV1.shuffle(action.cardIds, action.seed)
+        var current = state
+        val fields = mutableListOf<GameplayFieldChange>()
+        val links = mutableListOf<LinkChange>()
+        // The top card goes last onto the top; the bottom card goes last onto the bottom.
+        for ((index, id) in (if (action.bottom) order else order.asReversed()).withIndex()) {
+            val card = current.board.cards.single { it.id == id }
+            val move = PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement),
+                MoveDestination(library.id, if (action.bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP))
+            val member = command.copy(requestId = CommandIds.uuidV5(command.requestId, "random-move/$index"), action = GameAction.Play(move))
+            val change = GameplayRules.move(current, actor, member, move)
+            if (change.reason != null) return change
+            val mutation = change.mutation ?: continue
+            current = change.state!!
+            fields += mutation.transition.fields
+            links += mutation.transition.links
+        }
+        if (current === state && LibraryKnowledge.after(board, board, action, command.requestId) == board) return GameplayChange(state)
+        return GameplayRules.record(state, actor, command, current.board, GameplayTransition(fields, links = links))
+    }
 
     /** Early I13 seam: concrete Hand/special-container moves. Board/Stack and token cleanup stay I13/I19. */
     internal fun move(state: PlayState, actor: String, command: GameCommand, action: PlayAction.MoveCard): GameplayChange {
@@ -326,7 +358,8 @@ object LibraryActions {
             val at = after?.let { reduced.indexOf(it) + 1 } ?: 0
             val final = reduced.toMutableList().apply { addAll(at, ids) }
             if (final == target.cards && (destination.insertion == MoveInsertion.GAP || ids.all {
-                    it in if (destination.insertion == MoveInsertion.TOP) target.knownTop else target.knownBottom })) return emptyList()
+                    it in if (destination.insertion == MoveInsertion.TOP) LibraryLayers.knownTop(target) else LibraryLayers.knownBottom(target) }))
+                return emptyList()
         }
         return cards.mapIndexed { index, card ->
             val move = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
@@ -339,6 +372,15 @@ object LibraryActions {
             move
         }
     }
+
+    /** Random-order Library moves for [capturedIds]: one action per owner's Library, each with its own fresh
+     * seed. Tokens (which would vanish) and cards without an owner's Library are left out. */
+    fun toLibraryRandom(board: BoardState, capturedIds: List<String>, bottom: Boolean, seed: () -> String): List<PlayAction.MoveToLibraryRandom> =
+        capturedIds.distinct().mapNotNull { id -> board.cards.singleOrNull { it.id == id }?.takeUnless { it.token } }
+            .groupBy { it.owner }.mapNotNull { (owner, cards) ->
+                val library = board.zoneContainer(owner, PlayZone.LIBRARY) ?: return@mapNotNull null
+                PlayAction.MoveToLibraryRandom(library.id, cards.map { it.id }, bottom, seed())
+            }
 
     data class Mulligan(val libraryId: String, val handId: String, val handIds: List<String>,
         val preReturnSize: Int, val drawCount: Int, val seed: String, val returns: List<PlayAction.MoveCard>) {

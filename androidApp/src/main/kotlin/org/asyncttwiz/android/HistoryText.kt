@@ -155,6 +155,15 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 HistoryText(historyPlainText(historyMoveText(subject ?: "A card", route)), if (draw) "Draw" else "Move", HistoryMove(subject, route))
             }
         }
+        is PlayAction.MoveToLibraryRandom -> {
+            // Names only cards the viewer could see where they came from; the new order is never shown.
+            val sources = action.cardIds.map { id -> before?.board?.cards?.find { it.id == id }?.containerId }
+            val from = sources.filterNotNull().distinct().map(::zone).distinct()
+            val target = "${playerPrefix(container(action.libraryId)?.accountId ?: event.author)}Library ${if (action.bottom) "bottom" else "top"} (random order)"
+            val route = if (from.isEmpty() || sources.any { it == null }) target else "${from.joinToString(", ")} → $target"
+            val subject = historyMoveSubjects(action.cardIds.map { id -> card(id).takeUnless { shownCard(id) == null } })
+            HistoryText(historyPlainText(historyMoveText(subject, route)), "Move", HistoryMove(subject, route))
+        }
         is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) zone(action.containerId) else "Library"} shuffled", "Shuffle")
         is PlayAction.SetTempPile -> text("${playerPrefix(action.accountId)}Temp ${action.number} → ${if (action.on) "on" else "off"}",
             "Temp ${action.number} ${if (action.on) "on" else "off"}")

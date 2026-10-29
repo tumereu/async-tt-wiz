@@ -7,7 +7,8 @@ class LibraryReseedScaleTest {
     @Test fun tenThousandActionsForkSyncUndoRedoAndTimelineUseOnlyNearbyDeltaWork() {
         val root = F.root()
         val libraries = listOf(F.a, F.b).mapIndexed { p, owner ->
-            PlayContainer(F.id(40 + p), PlayZone.LIBRARY, owner, List(60) { F.id(1000000 + p * 60 + it) })
+            List(60) { F.id(1000000 + p * 60 + it) }.let { ids ->
+                PlayContainer(F.id(40 + p), PlayZone.LIBRARY, owner, ids, layers = LibraryLayers.initial(F.id(50 + p), ids)) }
         }
         val cards = libraries.flatMap { library -> library.cards.map { id -> root.board.cards.first().copy(
             id = id, owner = library.accountId!!, containerId = library.id, placement = null) } }

@@ -2,52 +2,120 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-@Serializable data class LibraryReseed(val containerId: String, val from: List<String>, val to: List<String>,
-    val algorithm: String = "branch-reseed-v1")
+/** One segment of a Library (or Temp pile), top first; its [cards] are the next cards of the container's
+ * concrete order (they always concatenate to exactly the container's cards). An unordered layer's order is
+ * unknown to everyone (positional knowledge, not face visibility). The [id] stays stable while other layers
+ * are added, split or removed, so edits touch only the layers (and members) they really change. */
+@Serializable data class LibraryLayer(val id: String, val ordered: Boolean, val cards: List<String>) {
+    val size: Int get() = cards.size
+}
+
+/** A branch start reshuffles ONE unordered layer within itself. */
+@Serializable data class LibraryReseed(val containerId: String, val layerId: String, val from: List<String>,
+    val to: List<String>, val algorithm: String = LibraryLayers.RESEED_ALGORITHM)
+
+/** A layer with its concrete members, top first. */
+data class LibrarySegment(val layer: LibraryLayer, val cards: List<String> = layer.cards)
+
+/** Read helpers for the layer model. Every LIBRARY-zone container's layers concatenate to its cards, with no
+ * empty layers; a lone card's place is known, and neighbouring known (ordered) layers are merged. */
+object LibraryLayers {
+    const val RESEED_ALGORITHM = "branch-reseed-v2"
+
+    /** Layers that do not cover exactly the cards (never produced by the rules) carry no knowledge;
+     * the next change of that container replaces them with one unordered layer. */
+    private fun consistent(container: PlayContainer) =
+        container.layers.sumOf { it.size } == container.cards.size && container.layers.flatMap { it.cards } == container.cards
+
+    fun segments(container: PlayContainer): List<LibrarySegment> =
+        if (!consistent(container)) emptyList() else container.layers.map(::LibrarySegment)
+    fun segmentOf(container: PlayContainer, cardId: String): LibrarySegment? =
+        container.layers.firstOrNull { cardId in it.cards }?.takeIf { consistent(container) }?.let(::LibrarySegment)
+    /** Whether the card's place in its Library is known to everyone. */
+    fun known(container: PlayContainer, cardId: String): Boolean = segmentOf(container, cardId)?.layer?.ordered == true
+    /** The known-order block at the top (empty when the top layer is unordered). */
+    fun knownTop(container: PlayContainer): List<String> =
+        container.layers.takeIf { consistent(container) }?.firstOrNull()?.takeIf { it.ordered }?.cards.orEmpty()
+    /** The known-order block at the bottom (empty when the bottom layer is unordered). */
+    fun knownBottom(container: PlayContainer): List<String> =
+        container.layers.takeIf { consistent(container) }?.lastOrNull()?.takeIf { it.ordered }?.cards.orEmpty()
+
+    /** A freshly built Library: its whole content in one unordered layer. */
+    fun initial(id: String, cards: List<String>): List<LibraryLayer> = normalize(listOf(LibraryLayer(id, false, cards)))
+
+    fun valid(container: PlayContainer): Boolean {
+        if (container.zone != PlayZone.LIBRARY) return container.layers.isEmpty()
+        val layers = container.layers
+        return layers.flatMap { it.cards } == container.cards && layers.all { it.size > 0 && DeckValidation.uuid(it.id) } &&
+            layers.map { it.id }.distinct().size == layers.size && layers.none { !it.ordered && it.size < 2 } &&
+            layers.zipWithNext().none { (a, b) -> a.ordered && b.ordered }
+    }
+
+    internal fun normalize(parts: List<LibraryLayer>): List<LibraryLayer> {
+        val result = mutableListOf<LibraryLayer>()
+        for (raw in parts) {
+            if (raw.cards.isEmpty()) continue
+            val part = if (raw.cards.size == 1) raw.copy(ordered = true) else raw
+            val last = result.lastOrNull()
+            if (last != null && last.ordered && part.ordered) result[result.lastIndex] = last.copy(cards = last.cards + part.cards)
+            else result += part
+        }
+        return result
+    }
+}
 
 /** Knowledge is positional, not face visibility. Looking alone does not fix an unknown order;
  * explicitly placing the looked-at block does. No operation here reads retained history. */
 internal object LibraryKnowledge {
-    fun seed(state: PlayState, actor: String, libraryId: String): String {
-        // Pre-feature games have no entropy field. A domain-separated play-id hash is their stable
-        // compatibility secret; never generate fresh entropy when loading an existing game.
+    fun seed(state: PlayState, actor: String, libraryId: String, layerId: String): String {
+        // A play without an entropy field gets a domain-separated play-id hash as its stable secret;
+        // never generate fresh entropy when loading an existing game.
         val secret = state.librarySecret ?: encoded(DeckJson.intent("legacy-library-secret-v1", state.id))
-        return encoded(DeckJson.intent("branch-reseed-v1", listOf(secret, state.currentNodeId, actor, libraryId).joinToString("\u0000")))
+        return encoded(DeckJson.intent(LibraryLayers.RESEED_ALGORITHM,
+            listOf(secret, state.currentNodeId, actor, libraryId, layerId).joinToString("\u0000")))
     }
 
     private fun encoded(hex: String) = RandomV1.encodeSeed(hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
 
+    /** Every unordered layer of every Library-zone container, each with its own deterministic seed. */
     fun reseeds(state: PlayState, actor: String): List<LibraryReseed> = state.board.containers
-        .filter { it.zone == PlayZone.LIBRARY }.map { library ->
-            LibraryReseed(library.id, library.unknownMiddle.toList(),
-                RandomV1.shuffle(library.unknownMiddle, seed(state, actor, library.id), "branch-reseed-v1"))
+        .filter { it.zone == PlayZone.LIBRARY }.flatMap { library ->
+            LibraryLayers.segments(library).filter { !it.layer.ordered && it.cards.size >= 2 }.map { segment ->
+                LibraryReseed(library.id, segment.layer.id, segment.cards,
+                    RandomV1.shuffle(segment.cards, seed(state, actor, library.id, segment.layer.id), LibraryLayers.RESEED_ALGORITHM))
+            }
         }
 
     fun applyReseeds(state: PlayState, changes: List<LibraryReseed>, reverse: Boolean): PlayState? {
         if (changes.isEmpty()) return state
-        if (changes.map { it.containerId }.distinct().size != changes.size) return null
+        if (changes.map { it.containerId to it.layerId }.distinct().size != changes.size) return null
         var board = state.board
         for (change in changes) {
             val library = board.containers.singleOrNull { it.id == change.containerId && it.zone == PlayZone.LIBRARY } ?: return null
             val from = if (reverse) change.to else change.from
             val to = if (reverse) change.from else change.to
-            if (change.algorithm != "branch-reseed-v1" || library.unknownMiddle != from ||
+            val index = library.layers.indexOfFirst { it.id == change.layerId }
+            val layer = library.layers.getOrNull(index) ?: return null
+            val start = library.layers.take(index).sumOf { it.size }
+            if (change.algorithm != LibraryLayers.RESEED_ALGORITHM || layer.ordered || layer.cards != from ||
+                start + layer.size > library.cards.size || library.cards.subList(start, start + layer.size) != from ||
                 from.size != to.size || from.toSet() != to.toSet() || to.distinct().size != to.size) return null
             board = board.copy(containers = board.containers.map {
-                if (it.id == library.id) it.copy(cards = it.knownTop + to + it.knownBottom) else it
+                if (it.id == library.id) it.copy(cards = it.cards.take(start) + to + it.cards.drop(start + layer.size),
+                    layers = it.layers.map { l -> if (l.id == layer.id) l.copy(cards = to) else l }) else it
             })
         }
         return state.copy(board = board)
     }
 
-    /** Selective edits can change the incoming unknown order, but never reroll the retained result.
-     * Membership (including the known/unknown boundary) must still match the accepted reseed. */
+    /** Selective edits can change a layer's incoming order, but never reroll the retained result.
+     * The layer and its membership must still match the accepted reseed. */
     fun rebaseReseeds(state: PlayState, changes: List<LibraryReseed>): List<LibraryReseed>? = changes.map { change ->
         val library = state.board.containers.singleOrNull { it.id == change.containerId && it.zone == PlayZone.LIBRARY }
             ?: return null
-        val from = library.unknownMiddle
-        if (from.size != change.from.size || from.toSet() != change.from.toSet()) return null
-        change.copy(from = from)
+        val segment = LibraryLayers.segments(library).singleOrNull { it.layer.id == change.layerId && !it.layer.ordered } ?: return null
+        if (segment.cards.size != change.from.size || segment.cards.toSet() != change.from.toSet()) return null
+        change.copy(from = segment.cards)
     }
 
     /** Source edge intent is explicit; ordinary MEMBER moves never silently pick another card.
@@ -61,7 +129,7 @@ internal object LibraryKnowledge {
                 val reduced = target.cards.filterNot { it == move.cardId || it in destination.pendingIds }
                 val after = when {
                     beforeReseed != null && destination.libraryInsertion == MoveInsertion.BOTTOM && destination.beforeId == null &&
-                        destination.afterId !in target.knownBottom -> reduced.lastOrNull()
+                        destination.afterId !in LibraryLayers.knownBottom(target) -> reduced.lastOrNull()
                     else -> destination.afterId
                 }
                 if (after == null || after in reduced) {
@@ -91,55 +159,102 @@ internal object LibraryKnowledge {
         return command.copy(action = GameAction.Play(move.copy(cardId = id, source = move.source.copy(bottomSlice = slice))))
     }
 
-    fun after(before: BoardState, board: BoardState, action: PlayAction): BoardState = board.copy(containers = board.containers.map { library ->
-        if (library.zone != PlayZone.LIBRARY) return@map library
-        // A Temp pile turned on by this very action (rules v29) starts empty with nothing known.
-        val old = before.containers.singleOrNull { it.id == library.id } ?: return@map library
+    /** The layers of every Library-zone container after [action] turned [before] into [board]. New layers get
+     * request-derived IDs; untouched layers keep theirs. Cards that left are dropped from their layers. */
+    fun after(before: BoardState, board: BoardState, action: PlayAction, requestId: String): BoardState =
+        board.copy(containers = board.containers.map { library ->
+            if (library.zone != PlayZone.LIBRARY) return@map library
+            // A Temp pile turned on by this very action starts empty.
+            val old = before.containers.singleOrNull { it.id == library.id } ?: return@map library
+            library.copy(layers = layers(before, old, library, action, requestId))
+        })
+
+    private fun layers(before: BoardState, old: PlayContainer, library: PlayContainer, action: PlayAction,
+        requestId: String): List<LibraryLayer> {
+        var created = 0
+        fun newId() = CommandIds.uuidV5(requestId, "layer/${library.id}/${created++}")
         val members = library.cards.toSet()
-        var top = old.knownTop.filter { it in members }
-        var bottom = old.knownBottom.filter { it in members }
-        fun place(ids: List<String>, insertion: MoveInsertion) {
-            val placed = ids.toSet()
-            top = top.filterNot { it in placed }
-            bottom = bottom.filterNot { it in placed }
-            if (insertion == MoveInsertion.TOP) {
-                val fixed = (top + ids).toSet()
-                top = library.cards.takeWhile { it in fixed }
-            } else {
-                val fixed = (bottom + ids).toSet()
-                bottom = library.cards.takeLastWhile { it in fixed }
+        fun all(): List<LibraryLayer> = listOf(LibraryLayer(newId(), false, library.cards))
+        var placed = emptySet<String>()
+        // Applied to the remaining parts once departed and re-placed cards are removed.
+        var place: (List<LibraryLayer>) -> List<LibraryLayer> = { it }
+        fun known(cardId: String) {
+            placed = setOf(cardId)
+            place = { parts -> insertKnown(parts, cardId, library.cards.indexOf(cardId), ::newId) }
+        }
+        fun edge(ids: List<String>, top: Boolean, ordered: Boolean) {
+            placed = ids.toSet()
+            place = { parts ->
+                val block = LibraryLayer(newId(), ordered, if (top) library.cards.take(ids.size) else library.cards.takeLast(ids.size))
+                if (top) listOf(block) + parts else parts + block
             }
         }
+        var shuffled = false
         when (action) {
-            is PlayAction.Mulligan -> if (action.libraryId == library.id) { top = emptyList(); bottom = emptyList() }
-            is PlayAction.ShuffleLibrary -> if (action.containerId == library.id) { top = emptyList(); bottom = emptyList() }
-            is PlayAction.MoveCard -> if (action.destination.containerId == library.id && action.cardId in members) {
-                val insertion = action.destination.libraryInsertion ?: action.destination.insertion
-                if (insertion == MoveInsertion.TOP || insertion == MoveInsertion.BOTTOM) place(listOf(action.cardId), insertion)
-            }
+            is PlayAction.Mulligan -> shuffled = action.libraryId == library.id
+            is PlayAction.ShuffleLibrary -> shuffled = action.containerId == library.id
+            // A placed card's position is known; a gap move that changed nothing physically changes nothing.
+            is PlayAction.MoveCard -> if (action.destination.containerId == library.id && action.cardId in members &&
+                ((action.destination.libraryInsertion ?: action.destination.insertion) in setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM) ||
+                    old.cards != library.cards)) known(action.cardId)
             is PlayAction.RandomHand -> if (action.result == HandRandomResult.LIBRARY_BOTTOM && action.cardId in members &&
-                action.cardId !in old.cards) place(listOf(action.cardId), MoveInsertion.BOTTOM)
+                action.cardId !in old.cards) known(action.cardId)
+            is PlayAction.MoveToLibraryRandom -> if (action.libraryId == library.id)
+                edge(action.cardIds.filter { it in members }, top = !action.bottom, ordered = false)
             is PlayAction.DismissContents -> before.contentsDisplays.singleOrNull {
                 it.id == action.displayId && it.containerId == library.id }?.let { display ->
                 val ids = display.cardIds.filter { it in members }
                 when (if (display.search) ContentsRest.SHUFFLE else action.rest) {
-                    ContentsRest.SHUFFLE -> { top = emptyList(); bottom = emptyList() }
-                    ContentsRest.TOP -> place(ids, MoveInsertion.TOP)
-                    ContentsRest.BOTTOM, ContentsRest.BOTTOM_RANDOM -> place(ids, MoveInsertion.BOTTOM)
+                    ContentsRest.SHUFFLE -> shuffled = true
+                    ContentsRest.TOP -> edge(ids, top = true, ordered = true)
+                    ContentsRest.BOTTOM -> edge(ids, top = false, ordered = true)
+                    // Seeded by nobody's choice: their order stays unknown, as one layer of their own.
+                    ContentsRest.BOTTOM_RANDOM -> edge(ids, top = false, ordered = false)
                     ContentsRest.GRAVEYARD, ContentsRest.EXILE -> Unit
                 }
             }
             else -> Unit
         }
-        // An arbitrary GAP edit may split a formerly-known edge. Keep only contiguous edge blocks.
-        val topSet = top.toSet(); val bottomSet = bottom.toSet()
-        top = library.cards.takeWhile { it in topSet }
-        bottom = library.cards.takeLastWhile { it in bottomSet && it !in topSet }
-        // A continuously exposed top is a fixed identity across branch reseeds, even after shuffle.
-        if (library.keepTopRevealed && top.isEmpty()) library.cards.firstOrNull()?.let { id ->
-            top = listOf(id)
-            bottom = bottom.filterNot { it == id }
+        // Inconsistent layers (never produced by the rules) stay untouched until something changes there.
+        if (!shuffled && placed.isEmpty() && library.cards == old.cards &&
+            LibraryLayers.segments(old).isEmpty() && library.layers == old.layers) return old.layers
+        var parts = if (shuffled) all() else {
+            // Inconsistent layers know nothing: the old cards count as one hidden layer.
+            val segments = LibraryLayers.segments(old).map { it.layer }.ifEmpty { listOf(LibraryLayer(newId(), false, old.cards)) }
+            val remaining = segments.map { layer ->
+                LibraryLayer(layer.id, layer.ordered, layer.cards.filter { it in members && it !in placed })
+            }.filter { it.cards.isNotEmpty() }
+            place(remaining)
         }
-        library.copy(knownTop = top, knownBottom = bottom)
-    })
+        // Anything else that reordered the library leaves its whole order unknown rather than guessing.
+        if (parts.flatMap { it.cards } != library.cards) parts = all()
+        // A continuously exposed top is a fixed identity across branch reseeds, even after a shuffle.
+        val first = parts.firstOrNull()
+        if (library.keepTopRevealed && first != null && !first.ordered && first.cards.size >= 2)
+            parts = listOf(LibraryLayer(newId(), true, first.cards.take(1)), first.copy(cards = first.cards.drop(1))) + parts.drop(1)
+        val result = LibraryLayers.normalize(parts)
+        // Unchanged knowledge keeps the exact previous list (and IDs).
+        return if (result == old.layers) old.layers else result
+    }
+
+    /** Inserts a card of known place at [index]; inside a layer, that layer splits there (upper part keeps its ID). */
+    private fun insertKnown(parts: List<LibraryLayer>, cardId: String, index: Int, newId: () -> String): List<LibraryLayer> {
+        val result = mutableListOf<LibraryLayer>()
+        var at = 0
+        var inserted = false
+        val card = { LibraryLayer(newId(), true, listOf(cardId)) }
+        for (part in parts) {
+            if (!inserted && index == at) { result += card(); inserted = true }
+            if (!inserted && index > at && index < at + part.cards.size) {
+                val k = index - at
+                result += part.copy(cards = part.cards.take(k))
+                result += card()
+                result += LibraryLayer(newId(), part.ordered, part.cards.drop(k))
+                inserted = true
+            } else result += part
+            at += part.cards.size
+        }
+        if (!inserted) result += card()
+        return result
+    }
 }

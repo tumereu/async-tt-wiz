@@ -79,17 +79,27 @@ class IncrementalHistoryMigrationTest {
                 }
                 connection.commit()
             }
-            flyway.migrate()
-            assertEquals(versions, flyway.info().applied().map { it.version.toString() })
+            Flyway.configure().configuration(flyway.configuration).target("21").load().migrate()
+            assertEquals(versions.take(migration + 1), flyway.info().applied().map { it.version.toString() })
+            val tables = listOf("game_play", "gameplay_mutation", "gameplay_group", "game_inbox", "game_outbox", "game_revision", "game_stream",
+                "game_chat", "player_preparation", "game_definition", "invitation", "account_activity", "activity_summary", "activity_push")
             db.connection().use { connection ->
                 val sql = DSL.using(connection, SQLDialect.POSTGRES)
                 assertEquals(setOf(F.id(102), F.id(103)), sql.fetch("SELECT id::text FROM game").map { it.get(0, String::class.java) }.toSet())
                 assertEquals(2, sql.fetchCount(DSL.table("account")))
-                for (table in listOf("game_play", "gameplay_mutation", "gameplay_group", "game_inbox", "game_outbox", "game_revision", "game_stream",
-                    "game_chat", "player_preparation", "game_definition", "invitation", "account_activity", "activity_summary", "activity_push")) {
+                for (table in tables) {
                     assertEquals(0, sql.fetchOne("SELECT count(*) FROM $table WHERE game_id NOT IN (?::uuid,?::uuid)", F.id(102), F.id(103))!!.get(0, Int::class.java), table)
                 }
                 assertEquals(2, sql.fetchCount(DSL.table("game_play_mutation")))
+            }
+            // V41 (rules v29 library layers) then deletes every game that started a play, with all its rows.
+            flyway.migrate()
+            assertEquals(versions, flyway.info().applied().map { it.version.toString() })
+            db.connection().use { connection ->
+                val sql = DSL.using(connection, SQLDialect.POSTGRES)
+                assertEquals(0, sql.fetchCount(DSL.table("game")))
+                assertEquals(2, sql.fetchCount(DSL.table("account")))
+                for (table in tables + listOf("game_play_mutation", "gameplay_tree_control")) assertEquals(0, sql.fetchCount(DSL.table(table)), table)
             }
         }
     }

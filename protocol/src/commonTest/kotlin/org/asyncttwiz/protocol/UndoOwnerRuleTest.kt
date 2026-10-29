@@ -240,7 +240,7 @@ class UndoOwnerRuleTest {
 
     @Test fun knownOrderDrawDoesNotConcernUntakenNextCard() {
         val initial = gameplayFixture().let { r -> r.copy(board = r.board.copy(containers = r.board.containers.map {
-            if (it.id == id(20)) it.copy(knownTop = listOf(id(10), id(11))) else it })) }
+            if (it.id == id(20)) it.withKnown(top = listOf(id(10), id(11))) else it })) }
         var tree = move(GameplayTree(initial), a, id(11), MoveDestination(id(23), MoveInsertion.UNORDERED))
         tree = play(tree, b, PlayAction.MoveCard(id(10), MoveSource(id(20), edge = MoveSourceEdge.TOP),
             MoveDestination(id(21), MoveInsertion.UNORDERED)))
@@ -259,9 +259,9 @@ class UndoOwnerRuleTest {
     @Test fun shuffleValidatesUnchangedKnownEdges() {
         for (top in listOf(true, false)) {
             val initial = gameplayFixture().let { r -> r.copy(board = r.board.copy(cards = r.board.cards.take(1),
-                containers = r.board.containers.map { if (it.id == id(20)) it.copy(cards = listOf(id(10)),
-                    knownTop = if (top) listOf(id(10)) else emptyList(),
-                    knownBottom = if (top) emptyList() else listOf(id(10))) else it })) }
+                containers = r.board.containers.map { if (it.id == id(20)) it.copy(cards = listOf(id(10))).withKnown(
+                    top = if (top) listOf(id(10)) else emptyList(),
+                    bottom = if (top) emptyList() else listOf(id(10))) else it })) }
             val shuffle = PlayAction.ShuffleLibrary(id(20), RandomV1.encodeSeed(ByteArray(32)))
             var tree = play(GameplayTree(initial), a, shuffle)
             tree = play(tree, b, shuffle)
@@ -283,9 +283,9 @@ class UndoOwnerRuleTest {
             .first { RandomV1.shuffle(ids, it) == ids }
         for (knownTop in listOf(true, false)) for (edge in MoveSourceEdge.entries) for (within in listOf(false, true)) {
             val initial = gameplayFixture().let { r -> r.copy(board = r.board.copy(cards = r.board.cards.take(2),
-                containers = r.board.containers.map { if (it.id == id(20)) it.copy(cards = ids,
-                    knownTop = if (knownTop) listOf(ids.first()) else emptyList(),
-                    knownBottom = if (knownTop) emptyList() else listOf(ids.last())) else it })) }
+                containers = r.board.containers.map { if (it.id == id(20)) it.copy(cards = ids).withKnown(
+                    top = if (knownTop) listOf(ids.first()) else emptyList(),
+                    bottom = if (knownTop) emptyList() else listOf(ids.last())) else it })) }
             var tree = play(GameplayTree(initial), a, PlayAction.ShuffleLibrary(id(20), seed))
             assertEquals(ids, state(tree).board.containers.single { it.id == id(20) }.cards)
             val card = if (edge == MoveSourceEdge.BOTTOM) ids.last() else ids.first()
@@ -294,11 +294,6 @@ class UndoOwnerRuleTest {
                 beforeId = if (card == ids.last()) ids.first() else null)
                 else MoveDestination(id(21), MoveInsertion.UNORDERED)
             tree = play(tree, b, PlayAction.MoveCard(card, MoveSource(id(20), edge = edge), destination))
-            val fields = tree.nodes.getValue(tree.currentNodeId).transition.concerns!!.fields
-            for (key in listOf("knownTop", "knownBottom")) {
-                val tuple = fields.single { it.field == ConcernField.Entity("container", id(20), listOf(key)) }
-                assertEquals(tuple.before, tuple.after, "$edge within=$within $key is an unchanged cleanup")
-            }
             tree.work.reset()
             val refused = control(tree)
             assertEquals("replayBlocked", refused.reason, "$edge within=$within knownTop=$knownTop")

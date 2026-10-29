@@ -21,7 +21,8 @@ internal class BasicTableFixture {
             corner = "7/8", placement = null, counters = if (n == 40) mapOf(CounterColor.BLUE to "3") else emptyMap(), note = "retained") },
             containers = listOf(actor, other).flatMap { owner -> PlayZone.entries.filter { it != PlayZone.STACK }.map { zone ->
                 PlayContainer(container(zone, owner), zone, owner,
-                    if (owner == actor && zone == PlayZone.LIBRARY) (40..43).map(::id) else emptyList())
+                    if (owner == actor && zone == PlayZone.LIBRARY) (40..43).map(::id) else emptyList(),
+                    layers = if (owner == actor && zone == PlayZone.LIBRARY) LibraryLayers.initial(id(90), (40..43).map(::id)) else emptyList())
             } } + PlayContainer(container(PlayZone.STACK), PlayZone.STACK)))
     class Worker : AbstractExecutorService() {
         val queue = ArrayDeque<Runnable>()
@@ -348,7 +349,7 @@ class BasicTableControllerTest {
             val order = f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards
             assertEquals(if (bottom) listOf(41, 43, 40, 42) else listOf(40, 42, 41, 43), order.map { it.takeLast(2).toInt() })
             val library = f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }
-            assertEquals(listOf(f.id(40), f.id(42)), if (bottom) library.knownBottom else library.knownTop)
+            assertEquals(listOf(f.id(40), f.id(42)), if (bottom) LibraryLayers.knownBottom(library) else LibraryLayers.knownTop(library))
         }
     }
 

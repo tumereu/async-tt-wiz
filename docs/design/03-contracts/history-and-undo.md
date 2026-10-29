@@ -41,9 +41,12 @@ For example, B's ping concerning A's attacker projection blocks undoing the atta
 Concerned fields (owner rulings, 2026-10-25): moving a token to Graveyard deletes
 it regardless of owner and does not concern its owner. A ping concerns only its
 target card, projection or player, not its recording position or ancestry; a
-projection ping still concerns that projection. A knownTop draw concerns the card
-taken and that it was top, not the card exposed beneath; an unknown-middle draw
-concerns all shuffle-set members. Display grouping is recomputed bookkeeping,
+projection ping still concerns that projection. A draw from a known (ordered) top layer
+concerns the card taken and that it was top, not the card exposed beneath; an edge
+draw from an unordered layer concerns all members of that layer only (layers have
+stable IDs, so other layers' changes do not matter). Any other Library edit also
+concerns the size and known-order flag of each layer it changed and the known-order
+flag of their neighbours, which decide how the result is normalized. Display grouping is recomputed bookkeeping,
 not concerned state; Library branch reseeds are semantic, and a later event's
 recorded reseed input must never be silently rewritten. Undo is a convenience:
 when uncertain, refuse rather than under-block; players can reverse manually.
@@ -212,7 +215,7 @@ R's recorded `1 → 2`. Ordinary new live edits still use D-187, without old-val
 
 The owner-rulings paragraph under the authoritative rule refines the broad
 annotation/random row below: ping has target-only dependencies, presentation
-groups are not concerned, and knownTop/unknown-middle draws differ. Do not infer
+groups are not concerned, and known-layer/hidden-layer draws differ. Do not infer
 an ancestry lock or a whole-library lock from this generic family table.
 
 The same definitions govern target fidelity and each later replay comparison.
@@ -1465,11 +1468,12 @@ presentation and concurrent/non-Undo control details remain open.
 
 ## 3.10 Randomness and branching
 
-Library has ordered known top, a seeded unknown middle, and ordered known bottom.
-Top-end draw/mill/look/reveal consumes known top first; bottom-end actions consume
-known bottom first. Placing cards at either edge makes them known; Shuffle makes
-all unknown. EVERY branch start reseeds both unknown middles deterministically
-with H(game secret, fork node, forking player), preserving known edges. Repeating
+Library is a list of ordered (known) and unordered (hidden-order) layers, see the
+domain model. Edge actions take the real concrete edge card. Placing cards makes
+their place known; Shuffle makes all one unordered layer; random-order top/bottom
+moves add one unordered layer. EVERY branch start reseeds each unordered layer of
+both players deterministically with H(game secret, fork node, forking player,
+library, layer ID), preserving ordered layers and layer membership. Repeating
 draw/Undo/draw or a fork from the same point yields the same cards. Record reseed
 inputs as semantic state; do not rewrite a later event's input during Undo checks.
 Own Look/scry/Reveal may be undone under the authoritative concerned-field rule;

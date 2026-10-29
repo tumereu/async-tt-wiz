@@ -191,13 +191,15 @@ class GameplayDurabilityTest {
         }
     }
 
-    @Test fun `V9 retained current play and original outcomes migrate forward without rewriting board or initialization`() {
+    /** Rules v29 (library layers): V41 deletes every game that started a play; lobby-only games and accounts stay. */
+    @Test fun `V41 wipes a retained V9 play with its game and keeps games that never started`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("9").load().migrate()
             // A current executable correctly refuses readiness on an unmigrated schema. Seed a retained V9
             // serialization fixture via JDBC instead of bypassing that validation to run a V11 service on V9.
             val a = gameplayId(); val b = gameplayId(); val game = gameplayId(); val invite = gameplayId()
             val round = gameplayId(); val start = gameplayId(); val play = gameplayId(); val rootId = gameplayId(); val branch = gameplayId()
+            val lobby = gameplayId(); val lobbyRound = gameplayId(); val lobbyInvite = gameplayId()
             val library = gameplayId(); val hand = gameplayId(); val stack = gameplayId(); val card = gameplayId(); val face = gameplayId()
             val definition = CardDefinition("Retained V9", listOf(DefinitionFace(face, "Retained face", corner = "2/4")))
             val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
@@ -217,6 +219,9 @@ class GameplayDurabilityTest {
                 INSERT INTO game(id,game_name,inviter_id,recipient_id,preparation_round,current_invitation,revision,next_ingress)
                 VALUES ('$game','Retained gameplay','$a','$b','$round','$invite',7,2);
                 INSERT INTO invitation VALUES ('$invite','$game','ACCEPTED');
+                INSERT INTO game(id,game_name,inviter_id,recipient_id,preparation_round,current_invitation,revision,next_ingress)
+                VALUES ('$lobby','Lobby only','$a','$b','$lobbyRound','$lobbyInvite',1,1);
+                INSERT INTO invitation VALUES ('$lobbyInvite','$lobby','ACCEPTED');
                 INSERT INTO request_identity VALUES ('$start','$a','gameCommand','$game','${GameWire.digest(command)}');
                 INSERT INTO game_inbox VALUES ('$start','$game','$a',1,'${command.streamId}',1,'${json.encodeToString<GameClientMessage>(command)}','${json.encodeToString(result)}');
                 INSERT INTO game_play VALUES ('$play','$game','$round','$start','$rootId','$legacy');
@@ -225,22 +230,12 @@ class GameplayDurabilityTest {
             val forwards = FoundationMigrations.flyway(db.settings).info().pending().size
             assertTrue(forwards > 0); assertEquals(forwards, FoundationMigrations.migrate(db.settings))
             FoundationMigrations.flyway(db.settings).validate()
-            ServiceRuntime(db.settings).use { runtime ->
-                runtime.start(); gameplayAwait(runtime::ready); val games = GameService(runtime)
-                val actor = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "OldA"))
-                games.checkpointGameplay() // Explicit one-off endpoint upgrade, never a cold command scan.
-                assertEquals(before, games.head(actor, game).play)
-                assertEquals(result, games.results(actor, game, listOf(start)).statuses.single().result)
-                val connection = UUID.randomUUID(); val hello = GameHello(gameplayId(), gameplayId())
-                val stream = games.open(actor, hello, connection, game, gameplayId())
-                val input = GameCommand(gameplayId(), GameScope(game, playId = before.id),
-                    GameAction.Play(PlayAction.AdjustLife(a, "1")), stream.streamId, stream.generation)
-                games.admit(actor, hello, connection, input); games.executeOne()
-                assertEquals(before.currentNodeId, games.history(actor, game, before.id, "0").mutations.single().parentId)
-                assertEquals(1, number(db, "SELECT count(*) FROM game_play"))
-                assertEquals(1, number(db, "SELECT count(*) FROM gameplay_mutation"))
-            }
-            println("PASS explicit V9->discovered forwards preserves current incarnation/root/shuffles/board/definitions/readiness/results, nullable placement/group defaults decode retained payload and first gameplay mutation links to retained root")
+            for (table in listOf("game_play", "gameplay_mutation", "game_inbox", "invitation WHERE game_id='$game'"))
+                assertEquals(0, number(db, "SELECT count(*) FROM $table"), table)
+            assertEquals(1, number(db, "SELECT count(*) FROM game WHERE id='$lobby'"))
+            assertEquals(0, number(db, "SELECT count(*) FROM game WHERE id='$game'"))
+            assertEquals(2, number(db, "SELECT count(*) FROM account"))
+            println("PASS V41 removes started games with their plays/requests and keeps lobby-only games and accounts")
         }
     }
 

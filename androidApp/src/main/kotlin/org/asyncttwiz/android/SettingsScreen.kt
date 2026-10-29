@@ -23,6 +23,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
         verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (auth != null) ProfileSettings(auth, catalog)
         PlaybackSettings(preferences, accountId)
+        EventTextSetting(accountId)
         CardSettings()
         WhatsNewEntry()
         ProblemReportEntry { auth?.sessionToken() }

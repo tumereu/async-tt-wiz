@@ -98,6 +98,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val playbackPause by playbackPreferences.pauseState()
     val playbackRewindPause by playbackPreferences.rewindPauseState()
     val playbackAutoPause by playbackPreferences.autoPauseState()
+    val eventTextEnabled by rememberEventTextEnabled(accountId).first
+    SideEffect { history.eventText.enabled = eventTextEnabled }
     var playbackSettingsOpen by remember(history) { mutableStateOf(false) }
     var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
@@ -305,6 +307,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                           controlsConnected = interactive && history.foreground && !resultLocked,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
                 }
+                // Over the top row (whose move/step/turn), never taking its taps.
+                EventTextOverlay(history.eventText, playbackPause, Modifier.align(Alignment.TopCenter))
             }
         }
     }

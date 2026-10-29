@@ -1,0 +1,1 @@
+add: A short text at the top of the table tells what just happened while you watch the timeline or your opponent plays. Turn it off with Event text in Settings.

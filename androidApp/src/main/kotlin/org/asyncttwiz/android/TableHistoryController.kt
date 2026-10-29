@@ -38,6 +38,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var recordSeen: ((String, String) -> Unit)? = null
     private var lastPresentedLive: Pair<String, String>? = null
     val changes = TableChanges()
+    /** The short text of the shown board's latest group; see [EventTextFeed]. */
+    internal val eventText = EventTextFeed(worker, post)
     private var stepChanges: Pair<String, TableChangeBatch>? = null
     private val pendingChanges = ArrayDeque<TableChangeBatch>()
     private fun clearChanges() { changes.clear(); stepChanges = null; pendingChanges.clear() }
@@ -126,6 +128,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (next.cursor != null && (!index.contains(next.cursor) ||
                         (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
+                eventText.displayed(next.cursor, next.state, position.mode, index.nodes, textViewer, usernames, index::isAncestor)
                 stepChanges?.takeIf { it.first == next.cursor }?.let { changes.apply(it.second); stepChanges = null }
                 if (position.mode == HistoryMode.PLAYBACK && next.cursor != null && next.cursor != position.cursorId)
                     playback.scrub(next.cursor)
@@ -262,6 +265,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     }
 
     fun leaving() { clearChanges(); lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
-    override fun close() { leaving(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null
+    override fun close() { leaving(); eventText.clear(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null
         acceptedTree = null; explorerHistory = null; acceptedIndex = null; textIndex = null }
 }

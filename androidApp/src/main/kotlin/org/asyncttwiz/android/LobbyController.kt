@@ -18,6 +18,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val busy: Boolean = false, val mutating: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
     val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
+    /** Games whose events missed while in the background have all been received (see GameSession.caughtUp). */
+    val syncedGames: Set<String> = emptySet(),
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
     val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
     val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null,
@@ -144,7 +146,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
         val next = state.detail?.let(wire::preparation)
         val feedback = preparationFeedback(state.preparation, next, accountId(), state.transferFeedback)
-        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
+        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(),
+            syncedGames = ids.filter(wire::caughtUp).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
             reconnectingGames = ids.filter(wire::reconnecting).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
@@ -251,6 +254,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         return session.submit(game, GameAction.CancelSetup)
     }
     fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
+    fun alternateStarter(enabled: Boolean) = readiness(GameAction.SetAlternateStarter(enabled))
     /** The result lock for the table right now, the one gate every table entry point consults (see
      * [ResultActions.blocksAt]). Reviewing: the shown point. Continuing: the armed point, then its predicted
      * new branch. Otherwise: the live endpoint. Branching away from a suggestion leaves it on the old branch. */
@@ -390,7 +394,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (closed) return
         if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action); return }
         // Ready/Withdraw toggle one control; the latest waiting tap of each control wins.
-        whenReady(game.id, if (action is GameAction.SetStarter) "starter" else "ready") {
+        whenReady(game.id, when (action) { is GameAction.SetStarter -> "starter"; is GameAction.SetAlternateStarter -> "alternate"; else -> "ready" }) {
             state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action) }
         }
     }
@@ -488,7 +492,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         inForeground = false
         session?.background()
         lifecycleVersion++
-        state = state.copy(backgroundLoading = state.busy)
+        state = state.copy(backgroundLoading = state.busy, syncedGames = emptySet())
     }
     fun foreground() {
         if (closed) return

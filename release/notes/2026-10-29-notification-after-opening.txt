@@ -1,0 +1,1 @@
+fix: After you open a game and close it again, your opponent's next moves notify you with sound again instead of updating the old notification quietly.

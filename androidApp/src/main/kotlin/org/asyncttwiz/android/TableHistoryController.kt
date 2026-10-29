@@ -185,6 +185,14 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         foreground = value
         if (value) playback?.foreground() else playback?.background()
     }
+    /** Returning from the background is still waiting for its catch-up at an unchanged head. */
+    val resumeHeld: Boolean get() = playback?.resumeHeld == true
+    /** The session has received everything the server had after returning; [current] is its display
+     * tree. Resolves the return pause only once that exact tree has been indexed into the playback. */
+    fun resumeCaughtUp(current: GameplayTree?) {
+        if (closed || !foreground || current == null || tree !== current || indexedEpoch != epoch) return
+        playback?.caughtUp()
+    }
 
     /** Every basic/manual/Library/token/quick/combat lowering callback passes this same seam. */
     fun gameplay(action: PlayAction, invocation: String?, predicted: () -> PlayState?): Boolean {

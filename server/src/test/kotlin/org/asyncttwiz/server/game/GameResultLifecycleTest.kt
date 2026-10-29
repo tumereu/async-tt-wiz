@@ -149,6 +149,36 @@ class GameResultLifecycleTest {
         }
     }
 
+    @Test fun `alternate starter hands the next play to whoever did not start the last one and can be switched off`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                fun end(): LobbyPreparation {
+                    f.owner.execute(f.suggestion())
+                    val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                    assertEquals("accepted", f.other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+                    return f.games.head(f.b, f.game.id).preparation!!
+                }
+                val accounts = listOf(f.a.account.accountId, f.b.account.accountId)
+                val first = f.initial.starter.accountId // Random resolved this one.
+                assertNull(f.initial.starter.choice.accountId)
+                val returned = end()
+                val next = accounts.single { it != first }
+                assertTrue(returned.alternateStarter, "On by default")
+                assertEquals(StarterChoice(next), returned.startingChoice)
+                assertEquals(1, count(db, "SELECT count(*) FROM game WHERE alternate_starter AND starter_choice LIKE '%$next%'"))
+                assertEquals("accepted", f.other.execute(GameAction.SetAlternateStarter(false)).outcome)
+                assertFalse(f.games.head(f.a, f.game.id).preparation!!.alternateStarter)
+                f.owner.execute(GameAction.Ready); f.other.execute(GameAction.Ready)
+                val second = f.games.head(f.a, f.game.id).play!!
+                assertEquals(next, second.starter.accountId)
+                val kept = end()
+                assertFalse(kept.alternateStarter)
+                assertEquals(StarterChoice(next), kept.startingChoice, "Switched off: the choice stays")
+            }
+        }
+    }
+
     @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

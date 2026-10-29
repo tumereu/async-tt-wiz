@@ -156,11 +156,37 @@ class GameResultLifecycleTest {
             accept.copy(action = GameAction.AcceptResult(id(99)))).reason)
         assertEquals("accessDenied", GameResultRules.accept(game, play, prepared, id(99), accept).reason)
         val returned = GameResultRules.accept(game, play, prepared, b.accountId, accept).preparation!!
-        assertEquals(prepared.copy(roundId = returned.roundId, players = prepared.players.map { it.copy(ready = false) }), returned)
+        assertEquals(prepared.copy(roundId = returned.roundId, players = prepared.players.map { it.copy(ready = false) },
+            starter = StarterChoice(b.accountId)), returned) // Alternating is on by default: A started, B starts next.
         assertNotEquals(prepared.roundId, returned.roundId)
         assertEquals("inapplicable", StartRules.change(game.copy(lifecycle = GameLifecycle.LOBBY, playId = null, preparationRound = returned.roundId),
             returned, a.accountId, GameScope(game.id, game.preparationRound), GameAction.Ready).reason)
         assertEquals("lifecycleEnded", GameResultRules.accept(game.copy(lifecycle = GameLifecycle.LOBBY, playId = null), null, returned, b.accountId, accept).reason)
+    }
+
+    @Test fun alternatingHandsTheNextStartToWhoeverDidNotStartTheResolvedPlayAndCanBeTurnedOff() {
+        val accept = { play: PlayState -> command(GameAction.AcceptResult(play.board.resultSuggestion!!.id), 15) }
+        val proposed = suggest().state!!
+        // Random resolved to B: the next play starts with A, explicitly chosen (no new Random draw).
+        val randomB = proposed.copy(starter = InitialStarter(StarterChoice(), b.accountId, id(30), "starter-v1"))
+        val random = PreparationRules.empty(game).copy(starter = StarterChoice())
+        assertEquals(StarterChoice(a.accountId), GameResultRules.accept(game, randomB, random, b.accountId, accept(randomB)).preparation!!.starter)
+        // Off: the choice is retained as it was, Random included.
+        val off = random.copy(alternateStarter = false)
+        val kept = GameResultRules.accept(game, randomB, off, b.accountId, accept(randomB)).preparation!!
+        assertEquals(StarterChoice(), kept.starter); assertFalse(kept.alternateStarter)
+        // The toggle is a lobby readiness command that never withdraws anyone's Ready.
+        val lobby = game.copy(lifecycle = GameLifecycle.LOBBY, playId = null)
+        val ready = PreparationRules.empty(lobby).copy(players = listOf(PlayerPreparation(a.accountId, true), PlayerPreparation(b.accountId, true)))
+        val toggled = StartRules.change(lobby, ready, b.accountId, GameScope(game.id, game.preparationRound), GameAction.SetAlternateStarter(false)).state!!
+        assertFalse(toggled.alternateStarter); assertEquals(ready.players, toggled.players)
+        val command = GameCommand(id(16), GameScope(game.id, game.preparationRound), GameAction.SetAlternateStarter(true), id(11), "1")
+        assertTrue(GameWire.valid(command))
+        assertEquals(command, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(command)))
+        assertFalse(GameWire.valid(command.copy(scope = GameScope(game.id, game.preparationRound, game.invitationId))))
+        // Older snapshots without the field read as on; the default is omitted on the wire.
+        assertTrue(GameWire.json.decodeFromString<LobbyPreparation>(GameWire.json.encodeToString(ready)).alternateStarter)
+        assertFalse("alternateStarter" in GameWire.json.encodeToString(ready))
     }
 
     @Test fun removedSuggestionAndOldIncarnationCannotBeAcceptedAndScopesCannotMix() {

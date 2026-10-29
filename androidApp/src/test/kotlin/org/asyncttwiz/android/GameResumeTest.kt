@@ -99,6 +99,28 @@ class GameResumeTest {
         assertFalse(f.session.reconnecting(f.data.game.id))
     }
 
+    @Test fun returnIsCaughtUpOnlyAfterItsPongOrAReconnectedStreamHead() = Fixture().use { f ->
+        val game = f.data.game.id
+        assertTrue(f.session.caughtUp(game))
+        f.session.background()
+        assertFalse(f.session.caughtUp(game))
+        // A socket kept open while away: undelivered events precede the answer to the return ping.
+        f.session.foreground()
+        val ping = f.frames.filterIsInstance<GamePing>().last()
+        assertFalse(f.session.caughtUp(game))
+        f.listener.message(GamePong("unrelated"))
+        assertFalse(f.session.caughtUp(game))
+        f.listener.message(GamePong(ping.correlationId))
+        assertTrue(f.session.caughtUp(game))
+        // A socket lost while away: the reconnected stream's head is the catch-up.
+        f.session.background()
+        f.listener.disconnected()
+        f.session.foreground()
+        assertFalse(f.session.caughtUp(game))
+        f.accept("2")
+        assertTrue(f.session.caughtUp(game))
+    }
+
     @Test fun protocolHeartbeatPreventsServersTextTrafficLeaseExpiringOnHealthyIdleSocket() = Fixture().use { f ->
         repeat(20) {
             f.time += 25_000

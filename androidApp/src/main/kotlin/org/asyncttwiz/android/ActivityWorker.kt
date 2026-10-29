@@ -54,12 +54,13 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         override fun watermark(key: String): ActivityWatermark? {
             val identity = preferences.getString("identity:$key", null) ?: return null
             return ActivityWatermark(preferences.getLong("watermark:$key", 0), identity,
-                if (preferences.contains("move:$key")) preferences.getBoolean("move:$key", false) else null)
+                if (preferences.contains("move:$key")) preferences.getBoolean("move:$key", false) else null,
+                preferences.getBoolean("alert:$key", false))
         }
         override fun save(cursor: String, marks: Map<String, ActivityWatermark>): Boolean = preferences.edit().apply {
             putString("cursor", cursor)
             marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity)
-                mark.yourMove?.let { putBoolean("move:$key", it) } }
+                mark.yourMove?.let { putBoolean("move:$key", it) }; putBoolean("alert:$key", mark.alertNext) }
         }.commit()
         override fun pending(): Map<String, PendingActivity> = preferences.getString("pending", null)?.let {
             ActivityWire.json.decodeFromString<Map<String, PendingActivity>>(it)
@@ -68,7 +69,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
             preferences.edit().apply {
                 putString("cursor", cursor); putString("pending", ActivityWire.json.encodeToString(pending))
                 marks.forEach { (key, mark) -> putLong("watermark:$key", mark.activity); putString("identity:$key", mark.identity)
-                    mark.yourMove?.let { putBoolean("move:$key", it) } }
+                    mark.yourMove?.let { putBoolean("move:$key", it) }; putBoolean("alert:$key", mark.alertNext) }
             }.commit()
     }) { notice -> owner?.let { notifications.post(it, notice) } }
     @Volatile var authenticationRequired: ((String) -> Unit)? = null

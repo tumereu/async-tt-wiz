@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -39,5 +41,29 @@ class StartingPlayerUiTest {
         }
         random.assertIsSelected().performClick().assertIsSelected()
         compose.onAllNodes(isSelected()).assertCountEquals(1)
+    }
+
+    @Test fun alternateToggleSitsInTheCardHeaderOnByDefaultAndSendsItsNewState() {
+        val fixture = ScreenFixtures()
+        val game = fixture.lobby.state.games.last()
+        var preparation by mutableStateOf(PreparationRules.empty(game))
+        val sent = mutableListOf<Boolean>()
+        compose.setContent {
+            ScreenTheme { Surface(Modifier.fillMaxSize()) {
+                StartingPlayerControl(game, preparation.startingChoice, true, preparation.alternateStarter,
+                    { sent += it; preparation = preparation.copy(alternateStarter = it) }) { preparation = preparation.copy(starter = it) }
+            } }
+        }
+        val toggle = compose.onNodeWithContentDescription("Alternate starting player")
+        toggle.assertIsSelected()
+        val title = compose.onNodeWithText("Starting player").getBoundsInRoot()
+        val chip = toggle.getBoundsInRoot()
+        assertTrue(chip.left > title.left && chip.top < title.bottom, "Top-right corner of the card")
+        toggle.performClick().assertIsNotSelected()
+        toggle.performClick().assertIsSelected()
+        assertEquals(listOf(false, true), sent)
+        // Choosing a player by hand stays possible while alternating is on.
+        compose.onNodeWithContentDescription("Starting player: alex").performClick().assertIsSelected()
+        toggle.assertIsSelected()
     }
 }

@@ -4,7 +4,9 @@ import org.asyncttwiz.protocol.*
 
 /** Pure delivery policy used by both polling and push. All callbacks share the owner's lock. */
 data class ActivityOwner(val accountId: String, val binding: String)
-data class ActivityWatermark(val activity: Long, val identity: String, val yourMove: Boolean? = null)
+/** [alertNext]: the game was opened since its last notice (which opening cleared), so the next one alerts. */
+data class ActivityWatermark(val activity: Long, val identity: String, val yourMove: Boolean? = null,
+    val alertNext: Boolean = false)
 interface ActivityDeliveryStore {
     fun cursor(): String?
     fun watermark(key: String): ActivityWatermark?
@@ -33,12 +35,12 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     fun display(screen: ActivityScreen, foreground: Boolean) = synchronized(lock) {
         this.screen = screen; this.foreground = foreground
         val game = screen.game
-        // Opening cancels the old notice, not its dedup watermark. A later new turn
-        // must be allowed to alert even if the last dismissed notice said Your move.
+        // Opening cancels the old notice, not its dedup watermark. The next notice is a fresh one and
+        // alerts, also a later new turn even if the last dismissed notice said Your move.
         if (owner != null && foreground && game != null) {
             val key = "game:$game"; val previous = store.watermark(key); val cursor = store.cursor()
-            if (previous?.yourMove == true && cursor != null) {
-                val marks = mapOf(key to previous.copy(yourMove = false))
+            if (previous != null && (previous.yourMove == true || !previous.alertNext) && cursor != null) {
+                val marks = mapOf(key to previous.copy(yourMove = false, alertNext = true))
                 (store as? ActivityWindowStore)?.let { it.saveWindow(cursor, marks, it.pending() - key) } ?: store.save(cursor, marks)
             }
         }
@@ -90,10 +92,13 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             val previous = marks[key] ?: store.watermark(key)
             if (id <= (previous?.activity ?: -1)) continue
             val shown = displaying(hint)
-            marks[key] = ActivityWatermark(id, hint.identity, if (shown) false else hint.notice?.yourMove)
+            marks[key] = ActivityWatermark(id, hint.identity, if (shown) false else hint.notice?.yourMove, alertNext = shown)
             if (!page.summaryReset && allowed(hint.kind) && !shown) {
-                val silent = hint.kind == ActivityKind.GAME && previous != null &&
-                    !(hint.notice?.yourMove == true && previous.yourMove != true)
+                // Updating a still-shown notice is silent; a new turn, a waiting reminder or the first
+                // notice since the game was opened alerts. One alert in a batch survives its replacement.
+                val silent = hint.kind == ActivityKind.GAME && previous != null && !previous.alertNext &&
+                    !(hint.notice?.yourMove == true && previous.yourMove != true) && hint.notice?.reminder != true &&
+                    notices[key]?.silent != false
                 notices[key] = ActivityNotice(key, hint, silent)
             }
         }

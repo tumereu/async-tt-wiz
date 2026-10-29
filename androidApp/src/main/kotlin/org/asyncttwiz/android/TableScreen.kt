@@ -79,7 +79,16 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val playback = history.playback
     val position = playback?.position
     LaunchedEffect(position, IdentityKey(tree), playback?.tree, playback?.livePanelReveal) { history.displayPosition() }
-    val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional
+    // Returning from the background pauses at the shown point until the catch-up is in; while
+    // nothing new has arrived it still looks live. A catch-up that never completes shows the timeline.
+    var resumeHoldExpired by remember(history) { mutableStateOf(false) }
+    val resumeHeld = history.resumeHeld && !resumeHoldExpired
+    LaunchedEffect(history.resumeHeld) { resumeHoldExpired = false; if (history.resumeHeld) { delay(5_000); resumeHoldExpired = true } }
+    val synced = game.id in state.syncedGames
+    LaunchedEffect(synced, history.foreground, playback, playback?.tree, IdentityKey(displayTree)) {
+        if (synced) history.resumeCaughtUp(displayTree)
+    }
+    val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional && !resumeHeld
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
     var explorerOpeningCursor by remember(game.id, live?.id) { mutableStateOf<String?>(null) }
@@ -250,7 +259,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                     else history.cancelContinuation()
                                }),
                           ownPodDeckName = state.ownPodDeckName, statusHistory = statusHistory,
-                          liveView = position?.mode == HistoryMode.LIVE, changes = history.changes,
+                          liveView = position?.mode == HistoryMode.LIVE || resumeHeld, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,

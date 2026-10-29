@@ -1,0 +1,1 @@
+add: You get one reminder notification when your opponent has made a move and then waited five minutes without you making a move (just looking at the game doesn't count).

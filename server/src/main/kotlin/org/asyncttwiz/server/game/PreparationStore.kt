@@ -28,18 +28,21 @@ internal object PreparationStore {
             .fetch().associateBy { it.accountId.toString() }
         val digests = sql.select(GAME_DEFINITION.DIGEST).from(GAME_DEFINITION)
             .where(GAME_DEFINITION.GAME_ID.eq(game)).fetchSet(GAME_DEFINITION.DIGEST)
-        val starter = sql.select(GAME.STARTER_CHOICE).from(GAME).where(GAME.ID.eq(game)).fetchSingle(GAME.STARTER_CHOICE)
+        val (starter, alternate) = sql.select(GAME.STARTER_CHOICE, GAME.ALTERNATE_STARTER).from(GAME).where(GAME.ID.eq(game))
+            .fetchSingle().let { it.value1() to it.value2()!! }
         return PreparationRules.empty(summary).let { empty -> empty.copy(players = empty.players.map { player ->
             val row = rows[player.accountId]
             player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) })
         }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice(),
+            alternateStarter = alternate,
             podRules = if (summary.podId == null) null else PodGameRules(sql.select(GAME.POD_SIDEBOARD_LIMIT).from(GAME)
                 .where(GAME.ID.eq(game)).fetchSingle(GAME.POD_SIDEBOARD_LIMIT))) }
     }
 
     fun saveReadiness(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
         val game = UUID.fromString(state.gameId)
-        sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice)).where(GAME.ID.eq(game)).execute()
+        sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice))
+            .set(GAME.ALTERNATE_STARTER, state.alternateStarter).where(GAME.ID.eq(game)).execute()
         val ready = state.players.single { it.accountId == actor.toString() }.ready
         sql.insertInto(PLAYER_PREPARATION).set(PLAYER_PREPARATION.GAME_ID, game).set(PLAYER_PREPARATION.ACCOUNT_ID, actor)
             .set(PLAYER_PREPARATION.READY, ready).onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID)
@@ -54,6 +57,7 @@ internal object PreparationStore {
         sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.READY, false)
             .where(PLAYER_PREPARATION.GAME_ID.eq(game)).execute()
         sql.update(GAME).set(GAME.PREPARATION_ROUND, UUID.fromString(state.roundId))
+            .set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice)) // Alternation may have changed it.
             .set(GAME.CURRENT_PLAY, null as UUID?).set(GAME.LIFECYCLE, "LOBBY")
             .where(GAME.ID.eq(game)).and(GAME.LIFECYCLE.eq("ACTIVE")).execute().also { check(it == 1) }
     }

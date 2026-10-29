@@ -1,0 +1,1 @@
+fix: A move notification could go missing when your opponent touched their screen right as it was being sent.

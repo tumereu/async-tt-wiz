@@ -299,7 +299,8 @@ class GameService(private val runtime: ServiceRuntime) {
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
             is GameAction.SetPodGameBasics -> applyPodBasics(sql, game, inbox.accountId!!, command)
-            is GameAction.SetStarter, GameAction.Ready, GameAction.WithdrawReady -> applyReadiness(sql, game, inbox.accountId!!, command)
+            is GameAction.SetStarter, is GameAction.SetAlternateStarter, GameAction.Ready, GameAction.WithdrawReady ->
+                applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
         }
         val revision = if (rejection == null && (gameplay == null || gameplay.tree != null)) Math.addExact(before, 1) else null
@@ -338,7 +339,7 @@ class GameService(private val runtime: ServiceRuntime) {
                 check(group.author == mutation.author || mutation.action == PlayAction.PassAttention)
                 val opponent = if (mutation.author == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(group.id), uuid(mutation.author), yourMove = summary.attentionHolder == opponent.toString())
+                    game.id!!, uuid(group.id), uuid(mutation.author), yourMove = summary.attentionHolder == opponent.toString(), move = true)
             }
             insertedChat?.let { message ->
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
@@ -348,13 +349,14 @@ class GameService(private val runtime: ServiceRuntime) {
             // The other player's earlier Ready is otherwise never answered when this Ready starts the game.
             if (gameplay == null && play != null && play.startRequestId == command.requestId) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.resetReminders(sql, game.id!!)
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(play.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
             }
             if (isGameplay && mutation == null && batchMutations.isEmpty()) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
+                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), move = true)
             }
         }
         val created = when {

@@ -45,6 +45,28 @@ class ActivityDeliveryTest {
         next(6, true); assertEquals(5, posted.size); assertFalse(posted.last().silent)
     }
 
+    @Test fun firstNoticeAfterOpeningTheGameAndWaitingRemindersAlertAgain() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        val content = GameNoticeContent("Game", "Opponent", "2026-10-27T12:00:00Z", false)
+        fun next(id: Long, notice: GameNoticeContent = content) = delivery.apply(alice, page(cursor = id.toString()).copy(
+            readyNotices = listOf(hint(id, "group-$id").copy(notice = notice)))) { true }
+        next(1); next(2)
+        assertEquals(listOf(false, true), posted.map { it.silent })
+        // Opened mid-way through the opponent's moves, then closed: their next move alerts again.
+        delivery.display("game", true); delivery.display(null, true)
+        next(3); assertFalse(posted.last().silent)
+        next(4); assertTrue(posted.last().silent, "Later updates of that shown notice stay quiet")
+        // The waiting reminder replaces the shown notice under the same key and alerts.
+        next(5, content.copy(reminder = true))
+        assertFalse(posted.last().silent); assertEquals("game:game", posted.last().key)
+        assertEquals(1, posted.map { it.key }.distinct().size)
+        // A reminder and a newer move in one poll: the newer text is shown, still alerting.
+        delivery.apply(alice, page(cursor = "7").copy(readyNotices = listOf(hint(7, "group-7").copy(notice = content),
+            hint(6, "group-6").copy(notice = content.copy(reminder = true))))) { true }
+        assertEquals("7", posted.last().hint.activityId); assertFalse(posted.last().silent)
+    }
+
     @Test fun pollPushOverlapRestartAndGroupExtensionUseOneReplacement() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         fun delivery() = ActivityDelivery(store) { notice ->

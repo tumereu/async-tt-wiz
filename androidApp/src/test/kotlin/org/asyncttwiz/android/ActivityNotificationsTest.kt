@@ -13,6 +13,8 @@ class ActivityNotificationsTest {
         assertEquals("Your move", text.text)
         assertEquals(Instant.parse("2026-10-27T10:34:56Z").toEpochMilli(), text.whenMillis)
         assertEquals("Alex's move · new message", gameNotificationText(content.copy(yourMove = false, newMessage = true)).text)
+        assertEquals("Alex is waiting for you", gameNotificationText(content.copy(reminder = true)).text)
+        assertEquals("Friday · vs Alex", gameNotificationText(content.copy(reminder = true)).title)
     }
     @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
         for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {

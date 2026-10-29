@@ -33,7 +33,9 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val moveIntoLibrary: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rulesVersion: Int = 1,
     /** Entry created by this event, or the exact projection receiving a text mark/note. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null,
+    /** Rules v29 step into Declare blockers: joins only the author's attacker declaration and closes the group. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val endsGroup: Boolean = false) {
     init {
         require(icon.isNotBlank())
         require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
@@ -43,7 +45,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class HistoryRepresentative(val nodeId: String, val semantic: HistorySemantic)
 
 object HistoryGrouping {
-    /** From this gameplay rules version a step change into Declare blockers is an isolated history group. */
+    /** From this gameplay rules version a step change into Declare blockers ends a history group: it joins only the
+     * author's preceding attacker declaration, otherwise stands alone, and nothing joins the group after it. */
     const val BLOCKERS_BOUNDARY_RULES_VERSION = 29
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
@@ -166,12 +169,12 @@ object HistoryGrouping {
                 is PlayAction.SetNote -> action.cardId
                 else -> null
             }) else versioned
-        // Rules v29: reaching Declare blockers is its own group, a timeline endpoint the defender can continue from.
+        // Rules v29: reaching Declare blockers ends a group, a timeline endpoint the defender can continue from.
         val blockers = if (transition != null && transition.rulesVersion >= BLOCKERS_BOUNDARY_RULES_VERSION &&
             (action is PlayAction.ChooseStep || action == PlayAction.NextStep) &&
             transition.fields.any { it.field == GameplayField.STEP && it.to == TurnPosition.DECLARE_BLOCKERS.step } &&
             transition.fields.none { it.field == GameplayField.PHASE && it.to != TurnPosition.DECLARE_BLOCKERS.phase })
-            casting.copy(isolated = true) else casting
+            casting.copy(endsGroup = true) else casting
         val panel = transition?.contents?.from ?: transition?.contents?.to
         return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
             blockers.copy(panelSession = panel.id) else blockers
@@ -184,8 +187,10 @@ object HistoryGrouping {
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
         val casting = semantic.rulesVersion >= 3 && previous?.stackEntryId != null
-        val joins = previous != null && !semantic.isolated && previous.representative?.semantic?.isolated != true &&
-            (if (casting) previous.author == author && when (semantic.significance) {
+        val joins = previous != null && !previous.closed && previous.representative?.semantic?.isolated != true &&
+            if (semantic.endsGroup) previous.author == author && context == HistoryCategory.K && previous.stackEntryId == null &&
+                previous.panelSession == null && semantic.panelSession == null
+            else !semantic.isolated && (if (casting) previous.author == author && when (semantic.significance) {
                 HistorySignificance.ORIENTATION -> !semantic.untap
                 HistorySignificance.CARD_TEXT_NOTE_EDIT -> semantic.stackEntryId == previous.stackEntryId
                 HistorySignificance.PING, HistorySignificance.EVENT_COMMENT -> true
@@ -209,7 +214,8 @@ object HistoryGrouping {
         if (!joins) return GameplayGroup(CommandIds.uuidV5(requestId, "group/0"), author, nodeId, nodeId,
             (if (incoming in setOf(HistoryCategory.P, HistoryCategory.B)) HistoryCategory.O else incoming).key,
              semantic.key, "1", incoming in setOf(HistoryCategory.T, HistoryCategory.P), representative, semantic.panelSession,
-             semantic.moveIntoLibrary, semantic.stackEntryId.takeIf { semantic.significance == HistorySignificance.STACK_ENTRY })
+             semantic.moveIntoLibrary, semantic.stackEntryId.takeIf { semantic.significance == HistorySignificance.STACK_ENTRY },
+             semantic.endsGroup)
         val old = requireNotNull(previous)
         val nextContext = when {
             incoming in setOf(HistoryCategory.P, HistoryCategory.B) -> context!!
@@ -222,7 +228,8 @@ object HistoryGrouping {
             count = (old.count.toLong() + 1).toString(),
             tapsAndPingsOnly = old.tapsAndPingsOnly && incoming in setOf(HistoryCategory.T, HistoryCategory.P),
             representative = choose(old.representative, representative), lastMoveIntoLibrary = semantic.moveIntoLibrary,
-            stackEntryId = if (semantic.significance == HistorySignificance.STACK_ENTRY) semantic.stackEntryId else old.stackEntryId)
+            stackEntryId = if (semantic.significance == HistorySignificance.STACK_ENTRY) semantic.stackEntryId else old.stackEntryId,
+            closed = semantic.endsGroup)
     }
 
     fun choose(first: HistoryRepresentative?, next: HistoryRepresentative): HistoryRepresentative {

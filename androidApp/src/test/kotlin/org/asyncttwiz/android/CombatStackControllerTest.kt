@@ -77,10 +77,13 @@ class CombatStackControllerTest {
         })) }
         val commands = CombatCommands()
         val plan = CombatStackController.declare(state, actor, targets(state, 20, 21), true, commands::command)
-        // Area, two occurrences, only the source which actually needs tapping.
+        // Only the source which actually needs tapping, then the area and two occurrences: taps come first.
         assertEquals(1, plan.commands.size)
-        assertEquals(4, plan.commands.single().playActions().size)
-        assertIs<PlayAction.Combat>(plan.commands.single().playActions().first())
+        val actions = plan.commands.single().playActions()
+        assertEquals(4, actions.size)
+        assertEquals(PlayAction.SetTapped(combatId(20), true), actions.first())
+        assertEquals(PlayAction.Combat(CombatAction.Open), actions[1])
+        assertTrue(actions.drop(2).all { (it as PlayAction.Combat).action is CombatAction.Declare })
         val accepted = replay(state, plan)
         assertEquals(2, accepted.board.combat!!.pairs.size)
         assertEquals(state.board.cards.map { it.placement }, accepted.board.cards.map { it.placement })

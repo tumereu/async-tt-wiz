@@ -1,0 +1,1 @@
+mod: Tapping and declaring attackers and then moving to Declare blockers is now one step in the timeline, which always stops at Declare blockers so your opponent can block from there.

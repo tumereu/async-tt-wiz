@@ -767,12 +767,18 @@ This limit is not applied to the special container piles or to selection
 size. A placement exceeding it is invalid rather than partially applied or
 automatically split; see [the primary pile contract](board-and-controls.md#105-ordinary-battlefield-piles).
 
-Library semantic order is knownTop (ordered), unknown middle (seeded hidden order),
-knownBottom (ordered). Top/bottom actions exhaust their known edge first. Edge
-placement makes cards known; Shuffle clears that knowledge. Every branch reseeds
-both unknown middles using H(game secret, fork node, forking player), preserving
-known edges and recording the semantic input for exact replay. Identical fork
-inputs and draw/Undo/draw reproduce cards. Piles always show backs, no marker.
+Library semantic order (rules v29) is a list of LAYERS, top first, over the real
+concrete order (Temp piles too). A layer has a stable ID, its member cards and
+`ordered` (known order) or not (order unknown to everyone). Shuffle, Mulligan and a
+search close leave one unordered layer; "to Library top/bottom in random order" adds
+one unordered layer at that edge; placing a card (edge or gap) makes its place known,
+splitting an unordered layer it lands inside; placing a looked-at block makes it an
+ordered layer; looking alone changes nothing. A one-card layer is known and
+neighbouring ordered layers merge; unordered layers never merge. Edge actions take
+the real concrete edge card. Every branch reseeds EACH unordered layer within itself
+with H(game secret, fork node, forking player, library, layer ID) (branch-reseed-v2),
+recording the input for exact replay. Identical fork inputs and draw/Undo/draw
+reproduce cards. Piles always show backs, no marker.
 
 At most ONE shared Search/Look/Reveal panel exists game-wide, across both players;
 the server enforces it and opening UI only greys controls (also N… confirm), without

@@ -42,7 +42,7 @@ class HandActionsTest {
             assertEquals(id(vector.second), RandomV1.handPick(ids, encoded))
             assertEquals(RandomV1.handPick(ids, encoded), RandomV1.handPick(ids.reversed(), encoded))
             assertNotEquals(RandomV1.Words(encoded).next(), RandomV1.Words(encoded, "hand-pick-v1").next())
-            assertNotEquals(RandomV1.Words(encoded, "branch-reseed-v1").next(), RandomV1.Words(encoded, "hand-pick-v1").next())
+            assertNotEquals(RandomV1.Words(encoded, "branch-reseed-v2").next(), RandomV1.Words(encoded, "hand-pick-v1").next())
         }
         assertEquals(0, RandomV1.sample(7, listOf(4294967295L, 7L).iterator()::next))
     }
@@ -64,7 +64,7 @@ class HandActionsTest {
             if (result == HandRandomResult.LIBRARY_BOTTOM) {
                 val library = next.board.containers.single { it.id == id(10) }
                 assertEquals(listOf(action.cardId), library.cards)
-                assertEquals(listOf(action.cardId), library.knownBottom)
+                assertTrue(LibraryLayers.known(library, action.cardId))
             }
         }
         val picked = (0..40).map { byte -> HandActions.random(state.board, id(11), subset,
@@ -92,7 +92,7 @@ class HandActionsTest {
             assertEquals(destination, changed.state!!.board.cards.single { it.id == action.cardId }.containerId)
             assertEquals(destination, changed.mutation!!.transition.movement!!.to.containerId)
             if (result == HandRandomResult.LIBRARY_BOTTOM)
-                assertEquals(listOf(id(20)), changed.state.board.containers.single { it.id == destination }.knownBottom)
+                assertTrue(LibraryLayers.known(changed.state.board.containers.single { it.id == destination }, id(20)))
             val differentOwner = original.copy(board = original.board.copy(cards = original.board.cards.map {
                 if (it.id == action.cardId) it.copy(owner = a) else it }))
             assertNull(GameplayHistory.apply(differentOwner, changed.mutation))

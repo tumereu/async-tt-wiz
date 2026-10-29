@@ -93,12 +93,25 @@ class HistoryTextTest {
                     "$zone / holder=$holder / viewer=$viewer")
                 if (zone == PlayZone.LIBRARY) for (top in listOf(true, false)) {
                     val ordered = before.copy(board = before.board.copy(containers = before.board.containers.map {
-                        if (it.id == before.board.cards.first().containerId) it.copy(
-                            knownTop = if (top) listOf(id(9)) else emptyList(), knownBottom = if (top) emptyList() else listOf(id(9))) else it }))
+                        if (it.id == before.board.cards.first().containerId) it.copy(layers = listOf(LibraryLayer(id(70), true, it.cards))) else it }))
                     assertEquals("A card tapped", format(PlayAction.SetTapped(id(9), true), before = ordered, viewer = viewer).description)
                 }
             }
         }
+    }
+
+    @Test fun randomOrderLibraryMoveNamesOnlyVisibleCardsAndNeverTheirOrder() {
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        val graveyard = placed(f.a, PlayZone.GRAVEYARD)
+        val library = assertNotNull(graveyard.board.zoneContainer(f.a, PlayZone.LIBRARY)).id
+        assertEquals(HistoryText("Velvet Prism Engine: Graveyard → Library top (random order)", "Move",
+            HistoryMove("Velvet Prism Engine", "Graveyard → Library top (random order)")),
+            format(PlayAction.MoveToLibraryRandom(library, listOf(id(9)), false, seed), before = graveyard))
+        val hand = placed(f.a, PlayZone.HAND)
+        assertEquals("A card: Hand → Library bottom (random order)",
+            format(PlayAction.MoveToLibraryRandom(library, listOf(id(9)), true, seed), before = hand, viewer = f.b).description)
+        assertEquals("A card: Hand → alice's Library top (random order)",
+            format(PlayAction.MoveToLibraryRandom(library, listOf(id(9)), false, seed), before = hand, author = f.b, viewer = f.b).description)
     }
 
     @Test fun continuousTopRevealNamesOnlyTheActualTopForBothViewers() {
@@ -107,7 +120,8 @@ class HistoryTextTest {
             val library = base.board.cards.first().containerId
             val before = base.copy(board = base.board.copy(cards = base.board.cards.map { it.copy(containerId = library) },
                 containers = base.board.containers.map { it.copy(cards = if (it.id == library) listOf(id(9), id(12)) else emptyList(),
-                    keepTopRevealed = it.id == library, knownTop = if (it.id == library) listOf(id(9), id(12)) else emptyList()) }))
+                    keepTopRevealed = it.id == library,
+                    layers = if (it.id == library) listOf(LibraryLayer(id(70), true, listOf(id(9), id(12)))) else emptyList()) }))
             for (viewer in listOf(f.a, f.b)) {
                 assertEquals("Velvet Prism Engine tapped", format(PlayAction.SetTapped(id(9), true), before = before, viewer = viewer).description)
                 assertEquals("A card tapped", format(PlayAction.SetTapped(id(12), true), before = before, viewer = viewer).description)

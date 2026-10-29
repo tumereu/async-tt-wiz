@@ -43,12 +43,7 @@ object GameplaySync {
         val cards = play.board.cards
         val containers = play.board.containers
         play.librarySecret?.let(RandomV1::decodeSeed)
-        require(containers.all { container ->
-            if (container.zone != PlayZone.LIBRARY) container.knownTop.isEmpty() && container.knownBottom.isEmpty()
-            else container.knownTop.size + container.knownBottom.size <= container.cards.size &&
-                container.cards.take(container.knownTop.size) == container.knownTop &&
-                container.cards.takeLast(container.knownBottom.size) == container.knownBottom
-        })
+        require(containers.all(LibraryLayers::valid))
         require(cards.map { it.id }.distinct().size == cards.size && containers.map { it.id }.distinct().size == containers.size)
         val definitions = play.definitions.associateBy { it.digest }
         require(definitions.size == play.definitions.size && play.definitions.all { DeckJson.digest(it.definition) == it.digest })

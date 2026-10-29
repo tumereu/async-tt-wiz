@@ -309,7 +309,7 @@ class GameResultLifecycleTest {
         }
     }
 
-    @Test fun `V14 migration preserves preexisting play preparation and request data`() {
+    @Test fun `V14 to V40 migrations preserve a preexisting play and V41 wipes its started game`() {
         OwnedPostgres().start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("9").load().migrate()
             val a = id(); val b = id(); val gameId = id(); val round = id(); val invitation = id(); val request = id(); val stream = id()
@@ -337,25 +337,18 @@ class GameResultLifecycleTest {
                 UPDATE game SET lifecycle='ACTIVE', current_play='${play.id}' WHERE id='$gameId';
                 INSERT INTO game_definition VALUES ('$gameId','${submitted.digest}');""")
             for (player in players) sql(db, "INSERT INTO player_preparation VALUES ('$gameId','${player.accountId}',true,'${GameWire.json.encodeToString(player.deck)}')")
-            val forwards = FoundationMigrations.flyway(db.settings).info().pending().size
-            assertTrue(forwards > 0)
-            assertEquals(forwards, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            ServiceRuntime(db.settings).use { runtime ->
-                runtime.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
-                while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
-                val principal = AccountService.Principal(UUID.randomUUID(), AccountIdentity(a, "A"))
-                val recipient = AccountService.Principal(UUID.randomUUID(), AccountIdentity(b, "B"))
-                val games = GameService(runtime); assertEquals(play, games.head(principal, gameId).play)
-                games.checkpointGameplay()
-                assertEquals(original, games.results(recipient, gameId, listOf(request)).statuses.single().result)
-                val author = Stream(games, principal, gameId); val other = Stream(games, recipient, gameId)
-                author.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))
-                val pending = games.head(principal, gameId).play!!.board.resultSuggestion!!
-                assertEquals("accepted", other.execute(GameAction.AcceptResult(pending.id)).outcome)
-                assertEquals(players.map { it.deck }, games.head(principal, gameId).preparation!!.players.map { it.deck })
-                assertEquals(listOf(submitted), games.head(principal, gameId).preparation!!.definitions)
-            }
-            println("PASS additive V9-to-V14 migration: seeded V9 play/orders/preparation/Ready/private original unchanged, real cooperative return works afterwards")
+            // V14..V40 are additive: the retained play, its preparation and its request survive unchanged.
+            Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("40").load().migrate()
+            fun count(statement: String): Long = db.connection().use { c -> c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
+            assertEquals(1, count("SELECT count(*) FROM game_play WHERE id='${play.id}' AND payload='${GameWire.json.encodeToString(play)}'"))
+            assertEquals(2, count("SELECT count(*) FROM player_preparation WHERE game_id='$gameId'"))
+            assertEquals(1, count("SELECT count(*) FROM game_inbox WHERE request_id='$request' AND result='${GameWire.json.encodeToString(original)}'"))
+            // V41 (rules v29 library layers) then deletes the started game with everything that belongs to it.
+            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            for (table in listOf("game", "game_play", "player_preparation", "game_inbox", "game_definition", "invitation"))
+                assertEquals(0, count("SELECT count(*) FROM $table"), table)
+            assertEquals(2, count("SELECT count(*) FROM account"))
+            println("PASS additive V9-to-V40 migration keeps the seeded play/preparation/request; V41 wipes the started game")
         }
     }
 }

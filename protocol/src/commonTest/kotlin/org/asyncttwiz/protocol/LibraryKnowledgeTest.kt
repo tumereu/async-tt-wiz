@@ -21,7 +21,7 @@ class LibraryKnowledgeTest {
                     PlayContainer(id(20 + p * 5 + z), zone, owner,
                         if (zone == PlayZone.LIBRARY) cards.filter { it.owner == owner }.map { it.id } else emptyList())
                 } } + PlayContainer(id(30), PlayZone.STACK), TurnState(a)),
-            listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a), librarySecret = secret)
+            listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a), librarySecret = secret).withLibraryLayers()
     }
     private fun state(tree: GameplayTree) = assertNotNull(tree.stateAt(tree.currentNodeId))
     private fun library(tree: GameplayTree, owner: String = a) = state(tree).board.containers.single {
@@ -142,7 +142,9 @@ class LibraryKnowledgeTest {
             when (rest) {
                 ContentsRest.TOP -> assertEquals(ids, library(tree).knownTop)
                 ContentsRest.BOTTOM -> assertEquals(ids, library(tree).knownBottom.takeLast(4))
-                ContentsRest.BOTTOM_RANDOM -> assertEquals(RandomV1.shuffle(ids, seed), library(tree).knownBottom.takeLast(4))
+                // Rules v29: a random bottom block keeps its order hidden, as a layer of its own.
+                ContentsRest.BOTTOM_RANDOM -> assertEquals(LibraryLayer(library(tree).layers.last().id, false, RandomV1.shuffle(ids, seed)),
+                    library(tree).layers.last())
                 ContentsRest.SHUFFLE -> { assertTrue(library(tree).knownTop.isEmpty()); assertTrue(library(tree).knownBottom.isEmpty()) }
                 ContentsRest.GRAVEYARD, ContentsRest.EXILE -> assertTrue(ids.none { it in library(tree).cards })
             }
@@ -271,14 +273,15 @@ class LibraryKnowledgeTest {
 
     @Test fun reseedAlgorithmHasStableDomainSeparatedGoldenVectorAndLegacyWireDefaultsStayAbsent() {
         val state = root()
-        assertEquals("gAA_601XteHDpTgtPQkj6AvrGXCTHsGtRaDEFwggtdg", LibraryKnowledge.seed(state, a, id(20)))
-        assertEquals(listOf(1006, 1010, 1008, 1000, 1001, 1002, 1004, 1014, 1019, 1011,
-            1017, 1018, 1012, 1007, 1003, 1009, 1005, 1016, 1015, 1013).map(::id),
-            LibraryKnowledge.reseeds(state, a).first().to)
-        assertNotEquals(LibraryKnowledge.seed(state, a, id(20)), LibraryKnowledge.seed(state, b, id(20)))
-        assertNotEquals(LibraryKnowledge.seed(state, a, id(20)), LibraryKnowledge.seed(state, a, id(25)))
+        val layer = state.board.containers.first().layers.single().id
+        assertEquals("T-F5B5auiZzmqXwHM9kTsj8MK88xCSpIFeMlaEM2yEY", LibraryKnowledge.seed(state, a, id(20), layer))
+        assertEquals(listOf(1018, 1005, 1011, 1004, 1001, 1013, 1000, 1003, 1015, 1010,
+            1016, 1008, 1014, 1009, 1007, 1017, 1012, 1019, 1006, 1002).map(::id), LibraryKnowledge.reseeds(state, a).first().to)
+        assertNotEquals(LibraryKnowledge.seed(state, a, id(20), layer), LibraryKnowledge.seed(state, b, id(20), layer))
+        assertNotEquals(LibraryKnowledge.seed(state, a, id(20), layer), LibraryKnowledge.seed(state, a, id(25), layer))
+        assertNotEquals(LibraryKnowledge.seed(state, a, id(20), layer), LibraryKnowledge.seed(state, a, id(20), id(99)))
         assertNotEquals(RandomV1.shuffle(state.board.containers.first().cards, seed),
-            RandomV1.shuffle(state.board.containers.first().cards, seed, "branch-reseed-v1"))
+            RandomV1.shuffle(state.board.containers.first().cards, seed, LibraryLayers.RESEED_ALGORITHM))
         val move = LibraryActions.draw(state.board, id(20), id(21), 1).single()
         val json = GameWire.json.encodeToString(PlayAction.serializer(), move)
         assertFalse(json.contains("takeFromEdge")); assertFalse(json.contains("libraryInsertion"))

@@ -30,7 +30,8 @@ class LibraryControllerTest {
     private fun initial(): PlayState = PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
         BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))), (20..25).map { n ->
             PlayCard(id(n), "definition", id(7), if (n < 23) id(10) else id(11), id(40)) },
-            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), (20..22).map(::id)),
+            listOf(PlayContainer(id(10), PlayZone.LIBRARY, id(7), (20..22).map(::id),
+                layers = LibraryLayers.initial(id(90), (20..22).map(::id))),
                 PlayContainer(id(11), PlayZone.HAND, id(7), (23..25).map(::id))), TurnState(id(7))),
         emptyList(), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
 
@@ -114,7 +115,9 @@ class LibraryControllerTest {
         assertEquals(15, predict(false))
         val before = last.board
         assertEquals(1, predict(true))
-        assertEquals(before, last.board)
+        // The same seed gives the same cards; new layer IDs come from the requests.
+        fun BoardState.cardsOnly() = copy(containers = containers.map { c -> c.copy(layers = c.layers.map { it.copy(id = "") }) })
+        assertEquals(before.cardsOnly(), last.board.cardsOnly())
         fun median(combined: Boolean): Double {
             repeat(3) { predict(combined) }
             return List(7) { val start = System.nanoTime(); predict(combined); (System.nanoTime() - start) / 1_000_000.0 }.sorted()[3]

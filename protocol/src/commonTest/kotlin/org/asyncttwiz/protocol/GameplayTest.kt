@@ -183,7 +183,8 @@ internal fun gameplayFixture(): PlayState {
     val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     val cards = (10..14).map { PlayCard(gameplayId(it), submitted.digest, gameplayId(7), gameplayId(20), gameplayId(30),
         note = "unchanged", corner = "custom", counters = mapOf(CounterColor.RED to "2")) }
-    val containers = listOf(PlayContainer(gameplayId(20), PlayZone.LIBRARY, gameplayId(7), cards.map { it.id }),
+    val containers = listOf(PlayContainer(gameplayId(20), PlayZone.LIBRARY, gameplayId(7), cards.map { it.id },
+            layers = LibraryLayers.initial(gameplayId(28), cards.map { it.id })),
         PlayContainer(gameplayId(21), PlayZone.HAND, gameplayId(7)), PlayContainer(gameplayId(22), PlayZone.BATTLEFIELD, gameplayId(7)),
         PlayContainer(gameplayId(23), PlayZone.GRAVEYARD, gameplayId(7)), PlayContainer(gameplayId(24), PlayZone.EXILE, gameplayId(7)),
         PlayContainer(gameplayId(25), PlayZone.STACK))

@@ -216,7 +216,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                     else -> members.filter { it != id }.indexOf(destination.afterId) + 1
                 }
                 if (sourceValid && !(card?.token == true && target.zone == PlayZone.LIBRARY) && members.indexOf(id) == index &&
-                    (target.zone != PlayZone.LIBRARY || id in currentTarget.knownTop || id in currentTarget.knownBottom)) {
+                    (target.zone != PlayZone.LIBRARY || LibraryLayers.known(currentTarget, id))) {
                     prefix = id // An already-placed ordered member is still the next member's anchor.
                     continue
                 }

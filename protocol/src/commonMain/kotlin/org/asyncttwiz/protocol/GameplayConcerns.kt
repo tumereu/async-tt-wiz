@@ -23,7 +23,14 @@ import kotlinx.serialization.json.*
     @Serializable data class TapEligible(val id: String) : ConcernField
     @Serializable data class EditEligible(val id: String, val stackAllowed: Boolean = false) : ConcernField
     @Serializable data class Slice(val container: String, val selection: ContentsSelection, val count: Int) : ConcernField
-    @Serializable data class ShuffleSet(val container: String) : ConcernField
+    /** Membership of one unordered (hidden-order) Library layer, null once gone. */
+    @Serializable data class LayerMembers(val container: String, val layer: String) : ConcernField
+    /** The layers an event changed (known order, and size capped before at [caps]: 2 more than the cards it took
+     * out, and after at 2, since only a layer left with fewer than 2 cards normalizes differently) and their
+     * neighbours' known order.
+     * Other layers of the same Library, and exact sizes beyond the cap, do not matter. */
+    @Serializable data class LayerShape(val container: String, val changed: List<String>, val caps: List<Int>,
+        val neighbors: List<String>) : ConcernField
     @Serializable data class HandCandidates(val container: String, val selectedIds: List<String>) : ConcernField
     @Serializable data class Top(val container: String, val card: String) : ConcernField
     @Serializable data class Options(val id: String) : ConcernField
@@ -60,9 +67,10 @@ internal object GameplayConcerns {
         val entity = mutation.transition.delta!!.entities[field.entity]
         val edit = entity.values[field.value]
         var value = at(GameplayDeltas.entityValue(state, entity.kind, entity.id), edit.path)
+        // A known-top draw concerns only that the top layer was a known one, never what lies beneath.
         if (knownTopDraw(mutation) && entity.kind == "container" &&
-            entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path == listOf("knownTop"))
-            return JsonPrimitive((value as? JsonArray)?.firstOrNull()?.jsonPrimitive?.content == mutation.action.cardId)
+            entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path.firstOrNull() == "layers")
+            return JsonPrimitive(after || state.board.containers.singleOrNull { it.id == entity.id }?.layers?.firstOrNull()?.ordered == true)
         if (independentOwner(mutation, entity) && value is JsonObject) value = JsonObject(value - "owner")
         if (edit.unordered) {
             val old = (edit.from as JsonArray).toSet(); val next = (edit.to as JsonArray).toSet()
@@ -75,7 +83,7 @@ internal object GameplayConcerns {
         val start = if (edit.after == null) 0 else array.indexOf(edit.after).takeIf { it >= 0 }?.plus(1) ?: return JsonNull
         if (start + count > array.size) return JsonNull
         val relaxed = knownTopDraw(mutation) && entity.kind == "container" &&
-            entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path in listOf(listOf("cards"), listOf("knownTop"))
+            entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path == listOf("cards")
         return buildJsonObject {
             put("members", JsonArray(array.subList(start, start + count)))
             put("after", array.getOrNull(start - 1) ?: JsonNull)
@@ -88,17 +96,7 @@ internal object GameplayConcerns {
         fun container(id: String) = b.containers.single { it.id == id }
         return when (field) {
             is ConcernField.Written -> written(state, mutation, field, after)
-            is ConcernField.Entity -> {
-                val value = at(GameplayDeltas.entityValue(state, field.kind, field.id), field.path)
-                // A known-top draw concerns only the taken card's knowledge edge, not the
-                // untouched known cards beneath it. Still witness its removal after the draw.
-                if (knownTopDraw(mutation) && field.kind == "container" &&
-                    field.id == (mutation.action as PlayAction.MoveCard).source.containerId && field.path == listOf("knownTop")) {
-                    val ids = (value as? JsonArray).orEmpty()
-                    val card = JsonPrimitive(mutation.action.cardId)
-                    encoded(if (after) card !in ids else ids.firstOrNull() == card)
-                } else value ?: JsonNull
-            }
+            is ConcernField.Entity -> at(GameplayDeltas.entityValue(state, field.kind, field.id), field.path) ?: JsonNull
             is ConcernField.Cell -> encoded(b.cards.filter { it.containerId == field.container && it.placement?.position == field.position }
                 .map { it.id to it.placement!!.pileId }.sortedBy { it.first })
             is ConcernField.Incident -> buildJsonObject {
@@ -135,7 +133,17 @@ internal object GameplayConcerns {
             } == true)
             is ConcernField.Slice -> encoded(LibraryRules.slice(container(field.container).cards, field.selection, field.count).let {
                 if (field.selection == ContentsSelection.ALL) it.sorted() else it })
-            is ConcernField.ShuffleSet -> encoded(container(field.container).unknownMiddle.sorted())
+            is ConcernField.LayerMembers -> encoded(LibraryLayers.segments(container(field.container))
+                .singleOrNull { it.layer.id == field.layer && !it.layer.ordered }?.cards?.sorted())
+            is ConcernField.LayerShape -> {
+                val layers = b.containers.singleOrNull { it.id == field.container }?.layers.orEmpty().associateBy { it.id }
+                buildJsonObject {
+                    // Afterwards only "at least 2 cards" matters.
+                    put("changed", JsonArray(field.changed.zip(field.caps) { id, cap ->
+                        layers[id]?.let { encoded(listOf(it.ordered.toString(), minOf(it.size, if (after) 2 else cap).toString())) } ?: JsonNull }))
+                    put("neighbors", JsonArray(field.neighbors.map { id -> layers[id]?.let { JsonPrimitive(it.ordered) } ?: JsonNull }))
+                }
+            }
             is ConcernField.HandCandidates -> encoded(container(field.container).cards.filter {
                 field.selectedIds.isEmpty() || it in field.selectedIds }.sorted())
             is ConcernField.Top -> encoded(container(field.container).cards.firstOrNull() == field.card)
@@ -168,7 +176,7 @@ internal object GameplayConcerns {
         fun card(id: String) = from.board.cards.single { it.id == id }
         fun definition(id: String) { fields += ConcernField.DefinitionAvailable(id) }
         fun knowledge(id: String) {
-            entity("container", id, "knownTop"); entity("container", id, "knownBottom")
+            entity("container", id, "layers")
             from.board.cards.filter { it.containerId == id }.forEach { entity("card", it.id, "knownToAll") }
         }
         fun projection(id: String) { fields += ConcernField.Projection(id) }
@@ -201,14 +209,15 @@ internal object GameplayConcerns {
                     }
                 }
                 if (source.zone == PlayZone.LIBRARY) {
-                    // Removal/repositioning normalizes both edges even when they stay empty.
-                    // Retained replay must not skip cleanup made necessary by an earlier undo.
-                    entity("container", source.id, "knownTop"); entity("container", source.id, "knownBottom")
-                    if (a.source.edge == MoveSourceEdge.TOP && c.id in source.knownTop && a.destination.containerId != source.id &&
-                        !(mutation.transition.rulesVersion >= 14 && source.keepTopRevealed))
+                    // The sealed layer edits witness exactly the layers this move changed. Taking a card from a
+                    // known top concerns only that card and that it was on top; taking one from a hidden-order
+                    // layer by its edge concerns that layer's whole membership.
+                    val layer = LibraryLayers.segmentOf(source, c.id)?.layer
+                    if (a.source.edge == MoveSourceEdge.TOP && layer?.ordered == true && layer == source.layers.first() &&
+                        a.destination.containerId != source.id && !source.keepTopRevealed)
                         fields += ConcernField.Top(source.id, c.id)
-                    else if (c.id in source.unknownMiddle && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))
-                        fields += ConcernField.ShuffleSet(source.id)
+                    else if (layer?.ordered == false && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))
+                        fields += ConcernField.LayerMembers(source.id, layer.id)
                     if (a.source.bottomSlice.isNotEmpty()) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, a.source.bottomSlice.size)
                     if (a.source.edge == MoveSourceEdge.BOTTOM) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, 1)
                 }
@@ -241,6 +250,20 @@ internal object GameplayConcerns {
             }
             is PlayAction.RemoveProjectionLink -> Unit
             is PlayAction.ShuffleLibrary -> knowledge(a.containerId)
+            is PlayAction.MoveToLibraryRandom -> {
+                entity("container", a.libraryId, "zone"); entity("container", a.libraryId, "accountId")
+                a.cardIds.forEach { id ->
+                    val c = card(id)
+                    fields += ConcernField.Incident(id)
+                    fields += ConcernField.AttackTargetIncident(id)
+                    for (key in listOf("containerId", "owner", "token", "covered", "explicitlyCovered", "knownToAll", "tapped", "note"))
+                        entity("card", id, key)
+                    if (from.board.containers.single { it.id == c.containerId }.zone == PlayZone.BATTLEFIELD) {
+                        for (key in listOf("corner", "counters", "faceId")) entity("card", id, key)
+                        definition(c.definition)
+                    }
+                }
+            }
             is PlayAction.SetKeepTopRevealed -> {
                 entity("container", a.containerId, "zone"); entity("container", a.containerId, "accountId")
                 if (a.enabled) fields += ConcernField.Slice(a.containerId, ContentsSelection.TOP, 1)
@@ -372,6 +395,20 @@ internal object GameplayConcerns {
             is PlayAction.SetTempPile,
             is PlayAction.SetStatus, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult,
             is PlayAction.WithdrawResult -> Unit
+        }
+        // Layer normalization (a lone card becomes known, known neighbours merge) depends on the changed layers'
+        // sizes and their neighbours' order knowledge. A known-top draw is exempt: it only takes the top card.
+        for (container in to.board.containers.filter { it.zone == PlayZone.LIBRARY }) {
+            val old = from.board.containers.singleOrNull { it.id == container.id }?.layers.orEmpty()
+            if (old == container.layers || ConcernField.Top(container.id, (mutation.action as? PlayAction.MoveCard)?.cardId ?: "") in fields) continue
+            val before = old.associateBy { it.id }; val after = container.layers.associateBy { it.id }
+            val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+            fun around(list: List<LibraryLayer>) = list.indices.filter { list[it].id in changed }
+                .flatMap { listOfNotNull(list.getOrNull(it - 1)?.id, list.getOrNull(it + 1)?.id) }
+            val neighbors = (around(old) + around(container.layers)).filter { it !in changed }.toSet()
+            val ids = changed.sorted()
+            val caps = ids.map { id -> 2 + (before[id]?.cards.orEmpty() - after[id]?.cards.orEmpty().toSet()).size }
+            fields += ConcernField.LayerShape(container.id, ids, caps, neighbors.sorted())
         }
         if (mutation.transition.rulesVersion >= 14) {
             // Retained library edits must not lose their continuous-disclosure semantics when

@@ -154,7 +154,7 @@ class R29TempPilesTest {
         // Pile 1 is still encoded exactly as under rules v23..v28: no number on the wire.
         val encoded = GameWire.json.encodeToJsonElement(PlayContainer.serializer(), temp).jsonObject
         assertFalse("tempNumber" in encoded)
-        val old = """{"id":"${temp.id}","zone":"LIBRARY","accountId":"$a","cards":["${gameplayId(10)}"],"knownTop":["${gameplayId(10)}"],"temp":true}"""
+        val old = """{"id":"${temp.id}","zone":"LIBRARY","accountId":"$a","cards":["${gameplayId(10)}"],"layers":[{"id":"${temp.layers.single().id}","ordered":true,"cards":["${gameplayId(10)}"]}],"temp":true}"""
         assertEquals(temp, GameWire.json.decodeFromString(PlayContainer.serializer(), old))
         // The recorded container delta of a first move into pile 1 carries no number either.
         val created = next.mutation!!.transition.delta!!.entities.single { it.kind == "container" && it.id == temp.id }

@@ -469,6 +469,15 @@ migration. Entering cards reset like any card entering a hidden zone. Controls:
 Shuffle, Look (logged like a Library look), All to library top/bottom (one batch,
 owner-routed), and moving cards out as from a Library top.
 
+**Random-order Library moves (rules v29).** `moveToLibraryRandom(libraryId, cardIds,
+bottom, seed)` puts cards from any zones (all owned by that Library's player, no
+tokens) onto its top or bottom in random order as ONE event: each card leaves its
+zone exactly as an ordinary move to that edge would, and together they form one
+unordered Library layer. The client's fresh seed fixes the hidden concrete order
+(validated, recorded, never rerolled). Mixed owners become one event per owner's
+Library in one invocation. History reads "<visible names / N cards>: <From> →
+Library top (random order)"; grouping is that of a cross-zone move.
+
 **Numbered Temp piles (rules v29).** Each player has Temp piles 1–4, individual
 piles with fixed numbers (Temp 3 can exist without Temp 2). Pile 1 keeps the v23
 ID and is always on; piles 2–4 have deterministic IDs

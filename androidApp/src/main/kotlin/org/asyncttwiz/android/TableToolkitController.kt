@@ -345,6 +345,17 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (actions.isEmpty()) return false
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
     }
+    /** The cards onto the top or bottom of their owners' Libraries in random order: one event (and one hidden
+     * layer) per owner's Library, each with a fresh seed, as ONE invocation. Tokens are left out. */
+    fun toLibraryRandom(ids: List<String>, bottom: Boolean): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val random = java.security.SecureRandom()
+        val actions = org.asyncttwiz.protocol.LibraryActions.toLibraryRandom(play.board, ids, bottom) {
+            RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
+        }
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
     /** The whole Temp pile, in its current order, onto the top of its owner's pile [number] as ONE invocation. */
     fun tempToPile(tempId: String, number: Int): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false

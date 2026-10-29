@@ -79,6 +79,8 @@ object HistoryGrouping {
         is PlayAction.SetKeepTopRevealed -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             "visibility", isolated = true)
         is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.libraryId)
+        // Grouped like any cross-zone move into that Library.
+        is PlayAction.MoveToLibraryRandom -> HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, "open_with", "random/${action.libraryId}")
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) "visibility" else "pageview")
         is PlayAction.RevealHand -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
@@ -153,7 +155,7 @@ object HistoryGrouping {
         val versioned = if (transition?.rulesVersion?.let { it >= 13 } == true) semantic.copy(rulesVersion = 2,
             untap = action is PlayAction.SetTapped && !action.tapped || transition.fields.any {
                 it.field == GameplayField.TAPPED && it.to == "false" } && action !is PlayAction.MoveCard && action !is PlayAction.Mulligan,
-            moveIntoLibrary = (action as? PlayAction.MoveCard)?.takeIf { move ->
+            moveIntoLibrary = (action as? PlayAction.MoveToLibraryRandom)?.libraryId ?: (action as? PlayAction.MoveCard)?.takeIf { move ->
                 move.source.containerId != move.destination.containerId && containers.any {
                     it.id == move.destination.containerId && it.zone == PlayZone.LIBRARY } }?.destination?.containerId)
             else semantic

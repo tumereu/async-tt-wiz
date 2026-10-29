@@ -208,6 +208,28 @@ internal object GameplayDeltas {
         return JsonArray(array.take(start) + added + array.drop(end))
     }
 
+    /** Forward: the card must open a known top layer; it leaves it (an emptied layer vanishes). Reverse: the card
+     * returns onto a known top layer, recreating the recorded one when the top is now hidden. Normalized layers
+     * make this unambiguous: a known layer is never directly followed by another known one. */
+    private fun knownTopLayer(container: JsonObject, edit: GameplayValueDelta, reverse: Boolean, card: JsonPrimitive): JsonObject {
+        val layers = (container["layers"] as? JsonArray).orEmpty().map { it as? JsonObject ?: throw Mismatch() }
+        val first = layers.firstOrNull()
+        fun ordered(layer: JsonObject?) = layer?.get("ordered")?.jsonPrimitive?.booleanOrNull == true
+        fun cards(layer: JsonObject) = layer["cards"] as? JsonArray ?: throw Mismatch()
+        fun with(layer: JsonObject, cards: List<JsonElement>) = JsonObject(layer + ("cards" to JsonArray(cards)))
+        val next = if (!reverse) {
+            if (first == null || !ordered(first) || cards(first).firstOrNull() != card) throw Mismatch()
+            if (cards(first).size == 1) layers.drop(1) else listOf(with(first, cards(first).drop(1))) + layers.drop(1)
+        } else if (ordered(first)) listOf(with(first!!, listOf(card) + cards(first))) + layers.drop(1)
+        else {
+            val id = edit.path.getOrNull(1)?.takeIf { it.startsWith("@") }?.drop(1)
+                ?: (restored(edit.from) as? JsonArray)?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.content
+                ?: throw Mismatch()
+            listOf(buildJsonObject { put("id", id); put("ordered", true); put("cards", JsonArray(listOf(card))) }) + layers
+        }
+        return JsonObject(if (next.isEmpty()) container - "layers" else container + ("layers" to JsonArray(next)))
+    }
+
     fun apply(state: PlayState, delta: GameplayDelta, reverse: Boolean, mutation: GameplayMutation? = null,
         work: GameplayWork? = null): PlayState? = try {
         work?.let { it.deltaApplications++ }
@@ -220,16 +242,15 @@ internal object GameplayDeltas {
         for (entity in if (reverse) delta.entities.asReversed() else delta.entities) {
             fun <T> value(old: T?, serializer: KSerializer<T>): T? {
                 var encoded = old?.let { json.encodeToJsonElement(serializer, it) }
+                var layersRelaxed = false
                 for (edit in if (reverse) entity.values.asReversed() else entity.values) {
                     val knownDraw = mutation != null && GameplayConcerns.knownTopDraw(mutation) && entity.kind == "container" &&
                         entity.id == (mutation.action as PlayAction.MoveCard).source.containerId
-                    if (knownDraw && edit.path == listOf("knownTop")) {
-                        val obj = encoded as? JsonObject ?: throw Mismatch()
-                        val ids = (obj["knownTop"] as? JsonArray).orEmpty()
-                        val card = JsonPrimitive(mutation.action.cardId)
-                        if ((!reverse && ids.firstOrNull() != card) || (reverse && card in ids)) throw Mismatch()
-                        val next = if (reverse) listOf(card) + ids else ids.drop(1)
-                        encoded = JsonObject(if (next.isEmpty()) obj - "knownTop" else obj + ("knownTop" to JsonArray(next)))
+                    if (knownDraw && edit.path.firstOrNull() == "layers") {
+                        // A known-top draw only takes one card off the known top layer, whatever lies beneath.
+                        if (layersRelaxed) continue
+                        layersRelaxed = true
+                        encoded = knownTopLayer(encoded as? JsonObject ?: throw Mismatch(), edit, reverse, JsonPrimitive(mutation.action.cardId))
                         continue
                     }
                     val ownerIndependent = mutation?.transition?.concerns != null && mutation.action is PlayAction.MoveCard &&

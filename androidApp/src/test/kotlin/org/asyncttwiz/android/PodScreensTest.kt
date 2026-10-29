@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -145,9 +146,9 @@ class PodScreensTest {
         compose.runOnIdle { source = PodSource("Cube", 540) }
         compose.onNodeWithText("Color balancing").assertExists()
         // A square tile like the numeric settings: a tap toggles it.
-        compose.onNode(isToggleable()).assertIsOn().performClick()
+        compose.onNode(isToggleable() and hasText("Color balancing")).assertIsOn().performClick()
         compose.runOnIdle { assertEquals(false, settings.colorBalance) }
-        compose.onNode(isToggleable()).assertIsOff()
+        compose.onNode(isToggleable() and hasText("Color balancing")).assertIsOff()
         compose.onNodeWithText("Off").assertExists()
     }
 
@@ -247,7 +248,7 @@ class PodScreensTest {
         listOf("Keep", "Burn", "Discard", "Open packs", "Color balancing").forEach {
             compose.onNodeWithText(it).assertDoesNotExist()
         }
-        compose.onNode(isToggleable()).assertIsEnabled().performClick()
+        compose.onNode(twoPicks).assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(settings.twoPicks) }
         compose.onNodeWithText("Glimpse").performClick()
         compose.runOnIdle { assertEquals(DraftSettings.glimpse(), settings) }
@@ -260,13 +261,38 @@ class PodScreensTest {
         var members by mutableIntStateOf(3)
         var enabled by mutableStateOf(true)
         compose.setContent { ScreenTheme { Column { PodSettingsFields(DraftSettings.grid(), members, enabled) {} } } }
-        compose.onNode(isToggleable()).assertIsNotEnabled()
+        compose.onNode(twoPicks).assertIsNotEnabled()
         compose.onNodeWithText("Two picks each requires exactly 2 members.").assertDoesNotExist()
         compose.runOnIdle { members = 2 }
-        compose.onNode(isToggleable()).assertIsEnabled()
+        compose.onNode(twoPicks).assertIsEnabled()
         compose.runOnIdle { enabled = false }
-        compose.onNode(isToggleable()).assertIsNotEnabled()
+        compose.onNode(twoPicks).assertIsNotEnabled()
         compose.onNodeWithText("Grid").assertIsNotEnabled()
+    }
+
+    private val twoPicks = isToggleable() and !hasText("Fresh boosters")
+    private val freshBoosters = isToggleable() and hasText("Fresh boosters")
+
+    @Test fun freshBoostersIsAlwaysShownButOnlyTogglesForSetGrids() {
+        var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
+        var settings by mutableStateOf(DraftSettings())
+        var enabled by mutableStateOf(true)
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, enabled, source) { settings = it(settings) } } } }
+        // Booster mode: shown, greyed and inert.
+        compose.onNode(freshBoosters).assertExists().assertIsOn().assertIsNotEnabled()
+        compose.onNodeWithText("Grid").performClick()
+        compose.runOnIdle { assertTrue(settings.freshBoosters) }
+        compose.onNode(freshBoosters).assertIsEnabled().performClick()
+        compose.runOnIdle { assertFalse(settings.freshBoosters) }
+        compose.onNode(freshBoosters).assertIsOff()
+        // Switching modes keeps the choice; a cube source makes it inapplicable again.
+        compose.onNodeWithText("Glimpse").performClick()
+        compose.onNodeWithText("Grid").performClick()
+        compose.runOnIdle { assertFalse(settings.freshBoosters) }
+        compose.runOnIdle { source = PodSource("Cube", 540) }
+        compose.onNode(freshBoosters).assertExists().assertIsNotEnabled()
+        compose.runOnIdle { source = PodSource(kind = PodSourceKind.SET); enabled = false }
+        compose.onNode(freshBoosters).assertExists().assertIsNotEnabled()
     }
 
     @Test fun sharedFormShowsEverySettingAsASquareTileWithoutAdvancedToggle() {

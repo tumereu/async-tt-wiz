@@ -15,6 +15,8 @@ data class GridState(
     val round: Int,
     val pools: Map<String, List<String>>,
     val log: List<GridPickLog> = emptyList(),
+    /** Each new grid also draws its refill cards up front (fresh boosters), so its refill comes from its own booster. */
+    val refillsDealt: Boolean = false,
 ) {
     val finished: Boolean get() = round == settings.rounds
 }
@@ -27,6 +29,8 @@ data class GridState(
     /** Row-major order, always nine positions; null denotes a gap. */
     val positions: List<String?>,
     val selection: Int = 0,
+    /** Refill cards dealt with the board when [GridState.refillsDealt]; used before the shared supply. */
+    val reserve: List<String> = emptyList(),
 ) {
     val finished: Boolean get() = selection == turns.size
     val currentPlayer: String? get() = turns.getOrNull(selection)
@@ -98,8 +102,46 @@ object GridEngine {
             seating.associateWith { emptyList() })).settle()
     }
 
-    /** Pre-generated set cards in draw order, including enough cards for every possible refill. */
-    fun startWithCards(players: List<String>, cards: List<DraftCopy>, settings: DraftSettings, seed: String): GridState {
+    /** Cards per grid: nine, plus three refill cards when grids refill. */
+    fun cardsPerGrid(settings: DraftSettings, players: Int) = 9 + if (settings.gridRefills(players)) 3 else 0
+
+    /**
+     * Fresh boosters: one generated booster per grid, in grid order. Each grid takes [cardsPerGrid] random cards from its
+     * own booster (the nine dealt first, then its refill cards); a booster smaller than that is topped up from spare
+     * boosters generated after the grid boosters. Deterministic from the seed. Start with refillsDealt = true.
+     */
+    fun freshBoosterCards(source: SetSourceSnapshot, settings: DraftSettings, players: Int, seed: String): List<DraftCopy> {
+        val perGrid = cardsPerGrid(settings, players)
+        val grids = settings.grids
+        var boosters = SetBoosters.generate(source, grids, seed).map { it.cards }
+        val short = boosters.sumOf { (perGrid - it.size).coerceAtLeast(0) }
+        if (short > 0) {
+            // The same seed generates the same leading boosters, so spares only append.
+            val smallest = boosters.minOf { it.size }.coerceAtLeast(1)
+            boosters = SetBoosters.generate(source, grids + (short + smallest - 1) / smallest, seed).map { it.cards }
+        }
+        val words = RandomV1.Words(seed, "grid-booster-v1")
+        fun shuffled(values: List<DraftCopy>): MutableList<DraftCopy> {
+            val result = values.toMutableList()
+            for (i in result.lastIndex downTo 1) {
+                val j = RandomV1.sample(i + 1, words::next)
+                val value = result[i]; result[i] = result[j]; result[j] = value
+            }
+            return result
+        }
+        val spares = shuffled(boosters.drop(grids).flatten())
+        return boosters.take(grids).flatMap { booster ->
+            val taken = shuffled(booster).take(perGrid)
+            taken + List(perGrid - taken.size) { spares.removeAt(spares.lastIndex) }
+        }
+    }
+
+    /**
+     * Pre-generated set cards in draw order, including enough cards for every possible refill. With [refillsDealt]
+     * each grid takes its refill cards right after its nine, so the order is grid by grid (see [freshBoosterCards]).
+     */
+    fun startWithCards(players: List<String>, cards: List<DraftCopy>, settings: DraftSettings, seed: String,
+        refillsDealt: Boolean = false): GridState {
         require(settings.mode == DraftMode.GRID && settings.validate(players.size).isEmpty()) { "Invalid grid settings" }
         require(players.all { it.isNotBlank() } && players.distinct().size == players.size) { "Invalid members" }
         require(cards.size.toLong() >= settings.supply(players.size, emptyList()).needed) { "Insufficient grid cards" }
@@ -113,7 +155,7 @@ object GridEngine {
             val player = seating[i]; seating[i] = seating[j]; seating[j] = player
         }
         return Working(GridState(settings, seating.toList(), cards, cards.asReversed().map { it.id }, emptyList(), -1,
-            seating.associateWith { emptyList() })).settle()
+            seating.associateWith { emptyList() }, refillsDealt = refillsDealt)).settle()
     }
 
     fun pick(state: GridState, pick: GridPick): GridPickResult {
@@ -176,13 +218,17 @@ object GridEngine {
             val finished = selection == grid.turns.size
             val discarded = if (finished) positions.filterNotNull() else emptyList()
             if (finished) positions.fill(null)
-            else if (selection == 1 && line != null && source.settings.gridRefills(source.seating.size)) {
-                for (position in positions.indices) if (positions[position] == null) positions[position] = draw()
+            val reserve = grid.reserve.toMutableList()
+            val refill = !finished && selection == 1 && line != null && source.settings.gridRefills(source.seating.size)
+            if (refill) {
+                for (position in positions.indices) if (positions[position] == null) positions[position] = reserve.removeFirstOrNull() ?: draw()
             }
             val player = grid.turns[grid.selection]
             pools.getValue(player).addAll(kept)
             log.add(GridPickLog(player, grid.id, line, kept, discarded))
-            grids[index] = grid.copy(positions = positions.toList(), selection = selection)
+            // Unused reserve cards (the refill needed fewer, or the grid ended first) leave the draft with the board.
+            grids[index] = grid.copy(positions = positions.toList(), selection = selection,
+                reserve = if (finished || refill) emptyList() else reserve.toList())
         }
 
         fun settle(): GridState {
@@ -202,7 +248,9 @@ object GridEngine {
                     val turns = List(if (source.settings.twoPicks) 4 else source.seating.size) { turn ->
                         source.seating[(number + turn) % source.seating.size]
                     }
-                    grids.add(GridBoard("grid-$number", number + 1, turns, List(9) { draw() }))
+                    val positions = List(9) { draw() }
+                    val reserve = if (source.refillsDealt && source.settings.gridRefills(source.seating.size)) List(3) { draw() } else emptyList()
+                    grids.add(GridBoard("grid-$number", number + 1, turns, positions, reserve = reserve))
                 }
             }
             return source.copy(supply = supply.toList(), grids = grids.toList(), round = round,

@@ -97,11 +97,14 @@ internal fun PodPickView(
         return
     }
 
-    val rules = remember(pack, settings, marks.librarians.size) { PodPickRules(pack, settings, marks.librarians.size) }
+    // Spent Librarians join the pack as ordinary cards for this pick: keep one back, burn it or leave it to pass on.
+    val shown = remember(pack, marks.librarians, librarians) { pack.withSpentLibrarians(marks.librarians, librarians) }
+    val rules = remember(pack, settings, marks.librarians) { PodPickRules(pack, settings, marks.librarians) }
     val baseRules = remember(pack, settings) { PodPickRules(pack, settings) }
-    val columnCount = columns.columns(pack.cards.size)
+    val columnCount = columns.columns(shown.cards.size)
     val burnIds = rules.burnIds(marks)
-    val copies = remember(pack) { pack.cards.associateBy { it.id } }
+    val copies = remember(shown) { shown.cards.associateBy { it.id } }
+    val refund: (String) -> Unit = { setMarks(marks.refundLibrarian(it, pack, settings)) }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
         setMarks(marks.toggle(id, kind, rules))
     }
@@ -124,7 +127,7 @@ internal fun PodPickView(
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                items(pack.cards, key = { it.id }) { copy ->
+                items(shown.cards, key = { it.id }) { copy ->
                     PodPickCard(copy, definitions[copy.definition], marks.markOf(copy.id),
                         automaticBurn = rules.automaticBurns && copy.id in burnIds,
                         burnEnabled = rules.manualBurns > 0,
@@ -136,7 +139,8 @@ internal fun PodPickView(
                             if (open) { inspected = null; menuFor = copy.id } else if (menuFor == copy.id) menuFor = null
                         },
                         // The first column's size is stable while scrolling; prefetch decodes at it.
-                        onSize = { if (copy == pack.cards.first()) tileSize = it })
+                        onSize = { if (copy == shown.cards.first()) tileSize = it },
+                        onRefund = if (copy.id in marks.librarians) { { refund(copy.id) } } else null)
                 }
             }
         }
@@ -145,7 +149,7 @@ internal fun PodPickView(
             librarianSlots = settings.librarians > 0,
             spent = marks.librarians, librarians = librarians,
             spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
-            refund = { setMarks(marks.refundLibrarian(it, pack, settings)) })
+            refund = refund)
         Button(onClick = { if (rules.canConfirm(marks, busy)) {
             if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
             else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
@@ -341,6 +345,8 @@ private fun PodPickCard(
     menu: Boolean,
     onMenu: (Boolean) -> Unit,
     onSize: (IntSize) -> Unit,
+    /** Present for a spent Librarian shown in the pack: takes it back out (refund). */
+    onRefund: (() -> Unit)? = null,
 ) {
     val currentOnMenu by rememberUpdatedState(onMenu)
     var swipe by remember { mutableStateOf(PodPickSwipeState()) }
@@ -403,6 +409,8 @@ private fun PodPickCard(
             }) {
             PodPickCardFace(copy, definition, keepAlpha, burnAlpha,
                 (if (flashMark == PodPickMark.KEEP) PodPickGreen else PodPickRed).copy(alpha = flashAlpha.value))
+            if (onRefund != null) Icon(Icons.Default.MenuBook, "Spent Librarian", Modifier.align(Alignment.TopStart)
+                .background(PodPickGreen, RoundedCornerShape(4.dp)).padding(2.dp).size(16.dp), tint = Color.White)
         }
         if (swipe.phase != PodPickSwipePhase.IDLE && width > 0) {
             PodPickSwipeCopy(copy, definition, width, swipe, liftedMark,
@@ -412,6 +420,7 @@ private fun PodPickCard(
             if (mark != PodPickMark.KEEP) DropdownMenuItem(text = { Text("Keep") }, onClick = { onMenu(false); onMark(PodPickMark.KEEP) })
             if (burnEnabled && mark != PodPickMark.BURN) DropdownMenuItem(text = { Text("Burn") }, onClick = { onMenu(false); onMark(PodPickMark.BURN) })
             if (mark != null) DropdownMenuItem(text = { Text("Unmark") }, onClick = { onMenu(false); onUnmark() })
+            if (onRefund != null) DropdownMenuItem(text = { Text("Refund Librarian") }, onClick = { onMenu(false); onRefund() })
         }
     }
 }

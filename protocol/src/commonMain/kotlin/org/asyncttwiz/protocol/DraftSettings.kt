@@ -22,6 +22,11 @@ data class DraftSettings(
     val librarians: Int = 0,
     /** Catalog snapshot supplied by the creator; not part of pack supply. */
     val librarianDefinition: SubmittedDefinition? = null,
+    /**
+     * Grid mode with a set source only (ignored otherwise): each grid gets its own freshly generated booster and takes
+     * random cards from it, instead of filling grids from boosters in card order.
+     */
+    val freshBoosters: Boolean = true,
 ) {
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
         if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)

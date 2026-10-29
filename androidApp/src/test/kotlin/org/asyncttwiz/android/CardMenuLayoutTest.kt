@@ -132,7 +132,7 @@ class CardMenuLayoutTest {
         val notInCombat = tools(toolkit(play), play, idle.id)
         assertFalse(notInCombat.single { it.name == "Attack →" }.enabled)
         assertFalse(notInCombat.single { it.name == "Deal to target" }.enabled)
-        assertFalse(notInCombat.single { it.name == "Temp 2" }.enabled)
+        assertTrue(notInCombat.single { it.name == "Temp 2" }.enabled)
     }
 
     @Test fun tokenLibraryCellsRemoveTheToken() {

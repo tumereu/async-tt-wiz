@@ -61,9 +61,8 @@ class CardRingInteractionTest {
         render(play = play, contextId = hand.cards.first())
         compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
         for (name in listOf("Inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top", "Library bottom",
-            "Shuffle into library", "Temp 1", "Discard random", "Reveal random", "Exile random", "Random to library bottom"))
+            "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4", "Discard random", "Reveal random", "Exile random", "Random to library bottom"))
             compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
-        for (name in listOf("Temp 2", "Temp 3", "Temp 4")) compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsNotEnabled()
         for (name in listOf("Set corner", "Edit card note", "Declare without tapping", "Set damage", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         compose.ringClick("Discard random")

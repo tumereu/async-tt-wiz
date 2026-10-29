@@ -368,6 +368,8 @@ internal object GameplayConcerns {
             is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
             is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
             // The sealed delta witnesses exactly the actor's status (before, after).
+            // Turning a Temp pile on/off writes the whole container; the delta witnesses it exactly.
+            is PlayAction.SetTempPile,
             is PlayAction.SetStatus, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult,
             is PlayAction.WithdrawResult -> Unit
         }

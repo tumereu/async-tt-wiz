@@ -855,6 +855,17 @@ Card menu More page: "Temp pile" (single card or selection, one batch). Tapping 
 pile: Shuffle, Look, All to library top, All to library bottom. Card panels
 (Look/Reveal/Search/local Graveyard/Exile) have a header "Select all" toggle.
 
+**Numbered Temp piles (rules v29).** Temp 1 is always shown (an empty pile is its
+outline with its number; a filled one is a card back with a small number), then
+Temp 2–4 while on, all after Exile in number order. Portrait: the counter grid
+shrinks; with more than one pile and no room left (< 96dp) the counters move to a
+row of six under the own pile row and above the opponent's pile row instead of
+panning. Landscape: the piles sit right-aligned under Exile in the counter row;
+with more than one pile and a counter value that would need panning, the counters
+get their own full-width row outside the Temp row. Card menus offer Temp 1–4
+(disabled only when no card can move there); the pile menu adds All to Temp N and
+on/off toggles for piles 2–4 (off disabled while the pile has cards).
+
 **Current panel/Library contract — playtests r8–r11.** The older D-41–D-51
 inventory, trays, dismissal and category-column UI below are superseded in full
 by this section's current contract. Unordered Graveyard/Exile membership and

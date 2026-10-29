@@ -43,9 +43,11 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun playerPrefix(id: String) = if (id == event.author) "" else "${historyPlayerName(id, usernames)}'s "
     fun container(id: String) = before?.board?.containers?.find { it.id == id }
     // A Temp pile may be created by this very event, so it is recognized by its deterministic ID too.
-    fun temp(id: String) = container(id)?.temp ?: before?.let { id in TempPiles.containerIds(it).values } ?: false
+    val tempRefs by lazy { before?.let(TempPiles::refs).orEmpty() }
+    fun tempNumber(id: String): Int? = container(id).let { c -> if (c != null) c.tempNumber.takeIf { c.temp } else tempRefs[id]?.number }
+    fun temp(id: String) = tempNumber(id) != null
     fun known(id: String) = temp(id) || container(id) != null
-    fun zone(id: String) = if (temp(id)) "Temp" else container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
+    fun zone(id: String) = tempNumber(id)?.let { "Temp $it" } ?: container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
         return card.knownToAll || before?.board?.contentsDisplays?.any {
@@ -153,7 +155,9 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 HistoryText(historyPlainText(historyMoveText(subject ?: "A card", route)), if (draw) "Draw" else "Move", HistoryMove(subject, route))
             }
         }
-        is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) "Temp" else "Library"} shuffled", "Shuffle")
+        is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) zone(action.containerId) else "Library"} shuffled", "Shuffle")
+        is PlayAction.SetTempPile -> text("${playerPrefix(action.accountId)}Temp ${action.number} → ${if (action.on) "on" else "off"}",
+            "Temp ${action.number} ${if (action.on) "on" else "off"}")
         is PlayAction.SetKeepTopRevealed -> text("Library top reveal → ${if (action.enabled) "on" else "off"}", "Top reveal ${if (action.enabled) "on" else "off"}")
         is PlayAction.Mulligan -> text("Mulligan to ${action.drawCount}", "Mulligan")
         is PlayAction.RevealHand -> text("Hand revealed → ${action.cardIds.size} cards", "Reveal hand")

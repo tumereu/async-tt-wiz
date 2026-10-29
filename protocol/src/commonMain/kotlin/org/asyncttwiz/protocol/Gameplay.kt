@@ -43,6 +43,10 @@ import kotlinx.serialization.json.*
         val color: CounterColor, val delta: String) : PlayAction
     /** Rules v26: the ACTOR's own status, see [PlayerStatus]; empty clears it. Never changes attention. */
     @Serializable @SerialName("setStatus") data class SetStatus(val text: String) : PlayAction
+    /** Rules v29: turns a player's Temp pile [number] (2..4) on (creates the empty pile) or off (removes it,
+     * only while empty). Pile 1 is always on. See [TempPiles]. */
+    @Serializable @SerialName("setTempPile") data class SetTempPile(val accountId: String, val number: Int,
+        val on: Boolean) : PlayAction
     @Serializable @SerialName("nextStep") data object NextStep : PlayAction
     @Serializable @SerialName("passAttention") data object PassAttention : PlayAction
     @Serializable @SerialName("endTurn") data object EndTurn : PlayAction
@@ -139,6 +143,7 @@ object GameplayRules {
         is PlayAction.SetPlayerCounter -> DeckValidation.uuid(action.accountId) && DeckValidation.text(action.value)
         is PlayAction.AdjustPlayerCounter -> DeckValidation.uuid(action.accountId) && TableActions.numeric(action.delta)
         is PlayAction.SetStatus -> PlayerStatus.valid(action.text)
+        is PlayAction.SetTempPile -> DeckValidation.uuid(action.accountId) && action.number in 2..TempPiles.COUNT
         PlayAction.PassAttention, PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.FlipCoin -> true
         is PlayAction.RollDie -> action.sides.matches(Regex("[1-9][0-9]*")) &&
             action.sides.toIntOrNull()?.let { action.value in 1..it } == true
@@ -293,6 +298,22 @@ object GameplayRules {
                 if (player.status == action.text) return GameplayChange(state)
                 next = board.copy(players = board.players.map { if (it.accountId == actor) it.copy(status = action.text) else it })
                 transition = GameplayTransition(listOf(GameplayFieldChange(actor, GameplayField.STATUS, player.status, action.text)))
+            }
+            is PlayAction.SetTempPile -> {
+                if (board.players.none { it.accountId == action.accountId }) return reject("missingReference")
+                val existing = TempPiles.container(board, action.accountId, action.number)
+                next = if (action.on) {
+                    if (existing != null) return GameplayChange(state)
+                    TempPiles.ensure(board, state.id, action.accountId, action.number)
+                } else {
+                    existing ?: return GameplayChange(state)
+                    // Only an empty pile with nothing shown from it can be turned off.
+                    if (existing.cards.isNotEmpty() || board.contentsDisplays.any { it.containerId == existing.id })
+                        return reject("inapplicable")
+                    board.copy(containers = board.containers.filterNot { it.id == existing.id })
+                }
+                // The sealed delta adds or removes the whole container; its exact inverse restores it.
+                transition = GameplayTransition()
             }
             is PlayAction.MoveCard -> return move(state, actor, command, action)
             is PlayAction.RevealHand, is PlayAction.RandomHand -> return HandRules.change(state, actor, command, action)

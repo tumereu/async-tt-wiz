@@ -213,7 +213,8 @@ class LobbyStartTest {
             for (viewer in listOf(owner, other)) {
                 val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
-                assertEquals(11, scene.items.count { it.kind != TableItemKind.COUNTER })
+                // ... including both players' always-shown (still empty) Temp 1 piles.
+                assertEquals(13, scene.items.count { it.kind != TableItemKind.COUNTER })
                 val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
                 assertEquals(if (landscape) 0 else 12, counters.size)
                 for (player in listOf(owner, other)) {
@@ -227,12 +228,13 @@ class LobbyStartTest {
                         assertTrue(visible.right <= width && visible.bottom <= height)
                         assertEquals(visible, visible.intersection(item.bounds))
                     }
-                    if (item.zone == PlayZone.LIBRARY) {
+                    if (item.zone == PlayZone.LIBRARY && !item.temp) {
                         assertEquals(4, item.cards.size); assertEquals(item.owner, play.board.cards.single { it.id == item.cards[0] }.owner)
                         assertFalse(item.label.contains(definition.name)) // Covered library never exposes its top face/name.
                     }
                 }
-                val piles = scene.items.filter { it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }
+                // Temp piles (landscape: fitted into the counter row) are covered by TempPilesLayoutTest.
+                val piles = scene.items.filter { !it.temp && it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) }
                 // Every special pile occupies exactly one card, including when empty.
                 assertEquals(1, piles.filter { it.zone != PlayZone.STACK }.map { it.footprint.width to it.footprint.height }.distinct().size)
                 for (pile in piles) {
@@ -244,7 +246,10 @@ class LobbyStartTest {
                 }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),
-                    scene.items.filter { it.zone != null }.map { it.id }.toSet())
+                    scene.items.filter { it.zone != null && !it.temp }.map { it.id }.toSet())
+                // Each player's Temp 1 is shown under its deterministic ID before it exists.
+                assertEquals(play.board.players.map { TempPiles.containerId(play.id, it.accountId) }.toSet(),
+                    scene.items.filter { it.temp }.map { it.id }.toSet())
             }
         }
     }

@@ -501,4 +501,25 @@ class HistoryTextTest {
         assertEquals(listOf("Initial state") + List(4) { "A card moved" }, strip.map { it.description })
         assertEquals("A card moved", HistoryGraphLayout.build(tree).eventsById.getValue(draws.first()).description)
     }
+    @Test fun numberedTempPilesAreNamedAndHiddenCardsStayHidden() {
+        val before = placed(f.a, PlayZone.GRAVEYARD)
+        val three = TempPiles.containerId(before.id, f.a, 3)
+        // The first move into Temp 3 creates it; the public Graveyard card is still named.
+        val into = apply(before, f.a, PlayAction.MoveCard(id(9), MoveSource(id(25)), MoveDestination(three, MoveInsertion.TOP)))
+        assertEquals("Velvet Prism Engine: Graveyard → Temp 3", historyText(into.mutation, before, f.b, names).description)
+        // Between hidden piles the card is never named, not even to its owner.
+        val inThree = into.state!!
+        val across = apply(inThree, f.a, PlayAction.MoveCard(id(9), MoveSource(three, edge = MoveSourceEdge.TOP),
+            MoveDestination(TempPiles.containerId(before.id, f.a, 1), MoveInsertion.TOP)), 301)
+        for (viewer in listOf(f.a, f.b))
+            assertEquals("A card: Temp 3 → Temp 1", historyText(across.mutation, inThree, viewer, names).description)
+        val shuffle = format(PlayAction.ShuffleLibrary(three, RandomV1.encodeSeed(ByteArray(32))), before = inThree)
+        assertEquals("Temp 3 shuffled", shuffle.description)
+    }
+
+    @Test fun turningTempPilesOnAndOffReadsAsSuch() {
+        val on = format(PlayAction.SetTempPile(f.a, 2, true))
+        assertEquals("Temp 2 → on", on.description); assertEquals("Temp 2 on", on.label)
+        assertEquals("alice's Temp 4 → off", format(PlayAction.SetTempPile(f.a, 4, false), author = f.b).description)
+    }
 }

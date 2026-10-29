@@ -50,4 +50,50 @@ class TempPileRuntimeTest {
             }
         }
     }
+    @Test fun `numbered Temp piles turn on and off and move between each other as shared undoable events`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime)
+                val owner = f.a.account.accountId
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                fun accept(action: PlayAction) {
+                    val input = f.owner.command(action)
+                    val expected = GameplayRules.change(state(), owner, input)
+                    val result = f.owner.execute(input)
+                    assertEquals("accepted", result.outcome, result.reason)
+                    assertEquals(expected.mutation, result.mutation)
+                    assertEquals(expected.state, state())
+                }
+                val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
+                accept(PlayAction.SetTempPile(owner, 2, true))
+                assertTrue(TempPiles.container(state().board, owner, 2)!!.cards.isEmpty())
+                // The first move into pile 3 creates it; pile 2 stays empty and on.
+                val ids = library.cards.take(2)
+                for (id in ids) accept(PlayAction.MoveCard(id, MoveSource(library.id),
+                    MoveDestination(TempPiles.containerId(state().id, owner, 3), MoveInsertion.TOP)))
+                assertEquals(ids.reversed(), TempPiles.container(state().board, owner, 3)!!.cards)
+                assertEquals(listOf(1, 2, 3), TempPiles.visibleNumbers(f.games.head(f.b, f.game.id).play!!.board, owner))
+                // Turning off is refused while the pile holds cards; pile 1 is never turned off.
+                assertEquals("inapplicable", f.owner.execute(f.owner.command(PlayAction.SetTempPile(owner, 3, false))).reason)
+                assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) {
+                    f.owner.execute(f.owner.command(PlayAction.SetTempPile(owner, 1, false))) }.code)
+                val beforeAll = state()
+                val all = TempPiles.allToPile(beforeAll.board, beforeAll.id, TempPiles.containerId(beforeAll.id, owner, 3), 1)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(all))).outcome)
+                assertEquals(ids.reversed(), TempPiles.container(state().board, owner, 1)!!.cards)
+                // Once empty, the piles turn off.
+                accept(PlayAction.SetTempPile(owner, 3, false))
+                accept(PlayAction.SetTempPile(owner, 2, false))
+                assertEquals(listOf(1), TempPiles.visibleNumbers(state().board, owner))
+                var replay = f.root
+                f.games.history(f.b, f.game.id, f.root.id, "0").mutations.forEach { replay = GameplayHistory.replay(replay, it).state!! }
+                assertEquals(state(), replay)
+                // Undo turns pile 2 back on.
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)).outcome)
+                assertNotNull(TempPiles.container(state().board, owner, 2))
+            }
+        }
+    }
 }

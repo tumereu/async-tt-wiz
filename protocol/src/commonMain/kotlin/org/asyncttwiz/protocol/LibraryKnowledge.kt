@@ -93,7 +93,8 @@ internal object LibraryKnowledge {
 
     fun after(before: BoardState, board: BoardState, action: PlayAction): BoardState = board.copy(containers = board.containers.map { library ->
         if (library.zone != PlayZone.LIBRARY) return@map library
-        val old = before.containers.single { it.id == library.id }
+        // A Temp pile turned on by this very action (rules v29) starts empty with nothing known.
+        val old = before.containers.singleOrNull { it.id == library.id } ?: return@map library
         val members = library.cards.toSet()
         var top = old.knownTop.filter { it in members }
         var bottom = old.knownBottom.filter { it in members }

@@ -85,6 +85,7 @@ object HistoryGrouping {
         is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
         // A status is a message to the other player, not a board edit: it joins the author's group, never leads it.
         is PlayAction.SetStatus -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
+        is PlayAction.SetTempPile -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "inbox", "temp/${action.accountId}/${action.number}")
         is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, "ads_click")
         is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
         is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.ClearCardCounter ->
@@ -128,7 +129,8 @@ object HistoryGrouping {
             val from = fromContainer.zone
             val to = toContainer.zone
             // A Temp pile shares the LIBRARY zone, but moving into or out of it is a cross-zone move.
-            val sameZone = from == to && fromContainer.temp == toContainer.temp
+            // Each numbered Temp pile is its own zone (rules v29).
+            val sameZone = from == to && fromContainer.temp == toContainer.temp && (!fromContainer.temp || fromContainer.id == toContainer.id)
             when {
                 action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
                 from == PlayZone.STACK && to == PlayZone.STACK ->

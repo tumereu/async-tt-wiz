@@ -445,6 +445,18 @@ migration. Entering cards reset like any card entering a hidden zone. Controls:
 Shuffle, Look (logged like a Library look), All to library top/bottom (one batch,
 owner-routed), and moving cards out as from a Library top.
 
+**Numbered Temp piles (rules v29).** Each player has Temp piles 1–4, individual
+piles with fixed numbers (Temp 3 can exist without Temp 2). Pile 1 keeps the v23
+ID and is always on; piles 2–4 have deterministic IDs
+`uuidV5(playId, "container/$accountId/TEMP/$n")` and a `tempNumber` on the
+container (omitted for pile 1, so older boards and events are unchanged). A pile
+2–4 is turned on by `setTempPile(accountId, number, on)` (creates the empty pile)
+or by the first move into it; turning it off removes the container and is refused
+while it holds cards or something is shown from it. Pile 1 is never turned on or
+off. Either player may toggle either player's piles. The pile menu adds All to
+Temp N (the whole pile in order onto that pile's top, one batch, creating it if
+needed) and on/off buttons for piles 2–4.
+
 Covering a card does not remove its identity from synchronized data. No tooltip,
 notification, default log summary, or background preview should unnecessarily
 spoil a covered card. Explicit inspection can expose it.

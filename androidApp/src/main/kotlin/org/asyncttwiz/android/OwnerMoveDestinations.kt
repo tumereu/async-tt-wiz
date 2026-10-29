@@ -18,9 +18,10 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Ta
     val owner = CombatStackRules.liveSource(board, id)?.owner ?: return destination
     return when (destination) {
         is TableDestination.Container -> if (destination.zone in ownerOnlyZones) {
-            // A Temp pile redirects to the owner's Temp pile, which may not have been created yet.
-            val temp = board.containers.any { it.id == destination.id && it.temp }
-            val target = if (temp) TempPiles.container(board, owner)?.id ?: playId?.takeIf(DeckValidation::uuid)?.let { TempPiles.containerId(it, owner) } ?: return destination
+            // A Temp pile redirects to the owner's Temp pile of the same number, which may not have been created yet.
+            val temp = board.containers.firstOrNull { it.id == destination.id && it.temp }
+            val target = if (temp != null) TempPiles.container(board, owner, temp.tempNumber)?.id
+                    ?: playId?.takeIf(DeckValidation::uuid)?.let { TempPiles.containerId(it, owner, temp.tempNumber) } ?: return destination
                 else board.zoneContainer(owner, destination.zone)?.id ?: return destination
             if (target == destination.id) destination else destination.copy(id = target, handGap = null)
         } else destination
@@ -49,8 +50,9 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Mo
 internal fun TableScene.ownerMoveDestination(id: String, destination: TableDestination): TableDestination {
     if (destination !is TableDestination.Container || destination.zone !in ownerOnlyZones) return destination
     val owner = cardOwners[id] ?: items.firstOrNull { it.cardId == id }?.owner ?: return destination
-    if (destination.id in tempPiles.values) {
-        val target = tempPiles[owner] ?: return destination
+    val pile = tempPiles.values.firstNotNullOfOrNull { ids -> ids.indexOf(destination.id).takeIf { it >= 0 } }
+    if (pile != null) {
+        val target = tempPiles[owner]?.getOrNull(pile) ?: return destination
         return if (target == destination.id) destination else destination.copy(id = target, handGap = null)
     }
     val target = items.firstOrNull { it.zone == destination.zone && it.owner == owner && !it.temp &&

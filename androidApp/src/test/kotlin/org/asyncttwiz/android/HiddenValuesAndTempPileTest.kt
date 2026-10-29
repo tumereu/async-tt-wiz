@@ -5,6 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import org.asyncttwiz.protocol.*
@@ -105,7 +108,7 @@ class HiddenValuesAndTempPileTest {
                 PlayContainer(temp, PlayZone.LIBRARY, "a", ids, temp = true)))
     }
 
-    @Test fun tempPileShowsOnlyWhileItHoldsCardsAndNoOtherPileMoves() {
+    @Test fun tempPileOneIsAlwaysShownAndNoOtherPileMoves() {
         val base = play()
         val temp = TempPiles.containerId(playId, "a")
         for (landscape in listOf(false, true)) for (size in listOf(1f, 1.5f, 2f)) {
@@ -116,11 +119,15 @@ class HiddenValuesAndTempPileTest {
             val before = scene(base)
             val empty = scene(withTemp(base, emptyList()))
             val shown = scene(withTemp(base, listOf("a/GRAVEYARD/0")))
-            assertNull(before.items.firstOrNull { it.temp })
-            assertNull(empty.items.firstOrNull { it.id == temp }, "an empty Temp pile is not shown")
+            // Pile 1 is shown (as a numbered placeholder) before it exists and while it is empty.
+            val placeholder = before.items.single { it.id == temp }
+            assertTrue(placeholder.temp && placeholder.cards.isEmpty() && placeholder.tempNumber == 1)
+            assertEquals(placeholder.bounds, empty.items.single { it.id == temp }.bounds)
             val item = shown.items.single { it.id == temp }
             assertTrue(item.temp && item.covered && item.zone == PlayZone.LIBRARY && item.drawHandId == null)
             assertEquals("1", item.value)
+            assertEquals(1, item.tempNumber)
+            assertEquals(placeholder.bounds, item.bounds)
             // Landscape keeps it beside Exile in the (scrollable) sidebar counter row, like the counters.
             if (!landscape || size == 1f) assertTrue(item.visible.isNotEmpty(), "$landscape/$size: Temp pile must be visible")
             if (landscape) assertTrue(item.bounds.right <= TablePresentation.sidebarWidth(width, CardAppearance(cardSize = size)))
@@ -134,9 +141,8 @@ class HiddenValuesAndTempPileTest {
             val exile = shown.items.single { it.id == "a/EXILE" }
             if (landscape) assertTrue(item.bounds.center.x >= exile.bounds.x && item.bounds.center.x <= exile.bounds.right)
             else assertTrue(item.bounds.x >= exile.bounds.right, "$size: Temp sits after Exile")
-            // Only the counters give way; the battlefield, Stack and hands stay put.
-            for (other in before.items.filter { it.kind != TableItemKind.COUNTER && it.viewport.let { v ->
-                    !v.startsWith("dock/") && !v.startsWith("counters/") } }) {
+            // Filling pile 1 moves nothing else at all.
+            for (other in before.items.filter { it.id != temp && it.cardId == null }) {
                 assertEquals(other.bounds, shown.items.single { it.id == other.id }.bounds, "$landscape/$size ${other.id}")
             }
             val counters = shown.viewports.single { it.id == "counters/a" }
@@ -144,6 +150,34 @@ class HiddenValuesAndTempPileTest {
             if (!landscape) assertEquals(width, counters.bounds.right, .01f)
             assertTrue(counters.bounds.x >= dock.bounds.x)
         }
+    }
+
+    @Test fun tempPileMenuShowsEveryButtonAndDisablesOnlyWhatCannotApply() {
+        // a's Temp 2 holds a card; Temp 3 is off; Temp 4 is on and empty.
+        val base = withTemp(play(), emptyList())
+        val two = TempPiles.containerId(playId, "a", 2)
+        val play = base.copy(board = base.board.copy(
+            cards = base.board.cards.map { if (it.id == "a/GRAVEYARD/0") it.copy(containerId = two, covered = true) else it },
+            containers = base.board.containers.map { if (it.id == "a/GRAVEYARD") it.copy(cards = it.cards - "a/GRAVEYARD/0") else it } +
+                PlayContainer(two, PlayZone.LIBRARY, "a", listOf("a/GRAVEYARD/0"), temp = true, tempNumber = 2) +
+                PlayContainer(TempPiles.containerId(playId, "a", 4), PlayZone.LIBRARY, "a", temp = true, tempNumber = 4)))
+        val controller = LibraryController(playId, two, "a/HAND", { play }, { true }, { true })
+        val piles = mutableListOf<Int>(); val toggles = mutableListOf<Pair<Int, Boolean>>()
+        compose.setContent { MaterialTheme {
+            TempPileActions(controller, play.board, TempPiles.Ref("a", 2), onShow = { _, _, _ -> }, toLibrary = {},
+                toPile = { piles += it }, setOn = { n, on -> toggles += n to on }, onComplete = {})
+        } }
+        compose.waitForIdle()
+        for (name in listOf("Shuffle", "Look", "All to library top", "All to library bottom", "All to Temp 1", "All to Temp 3", "All to Temp 4"))
+            compose.onNodeWithContentDescription(name).assertIsEnabled()
+        compose.onNodeWithContentDescription("Temp 2 on/off").assertIsNotEnabled().assertIsSelected()
+        compose.onNodeWithContentDescription("Temp 3 on/off").assertIsEnabled().assertIsNotSelected()
+        compose.onNodeWithContentDescription("Temp 4 on/off").assertIsEnabled().assertIsSelected()
+        compose.onNodeWithContentDescription("All to Temp 3").performClick()
+        compose.onNodeWithContentDescription("Temp 3 on/off").performClick()
+        compose.onNodeWithContentDescription("Temp 4 on/off").performClick()
+        assertEquals(listOf(3), piles)
+        assertEquals(listOf(3 to true, 4 to false), toggles)
     }
 
     @Test fun ownerRedirectKeepsTempAndLibraryApart() {

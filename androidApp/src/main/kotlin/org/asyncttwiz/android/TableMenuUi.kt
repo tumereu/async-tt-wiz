@@ -35,6 +35,8 @@ import androidx.compose.ui.window.DialogWindowProvider
 internal val MenuInk = Color(0xff263e39)
 internal val MenuBorder = Color(0xffbaccc7)
 
+private val tempPileName = Regex("temp [1-4]")
+
 /** Semantic names, not font-dependent unicode. Values and P/T arithmetic remain actual text. */
 internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
@@ -70,7 +72,8 @@ internal fun menuIcon(name: String): ImageVector {
         "keywords" in n -> Icons.Outlined.LocalOffer
         "note" in n -> Icons.AutoMirrored.Outlined.StickyNote2
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
-        n == "temp pile" -> Icons.Outlined.MoveToInbox
+        n.startsWith("temp ") && n.endsWith(" on/off") -> Icons.Outlined.ToggleOn
+        n == "temp pile" || tempPileName.matches(n) || n.startsWith("all to temp") -> Icons.Outlined.MoveToInbox
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
         "top" in n -> Icons.Outlined.VerticalAlignTop
         "graveyard" in n || n.startsWith("mill") || n.startsWith("discard") -> Icons.Outlined.Inventory2

@@ -1,0 +1,1 @@
+add: Up to four Temp piles per player: turn piles 2 to 4 on or off, and move a whole pile to another one.

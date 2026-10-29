@@ -315,23 +315,26 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun openLibrary(id: String, tool: LibraryTool = LibraryTool.CONTENTS, handIds: List<String>? = null) {
         val play = current() ?: return
-        val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
-        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == source.accountId }
+        val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY }
+        // A Temp pile that is not created yet (pile 1 placeholder) still opens its pile menu.
+        val ref = if (source == null) TempPiles.refs(play)[id] ?: return else null
+        val owner = source?.accountId ?: ref!!.accountId
+        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }
         dismiss()
-        val controller = libraryController(source.id, hand.id) ?: return
+        val controller = libraryController(id, hand.id) ?: return
         library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
-        panel = if (source.temp) "temp" else if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
+        panel = if (source?.temp != false) "temp" else if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
     }
-    /** The captured cards into each owner's Temp pile (created by the first move) as ONE invocation. */
-    fun toTemp(sourceIds: List<String>): Boolean {
+    /** The captured cards into each owner's Temp pile [pile] (1..4, created/turned on by the first move)
+     * as ONE invocation. Tokens and cards already in that pile stay where they are. */
+    fun toTemp(sourceIds: List<String>, pile: Int): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        val cards = sourceIds.distinct().mapNotNull { id -> play.board.cards.singleOrNull { it.id == id } }
-            .filter { card -> !card.token && play.board.containers.none { it.id == card.containerId && it.temp } }
+        val cards = tempPileMovable(play, sourceIds, pile)
         if (cards.isEmpty()) return false
         val actions = cards.groupBy { it.owner }.flatMap { (owner, members) ->
-            val board = TempPiles.ensure(play.board, play.id, owner)
+            val board = TempPiles.ensure(play.board, play.id, owner, pile)
             org.asyncttwiz.protocol.LibraryActions.moveCaptured(board, members.map { it.id },
-                MoveDestination(TempPiles.container(board, owner)!!.id, MoveInsertion.TOP))
+                MoveDestination(TempPiles.container(board, owner, pile)!!.id, MoveInsertion.TOP))
         }
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
     }
@@ -341,6 +344,18 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val actions = TempPiles.allToLibrary(play.board, tempId, bottom)
         if (actions.isEmpty()) return false
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** The whole Temp pile, in its current order, onto the top of its owner's pile [number] as ONE invocation. */
+    fun tempToPile(tempId: String, number: Int): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val actions = TempPiles.allToPile(play.board, play.id, tempId, number)
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** Turns a player's Temp pile 2..4 on or off (off only while empty); a shared, undoable event. */
+    fun setTempPile(owner: String, number: Int, on: Boolean): Boolean {
+        if (current() == null || !enabled()) return false
+        return submit(PlayAction.SetTempPile(owner, number, on))
     }
     /** Shared panels render directly from the board, including after reconnect and during review. */
     fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {

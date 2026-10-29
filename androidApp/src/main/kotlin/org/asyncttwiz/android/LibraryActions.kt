@@ -102,19 +102,39 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     }
 }
 
-/** A player's Temp pile: hidden like a Library, resolved back into the Library in one step. */
+/** A player's Temp pile [ref]: hidden like a Library, resolved back into the Library or another Temp pile
+ * in one step. Piles 2..4 are turned on/off here (off only while empty). Every button is always shown. */
 @Composable
-internal fun TempPileActions(controller: LibraryController, board: BoardState, onShow: (ContentsSelection, Int, Boolean) -> Unit,
-    toLibrary: (Boolean) -> Unit, onComplete: () -> Unit) {
+internal fun TempPileActions(controller: LibraryController, board: BoardState, ref: TempPiles.Ref,
+    onShow: (ContentsSelection, Int, Boolean) -> Unit, toLibrary: (Boolean) -> Unit, toPile: (Int) -> Unit,
+    setOn: (Int, Boolean) -> Unit, onComplete: () -> Unit) {
     val size = board.containers.singleOrNull { it.id == controller.libraryId }?.cards?.size ?: 0
-    val enabled = controller.available() && size > 0
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        InlinePopupCell(MenuControl("Shuffle", enabled) {
-            if (controller.shuffle().let { it.refused == 0 && it.submitted > 0 }) onComplete()
-        })
-        InlinePopupCell(MenuControl("Look", enabled && board.contentsDisplays.isEmpty()) { onShow(ContentsSelection.TOP, size, false) })
-        InlinePopupCell(MenuControl("All to library top", enabled) { toLibrary(false) }, label = "All top")
-        InlinePopupCell(MenuControl("All to library bottom", enabled) { toLibrary(true) }, label = "All bottom")
+    val available = controller.available()
+    val enabled = available && size > 0
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            InlinePopupCell(MenuControl("Shuffle", enabled) {
+                if (controller.shuffle().let { it.refused == 0 && it.submitted > 0 }) onComplete()
+            })
+            InlinePopupCell(MenuControl("Look", enabled && board.contentsDisplays.isEmpty()) { onShow(ContentsSelection.TOP, size, false) })
+            InlinePopupCell(MenuControl("All to library top", enabled) { toLibrary(false) }, label = "All top")
+            InlinePopupCell(MenuControl("All to library bottom", enabled) { toLibrary(true) }, label = "All bottom")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (number in TempPiles.NUMBERS.filter { it != ref.number })
+                InlinePopupCell(MenuControl("All to Temp $number", enabled) { toPile(number) }, label = "All → $number")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (number in TempPiles.NUMBERS.drop(1)) {
+                val pile = TempPiles.container(board, ref.accountId, number)
+                val on = pile != null
+                // Turning a pile off is only possible while it is empty and nothing is shown from it.
+                val mayToggle = available && (!on || pile!!.cards.isEmpty() && board.contentsDisplays.none { it.containerId == pile.id })
+                InlinePopupCell(MenuControl("Temp $number on/off", mayToggle, selected = on) {
+                    setOn(number, !on)
+                }, label = "Temp $number")
+            }
+        }
     }
 }
 

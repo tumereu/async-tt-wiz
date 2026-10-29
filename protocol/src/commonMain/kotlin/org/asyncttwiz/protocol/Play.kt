@@ -48,24 +48,49 @@ object PlayerStatus {
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val keepTopRevealed: Boolean = false,
     /** Rules v23: a player's lazily-created Temp pile. It is a LIBRARY-zone container (hidden faces,
      * unknown order after shuffle) but never "the" Library: owner lookups must exclude it. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val temp: Boolean = false) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val temp: Boolean = false,
+    /** Rules v29: which of the player's Temp piles (1..4) this is. Only meaningful when [temp]; old
+     * snapshots have only pile 1 and therefore omit it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tempNumber: Int = 1) {
     val unknownMiddle: List<String> get() = cards.subList(knownTop.size, cards.size - knownBottom.size)
 }
 
-/** The player's single Temp pile. Created lazily by the first move into its deterministic ID, so old
- * games gain it without any board migration and retained events keep replaying unchanged. */
+/** A player's Temp piles, numbered 1..[COUNT]. Pile 1 (rules v23) is always shown and can never be
+ * turned off; piles 2..4 (rules v29) exist only while turned on. Every pile is created lazily, by the
+ * first move into its deterministic ID or (2..4) by an explicit [PlayAction.SetTempPile], so old games
+ * gain them without any board migration and retained events keep replaying unchanged. */
 object TempPiles {
-    fun containerId(playId: String, accountId: String): String = CommandIds.uuidV5(playId, "container/$accountId/TEMP")
-    /** Owner -> deterministic Temp pile ID, whether created yet or not. */
+    const val RULES_VERSION = 29
+    const val COUNT = 4
+    val NUMBERS = 1..COUNT
+    /** A deterministic Temp pile identity, whether created yet or not. */
+    data class Ref(val accountId: String, val number: Int)
+
+    /** Pile 1 keeps its rules v23 ID; piles 2..4 add their number. */
+    fun containerId(playId: String, accountId: String, number: Int = 1): String {
+        require(number in NUMBERS) { "Temp pile number $number" }
+        return CommandIds.uuidV5(playId, if (number == 1) "container/$accountId/TEMP" else "container/$accountId/TEMP/$number")
+    }
+    /** Owner -> deterministic Temp pile 1 ID, whether created yet or not. */
     fun containerIds(state: PlayState): Map<String, String> = if (!DeckValidation.uuid(state.id)) emptyMap()
         else state.board.players.associate { it.accountId to containerId(state.id, it.accountId) }
-    fun container(board: BoardState, accountId: String?): PlayContainer? =
-        board.containers.firstOrNull { it.temp && it.accountId == accountId }
+    /** Deterministic ID -> owner and number, for every player's piles 1..4, created or not. */
+    fun refs(state: PlayState): Map<String, Ref> = if (!DeckValidation.uuid(state.id)) emptyMap()
+        else state.board.players.flatMap { p -> NUMBERS.map { n -> containerId(state.id, p.accountId, n) to Ref(p.accountId, n) } }.toMap()
+    fun container(board: BoardState, accountId: String?, number: Int = 1): PlayContainer? =
+        board.containers.firstOrNull { it.temp && it.accountId == accountId && it.tempNumber == number }
+    /** The player's created Temp piles in number order. */
+    fun containers(board: BoardState, accountId: String?): List<PlayContainer> =
+        board.containers.filter { it.temp && it.accountId == accountId }.sortedBy { it.tempNumber }
+    /** Pile 1 always, piles 2..4 while turned on, in number order. */
+    fun visibleNumbers(board: BoardState, accountId: String?): List<Int> =
+        (listOf(1) + containers(board, accountId).map { it.tempNumber }).distinct().sorted()
 
     /** The board with the player's (possibly not yet created) empty Temp pile, for planning moves. */
-    fun ensure(board: BoardState, playId: String, accountId: String): BoardState =
-        if (container(board, accountId) != null) board
-        else board.copy(containers = board.containers + PlayContainer(containerId(playId, accountId), PlayZone.LIBRARY, accountId, temp = true))
+    fun ensure(board: BoardState, playId: String, accountId: String, number: Int = 1): BoardState =
+        if (container(board, accountId, number) != null) board
+        else board.copy(containers = board.containers + PlayContainer(containerId(playId, accountId, number), PlayZone.LIBRARY,
+            accountId, temp = true, tempNumber = number))
 
     /** The state a move into a missing Temp pile executes against. The recorded delta is still taken
      * from the original state, so it creates the container and its exact inverse removes it. */
@@ -74,8 +99,9 @@ object TempPiles {
         val target = move.destination.containerId
         if (state.board.containers.any { it.id == target }) return state
         if (state.board.cards.singleOrNull { it.id == move.cardId }?.token != false) return state
-        val owner = containerIds(state).entries.firstOrNull { it.value == target }?.key ?: return state
-        return state.copy(board = ensure(state.board, state.id, owner))
+        val ref = refs(state)[target] ?: return state
+        if (ref.number != 1 && CURRENT_GAMEPLAY_RULES_VERSION < RULES_VERSION) return state
+        return state.copy(board = ensure(state.board, state.id, ref.accountId, ref.number))
     }
 
     /** ONE batch moving the whole pile, in its current order, onto the owner's Library top or bottom. */
@@ -84,6 +110,17 @@ object TempPiles {
         val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
         return LibraryActions.moveCaptured(board, temp.cards,
             MoveDestination(library.id, if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP))
+    }
+
+    /** ONE batch moving the whole pile, in its current order, onto the top of the same owner's pile
+     * [number]; the first move creates (turns on) that pile if needed. Empty when nothing would move. */
+    fun allToPile(board: BoardState, playId: String, tempId: String, number: Int): List<PlayAction.MoveCard> {
+        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
+        val owner = temp.accountId ?: return emptyList()
+        if (number !in NUMBERS || number == temp.tempNumber || temp.cards.isEmpty()) return emptyList()
+        val planned = ensure(board, playId, owner, number)
+        return LibraryActions.moveCaptured(planned, temp.cards,
+            MoveDestination(container(planned, owner, number)!!.id, MoveInsertion.TOP))
     }
 }
 

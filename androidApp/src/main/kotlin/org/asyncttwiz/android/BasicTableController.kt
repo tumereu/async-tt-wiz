@@ -250,8 +250,8 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         internal fun PlayState.withTempTarget(destination: TableDestination): PlayState {
             val id = (destination as? TableDestination.Container)?.id ?: return this
             if (board.containers.any { it.id == id }) return this
-            val owner = TempPiles.containerIds(this).entries.firstOrNull { it.value == id }?.key ?: return this
-            return copy(board = TempPiles.ensure(board, this.id, owner))
+            val ref = TempPiles.refs(this)[id] ?: return this
+            return copy(board = TempPiles.ensure(board, this.id, ref.accountId, ref.number))
         }
 
         fun projection(state: PlayState, action: PlayAction.MoveCard): PlayAction.Stack? {

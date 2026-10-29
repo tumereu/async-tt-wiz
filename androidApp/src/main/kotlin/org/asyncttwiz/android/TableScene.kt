@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
@@ -913,6 +914,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         val ink = if (i.zone == PlayZone.STACK) Color(0xff795497) else color.copy(alpha = .7f)
         drawRoundRect(ink, xy(x, y), size(w, h), CornerRadius(2 * density), style = Stroke(density))
         val cx = x + w / 2; val cy = y + h / 2
+        if (i.temp) {
+            // An empty Temp pile is its outline and order number, never a card back.
+            val previous = paint.textSize; val previousColor = paint.color
+            paint.color = ink.toArgb(); paint.isFakeBoldText = true
+            centeredText(i.tempNumber.toString(), i.bounds, 16f * z)
+            paint.textSize = previous; paint.color = previousColor; paint.isFakeBoldText = false
+            return
+        }
         fun line(a: Float, b: Float, c: Float, d: Float) = drawLine(ink,
             xy(cx + a * z, cy + b * z), xy(cx + c * z, cy + d * z), 1.4f * density * z)
         when (i.zone) {
@@ -1254,6 +1263,15 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                          text("✧", b.x + 8 * z, b.y + 26 * z, 1)
                         paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density
                     }
+                    if (i.temp) {
+                        // A small order number keeps several face-down Temp piles apart.
+                        val z = b.width / 28f
+                        val tag = TableBounds(b.right - 10f * z, b.bottom - 10f * z, 9f * z, 9f * z)
+                        drawRoundRect(Color.White, xy(tag.x, tag.y), size(tag.width, tag.height), CornerRadius(2 * z * density))
+                        paint.color = color.toArgb(); paint.isFakeBoldText = true
+                        centeredText(i.tempNumber.toString(), tag.copy(x = tag.x - 4f, width = tag.width + 8f), 8f * z)
+                        paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
+                    }
                 }
             }
              TableItemKind.CARD -> {
@@ -1289,7 +1307,8 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
     }
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
-    for (i in scene.items.filter { it.kind == TableItemKind.PILE }) {
+    // An empty Temp pile shows only its order number, no "0" count.
+    for (i in scene.items.filter { it.kind == TableItemKind.PILE && !(it.temp && it.cards.isEmpty()) }) {
         val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
         val port = if (i.countBadge != null) TableBounds(0f, 0f, this.size.width / density, this.size.height / density)
             else scene.viewports.single { it.id == i.viewport }.bounds

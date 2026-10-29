@@ -89,6 +89,9 @@ The first move into a player's Temp pile creates that pile in the same event: it
 delta adds the container and the exact inverse removes it, so a later event that
 used the pile blocks undoing the creating move. Temp shuffles/looks/moves reuse the
 Library concerns.
+Rules v29 Temp piles 2–4 behave the same; turning a pile on/off is its own event
+whose delta adds/removes the whole empty container, so a later move into the pile
+blocks undoing its turn-on. History names them "Temp 1".."Temp 4".
 
 Rules v24 face-down casts and manifests are ordinary moves: they concern the card's
 covered/explicitlyCovered state, and a face-down Stack -> Battlefield resolve or

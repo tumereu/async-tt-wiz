@@ -305,7 +305,7 @@ class StackProjectionJourneyTest {
     }
 
     @Test fun hiddenLibraryHasNoDragTargetAndOpponentHandRevealLifetime() = Journey().use { j ->
-        val library = j.scene().items.single { it.zone == PlayZone.LIBRARY && it.owner == j.f.actor }
+        val library = j.scene().items.single { it.zone == PlayZone.LIBRARY && it.owner == j.f.actor && !it.temp }
         val before = j.f.commands().size
         assertNull(j.drag(listOf(j.f.id(40))))
         val controller = j.ui.libraryController(library.id, j.f.container(PlayZone.HAND))!!

@@ -77,7 +77,10 @@ class CardAppearanceTest {
             assertTrue((scene.items.map { it.bounds } + scene.viewports.map { it.bounds }).all {
                 it.width.isFinite() && it.height.isFinite() && it.width >= 0f && it.height >= 0f })
             assertEquals(scale, scene.appearance.text(CardTextScalePart.TITLE))
-            for (item in scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND || it.kind == TableItemKind.PILE }) {
+            // Landscape Temp piles are fitted into the 48dp counter row instead.
+            for (temp in scene.items.filter { landscape && it.temp }) assertTrue(temp.bounds.height <= 44f, temp.id)
+            for (item in scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND ||
+                    it.kind == TableItemKind.PILE && !(landscape && it.temp) }) {
                 assertEquals(28f * scale, item.bounds.width, item.id)
                 assertEquals(40f * scale, item.bounds.height, item.id)
                 val port = scene.viewports.first { it.id == item.viewport }.bounds

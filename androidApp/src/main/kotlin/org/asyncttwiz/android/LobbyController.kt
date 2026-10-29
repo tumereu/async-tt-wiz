@@ -18,6 +18,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val busy: Boolean = false, val mutating: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
     val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
+    /** Games whose events missed while in the background have all been received (see GameSession.caughtUp). */
+    val syncedGames: Set<String> = emptySet(),
     val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
     val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
     val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null,
@@ -144,7 +146,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val ids = (state.games + state.invitations + listOfNotNull(state.detail)).map { it.id }.toSet()
         val next = state.detail?.let(wire::preparation)
         val feedback = preparationFeedback(state.preparation, next, accountId(), state.transferFeedback)
-        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
+        state = state.copy(connectionMessage = wire.error, connectedGames = ids.filter(wire::ready).toSet(),
+            syncedGames = ids.filter(wire::caughtUp).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
             reconnectingGames = ids.filter(wire::reconnecting).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
@@ -488,7 +491,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         inForeground = false
         session?.background()
         lifecycleVersion++
-        state = state.copy(backgroundLoading = state.busy)
+        state = state.copy(backgroundLoading = state.busy, syncedGames = emptySet())
     }
     fun foreground() {
         if (closed) return

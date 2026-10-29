@@ -1,0 +1,1 @@
+fix: Coming back to an open game no longer rushes through your opponent's new moves; it stops at where you left off so you can play them back.

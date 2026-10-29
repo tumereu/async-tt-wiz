@@ -130,6 +130,32 @@ class TableHistoryControllerTest {
         }
     }
 
+    @Test fun returnFromBackgroundDecidesLiveOrTimelineOnlyOnceTheCaughtUpTreeIsIndexed() {
+        for (missed in listOf(false, true)) Harness().use { h ->
+            val first = f.tap(f.root())
+            h.history.update(first, "v1"); h.publish()
+            val shown = first.currentNodeId
+            h.history.updateForeground(false)
+            assertEquals(HistoryMode.PLAYBACK, h.history.playback!!.position.mode)
+            h.history.updateForeground(true)
+            assertTrue(h.history.resumeHeld)
+            val caught = if (missed) f.tap(first, n = 101, actor = f.b, card = 12) else first
+            if (missed) {
+                h.history.update(caught, "v2")
+                h.history.resumeCaughtUp(caught) // Not indexed yet: must not decide on the old tree.
+                assertTrue(h.history.resumeHeld)
+                h.publish()
+            }
+            h.history.resumeCaughtUp(f.root()) // A tree the table has not been given is ignored.
+            assertEquals(HistoryMode.PLAYBACK, h.history.playback!!.position.mode)
+            h.history.resumeCaughtUp(caught)
+            val position = h.history.playback!!.position
+            if (missed) assertEquals(Triple(shown, HistoryMode.PLAYBACK, false), Triple(position.cursorId, position.mode, position.playing))
+            else assertEquals(HistoryPosition(shown, displayVersion = "v1"), position)
+            assertFalse(h.history.resumeHeld)
+        }
+    }
+
     @Test fun changedCursorOrBackgroundCannotConfirmAnOldContinuation() {
         for (background in listOf(false, true)) Harness().use { h ->
             val tree = f.tap(f.root())

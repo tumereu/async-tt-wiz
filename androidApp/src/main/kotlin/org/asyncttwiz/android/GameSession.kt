@@ -64,6 +64,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun presentation(value: PublishedDownloadedTree) = value.generation.copy(tree = value.generation.tree.materializedCopy())
     private val reconnectTrace = ReconnectRecorder(BuildConfig.DEBUG, now, record = reconnectTelemetry)
     private var backgrounded = false
+    private var resumePending = false
+    private var resumePing: String? = null
     private fun recoveryReady() { streams.keys.filter(::ready).forEach {
         DebugJank.catchUp(it, false); reconnectTrace.step(it, "ready", complete = true)
     } }
@@ -202,8 +204,21 @@ class GameSession(private val connection: GameConnection, private val credential
     val ready get() = connected && welcome
     fun reconnecting(gameId: String) = compatibilityError == null && !ready(gameId) && connectionDemand[gameId]?.let { now() - it >= 3_000 } == true
     fun dismissError() { error = compatibilityError; statusChanged() }
-    fun background() { backgrounded = true; reconnectTrace.stepAll("lifecycleBackground") }
-    fun foreground() { backgrounded = false; reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear(); tick() }
+    fun background() { backgrounded = true; resumePending = true; resumePing = null; reconnectTrace.stepAll("lifecycleBackground") }
+    fun foreground() {
+        backgrounded = false; reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear()
+        // A socket kept open while away may still hold undelivered events (a frozen process reads
+        // them only now): its pong, answered in order, marks the end of that backlog. A new socket's
+        // stream heads mark it instead.
+        resumePending = true; resumePing = null
+        if (connected && welcome) UUID.randomUUID().toString().let { resumePing = it; send(GamePing(it)) }
+        tick()
+    }
+    /** Everything the server had when the app returned to the foreground has been received and
+     * published for this game, so a resumed table may decide live vs. timeline mode. */
+    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId) && gameId !in headGaps &&
+        treeThrough[gameId]?.let { through -> plays[gameId]?.revision?.let { newerOrEqual(it, through) }
+            ?: (summaries[gameId]?.lifecycle != GameLifecycle.ACTIVE) } != false
     /** Only a previously authorized, retained active play may capture originals during a short
      * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
     private fun activeRequest(game: GameSummary, captureDuringRecovery: Boolean = false): Boolean {
@@ -643,7 +658,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE
                 reconnectTrace.stepAll("protocolWelcome")
-                welcome = true; error = null; openStreams()
+                welcome = true; error = null; resumePending = false; resumePing = null; openStreams()
             }
             is GameStreamReady -> {
                 val stream = streams[message.gameId] ?: return
@@ -778,7 +793,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
             }
             is GameUpgradeRequired -> incompatibleRules(clientOlder = true)
-            is GamePong -> Unit
+            is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
         }
         checkHeadGaps()
         flush()
@@ -1312,7 +1327,7 @@ class GameSession(private val connection: GameConnection, private val credential
         streams.keys.forEach { DebugJank.catchUp(it, false) }
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
-        epoch++; connected = false; welcome = false; token = null; connection.disconnect(); sent.clear(); chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear()
+        epoch++; connected = false; welcome = false; resumePing = null; token = null; connection.disconnect(); sent.clear(); chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear()
         recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }

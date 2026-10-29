@@ -46,14 +46,61 @@ class HistoryPlaybackTest {
         val player = HistoryPlayback(tree(listOf(a)))
         player.background()
         player.receive(tree(listOf(a), version = "v1-chat"))
-        player.foreground()
+        player.foreground(); player.caughtUp()
         assertEquals(HistoryMode.LIVE, player.position.mode)
         assertEquals("v1-chat", player.position.displayVersion)
         player.background()
         player.receive(tree(listOf(a, b)))
-        player.foreground() // An unseen node still opens timeline mode on resume.
+        player.foreground(); player.caughtUp() // An unseen node still opens timeline mode on resume.
         assertEquals(HistoryMode.PLAYBACK, player.position.mode)
         assertEquals(id(1), player.position.cursorId)
+    }
+
+    @Test fun leavingPausesLiveSoEventsArrivingAfterReturnStayInTimeline() {
+        val a = node(1, 0); val b = node(2, 1)
+        val player = HistoryPlayback(tree(listOf(a)))
+        player.background()
+        assertEquals(HistoryPosition(id(1), HistoryMode.PLAYBACK, false, "v1"), player.position)
+        assertTrue(player.resumeHeld)
+        player.foreground() // Returning alone decides nothing: the catch-up has not arrived yet.
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+        assertTrue(player.resumeHeld, "Still presented as live at an unchanged head")
+        player.receive(tree(listOf(a, b))) // Reconnect catch-up delivered after ON_START.
+        assertEquals(id(1), player.position.cursorId)
+        assertFalse(player.resumeHeld)
+        player.caughtUp()
+        assertEquals(Triple(id(1), HistoryMode.PLAYBACK, false), player.position.let { Triple(it.cursorId, it.mode, it.playing) })
+        player.caughtUp(); player.foreground()
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode, "The decision is made once")
+    }
+
+    @Test fun returnWithoutNewNodesGoesLiveSilentlyOnlyOnceCaughtUpInForeground() {
+        val a = node(1, 0); val b = node(2, 1)
+        val player = HistoryPlayback(tree(listOf(a)))
+        player.background()
+        player.caughtUp() // Still away: no decision.
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+        player.foreground(); player.caughtUp()
+        assertEquals(HistoryPosition(id(1), displayVersion = "v1"), player.position)
+        assertFalse(player.resumeHold)
+        player.receive(tree(listOf(a, b)))
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals(id(2), player.position.cursorId)
+    }
+
+    @Test fun playerTimelineIsNotAReturnPauseAndPlayerActionsEndThePause() {
+        val a = node(1, 0); val b = node(2, 1)
+        val reviewing = HistoryPlayback(tree(listOf(a)))
+        reviewing.scrub(id(0)); reviewing.background(); reviewing.foreground()
+        assertFalse(reviewing.resumeHold)
+        reviewing.receive(tree(listOf(a, b))); reviewing.scrub(id(2)); reviewing.caughtUp()
+        assertEquals(HistoryMode.PLAYBACK, reviewing.position.mode, "Only the player leaves their own timeline")
+        val held = HistoryPlayback(tree(listOf(a)))
+        held.background(); held.foreground()
+        held.scrub(id(0))
+        assertFalse(held.resumeHold)
+        held.scrub(id(1)); held.caughtUp()
+        assertEquals(HistoryMode.PLAYBACK, held.position.mode)
     }
 
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
@@ -123,7 +170,7 @@ class HistoryPlaybackTest {
         val playback = HistoryPlayback(tree(emptyList(), version = "predicted-a"))
         playback.background()
         playback.receive(tree(listOf(a), version = "predicted-a"))
-        playback.foreground()
+        playback.foreground(); playback.caughtUp()
         assertEquals(HistoryMode.LIVE, playback.position.mode)
         assertEquals(id(1), playback.position.cursorId)
         playback.scrub(id(0)); playback.background()

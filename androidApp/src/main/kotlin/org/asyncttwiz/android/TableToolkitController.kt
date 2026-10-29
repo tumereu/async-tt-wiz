@@ -537,6 +537,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             if (!table.enabled(intent.scope)) return false
             return performCombatDamage(intent)
         }
+        // Deliberately NOT one batch: two events; Declare blockers stays a timeline point (rules v29).
+        if (intent is TableActionIntent.Combat && intent.tool == CombatTool.ASSUME_NO_BLOCKS) {
+            if (!table.enabled(intent.scope)) return false
+            return assumeNoBlocks().also { refreshAttackSelection() }
+        }
         val multiple = when (intent) {
             is TableActionIntent.Bundle, is TableActionIntent.Combat -> true
             is TableActionIntent.Untap -> intent.cardIds.size + (if (intent.advance) 1 else 0) > 1
@@ -578,9 +583,23 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN))
             }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
+            CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
             CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
         }
+    }
+    /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
+    private fun assumeNoBlocks(): Boolean {
+        if (draft != null) return false
+        current()?.takeIf { enabled() && TurnPosition.of(it.board.turn) == TurnPosition.DECLARE_ATTACKERS } ?: return false
+        if (!submit(PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS), null)) return false
+        return submit(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), null)
+    }
+    /** [CombatDamage.recentDamageEdits] for [play] along the displayed history tree (bounded walk, no replay). */
+    fun combatDamageEdits(play: PlayState): Int {
+        if (TurnPosition.of(play.board.turn) != TurnPosition.COMBAT_DAMAGE || play.board.combat == null) return 0
+        val nodes = playTree?.invoke()?.nodes ?: return 0
+        return CombatDamage.recentDamageEdits(play, nodes::get)
     }
     // Experimental combat damage: calculate once, publish existing edits in one batch.
     private val combatDamageTools = setOf(CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE,

@@ -1,0 +1,1 @@
+add: After declaring attackers, an "Assume no blocks" button moves on to Declare blockers and then to Combat damage as two separate steps, so your opponent can still go back to Declare blockers in the timeline and block.

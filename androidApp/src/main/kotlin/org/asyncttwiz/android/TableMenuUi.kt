@@ -56,6 +56,7 @@ internal fun menuIcon(name: String): ImageVector {
         n == "skip combat" -> Icons.Outlined.FastForward
         n == "no attack" -> Icons.Outlined.Block
         n == "no blocks + next" -> Icons.Outlined.Shield
+        n == "assume no blocks" -> Icons.Outlined.RemoveModerator
         n.startsWith("close player") || n == "close" || n.startsWith("close card") -> Icons.Outlined.Close
         n == "cancel" -> Icons.Outlined.Close
         n == "dismiss" -> Icons.Outlined.VisibilityOff

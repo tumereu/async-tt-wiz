@@ -6,7 +6,7 @@ import java.security.SecureRandom
 data class TableActionScope(val gameId: String, val playId: String)
 data class TurnPlayerTargets(val accountId: String, val battlefieldId: String, val libraryId: String, val handId: String)
 enum class LibraryTool { CONTENTS, DRAW_N, VIEW, REVEAL, SHUFFLE, MULLIGAN_N, MULLIGAN_MINUS_ONE }
-enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLOSE, NO_ATTACK,
+enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLOSE, NO_ATTACK, ASSUME_NO_BLOCKS,
     // Experimental combat-damage shortcuts.
     DEAL_DAMAGE, FIRST_STRIKE_DAMAGE, REGULAR_DAMAGE, DAMAGE_CLOSE_AND_NEXT }
 enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT }

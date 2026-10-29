@@ -1,0 +1,1 @@
+mod: When you defend, the combat area is shown from your side: attackers on top, your blockers below them, and the target names at the bottom.

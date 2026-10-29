@@ -185,11 +185,12 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                         Avatar(game.opponent(accountId))
                         Column(Modifier.weight(1f)) {
                             Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
+                            if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Text("${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameDate(game)}",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
-                        if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         EntryIcon(null, "chevron")
                     }
                 }

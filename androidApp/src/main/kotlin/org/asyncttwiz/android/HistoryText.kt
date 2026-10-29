@@ -308,12 +308,17 @@ internal const val HISTORY_RANGE_TEXT_MAX = 180
 /** A group's text. A group of only card moves lists every card the viewer could see ("Shock, Opt, 2 cards:
  * Library → Hand"); unseen cards collapse into "N cards". Any other group reads as its representative event. */
 internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>,
+    fallback: (String) -> HistoryText? = { null }): HistoryText =
+    historyGroupText(range.nodeIds, range.representativeId ?: range.targetId, texts, fallback)
+
+/** [historyRangeText] for a group given as its event ids (oldest first) and representative event. */
+internal fun historyGroupText(nodeIds: List<String>, representativeId: String, texts: Map<String, HistoryText>,
     fallback: (String) -> HistoryText? = { null }): HistoryText {
     fun text(id: String) = texts[id] ?: fallback(id)
-    val representative = text(range.representativeId ?: range.targetId) ?: HistoryText("Table changed", "Change")
-    if (range.nodeIds.size < 2) return representative
-    val moves = ArrayList<HistoryText>(range.nodeIds.size)
-    for (id in range.nodeIds) moves += text(id)?.takeIf { it.move != null } ?: return representative
+    val representative = text(representativeId) ?: HistoryText("Table changed", "Change")
+    if (nodeIds.size < 2) return representative
+    val moves = ArrayList<HistoryText>(nodeIds.size)
+    for (id in nodeIds) moves += text(id)?.takeIf { it.move != null } ?: return representative
     val description = moves.groupBy { it.move!!.route }.entries.joinToString("; ") { (route, group) ->
         historyMoveText(historyMoveSubjects(group.map { it.move!!.subject }), route)
     }

@@ -3,6 +3,14 @@
 Status: generic engine boundary confirmed; detailed coverage and per-action
 schemas proposed. MTG examples are uses of primitives, not recognized mechanics.
 
+**Both players, every action:** every action in this catalog is available to
+either player on either player's cards, zones, panels and piles, per the
+[Tier 1 cooperation rule](../01-product/overview.md#the-rules-a-player-should-be-able-to-learn-once)
+(rule 7, owner policy 2026-10-29). Quick actions/defaults may differ by actor and
+the opponent's hidden information is not shown by default, but no action is
+refused because of who performs it. Owner routing, membership and history rules
+are not permission rules.
+
 **Initial-delivery scope (D-182):** making game actions and shared controls
 requires a connection, including new random actions and Undo. Downloaded history
 is readable offline, but there is no offline action creation/queue replay. Online
@@ -438,16 +446,17 @@ Hands, library order, and face-down cards are covered by default in ordinary
 table presentation. Either participant can explicitly inspect them. Show a clear
 trust-model explanation during setup and on first hidden-zone inspection.
 
-A card whose face the viewer cannot see shows no values anywhere (P/T, EOT P/T,
-damage, notes, counters; menus show "—") and offers no value edits: its stored
-values may be printed defaults. Exception (rules v23): a face-down Battlefield card
+A card whose face the viewer cannot see shows no values anywhere by default (P/T,
+EOT P/T, damage, notes, counters; menus show "—"): its stored values may be
+printed defaults. Its value edits remain available and act blind, without
+showing the resulting value. Exception (rules v23): a face-down Battlefield card
 (morph/manifest/disguise/cloak) has a PUBLIC 2/2 corner, and its P/T, counters,
 damage and notes are visible to and editable by both players. Turning it face up
 resets the corner to the shown face's printed default; other marks stay.
 
-Face-down casting (rules v24): Hand menu "Face down" moves the selected own hand
-cards themselves (not projections, which would reveal a hand source) onto the
-Stack top face down, one batch (`MoveCard` with `faceDown = true`). A face-down
+Face-down casting (rules v24): Hand menu "Face down" moves the selected hand
+cards (either player's Hand) themselves (not projections, which would reveal a
+hand source) onto the Stack top face down, one batch (`MoveCard` with `faceDown = true`). A face-down
 card moving Stack -> Battlefield without an explicit `faceDown` stays face down
 and gets the public 2/2 (every resolve path: bubbles, Manage Stack, drag); other
 destinations from the Stack turn it face up as before. Library menu "Manifest top"
@@ -456,10 +465,11 @@ move. No step discloses the face. Retained v23 events replay as recorded.
 Being always a 2/2 permanent, a face-down cast then auto-resolves to the owner's
 non-land Battlefield row exactly like a permanent hand double-tap: a separate
 history group (the opponent's playback pauses at the Stack entry) in the same
-batch/invocation, so one Undo removes both. An opponent never sees a face-down
-card's front (any zone except Hand/Library, not even via Inspect other side); own
-side follows D-252 (zone holder, or owner on the Stack), whose inspector marks
-the art "Face down".
+batch/invocation, so one Undo removes both. An opponent is not shown a face-down
+card's front by default (any zone except Hand/Library; holds keep it covered).
+The deliberate, logged Inspect other side shows it; either player can also act
+on it blind or turn it face up. Own side follows D-252 (zone holder, or owner on
+the Stack), whose inspector marks the art "Face down".
 
 Temp pile (rules v23): each player has one hidden "Temp" pile (a LIBRARY-zone
 container flagged `temp`, never that player's Library) for effects such as "put

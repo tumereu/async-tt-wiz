@@ -783,7 +783,7 @@ reproduce cards. Piles always show backs, no marker.
 At most ONE shared Search/Look/Reveal panel exists game-wide, across both players;
 the server enforces it and opening UI only greys controls (also N… confirm), without
 errors. One local Graveyard/Exile view per viewer is additional and invisible to
-the opponent. Look/Reveal reorder and are resolved by their initiator via Top,
+the opponent. Either player reorders and resolves Look/Reveal via Top,
 Bottom (panel order), Shuffle, Graveyard or Exile. Last-card departure closes any
 panel in the same event; local pile views close when empty. Reveal visibility ends
 on leaving the panel, with no retained reveal in Hand/Library. Only the author
@@ -971,7 +971,7 @@ and readable summaries; no arbitrary scripts or unvalidated database blobs.
 **Panel-reference supersession (r8–r11):** panel entries leave when their real card
 leaves the panel; last departure closes it in the same event. No moved-card entry
 with an updated location and no either-player dismiss or retained reveal badge.
-The initiator resolves remaining Look/Reveal cards; local pile views close empty.
+Either player resolves remaining Look/Reveal cards; local pile views close empty.
 This replaces tray-lifetime cells below only, not card/projection/link identity.
 
 This matrix completes S-07 from existing identity, cleanup, D-47/D-238/D-242 and

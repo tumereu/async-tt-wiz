@@ -9,13 +9,14 @@ On tight screens only the grid scrolls, keeping the header fixed and the card un
 Paging the same card reserves the tallest page's rows, leaving unused rows empty;
 neither the header nor the grid's top edge moves. Discard (including random) uses
 the Graveyard icon; Play has a distinct card-onto-table icon.
-Own Hand cards instead have Hand (Inspect, Play, Reveal, Discard, Exile, Library
-top/bottom, Shuffle into library) and Random (discard/reveal/exile/library bottom)
-pages. Play uses the hand double-tap behavior, atomically for multiselection.
+Hand cards (in either player's Hand) instead have Hand (Inspect, Play, Reveal,
+Discard, Exile, Library top/bottom, Shuffle into library) and Random (discard/
+reveal/exile/library bottom) pages. Play uses the hand double-tap behavior,
+atomically for multiselection.
 Reveal opens the shared Reveal tray for the pressed card or selected hand cards.
 Cards remain references in their source Hand: moving even back to Hand expires
-their tray visibility; an empty tray closes automatically. Author-only Done closes
-the tray in one event, returning all remaining references without reordering Hand.
+their tray visibility; an empty tray closes automatically. Done (either player)
+closes the tray in one event, returning all remaining references without reordering Hand.
 Random actions sample one selected hand card, or the whole Hand if selection is
 empty, using fresh independent 32-byte entropy and the `hand-pick-v1` domain
 (`async-tt-wiz/hand-pick/v1\0`), never shuffle/reseed entropy. The event records the
@@ -880,17 +881,19 @@ ordinary movement/reset rules are unchanged.
   Either participant can use all actions, including Mulligan, on either Library;
   actual card destinations obey owner-only zone routing.
 - Look, Reveal and Search use ONE shared, server-authoritative left-edge panel
-  model. Cards have per-card visibility: private faces only to the initiator,
-  backs/count to the other viewer; Reveal starts all face up. At most ONE such
-  panel is open in the whole game. While open, both libraries' Look/Reveal/Search
-  controls, including N… confirm, are only greyed out—no error/snackbar. The server
+  model. Cards have per-card visibility: by default private faces show only to
+  the initiator and backs/count to the other viewer, who can still act on them
+  blind; Reveal starts all face up. At most ONE such panel is open in the whole
+  game. While open, both libraries' Look/Reveal/Search controls, including N…
+  confirm, are only greyed out—no error/snackbar. The server
   enforces the invariant as a safety net. Continuous top-card reveals are excluded.
 - Header: icon, title, total count, ✕. Cards are Stack-card size in row-major order
   (left→right, top→bottom; position 1 is Library top). Use the fewest columns that
   fit all cards without scrolling, up to three in either orientation; then scroll.
   The panel spans the life rows; hands shrink sideways while any panel is open.
-  Search is private, sorted by type then name, copies grouped BY NAME as ×N;
-  dragging takes one. Closing Search shuffles and records one display group.
+  Search shows faces only to the initiator by default, sorted by type then name,
+  copies grouped BY NAME as ×N; dragging takes one. Closing Search shuffles and
+  records one display group.
   Look/Reveal retain top-N order and allow in-panel insertion reordering; Search
   does not reorder. Drag outside moves the card; an insertion bar previews reorder.
 - Tap a panel card for one fixed 3×3 floating menu to the panel's right, aligned
@@ -901,9 +904,10 @@ ordinary movement/reset rules are unchanged.
   SEPARATE event/group; ordinary playback pacing provides viewing time, no special
   dwell or second panel. Hold-inspect works on every face-up card live or in the
   timeline; holding pauses playback without entering timeline mode from live.
-- Only the initiator resolves Look/Reveal. Manual ✕ with cards remaining opens
-  one floating rest row at ✕: Top, Bottom (both preserve panel order), Shuffle,
-  Graveyard, Exile. No Bottom(random). The last card leaving Look/Reveal/Search
+- Either player resolves Look/Reveal (see the
+  [both-players rule](../01-product/overview.md#the-rules-a-player-should-be-able-to-learn-once)).
+  Manual ✕ with cards remaining opens one floating rest row at ✕: Top, Bottom
+  (both preserve panel order), Shuffle, Graveyard, Exile. No Bottom(random). The last card leaving Look/Reveal/Search
   closes the panel in the SAME event, without a rest chooser. No retained display
   can be reopened. Reveals do NOT persist: leaving the revealed panel for Hand or
   Library hides the card again. No retained eye/knowledge badge in hands or piles.

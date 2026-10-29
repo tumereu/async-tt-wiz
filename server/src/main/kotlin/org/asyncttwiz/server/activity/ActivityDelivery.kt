@@ -94,8 +94,10 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 val recipient = ActivityTiming.leases(sql, game, owner)
                 val activity = row[PUSH.ACTIVITY_ID]!!
                 if (activity == summary.reminderActivityId) {
-                    // The waiting reminder ignores read progress: opening the game is not an answer.
-                    if (ActivityTiming.present(recipient, time)) sql.deleteFrom(PUSH).where(exact).execute()
+                    // The waiting reminder ignores read progress: opening the game is not an answer; moving is.
+                    if (ActivityTiming.present(recipient, time) || sql.fetchExists(SUMMARY, SUMMARY.ACCOUNT_ID.eq(owner)
+                            .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).and(ActivityService.answered())))
+                        sql.deleteFrom(PUSH).where(exact).execute()
                 } else if (activity > summary.activityId!!) {
                     sql.deleteFrom(PUSH).where(exact).execute() // A reminder whose stretch the recipient answered.
                 } else if (summary.seenThrough!! >= summary.activityId!! || ActivityTiming.present(recipient, time)) {

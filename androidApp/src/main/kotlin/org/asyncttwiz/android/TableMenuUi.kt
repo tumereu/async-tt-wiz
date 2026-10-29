@@ -75,6 +75,7 @@ internal fun menuIcon(name: String): ImageVector {
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
         n.startsWith("temp ") && n.endsWith(" on/off") -> Icons.Outlined.ToggleOn
         n == "temp pile" || tempPileName.matches(n) || n.startsWith("all to temp") -> Icons.Outlined.MoveToInbox
+        n.startsWith("deal to target") -> Icons.Outlined.LocalFireDepartment
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
         "top" in n -> Icons.Outlined.VerticalAlignTop
         "graveyard" in n || n.startsWith("mill") || n.startsWith("discard") -> Icons.Outlined.Inventory2

@@ -37,12 +37,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     }
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
-    val handCard = bound?.let { b -> play.board.cards.singleOrNull { it.id == b.contextViewId } }?.let { card ->
-        play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND }
-    } == true
-    val tools = if (bound != null && handCard) handMenuTools(toolkit, play, bound, selection, names, enabled)
-        else if (bound != null) cardMenuTools(toolkit, play, bound, names, enabled, LocalTableMenuAnnotations.current) +
-        cardExtraTools(toolkit, play, bound, selection, select, names, enabled, selectionEnabled) else emptyList()
+    val annotations = LocalTableMenuAnnotations.current
+    val tools = if (bound == null) emptyList() else cardContextTools(toolkit, play, bound, selection, names, enabled, annotations)
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
         submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
         previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } },
@@ -88,17 +84,15 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             }
         } }
         "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
+            // The source left play: the same combat/effect layout, with source-dependent cells disabled.
+            val layout = if (play.board.stackEffects.any { it.id == bound.contextViewId }) CardMenuLayout.STACK_EFFECT else CardMenuLayout.COMBAT
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
-                MenuControl("Note", enabled) { editProjectionNote(bound.contextViewId) },
-                cardPingTool(toolkit, play, bound, enabled, LocalTableMenuAnnotations.current),
-                 MenuControl("Select / deselect", selectionEnabled) { select(bound.contextViewId) }) +
-                (if (toolkit.tokens.projectionScope != null) listOf(
-                    MenuControl("Link", enabled && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
-                    MenuControl("Links") { toolkit.tokens.links(); toolkit.dismiss() }) else emptyList()) +
-                occurrenceRemovalTools(toolkit, play, bound, enabled)
+                MenuControl("Edit card note", enabled) { editProjectionNote(bound.contextViewId) }) +
+                projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
             CardActionRing(play.gameId, toolkit.viewer, bound.contextViewId, bound.contextViewId,
-                occurrenceTools.map { RingEntry(when (it.name) { "Inspect" -> "inspect"; "Note" -> "note"; else -> it.name }, ringShortLabel(it.name), it) },
-                own = false, OpponentTableColor, toolkit::dismiss)
+                occurrenceTools.map { RingEntry(when (it.name) { "Inspect" -> "inspect"; "Edit card note" -> "note"; else -> it.name },
+                    if (it.name == "Edit card note") "Note" else ringShortLabel(it.name), it) },
+                own = false, OpponentTableColor, toolkit::dismiss, layout)
         }
         "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {
              val source = play.board.cards.singleOrNull { it.id == bound.contextViewId }
@@ -155,6 +149,15 @@ private fun ToolkitDialog(dismiss: () -> Unit, title: String? = null, content: @
     TableMenuPanel(dismiss, title = title, content = content)
 }
 
+/** The tools of the captured context's layout (cells CardActions builds itself are not included). */
+internal fun cardContextTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, selection: TableSelection,
+    names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> =
+    when (CardRingPages.context(play.board, bound.contextViewId)) {
+        CardMenuLayout.HAND -> handMenuTools(toolkit, play, bound, selection, names, enabled)
+        CardMenuLayout.COMBAT, CardMenuLayout.STACK_EFFECT -> projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
+        else -> cardMenuTools(toolkit, play, bound, names, enabled, annotations) + cardExtraTools(toolkit, play, bound, names, enabled)
+    }
+
 /** All tools retain the captured sources and the existing gameplay routes. */
 private fun cardMenuTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> {
@@ -186,52 +189,62 @@ internal fun cardPingTool(toolkit: TableToolkitController, play: PlayState, boun
     }
 }
 
-private fun occurrenceRemovalTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, enabled: Boolean): List<MenuControl> = buildList {
+/** Combat copies and Stack effect markers: only projection controls, never card modifications.
+ * Every cell of both layouts is returned; cells needing a live source are disabled once it left play. */
+internal fun projectionMenuTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
+    names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> {
     val effects = bound.viewIds.filter { id -> play.board.stackEffects.any { it.id == id } }
     val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
-    if (effects.isNotEmpty()) {
-        add(MenuControl("Remove Stack effect", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = effects))) toolkit.dismiss() })
-    }
-    if (combat.isNotEmpty()) {
-        add(MenuControl("Remove from combat", enabled) { if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss() })
-        add(MenuControl("Graveyard", enabled) {
-            toolkit.batch { combat.forEach { toolkit.submit(CombatStackController.graveyard(play.board, it)) } }
+    val live = combat.filter { CombatStackRules.liveSource(play.board, it) != null }
+    val sources = live.mapNotNull { CombatStackRules.liveSource(play.board, it)?.id }.distinct()
+    val moves = if (sources.isEmpty()) emptyList() else basicMoveTools(play, names, enabled, TableScope(sources.first(), sources),
+        bound.sources.filterKeys { it in sources }, toolkit::handle, toolkit::dismiss)
+    fun move(name: String) = moves.firstOrNull { it.name == name } ?: MenuControl(name, false) {}
+    val linking = toolkit.tokens.projectionScope != null
+    return listOf(
+        cardPingTool(toolkit, play, bound, enabled, annotations),
+        MenuControl("Attack →", enabled && CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty()) {
+            toolkit.openAttackTargets()
+        },
+        MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
+            if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss()
+        },
+        MenuControl("Graveyard", enabled && live.isNotEmpty()) {
+            toolkit.batch { live.forEach { toolkit.submit(CombatStackController.graveyard(play.board, it)) } }
             toolkit.dismiss()
-        })
-    }
+        },
+        move("Exile"), move("Hand"),
+        MenuControl("Remove Stack effect", enabled && effects.isNotEmpty()) {
+            if (toolkit.removeOccurrences(bound.copy(viewIds = effects))) toolkit.dismiss()
+        },
+        MenuControl("Link", enabled && linking && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
+        MenuControl("Links", linking) { toolkit.tokens.links(); toolkit.dismiss() }) +
+        combatDamageMenuTools(toolkit, play, bound, enabled)
 }
 
+/** Battlefield/Stack and panel cards. Every cell is supplied, disabled when it does not apply. */
 private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
-    selection: TableSelection, select: (String) -> Unit, names: Map<String, String>, enabled: Boolean,
-    selectionEnabled: Boolean): List<MenuControl> = buildList {
-    add(MenuControl("Select / deselect", selectionEnabled, selected = bound.contextViewId in selection.ids) { select(bound.contextViewId) })
-    if (CombatStackRules.occurrences(play.board.combat).any { it.id == bound.contextViewId } ||
-        selection.mode == TableMode.SELECT && play.board.cards.any { card -> card.id == bound.contextViewId &&
-            play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) for (tapped in listOf(true, false))
-        add(MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
-            if (toolkit.handle(TableIntent.Rotate(TableScope(bound.contextViewId, bound.viewIds), tapped, bound.sources))) toolkit.dismiss()
-        })
-    if (bound.sourceIds.any { id -> play.board.cards.any { it.id == id && it.token } })
-        add(MenuControl("Remove token", enabled) {
-            if (toolkit.tokens.scope != null) {
-                toolkit.batch { toolkit.tokens.removeTokens() }; if (toolkit.tokens.error == null) toolkit.dismiss()
-            } else {
-                toolkit.submitAll(bound.sourceIds.filter { id -> play.board.cards.any { it.id == id && it.token } }.map { PlayAction.RemoveToken(it) })
-                toolkit.dismiss()
-            }
-        })
-    if (toolkit.tokens.projectionScope != null && bound.sourceIds.isNotEmpty())
-        add(MenuControl("Source actions") { toolkit.openCard(TableScope(bound.sourceIds.first(), bound.sourceIds)) })
-    addAll(occurrenceRemovalTools(toolkit, play, bound, enabled))
+    names: Map<String, String>, enabled: Boolean): List<MenuControl> = buildList {
+    val tokens = bound.sourceIds.filter { id -> play.board.cards.any { it.id == id && it.token } }
+    fun removeTokens() {
+        if (toolkit.tokens.scope != null) {
+            toolkit.batch { toolkit.tokens.removeTokens() }; if (toolkit.tokens.error == null) toolkit.dismiss()
+        } else {
+            toolkit.submitAll(tokens.map { PlayAction.RemoveToken(it) })
+            toolkit.dismiss()
+        }
+    }
+    add(MenuControl("Remove token", enabled && tokens.isNotEmpty()) { removeTokens() })
+    // A declared attacker retargets its attacker copies, exactly like the copy's own "Attack →".
+    val attackers = play.board.combat?.pairs.orEmpty().flatMap { it.attackers }.filter { it.sourceId in bound.sourceIds }.map { it.id }
+    add(MenuControl("Attack →", enabled && attackers.isNotEmpty()) { toolkit.openAttackTargets(attackers) })
     addAll(combatDamageMenuTools(toolkit, play, bound, enabled))
-    if (CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty())
-        add(MenuControl("Attack →", enabled) { toolkit.openAttackTargets() })
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),
         bound.sources, toolkit::handle, toolkit::dismiss))
-    if (tempPileMovable(play, bound.sourceIds, 1).isNotEmpty())
-        add(MenuControl("Temp pile", enabled) { toolkit.toTemp(bound.sourceIds, 1) })
-    if (play.board.combat != null) for (destination in CombatStackPresentation.combat(play.board, 48f, 68f).destinations)
-        add(MenuControl(destination.label, enabled) { if (toolkit.place(bound, destination.destination)) toolkit.dismiss() })
+    // Moving a token into a library destroys it.
+    if (play.board.cards.any { it.id == bound.sourceIds.firstOrNull() && it.token })
+        for (name in listOf("Library top", "Library bottom", "Shuffle into library")) add(MenuControl(name, enabled && tokens.isNotEmpty()) { removeTokens() })
+    addAll(tempPileTools(toolkit, play, bound.sourceIds, enabled))
 }
 
 /** The same targets, in the same order, as the combat area's lanes. */

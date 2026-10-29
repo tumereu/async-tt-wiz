@@ -118,46 +118,42 @@ class CardRingScreenshotTest {
     fun landscapeEveryPageMiddleHandAndOpponent() { matrix("892x412-font1.3", true, 1.3f) }
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private fun handPaging(landscape: Boolean) {
+    private fun handPage(landscape: Boolean) {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        CardRingPageStore(context, f.a, f.game.id).write(0)
+        CardRingPageStore(context, f.a, f.game.id).write(1, CardMenuLayout.HAND)
         val play = f.initial
         val hand = play.board.containers.single { it.accountId == f.a && it.zone == PlayZone.HAND }
         val cardId = hand.cards.first()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> error("Paging must remain local") })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> error("Opening must remain local") })
         toolkit.openCard(TableScope(cardId, listOf(cardId)))
         compose.setContent { MaterialTheme {
             TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit)
         } }
         compose.mainClock.advanceTimeBy(350)
-        val popup = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
-        val header = compose.onNodeWithContentDescription("Choose action page").fetchSemanticsNode().boundsInRoot
-        val firstRow = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot.top
-        fun assertPage(name: String, firstAction: String) {
-            compose.onNodeWithContentDescription("Card action grid").assertIsDisplayed()
-            assertEquals(popup, compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot)
-            assertEquals(header, compose.onNodeWithContentDescription("Choose action page").fetchSemanticsNode().boundsInRoot)
-            assertEquals(firstRow, compose.onNodeWithContentDescription(firstAction).fetchSemanticsNode().boundsInRoot.top)
-            val file = File("build/outputs/roborazzi/ring-hand-$name-${if (landscape) "landscape" else "portrait"}.png")
-            file.parentFile!!.mkdirs()
-            captureScreenRoboImage(file.path)
+        // One page: no header, and a stale stored page index clamps to it.
+        compose.onNodeWithContentDescription("Card action grid").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next page").assertDoesNotExist()
+        val inspect = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
+        for ((index, name) in CardRingPages.hand.single().actions.withIndex()) {
+            val label = if (name == "inspect") "Inspect" else name
+            val bounds = compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals(inspect.left + index % 5 * (inspect.width + 2f), bounds.left, .1f)
         }
-        assertPage("hand", "Inspect")
-        compose.onNodeWithContentDescription("Next page").performTouchInput { advanceEventTime(350); click() }
-        assertPage("random", "Discard random")
-        compose.onNodeWithContentDescription("Previous page").performClick()
-        assertPage("hand", "Inspect")
-        compose.onNodeWithContentDescription("Choose action page").performClick()
-        compose.onNodeWithContentDescription("Random page").performClick()
-        assertPage("random", "Discard random")
-        compose.onNodeWithContentDescription("Choose action page").performClick()
-        compose.onNodeWithContentDescription("Hand page").performClick()
-        assertPage("hand", "Inspect")
+        val file = File("build/outputs/roborazzi/ring-hand-${if (landscape) "landscape" else "portrait"}.png")
+        file.parentFile!!.mkdirs()
+        captureScreenRoboImage(file.path)
     }
 
-    @Test fun handPagesKeepHeaderAndGridFixedPortrait() { handPaging(false) }
+    @Test fun handPageHasNoHeaderAndFixedCellsPortrait() { handPage(false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun handPagesKeepHeaderAndGridFixedLandscape() { handPaging(true) }
+    fun handPageHasNoHeaderAndFixedCellsLandscape() { handPage(true) }
+}
+
+/** First press on a single-page ring (no page header): past the uptime guard like [ringPage]. */
+internal fun ComposeContentTestRule.ringClick(description: String) {
+    mainClock.advanceTimeBy(350)
+    onNodeWithContentDescription(description).performTouchInput { advanceEventTime(350); click() }
 }
 
 internal fun ComposeContentTestRule.ringPage(page: Int) {

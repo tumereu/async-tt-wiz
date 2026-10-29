@@ -35,13 +35,7 @@ internal fun TableActionsScreen(game: GameSummary, play: PlayState, viewer: Stri
     if (card != null) {
         val manual = remember(play.id, captured) { ManualActions().apply { cards(play, card.id, requireNotNull(captured.scope).cardIds) } }
         if (manual.scope == null) { SideEffect(dismiss); return }
-        val rotate = if (selection.mode == TableMode.SELECT && item.zone == PlayZone.BATTLEFIELD && !item.projection) listOf(true, false).map { tapped ->
-            MenuControl(if (tapped) "Tap selected scope" else "Untap selected scope", enabled) {
-                if (request(TableIntent.Rotate(requireNotNull(captured.scope), tapped))) dismiss()
-            }
-        } else emptyList()
-        val tools = listOf(MenuControl("Select / deselect", selected = card.id in selection.ids) { select(card.id) }) + rotate +
-            basicMoveTools(play, names, enabled, requireNotNull(captured.scope), captured.sources, request, dismiss)
+        val tools = basicMoveTools(play, names, enabled, requireNotNull(captured.scope), captured.sources, request, dismiss)
         ManualActionsHost(play, viewer, manual, enabled, landscape, names, tools = tools, inspect = { inspect(card.id) }) {
             submit(it, UUID.randomUUID().toString())
         }
@@ -123,8 +117,9 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
         if (request(TableIntent.Batch(intents, invocation))) dismiss()
     })
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }
-    if (scope.cardIds.all { id -> CombatStackRules.liveSource(play.board, id)?.let {
-            CombatStackRules.canProject(play.board, it) } == true }) add(MenuControl("Move to Stack", enabled) {
+    // Always shown; disabled where a card cannot go to the Stack (or is already there).
+    add(MenuControl("Move to Stack", enabled && current.zone != PlayZone.STACK && scope.cardIds.all { id ->
+        CombatStackRules.liveSource(play.board, id)?.let { CombatStackRules.canProject(play.board, it) } == true }) {
         if (request(TableIntent.Move(scope, TableDestination.Container(stack.id, stack.zone), sources))) dismiss()
     })
 }

@@ -362,13 +362,14 @@ class TableScreenshotTest {
         compose.onNodeWithContentDescription("Mulligan −1").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun moreOverflowKeepsStackDestinationReachable() {
-        val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(4)
-        compose.onNodeWithContentDescription("Move to Stack").performClick()
-        assertEquals(null, toolkit.manual.scope)
-        assertTrue(sent.any { it is PlayAction.Stack && it.action is StackAction.AddEffect })
-        assertTrue(sent.none { it is PlayAction.MoveCard && it.destination.containerId == "stack" })
+    @Test fun battlefieldMenuHasExactlyItsThreePages() {
+        val (_, sent) = menu("card-actions", false)
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
+        for (name in listOf("Everyday", "Counters", "More")) compose.onNodeWithContentDescription("$name page").assertExists()
+        compose.onNodeWithContentDescription("More 2 page").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Move to Stack").assertDoesNotExist()
+        assertTrue(sent.isEmpty())
     }
 }
 

@@ -1,0 +1,1 @@
+mod: Card menus have a fixed layout for each kind of card: battlefield cards keep three pages, while combat copies, Stack effects, hand cards and cards in panels have one page each. Buttons that don't apply are greyed out instead of hidden, and the combat placement buttons are gone (drag cards instead)

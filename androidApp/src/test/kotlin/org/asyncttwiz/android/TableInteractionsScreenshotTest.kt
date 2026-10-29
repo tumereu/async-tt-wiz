@@ -56,9 +56,9 @@ class TableInteractionsScreenshotTest {
         }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         capture("menu-${width.toInt()}x${height.toInt()}-font$font")
-        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 4 to "Move to Stack")) {
+        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Temp 1")) {
             compose.ringPage(page)
-            compose.onNodeWithContentDescription(label).assertIsDisplayed()
+            compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed()
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= (if (label.startsWith("Decrease")) 24f else 48f) && bounds.height >= 48f, "$label retains its widget target")
         }

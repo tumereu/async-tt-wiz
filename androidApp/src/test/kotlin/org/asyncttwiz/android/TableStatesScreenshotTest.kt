@@ -365,7 +365,8 @@ class TableStatesScreenshotTest {
     @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
     private fun assertNoStackTapControls(kind: String) {
         val sent = render(kind, false)
-        compose.ringPage(3)
+        // A Stack card has the three battlefield pages; an effect marker has one page without a header.
+        if (kind == "stack-menu-card") compose.ringPage(3)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
         assertTrue(sent.isEmpty())

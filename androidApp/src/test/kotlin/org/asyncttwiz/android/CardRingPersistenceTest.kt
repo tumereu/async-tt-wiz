@@ -27,4 +27,17 @@ class CardRingPersistenceTest {
         first.write(-1)
         assertEquals(0, first.read())
     }
+
+    @Test fun eachLayoutRemembersItsOwnPage() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("card-ring-pages", Context.MODE_PRIVATE).edit().clear().commit()
+        val store = CardRingPageStore(context, "alice", "game")
+        store.write(2)
+        assertEquals(0, store.read(CardMenuLayout.HAND))
+        store.write(5, CardMenuLayout.HAND)
+        assertEquals(2, store.read())
+        assertEquals(2, store.read(CardMenuLayout.CARD))
+        assertEquals(5, store.read(CardMenuLayout.HAND))
+        assertEquals(0, store.read(CardMenuLayout.PANEL))
+    }
 }

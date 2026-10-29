@@ -5,40 +5,70 @@ import android.content.Context
 /** Personal layout data; action identifiers are independent of their short visual labels. */
 internal data class CardRingPage(val name: String, val actions: List<String>)
 internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
+
+/** One fixed layout per context. A layout applies fully: every cell is always shown (disabled when it does not apply). */
+internal enum class CardMenuLayout { CARD, COMBAT, STACK_EFFECT, HAND, PANEL }
+
 internal object CardRingPages {
     const val columns = 5
     const val capacity = 25
-    val defaults = listOf(
+    /** Owner proposal under playtest: cards in panels get their own one-page layout; false falls back to [CardMenuLayout.CARD]. */
+    const val panelLayout = true
+    val tempPiles = listOf("Temp 1", "Temp 2", "Temp 3", "Temp 4")
+    private val libraryMoves = listOf("Library top", "Library bottom", "Shuffle into library")
+
+    /** Battlefield, Stack, token and face-down cards. */
+    val card = listOf(
         CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
-            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
-            "damage", "eotCorner")),
+            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand") + libraryMoves + listOf("damage", "eotCorner", "Battlefield")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.chunked(2).flatMapIndexed { row, colors ->
             colors.map { "counter/${it.name}" } + listOf("note", "eotNote", "resetCounters")[row]
         }),
-        CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink", "eotNote",
+        CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
-            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "Temp pile",
-            "keywords", "eotKeywords")))
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1",
+            "keywords", "eotKeywords") + tempPiles + listOf("Deal to target", "Deal to target or creatures")))
+    /** Attacker/blocker copies in the combat area: combat-only, nothing that modifies the real card. */
+    val combat = listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat",
+        "Graveyard", "Exile", "Hand", "Deal to target", "Deal to target or creatures", "Link", "Links")))
+    /** Ability markers on the Stack. */
+    val stackEffect = listOf(CardRingPage("Effect", listOf("inspect", "note", "Ping / Unping", "Remove Stack effect", "Link", "Links")))
+    val hand = listOf(CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile") +
+        libraryMoves + tempPiles + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
+    /** Search, look, reveal, graveyard, exile and Temp contents. */
+    val panel = listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping", "Hand", "Battlefield", "Move to Stack",
+        "Graveyard", "Exile") + libraryMoves + tempPiles))
 
-    val hand = listOf(
-        CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library")),
-        CardRingPage("Random", listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
+    /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */
+    fun pages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
+        CardMenuLayout.CARD -> card.mapIndexed { index, page -> if (index != 0) page else page.copy(actions = page.actions.map { id ->
+            when {
+                id == "Declare without tapping" && attacker -> "Attack →"
+                id == "Hand" && token -> "Remove token"
+                else -> id
+            }
+        }) }
+        CardMenuLayout.COMBAT -> combat
+        CardMenuLayout.STACK_EFFECT -> stackEffect
+        CardMenuLayout.HAND -> hand
+        CardMenuLayout.PANEL -> if (panelLayout) panel else pages(CardMenuLayout.CARD, token, attacker)
+    }
 
-    private fun defaultLayout(available: List<String>, token: Boolean) = defaults.mapIndexed { index, page ->
-        when (index) {
-            0 -> page.copy(actions = page.actions.map { id ->
-                when {
-                    id == "Declare without tapping" && "Attack →" in available -> "Attack →"
-                    id == "Clone" && "Remove from combat" in available -> "Remove from combat"
-                    token && id == "Hand" -> if ("Remove token" in available) "Remove token" else "empty/Hand"
-                    token && id in listOf("Library top", "Library bottom", "Shuffle into library") -> "empty/$id"
-                    else -> id
-                }
-            })
-            2 -> page.copy(actions = page.actions.map { if (it in available || it.startsWith("empty/")) it else "empty/$it" })
-            else -> page
+    /** Projections get their combat/effect layouts; a real card's zone picks the rest. */
+    fun context(board: org.asyncttwiz.protocol.BoardState, viewId: String): CardMenuLayout? {
+        if (board.stackEffects.any { it.id == viewId }) return CardMenuLayout.STACK_EFFECT
+        if (org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }) return CardMenuLayout.COMBAT
+        val card = board.cards.singleOrNull { it.id == viewId } ?: return null
+        return when (board.containers.singleOrNull { it.id == card.containerId }?.zone) {
+            org.asyncttwiz.protocol.PlayZone.HAND -> CardMenuLayout.HAND
+            org.asyncttwiz.protocol.PlayZone.BATTLEFIELD, org.asyncttwiz.protocol.PlayZone.STACK, null -> CardMenuLayout.CARD
+            else -> if (panelLayout) CardMenuLayout.PANEL else CardMenuLayout.CARD
         }
     }
+
+    /** True when [cardIds] include a source with an attacker copy in the current combat. */
+    fun declaredAttacker(board: org.asyncttwiz.protocol.BoardState, cardIds: Collection<String>) =
+        board.combat?.pairs.orEmpty().any { pair -> pair.attackers.any { it.sourceId in cardIds } }
 
     fun span(id: String) = if (id in listOf("corner", "corner/counters", "damage", "eotCorner") ||
         org.asyncttwiz.protocol.CounterColor.entries.any { id == "counter/${it.name}" }) 2 else 1
@@ -53,43 +83,17 @@ internal object CardRingPages {
         }
     }
 
-    fun resolve(available: List<String>, pages: List<CardRingPage>? = null, token: Boolean = false, inHand: Boolean = false): List<CardRingPage> {
-        if (inHand) return hand.map { page -> page.copy(actions = page.actions.filter { it in available }) }
-        val requested = pages ?: defaultLayout(available, token)
-        val remaining = available.toMutableSet()
-        val assigned = requested.map { page -> page.actions.distinct().filter {
-            remaining.remove(it)
-            it in available || pages == null && it.startsWith("empty/")
-        } }.toMutableList()
-        // Saved layouts retain their original capacity; the new default More is exactly four rows.
-        if (pages != null) assigned[2] = assigned[2] + remaining
-        val result = requested.map { it.copy(actions = emptyList()) }.toMutableList()
-        val overflow = mutableListOf<String>()
-        for ((index, actions) in assigned.withIndex()) for (action in actions) {
-            if (fits(result[index].actions + action)) result[index] = result[index].copy(actions = result[index].actions + action)
-            else overflow += action
-        }
-        if (pages == null) overflow += remaining
-        for (action in overflow) {
-            // Overflow never fills unrelated Everyday/Counter cells or creates Move pages.
-            var index = result.lastIndex
-            if (index < 2 || pages == null && index == 2 || !fits(result[index].actions + action)) {
-                result += CardRingPage("More ${result.size - 1}", emptyList())
-                index = result.lastIndex
-            }
-            result[index] = result[index].copy(actions = result[index].actions + action)
-        }
-        return result
-    }
-    private fun fits(actions: List<String>) = layout(actions).last().let { it.cell + it.span <= capacity }
+    fun fits(actions: List<String>) = actions.isEmpty() || layout(actions).last().let { it.cell + it.span <= capacity }
     fun adjacent(selected: Int, delta: Int, count: Int) = (selected + delta).mod(count)
 }
 
 internal class CardRingPageStore(context: Context, account: String, game: String) {
     private val preferences = context.applicationContext.getSharedPreferences("card-ring-pages", Context.MODE_PRIVATE)
     private val key = "${account.length}:$account:$game"
-    fun read() = preferences.getInt(key, 0).coerceAtLeast(0)
-    fun write(page: Int) { preferences.edit().putInt(key, page.coerceAtLeast(0)).apply() }
+    // The battlefield layout keeps the original key, so remembered pages survive the layout change.
+    private fun key(layout: CardMenuLayout) = if (layout == CardMenuLayout.CARD) key else "$key/${layout.name}"
+    fun read(layout: CardMenuLayout = CardMenuLayout.CARD) = preferences.getInt(key(layout), 0).coerceAtLeast(0)
+    fun write(page: Int, layout: CardMenuLayout = CardMenuLayout.CARD) { preferences.edit().putInt(key(layout), page.coerceAtLeast(0)).apply() }
 }
 
 /** A press that began during the guard stays inert, even if released after the deadline. */

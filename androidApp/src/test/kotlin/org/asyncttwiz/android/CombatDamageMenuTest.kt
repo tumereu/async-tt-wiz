@@ -32,9 +32,9 @@ class CombatDamageMenuTest {
             MaterialTheme { TableSurface(f.game, state, f.a, false, Modifier.fillMaxSize(), connected = true,
                 toolkit = toolkit, onIntent = toolkit::handle) }
         }
-        compose.ringPage(4)
         compose.onNodeWithContentDescription("Deal to target").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Deal to target or creatures").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Deal to target or creatures").assertIsDisplayed()
+        compose.ringClick("Deal to target or creatures")
         assertEquals(listOf(CombatDamage.assign(state, views).actions), requests)
         assertNull(toolkit.capture)
     }

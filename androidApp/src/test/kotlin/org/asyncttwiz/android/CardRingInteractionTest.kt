@@ -45,29 +45,28 @@ class CardRingInteractionTest {
         return toolkit
     }
 
-    @Test fun realCardMenuHasNoOwnerEntryOnAnyPage() {
+    @Test fun realCardMenuShowsTheOwnerEntryDisabledOnlyOnMore() {
         render()
-        for (page in 1..3) {
+        for (page in 1..2) {
             compose.ringPage(page)
             compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
         }
+        compose.ringPage(3)
+        compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertIsDisplayed().assertIsNotEnabled()
     }
 
-    @Test fun handUsesItsOwnPagesWithoutBattlefieldControlsAndRandomDefaultsToWholeHand() {
+    @Test fun handUsesOneFixedPageWithoutBattlefieldControlsAndRandomDefaultsToWholeHand() {
         val play = f.initial
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         render(play = play, contextId = hand.cards.first())
-        compose.onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
-        compose.onNodeWithContentDescription("Hand page").performClick()
-        for (name in listOf("Inspect", "Play", "Face down", "Reveal", "Discard", "Exile", "Library top", "Library bottom", "Shuffle into library"))
+        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
+        for (name in listOf("Inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top", "Library bottom",
+            "Shuffle into library", "Temp 1", "Discard random", "Reveal random", "Exile random", "Random to library bottom"))
             compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
+        for (name in listOf("Temp 2", "Temp 3", "Temp 4")) compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsNotEnabled()
         for (name in listOf("Set corner", "Edit card note", "Declare without tapping", "Set damage", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
-        compose.onNodeWithContentDescription("Next page").performClick()
-        compose.onNode(hasContentDescription("Action page 2 of 2, Random")).assertExists()
-        for (name in listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom"))
-            compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
-        compose.onNodeWithContentDescription("Discard random").performClick()
+        compose.ringClick("Discard random")
         val action = assertIs<PlayAction.RandomHand>(sent.single())
         assertTrue(action.selectedIds.isEmpty())
         assertTrue(action.cardId in hand.cards)
@@ -98,28 +97,27 @@ class CardRingInteractionTest {
         projectionNoteAndPing(play, f.id("effect"), battlefield = false)
     }
 
-    @Test fun combatProjectionKeepsBattlefieldControlsButTargetsItsOwnNoteAndPing() {
+    @Test fun combatProjectionHasOnlyCombatControlsAndTargetsItsOwnNoteAndPing() {
         projectionNoteAndPing(f.combat(), f.id("attacker1"), battlefield = true)
     }
 
     private fun projectionNoteAndPing(play: PlayState, id: String, battlefield: Boolean) {
         val toolkit = render(play = play, contextId = id)
-        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
-        for (name in listOf("Set corner", if (battlefield) "Attack →" else "Declare without tapping")) {
-            val node = compose.onNodeWithContentDescription(name)
-            if (battlefield) node.assertIsEnabled() else node.assertIsNotEnabled()
-        }
-        compose.onNodeWithContentDescription("Edit card note").performClick()
+        compose.onNodeWithContentDescription(if (battlefield) "Attack →" else "Remove Stack effect").assertIsEnabled()
+        // No card-modifying controls on a projection: those live on the real card.
+        for (name in listOf("Set corner", "Declare without tapping", "Set damage", "Clone", "Stack"))
+            compose.onNodeWithContentDescription(name).assertDoesNotExist()
+        compose.ringClick("Edit card note")
         compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
         compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
         compose.runOnIdle {
             assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(id, "projection note")), sent)
             toolkit.openCard(TableScope(id, listOf(id)))
         }
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Ping / Unping").performClick()
+        compose.ringClick("Ping / Unping")
         compose.runOnIdle {
             assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target)
         }
@@ -132,7 +130,7 @@ class CardRingInteractionTest {
         val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
             if (it.id == source) it.copy(containerId = target.id, placement = if (zone == PlayZone.BATTLEFIELD) it.placement else null) else it
         }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards.filterNot { it == source } +
-            if (container.id == target.id) listOf(source) else emptyList()) }))
+            if (container.id == target.id) listOf(source) else emptyList()) }, combat = null))
         render(play = play)
         compose.ringPage(1)
         fun enabled(name: String, expected: Boolean) {

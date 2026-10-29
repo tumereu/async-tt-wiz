@@ -88,7 +88,8 @@ class CombatDamageActionsTest {
         assertEquals("Combatant: assign manually", toolkit.error)
         assertNull(toolkit.capture)
         val sourceBound = toolkit.bind(TableScope(f.attackerIds.last(), f.attackerIds))!!
-        assertTrue(combatDamageMenuTools(toolkit, f.play, sourceBound, true).isEmpty())
+        // The real cards deal through their own combat copies.
+        assertTrue(combatDamageMenuTools(toolkit, f.play, sourceBound, true).all { it.enabled })
     }
 
     @Test fun firstStrikeQuickActionFiltersDealersButNotRecipientsAndThenTurnsOffMultiselect() {

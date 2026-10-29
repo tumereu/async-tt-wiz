@@ -50,6 +50,19 @@ internal enum class PodSetting(val label: String) {
         SIDEBOARD -> "Minimum 0"
         LIBRARIANS -> "0–10"
     }
+    /** Plain-words meaning shown in the value dialog. */
+    val explanation: String get() = when (this) {
+        PACKS -> "How many packs each player opens during the draft."
+        PACK_SIZE -> "How many cards each pack starts with."
+        KEEP -> "How many cards you take from a pack on each pick."
+        BURN -> "How many extra cards you remove from the pack on each pick. Burned cards go to nobody."
+        DISCARD -> "When a pack has this many cards or fewer left after a pick, the rest are thrown away instead of being passed on. 0 = never."
+        OPEN_PACKS -> "How many packs can be open at the same time, so players don't have to wait for each other."
+        GRIDS -> "How many 3×3 grids are drafted in total."
+        OPEN_GRIDS -> "How many grids can be open at the same time, so players don't have to wait for each other."
+        SIDEBOARD -> "The most cards a deck may have in its sideboard. ∞ = no limit."
+        LIBRARIANS -> "Cogwork Librarians each player starts with. Spend one to take an extra card from a pack; the Librarian goes into that pack."
+    }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     fun apply(s: DraftSettings, value: Int?): DraftSettings = when (this) {
         PACKS -> s.copy(packsPerPlayer = value!!); PACK_SIZE -> s.copy(cardsPerPack = value!!)
@@ -162,6 +175,8 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
         DialogCancelButton("Cancel", dismiss)
         DialogMainButton("Save", confirm, enabled = saveEnabled)
     }) {
+        Text(field.explanation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(input.value, { input.value = it }, Modifier.weight(1f).dialogField(input), enabled = !unlimited, singleLine = true,
                 label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),

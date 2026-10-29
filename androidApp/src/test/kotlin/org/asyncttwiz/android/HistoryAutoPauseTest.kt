@@ -36,7 +36,7 @@ class HistoryAutoPauseTest {
         for (nextAuthor in listOf(me, opponent)) {
             val next = node(PlayAction.RollDie(6, 1), author = nextAuthor, id = "next", parent = attention.id)
             val player = HistoryPlayback(HistoryTree("root", listOf(attention, next), next.id, "v"))
-            player.openFrom("root")
+            player.openFrom("root"); player.play()
             player.next(true, me, setOf(PlaybackAutoPause.ATTENTION), board)
             assertEquals(attention.id, player.position.cursorId)
             assertEquals(nextAuthor == opponent, player.pauseAfterAnimation())
@@ -278,7 +278,7 @@ class HistoryAutoPauseTest {
         val tree = HistoryTree("root", listOf(ping, tap).map { it.copy(bookkeeping = GameplayBookkeeping(null, "branch", group)) } + end,
             end.id, "version")
         val player = HistoryPlayback(tree)
-        player.openFrom("root")
+        player.openFrom("root"); player.play()
         player.next(true, me, board = board)
         assertEquals(tap.id, player.position.cursorId)
         assertTrue(player.position.playing) // Still animating.
@@ -305,7 +305,7 @@ class HistoryAutoPauseTest {
         assertTrue(tree.autoPauseBetween("root", second.id, me, setOf(PlaybackAutoPause.RANDOM), board))
         assertFalse(tree.autoPauseBetween(first.id, second.id, me, PlaybackAutoPause.defaults, board))
         val player = HistoryPlayback(tree)
-        player.openFrom("root"); player.next(true, me, emptySet(), board)
+        player.openFrom("root"); player.play(); player.next(true, me, emptySet(), board)
         assertFalse(player.pauseAfterAnimation())
         player.finishAnimation(second.id)
         assertEquals(HistoryMode.LIVE, player.position.mode)

@@ -55,6 +55,7 @@ class ClientNormalPathScaleTest {
         history.update(tree, "head", viewer = F.a)
         history.displayPosition()
         val player = history.playback!!
+        player.play()
         repeat(5) {
             val events = HistoryTimelineLayout.events(player.tree, tree.currentNodeId) as HistoryTimelineLayout.IndexedHistoryEvents
             val selected = events.positionOf(player.position.cursorId)

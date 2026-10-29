@@ -105,29 +105,38 @@ class HistoryPlayback(initial: HistoryTree,
     private var rollbackPlan: Pair<String, String>? = null
     private var autoPauseCursor: String? = null
     private var finalAnimationCursor: String? = null
+    /** The shown point is off the current head's path because the line was continued differently
+     * (detected on open, resume and receipt while paused). Persists until the rewind passes the
+     * common point or the player scrubs; the Auto button then offers rewind-and-play, not hold-to-branch. */
     var branched by mutableStateOf(false); private set
     /** Leaving the app paused live mode at the shown point; resolved once the return has caught up. */
     var resumeHold by mutableStateOf(false); private set
     /** Held at the head with nothing unseen yet: keep presenting it as live (no timeline flash). */
     val resumeHeld get() = resumeHold && position.mode == HistoryMode.PLAYBACK && position.cursorId == tree.sharedHeadId
-    val transportLocked get() = branched || rollbackPlan != null && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
+    /** Only the running rewind to the common point is locked; a paused pending branch is not. */
+    val transportLocked get() = position.playing && rollbackPlan != null && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
 
-    /** No route list or replay is built up front. A missing/deleted bookmark starts at root. */
+    /** No route list or replay is built up front. A missing/deleted bookmark starts at root.
+     * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. */
     fun openFrom(lastSeen: String?) {
         val cursor = lastSeen?.let { tree.source?.resolveCursor(it) ?: it.takeIf(tree::contains) } ?: tree.rootId
         if (cursor == tree.sharedHeadId) return
-        position = HistoryPosition(cursor, HistoryMode.PLAYBACK, true, tree.version(cursor))
-        planRollback()
+        position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
+        detectBranch()
     }
+    /** Cheap (common-ancestor walk over the divergent part only): never a replay from the root. */
     private fun planRollback(): String {
         if (tree.isAncestor(position.cursorId, tree.sharedHeadId)) return position.cursorId
         rollbackPlan?.takeIf { it.first == tree.sharedHeadId && tree.isAncestor(it.second, position.cursorId) }?.let { return it.second }
         val common = tree.commonAncestor(position.cursorId, tree.sharedHeadId)
         rollbackPlan = tree.sharedHeadId to common
-        branched = common != position.cursorId
         return common
     }
-    fun acknowledgeBranch() { branched = false }
+    private fun detectBranch() {
+        if (position.mode != HistoryMode.PLAYBACK || tree.isAncestor(position.cursorId, tree.sharedHeadId)) {
+            branched = false; rollbackPlan = null
+        } else { planRollback(); branched = true }
+    }
     /** Forward groups wait [normal]; rolling back toward a branch point waits the separate [rewind]. */
     fun stepPauseMillis(normal: Long, rewind: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS): Long =
         if (!tree.isAncestor(position.cursorId, tree.sharedHeadId)) rewind.coerceAtLeast(1) else normal
@@ -139,6 +148,9 @@ class HistoryPlayback(initial: HistoryTree,
             for ((id, node) in tree.nodes) if (id !in next.nodes) parents = parents.put(id, node.parentId)
             parents
         }
+        // Only a head that moved away from the shown point is a new branch; a point the player
+        // scrubbed to on an old line stays a plain scrub.
+        val onHeadPath = position.mode == HistoryMode.PLAYBACK && tree.isAncestor(position.cursorId, tree.sharedHeadId)
         tree = next
         panelViewer = viewer
         val cursor = resolveCursor(position.cursorId)
@@ -159,6 +171,7 @@ class HistoryPlayback(initial: HistoryTree,
             else -> position // Accepted receipt never advances a paused or background cursor.
         }
         if (position.playing) planRollback()
+        else if (position.mode == HistoryMode.PLAYBACK && (branched || onHeadPath)) detectBranch()
     }
 
     private fun nextPanelReveal(after: String): String? {
@@ -205,6 +218,7 @@ class HistoryPlayback(initial: HistoryTree,
         if (!foreground || !resumeHold) return
         resumeHold = false
         if (position.mode == HistoryMode.PLAYBACK && !position.playing && position.cursorId == tree.sharedHeadId) continuationApplied()
+        else if (position.mode == HistoryMode.PLAYBACK && !position.playing) detectBranch()
     }
     private fun resolveCursor(id: String): String {
         var cursor = id
@@ -250,11 +264,11 @@ class HistoryPlayback(initial: HistoryTree,
         autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults, board: BoardState? = null,
         definitions: List<SubmittedDefinition> = emptyList()) {
         if (automatic && (!foreground || !position.playing)) return
-        if (branched || !automatic && transportLocked) return
+        if (!automatic && transportLocked) return
         livePanelReveal = false; resumeHold = false
         val common = planRollback()
-        if (branched) {
-            // Next from a displaced paused cursor starts the same notice-first rollback as Auto.
+        if (!automatic && position.cursorId != common) {
+            // Next from a displaced paused cursor starts the same rewind-then-play as Auto.
             position = position.copy(playing = true)
             return
         }

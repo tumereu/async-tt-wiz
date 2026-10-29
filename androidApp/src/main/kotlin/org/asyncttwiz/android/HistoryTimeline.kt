@@ -239,18 +239,9 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val latestAutoPause by rememberUpdatedState(autoPause)
     val latestBoard by rememberUpdatedState(board)
     val latestDefinitions by rememberUpdatedState(definitions)
-    val branchAlpha = remember(playback) { androidx.compose.animation.core.Animatable(1f) }
-    LaunchedEffect(playback, playback.branched) {
-        if (playback.branched) {
-            branchAlpha.snapTo(1f)
-            delay(1_500)
-            branchAlpha.animateTo(0f, androidx.compose.animation.core.tween(150))
-            playback.acknowledgeBranch()
-        }
-    }
     LaunchedEffect(readOnly, position.cursorId, position.displayVersion, position.playing, playback.foreground,
-        animationFinished, playback.branched) {
-        if (!readOnly && playback.foreground && animationFinished && !playback.branched) {
+        animationFinished) {
+        if (!readOnly && playback.foreground && animationFinished) {
             if (playback.finishAnimation(position.cursorId)) return@LaunchedEffect
             if (!position.playing) return@LaunchedEffect
             if (playback.pauseAfterAnimation()) return@LaunchedEffect
@@ -289,17 +280,11 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             position.cursorId != playback.tree.sharedHeadId, connected && continuationReady,
             playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
                 if (connected && playback.canContinue(captured)) continuation(captured)
-            }, controlsEnabled = !playback.transportLocked)
+            }, controlsEnabled = !playback.transportLocked, branchPending = playback.branched)
     }
     val panel: @Composable () -> Unit = {
         val timelineRow: @Composable () -> Unit = {
-            Box(Modifier.height(TableTimelineHeight.dp)) {
-                timeline()
-                if (playback.branched) Surface(Modifier.align(Alignment.Center).graphicsLayer { alpha = branchAlpha.value },
-                    color = Color(0xffa84f58), contentColor = Color.White, shape = MaterialTheme.shapes.small) {
-                    Text("Opponent branched", Modifier.padding(horizontal = 24.dp, vertical = 10.dp), style = MaterialTheme.typography.titleSmall)
-                }
-            }
+            Box(Modifier.height(TableTimelineHeight.dp)) { timeline() }
         }
         val controlsRow: @Composable () -> Unit = {
             Crossfade(readOnly, Modifier.fillMaxWidth().height(TableControlsHeight.dp), animationSpec = tween(200), label = "Table controls") { live ->
@@ -377,7 +362,8 @@ internal fun historyIconGlyph(icon: String): String = when (icon) {
 @Composable
 fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean, connected: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onPause: () -> Unit,
-    onContinue: (String) -> Unit, modifier: Modifier = Modifier, controlsEnabled: Boolean = true) {
+    onContinue: (String) -> Unit, modifier: Modifier = Modifier, controlsEnabled: Boolean = true,
+    branchPending: Boolean = false) {
     val current by rememberUpdatedState(position)
     val continueAction by rememberUpdatedState(onContinue)
     val play by rememberUpdatedState(onPlay)
@@ -389,25 +375,32 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                 enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
             run {
                 var captured by remember { mutableStateOf<String?>(null) }
+                // A pending opponent branch rewinds before playing on; branching here is not offered.
+                val canBranch = connected && controlsEnabled && !branchPending
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
                     role = Role.Button; contentDescription = "Auto advance"
-                    stateDescription = if (position.playing) "Auto: on" else "Auto: off"
+                    stateDescription = if (branchPending && !position.playing) "Rewind to the branch point, then play"
+                        else if (position.playing) "Auto: on" else "Auto: off"
                     if (!controlsEnabled) disabled() else onClick { toggle(); true }
-                    if (connected && controlsEnabled) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
+                    if (canBranch) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
                         val cursor = current.cursorId
                         pause(); continueAction(cursor); true
                     })
-                }.pointerInput(connected, controlsEnabled) {
+                }.pointerInput(canBranch, branchPending, controlsEnabled) {
                     if (!controlsEnabled) return@pointerInput
                     detectTapGestures(onPress = { captured = current.cursorId; tryAwaitRelease() },
-                        onTap = { toggle() }, onLongPress = if (!connected) null else ({
+                        // A pending branch swallows a hold silently: neither branch nor toggle.
+                        onTap = { toggle() }, onLongPress = if (branchPending) ({ _ -> }) else if (!canBranch) null else ({
                             pause()
                             captured?.let { continueAction(it) } // Host validates this original boundary; no fallback substitution.
                          }))
                 }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                        if (branchPending) Box(Modifier.size(32.dp, 20.dp).semantics { testTag = "Rewind and play" }) {
+                            Icon(Icons.Outlined.FastRewind, null, Modifier.size(20.dp).align(Alignment.CenterStart), tint = Color(0xffa84f58))
+                            Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp).align(Alignment.CenterEnd), tint = Color(0xff5b896c))
+                        } else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
                         Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
                     }

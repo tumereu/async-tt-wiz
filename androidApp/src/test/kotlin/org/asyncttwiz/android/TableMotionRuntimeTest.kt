@@ -37,7 +37,7 @@ class TableMotionRuntimeTest {
         val event = GameplayMutation("final", "root", "branch", java.util.UUID.nameUUIDFromBytes("final".toByteArray()).toString(), "b", null,
             PlayAction.SetTapped(cardId, true), GameplayTransition())
         val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
-        player.openFrom("root")
+        player.openFrom("root"); player.play()
         val target = initial.copy(currentNodeId = event.id, board = initial.board.copy(cards = initial.board.cards.map {
             if (it.id == cardId) it.copy(tapped = true) else it
         }))

@@ -557,7 +557,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CompositionLocalProvider(LocalContentColor provides Color(0xff253d44).copy(alpha = .38f)) {
                         TableChromeIcon("history")
-                        Text("Timeline mode", style = MaterialTheme.typography.titleMedium, color = LocalContentColor.current)
+                        Text(if (runtime.opponentBranched) "Opponent branched" else "Timeline mode", style = MaterialTheme.typography.titleMedium, color = LocalContentColor.current)
                     }
                 }
             }

@@ -36,8 +36,9 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
             if (reference?.printing != null || reference?.customUrl != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
                 // A card printed sideways shows turned, across the full width.
                 val sideways = state.degrees % 180 != 0
-                val width = if (sideways) maxWidth else 240.dp
-                val height = if (sideways) maxWidth / 1.4f else 336.dp
+                val sidewaysSize = inspectedArtworkSize(true, maxWidth)
+                val width = if (sideways) sidewaysSize.width else 240.dp
+                val height = if (sideways) sidewaysSize.height else 336.dp
                 Box(Modifier.fillMaxWidth().height(height).horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
                     .semantics { contentDescription = "Card artwork viewport" }, contentAlignment = Alignment.TopCenter) {
                     CardArtwork(reference, face.name, with(density) { (width * scale).roundToPx() },

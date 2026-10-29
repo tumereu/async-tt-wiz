@@ -61,10 +61,10 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                     val artwork: @Composable (Dp) -> Unit = { heightLimit ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                // A card printed sideways shows turned and as large as fits: the full width, within the height.
-                                val width = if (sideways) minOf(maxWidth, heightLimit * 1.4f)
-                                    else minOf(maxWidth, 320.dp, if (peek) heightLimit / 1.4f else 320.dp)
-                                val height = if (sideways) width / 1.4f else width * 1.4f
+                                // A card printed sideways shows turned and as large as fits: the full width, within the
+                                // height and never taller than a capped upright card.
+                                val (width, height) = inspectedArtworkSize(sideways, maxWidth,
+                                    if (sideways || peek) heightLimit else Dp.Infinity)
                                 val density = LocalDensity.current
                                 val scale = if (!peek && state.enlarged) 2 else 1
                                 ArtworkViewport(Modifier.fillMaxWidth().height(height)

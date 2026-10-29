@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.DefinitionFace
 import org.junit.Test
@@ -64,5 +66,28 @@ class InspectionOrientationTest {
         controller.open(InspectedCard(card("split", "Instant"), listOf(null)))
         controller.turn()
         assertEquals(90, controller.state!!.degrees)
+    }
+
+    private fun assertSize(width: Float, height: Float, actual: DpSize) {
+        assertEquals(width, actual.width.value, .01f, "width of $actual")
+        assertEquals(height, actual.height.value, .01f, "height of $actual")
+    }
+
+    @Test fun uprightArtworkIsCappedAt320Wide() {
+        assertSize(300f, 420f, inspectedArtworkSize(false, 300.dp))
+        assertSize(320f, 448f, inspectedArtworkSize(false, 900.dp))
+        assertSize(200f, 280f, inspectedArtworkSize(false, 900.dp, 280.dp))
+    }
+
+    @Test fun sidewaysArtworkFillsTheWidthButIsNeverTallerThanACappedUprightCard() {
+        val capped = inspectedArtworkSize(false, 900.dp)
+        // Narrow room: the full width.
+        assertSize(380f, 380f / 1.4f, inspectedArtworkSize(true, 380.dp))
+        // Wide room: the same height as the capped upright card.
+        val wide = inspectedArtworkSize(true, 1200.dp)
+        assertSize(448f * 1.4f, 448f, wide)
+        assertEquals(capped.height, wide.height)
+        // Short room: the height limit wins.
+        assertSize(280f, 200f, inspectedArtworkSize(true, 1200.dp, 200.dp))
     }
 }

@@ -79,9 +79,10 @@ internal fun PodArtPreviewContent(card: InspectedCard?, fallback: String, scroll
         // A card printed sideways shows turned and as large as fits (held previews have no rotate button).
         val turns = faces.map { card?.orientation(it)?.degrees ?: 0 }
         val sizes = turns.map { degrees ->
-            val width = if (degrees % 180 != 0) { if (faces.size == 1) minOf(roomWidth, roomHeight * 1.4f) else minOf(roomWidth, 448.dp) }
-                else if (faces.size == 1) minOf(roomWidth, roomHeight / 1.4f) else minOf(roomWidth, 320.dp)
-            width to if (degrees % 180 != 0) width / 1.4f else width * 1.4f
+            if (degrees % 180 != 0) inspectedArtworkSize(true, roomWidth, if (faces.size == 1) roomHeight else Dp.Infinity)
+                .let { it.width to it.height }
+            else (if (faces.size == 1) minOf(roomWidth, roomHeight / 1.4f) else minOf(roomWidth, InspectedArtworkMaxWidth))
+                .let { it to it * 1.4f }
         }
         val density = LocalDensity.current
         ArtworkViewport(Modifier.width(sizes.maxOf { it.first }).heightIn(max = roomHeight)

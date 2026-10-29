@@ -1,5 +1,8 @@
 package org.asyncttwiz.android
 
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.mutate
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 
 import org.asyncttwiz.protocol.*
@@ -9,10 +12,11 @@ data class HistoryText(val description: String, val label: String, val move: His
  * [route] is "From → To", or null when a zone is unknown (no board context); it then reads "moved". */
 data class HistoryMove(val subject: String?, val route: String?)
 
-/** Only visible timeline entries are projected. Never materialize a distant board for a label;
- * absent nearby context uses the same privacy-safe generic wording as historyText. */
+/** Only visible timeline entries are projected. Texts the client made while it held an event's
+ * before-board come from [known]; otherwise never materialize a distant board for a label: absent
+ * nearby context uses the same privacy-safe generic wording as historyText. */
 internal class TimelineTexts(private val tree: GameplayTree, private val viewer: String?,
-    private val usernames: Map<String, String>) : AbstractMap<String, HistoryText>() {
+    private val usernames: Map<String, String>, private val known: HistoryTextCache? = null) : AbstractMap<String, HistoryText>() {
     private val cache = object : LinkedHashMap<String, HistoryText>(64, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, HistoryText>?) = size > 64
     }
@@ -20,10 +24,82 @@ internal class TimelineTexts(private val tree: GameplayTree, private val viewer:
     override fun get(key: String): HistoryText? {
         if (key != tree.initial.root.id && key !in tree.nodes) return null
         return cache.getOrPut(key) {
-            val event = tree.nodes[key]
-            historyText(event, event?.parentId?.let(tree::preparedState), viewer, usernames)
+            known?.takeIf { it.viewer == viewer && it.usernames == usernames }?.text(tree, key) ?: run {
+                val event = tree.nodes[key]
+                historyText(event, event?.parentId?.let(tree::preparedState), viewer, usernames)
+            }
         }
     }
+}
+
+/** Most event texts one table keeps (oldest made first leave first): a few hundred bytes each. */
+internal const val HISTORY_TEXT_CACHE_LIMIT = 8_192
+
+/** One event's text, made while the client held the event's before-board. [identity] is the event's
+ * ancestry identity and [event] its record's hash, so a re-parented or rewritten event no longer matches. */
+internal class HistoryTextEntry(val identity: String, val event: Int, val text: HistoryText)
+
+/** Event texts made when the client already had each event's before-board: the live end, catch-up and
+ * playback steps, the reviewed point, local predictions. Immutable; [viewer] and [usernames] are what
+ * the texts were written for. Never a reason to build a board: a missing text is simply missing. */
+internal class HistoryTextCache private constructor(val viewer: String?, val usernames: Map<String, String>,
+    private val entries: PersistentMap<String, HistoryTextEntry>, private val limit: Int) {
+    constructor(viewer: String?, usernames: Map<String, String>, limit: Int = HISTORY_TEXT_CACHE_LIMIT) :
+        this(viewer, usernames, persistentMapOf(), limit)
+    val size: Int get() = entries.size
+    fun text(tree: GameplayTree, id: String): HistoryText? {
+        val entry = entries[id] ?: return null
+        val node = tree.nodes[id] ?: return null
+        return entry.text.takeIf { entry.event == node.hashCode() && tree.materializationId(id) == entry.identity }
+    }
+    fun forContext(viewer: String?, usernames: Map<String, String>) =
+        if (viewer == this.viewer && usernames == this.usernames) this else HistoryTextCache(viewer, usernames, limit)
+    fun with(added: Map<String, HistoryTextEntry>, dropped: Collection<String> = emptyList()): HistoryTextCache {
+        if (added.isEmpty() && dropped.none(entries::containsKey)) return this
+        var next = entries.mutate { map -> dropped.forEach { map.remove(it) }; map.putAll(added) }
+        while (next.size > limit) next = next.remove(next.keys.first())
+        return HistoryTextCache(viewer, usernames, next, limit)
+    }
+}
+
+/** Texts of the events next to [state] (the board at its own event) that [cache] does not hold yet:
+ * that event and up to [back] earlier ones, each stepped back once from [state]; its children; and up to
+ * [ahead] later events along [forward] (the events after [state] on one line), each stepped forward once.
+ * Each walk stops at the first event that already has a text. Only single-event deltas from the given
+ * board are used: this never asks [tree] for a board, so it can never rebuild history from the root. */
+internal fun historyTextsNear(tree: GameplayTree, state: PlayState, cache: HistoryTextCache,
+    back: Int, forward: List<String> = emptyList(), ahead: Int = 0, dropped: Set<String> = emptySet(),
+    current: () -> Boolean = { true }): Map<String, HistoryTextEntry> {
+    val viewer = cache.viewer; val usernames = cache.usernames
+    val nodes = tree.nodes
+    val result = LinkedHashMap<String, HistoryTextEntry>()
+    fun known(id: String) = id in result || (id !in dropped && cache.text(tree, id) != null)
+    fun add(node: GameplayMutation, before: PlayState?) {
+        val identity = tree.materializationId(node.id) ?: return
+        result[node.id] = HistoryTextEntry(identity, node.hashCode(), historyText(node, before, viewer, usernames))
+    }
+    if (state.id != tree.initial.id || (state.currentNodeId != tree.initial.root.id && state.currentNodeId !in nodes)) return result
+    for (child in tree.endpointIndex().children[state.currentNodeId].orEmpty()) {
+        if (!current()) return result
+        nodes[child]?.takeIf { !known(it.id) }?.let { add(it, state) }
+    }
+    var after = state
+    var node = nodes[state.currentNodeId]
+    var steps = 0
+    while (node != null && steps++ < back && !known(node.id) && current()) {
+        val before = GameplayHistory.unapply(after, node) ?: break
+        add(node, before)
+        after = before
+        node = nodes[node.parentId]
+    }
+    var at = state
+    for (id in forward.take(ahead)) {
+        if (!current()) break
+        val next = nodes[id]?.takeIf { it.parentId == at.currentNodeId } ?: break
+        if (id !in result) { if (known(id)) break; add(next, at) }
+        at = GameplayHistory.apply(at, next) ?: break
+    }
+    return result
 }
 
 private val historyUuid = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")

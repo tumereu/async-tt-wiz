@@ -21,16 +21,20 @@ object ResultNoteInput {
 }
 
 object ResultActions {
-    /** The live accepted endpoint, never the board at the personal review cursor, owns the lock.
-     * A local proposal also locks immediately while its ordinary prediction is in flight. */
+    /** The live-end part of [blocksAt]: the live accepted endpoint, never the board at the personal review
+     * cursor, owns the lock. A local proposal also locks immediately while its ordinary prediction is in flight. */
     fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
-        listOf(accepted, predicted).any { capture(game, it) != null && it?.board?.resultSuggestion != null }
+        listOf(accepted, predicted).any { includes(game, it) }
 
-    /** At the live end the live endpoint owns the lock. In the timeline only a displayed board that already
-     * includes the suggestion locks; a suggestion still "about to come", or on another branch, does not. */
-    fun blocksAt(game: GameSummary, accepted: PlayState?, predicted: PlayState?, displayed: PlayState?, reviewing: Boolean): Boolean =
-        if (reviewing) capture(game, displayed) != null && displayed?.board?.resultSuggestion != null
-        else blocksGameActions(game, accepted, predicted)
+    /** The one result-lock rule every game-action gate uses: actions are refused while the board they would apply
+     * to includes a pending suggestion. At the live end that is the live endpoint. In the timeline (reviewing or
+     * continuing) it is [board]: the shown point, the continuation's point or its predicted new branch, so a
+     * suggestion still "about to come", or on another branch, does not lock. An unknown board falls back to the
+     * live endpoint, so the lock is never looser than at the live end. Peek/Inspect stay allowed elsewhere. */
+    fun blocksAt(game: GameSummary, accepted: PlayState?, predicted: PlayState?, board: PlayState?, inTimeline: Boolean): Boolean =
+        if (inTimeline && board != null) includes(game, board) else blocksGameActions(game, accepted, predicted)
+
+    private fun includes(game: GameSummary, board: PlayState?) = capture(game, board) != null && board?.board?.resultSuggestion != null
 
     /** Visibility belongs to the displayed replayed board, not the live action lock. */
     fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? {

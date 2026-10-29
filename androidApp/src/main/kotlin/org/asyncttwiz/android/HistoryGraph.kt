@@ -53,6 +53,25 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         chip.presentation = range to event
         return range
     }
+    private var chipTextsSource: Map<String, HistoryText>? = null
+    private val chipTexts = object : LinkedHashMap<String, HistoryText>(64, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, HistoryText>?) = size > 128
+    }
+    /** What a tree-dialog chip says: its whole group's text (a group of moves lists every visible card),
+     * from the board-aware [texts] where available, else the context-free event text. */
+    internal fun chipText(rangeId: String, texts: Map<String, HistoryText>): HistoryText? {
+        if (chipTextsSource !== texts) { chipTexts.clear(); chipTextsSource = texts }
+        chipTexts[rangeId]?.let { return it }
+        val range = rangesById[rangeId] ?: return null
+        return historyRangeText(range, texts) { id -> historyText(tree.nodes[id]) }.also { chipTexts[rangeId] = it }
+    }
+    /** The dialog's selected-event line: the group's text when its chip's last event is selected, else that event's. */
+    internal fun selectedText(nodeId: String, texts: Map<String, HistoryText>): String? {
+        val rangeId = rangeOf[nodeId]
+        val range = rangeId?.let(rangesById::get)
+        return if (range != null && range.targetId == nodeId) chipText(range.id, texts)?.description
+            else texts[nodeId]?.description ?: eventsById[nodeId]?.description
+    }
     fun positionOfRange(id: String?) = layout.chips[id]?.position
     fun isActive(id: String) = layout.chips[id]?.let { onPath(it, active) } == true
     fun isHead(id: String): Boolean {

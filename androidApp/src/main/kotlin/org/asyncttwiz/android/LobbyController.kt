@@ -251,6 +251,17 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         return session.submit(game, GameAction.CancelSetup)
     }
     fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
+    /** The result lock for the table right now, the one gate every table entry point consults (see
+     * [ResultActions.blocksAt]). Reviewing: the shown point. Continuing: the armed point, then its predicted
+     * new branch. Otherwise: the live endpoint. Branching away from a suggestion leaves it on the old branch. */
+    fun resultLocked(): Boolean {
+        val game = state.detail ?: return false
+        val personal = historyOwner
+        val continuing = personal?.armed != null
+        val reviewing = personal?.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional
+        val board = if (reviewing) personal?.view?.state else if (continuing) state.play else null
+        return ResultActions.blocksAt(game, state.acceptedPlay, state.play, board, inTimeline = reviewing || continuing)
+    }
     fun captureResult(): ResultTarget? = state.detail?.let { ResultActions.capture(it, state.play) }
     fun suggestResult(target: ResultTarget, outcome: SuggestedResult, note: String = ""): Boolean {
         val game = state.detail ?: return false

@@ -434,4 +434,71 @@ class HistoryTextTest {
         assertEquals("Comment: see [reference]", format(PlayAction.EventComment(EventReference(id(2), id(5)), "see ${id(99)}")).description)
         assertTrue(format(PlayAction.EventComment(EventReference(id(2), id(5)), "x".repeat(1000))).description.length <= 180)
     }
+
+    /** bob draws four named cards in a row, then alice taps: a real tree, indexed and laid out by the explorer. */
+    private fun drawTree(): Pair<GameplayTree, List<String>> {
+        val names = listOf("Shock", "Opt", "Ponder", "Brainstorm")
+        val definitions = names.mapIndexed { n, name -> CardDefinition(name, listOf(DefinitionFace(id(600 + n), name))) }
+        val cards = definitions.mapIndexed { n, definition -> PlayCard(id(610 + n), DeckJson.digest(definition), f.b, id(13), id(600 + n)) }
+        val base = state
+        val initial = base.copy(definitions = base.definitions + definitions.map { SubmittedDefinition(DeckJson.digest(it), it) },
+            board = base.board.copy(cards = base.board.cards.filter { it.containerId != id(13) } + cards,
+                containers = base.board.containers.map { if (it.id == id(13)) it.copy(cards = cards.map(PlayCard::id)) else it }))
+        var tree = GameplayTree(initial)
+        val draws = cards.mapIndexed { n, card ->
+            tree = assertNotNull(tree.play(f.b, GameCommand(id(700 + n), GameScope(initial.gameId, playId = initial.id),
+                GameAction.Play(PlayAction.MoveCard(card.id, MoveSource(id(13), edge = MoveSourceEdge.TOP),
+                    MoveDestination(id(21), MoveInsertion.UNORDERED))), id(14), "1")).tree)
+            tree.currentNodeId
+        }
+        return tree to draws
+    }
+
+    @Test fun treeDialogChipsAndSelectedLineShowTheWholeGroupOfMoves() {
+        val (tree, draws) = drawTree()
+        val explorer = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
+        try {
+            explorer.update(tree)
+            val graph = assertNotNull(explorer.state.graph)
+            val chip = assertNotNull(graph.rangeOf[draws.last()])
+            assertEquals(draws, graph.rangesById.getValue(chip).nodeIds, "the four draws form one chip")
+            // The drawing player sees every card; the other player sees only how many.
+            assertEquals(HistoryText("Shock, Opt, Ponder, Brainstorm: Library → Hand", "Draw ×4"),
+                graph.chipText(chip, historyTexts(tree, f.b, names)))
+            val opponent = historyTexts(tree, f.a, names)
+            assertEquals(HistoryText("4 cards: Library → Hand", "Draw ×4"), graph.chipText(chip, opponent))
+            // Without board context nothing is invented: no names and no zones.
+            assertEquals("4 cards moved", graph.chipText(chip, emptyMap())?.description)
+            // The selected line describes the chip's group, or one event when a point inside the group is selected.
+            assertEquals("4 cards: Library → Hand", graph.selectedText(draws.last(), opponent))
+            assertEquals("A card: Library → Hand", graph.selectedText(draws.first(), opponent))
+            assertEquals("Shock: Library → Hand", graph.selectedText(draws.first(), historyTexts(tree, f.b, names)))
+        } finally { explorer.close() }
+    }
+
+    @Test fun groupTextIsCappedWithAnEllipsis() {
+        val texts = (1..40).associate { n -> id(800 + n) to HistoryText("", "Draw", HistoryMove("Card number $n with a long name", "Library → Hand")) }
+        val range = HistoryRange(id(800), id(800), texts.keys.toList(), texts.keys.last(), HistoryGlyph.DRAW, f.b, null, HistoryPoint(0f, 0f))
+        val text = historyRangeText(range, texts)
+        assertTrue(text.description.length in HISTORY_RANGE_TEXT_MAX - 2..HISTORY_RANGE_TEXT_MAX, text.description)
+        assertTrue(text.description.startsWith("Card number 1 with a long name, Card number 2"))
+        assertTrue(text.description.endsWith("…"))
+        assertEquals("Draw ×40", text.label)
+        val short = range.copy(nodeIds = texts.keys.take(2))
+        assertEquals("Card number 1 with a long name, Card number 2 with a long name: Library → Hand",
+            historyRangeText(short, texts).description)
+    }
+
+    @Test fun movesWithoutBoardContextSayOnlyThatACardMoved() {
+        val move = PlayAction.MoveCard(id(9), MoveSource(id(20)), MoveDestination(id(13), MoveInsertion.TOP))
+        assertEquals(HistoryText("A card moved", "Move", HistoryMove(null, null)), historyText(event(move)))
+        // With the board known, zones (and the library edge) are shown as before.
+        assertEquals("A card: Hand → Library top", format(move, author = f.b).description)
+        // The timeline strip and the tree dialog fall back to the same text when no board-aware text exists.
+        val (tree, draws) = drawTree()
+        val strip = HistoryTimelineLayout.events(HistoryTree(tree.initial.root.id, tree.nodes.values.toList(), tree.currentNodeId, "v1"),
+            tree.currentNodeId)
+        assertEquals(listOf("Initial state") + List(4) { "A card moved" }, strip.map { it.description })
+        assertEquals("A card moved", HistoryGraphLayout.build(tree).eventsById.getValue(draws.first()).description)
+    }
 }

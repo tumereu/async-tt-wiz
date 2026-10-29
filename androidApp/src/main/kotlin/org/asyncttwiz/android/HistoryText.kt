@@ -5,8 +5,9 @@ import kotlinx.collections.immutable.toPersistentMap
 import org.asyncttwiz.protocol.*
 
 data class HistoryText(val description: String, val label: String, val move: HistoryMove? = null)
-/** A card move: [subject] is the card's name, or null when the viewer could not see it at the time. */
-data class HistoryMove(val subject: String?, val route: String)
+/** A card move: [subject] is the card's name, or null when the viewer could not see it at the time.
+ * [route] is "From → To", or null when a zone is unknown (no board context); it then reads "moved". */
+data class HistoryMove(val subject: String?, val route: String?)
 
 /** Only visible timeline entries are projected. Never materialize a distant board for a label;
  * absent nearby context uses the same privacy-safe generic wording as historyText. */
@@ -26,8 +27,8 @@ internal class TimelineTexts(private val tree: GameplayTree, private val viewer:
 }
 
 private val historyUuid = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-internal fun historyPlainText(value: String): String = historyUuid.replace(value, "[reference]")
-    .replace(Regex("\\s+"), " ").trim().take(180)
+internal fun historyPlainText(value: String, limit: Int = 180): String = historyUuid.replace(value, "[reference]")
+    .replace(Regex("\\s+"), " ").trim().take(limit)
 internal fun historyPlayerName(id: String, usernames: Map<String, String>): String =
     usernames[id]?.let(::historyPlainText)?.takeIf { it.isNotBlank() } ?: "A player"
 
@@ -43,6 +44,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun container(id: String) = before?.board?.containers?.find { it.id == id }
     // A Temp pile may be created by this very event, so it is recognized by its deterministic ID too.
     fun temp(id: String) = container(id)?.temp ?: before?.let { id in TempPiles.containerIds(it).values } ?: false
+    fun known(id: String) = temp(id) || container(id) != null
     fun zone(id: String) = if (temp(id)) "Temp" else container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
@@ -143,10 +145,12 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                     MoveInsertion.BOTTOM -> " bottom"
                     else -> ""
                 } else ""
-                val route = if (source == target && container(source)?.zone == PlayZone.BATTLEFIELD) "moved on ${named(target)}"
+                // Without board context a zone is unknown: say only that the card moved, never a made-up zone.
+                val route = if (!known(source) || !known(target)) null
+                    else if (source == target && container(source)?.zone == PlayZone.BATTLEFIELD) "moved on ${named(target)}"
                     else "${named(source)} → ${named(target)}$edge"
                 val subject = card(action.cardId).takeUnless { shownCard(action.cardId) == null }
-                HistoryText(historyPlainText("${subject ?: "A card"}: $route"), if (draw) "Draw" else "Move", HistoryMove(subject, route))
+                HistoryText(historyPlainText(historyMoveText(subject ?: "A card", route)), if (draw) "Draw" else "Move", HistoryMove(subject, route))
             }
         }
         is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) "Temp" else "Library"} shuffled", "Shuffle")
@@ -292,16 +296,27 @@ internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<St
     return texts.toPersistentMap()
 }
 
-internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>): HistoryText {
-    val events = range.nodeIds.mapNotNull(texts::get)
-    val representative = texts[range.representativeId ?: range.targetId] ?: HistoryText("Table changed", "Change")
-    if (events.size < 2 || events.any { it.move == null }) return representative
-    // Grouped moves list every card the viewer could see; unseen cards collapse into "N cards".
-    val description = events.groupBy { it.move!!.route }.entries.joinToString("; ") { (route, moves) ->
-        "${historyMoveSubjects(moves.map { it.move!!.subject })}: $route"
+private fun historyMoveText(subject: String, route: String?) = if (route == null) "$subject moved" else "$subject: $route"
+
+/** Longest group text; anything longer is cut and ends with "…". */
+internal const val HISTORY_RANGE_TEXT_MAX = 180
+
+/** A group's text. A group of only card moves lists every card the viewer could see ("Shock, Opt, 2 cards:
+ * Library → Hand"); unseen cards collapse into "N cards". Any other group reads as its representative event. */
+internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>,
+    fallback: (String) -> HistoryText? = { null }): HistoryText {
+    fun text(id: String) = texts[id] ?: fallback(id)
+    val representative = text(range.representativeId ?: range.targetId) ?: HistoryText("Table changed", "Change")
+    if (range.nodeIds.size < 2) return representative
+    val moves = ArrayList<HistoryText>(range.nodeIds.size)
+    for (id in range.nodeIds) moves += text(id)?.takeIf { it.move != null } ?: return representative
+    val description = moves.groupBy { it.move!!.route }.entries.joinToString("; ") { (route, group) ->
+        historyMoveText(historyMoveSubjects(group.map { it.move!!.subject }), route)
     }
-    return HistoryText(historyPlainText(description).let { if (description.length > 180) it.dropLast(1) + "…" else it },
-        if (events.all { it.label == "Draw" }) "Draw ×${events.size}" else representative.label)
+    val plain = historyPlainText(description, Int.MAX_VALUE)
+    return HistoryText(if (plain.length <= HISTORY_RANGE_TEXT_MAX) plain
+        else plain.take(HISTORY_RANGE_TEXT_MAX - 1).trimEnd() + "…",
+        if (moves.all { it.label == "Draw" }) "Draw ×${moves.size}" else representative.label)
 }
 
 internal fun historyMoveSubjects(subjects: List<String?>): String {

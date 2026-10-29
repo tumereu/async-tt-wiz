@@ -108,7 +108,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex,
             position?.cursorId?.takeIf { playback.livePanelReveal })
-    val resultLocked = ResultActions.blocksAt(game, state.acceptedPlay, live, play, reviewing)
+    val resultLocked = controller.resultLocked()
     SideEffect {
         endpoint.presented(play)
         play?.let {
@@ -176,25 +176,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val catalogMount = rememberTableTokenCatalog(accountId, game.id, live?.id, catalogLifetime, catalog?.state, favorites)
     val toolkit = remember(controller, game.id, live?.id, accountId) {
         val playId = live?.id
-        val create = { TableToolkitController(accountId, {
-            val personal = controller.history
-            (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.state.play)
-                ?.takeIf { it.id == playId && it.gameId == game.id }
-        }, { history.foreground && game.id !in controller.state.reconnectingGames &&
-            !ResultActions.blocksGameActions(controller.state.detail ?: game, controller.state.acceptedPlay, controller.state.play) &&
-            (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
-            controller::gameplay, ending = { intent ->
-                val target = controller.captureResult()
-                if (target == null) false else when (intent.tool) {
-                    EndingTool.SUGGEST_WIN -> controller.suggestResult(target, SuggestedResult.WIN, intent.note)
-                    EndingTool.SUGGEST_LOSS -> controller.suggestResult(target, SuggestedResult.LOSS, intent.note)
-                    EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW, intent.note)
-                    EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
-                        ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
-                }
-            }, acceptedInspection = controller::inspectFace,
-                waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch,
-                playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } }) }
+        val create = { tableToolkit(controller, history, game, accountId, playId) }
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
@@ -245,8 +227,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     if (!history.foreground || controller.state.detail?.id != game.id ||
                         controller.state.detail?.playId != play.id ||
                         game.id in controller.state.reconnectingGames) false else {
-                        if (ResultActions.blocksAt(controller.state.detail ?: game, controller.state.acceptedPlay,
-                                controller.state.play, play, reviewing)) false
+                        if (controller.resultLocked()) false
                         else if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
                         else controller.annotateBatch(actions)
                     }
@@ -361,3 +342,25 @@ private tailrec fun tableActivity(context: Context): ComponentActivity? = when (
     is ContextWrapper -> tableActivity(context.baseContext)
     else -> null
 }
+
+/** The table's toolkit wiring: every toolkit/gesture/menu action is gated here by the connection, the personal
+ * timeline (review is read-only until Continue) and [LobbyController.resultLocked]. */
+internal fun tableToolkit(controller: LobbyController, history: TableHistoryController, game: GameSummary,
+    accountId: String, playId: String?): TableToolkitController = TableToolkitController(accountId, {
+        val personal = controller.history
+        (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.state.play)
+            ?.takeIf { it.id == playId && it.gameId == game.id }
+    }, { history.foreground && game.id !in controller.state.reconnectingGames && !controller.resultLocked() &&
+        (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
+    controller::gameplay, ending = { intent ->
+        val target = controller.captureResult()
+        if (target == null) false else when (intent.tool) {
+            EndingTool.SUGGEST_WIN -> controller.suggestResult(target, SuggestedResult.WIN, intent.note)
+            EndingTool.SUGGEST_LOSS -> controller.suggestResult(target, SuggestedResult.LOSS, intent.note)
+            EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW, intent.note)
+            EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
+                ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
+        }
+    }, acceptedInspection = controller::inspectFace,
+    waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch,
+    playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } })

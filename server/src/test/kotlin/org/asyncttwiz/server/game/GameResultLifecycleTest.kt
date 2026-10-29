@@ -170,6 +170,37 @@ class GameResultLifecycleTest {
         }
     }
 
+    @Test fun `continuing from before a pending suggestion branches away and both players keep playing`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.SetLife(f.a.account.accountId, "18"))).outcome)
+                val before = f.games.head(f.a, f.game.id).play!!.currentNodeId
+                assertEquals("accepted", f.owner.execute(f.suggestion()).outcome)
+                val proposed = f.games.head(f.a, f.game.id).play!!
+                val suggestion = proposed.board.resultSuggestion!!
+                // The other player continues from the earlier point: the server does not refuse it.
+                val continued = f.other.execute(f.other.command(GameAction.Play(PlayAction.SetLife(f.b.account.accountId, "15")))
+                    .copy(continuation = Continuation(before, true)))
+                assertEquals("accepted", continued.outcome, continued.reason)
+                val branch = f.games.head(f.b, f.game.id).play!!
+                assertNotEquals(proposed.currentBranchId, branch.currentBranchId)
+                assertNull(branch.board.resultSuggestion)
+                assertEquals("18", branch.board.players.single { it.accountId == f.a.account.accountId }.life)
+                // Both players keep playing on the new branch.
+                assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.SetLife(f.a.account.accountId, "17"))).outcome)
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.SetStatus("GG"))).outcome)
+                assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.AdjustLife(f.b.account.accountId, "-1"))).outcome)
+                val head = f.games.head(f.a, f.game.id)
+                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
+                assertNull(head.play!!.board.resultSuggestion)
+                // The suggestion stays on the old branch; it is no longer the current board's, so it cannot end the game.
+                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
+                assertEquals(GameLifecycle.ACTIVE, f.games.head(f.b, f.game.id).summary.lifecycle)
+            }
+        }
+    }
+
     @Test fun `suggester withdraws restored decline after life edit as an ordinary undoable event`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -80,7 +80,7 @@ class ClientNormalPathScaleTest {
         tree.work.reset()
         val firstOpen = HistoryPlayback(HistoryTree(tree.initial.root.id, emptyList(), tree.currentNodeId,
             "first", containers = tree.initial.board.containers, source = tree, lazyPresentation = true))
-        firstOpen.openFrom(null)
+        firstOpen.openFrom(tree.initial.root.id)
         assertEquals(tree.initial, tree.prepareReview(firstOpen.position.cursorId))
         assertEquals(0, tree.work.replayedNodes + tree.work.unappliedNodes + tree.work.ancestrySteps)
         assertEquals(0, tree.work.fullHistoryScans + tree.work.rootMaterializations)

@@ -119,7 +119,9 @@ class HistoryPlayback(initial: HistoryTree,
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root.
      * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. */
     fun openFrom(lastSeen: String?) {
-        val cursor = lastSeen?.let { tree.source?.resolveCursor(it) ?: it.takeIf(tree::contains) } ?: tree.rootId
+        // No saved point (first open, another device): open live at the newest move, never from the start.
+        if (lastSeen == null) return
+        val cursor = tree.source?.resolveCursor(lastSeen) ?: lastSeen.takeIf(tree::contains) ?: tree.rootId
         if (cursor == tree.sharedHeadId) return
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         detectBranch()

@@ -13,6 +13,15 @@ class CatchupPlaybackTest {
     private fun append(tree: GameplayTree, n: Int, actor: String = F.a) = F.play(tree,
         PlayAction.AdjustLife(actor, "1"), n, actor)
 
+    @Test fun noSavedPointOpensLiveAtTheNewestMove() {
+        val head = append(append(GameplayTree(F.root()), 100), 101, F.b)
+        val player = HistoryPlayback(index(head))
+        player.openFrom(null)
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+        assertEquals(head.currentNodeId, player.position.cursorId)
+        assertFalse(player.branched)
+    }
+
     @Test fun descendantOpensPausedAtExactLastSeenThenPlaysWithNormalGroupPacing() {
         val root = GameplayTree(F.root())
         val seen = append(root, 100)
@@ -72,9 +81,10 @@ class CatchupPlaybackTest {
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
-    @Test fun absentOrUnknownLastSeenStartsAtInitialWithoutMovingTheSharedHead() {
+    @Test fun unknownLastSeenStartsAtInitialWithoutMovingTheSharedHead() {
         val head = F.build(30)
-        for (bookmark in listOf(null, F.id(999999))) {
+        // An absent bookmark opens live instead (noSavedPointOpensLiveAtTheNewestMove).
+        for (bookmark in listOf(F.id(999999))) {
             val player = HistoryPlayback(index(head))
             player.openFrom(bookmark)
             assertEquals(head.initial.root.id, player.position.cursorId)

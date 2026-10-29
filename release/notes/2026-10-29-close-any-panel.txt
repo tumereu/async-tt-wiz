@@ -1,0 +1,1 @@
+fix: Either player can now close any card panel, so a Search, Look or Reveal your opponent left open no longer blocks the game

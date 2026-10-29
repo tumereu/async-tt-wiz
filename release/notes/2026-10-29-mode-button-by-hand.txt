@@ -1,0 +1,1 @@
+mod: The interaction mode button now sits at the end of your hand instead of floating over the battlefield

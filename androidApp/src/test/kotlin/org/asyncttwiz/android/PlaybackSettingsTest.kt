@@ -37,9 +37,9 @@ class PlaybackSettingsTest {
     @Test fun defaultMigrationPreservesNonDefaultsAndFutureExplicitOldDefault() {
         val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
         stored.edit().clear().putLong("pause/old-default", 1_500).putLong("pause/custom", 2_300).commit()
-        assertEquals(500L, HistoryPlaybackPreferences(context, "new").pauseMillis)
+        assertEquals(1_000L, HistoryPlaybackPreferences(context, "new").pauseMillis)
         val migrated = HistoryPlaybackPreferences(context, "old-default")
-        assertEquals(500L, migrated.pauseMillis)
+        assertEquals(1_000L, migrated.pauseMillis)
         assertEquals(2_300L, HistoryPlaybackPreferences(context, "custom").pauseMillis)
         migrated.pauseMillis = 1_500
         assertEquals(1_500L, HistoryPlaybackPreferences(context, "old-default").pauseMillis)
@@ -111,7 +111,9 @@ class PlaybackSettingsTest {
         compose.onNodeWithTag("auto-pause-ATTACKERS").performScrollTo().assertIsOff().performClick().assertIsOn()
         compose.runOnIdle { assertTrue(PlaybackAutoPause.ATTACKERS in settings.autoPause) }
         compose.onNodeWithTag("history-playback-pause").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("0.5 s after each group").assertExists()
+        compose.onNodeWithText("1.0 s after each group").assertExists()
+        compose.onNodeWithTag("history-rewind-pause").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("0.1 s after each rewound group").assertExists()
     }
 
     @Test fun terminalMatchingGroupKeepsAutoOnDuringAnimationThenGoesLiveWithoutAnotherDelay() {

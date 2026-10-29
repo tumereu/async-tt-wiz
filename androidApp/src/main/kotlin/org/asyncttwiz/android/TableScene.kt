@@ -603,9 +603,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else gestureError = null },
             Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
         // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
+        // Beside the own hand row's outer end; the hand row is shortened by its width.
+        val modeButton = scene.modeButton
         if (!runtime.reviewing) Box(Modifier.offset(
-            ((scene.world?.viewport?.right ?: maxWidth.value) - 56f).dp,
-            ((scene.world?.viewport?.bottom ?: (maxHeight.value - 56f)) - 56f).dp)) {
+            (modeButton?.x ?: (maxWidth.value - 56f)).dp, (modeButton?.y ?: (maxHeight.value - 112f)).dp)) {
             ActionSquare("Interaction mode", "", !runtime.gameActionsBlocked,
                 modifier = Modifier.size(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                     contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"

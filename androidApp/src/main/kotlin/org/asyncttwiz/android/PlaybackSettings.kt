@@ -15,6 +15,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId: String) {
     val pause by preferences.pauseState()
+    val rewind by preferences.rewindPauseState()
     val enabled by preferences.autoPauseState()
     Column(Modifier.fillMaxWidth().testTag("playback-settings")) {
         Text("Playback", style = MaterialTheme.typography.titleMedium)
@@ -34,6 +35,11 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
         Slider(value = pause.toFloat(), onValueChange = { preferences.pauseMillis = (it / 100).roundToInt() * 100L },
             valueRange = HistoryPlaybackPreferences.MIN_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_PAUSE_MILLIS.toFloat(),
             steps = 98, modifier = Modifier.testTag("history-playback-pause"))
+        Text("Rewind pause", style = MaterialTheme.typography.titleSmall)
+        Text("${rewind / 1000.0} s after each rewound group")
+        Slider(value = rewind.toFloat(), onValueChange = { preferences.rewindPauseMillis = (it / 10).roundToInt() * 10L },
+            valueRange = HistoryPlaybackPreferences.MIN_REWIND_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_REWIND_PAUSE_MILLIS.toFloat(),
+            steps = 197, modifier = Modifier.testTag("history-rewind-pause"))
         val movePreferences = rememberCardMovePreferences(accountId)
         val multiplier by movePreferences.multiplierState()
         var exact by remember { mutableStateOf(false) }

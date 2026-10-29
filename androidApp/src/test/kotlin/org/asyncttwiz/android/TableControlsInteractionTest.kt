@@ -97,6 +97,15 @@ class TableControlsInteractionTest {
         assertTrue(nextBounds.right < root.right)
         assertEquals(root.bottom - 4f, nextBounds.bottom)
         assertTrue(modeBounds.bottom < nextBounds.top)
+        // Beside the own hand row's outer end, never over it or the battlefield.
+        val scene = TablePresentation.scene(TableFixture.game, play, "a", root.width, root.height, false)
+        val ownHand = scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }.bounds
+        val expected = assertNotNull(scene.modeButton)
+        assertEquals(expected.x, modeBounds.left, .5f); assertEquals(expected.y, modeBounds.top, .5f)
+        assertEquals(ownHand.right + TablePresentation.MODE_BUTTON_GAP, expected.x)
+        assertEquals(root.right - 8f, modeBounds.right, .5f)
+        assertTrue(expected.y >= ownHand.y && expected.bottom <= ownHand.bottom)
+        assertNull(expected.intersection(scene.world!!.visibleViewport))
         for (expected in listOf(TableMode.SELECT, TableMode.PING, TableMode.NORMAL)) {
             mode.performTouchInput { click() }
             compose.runOnIdle { assertEquals(expected, ui.selectionState.value.mode) }
@@ -105,6 +114,25 @@ class TableControlsInteractionTest {
         mode.performClick(); mode.performClick()
         compose.runOnIdle { assertEquals(TableMode.NORMAL, ui.selectionState.value.mode) }
         compose.onNodeWithText("Redo").assertDoesNotExist()
+    }
+
+    @Test fun ownHandMakesRoomForTheModeSquareInBothOrientationsAndEveryHandSize() {
+        val play = TableFixture.play(hand = 12, board = 2)
+        for (landscape in listOf(false, true)) for (size in listOf(.5f, 1f, 3f)) {
+            val width = if (landscape) 892f else 412f
+            val height = if (landscape) 412f else 892f
+            val appearance = CardAppearance(customizeAreas = true, areas = mapOf(CardArea.HAND to size))
+            val scene = TablePresentation.scene(TableFixture.game, play, "a", width, height, landscape, appearance = appearance)
+            val hand = scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }.bounds
+            val mode = assertNotNull(scene.modeButton, "$landscape $size")
+            assertEquals(TablePresentation.MODE_BUTTON, mode.width); assertEquals(TablePresentation.MODE_BUTTON, mode.height)
+            assertNull(mode.intersection(hand), "$landscape $size")
+            assertEquals(hand.right + TablePresentation.MODE_BUTTON_GAP, mode.x)
+            assertTrue(mode.right <= width - 8f, "$landscape $size")
+            assertEquals(minOf(hand.bottom, hand.center.y + mode.height / 2), mode.bottom, .01f)
+            assertTrue(scene.items.filter { it.zone == PlayZone.HAND && it.owner == "a" && it.kind == TableItemKind.CARD }
+                .all { card -> card.visible.all { it.intersection(mode) == null } })
+        }
     }
 
     @Test fun singleContextualActionFillsSpaceBeforeRightCornerStepButton() {

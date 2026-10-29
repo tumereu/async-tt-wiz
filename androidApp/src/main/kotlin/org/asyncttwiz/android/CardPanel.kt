@@ -161,13 +161,15 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
                             tint = if (all) LocalContentColor.current else LocalContentColor.current.copy(alpha = .6f))
                     }
                 }
-                if (display.author == viewer) IconButton({
+                // Either player may close any panel (rules v29); the opponent's button keeps the opponent colour.
+                val whose = if (display.author == viewer) "" else "opponent's "
+                IconButton({
                     if (panel.localZone != null) toolkit?.closeLocalPile() else toolkit?.closeCardPanel(display)
                 }, enabled = toolkit != null && (panel.localZone != null || writable), modifier = Modifier.width(panel.closeBounds.width.dp).height(24.dp)) {
                     if (display.reveal && panel.localZone == null) Text("Done", fontSize = 10.sp,
-                        modifier = Modifier.semantics { contentDescription = "Done Reveal panel" })
-                    else Icon(menuIcon("Close"), "Close ${panel.title} panel", Modifier.size(16.dp))
-                } else Spacer(Modifier.width(3.dp))
+                        modifier = Modifier.semantics { contentDescription = "Done ${whose}Reveal panel" })
+                    else Icon(menuIcon("Close"), "Close ${whose}${panel.title} panel", Modifier.size(16.dp))
+                }
             }
         }
     }
@@ -195,9 +197,11 @@ internal fun panelCardActionLabel(action: PanelCardAction) = when (action.label)
 @Composable
 internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, scene: TableScene) {
     val route = toolkit.panel?.split('/') ?: return
-    val panel = scene.cardPanels.singleOrNull { it.display.id == route.getOrNull(1) && it.display.author == toolkit.viewer } ?: return
-    val display = panel.display
     val rest = route.first() == "panelRest"
+    // Card actions stay author-only; the rest chooser also serves the opponent closing a forgotten panel.
+    val panel = scene.cardPanels.singleOrNull { it.display.id == route.getOrNull(1) &&
+        (rest || it.display.author == toolkit.viewer) } ?: return
+    val display = panel.display
     val id = if (rest) null else route.getOrNull(2)?.takeIf { it in display.cardIds } ?: return
     val cell = CardRingGeometry.cell.toFloat()
     val width = if (rest) 5 * cell + 8f else 3 * cell + 4f
@@ -208,9 +212,13 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
         width.dp, height.dp, description = if (rest) "Panel rest choices" else "Panel card actions",
         placement = TableBounds(x, y, width, height)) {
         if (rest) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // A closer who has not seen every face cannot send them to a public pile (shown, disabled).
+            val publish = LibraryRules.mayPublishRest(display, toolkit.viewer)
             for ((label, destination) in listOf("Top" to ContentsRest.TOP, "Bottom" to ContentsRest.BOTTOM,
                 "Shuffle" to ContentsRest.SHUFFLE, "Graveyard" to ContentsRest.GRAVEYARD, "Exile" to ContentsRest.EXILE)) {
-                InlinePopupCell(MenuControl(label, toolkit.enabled()) { toolkit.resolveCardPanel(display, destination) })
+                InlinePopupCell(MenuControl(label, toolkit.enabled() && (publish || destination !in LibraryRules.publishingRests)) {
+                    toolkit.resolveCardPanel(display, destination)
+                })
             }
         } else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             for (row in panelCardActions.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {

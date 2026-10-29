@@ -120,4 +120,18 @@ class HandMenuTest {
         assertEquals(listOf<PlayAction>(PlayAction.DismissContents(display.id)), sent)
         assertNull(toolkit.panel)
     }
+    @Test fun opponentMayPressDoneOnAForgottenHandReveal() {
+        val (play, ids) = handPlay("Instant", "Instant")
+        val hand = play.board.cards.single { it.id == ids[0] }.containerId
+        val display = ContentsDisplay(f.id("reveal"), f.a, hand, ContentsSelection.ALL, 2, true, ids, panelVersion = 4)
+        val revealed = play.copy(board = play.board.copy(contentsDisplays = listOf(display)))
+        val sent = mutableListOf<PlayAction>()
+        val toolkit = TableToolkitController(f.b, { revealed }, { true }, { action, _ -> sent += action; true })
+        toolkit.closeCardPanel(display)
+        assertEquals(listOf<PlayAction>(PlayAction.DismissContents(display.id)), sent)
+        val change = GameplayRules.change(revealed, f.b, GameCommand(f.id("done"), GameScope(revealed.gameId, playId = revealed.id),
+            GameAction.Play(sent.single()), f.id("invocation"), "1"))
+        assertEquals("accepted", change.outcome, change.reason)
+        assertTrue(change.state!!.board.contentsDisplays.isEmpty())
+    }
 }

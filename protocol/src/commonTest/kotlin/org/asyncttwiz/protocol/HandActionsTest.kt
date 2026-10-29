@@ -107,7 +107,10 @@ class HandActionsTest {
         assertTrue(display.reveal)
         assertEquals(listOf(id(21), id(23)), display.cardIds)
         assertTrue(display.cardIds.all { id -> CardVisibility.isVisibleFaceUp(revealed.board, revealed.board.cards.single { it.id == id }, b) })
-        assertEquals("accessDenied", GameplayRules.change(revealed, b, command(revealed, PlayAction.DismissContents(display.id))).reason)
+        // Either player may press Done (rules v29); the result is identical.
+        val opponentDone = GameplayRules.change(revealed, b, command(revealed, PlayAction.DismissContents(display.id)))
+        assertEquals("accepted", opponentDone.outcome, opponentDone.reason)
+        assertEquals(state.board, opponentDone.state!!.board)
         val done = exact(revealed, PlayAction.DismissContents(display.id)).state!!
         assertEquals(state.board, done.board)
         assertTrue(done.board.contentsDisplays.isEmpty())

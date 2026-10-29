@@ -364,8 +364,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (result.refused != 0 || result.submitted == 0) return
         dismiss()
     }
+    /** Either player closes any panel (rules v29) with the author's flow, so a forgotten panel never blocks the game. */
     fun closeCardPanel(display: ContentsDisplay) {
-        if (display.author != viewer || !enabled()) return
+        if (!enabled()) return
         // Hand reveals return their cards in place with Done; Library reveals keep the rest chooser.
         if (display.reveal && current()?.board?.containers?.any { it.id == display.containerId && it.zone == PlayZone.HAND } == true) {
             if (submit(PlayAction.DismissContents(display.id))) dismiss()

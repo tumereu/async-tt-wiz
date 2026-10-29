@@ -144,7 +144,10 @@ class TablePresentationTest {
             val opponent = scene.items.single { it.id == "b/HAND" }.bounds
             assertEquals(own.x, opponent.x)
             val opponentRight = width - if (landscape) TablePresentation.TOOLBAR else 0f
-            assertEquals(width - own.right, opponentRight - opponent.right)
+            // The own hand's outer end holds the Interaction mode square; the margins mirror beyond it.
+            val mode = assertNotNull(scene.modeButton)
+            assertEquals(own.right + TablePresentation.MODE_BUTTON_GAP, mode.x)
+            assertEquals(width - mode.right, opponentRight - opponent.right)
             if (landscape) assertEquals(412f - tableBottomHeight(true) - own.bottom, opponent.y)
         }
     }

@@ -200,10 +200,10 @@ class HistoryModeReworkTest {
         prefs.edit().clear().commit()
         val alice = HistoryPlaybackPreferences(context, "alice")
         val bob = HistoryPlaybackPreferences(context, "bob")
-        assertEquals(500L, alice.pauseMillis)
+        assertEquals(1_000L, alice.pauseMillis)
         alice.pauseMillis = 2_300
         assertEquals(2_300L, HistoryPlaybackPreferences(context, "alice").pauseMillis)
-        assertEquals(500L, bob.pauseMillis)
+        assertEquals(1_000L, bob.pauseMillis)
         alice.pauseMillis = Long.MIN_VALUE
         assertEquals(100L, alice.pauseMillis)
         alice.pauseMillis = Long.MAX_VALUE
@@ -212,6 +212,27 @@ class HistoryModeReworkTest {
         assertEquals(100L, bob.pauseMillis)
         prefs.edit().putLong(bob.key, 100_000).commit()
         assertEquals(10_000L, bob.pauseMillis)
+    }
+
+    @Test fun rewindPausePreferenceIsSeparatePerAccountAndClamped() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val alice = HistoryPlaybackPreferences(context, "alice")
+        val bob = HistoryPlaybackPreferences(context, "bob")
+        assertEquals(100L, alice.rewindPauseMillis)
+        var changes = 0
+        val stop = alice.observe { changes++ }
+        alice.rewindPauseMillis = 400
+        stop()
+        assertEquals(1, changes)
+        assertEquals(400L, HistoryPlaybackPreferences(context, "alice").rewindPauseMillis)
+        assertEquals(1_000L, alice.pauseMillis)
+        assertEquals(100L, bob.rewindPauseMillis)
+        alice.rewindPauseMillis = 0
+        assertEquals(20L, alice.rewindPauseMillis)
+        alice.rewindPauseMillis = Long.MAX_VALUE
+        assertEquals(2_000L, HistoryPlaybackPreferences(context, "alice").rewindPauseMillis)
     }
 
     @Test fun reviewLeavesBoardViewportCameraRailsAndCardBoundsUnchangedInBothOrientations() {
@@ -238,5 +259,8 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("History playback pause").assertExists()
         compose.onNodeWithTag("history-playback-pause").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(2_500f) }
         compose.runOnIdle { assertEquals(2_500L, settings.pauseMillis) }
+        compose.onNodeWithText("Rewind pause").assertExists()
+        compose.onNodeWithTag("history-rewind-pause").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(300f) }
+        compose.runOnIdle { assertEquals(300L, settings.rewindPauseMillis); assertEquals(2_500L, settings.pauseMillis) }
     }
 }

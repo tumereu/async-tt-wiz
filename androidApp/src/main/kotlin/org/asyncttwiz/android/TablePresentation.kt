@@ -160,7 +160,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     /** Owner -> deterministic Temp pile IDs for piles 1..4 in order, including piles not created yet
      * (drag owner redirects keep the pile number). */
-    val tempPiles: Map<String, List<String>> = emptyMap()) {
+    val tempPiles: Map<String, List<String>> = emptyMap(),
+    /** The viewer's screen-fixed Interaction mode square at the outer end of their own hand row. */
+    val modeButton: TableBounds? = null) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
@@ -210,6 +212,9 @@ object TablePresentation {
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
+    /** The Interaction mode square beside the viewer's own hand, and its gap from the hand row. */
+    const val MODE_BUTTON = 48f
+    const val MODE_BUTTON_GAP = 4f
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
     const val TOOLBAR = 212f
     private const val PILE_START = 76f
@@ -384,6 +389,7 @@ object TablePresentation {
         val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,
                 boardTop + sidebarContent - sidebarRow - landscapeExtra[1] - sidebarScroll)
             else listOf(HEADER + counterHeights[0], ownDockY)
+        var modeButton: TableBounds? = null
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             val hand = container(player.accountId, PlayZone.HAND)
@@ -391,8 +397,12 @@ object TablePresentation {
                 if (landscape) TableBounds(sidebar + 10f, 2f, (width - sidebar - toolbarWidth - 20f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
             } else TableBounds(if (landscape) sidebar + 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                 (width - if (landscape) sidebar + 20f else 16f).coerceAtLeast(28f), railHeight)
+                 (width - (if (landscape) sidebar + 20f else 16f) - MODE_BUTTON - MODE_BUTTON_GAP).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
+            // The own hand gives up its outer end to the Interaction mode square. A short rail keeps the
+            // full square, bottom-aligned with the rail so it never covers the piles below.
+            if (ownSide) modeButton = TableBounds(handBounds.right + MODE_BUTTON_GAP,
+                handBounds.bottom - MODE_BUTTON - ((handBounds.height - MODE_BUTTON) / 2).coerceAtLeast(0f), MODE_BUTTON, MODE_BUTTON)
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll
@@ -575,7 +585,8 @@ object TablePresentation {
             tempPiles = if (!DeckValidation.uuid(play.id)) emptyMap() else play.board.players.associate { p ->
                 p.accountId to TempPiles.NUMBERS.map { TempPiles.containerId(play.id, p.accountId, it) } },
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
-                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! }), play, viewer, panels), width, height)
+                items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },
+            modeButton = modeButton), play, viewer, panels), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

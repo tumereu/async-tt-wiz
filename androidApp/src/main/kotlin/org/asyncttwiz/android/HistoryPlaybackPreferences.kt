@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 class HistoryPlaybackPreferences(context: Context, accountId: String) {
     private val preferences = context.applicationContext.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
     internal val key = "pause/$accountId"
+    private val rewindKey = "rewind-pause/$accountId"
     private val seenPrefix = "last-seen/$accountId/"
     private val triggerPrefix = "auto-pause/$accountId/"
 
@@ -43,6 +44,11 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         get() = preferences.getLong(key, DEFAULT_PAUSE_MILLIS).coerceIn(MIN_PAUSE_MILLIS, MAX_PAUSE_MILLIS)
         set(value) { preferences.edit().putLong(key, value.coerceIn(MIN_PAUSE_MILLIS, MAX_PAUSE_MILLIS)).apply() }
 
+    /** Pause between rewound groups while rolling back to a branch point. */
+    var rewindPauseMillis: Long
+        get() = preferences.getLong(rewindKey, DEFAULT_REWIND_PAUSE_MILLIS).coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)
+        set(value) { preferences.edit().putLong(rewindKey, value.coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)).apply() }
+
     val autoPause: Set<PlaybackAutoPause> get() = PlaybackAutoPause.entries.filter {
         preferences.getBoolean(triggerPrefix + it.name, it.defaultEnabled)
     }.toSet()
@@ -53,16 +59,19 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
 
     fun observe(onChange: () -> Unit): () -> Unit {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
-            if (changed == null || changed == key || changed.startsWith(triggerPrefix)) onChange()
+            if (changed == null || changed == key || changed == rewindKey || changed.startsWith(triggerPrefix)) onChange()
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
     companion object {
-        const val DEFAULT_PAUSE_MILLIS = 500L
+        const val DEFAULT_PAUSE_MILLIS = 1_000L
         const val MIN_PAUSE_MILLIS = 100L
         const val MAX_PAUSE_MILLIS = 10_000L
+        const val DEFAULT_REWIND_PAUSE_MILLIS = 100L
+        const val MIN_REWIND_PAUSE_MILLIS = 20L
+        const val MAX_REWIND_PAUSE_MILLIS = 2_000L
     }
 }
 
@@ -78,6 +87,17 @@ internal fun HistoryPlaybackPreferences.pauseState(): State<Long> {
     DisposableEffect(this) {
         val stop = observe { state.longValue = pauseMillis }
         state.longValue = pauseMillis
+        onDispose { stop() }
+    }
+    return state
+}
+
+@Composable
+internal fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
+    val state = remember(this) { mutableLongStateOf(rewindPauseMillis) }
+    DisposableEffect(this) {
+        val stop = observe { state.longValue = rewindPauseMillis }
+        state.longValue = rewindPauseMillis
         onDispose { stop() }
     }
     return state

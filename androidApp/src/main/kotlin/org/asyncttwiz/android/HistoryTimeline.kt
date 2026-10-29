@@ -222,7 +222,8 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
     definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
     background: Color = TimelineBarColor, readOnly: Boolean = false, onEnter: () -> Unit = {},
-    playControls: (@Composable () -> Unit)? = null, playCursorId: String = playback.tree.sharedHeadId) {
+    playControls: (@Composable () -> Unit)? = null, playCursorId: String = playback.tree.sharedHeadId,
+    rewindPauseMillis: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS) {
     require(pauseMillis > 0)
     val position = playback.position
     val stripCursor = if (readOnly) playCursorId else position.cursorId
@@ -234,6 +235,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
     val continuation by rememberUpdatedState(onContinue)
     val latestPauseMillis by rememberUpdatedState(pauseMillis)
+    val latestRewindPauseMillis by rememberUpdatedState(rewindPauseMillis)
     val latestAutoPause by rememberUpdatedState(autoPause)
     val latestBoard by rememberUpdatedState(board)
     val latestDefinitions by rememberUpdatedState(definitions)
@@ -254,7 +256,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             if (playback.pauseAfterAnimation()) return@LaunchedEffect
             // Sample once per completed animation: a setting change affects the next pause,
             // not a pause already in progress.
-            delay(playback.stepPauseMillis(latestPauseMillis))
+            delay(playback.stepPauseMillis(latestPauseMillis, latestRewindPauseMillis))
             playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard, definitions = latestDefinitions)
         }
     }

@@ -94,6 +94,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     var explorerOpeningCursor by remember(game.id, live?.id) { mutableStateOf<String?>(null) }
     var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
     val playbackPause by playbackPreferences.pauseState()
+    val playbackRewindPause by playbackPreferences.rewindPauseState()
     val playbackAutoPause by playbackPreferences.autoPauseState()
     var playbackSettingsOpen by remember(history) { mutableStateOf(false) }
     var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
@@ -294,7 +295,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                    readOnly = editable, playCursorId = stripCursor,
                                    onEnter = { history.select(stripCursor) },
-                                   playControls = playControls)
+                                   playControls = playControls, rewindPauseMillis = playbackRewindPause)
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         continuationArmed = history.armed != null,

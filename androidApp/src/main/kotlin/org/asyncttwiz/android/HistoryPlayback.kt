@@ -128,8 +128,9 @@ class HistoryPlayback(initial: HistoryTree,
         return common
     }
     fun acknowledgeBranch() { branched = false }
-    fun stepPauseMillis(normal: Long): Long = if (!tree.isAncestor(position.cursorId, tree.sharedHeadId))
-        minOf(50L, normal / 8).coerceAtLeast(1) else normal
+    /** Forward groups wait [normal]; rolling back toward a branch point waits the separate [rewind]. */
+    fun stepPauseMillis(normal: Long, rewind: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS): Long =
+        if (!tree.isAncestor(position.cursorId, tree.sharedHeadId)) rewind.coerceAtLeast(1) else normal
 
     fun receive(next: HistoryTree, viewer: String? = null) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }

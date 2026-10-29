@@ -60,7 +60,8 @@ class CardPanelIntegrationTest {
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(library.id, ContentsSelection.ALL)).reason)
                 val opponentLibrary = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId != actor }
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(opponentLibrary.id, ContentsSelection.TOP), f.recipient).reason)
-                assertEquals("accessDenied", send(PlayAction.DismissContents(panel.id), f.recipient).reason)
+                // Rules v29: the opponent may close it too, but never into a public pile it has not seen.
+                assertEquals("accessDenied", send(PlayAction.DismissContents(panel.id, ContentsRest.GRAVEYARD), f.recipient).reason)
                 assertEquals("accessDenied", send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()), f.recipient).reason)
                 assertEquals("accepted", send(PlayAction.ReorderContents(panel.id, panel.cardIds.last(), panel.cardIds.first())).outcome)
                 val reveal = send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()))
@@ -73,6 +74,11 @@ class CardPanelIntegrationTest {
                 assertTrue(state().board.contentsDisplays.isEmpty())
                 assertEquals(rest, state().board.containers.single { it.id == library.id }.cards.takeLast(3))
                 assertEquals("noOp", send(PlayAction.DismissContents(panel.id)).outcome)
+                assertEquals("accepted", send(PlayAction.ShowContents(library.id, ContentsSelection.TOP, 2)).outcome)
+                val forgotten = state().board.contentsDisplays.single()
+                assertEquals("accepted", send(PlayAction.DismissContents(forgotten.id), f.recipient).outcome)
+                assertTrue(state().board.contentsDisplays.isEmpty())
+                assertEquals(forgotten.cardIds, state().board.containers.single { it.id == library.id }.cards.take(2))
             }
         }
     }

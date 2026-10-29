@@ -229,6 +229,51 @@ class CardPanelUiTest {
         }
     }
 
+    private fun opponentPanel(selection: ContentsSelection, reveal: Boolean = false): ContentsDisplay {
+        val ids = if (selection == ContentsSelection.ALL) (40..43).map(f::id) else listOf(f.id(40), f.id(41))
+        val display = ContentsDisplay(f.id(500), f.other, f.container(PlayZone.LIBRARY), selection, ids.size, reveal, ids, panelVersion = 3)
+        f.connect(f.root.copy(board = f.root.board.copy(contentsDisplays = listOf(display))))
+        ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
+        mount()
+        compose.onNodeWithContentDescription("Opponent ${display.title} panel, ${ids.size} cards").assertIsDisplayed()
+        return display
+    }
+
+    @Test fun eitherPlayerClosesAForgottenLookPanelWithoutPublishingUnseenFaces() {
+        val display = opponentPanel(ContentsSelection.TOP)
+        // Select all and card actions stay the author's; closing is anyone's.
+        compose.onNodeWithContentDescription("Select all in Look panel").assertDoesNotExist()
+        click("Close opponent's Look panel")
+        for (label in listOf("Top", "Bottom", "Shuffle")) compose.onNodeWithContentDescription(label).assertIsEnabled()
+        for (label in listOf("Graveyard", "Exile")) compose.onNodeWithContentDescription(label).assertIsNotEnabled()
+        click("Top")
+        assertTrue(f.play.board.contentsDisplays.isEmpty())
+        val close = assertIs<PlayAction.DismissContents>((f.commands().last().action as GameAction.Play).action)
+        assertEquals(display.id, close.displayId)
+        assertEquals(ContentsRest.TOP, close.rest)
+        assertEquals(display.cardIds, f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards.take(2))
+        assertTrue(f.play.board.cards.none { CardVisibility.isVisibleFaceUp(f.play.board, it, f.actor) })
+    }
+
+    @Test fun eitherPlayerClosesAForgottenRevealWithTheFullRestChoice() {
+        opponentPanel(ContentsSelection.TOP, reveal = true)
+        click("Done opponent's Reveal panel")
+        for (label in listOf("Top", "Bottom", "Shuffle", "Graveyard", "Exile")) compose.onNodeWithContentDescription(label).assertIsEnabled()
+        click("Graveyard")
+        assertTrue(f.play.board.contentsDisplays.isEmpty())
+        assertEquals(listOf(f.id(40), f.id(41)).toSet(), f.play.board.containers.single { it.id == f.container(PlayZone.GRAVEYARD) }.cards.toSet())
+    }
+
+    @Test fun eitherPlayerClosesAForgottenSearchAsTheUsualShuffle() {
+        val display = opponentPanel(ContentsSelection.ALL)
+        click("Close opponent's Search panel")
+        compose.onNodeWithContentDescription("Panel rest choices").assertDoesNotExist()
+        assertTrue(f.play.board.contentsDisplays.isEmpty())
+        val close = assertIs<PlayAction.DismissContents>((f.commands().last().action as GameAction.Play).action)
+        assertEquals(display.id, close.displayId)
+        assertNotNull(close.seed)
+    }
+
     @Test fun legacyTwoPanelsRemainSideBySideAndClosableInEitherOrientation() {
         setup(); show(count = 2)
         val own = panel()

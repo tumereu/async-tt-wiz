@@ -300,20 +300,22 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
-                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
+                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu,
+                    inspection = controller.inspection)
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
                     librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu,
                     savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
-                    orientation = podPickOrientationText(detail))
+                    orientation = podPickOrientationText(detail), inspection = controller.inspection)
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
-                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) })
+                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
+                    inspection = controller.inspection)
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

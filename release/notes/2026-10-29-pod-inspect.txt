@@ -1,0 +1,1 @@
+add: In drafts, Inspect a card to read it in full and see the back of double-faced cards: from a pack card's or Build card's tap menu, or by tapping a grid card.

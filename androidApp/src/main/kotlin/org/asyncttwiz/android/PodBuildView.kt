@@ -37,7 +37,9 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -110,6 +112,7 @@ fun PodBuildView(
     /** The review feed's Undo moving a copy back, which also drops that move from [onUndo]'s history. */
     onRevert: (copyId: String, category: PodDeckCategory) -> Unit = onMove,
     onAdjustSideBasic: (index: Int, delta: Int) -> Unit = { _, _ -> },
+    inspection: CardInspectionController = remember { CardInspectionController() },
 ) {
     val columns = columnPreference.count
     val submitEnabled = podBuildSubmitEnabled(build, copies, sideboardLimit, editable, canSubmit)
@@ -223,6 +226,7 @@ fun PodBuildView(
                                                         inspected = tileKey to card
                                                     } else if (!open && inspected?.first == tileKey) inspected = null
                                                 }, onInspectScroll = { previewScroll.dispatchRawDelta(it) }, menus = menus,
+                                                    onInspectCard = { inspected = null; inspection.openPodCard(tile.digest, tile.definition) },
                                                     fadeIn = tile.copyIds.any { it in arriving },
                                                     onLeave = { bounds ->
                                                         val offset = origin.coordinates?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
@@ -290,6 +294,7 @@ fun PodBuildView(
             onFinish = { done -> feed = null; feedback = PodBuildFeedback(++feedbackId, done.summary, 2000) })
     }
     inspected?.second?.let { PodCardArtPreview(it, it.definition.name, previewScroll) }
+    DeckCardInspection(inspection)
 }
 
 /** Lays its cards out [perRow] wide, row-major, all of one width with [PodBuildCardGap] between them.
@@ -389,13 +394,16 @@ internal fun PodBuildCard(
     menus: PodCardMenuOwner = remember { PodCardMenuOwner() },
     fadeIn: Boolean = false,
     onLeave: (Rect) -> Unit = {},
+    /** Opens the full inspector (all faces) from the tap menu. */
+    onInspectCard: () -> Unit = {},
 ) {
     val key = tile.copyIds.first()
     // The card stays in place; a projection follows the finger and snaps back below the threshold.
     var drag by remember { mutableFloatStateOf(0f) }
     var snapBack by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(editable) { if (!editable) { if (menus.open == key) menus.open = null; snapBack?.cancel(); drag = 0f } }
+    // The tap menu stays open (its moves disabled): Inspect works on a submitted deck too.
+    LaunchedEffect(editable) { if (!editable) { snapBack?.cancel(); drag = 0f } }
     val appear = remember { Animatable(if (fadeIn) 0f else 1f) }
     LaunchedEffect(Unit) { appear.animateTo(1f, tween(PodBuildSettleMillis)) }
     val anchor = remember { PodBuildAnchor() }
@@ -403,6 +411,7 @@ internal fun PodBuildCard(
     val latestLeave by rememberUpdatedState(onLeave)
     val latestInspect by rememberUpdatedState(onInspect)
     val latestInspectScroll by rememberUpdatedState(onInspectScroll)
+    val latestInspectCard by rememberUpdatedState(onInspectCard)
     val latestCopies by rememberUpdatedState(tile.copyIds.size)
     val threshold = with(LocalDensity.current) { 20.dp.toPx() }
     val right = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
@@ -425,7 +434,7 @@ internal fun PodBuildCard(
             .graphicsLayer { alpha = appear.value }
             // Same recognizer as the pick screen: tap menu, horizontal swipe, release-to-close hold.
             .pointerInput(key, category, threshold, editable) {
-                podPickGestures(onTap = { if (editable) menus.open = key },
+                podPickGestures(onTap = { menus.open = key },
                     onInspect = { latestInspect(it) }, onInspectScroll = { latestInspectScroll(it) },
                     onDrag = if (editable) { x -> snapBack?.cancel(); drag = x } else null,
                     onDragEnd = { x ->
@@ -443,7 +452,8 @@ internal fun PodBuildCard(
             }
             .semantics {
                 contentDescription = "$name, ${tile.copyIds.size} copies, ${category.podBuildLabel()}"
-                if (editable) onClick("Move $name") { menus.open = key; true }
+                onClick("Card menu") { menus.open = key; true }
+                if (tile.definition != null) customActions = listOf(CustomAccessibilityAction("Inspect $name") { latestInspectCard(); true })
             }) {
             CardArtwork(reference, name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) })
             if (tile.copyIds.size > 1) Surface(Modifier.align(Alignment.TopEnd), color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -453,13 +463,17 @@ internal fun PodBuildCard(
         podBuildSwipeTarget(category, drag)?.let { target ->
             PodBuildSwipeCopy(key, reference, name, width, drag, (abs(drag) / threshold).coerceIn(0f, 1f), target)
         }
-        PodCardMenu(expanded = menus.open == key && editable, dismiss = { if (menus.open == key) menus.open = null }) {
+        PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
             listOf(right, left).forEach { destination ->
-                DropdownMenuItem(text = { Text("→ ${destination.podBuildLabel()}") }, onClick = {
+                DropdownMenuItem(text = { Text("→ ${destination.podBuildLabel()}") }, enabled = editable, onClick = {
                     menus.open = null
                     confirm(destination)
                 })
             }
+            DropdownMenuItem(text = { Text("Inspect") }, enabled = tile.definition != null, onClick = {
+                menus.open = null
+                latestInspectCard()
+            })
         }
     }
 }

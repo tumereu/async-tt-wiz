@@ -97,6 +97,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var notesCancel: (() -> Unit)? = null
     /** Build undo for the open pod's current attempt; survives tab switches, not restarts. */
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
+    /** The pick/grid/Build card inspector (Next face, Enlarge artwork); personal, closed on pod change. */
+    val inspection = CardInspectionController()
     internal val setPicker = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
         failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
@@ -110,6 +112,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun clear() {
         epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
         quietFailures.succeeded()
+        inspection.close()
         setPicker.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
@@ -122,6 +125,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.uncertain) return
         flushSetup()
         setPicker.dismiss()
+        inspection.close()
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
@@ -129,6 +133,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         refresh()
     }
     fun back() {
+        if (inspection.state != null) { inspection.close(); return }
         if (setPicker.state.open) { setPicker.dismiss(); return }
         if (state.confirmation != null) { dismissConfirmation(); return }
         if (state.choosingMember) { chooseMember(false); return }
@@ -137,6 +142,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun showList() {
         flushSetup()
         setPicker.dismiss()
+        inspection.close()
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,

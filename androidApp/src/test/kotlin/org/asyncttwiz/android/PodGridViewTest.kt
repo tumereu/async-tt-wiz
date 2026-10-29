@@ -133,6 +133,17 @@ class PodGridViewTest {
         repeat(9) { assertHighlighted(it, false) }
     }
 
+    @Test fun tapOnAGridCardOpensTheFullInspectorWithoutSelectingALine() {
+        show()
+        slot(4).performClick()
+        compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
+        compose.onNode(hasText("Card 4") and hasAnyAncestor(hasContentDescription("Card inspection content"))).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close card inspection").performClick()
+        compose.onNodeWithContentDescription("Close card inspection").assertDoesNotExist()
+        repeat(9) { assertHighlighted(it, false) }
+        compose.onNodeWithText("Confirm").assertIsNotEnabled()
+    }
+
     @Test fun selectionResetsAfterServerRefillEvenIfGridAndPlayerStayTheSame() {
         var view by mutableStateOf(initial)
         show(view = { view })

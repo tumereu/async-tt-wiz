@@ -692,6 +692,19 @@ class PodControllerTest {
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
     }
 
+    @Test fun cardInspectionClosesOnBackLeavingThePodAndLogout() = Fixture().use { f ->
+        val card = InspectedCard.retained(definition.digest, card)
+        f.open()
+        f.controller.inspection.open(card)
+        f.controller.back(); f.deliver()
+        assertNull(f.controller.inspection.state)
+        assertEquals(id, f.controller.state.selected)
+        f.controller.inspection.open(card); f.controller.showList(); f.deliver()
+        assertNull(f.controller.inspection.state)
+        f.open(); f.controller.inspection.open(card); f.controller.clear(); f.deliver()
+        assertNull(f.controller.inspection.state)
+    }
+
     @Test fun leavingPickerOrLoggingOutFencesLateSetPreparation() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
         f.controller.setPicker.choose("TST"); f.worker.drain()

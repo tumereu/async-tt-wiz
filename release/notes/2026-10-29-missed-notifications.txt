@@ -1,0 +1,1 @@
+fix: You now get a notification when your opponent moves after you leave the app with the Home button

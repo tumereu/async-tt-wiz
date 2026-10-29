@@ -112,10 +112,14 @@ class GameStartTest {
                     "AND identity='${play.id}' AND author_id='${b.account.accountId}'"))
                 assertEquals(1, number(db, "SELECT count(*) FROM activity_summary WHERE $where AND account_id='${a.account.accountId}' " +
                     "AND your_move=${head.summary.attentionHolder == a.account.accountId} AND seen_through < activity_id"))
-                // A player already looking at the game is not told again, as with any other game activity.
+                // A player looking at the game sees it with their next heartbeat, as with any other game activity;
+                // an earlier heartbeat alone does not prove they still look.
                 val watched = start(present = true)
-                assertEquals(1, number(db, "SELECT count(*) FROM activity_summary WHERE kind='GAME' AND game_id='${watched.summary.id}' " +
-                    "AND account_id='${a.account.accountId}' AND seen_through = activity_id"))
+                fun seen() = number(db, "SELECT count(*) FROM activity_summary WHERE kind='GAME' AND game_id='${watched.summary.id}' " +
+                    "AND account_id='${a.account.accountId}' AND seen_through = activity_id")
+                assertEquals(0, seen())
+                activity.heartbeat(a, GamePresence(watched.summary.id, id()))
+                assertEquals(1, seen())
                 assertEquals(0, number(db, "SELECT count(*) FROM account_activity WHERE kind='GAME' AND account_id='${b.account.accountId}'"))
             }
         }

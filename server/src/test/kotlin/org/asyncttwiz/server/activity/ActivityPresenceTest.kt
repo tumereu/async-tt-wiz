@@ -83,7 +83,7 @@ class ActivityPresenceTest {
                 record(false)
                 delivery.deliverDue(); assertEquals(1, sent.size)
                 service.heartbeat(f.b, recipient.copy(left = true))
-                // Presence suppressed events stay seen after leaving; no stale alert.
+                // Not due yet: the actor is still in the game and was idle less than sixty seconds.
                 assertTrue(service.page(f.b, delta.nextCursor).readyNotices!!.isEmpty())
                 record(false)
                 service.heartbeat(f.a, actor.copy(left = true))
@@ -115,33 +115,85 @@ class ActivityPresenceTest {
         }
     }
 
-    @Test fun `presence suppression is recorded on insert and update even if recipient leaves before scheduler`() {
-        ActivityFixture().use { f ->
-            val game = f.accept(f.create()); val clock = ActivityClock()
-            val service = ActivityService(f.runtime, clock)
-            service.register(f.b, RegisterInstallation(id(), id(), "push"))
+    private class Presence(val f: ActivityFixture) {
+        val game = f.accept(f.create())
+        val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
+        val first: Instant = clock.time
+        val service = ActivityService(f.runtime, clock)
+        val sent = mutableListOf<ActivityPushHint>()
+        val delivery = ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock)
+        val actor = GamePresence(game.id, UUID.randomUUID().toString())
+        val recipient = GamePresence(game.id, UUID.randomUUID().toString())
+        init {
+            service.register(f.b, RegisterInstallation(UUID.randomUUID().toString(), UUID.randomUUID().toString(), "push"))
             f.sql("DELETE FROM activity_push")
-            val recipient = GamePresence(game.id, id())
-            service.heartbeat(f.b, recipient)
-            repeat(2) {
-                f.runtime.transaction { connection ->
-                    ActivityService.record(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(f.b.account.accountId),
-                        ActivityKind.GAME, UUID.fromString(game.id), UUID.randomUUID(), UUID.fromString(f.a.account.accountId),
-                        OffsetDateTime.ofInstant(clock.time, ZoneOffset.UTC), newMessage = true)
+        }
+        fun at(seconds: Long) { clock.time = first.plusSeconds(seconds) }
+        fun record(yourMove: Boolean = true, chat: Boolean = false) = f.runtime.transaction { connection ->
+            ActivityService.record(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(f.b.account.accountId),
+                ActivityKind.GAME, UUID.fromString(game.id), UUID.randomUUID(), UUID.fromString(f.a.account.accountId),
+                OffsetDateTime.ofInstant(clock.time, ZoneOffset.UTC), yourMove, chat)
+        }
+        fun unseen() = f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND seen_through < activity_id " +
+            "AND account_id='${f.b.account.accountId}'")
+        fun queued() = f.number("SELECT count(*) FROM activity_push WHERE kind='GAME'")
+        fun notices() = service.page(f.b, null).readyNotices!!.filter { it.kind == ActivityKind.GAME }
+    }
+
+    @Test fun `a recent heartbeat without a later one never marks a move seen and the push follows once presence lapses`() {
+        ActivityFixture().use { f ->
+            val p = Presence(f)
+            // The recipient's app heartbeats, then goes to the background; its "left" heartbeat is lost.
+            p.service.heartbeat(f.b, p.recipient)
+            p.at(5); p.service.heartbeat(f.a, p.actor.copy(didSomething = true)); p.record(chat = true)
+            assertEquals(1L, p.unseen(), "A heartbeat before the move proves nothing about the move")
+            p.delivery.use { delivery ->
+                for (second in 6L..21L) {
+                    p.at(second)
+                    if (second == 12L) p.service.heartbeat(f.a, p.actor.copy(didSomething = true)) // actor idle until 22 s
+                    delivery.deliverDue()
+                    assertTrue(p.sent.isEmpty(), "at $second s")
+                    assertEquals(1L, p.queued(), "Waiting while the recipient may be present must keep the push queued")
                 }
-                assertEquals(1L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND seen_through=activity_id AND NOT new_message"))
+                assertTrue(p.notices().isEmpty())
+                p.at(22); delivery.deliverDue()
+                assertEquals(1, p.sent.size)
+                assertTrue(p.notices().single().notice!!.newMessage)
+                // Reopening the app: its first heartbeat marks everything seen and clears the notice.
+                p.record(); delivery.deliverDue(); assertEquals(1L, p.queued())
+                p.at(30); p.service.heartbeat(f.b, p.recipient)
+                assertEquals(0L, p.unseen()); assertEquals(0L, p.queued())
+                assertTrue(p.notices().isEmpty())
+                p.at(60); delivery.deliverDue(); assertEquals(1, p.sent.size)
             }
-            service.heartbeat(f.b, recipient.copy(left = true))
-            assertTrue(service.page(f.b, "0").readyNotices!!.isEmpty())
-            val sent = mutableListOf<ActivityPushHint>()
-            ActivityDelivery(f.runtime, ActivityPushAdapter { _, hint -> sent += hint; PushResult(PushStatus.DELIVERED) }, clock).use {
-                it.deliverDue()
-                assertTrue(sent.isEmpty())
-                f.record(game, id(), clock.time)
-                it.deliverDue()
-                assertEquals(1, sent.size)
+        }
+    }
+
+    @Test fun `moves while heartbeats keep arriving are seen by the next one and a left heartbeat ends presence at once`() {
+        ActivityFixture().use { f ->
+            val p = Presence(f)
+            p.service.heartbeat(f.a, p.actor.copy(left = true)) // An absent actor: no idle debounce.
+            p.delivery.use { delivery ->
+                for (second in 0L..30L) {
+                    p.at(second)
+                    if (second % 5 == 0L) {
+                        p.service.heartbeat(f.b, p.recipient)
+                        assertEquals(0L, p.unseen()); assertEquals(0L, p.queued())
+                    }
+                    if (second == 2L || second == 13L) p.record(chat = true)
+                    if (second == 7L) p.record(yourMove = false)
+                    delivery.deliverDue()
+                }
+                assertTrue(p.sent.isEmpty())
+                assertEquals(0L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND new_message " +
+                    "AND account_id='${f.b.account.accountId}'"))
+                p.at(31); p.service.heartbeat(f.b, p.recipient.copy(left = true))
+                assertTrue(p.notices().isEmpty(), "Moves seen before leaving stay seen")
+                delivery.deliverDue(); assertTrue(p.sent.isEmpty())
+                p.at(32); p.record(chat = true); delivery.deliverDue()
+                assertEquals(1, p.sent.size)
+                assertTrue(p.notices().single().notice!!.newMessage)
             }
-            assertFalse(service.page(f.b, "0").readyNotices!!.single().notice!!.newMessage)
         }
     }
 

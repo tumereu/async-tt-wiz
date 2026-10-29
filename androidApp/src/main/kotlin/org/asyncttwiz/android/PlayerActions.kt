@@ -2,6 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
@@ -89,10 +91,13 @@ object PlayerStatusInput {
 /** Own status: presets, pen (free text) and clear. The opponent's status is shown read-only. */
 /** Popups float over the table without a sheet, so plain text needs its own backing to stay readable. */
 @Composable
-private fun PlayerStatusLabel(text: String, maxLines: Int) {
+private fun PlayerStatusLabel(text: String, maxLines: Int, dot: Color? = null) {
     Surface(shape = RoundedCornerShape(4.dp), color = Color.White, border = BorderStroke(1.dp, LocalInlinePopupColor.current.copy(alpha = .4f))) {
-        Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium,
-            color = MenuInk, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The same dot as on the life square, so the line explains what its colour means.
+            if (dot != null) Box(Modifier.padding(end = 6.dp).size(8.dp).background(dot, CircleShape))
+            Text(text, style = MaterialTheme.typography.labelMedium, color = MenuInk, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -119,7 +124,7 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
     val color = LocalInlinePopupColor.current
     if (!own) {
         // Plain info, not a control: whether the opponent has this game open right now.
-        LocalOpponentPresence.current?.let { PlayerStatusLabel(rememberPresenceLine(it), maxLines = 1) }
+        LocalOpponentPresence.current?.let { PlayerStatusLabel(rememberPresenceLine(it), maxLines = 1, dot = rememberPresenceDot(it)?.color) }
         if (player.status.isNotEmpty()) PlayerStatusLabel("Status: “${player.status}”", maxLines = 3)
         StatusBubbleToggles(state, player, close)
         return

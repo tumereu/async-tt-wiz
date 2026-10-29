@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
     val revision: String = "0", val playId: String? = null,
     val attentionHolder: String? = null, val updatedAt: String = createdAt,
     val podId: String? = null, val podName: String? = null,
-    /** Pod challenge waiting for the opponent's deck; only the challenger sees the game meanwhile. Omitted when false. */
+    /** Pod challenge waiting for the opponent's deck: both players see it, the recipient can decline but not yet accept. Omitted when false. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val invitationHeld: Boolean = false)
 @Serializable data class GameList(val games: List<GameSummary>, val next: String? = null)
 @Serializable data class LobbyError(val code: String)

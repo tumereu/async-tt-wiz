@@ -432,15 +432,20 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
             Text("Games", style = MaterialTheme.typography.titleMedium)
             games.forEach { game ->
                 val opponent = if (game.inviter.accountId == accountId) game.recipient else game.inviter
-                Row(Modifier.fillMaxWidth().clickable { lobby?.open(game.id) }.heightIn(min = 48.dp),
+                // An invitation to answer is answered in place, like the Menu list; it is not opened as a lobby yet.
+                val incoming = incomingInvitation(game, accountId)
+                Row(Modifier.fillMaxWidth().testTag("pod-game-${game.id}")
+                    .then(if (incoming) Modifier else Modifier.clickable { lobby?.open(game.id) }).heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Avatar(opponent)
                     Column(Modifier.weight(1f)) {
                         Text(game.gameName)
-                        if (game.invitationHeld) Text(gameStatus(game), style = MaterialTheme.typography.bodySmall,
+                        if (game.invitationHeld || incoming) Text(gameStatus(game, accountId), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("vs ${opponent.username}", style = MaterialTheme.typography.bodySmall)
+                    if (incoming && lobby != null) MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
+                        acceptEnabled = !game.invitationHeld) { lobby.respond(game, it) }
                 }
             }
         }

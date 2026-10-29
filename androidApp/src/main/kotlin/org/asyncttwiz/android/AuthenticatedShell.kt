@@ -165,23 +165,30 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 .heightIn(min = if (lobby != null && !lobby.state.loaded) 80.dp else 0.dp),
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
             Column {
-            for (game in lobby?.state?.games.orEmpty()) {
-                val selectedGame = controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
+            val accountId = controller.state.account?.accountId.orEmpty()
+            for (game in navigationGameRows(lobby?.state?.games.orEmpty(), lobby?.state?.invitations.orEmpty(), accountId)) {
+                val incoming = incomingInvitation(game, accountId)
+                val selectedGame = !incoming && controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
-                Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
-                    .gameRowActions(lobby!!, game) { lobby.open(game.id); controller.drawer(false) }
+                Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp).testTag("navigation-game-${game.id}")
+                    .gameRowActions(lobby!!, game) {
+                        // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
+                        if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
+                        else { lobby.open(game.id); controller.drawer(false) }
+                    }
                     .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
                     color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
                     Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Avatar(game.opponent(controller.state.account!!.accountId))
+                        Avatar(game.opponent(accountId))
                         Column(Modifier.weight(1f)) {
                             Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            Text("${game.opponent(controller.state.account!!.accountId).username} · ${gameStatus(game)} · ${gameDate(game)}",
+                            Text("${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameDate(game)}",
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
+                        if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         EntryIcon(null, "chevron")
                     }
                 }
@@ -306,14 +313,14 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                              if (games.isNotEmpty()) MenuActivityPanel {
                                  games.forEachIndexed { index, game ->
                                      if (index > 0) HorizontalDivider(color = ScreenBorder)
-                                     val incoming = game.lifecycle == org.asyncttwiz.protocol.GameLifecycle.LOBBY &&
-                                         game.invitationState == org.asyncttwiz.protocol.InvitationState.PENDING && game.recipient.accountId == accountId
+                                     val incoming = incomingInvitation(game, accountId)
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
                                          .gameRowActions(lobby, game) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
                                          }, trailing = if (incoming) ({
-                                             MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames) {
+                                             MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
+                                                 acceptEnabled = !game.invitationHeld) {
                                                  lobby.respond(game, it)
                                              }
                                          }) else null)

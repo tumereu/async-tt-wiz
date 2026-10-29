@@ -24,6 +24,17 @@ internal fun quickContinueGames(games: List<GameSummary>, accountId: String): Li
         }
     }).take(3)
 
+/** A pending invitation or pod challenge (held or not) this player still has to answer. */
+internal fun incomingInvitation(game: GameSummary, accountId: String) = game.lifecycle == GameLifecycle.LOBBY &&
+    game.invitationState == InvitationState.PENDING && game.recipient.accountId == accountId
+
+/** Drawer Games section: invitations needing an answer first, newest first, then the games as listed. */
+internal fun navigationGameRows(games: List<GameSummary>, invitations: List<GameSummary>, accountId: String): List<GameSummary> {
+    val incoming = invitations.filter { incomingInvitation(it, accountId) }.distinctBy { it.id }
+        .sortedWith(compareByDescending<GameSummary> { runCatching { Instant.parse(it.updatedAt) }.getOrNull() }.thenBy { it.id })
+    return incoming + games.filter { game -> incoming.none { it.id == game.id } }
+}
+
 internal data class QuickContinuePod(val pod: PodSummary? = null, val invitation: PodInvitation? = null) {
     val id: String get() = pod?.id ?: requireNotNull(invitation).podId
     val updatedAt: String get() = pod?.updatedAt ?: requireNotNull(invitation).invitedAt

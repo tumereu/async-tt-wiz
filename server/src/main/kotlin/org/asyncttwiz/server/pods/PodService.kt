@@ -488,7 +488,9 @@ class PodService(private val runtime: ServiceRuntime) {
                 recipient.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
-            ActivityService.record(sql, recipient, ActivityKind.INVITATION, row.id!!, row.currentInvitation!!, row.inviterId)
+            // A challenge declined while held stays declined; only a still-pending one notifies.
+            if (summary.invitationState == InvitationState.PENDING)
+                ActivityService.record(sql, recipient, ActivityKind.INVITATION, row.id!!, row.currentInvitation!!, row.inviterId)
         }
     }
 

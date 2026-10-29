@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.collectLatest
 import org.asyncttwiz.protocol.*
 
 /** No fabricated cards, values or actionable board while the accepted boundary is unavailable. */
@@ -202,17 +203,24 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var clockEpoch by remember(coordinator) { mutableIntStateOf(0) }
     var pointerTime by remember(coordinator) { mutableLongStateOf(0L) }
     DisposableEffect(coordinator) { onDispose { coordinator.cancel(); inspector.close() } }
-    LaunchedEffect(coordinator, clockEpoch) {
+    LaunchedEffect(coordinator) {
         // Tick only an active recognition window, not an always-running animation at an idle table.
         // Relative frame time also supports Compose's controlled test clock (not wall-clock polling).
-        val base = pointerTime
-        if (coordinator.busy) {
-            val start = withFrameNanos { it }
-            while (isActive && coordinator.busy) withFrameNanos { now ->
-                coordinator.tick(base + (now - start) / 1_000_000); preview = coordinator.preview
+        // Each pointer event restarts the window here, outside composition: a held finger reports a
+        // move every frame, and keying an effect on the epoch recomposed the whole table each time.
+        snapshotFlow { clockEpoch }.collectLatest {
+            val base = pointerTime
+            if (coordinator.busy) {
+                val start = withFrameNanos { it }
+                while (isActive && coordinator.busy) withFrameNanos { now ->
+                    coordinator.tick(base + (now - start) / 1_000_000); preview = coordinator.preview
+                }
             }
         }
     }
+    // Composition reads only these parts of the gesture preview; drag points reach just the Canvas.
+    val previewDragging by remember(coordinator) { derivedStateOf { preview.scope != null || preview.delta != null } }
+    val previewValue by remember(coordinator) { derivedStateOf { preview.delta?.let { preview.pressedId to it } } }
     val relay = remember(coordinator) { TableTapRelay(
         accepts = { p, t -> coordinator.replacesTap(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
         down = { p, t -> coordinator.down(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
@@ -327,7 +335,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val scene = targetScene
         JankTableState(runtime.reviewing, selection.mode,
             toolkit?.panel ?: "card".takeIf { actions != null || toolkit?.capture != null || toolkit?.manual?.scope != null },
-            preview.scope != null || preview.delta != null, { progress.isRunning },
+            previewDragging, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
         val semanticItems = remember(animation, targetScene, animationRevision) {
             // Target metadata owns the accepted disclosure; start-frame metadata may still be a back
@@ -446,8 +454,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }
-            preview.delta?.let { delta ->
-                scene.items.firstOrNull { it.id == preview.pressedId }?.let { item ->
+            previewValue?.let { (pressedId, delta) ->
+                scene.items.firstOrNull { it.id == pressedId }?.let { item ->
                     val anchor = item.visible.maxByOrNull { it.width * it.height } ?: item.bounds
                     Box(Modifier.offset(anchor.x.dp, anchor.y.dp).size(anchor.width.dp, anchor.height.dp)) {
                         HoldTooltip(valueDragLabel(item.value, delta.toLong()))
@@ -542,11 +550,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         .semantics { contentDescription = "Stack text marks ${indices.sorted().joinToString { (it + 1).toString() }}" })
                 }
             }
-            if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, preview, writable) { intent ->
+            if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
                 if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
                 callback?.invoke(intent)
             }
-            if (combatBubbleId != null) AnimatedCombatBubbleOverlay(rendered, accountId, preview, writable) { intent, combatCard ->
+            if (combatBubbleId != null) AnimatedCombatBubbleOverlay(rendered, accountId, { preview }, writable) { intent, combatCard ->
                 if (intent is TableIntent.Ping) {
                     val target = tablePingTarget(play, combatCard)
                     if (target != null && currentRuntime.controlsConnected == true)
@@ -670,22 +678,22 @@ private fun Modifier.tableFrameBounds(bounds: () -> TableBounds?): Modifier = la
 
 @Composable
 private fun AnimatedStackBubbleOverlay(frame: State<TableRenderFrame>, play: PlayState, viewer: String,
-    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
+    preview: () -> TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
     val scene = frame.value.scene
     val bubble = scene.stackBubbles ?: return
     val card = scene.items.find { it.cardId == bubble.entryId && it.zone == PlayZone.STACK }
     StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, viewer),
-        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview, enabled, perform)
+        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview(), enabled, perform)
 }
 
 @Composable
 private fun AnimatedCombatBubbleOverlay(frame: State<TableRenderFrame>, viewer: String,
-    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent, TableItem) -> Unit) {
+    preview: () -> TableGesturePreview, enabled: Boolean, perform: (TableIntent, TableItem) -> Unit) {
     val scene = frame.value.scene
     val bubble = scene.combatBubbles ?: return
     val card = scene.items.find { it.cardId == bubble.entryId && it.viewport == "combat" } ?: return
     StackBubbleOverlay(bubble, emptyList(),
-        if (card.owner == viewer) OwnTableColor else OpponentTableColor, preview, enabled) { perform(it, card) }
+        if (card.owner == viewer) OwnTableColor else OpponentTableColor, preview(), enabled) { perform(it, card) }
 }
 
 @Composable

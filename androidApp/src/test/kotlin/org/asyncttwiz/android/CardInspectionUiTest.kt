@@ -25,6 +25,40 @@ class CardInspectionUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeTableHoldScrollsInfoWithoutRelease() = tableHold(true)
 
+    /** A resting finger still reports tiny moves every frame. Each one restarts the hold clock outside
+     * composition; the peek must still open once the hold time has passed since the press. */
+    @Test fun jitteringHoldStillPeeksAtTheHoldDeadline() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme {
+            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+                toolkit = toolkit, onIntent = toolkit::handle)
+        } }
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.visible.isNotEmpty() }
+        val point = card.visible.first().center
+        val table = compose.onNodeWithContentDescription("Shared table")
+        compose.mainClock.autoAdvance = false
+        table.performTouchInput { down(Offset(point.x, point.y)) }
+        val pressed = compose.mainClock.currentTime
+        var sign = 1f
+        // Each injected move's delay also advances the paused main clock.
+        fun jitter(until: Long) {
+            while (compose.mainClock.currentTime - pressed < until) {
+                table.performTouchInput { moveBy(Offset(.5f * sign, 0f), delayMillis = 16) }
+                sign = -sign
+            }
+        }
+        jitter(CardPeekHoldMillis - 64)
+        compose.runOnIdle { assertNull(toolkit.peek) }
+        jitter(CardPeekHoldMillis + 160)
+        compose.runOnIdle { assertNotNull(toolkit.peek) }
+        table.performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { assertNull(toolkit.peek) }
+    }
+
     private fun tableHold(landscape: Boolean) {
         val f = TableStatesFixture
         val play = f.combat().let { p -> p.copy(definitions = p.definitions.map { definition ->

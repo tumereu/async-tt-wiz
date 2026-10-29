@@ -1,0 +1,1 @@
+fix: The table stays smooth while you hold a card to look at it or drag across the table.

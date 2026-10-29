@@ -273,7 +273,7 @@ class ResultActionsTest {
         val suggested = advance(finalBoard, PlayAction.SuggestResult(SuggestedResult.LOSS))
         val live = suggested.stateAt(suggested.currentNodeId)!!
         val index = HistoryTree.ingest(suggested, "live")
-        val playback = HistoryPlayback(index).apply { openFrom(initial.currentNodeId) }
+        val playback = HistoryPlayback(index).apply { openFrom(initial.currentNodeId); play() }
         fun displayed() = suggested.stateAt(playback.position.cursorId)!!
         assertNull(ResultActions.pendingPresentation(active, displayed(), b.accountId))
         playback.next(automatic = true)

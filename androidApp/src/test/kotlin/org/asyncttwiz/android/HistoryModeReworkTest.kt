@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
@@ -59,7 +60,7 @@ class HistoryModeReworkTest {
         } finally { controller.close() }
     }
 
-    @Test fun branchNoticeThenQuickFadeThenFastRollbackLocksTransportUntilCommonAncestor() {
+    @Test fun pendingBranchOffersRewindAndPlayWithoutHoldToBranchThenFastRollbackLocksTransportUntilCommonAncestor() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
         val old2 = F.play(old1, PlayAction.AdjustLife(F.a, "1"), 102)
@@ -68,39 +69,52 @@ class HistoryModeReworkTest {
         val player = HistoryPlayback(HistoryTree(branch.initial.root.id, emptyList(), branch.currentNodeId,
             "branch", containers = branch.initial.board.containers, source = branch, lazyPresentation = true))
         player.openFrom(old2.currentNodeId)
-        var animatedCursor by mutableStateOf<String?>(null)
-        compose.mainClock.autoAdvance = false
+        var animatedCursor by mutableStateOf<String?>(old2.currentNodeId)
+        val continued = mutableListOf<String>()
         compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(player, old2.currentNodeId, F.a, true, 1_500, {},
+            HistoryPlaybackPanel(player, old2.currentNodeId, F.a, true, 1_500, { continued += it },
                 animationFinished = animatedCursor == player.position.cursorId)
         } }
+        // Paused and persistent: no flash, nothing plays until asked.
+        compose.mainClock.advanceTimeBy(3_000)
+        compose.runOnIdle { assertTrue(player.branched); assertFalse(player.position.playing); assertEquals(old2.currentNodeId, player.position.cursorId) }
+        val auto = compose.onNodeWithContentDescription("Auto advance")
+        auto.assertIsEnabled().assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Rewind to the branch point, then play"))
+        auto.assert(SemanticsMatcher.keyNotDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
+        compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Opponent branched").assertDoesNotExist() // The table centre text carries it.
+        auto.performTouchInput { longClick() }
+        compose.runOnIdle { assertTrue(continued.isEmpty()); assertTrue(player.branched) }
+        compose.mainClock.autoAdvance = false
+        auto.performClick()
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
-        for (description in listOf("Auto advance", "Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
-        compose.runOnIdle {
-            player.previous(); player.next(); player.play()
-            assertEquals(old2.currentNodeId, player.position.cursorId)
-        }
-        compose.mainClock.advanceTimeBy(1_400)
-        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
-        compose.runOnIdle { assertTrue(player.branched); assertEquals(old2.currentNodeId, player.position.cursorId) }
-        compose.mainClock.advanceTimeBy(400)
-        compose.runOnIdle {
-            assertFalse(player.branched)
-            assertEquals(old2.currentNodeId, player.position.cursorId)
-            assertTrue(player.transportLocked)
-            animatedCursor = old2.currentNodeId
-        }
-        compose.waitForIdle()
+        compose.runOnIdle { assertTrue(player.position.playing); assertTrue(player.transportLocked) }
         compose.mainClock.advanceTimeBy(200)
-        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId) }
+        compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId); assertTrue(player.branched) }
         for (description in listOf("Auto advance", "Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
         compose.mainClock.advanceTimeBy(500)
         compose.runOnIdle { assertEquals(old1.currentNodeId, player.position.cursorId); animatedCursor = old1.currentNodeId }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(200)
-        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.transportLocked); player.pause() }
+        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.transportLocked)
+            assertFalse(player.branched); player.pause() }
         compose.onNodeWithContentDescription("Auto advance").assertIsEnabled()
+        compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertDoesNotExist()
+        compose.mainClock.autoAdvance = true
+    }
+
+    @Test fun tableCentreTextNamesAPendingBranch() {
+        var branched by mutableStateOf(true)
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, TableFixture.play(board = 1), "a", false, androidx.compose.ui.Modifier.fillMaxSize(),
+                runtime = TableRuntimeHooks(reviewing = true, opponentBranched = branched))
+        } }
+        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
+        compose.onNodeWithText("Timeline mode").assertDoesNotExist()
+        compose.runOnIdle { branched = false }
+        compose.onNodeWithText("Timeline mode").assertIsDisplayed()
+        compose.onNodeWithText("Opponent branched").assertDoesNotExist()
     }
 
     @Test fun autoButtonShowsStateAndTogglesFromBothStates() {

@@ -12,7 +12,7 @@ class HistoryPlaybackTest {
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD }
         val gestures = TableGestureCoordinator({ if (it is TableIntent.Peek && it.cardId != null) player.pause() })
         gestures.update(scene, TableSelection(), true)
-        player.openFrom(id(0))
+        player.openFrom(id(0)); player.play()
         while (player.position.mode == HistoryMode.PLAYBACK) { player.next(true); player.finishAnimation(player.position.cursorId) }
         gestures.down(card.bounds.center, 0); gestures.tick(400)
         assertTrue(gestures.peeking)
@@ -194,7 +194,7 @@ class HistoryPlaybackTest {
         playback.next(); assertEquals(id(4), playback.position.cursorId)
         playback.background(); playback.receive(tree(nodes,6)); playback.foreground()
         playback.finishAnimation(id(4))
-        playback.play(); playback.acknowledgeBranch(); playback.next(true); assertEquals(id(2), playback.position.cursorId)
+        assertTrue(playback.branched); playback.play(); playback.next(true); assertEquals(id(2), playback.position.cursorId)
         playback.next(true); assertEquals(id(1), playback.position.cursorId) // Stop at ancestor INSIDE an old group.
         playback.next(true); assertEquals(id(5), playback.position.cursorId)
         playback.pause(); playback.next(true); assertEquals(id(5), playback.position.cursorId)
@@ -282,7 +282,7 @@ class HistoryPlaybackTest {
             val player = HistoryPlayback(tree(listOf(event)))
             player.scrub(id(1)); player.play()
             assertEquals(HistoryMode.LIVE, player.position.mode)
-            player.openFrom(id(0))
+            player.openFrom(id(0)); player.play()
             val start = TableScene(listOf(TableItem("card", TableBounds(0f, 0f, 10f, 20f), "card", "")), emptyList())
             val end = start.copy(items = start.items.map { it.copy(bounds = it.bounds.copy(x = 100f)) })
             val animation = HistorySceneAnimation(start)

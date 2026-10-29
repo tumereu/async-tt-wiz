@@ -77,7 +77,7 @@ class PlaybackSettingsTest {
     @Test fun timelineGearOpensTheSharedPlaybackSectionAndStopsAuto() {
         val settings = HistoryPlaybackPreferences(context, "dialog")
         val player = TableStatesFixture.playback()
-        player.openFrom(player.tree.rootId)
+        player.openFrom(player.tree.rootId); player.play()
         var open by mutableStateOf(false)
         compose.setContent { MaterialTheme {
             HistoryPlaybackPanel(player, player.tree.sharedHeadId, TableStatesFixture.a, true, 10_000, {},
@@ -118,7 +118,7 @@ class PlaybackSettingsTest {
         val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
             PlayAction.RollDie(6, 4), GameplayTransition())
         val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
-        player.openFrom("root")
+        player.openFrom("root"); player.play()
         var animatedCursor by mutableStateOf<String?>("root")
         compose.mainClock.autoAdvance = false
         compose.setContent { MaterialTheme {

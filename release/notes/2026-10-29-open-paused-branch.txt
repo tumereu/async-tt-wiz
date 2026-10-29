@@ -1,0 +1,1 @@
+mod: Opening a game where things happened while you were away now waits paused at the last move you saw; if your opponent went back and played differently, the table says "Opponent branched" and the play button rewinds to where the lines split and plays on from there.

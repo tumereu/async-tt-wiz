@@ -15,6 +15,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -229,6 +231,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 val starter: @Composable () -> Unit = {
                  StartingPlayerControl(game, state.preparation?.startingChoice ?: StarterChoice(),
                      enabled = state.preparation != null,
+                     alternate = state.preparation?.alternateStarter ?: true, setAlternate = controller::alternateStarter,
                      choose = controller::starter)
                 }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -260,10 +263,17 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
 
 @Composable
 internal fun StartingPlayerControl(game: GameSummary, selected: StarterChoice, enabled: Boolean,
-    choose: (StarterChoice) -> Unit) {
+    alternate: Boolean = true, setAlternate: ((Boolean) -> Unit)? = null, choose: (StarterChoice) -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Starting player", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Starting player", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                // On: after each play the other player starts the next one (the radio choice is set for you).
+                if (setAlternate != null) FilterChip(selected = alternate, onClick = { setAlternate(!alternate) }, enabled = enabled,
+                    label = { Text("Alternate") }, modifier = Modifier.semantics { contentDescription = "Alternate starting player" },
+                    leadingIcon = if (alternate) ({ Icon(Icons.Outlined.Check, null,
+                        Modifier.size(FilterChipDefaults.IconSize)) }) else null)
+            }
             Column(Modifier.fillMaxWidth().selectableGroup()) {
                 for ((label, choice) in listOf("Random" to StarterChoice(),
                     game.inviter.username to StarterChoice(game.inviter.accountId),

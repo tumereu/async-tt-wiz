@@ -78,6 +78,9 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
     fun deliverDue() {
         ActivityService(runtime, clock).pruneExpired()
         runtime.transaction { connection ->
+            ActivityService.remindDue(DSL.using(connection, SQLDialect.POSTGRES), OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
+        }
+        runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val time = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
             sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
@@ -89,7 +92,13 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 val summary = sql.selectFrom(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game))
                     .and(SUMMARY.KIND.eq("GAME")).fetchOne() ?: continue
                 val recipient = ActivityTiming.leases(sql, game, owner)
-                if (summary.seenThrough!! >= summary.activityId!! || ActivityTiming.present(recipient, time)) {
+                val activity = row[PUSH.ACTIVITY_ID]!!
+                if (activity == summary.reminderActivityId) {
+                    // The waiting reminder ignores read progress: opening the game is not an answer.
+                    if (ActivityTiming.present(recipient, time)) sql.deleteFrom(PUSH).where(exact).execute()
+                } else if (activity > summary.activityId!!) {
+                    sql.deleteFrom(PUSH).where(exact).execute() // A reminder whose stretch the recipient answered.
+                } else if (summary.seenThrough!! >= summary.activityId!! || ActivityTiming.present(recipient, time)) {
                     sql.deleteFrom(PUSH).where(exact).execute()
                 } else if (summary.authorId != null && !ActivityTiming.due(ActivityTiming.leases(sql, game, summary.authorId!!),
                         recipient, summary.lastEventAt!!, summary.yourMove!!, time)) {
@@ -105,7 +114,7 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 // Recheck expiry on every iteration: earlier network calls may
                 // have consumed the remaining TTL of another queued hint.
                 sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
-                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN).from(PUSH)
+                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN + INSTALL.ACCOUNT_ID).from(PUSH)
                     .join(INSTALL).on(INSTALL.GENERATION.eq(PUSH.GENERATION)).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                     .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).leftJoin(GAME).on(GAME.ID.eq(PUSH.GAME_ID))
                     .leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
@@ -119,6 +128,12 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                 val seconds = retrySeconds(attempt)
                 sql.update(PUSH).set(PUSH.ATTEMPTS, attempt + 1).set(PUSH.DUE_AT, time.plusSeconds(seconds))
                     .where(PUSH.GENERATION.eq(row[PUSH.GENERATION])).and(PUSH.GAME_ID.eq(row[PUSH.GAME_ID])).and(PUSH.KIND.eq(row[PUSH.KIND])).execute()
+                // The pushed activity was due now; the woken poll must show it even if the actor's next
+                // (late-reported) input arrives before that poll and makes it look not-yet-due again.
+                if (row[PUSH.KIND] == "GAME") sql.update(SUMMARY)
+                    .set(SUMMARY.PUSHED_THROUGH, DSL.greatest(SUMMARY.PUSHED_THROUGH, DSL.`val`(row[PUSH.ACTIVITY_ID])))
+                    .where(SUMMARY.ACCOUNT_ID.eq(row[INSTALL.ACCOUNT_ID])).and(SUMMARY.GAME_ID.eq(row[PUSH.GAME_ID]))
+                    .and(SUMMARY.KIND.eq("GAME")).execute()
                 Triple(row, ActivityPushHint(row[PUSH.GENERATION].toString(), row[PUSH.GAME_ID].toString(),
                     row[PUSH.ACTIVITY_ID].toString(), row[PUSH.IDENTITY].toString()), row[INSTALL.PUSH_TOKEN]!!)
             } ?: return

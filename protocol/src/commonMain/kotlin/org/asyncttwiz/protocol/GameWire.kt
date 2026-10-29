@@ -22,6 +22,8 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 28
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
     @Serializable @SerialName("cancelSetup") data object CancelSetup : GameAction
     @Serializable @SerialName("setStarter") data class SetStarter(val choice: StarterChoice) : GameAction
+    /** Lobby toggle: after each play the starter choice switches to the player who did not start it. */
+    @Serializable @SerialName("setAlternateStarter") data class SetAlternateStarter(val enabled: Boolean) : GameAction
     @Serializable @SerialName("ready") data object Ready : GameAction
     @Serializable @SerialName("withdrawReady") data object WithdrawReady : GameAction
     @Serializable @SerialName("deleteGame") data object DeleteGame : GameAction
@@ -132,6 +134,7 @@ object GameWire {
                     require(command.scope.invitationId == null)
                     require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
                 }
+                is GameAction.SetAlternateStarter -> require(command.scope.invitationId == null)
                 GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
                 else -> require(command.scope.invitationId != null)
             }

@@ -18,9 +18,12 @@ import kotlinx.serialization.Serializable
     }
 }
 @Serializable data class PlayerPreparation(val accountId: String, val ready: Boolean = false, val deck: PreparedDeck? = null)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
     val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList(),
-    val starter: StarterChoice? = StarterChoice(), val podRules: PodGameRules? = null) {
+    val starter: StarterChoice? = StarterChoice(), val podRules: PodGameRules? = null,
+    /** After each play, [starter] becomes the player who did not start it (the resolved starter, not the choice). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val alternateStarter: Boolean = true) {
     /** Older snapshots may explicitly contain null. It means Random, never an empty selection. */
     val startingChoice: StarterChoice get() = starter ?: StarterChoice()
 }

@@ -206,12 +206,15 @@ class GameSession(private val connection: GameConnection, private val credential
     fun dismissError() { error = compatibilityError; statusChanged() }
     fun background() { backgrounded = true; resumePending = true; resumePing = null; reconnectTrace.stepAll("lifecycleBackground") }
     fun foreground() {
-        backgrounded = false; reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear()
+        reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear()
         // A socket kept open while away may still hold undelivered events (a frozen process reads
         // them only now): its pong, answered in order, marks the end of that backlog. A new socket's
         // stream heads mark it instead.
-        resumePending = true; resumePing = null
-        if (connected && welcome) UUID.randomUUID().toString().let { resumePing = it; send(GamePing(it)) }
+        if (backgrounded || resumePending) {
+            resumePending = true; resumePing = null
+            if (connected && welcome) UUID.randomUUID().toString().let { resumePing = it; send(GamePing(it)) }
+        }
+        backgrounded = false
         tick()
     }
     /** Everything the server had when the app returned to the foreground has been received and
@@ -447,7 +450,8 @@ class GameSession(private val connection: GameConnection, private val credential
         if (action == GameAction.DeleteGame) return deleteGame(game)
         if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
-            action is GameAction.SetStarter || action is GameAction.SetPodGameBasics || action == GameAction.Ready || action == GameAction.WithdrawReady) return false
+            action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics ||
+            action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
         if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
         return enqueue(game, action) != null
@@ -580,7 +584,8 @@ class GameSession(private val connection: GameConnection, private val credential
         else StartRules.change(game, base, actor, scope, action)
 
     fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
-        if (action !is GameAction.SetStarter && action !is GameAction.SetPodGameBasics && action != GameAction.Ready && action != GameAction.WithdrawReady) return false
+        if (action !is GameAction.SetStarter && action !is GameAction.SetAlternateStarter && action !is GameAction.SetPodGameBasics &&
+            action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false
         val command = command(current, action) ?: return false

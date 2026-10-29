@@ -1,0 +1,1 @@
+add: The Starting player box has an Alternate switch (on by default): after each game the other player is set to start the next one. You can still pick by hand.

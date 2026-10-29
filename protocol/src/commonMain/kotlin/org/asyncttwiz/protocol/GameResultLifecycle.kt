@@ -37,8 +37,11 @@ object GameResultRules {
         if (action.suggestionId != suggestion.id) return reject("inapplicable")
         if (actor == suggestion.author) return reject("otherPlayerRequired")
         // The persisted preparation is independent of the mutable play board and saved deck sources.
-        // Do not introduce a new starter default or sample Random during this transition.
+        // Do not introduce a new starter default or sample Random during this transition. Alternating
+        // hands the start to the player who did not start this play (its resolved starter, after Random).
+        val starter = if (!prepared.alternateStarter) prepared.starter
+            else prepared.players.map { it.accountId }.singleOrNull { it != play.starter.accountId }?.let(::StarterChoice) ?: prepared.starter
         return ResultAcceptance(prepared.copy(roundId = CommandIds.uuidV5(command.requestId, "preparation-round"),
-            players = prepared.players.map { it.copy(ready = false) }))
+            players = prepared.players.map { it.copy(ready = false) }, starter = starter))
     }
 }

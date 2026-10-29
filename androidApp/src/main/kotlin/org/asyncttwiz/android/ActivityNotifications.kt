@@ -15,7 +15,8 @@ import org.asyncttwiz.protocol.GameNoticeContent
 internal data class GameNotificationText(val title: String, val text: String, val whenMillis: Long)
 internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
     "${content.gameName} · vs ${content.opponentName}",
-    (if (content.yourMove) "Your move" else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
+    (if (content.reminder) "${content.opponentName} is waiting for you" else if (content.yourMove) "Your move"
+        else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
     java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())
 
 object ActivityChannels {

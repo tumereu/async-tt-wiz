@@ -161,6 +161,8 @@ object StartRules {
                     if (it.accountId == actor && current.startingChoice != action.choice) it.copy(ready = false) else it
                 }))
             }
+            // Concerns later plays only, so nobody's Ready is withdrawn.
+            is GameAction.SetAlternateStarter -> PreparationChange(current.copy(alternateStarter = action.enabled))
             GameAction.Ready -> when {
                 player.deck == null -> reject("deckRequired")
                 PodGamePreparation.readyProblem(current, actor) != null -> reject(PodGamePreparation.readyProblem(current, actor)!!)

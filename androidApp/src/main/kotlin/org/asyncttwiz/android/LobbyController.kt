@@ -254,6 +254,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         return session.submit(game, GameAction.CancelSetup)
     }
     fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
+    fun alternateStarter(enabled: Boolean) = readiness(GameAction.SetAlternateStarter(enabled))
     /** The result lock for the table right now, the one gate every table entry point consults (see
      * [ResultActions.blocksAt]). Reviewing: the shown point. Continuing: the armed point, then its predicted
      * new branch. Otherwise: the live endpoint. Branching away from a suggestion leaves it on the old branch. */
@@ -393,7 +394,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (closed) return
         if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action); return }
         // Ready/Withdraw toggle one control; the latest waiting tap of each control wins.
-        whenReady(game.id, if (action is GameAction.SetStarter) "starter" else "ready") {
+        whenReady(game.id, when (action) { is GameAction.SetStarter -> "starter"; is GameAction.SetAlternateStarter -> "alternate"; else -> "ready" }) {
             state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action) }
         }
     }

@@ -135,11 +135,16 @@ data class TableItem(
     /** A face-up Battlefield card (or its combat copy) that entered the Battlefield this turn (rules v29). */
     val enteredThisTurn: Boolean = false,
     /** A face-up Battlefield token's kind (definition and face): piles of one kind may hold more than three (rules v30). */
-    val tokenKind: String? = null
+    val tokenKind: String? = null,
+    /** A public face-down Battlefield card's title stand-in ("?"): the same for every viewer, never its front. */
+    val coveredTitle: String = ""
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
 }
+
+/** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
+internal const val FACE_DOWN_TITLE = "?"
 
 /** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
 internal const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
@@ -390,8 +395,10 @@ object TablePresentation {
             val values = !hidden || faceDown
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
-            // Combat copies follow their live source card; a face-down card shows no title and so no mark.
-            val entered = zone == PlayZone.BATTLEFIELD && !hidden && !frozen && EnteredTurn.marked(play.board, card)
+            // Combat copies follow their live source card; a face-down card's "?" title carries the mark too.
+            val coveredTitle = if (zone == PlayZone.BATTLEFIELD && faceDown && !frozen) FACE_DOWN_TITLE else ""
+            val entered = zone == PlayZone.BATTLEFIELD && (!hidden || coveredTitle.isNotEmpty()) && !frozen &&
+                EnteredTurn.marked(play.board, card)
             // A token pile taller than its three visible layers shows its size on the top card.
             val copies = if (pileSize > TokenStacks.PILE_LIMIT) pileSize else 1
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
@@ -410,7 +417,7 @@ object TablePresentation {
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
-                    enteredThisTurn = entered, copies = copies,
+                    enteredThisTurn = entered, copies = copies, coveredTitle = coveredTitle,
                     tokenKind = if (card.token && zone == PlayZone.BATTLEFIELD && !hidden && !projection) "${card.definition}/${card.faceId}" else null)
                 .also { if (draw) items += it }
         }

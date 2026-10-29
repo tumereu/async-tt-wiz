@@ -840,7 +840,7 @@ private fun DrawScope.drawTableArtwork(image: ImageBitmap, bounds: TableBounds) 
     }
 }
 
-/** One-line speech bubble attached to a life square: below the top player's, above the bottom player's. */
+/** Speech bubble attached to a life square: below the top player's, above the bottom player's. */
 internal object StatusBubble {
     const val TEXT = 11f
     const val PADDING = 6f
@@ -853,25 +853,30 @@ internal object StatusBubble {
         TableBounds(life.right - DOT / 2, (if (below) life.bottom else life.y) - DOT / 2, DOT, DOT)
     /** Extra height of each further text line. */
     const val LINE = 13f
-    const val MAX_LINES = 2
+    /** A long status never covers more of the table than this; the life popup shows all of it. */
+    const val MAX_LINES = 4
     fun bounds(life: TableBounds, below: Boolean, textWidth: Float, lines: Int = 1): TableBounds {
         val width = maxOf(textWidth + 2 * PADDING, 28f)
         val height = HEIGHT + (lines.coerceIn(1, MAX_LINES) - 1) * LINE
         val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - height
         return TableBounds(life.x, y, width, height)
     }
-    /** The whole text on one line when it fits; otherwise wrapped (at a space when possible) onto a
-     * second line, which is ellipsized when even two lines are not enough. */
+    /** The whole text on one line when it fits; otherwise wrapped (at a space when possible) onto up to
+     * [MAX_LINES] lines, the last of which is ellipsized when even those are not enough. */
     fun lines(text: String, maxWidth: Float, measure: (String) -> Float): List<String> {
-        if (measure(text) <= maxWidth) return listOf(text)
-        var end = text.length
-        while (end > 1 && (measure(text.substring(0, end)) > maxWidth || text[end].isLowSurrogate())) end--
-        if (end >= text.length) return listOf(fit(text, maxWidth, measure))
-        val space = text.lastIndexOf(' ', end).takeIf { it > 0 && text[end] != ' ' }
-        val split = space ?: end
-        val first = text.substring(0, split).trimEnd()
-        val rest = text.substring(split).trimStart()
-        return if (rest.isEmpty()) listOf(fit(first, maxWidth, measure)) else listOf(first, fit(rest, maxWidth, measure))
+        val result = mutableListOf<String>()
+        var rest = text
+        while (rest.isNotEmpty()) {
+            if (measure(rest) <= maxWidth) { result += rest; break }
+            if (result.size == MAX_LINES - 1) { result += fit(rest, maxWidth, measure); break }
+            var end = rest.length
+            while (end > 1 && (measure(rest.substring(0, end)) > maxWidth || rest[end].isLowSurrogate())) end--
+            val space = rest.lastIndexOf(' ', end).takeIf { it > 0 && rest[end] != ' ' }
+            val split = space ?: end
+            result += rest.substring(0, split).trimEnd()
+            rest = rest.substring(split).trimStart()
+        }
+        return result.ifEmpty { listOf("") }
     }
     /** The whole text when it fits, otherwise the longest prefix followed by an ellipsis. */
     fun fit(text: String, maxWidth: Float, measure: (String) -> Float): String {
@@ -1094,7 +1099,22 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             style = Stroke(1.5f * density * z, pathEffect = if (i.projection) PathEffect.dashPathEffect(floatArrayOf(5 * density * z, 3 * density * z)) else null))
         if (i.covered) {
             // Only a public face-down Battlefield card carries values while covered (rules v23).
-            cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density
+            cornerBadge(); damageBadge(); cardAnnotations(i, x, y, z)
+            if (i.coveredTitle.isNotEmpty()) {
+                // Its "?" title sits on a white chip like the P/T badge, styled (and blue) like a normal title.
+                paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
+                val titleInset = if (i.token) cardWidth * .22f else 2 * z
+                val baseline = y + (1 + 7 * titleScale) * z
+                val metrics = paint.fontMetrics
+                val chipWidth = (cache.measure(i.coveredTitle) / density + 2 * z).coerceAtMost(cardWidth - 2 * titleInset)
+                drawRoundRect(Color.White, xy(x + titleInset - z, baseline + metrics.ascent / density),
+                    size(chipWidth, (metrics.descent - metrics.ascent) / density), CornerRadius(z * density))
+                val textColor = paint.color
+                paint.color = i.titleColor
+                fittedText(i.coveredTitle, x + titleInset, baseline, chipWidth - 2 * z)
+                paint.color = textColor; paint.isFakeBoldText = false
+            }
+            paint.textSize = 11 * density
             return@translate
         }
         if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }

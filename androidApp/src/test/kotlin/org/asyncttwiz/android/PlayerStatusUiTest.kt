@@ -75,6 +75,28 @@ class PlayerStatusUiTest {
         assertTrue(sent.isEmpty())
     }
 
+    private fun assertLongStatusReadableInFull(owner: String) {
+        val long = "Back in ten minutes, dinner time. ".repeat(16).take(PlayerStatus.MAX_LENGTH).trim()
+        open(owner, own = long, other = long)
+        compose.onNodeWithTag("statusFull").assertTextEquals("Status: “$long”")
+        // Unclipped text size (mdpi: px == dp) against the label's on-screen bounds.
+        val text = compose.onNodeWithTag("statusFull").fetchSemanticsNode().size
+        val label = compose.onNodeWithTag("statusLabel").fetchSemanticsNode().boundsInRoot
+        // Taller text, short label: the rest scrolls inside it and the life row stays on screen.
+        assertTrue(label.height < text.height, "$label vs $text")
+        assertTrue(label.height <= 4 * 16f + 1f, "$label")
+        compose.onNodeWithTag("statusLabel").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) {
+            it(0f, 40f)
+        }
+        compose.waitForIdle()
+        assertTrue(compose.onNodeWithTag("statusFull").fetchSemanticsNode().positionInRoot.y < label.top, "scrolls")
+        compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
+    }
+
+    @Test fun aLongOwnStatusIsReadableInFullInAShortScrollingLabel() = assertLongStatusReadableInFull("a")
+
+    @Test fun aLongOpponentStatusIsReadableInFullInAShortScrollingLabel() = assertLongStatusReadableInFull("b")
+
     @Test fun ownPanelAlsoHasTheToggles() {
         val sent = open("a", own = "BRB")
         compose.onNodeWithContentDescription("Hide status bubble").assertExists()
@@ -149,10 +171,11 @@ class PlayerStatusUiTest {
         field.assertTextContains("Wait")
         assertEquals(TextRange(0, 4), field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange])
         // Focus and keyboard come from the shared rememberDialogField helper (see DialogInputTest).
-        field.performTextReplacement("  Back in five minutes, sorry! " + "x".repeat(40) + "  ")
+        field.performTextReplacement("  Back in five minutes,\nsorry! " + "x".repeat(500) + "  ")
         assertEquals(PlayerStatus.MAX_LENGTH, field.fetchSemanticsNode().config[SemanticsProperties.EditableText].text.length)
         field.performImeAction()
-        assertEquals(listOf<PlayAction>(PlayAction.SetStatus("Back in five minutes, sorry! " + "x".repeat(33))), sent)
+        // A pasted line break becomes a space: the status wraps but holds no line breaks.
+        assertEquals(listOf<PlayAction>(PlayAction.SetStatus("Back in five minutes, sorry! " + "x".repeat(481))), sent)
         compose.onAllNodes(isDialog()).assertCountEquals(0)
     }
 

@@ -12,9 +12,10 @@ import kotlinx.serialization.Serializable
     val counters: Map<CounterColor, String> = emptyMap(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val status: String = "")
 
-/** Rules v26: a player's own short status shown in a bubble by their life total. */
+/** Rules v26: a player's own status shown in a bubble by their life total (up to 512 characters since rules v30;
+ * the limit only ever grew, so every recorded status stays valid). */
 object PlayerStatus {
-    const val MAX_LENGTH = 64
+    const val MAX_LENGTH = 512
     /** Both players start each new play with this exact status until they set another one. */
     const val OPENING = "Mulliganing"
     /** Empty (cleared), or already trimmed, at most [MAX_LENGTH] characters, one line without control characters. */

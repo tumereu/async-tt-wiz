@@ -1,0 +1,1 @@
+add: Face-down cards on the battlefield show a ? as their name, which turns blue when the card arrived this turn.

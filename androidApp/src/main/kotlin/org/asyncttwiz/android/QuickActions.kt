@@ -27,13 +27,18 @@ import org.asyncttwiz.protocol.*
 
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
     val combatAreaId: String? = null, val stackTarget: ExplicitStackTarget? = null,
-    val playable: Boolean = true, val viewer: String? = null)
-data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null)
+    val playable: Boolean = true, val viewer: String? = null,
+    /** [CombatDamage.recentDamageEdits] on the shown path; only read at Combat damage. */
+    val combatDamageEdits: Int = 0)
+/** A disabled action stays in place, greyed and inert. */
+data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
+    val enabled: Boolean = true)
 
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
     const val contextualPositions = 3
     const val READY = "Ready"
+    const val ASSUME_NO_BLOCKS = "Assume no blocks"
     /** While the viewer's status is exactly the opening status, they are still mulliganing: Mull N, Mull −1, Ready. */
     fun openingMulligan(play: PlayState, viewer: String?) = PlayerStatus.opening(play.board, viewer)
     /** Only mulligan offerings: no step arrow for a player who would not otherwise see the strip. */
@@ -82,9 +87,11 @@ object QuickActions {
                 val declared = play.board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
                 add(if (declared) "Select more attackers" else "Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
                 if (!declared) add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
+                // Two separate steps (Declare blockers, then Combat damage), never one atomic batch.
+                else add(ASSUME_NO_BLOCKS, "", TableActionIntent.Combat(scope, CombatTool.ASSUME_NO_BLOCKS, context.combatAreaId))
             }
             // Experimental damage aid; all offerings live in one removable helper.
-            TurnPosition.COMBAT_DAMAGE -> result.addAll(combatDamageQuickActions(play))
+            TurnPosition.COMBAT_DAMAGE -> result.addAll(combatDamageQuickActions(play, context.combatDamageEdits))
             TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
@@ -151,7 +158,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 for (action in actions) key(action.intent) {
-                    InlinePopupCell(MenuControl(action.name, controller.enabled(scope)) { perform(action.intent) },
+                    InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope)) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }

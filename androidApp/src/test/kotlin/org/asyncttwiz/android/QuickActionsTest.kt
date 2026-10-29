@@ -62,7 +62,7 @@ class QuickActionsTest {
             val play = initial.copy(board = initial.board.copy(combat = area))
             val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
             val actions = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller)
-            assertEquals(if (attackers) listOf("Select more attackers") else listOf("Select attackers", "No attack"), actions.map { it.name })
+            assertEquals(if (attackers) listOf("Select more attackers", QuickActions.ASSUME_NO_BLOCKS) else listOf("Select attackers", "No attack"), actions.map { it.name })
         }
     }
 

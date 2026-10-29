@@ -13,15 +13,18 @@ internal fun combatDamageMenuTools(toolkit: TableToolkitController, play: PlaySt
     }
 }
 
-internal fun combatDamageQuickActions(play: PlayState): List<QuickAction> {
+/** [dealt] is [CombatDamage.recentDamageEdits]: each damage button locks once its step has been dealt;
+ * undoing that damage unlocks it again. */
+internal fun combatDamageQuickActions(play: PlayState, dealt: Int = 0): List<QuickAction> {
     val scope = TableActionScope(play.gameId, play.id)
     val area = play.board.combat?.id
-    fun action(name: String, tool: CombatTool) = QuickAction(name, "", TableActionIntent.Combat(scope, tool, area))
+    fun action(name: String, tool: CombatTool, enabled: Boolean = true) =
+        QuickAction(name, "", TableActionIntent.Combat(scope, tool, area), enabled = enabled)
     return buildList {
         if (CombatDamage.splitSteps(play)) {
-            add(action("First strike damage", CombatTool.FIRST_STRIKE_DAMAGE))
-            add(action("Regular damage", CombatTool.REGULAR_DAMAGE))
-        } else add(action("Deal combat damage", CombatTool.DEAL_DAMAGE))
+            add(action("First strike damage", CombatTool.FIRST_STRIKE_DAMAGE, dealt < 1))
+            add(action("Regular damage", CombatTool.REGULAR_DAMAGE, dealt < 2))
+        } else add(action("Deal combat damage", CombatTool.DEAL_DAMAGE, dealt < 1))
         add(action("Close + next", CombatTool.DAMAGE_CLOSE_AND_NEXT))
     }
 }

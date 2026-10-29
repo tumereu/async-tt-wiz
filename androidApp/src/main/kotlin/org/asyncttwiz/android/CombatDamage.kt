@@ -26,6 +26,38 @@ internal object CombatDamage {
                 .containsMatchIn("${card.note}\n${card.eotNote}")
     }
 
+    /** How many earlier damage edits (batches/invocations) this combat's damage step already holds on the shown path.
+     * Walks back at most [limit] events and stops at the event that opened (or otherwise changed) the combat area:
+     * no full-history replay. Counts invocations with damage, attack-target loyalty/defense or life edits on combat
+     * cards, attack targets or players, made while the turn position was Combat damage. */
+    fun recentDamageEdits(play: PlayState, node: (String) -> GameplayMutation?, limit: Int = 50): Int {
+        val area = play.board.combat ?: return 0
+        val cards = CombatStackRules.occurrences(area).map { it.sourceId }.toSet() + area.pairs.mapNotNull { it.attackTarget }
+        var phase = play.board.turn.phase
+        var step = play.board.turn.step
+        val invocations = mutableSetOf<String>()
+        var id = play.currentNodeId
+        repeat(limit) {
+            val mutation = node(id) ?: return invocations.size
+            if (mutation.transition.combatStack?.area != null) return invocations.size
+            // The turn position before this event; damage edits never change it themselves.
+            for (change in mutation.transition.fields) {
+                if (change.field == GameplayField.PHASE) phase = change.from.orEmpty()
+                if (change.field == GameplayField.STEP) step = change.from.orEmpty()
+            }
+            val damage = when (val action = mutation.action) {
+                is PlayAction.AdjustDamage -> action.cardId in cards
+                is PlayAction.SetCorner -> action.cardId in cards
+                is PlayAction.AdjustLife -> true
+                else -> false
+            }
+            if (damage && phase == TurnPosition.COMBAT_DAMAGE.phase && step == TurnPosition.COMBAT_DAMAGE.step)
+                invocations += mutation.invocationId ?: mutation.id
+            id = mutation.parentId
+        }
+        return invocations.size
+    }
+
     fun splitSteps(play: PlayState): Boolean = CombatStackRules.occurrences(play.board.combat).any { occurrence ->
         play.board.cards.find { it.id == occurrence.sourceId }?.let {
             hasKeyword(play, it, "First strike") || hasKeyword(play, it, "Double strike")

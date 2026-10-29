@@ -1,0 +1,1 @@
+mod: The combat damage buttons grey out once their damage has been dealt in this combat (first strike after one use, regular damage after two); undoing the damage makes them available again.

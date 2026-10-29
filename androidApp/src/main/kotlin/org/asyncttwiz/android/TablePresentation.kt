@@ -492,10 +492,13 @@ object TablePresentation {
         val drops = combat.destinations.map { region ->
             val bounds = translated(region.bounds)
             val top = world.screen(TablePoint(0f, bandY), camera).y
-            val labelBottom = world.screen(TablePoint(0f, combatY + combat.labelHeight), camera).y
-            val rowTop = maxOf(top, labelBottom)
-            val half = ((bandHeight * zoom - (rowTop - top)) / 2).coerceAtLeast(0f)
-            val row = bounds.copy(y = rowTop + if (region.destination.role == CombatRole.BLOCKER) 0f else half, height = half)
+            val bottom = top + bandHeight * zoom
+            // The two card rows fill the band except the lane label row (on top, or at the bottom when mirrored).
+            val rowTop = if (combat.mirrored) top else maxOf(top, world.screen(TablePoint(0f, combatY + combat.rowsTop), camera).y)
+            val rowBottom = if (combat.mirrored) minOf(bottom, world.screen(TablePoint(0f, combatY + combat.rowsBottom), camera).y) else bottom
+            val half = ((rowBottom - rowTop) / 2).coerceAtLeast(0f)
+            val upper = if (combat.mirrored) CombatRole.ATTACKER else CombatRole.BLOCKER
+            val row = bounds.copy(y = rowTop + if (region.destination.role == upper) 0f else half, height = half)
             // Screen-dp tolerance, capped just short of neighboring slot midpoints at small zoom.
             val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
             val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
@@ -504,11 +507,11 @@ object TablePresentation {
                 row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
-        // Dividers start below the lane headers, so each target label visibly spans its whole lane.
-        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.labelHeight), camera) to
-             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
-        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.labelHeight), camera) to
-            world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
+        // Dividers span only the card rows, so each target label visibly spans its whole lane.
+        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.rowsTop), camera) to
+             world.screen(TablePoint(x + combatX, combatY + combat.rowsBottom), camera) }
+        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.rowsTop), camera) to
+            world.screen(TablePoint(x + combatX, combatY + combat.rowsBottom), camera) }
         val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds), fontSize = lane.fontSize * zoom,
             padding = lane.padding * zoom,
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }

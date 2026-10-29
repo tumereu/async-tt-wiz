@@ -85,10 +85,11 @@ object CombatStackController {
             state.board.containers.find { it.id == card.containerId }?.zone == PlayZone.BATTLEFIELD
         } == true }
         if (eligible.isEmpty()) return builder.plan()
+        // Taps first: a tap group folds the following declarations into one history group.
+        if (tap) for (source in eligible) builder.emit(PlayAction.SetTapped(source, true))
         builder.emit(PlayAction.Combat(CombatAction.Open))
         val areaId = builder.state.board.combat!!.id
         for (source in eligible) builder.emit(PlayAction.Combat(CombatAction.Declare(areaId, source)))
-        if (tap) for (source in eligible) builder.emit(PlayAction.SetTapped(source, true))
         return builder.plan()
     }
 

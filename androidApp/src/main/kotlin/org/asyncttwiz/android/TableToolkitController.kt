@@ -634,11 +634,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val eligible = ids.distinct().filter { id -> play.board.cards.any { card -> card.id == id &&
             play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } } }
         if (eligible.isEmpty()) return@batchResult false
-        if (play.board.combat == null) submit(PlayAction.Combat(CombatAction.Open))
+        // Taps first: a tap group folds the following declarations into one history group.
+        if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
+        if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
         val area = current()?.board?.combat?.id ?: return@batchResult false
         var sent = false
         eligible.forEach { sent = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || sent }
-        if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
         if (sent) selectionState.value = selectionState.value.afterDeclare()
         sent
     }

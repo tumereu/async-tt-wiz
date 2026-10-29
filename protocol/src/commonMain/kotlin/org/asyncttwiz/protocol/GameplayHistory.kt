@@ -66,7 +66,9 @@ internal fun GameplayTransition.effectUnits(): Long = fields.size.toLong() + rea
     /** Only the immediately preceding event, not any earlier move in this group. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lastMoveIntoLibrary: String? = null,
     /** The casting anchor only; text edits never establish casting context themselves. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null,
+    /** Rules v29: the group ended at Declare blockers; nothing joins it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val closed: Boolean = false)
 @Serializable data class GameplayHistoryPage(val playId: String, val mutations: List<GameplayMutation>,
     val groups: List<GameplayGroup>, val throughRevision: String, val next: String? = null)
 

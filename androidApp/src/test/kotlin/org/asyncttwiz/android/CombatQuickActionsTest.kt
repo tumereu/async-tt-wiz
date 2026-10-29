@@ -67,12 +67,43 @@ class CombatQuickActionsTest {
         val boundary = requireNotNull(h.tree.stateAt(blockers.id))
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(boundary.board.turn))
         assertEquals(f.defender, boundary.board.attentionHolder)
-        // Rules v29: Declare blockers is its own history group, a timeline endpoint the defender can continue from.
+        // Rules v29: with no attacker declaration before it, Declare blockers is its own group, a timeline endpoint
+        // the defender can continue from; combat damage is the next group.
         assertNotEquals(boundary.currentGroup!!.id, h.current().currentGroup!!.id)
+        assertEquals(blockers.id, boundary.currentGroup!!.firstNodeId)
         assertEquals(blockers.id, boundary.currentGroup!!.lastNodeId)
+        assertTrue(boundary.currentGroup!!.closed)
         // One undo returns to Declare blockers, not to Declare attackers.
         h.undo()
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(h.current().board.turn))
+    }
+
+    @Test fun declareAndTapThenAssumeNoBlocksIsOneGroupEndingAtDeclareBlockers() {
+        val f = CombatDamageFixture(attackers = listOf("2/2", "3/3"))
+        val start = at(f.play, TurnPosition.DECLARE_ATTACKERS).let { it.copy(board = it.board.copy(combat = null)) }
+        val h = Harness(start, f.actor)
+        assertTrue(h.toolkit.perform(offerings(h.current(), QuickContext(viewer = f.actor, selectedSourceIds = f.attackerIds))
+            .single { it.name == "Declare + tap" }.intent))
+        // Taps first, then the area and the declarations.
+        val declared = h.commands.single().playActions()
+        assertEquals(f.attackerIds.map { PlayAction.SetTapped(it, true) }, declared.take(2))
+        assertEquals(PlayAction.Combat(CombatAction.Open), declared[2])
+        assertTrue(declared.drop(3).all { (it as PlayAction.Combat).action is CombatAction.Declare })
+        assertTrue(h.toolkit.perform(offerings(h.current()).single { it.name == QuickActions.ASSUME_NO_BLOCKS }.intent))
+        assertEquals(TurnPosition.COMBAT_DAMAGE, TurnPosition.of(h.current().board.turn))
+        val damage = h.tree.nodes.getValue(h.tree.currentNodeId)
+        val blockers = h.tree.nodes.getValue(damage.parentId)
+        val group = requireNotNull(h.tree.stateAt(blockers.id)!!.currentGroup)
+        // Taps, declarations and Declare blockers are one group: playback reaches Declare blockers in one step.
+        val first = h.tree.nodes.values.single { it.parentId == start.currentNodeId }
+        assertEquals(first.id, group.firstNodeId)
+        assertEquals(blockers.id, group.lastNodeId)
+        assertEquals((declared.size + 1).toString(), group.count)
+        assertTrue(group.closed)
+        // The group ends there: combat damage starts the next group, and Declare blockers stays a continuable endpoint.
+        assertNotEquals(group.id, h.current().currentGroup!!.id)
+        assertEquals(damage.id, h.current().currentGroup!!.firstNodeId)
+        assertEquals(f.defender, h.tree.stateAt(blockers.id)!!.board.attentionHolder)
     }
 
     @Test fun singleDamageButtonLocksAfterItsDamageAndUndoUnlocksIt() {

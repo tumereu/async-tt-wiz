@@ -211,7 +211,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
             .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).join(ACCOUNT).on(ACCOUNT.ID.eq(SUMMARY.AUTHOR_ID))
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_ACTIVITY_ID.le(high))
-            .and(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(SUMMARY.REMINDER_ACTIVITY_ID.desc()).limit(50).fetch().map { row ->
+            .and(GAME.LIFECYCLE.eq("ACTIVE")).andNot(answered()).orderBy(SUMMARY.REMINDER_ACTIVITY_ID.desc()).limit(50).fetch().map { row ->
                 ActivityHint(row[SUMMARY.REMINDER_ACTIVITY_ID].toString(), ActivityKind.GAME, row[SUMMARY.GAME_ID].toString(),
                     row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                         row[ACCOUNT.USERNAME]!!, row[SUMMARY.REMINDER_MOVE_AT].toString(), row[SUMMARY.YOUR_MOVE]!!, reminder = true))
@@ -253,7 +253,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.
          * Only an opponent's activity is recorded; publication never waits for a delivery window.
          * [move]: a gameplay move by [author] (not chat or a play start). It (re)arms [owner]'s
-         * waiting reminder and ends the author's own unanswered stretch. */
+         * waiting reminder; the same column on the author's own row is then that author's latest move, which
+         * is how [answered] sees a stretch end without another statement per move. */
         fun record(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, identity: UUID,
             author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
             yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false) {
@@ -276,9 +277,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .set(SUMMARY.SEEN_THROUGH, DSL.greatest(SUMMARY.SEEN_THROUGH, DSL.excluded(SUMMARY.SEEN_THROUGH)))
                 .set(SUMMARY.NEW_MESSAGE, DSL.`when`(DSL.excluded(SUMMARY.SEEN_THROUGH).eq(id), false)
                     .otherwise(DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE))))
-                .set(SUMMARY.REMINDER_MOVE_AT, if (armed) DSL.excluded(SUMMARY.REMINDER_MOVE_AT) else SUMMARY.REMINDER_MOVE_AT).execute()
-            if (armed && author != null) sql.update(SUMMARY).setNull(SUMMARY.REMINDER_MOVE_AT).setNull(SUMMARY.REMINDER_ACTIVITY_ID)
-                .where(SUMMARY.ACCOUNT_ID.eq(author)).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
+                .set(SUMMARY.REMINDER_MOVE_AT, if (armed) DSL.excluded(SUMMARY.REMINDER_MOVE_AT) else SUMMARY.REMINDER_MOVE_AT)
+                // Re-arming keeps a sent reminder within one stretch; a stretch the recipient answered starts anew.
+                // (ON CONFLICT expressions see the existing row, so this compares against the previous move.)
+                .set(SUMMARY.REMINDER_ACTIVITY_ID, if (armed) DSL.`when`(answered(), DSL.inline(null, SUMMARY.REMINDER_ACTIVITY_ID))
+                    .otherwise(SUMMARY.REMINDER_ACTIVITY_ID) else SUMMARY.REMINDER_ACTIVITY_ID).execute()
             queuePush(sql, owner, kind, game, id, identity, time)
         }
 
@@ -294,6 +297,14 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
         const val REMINDER_SECONDS = 300L
 
+        /** The row's recipient moved after the opponent's latest move in its stretch: the other player's row of
+         * the same game holds the recipient's own latest move time (two-player games). */
+        internal fun answered(): org.jooq.Condition {
+            val other = SUMMARY.`as`("answer")
+            return DSL.exists(DSL.selectOne().from(other).where(other.GAME_ID.eq(SUMMARY.GAME_ID)).and(other.KIND.eq("GAME"))
+                .and(other.ACCOUNT_ID.ne(SUMMARY.ACCOUNT_ID)).and(other.REMINDER_MOVE_AT.gt(SUMMARY.REMINDER_MOVE_AT)))
+        }
+
         /** Sends the one waiting reminder of each unanswered stretch: the opponent moved, the recipient has not
          * moved since, and the opponent's last move or input is [REMINDER_SECONDS] old. A recipient in the game at
          * that mark (opening without moving doesn't count as an answer) delays it until that long after leaving. */
@@ -301,7 +312,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val rows = sql.select(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.IDENTITY, SUMMARY.REMINDER_MOVE_AT,
                 GAME.INVITER_ID, GAME.RECIPIENT_ID).from(SUMMARY).join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID))
                 .where(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_MOVE_AT.le(now.minusSeconds(REMINDER_SECONDS)))
-                .and(SUMMARY.REMINDER_ACTIVITY_ID.isNull).and(GAME.LIFECYCLE.eq("ACTIVE"))
+                .and(SUMMARY.REMINDER_ACTIVITY_ID.isNull).and(GAME.LIFECYCLE.eq("ACTIVE")).andNot(answered())
                 .orderBy(SUMMARY.REMINDER_MOVE_AT).limit(100).fetch()
             for (row in rows) {
                 val owner = row[SUMMARY.ACCOUNT_ID]!!; val game = row[SUMMARY.GAME_ID]!!
@@ -319,7 +330,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 val id = nextActivityId(sql, owner)
                 if (sql.update(SUMMARY).set(SUMMARY.REMINDER_ACTIVITY_ID, id).where(SUMMARY.ACCOUNT_ID.eq(owner))
                     .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_ACTIVITY_ID.isNull)
-                    .and(SUMMARY.REMINDER_MOVE_AT.eq(row[SUMMARY.REMINDER_MOVE_AT])).execute() == 1)
+                    .and(SUMMARY.REMINDER_MOVE_AT.eq(row[SUMMARY.REMINDER_MOVE_AT])).andNot(answered()).execute() == 1)
                     queuePush(sql, owner, ActivityKind.GAME, game, id, row[SUMMARY.IDENTITY]!!, now)
             }
         }

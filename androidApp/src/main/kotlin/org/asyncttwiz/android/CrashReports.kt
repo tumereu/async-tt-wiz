@@ -99,7 +99,7 @@ class TabletopApplication : Application() {
             } finally { previous?.uncaughtException(thread, failure) }
         }
         AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
-        if (BuildConfig.DEBUG) DebugCrashes.install(this)
+        if (BuildConfig.DIAGNOSTICS) DebugCrashes.install(this)
         AndroidTokenCatalog.source(this)
     }
 }
@@ -111,7 +111,7 @@ internal object DebugCrashes {
     private val started = AtomicBoolean()
 
     fun install(application: Application) {
-        if (!BuildConfig.DEBUG || store != null) return
+        if (!BuildConfig.DIAGNOSTICS || store != null) return
         val reports = CrashReportStore(File(application.filesDir, "debug-crashes"))
         store = reports
         pending = reports.pending()
@@ -124,9 +124,9 @@ internal object DebugCrashes {
     }
 
     fun authenticated(token: String?) {
-        if (BuildConfig.DEBUG) DebugJank.authenticated(token)
-        if (BuildConfig.DEBUG) DebugLatency.authenticated(token)
-        if (!BuildConfig.DEBUG || token == null || store == null || !started.compareAndSet(false, true)) return
+        if (BuildConfig.DIAGNOSTICS) DebugJank.authenticated(token)
+        if (BuildConfig.DIAGNOSTICS) DebugLatency.authenticated(token)
+        if (!BuildConfig.DIAGNOSTICS || token == null || store == null || !started.compareAndSet(false, true)) return
         val reports = store!!
         if (pending.isEmpty()) return
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {

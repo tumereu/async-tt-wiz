@@ -33,19 +33,19 @@ internal object DebugJank {
     private val animations = mutableSetOf<String>()
     private val catchUps = mutableSetOf<String>()
     @Synchronized fun catchUp(game: String, running: Boolean) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         if (running) catchUps.add(game) else catchUps.remove(game)
     }
-    @Synchronized fun catchingUp() = BuildConfig.DEBUG && catchUps.isNotEmpty()
-    fun treeInFlight() = BuildConfig.DEBUG && treeWork.get() > 0
+    @Synchronized fun catchingUp() = BuildConfig.DIAGNOSTICS && catchUps.isNotEmpty()
+    fun treeInFlight() = BuildConfig.DIAGNOSTICS && treeWork.get() > 0
     @Synchronized fun animation(owner: String, running: Boolean) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         if (running) animations.add(owner) else animations.remove(owner)
         state("animation" to animations.isNotEmpty().toString())
     }
 
     @Synchronized fun state(vararg values: Pair<String, String>) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         for ((key, value) in values) {
             if (tags[key] == value) continue
             tags[key] = value.take(100)
@@ -54,22 +54,22 @@ internal object DebugJank {
     }
 
     @Synchronized fun action(name: String) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         actions.addLast(name.take(100)); while (actions.size > 8) actions.removeFirst()
     }
 
     fun beginWork(kind: String): Long {
-        if (!BuildConfig.DEBUG) return 0
+        if (!BuildConfig.DIAGNOSTICS) return 0
         (if (kind == "tree") treeWork else localApply).incrementAndGet()
         return System.nanoTime()
     }
     @Synchronized fun endWork(kind: String, start: Long) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         (if (kind == "tree") treeWork else localApply).decrementAndGet()
         work.addLast(Triple(start, System.nanoTime(), kind)); while (work.size > 128) work.removeFirst()
     }
 
-    fun treeExecutor(delegate: ExecutorService): ExecutorService = if (!BuildConfig.DEBUG) delegate else object : AbstractExecutorService() {
+    fun treeExecutor(delegate: ExecutorService): ExecutorService = if (!BuildConfig.DIAGNOSTICS) delegate else object : AbstractExecutorService() {
         override fun execute(command: Runnable) = delegate.execute {
             val start = beginWork("tree")
             try { command.run() } finally { endWork("tree", start) }
@@ -87,7 +87,7 @@ internal object DebugJank {
     }
 
     fun install(application: Application, store: CrashReportStore, version: String, device: String) {
-        if (!BuildConfig.DEBUG || installed) return
+        if (!BuildConfig.DIAGNOSTICS || installed) return
         installed = true
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val buffer = JankBuffer()
@@ -154,5 +154,5 @@ internal object DebugJank {
         })
     }
 
-    fun authenticated(value: String?) { if (BuildConfig.DEBUG) { token = value; wake.trySend(Unit) } }
+    fun authenticated(value: String?) { if (BuildConfig.DIAGNOSTICS) { token = value; wake.trySend(Unit) } }
 }

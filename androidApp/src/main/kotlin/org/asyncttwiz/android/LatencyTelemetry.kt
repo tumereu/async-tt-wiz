@@ -86,12 +86,12 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
     fun result(requestId: String) { results.remove(requestId)?.result() }
 }
 
-/** Installed only behind the same DEBUG gate as crashes. All serialization/disk/network work is IO. */
+/** Installed only behind the same DIAGNOSTICS gate as crashes. All serialization/disk/network work is IO. */
 internal object DebugLatency {
     private var recorder: LatencyRecorder? = null
     @Volatile private var token: String? = null
-    private val buffer = LatencyBuffer(BuildConfig.DEBUG)
-    private val reconnects = ReconnectBuffer(BuildConfig.DEBUG)
+    private val buffer = LatencyBuffer(BuildConfig.DIAGNOSTICS)
+    private val reconnects = ReconnectBuffer(BuildConfig.DIAGNOSTICS)
     private val taps = CardTapBuffer()
     private val tapRecorder = CardTapRecorder { taps.add(it); wake.trySend(Unit) }
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -100,30 +100,30 @@ internal object DebugLatency {
     private val started = AtomicBoolean()
 
     fun begin(gameId: String, action: String, nodes: Int): LatencyRecorder.Trace? {
-        if (!BuildConfig.DEBUG) return null
+        if (!BuildConfig.DIAGNOSTICS) return null
         DebugJank.action(action)
         return recorder?.begin(gameId, action, nodes)
     }
-    fun result(requestId: String) { if (BuildConfig.DEBUG) recorder?.result(requestId) }
-    fun drawn() { if (BuildConfig.DEBUG) recorder?.drawn() }
+    fun result(requestId: String) { if (BuildConfig.DIAGNOSTICS) recorder?.result(requestId) }
+    fun drawn() { if (BuildConfig.DIAGNOSTICS) recorder?.drawn() }
     fun tap(gameId: String, event: String, popup: Boolean = false, cardId: String? = null) {
-        if (BuildConfig.DEBUG && recorder != null) tapRecorder.gesture(gameId, event, popup, DebugJank.catchingUp(), DebugJank.treeInFlight(), cardId)
+        if (BuildConfig.DIAGNOSTICS && recorder != null) tapRecorder.gesture(gameId, event, popup, DebugJank.catchingUp(), DebugJank.treeInFlight(), cardId)
     }
     fun tapAnimation(gameId: String, rotatingCardIds: Set<String>) {
-        if (BuildConfig.DEBUG && recorder != null) tapRecorder.animation(gameId, rotatingCardIds)
+        if (BuildConfig.DIAGNOSTICS && recorder != null) tapRecorder.animation(gameId, rotatingCardIds)
     }
     fun tapFrame(gameId: String, progress: Float, rate: Float) {
-        if (BuildConfig.DEBUG && recorder != null) tapRecorder.frame(gameId, progress, rate, DebugJank.catchingUp(), DebugJank.treeInFlight())
+        if (BuildConfig.DIAGNOSTICS && recorder != null) tapRecorder.frame(gameId, progress, rate, DebugJank.catchingUp(), DebugJank.treeInFlight())
     }
     fun reconnect(value: ReconnectEpisode) {
-        if (!BuildConfig.DEBUG || recorder == null) return
+        if (!BuildConfig.DIAGNOSTICS || recorder == null) return
         Log.i("AtwReconnect", "game=${value.gameId} episode=${value.id} started=${value.startedAt} cause=${value.cause} " +
             "step=${value.steps.lastOrNull()} durationMs=${value.durationMs} complete=${value.complete}")
         if (reconnects.record(value)) wake.trySend(Unit)
     }
 
     fun install(application: Application, store: CrashReportStore, version: String, device: String) {
-        if (!BuildConfig.DEBUG || recorder != null) return
+        if (!BuildConfig.DIAGNOSTICS || recorder != null) return
         fun report(actions: List<ActionLatency>, episodes: List<ReconnectEpisode>, gestures: List<CardTapDiagnostic>) = CrashReport(Instant.now().toString(), version, device,
             AccountJson.format.encodeToString(LatencyBatch(actions, episodes, gestures)), kind = "latency")
         recorder = LatencyRecorder(true, log = { entry ->
@@ -181,12 +181,12 @@ internal object DebugLatency {
     }
 
     fun authenticated(value: String?) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         token = value
         if (value != null && started.compareAndSet(false, true)) requestUpload(true)
     }
     private fun requestUpload(force: Boolean) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DIAGNOSTICS) return
         upload.set(true)
         if (force) forced.set(true)
         wake.trySend(Unit)

@@ -43,7 +43,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
     private val treeWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
-    reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DEBUG) DebugLatency.reconnect(it) },
+    reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DIAGNOSTICS) DebugLatency.reconnect(it) },
     private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val tableChanges: (String, TableChangeBatch) -> Unit = { _, _ -> },
     private val personalChat: GameChat = GameChat(),
@@ -62,7 +62,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (!treeWorker.isShutdown) treeWorker.execute { downloads.remove(gameId) }
     }
     private fun presentation(value: PublishedDownloadedTree) = value.generation.copy(tree = value.generation.tree.materializedCopy())
-    private val reconnectTrace = ReconnectRecorder(BuildConfig.DEBUG, now, record = reconnectTelemetry)
+    private val reconnectTrace = ReconnectRecorder(BuildConfig.DIAGNOSTICS, now, record = reconnectTelemetry)
     private var backgrounded = false
     private var resumePending = false
     private var resumePing: String? = null
@@ -72,7 +72,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val uiThread = Thread.currentThread()
     private var latencyTrace: LatencyRecorder.Trace? = null
     private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
-        if (!BuildConfig.DEBUG) return block()
+        if (!BuildConfig.DIAGNOSTICS) return block()
         val previous = latencyTrace
         val trace = DebugLatency.begin(game.id, action.latencyType(), (plays[game.id]?.tree?.tree?.nodes?.size ?: 0) +
             if (plays[game.id]?.accepted != null) 1 else 0)
@@ -80,7 +80,7 @@ class GameSession(private val connection: GameConnection, private val credential
         try { return block() } finally { latencyTrace = previous; trace?.finish() }
     }
     private fun latencySubmitted(command: GameCommand, predicted: Boolean) {
-        if (BuildConfig.DEBUG) latencyTrace?.submitted(command.requestId, predicted)
+        if (BuildConfig.DIAGNOSTICS) latencyTrace?.submitted(command.requestId, predicted)
     }
     private val caches = ConcurrentHashMap<String, GameplayTreeStore>()
     private val observedPlays = ConcurrentHashMap<String, String>()
@@ -285,7 +285,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Personal read-only review, including offline. Cold replay and cursor persistence are worker
      * work; account/incarnation/clear fences are checked before disk and again before UI delivery. */
     fun review(gameId: String, nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean {
-        val timing = if (BuildConfig.DEBUG) DebugLatency.begin(gameId, "HistoryReview",
+        val timing = if (BuildConfig.DIAGNOSTICS) DebugLatency.begin(gameId, "HistoryReview",
             (plays[gameId]?.tree?.tree?.nodes?.size ?: 0) + 1) else null
         checkAccount()
         val retained = plays[gameId]?.tree?.tree ?: return false
@@ -616,7 +616,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** One release captures a row, but produces ordinary individual commands, never an atomic bulk. */
     fun transfer(game: GameSummary, actor: String, intent: PreparedTransfer): Boolean {
-        val timing = if (BuildConfig.DEBUG) DebugLatency.begin(game.id, "TransferPreparedCard", 0) else null
+        val timing = if (BuildConfig.DIAGNOSTICS) DebugLatency.begin(game.id, "TransferPreparedCard", 0) else null
         try {
         val current = summary(game)
         val deck = preparation(current)?.players?.find { it.accountId == actor }?.deck ?: return false
@@ -785,7 +785,7 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameResult -> result(message)
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
-                if (BuildConfig.DEBUG) message.requestId?.let(DebugLatency::result)
+                if (BuildConfig.DIAGNOSTICS) message.requestId?.let(DebugLatency::result)
                 if (message.code == "gameplayRulesUpgradeRequired" || message.code == "serverUpdatePending" ||
                     (!welcome && message.code == "invalidInput" && message.requestId == null)) {
                     // Pre-handshake-field servers reject the new Hello as unknown input.
@@ -911,7 +911,7 @@ class GameSession(private val connection: GameConnection, private val credential
         return started
     }
     private fun result(result: GameResult) {
-        if (BuildConfig.DEBUG) DebugLatency.result(result.requestId)
+        if (BuildConfig.DIAGNOSTICS) DebugLatency.result(result.requestId)
         val original = pending[result.requestId] ?: return
         require(result.scope == original.scope)
         plays[original.scope.gameId]?.result(result)

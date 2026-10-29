@@ -1,0 +1,1 @@
+add: The opponent's life square shows a small dot: green when they have the game open, yellow when they have it open but have been idle for a while, gray when they are away. Their life menu says when they were last seen.

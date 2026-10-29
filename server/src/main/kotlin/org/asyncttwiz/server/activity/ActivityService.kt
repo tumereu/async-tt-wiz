@@ -38,28 +38,34 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
     }.getOrThrow()
     private fun account(principal: AccountService.Principal) = UUID.fromString(principal.account.accountId)
 
-    fun heartbeat(principal: AccountService.Principal, input: GamePresence) {
+    /** Records one heartbeat. Returns the player's new presence when it moved between the buckets the
+     *  opponent's table shows (same statements as before: all of the player's rows replace the one-row lookup). */
+    fun heartbeat(principal: AccountService.Principal, input: GamePresence): PresenceChange? {
         if (!DeckValidation.uuid(input.gameId) || !DeckValidation.uuid(input.presenceId)) throw ActivityFailure(400, "invalid_request")
-        transaction { sql ->
+        return transaction { sql ->
             val owner = account(principal); val game = UUID.fromString(input.gameId); val time = now()
             val row = sql.selectFrom(GAME).where(GAME.ID.eq(game)).forShare().fetchOne()
             if (row == null || owner !in listOf(row.inviterId, row.recipientId)) throw ActivityFailure(404, "game_unavailable")
             val presence = UUID.fromString(input.presenceId)
-            val old = sql.selectFrom(PRESENCE).where(PRESENCE.GAME_ID.eq(game)).and(PRESENCE.ACCOUNT_ID.eq(owner))
-                .and(PRESENCE.PRESENCE_ID.eq(presence)).fetchOne()
-            val active = input.didSomething || old == null || old.leftGame == true || !old.heartbeatAt!!.plusSeconds(15).isAfter(time)
+            val rows = OpponentPresences.rows(sql, game, owner)
+            val old = rows.firstOrNull { it.presenceId == presence }
+            val active = input.didSomething || old == null || old.left || !old.heartbeat.plusSeconds(15).isAfter(time)
+            val inputAt = if (active) time else old!!.input
             sql.insertInto(PRESENCE).set(PRESENCE.GAME_ID, game).set(PRESENCE.ACCOUNT_ID, owner)
                 .set(PRESENCE.SESSION_ID, principal.sessionId).set(PRESENCE.PRESENCE_ID, presence)
-                .set(PRESENCE.HEARTBEAT_AT, time).set(PRESENCE.INPUT_AT, if (active) time else old!!.inputAt)
+                .set(PRESENCE.HEARTBEAT_AT, time).set(PRESENCE.INPUT_AT, inputAt)
                 .set(PRESENCE.LEFT_GAME, input.left).onConflict(PRESENCE.GAME_ID, PRESENCE.ACCOUNT_ID, PRESENCE.PRESENCE_ID)
                 .doUpdate().set(PRESENCE.SESSION_ID, principal.sessionId).set(PRESENCE.HEARTBEAT_AT, time)
-                .set(PRESENCE.INPUT_AT, if (active) time else old!!.inputAt).set(PRESENCE.LEFT_GAME, input.left).execute()
+                .set(PRESENCE.INPUT_AT, inputAt).set(PRESENCE.LEFT_GAME, input.left).execute()
+            val after = rows.filter { it.presenceId != presence } + PresenceRow(presence, time, inputAt, input.left)
             if (!input.left) {
                 sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).set(SUMMARY.NEW_MESSAGE, false).where(SUMMARY.ACCOUNT_ID.eq(owner))
                     .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
                 sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
                     .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
             }
+            if (OpponentPresences.bucket(rows, time) == OpponentPresences.bucket(after, time)) null
+            else PresenceChange(input.gameId, owner.toString(), OpponentPresences.of(after, time))
         }
     }
 
@@ -127,7 +133,12 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
     /** Bounded maintenance also runs without FCM or an account reopening the app. */
     fun pruneExpired() = transaction { sql ->
-        sql.deleteFrom(PRESENCE).where(PRESENCE.HEARTBEAT_AT.lt(now().minusDays(1))).execute()
+        // Keep each player's newest row in a game: it is their "last seen" for the opponent.
+        val newer = PRESENCE.`as`("newer")
+        sql.deleteFrom(PRESENCE).where(PRESENCE.HEARTBEAT_AT.lt(now().minusDays(1))).and(DSL.exists(DSL.selectOne().from(newer)
+            .where(newer.GAME_ID.eq(PRESENCE.GAME_ID)).and(newer.ACCOUNT_ID.eq(PRESENCE.ACCOUNT_ID))
+            .and(newer.HEARTBEAT_AT.gt(PRESENCE.HEARTBEAT_AT).or(newer.HEARTBEAT_AT.eq(PRESENCE.HEARTBEAT_AT)
+                .and(newer.PRESENCE_ID.gt(PRESENCE.PRESENCE_ID)))))).execute()
         val owners = sql.selectDistinct(EVENT.ACCOUNT_ID).from(EVENT).where(EVENT.CREATED_AT.lt(now().minusDays(30)))
             .orderBy(EVENT.ACCOUNT_ID).limit(100).fetch(EVENT.ACCOUNT_ID)
         for (owner in owners) {

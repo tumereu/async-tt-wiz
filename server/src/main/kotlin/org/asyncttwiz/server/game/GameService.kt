@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
+import org.asyncttwiz.server.activity.OpponentPresences
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameInbox.GAME_INBOX
@@ -23,7 +24,8 @@ import org.jooq.impl.DSL
 class GameProtocolFailure(val code: String, val retryable: Boolean = false) : RuntimeException(code)
 
 /** One durable request/execution domain per persistent game, extended by preparation/gameplay. */
-class GameService(private val runtime: ServiceRuntime) {
+class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    private val clock: java.time.Clock = java.time.Clock.systemUTC()) {
     private val json = GameWire.json
     private val lobby = LobbyService(runtime)
     private val gameplayStore = GameplayStore()
@@ -154,12 +156,16 @@ class GameService(private val runtime: ServiceRuntime) {
             ?.any { it.id == move.source.containerId && it.zone == PlayZone.STACK } == true
     }
     /** A socket may learn removal and recover originals, never reopen the removed replica. */
-    fun subscriptionHead(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
+    fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false): GameHead = transaction { sql ->
         val game = locked(sql, uuid(gameId), actor(principal), recovery = true)
         if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) {
             val summary = lobby.summary(sql, game.id!!)
             GameHead(gameId, summary.revision, summary)
-        } else readHead(sql, principal, gameId)
+        } else readHead(sql, principal, gameId).let { head ->
+            if (!presence) head else head.copy(opponentPresence = OpponentPresences.read(sql, game.id!!,
+                if (game.inviterId == actor(principal)) game.recipientId!! else game.inviterId!!,
+                java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)))
+        }
     }
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String): GameHead {
         val summary = lobby.summary(sql, uuid(gameId))

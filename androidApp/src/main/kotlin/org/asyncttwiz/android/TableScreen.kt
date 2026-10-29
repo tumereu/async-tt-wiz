@@ -53,6 +53,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
     val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
     val changes: TableChanges? = null, val ownPodDeckName: String? = null,
+    /** The opponent's presence: a dot on their life square and a line in their life panel. */
+    val opponentPresence: ReceivedPresence? = null,
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
     /** History lookup for personal status bubble hides; see [StatusBubbleRules]. */
     val statusHistory: ((String) -> GameplayMutation?)? = null)
@@ -259,6 +261,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                     else history.cancelContinuation()
                                }),
                           ownPodDeckName = state.ownPodDeckName, statusHistory = statusHistory,
+                          opponentPresence = state.opponentPresence,
                           liveView = position?.mode == HistoryMode.LIVE || resumeHeld, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },

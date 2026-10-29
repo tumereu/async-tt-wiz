@@ -13,7 +13,8 @@ import org.asyncttwiz.server.accounts.AccountRateLimits
 import org.asyncttwiz.server.database.OwnershipFailure
 
 /** Explicit route adapter for the public listener; no cookies, redirects or game mutation. */
-class ActivityHttp(private val runtime: ServiceRuntime) {
+class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    private val presence: PresenceListener = PresenceListener {}) {
     private val accounts = AccountService(runtime)
     private val activity = ActivityService(runtime)
     private val limits = AccountRateLimits()
@@ -52,7 +53,7 @@ class ActivityHttp(private val runtime: ServiceRuntime) {
                     val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                         .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
                     if (path == "/activity/presence") {
-                        activity.heartbeat(principal, ActivityWire.json.decodeFromString(text)); reply(204)
+                        activity.heartbeat(principal, ActivityWire.json.decodeFromString(text))?.let(presence::changed); reply(204)
                     } else reply(200, ActivityWire.json.encodeToString(activity.register(principal, ActivityWire.json.decodeFromString(text))))
                 }
                 "DELETE" to "/activity/installations" -> { activity.unregister(principal, request.getParameter("id").orEmpty()); reply(204) }

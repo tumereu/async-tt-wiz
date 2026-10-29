@@ -30,6 +30,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
     val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null,
+    /** The selected game's opponent presence, when the server sends it. */
+    val opponentPresence: ReceivedPresence? = null,
     /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */
     val queuedGames: Set<String> = emptySet(),
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
@@ -153,6 +155,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
             acceptedPlay = state.detail?.let(wire::acceptedPlay),
             ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
+            opponentPresence = state.selected?.let(wire::opponentPresence),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = state.selected?.let(wire::chatLoaded) == true)
         // Never re-enter the session from its own status callback; run waiting taps right after it.

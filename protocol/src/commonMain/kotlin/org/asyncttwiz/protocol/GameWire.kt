@@ -7,6 +7,15 @@ import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
 const val CURRENT_GAMEPLAY_RULES_VERSION = 29
+/** Highest socket protocol minor this build speaks. 1: the opponent's presence on heads and [GamePresenceUpdate].
+ *  Clients offer it as [GameHello.maxMinor]; servers send minor-1 data only to sockets that offered it. */
+const val GAME_PROTOCOL_MINOR = 1
+
+@Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
+/** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
+ *  [idleSeconds]: since their last input while the game is open (ONLINE/IDLE only).
+ *  [lastSeenSeconds]: since they last had the game open; null when they never have. */
+@Serializable data class OpponentPresence(val state: PresenceState, val idleSeconds: Int? = null, val lastSeenSeconds: Int? = null)
 
 @Serializable data class GameScope(val gameId: String, val preparationId: String? = null,
     val invitationId: String? = null, val playId: String? = null)
@@ -69,18 +78,24 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 29
     val mutation: GameplayMutation? = null, val targetNodeId: String? = null) : GameServerMessage
 @Serializable @SerialName("admissionError") data class GameAdmissionError(val code: String,
     val retryable: Boolean, val requestId: String? = null, val gameId: String? = null) : GameServerMessage
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
     val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
     val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false,
     val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false,
     /** Authorized caller's private pod deck name; not replay state or revision data. */
-    val ownPodDeckName: String? = null) : GameServerMessage
+    val ownPodDeckName: String? = null,
+    /** Protocol minor 1 only; omitted otherwise. Not replay state or revision data. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val opponentPresence: OpponentPresence? = null) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
     val mutation: GameplayMutation? = null, val group: GameplayGroup? = null,
     val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null) : GameServerMessage
+/** Protocol minor 1: the opponent's presence changed (opened/left the game, or came back from idle). */
+@Serializable @SerialName("presence") data class GamePresenceUpdate(val gameId: String, val opponent: OpponentPresence) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)
 @Serializable data class LookupGameResults(val requestIds: List<String>)

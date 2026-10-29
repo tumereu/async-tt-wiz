@@ -70,14 +70,18 @@ internal object GameplayDeltas {
         put("delta", mutation.transition.delta?.let { json.encodeToJsonElement(GameplayDelta.serializer(), it.copy(seal = "")) } ?: JsonNull)
     }.let(DeckJson::canonicalElement))
 
-    fun capture(from: PlayState, to: PlayState, nodeId: String, projectionNoteId: String? = null): GameplayDelta {
+    /** [orderedPiles] (rules v27): Graveyard/Exile card order is semantic, recorded as a sequence edit that
+     * binds its neighbours like Hand and Library. Older events keep their unordered membership edits. */
+    fun capture(from: PlayState, to: PlayState, nodeId: String, projectionNoteId: String? = null,
+        orderedPiles: Boolean = false): GameplayDelta {
         val changes = mutableListOf<GameplayEntityDelta>()
         fun <T> entity(kind: String, id: String, index: Int, old: T?, next: T?, serializer: KSerializer<T>) {
             if (old == next) return
             val values = mutableListOf<GameplayValueDelta>()
             diff(emptyList(), old?.let { json.encodeToJsonElement(serializer, it) },
                 next?.let { json.encodeToJsonElement(serializer, it) }, values)
-            if (old is PlayContainer && next is PlayContainer && old.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.BATTLEFIELD) &&
+            val unorderedZones = if (orderedPiles) setOf(PlayZone.BATTLEFIELD) else setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.BATTLEFIELD)
+            if (old is PlayContainer && next is PlayContainer && old.zone in unorderedZones &&
                 (old.zone != PlayZone.BATTLEFIELD || old.cards.toSet() != next.cards.toSet())) {
                 values.removeAll { it.path == listOf("cards") }
                 if (old.cards != next.cards) values += GameplayValueDelta(listOf("cards"),
@@ -183,7 +187,13 @@ internal object GameplayDeltas {
             val next = to as? JsonArray ?: throw Mismatch()
             val removed = old - next.toSet(); val added = next - old.toSet()
             if (!array.containsAll(removed) || added.any { it in array }) throw Mismatch()
-            return if (array == old) next else JsonArray(((array - removed.toSet()) + added).sortedBy { it.jsonPrimitive.content })
+            if (array == old) return next
+            val rest = array - removed.toSet()
+            // Pre-v27 piles are always id-sorted. A rebased old event on a v27 arrival-ordered pile keeps
+            // that order and puts its arrivals on top instead of re-sorting the whole pile.
+            val sorted = rest.map { it.jsonPrimitive.content }.let { ids -> ids == ids.sorted() }
+            return if (sorted) JsonArray((rest + added).sortedBy { it.jsonPrimitive.content })
+                else JsonArray(added.sortedBy { it.jsonPrimitive.content } + rest)
         }
         if (!edit.sequence) {
             if (value != from) throw Mismatch()

@@ -89,13 +89,14 @@ class GameplayHistoryTest {
     @Test fun independentUnorderedArrivalsDoNotPolluteMovementRelevantState() {
         val root = gameplayFixture(); val library = root.board.containers[0]; val bin = root.board.containers[3]
         fun move(card: String) = PlayAction.MoveCard(card, MoveSource(library.id), MoveDestination(bin.id, MoveInsertion.UNORDERED))
+        // Graveyard was an unordered bin before rules v27 (see PileOrderTest for the ordered pile).
         // Use nonadjacent source members so the inverse source-neighbor dependency also remains identical.
-        val first = gameplayChange(root, move(library.cards[0]), 100)
-        val second = gameplayChange(first.state!!, move(library.cards[3]), 101)
-        val independent = GameplayHistory.replay(root, second.mutation!!)
-        assertEquals(second.mutation.transition, independent.mutation!!.transition)
+        val (firstState, firstEvent) = legacyPileMove(root, move(library.cards[0]), 100)
+        val (_, secondEvent) = legacyPileMove(firstState, move(library.cards[3]), 101)
+        val independent = GameplayHistory.replay(root, secondEvent)
+        assertEquals(secondEvent.transition, independent.mutation!!.transition)
         assertEquals(listOf(library.cards[3]), independent.state!!.board.containers[3].cards)
-        assertEquals(root.board, GameplayHistory.reverse(first.state, first.mutation!!))
+        assertEquals(root.board, GameplayHistory.reverse(firstState, firstEvent))
     }
 
     @Test fun authoritativePrefixGroupingTapBoundaryAuthorsAndIsolatedStackMoves() {

@@ -55,6 +55,11 @@ internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
     } else listOf(0)
 }
 
+/** Opens the full inspector (Next face, Enlarge artwork, rotate) on a pod card; nothing without its card data. */
+internal fun CardInspectionController.openPodCard(identity: String, definition: CardDefinition?) {
+    definition?.takeIf { it.faces.isNotEmpty() }?.let { open(InspectedCard.retained(identity, it)) }
+}
+
 @Composable
 internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: ScrollState = rememberScrollState()) {
     val card = remember(copy.definition, definition) {

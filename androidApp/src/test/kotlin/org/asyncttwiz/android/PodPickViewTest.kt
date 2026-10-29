@@ -96,6 +96,26 @@ class PodPickViewTest {
         assertHoldPreview(card("2"))
     }
 
+    @Test fun tapMenuInspectOpensTheFullInspectorWithTheBackFace() {
+        val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
+            layout = "transform")
+        show(cardDefinitions = definitions + ("definition-1" to double))
+        card("1").performClick()
+        compose.onNodeWithText("Inspect").performClick()
+        compose.onNodeWithText("Keep").assertDoesNotExist()
+        compose.onNodeWithText("Day Side").assertIsDisplayed()
+        compose.onNodeWithText("Next face").performClick()
+        compose.onNodeWithText("Night Side").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close card inspection").performClick()
+        compose.onNodeWithText("Night Side").assertDoesNotExist()
+        assertMark("1", "Unmarked")
+        // Screen readers reach it without the menu too.
+        val action = card("2").fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Inspect" }
+        compose.runOnIdle { action.action() }
+        compose.onNode(hasText("Card 2") and hasAnyAncestor(hasContentDescription("Card inspection content"))).assertIsDisplayed()
+        compose.onNodeWithText("Next face").assertDoesNotExist()
+    }
+
     private fun assertHoldPreview(target: SemanticsNodeInteraction) {
         target.performTouchInput { down(center); advanceEventTime(80) }
         compose.mainClock.advanceTimeBy(80)

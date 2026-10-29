@@ -137,19 +137,37 @@ class PodBuildViewTest {
         compose.onNodeWithText("→ Trash").assertDoesNotExist()
     }
 
-    @Test fun submittedCardsHaveNoMoveGesturesOrMenusButCanStillBeInspected() {
+    @Test fun submittedCardsHaveNoMoveGesturesAndTheirMenuOnlyInspects() {
         var inspections = 0
+        var opened = 0
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, false,
-                { id, destination -> moves += id to destination }, { if (it) inspections++ }) }
+                { id, destination -> moves += id to destination }, { if (it) inspections++ }, onInspectCard = { opened++ }) }
         } }
         val node = compose.onNodeWithTag("pod-build-card-first")
         node.performClick()
-        compose.onNodeWithText("→ Side").assertDoesNotExist()
+        compose.onNodeWithText("→ Side").assertIsNotEnabled()
+        compose.onNodeWithText("→ Trash").assertIsNotEnabled()
+        compose.onNodeWithText("Inspect").assertIsEnabled().performClick()
+        compose.onNodeWithText("Inspect").assertDoesNotExist()
         node.performTouchInput { swipeRight() }
         node.performTouchInput { swipeLeft() }
         node.performTouchInput { longClick() }
-        compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections) }
+        compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections); assertEquals(1, opened) }
+    }
+
+    @Test fun menuInspectOpensTheFullInspectorWithTheBackFace() {
+        val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
+            layout = "transform")
+        compose.setContent { MaterialTheme {
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"))), mapOf("first" to DraftCopy("first", "a")),
+                mapOf("a" to double), null, true, false, { _, _ -> }, { _, _ -> }, {})
+        } }
+        compose.onNodeWithTag("pod-build-card-first").performClick()
+        compose.onNodeWithText("Inspect").performClick()
+        compose.onNodeWithText("Day Side").assertIsDisplayed()
+        compose.onNodeWithText("Next face").performClick()
+        compose.onNodeWithText("Night Side").assertIsDisplayed()
     }
 
     @Test fun verticalDragOnACardScrollsInsteadOfMovingIt() {

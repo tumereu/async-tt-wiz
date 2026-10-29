@@ -26,6 +26,31 @@ class CardPanelLayoutTest {
         }
     }
 
+    @Test fun aSearchShowsWhatWaitsForTheShuffleUnderItsHeaderForBothPlayers() {
+        val root = f.root
+        val library = f.container(PlayZone.LIBRARY)
+        val ids = root.board.containers.single { it.id == library }.cards
+        val plain = ContentsDisplay(f.id(600), f.actor, library, ContentsSelection.ALL, ids.size, false, ids.drop(1), panelVersion = 3)
+        assertTrue(searchQueueLines(plain).isEmpty())
+        assertNull(searchQueueText(plain))
+        val waiting = plain.copy(queuedTop = listOf(listOf(ids.first()), listOf(f.id(601), f.id(602))))
+        assertEquals("After shuffle: 3 on top", searchQueueText(waiting))
+        val both = waiting.copy(queuedBottom = listOf(listOf(f.id(603))))
+        assertEquals(listOf("After shuffle:", "3 on top", "1 on bottom"), searchQueueLines(both))
+        assertEquals("After shuffle: 3 on top · 1 on bottom", searchQueueText(both))
+        assertEquals("After shuffle: 1 on bottom", searchQueueText(plain.copy(queuedBottom = both.queuedBottom)))
+        for (viewer in listOf(f.actor, f.other)) {
+            fun panel(display: ContentsDisplay) = cardPanelGeometry(root.copy(board = root.board.copy(contentsDisplays = listOf(display))),
+                viewer, TableLayoutState(), TableBounds(0f, 0f, 412f, 700f)).single()
+            val before = panel(plain); val after = panel(both)
+            assertTrue(before.queueLines.isEmpty())
+            assertEquals(searchQueueLines(both), after.queueLines)
+            // The card grid starts below the count lines.
+            assertTrue(after.viewport.bounds.y >= before.viewport.bounds.y + 3 * 11f)
+            assertEquals(before.bounds, after.bounds)
+        }
+    }
+
     @Test fun emptyLocalPilesHaveNoPanelGeometry() {
         for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
             assertNull(localPanelDisplay(f.root, f.actor, TableLayoutState(localPileId = f.container(zone))))

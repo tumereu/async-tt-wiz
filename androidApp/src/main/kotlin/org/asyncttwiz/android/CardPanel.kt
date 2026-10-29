@@ -16,15 +16,31 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 private const val PANEL_HEADER = 28f
+private const val QUEUE_LINE = 11f
 data class CardPanelRow(val entry: ContentsEntry, val copies: Int, val bounds: TableBounds,
     val cardIds: List<String> = listOf(entry.cardId))
 data class CardPanelTypeHeader(val title: String, val bounds: TableBounds)
 data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBounds,
     val viewport: TableViewport, val rows: List<CardPanelRow>, val columns: Int = 1,
-    val localZone: PlayZone? = null, val typeHeaders: List<CardPanelTypeHeader> = emptyList(), val cardScale: Float = 1f) {
+    val localZone: PlayZone? = null, val typeHeaders: List<CardPanelTypeHeader> = emptyList(), val cardScale: Float = 1f,
+    /** Rules v30: what waits for this Search's close ([searchQueueLines]), shown under the header. */
+    val queueLines: List<String> = emptyList()) {
     val title get() = localZone?.let(::moveZoneLabel) ?: display.title
     val closeBounds get() = (if (display.reveal && localZone == null) 40f else 24f).let { TableBounds(bounds.right - it, bounds.y + 2, it, 24f) }
 }
+
+internal fun searchQueueCount(count: Int, edge: String): String? = if (count > 0) "$count on $edge" else null
+
+/** Rules v30: what waits for a Search's close, e.g. "After shuffle:", "2 on top", "1 on bottom"; empty when nothing does. */
+internal fun searchQueueLines(display: ContentsDisplay): List<String> {
+    val counts = listOfNotNull(searchQueueCount(SearchQueue.topCount(display), "top"),
+        searchQueueCount(SearchQueue.bottomCount(display), "bottom"))
+    return if (counts.isEmpty()) emptyList() else listOf("After shuffle:") + counts
+}
+
+/** The same as one line: "After shuffle: 2 on top · 1 on bottom", or null. */
+internal fun searchQueueText(display: ContentsDisplay): String? = searchQueueLines(display).takeIf { it.isNotEmpty() }
+    ?.let { "${it.first()} ${it.drop(1).joinToString(" · ")}" }
 
 /** Concealed copies are never grouped using hidden names (or collapsed into one back). */
 internal fun panelGroups(entries: List<ContentsEntry>): List<List<ContentsEntry>> =
@@ -73,7 +89,9 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
         val width = maxOf(64f, columns * columnPitch + 8f)
         val bounds = TableBounds(x, area.y, width, area.height)
         x = bounds.right + 4f
-        val portBounds = TableBounds(bounds.x, bounds.y + PANEL_HEADER, width, (bounds.height - PANEL_HEADER).coerceAtLeast(0f))
+        val queueLines = if (localZone == null) searchQueueLines(display) else emptyList()
+        val top = PANEL_HEADER + if (queueLines.isEmpty()) 0f else queueLines.size * QUEUE_LINE + 4f
+        val portBounds = TableBounds(bounds.x, bounds.y + top, width, (bounds.height - top).coerceAtLeast(0f))
         val content = sections.sumOf { ceil(it.size.toDouble() / columns).toInt() } * rowPitch +
             if (typed) sections.size * 20f else 0f
         val portId = "cardPanel/${display.id}"
@@ -96,7 +114,7 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
             }
             y += ceil(section.size.toDouble() / columns).toInt() * rowPitch
         }
-        CardPanelGeometry(display, bounds, port, rows, columns, localZone, headers, scale)
+        CardPanelGeometry(display, bounds, port, rows, columns, localZone, headers, scale, queueLines)
     }
 }
 
@@ -172,6 +190,12 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
                     else Icon(menuIcon("Close"), "Close ${whose}${panel.title} panel", Modifier.size(16.dp))
                 }
             }
+        }
+        if (panel.queueLines.isNotEmpty()) Column(Modifier.offset(panel.bounds.x.dp, (panel.bounds.y + PANEL_HEADER).dp)
+            .width(panel.bounds.width.dp).padding(horizontal = 3.dp)
+            .semantics(mergeDescendants = true) { contentDescription = searchQueueText(display).orEmpty() }) {
+            for (line in panel.queueLines) Text(line, fontSize = 9.sp, lineHeight = QUEUE_LINE.sp, maxLines = 1,
+                softWrap = false, color = if (display.author == viewer) OwnTableColor else OpponentTableColor)
         }
     }
 }

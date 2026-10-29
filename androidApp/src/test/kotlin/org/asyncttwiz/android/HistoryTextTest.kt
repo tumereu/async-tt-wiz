@@ -114,6 +114,26 @@ class HistoryTextTest {
             format(PlayAction.MoveToLibraryRandom(library, listOf(id(9)), false, seed), before = hand, author = f.b, viewer = f.b).description)
     }
 
+    @Test fun putsOntoASearchedLibrarySayTheyWaitAndTheCloseSaysWhatWaited() {
+        val seed = RandomV1.encodeSeed(ByteArray(32))
+        val graveyard = placed(f.a, PlayZone.GRAVEYARD)
+        val library = assertNotNull(graveyard.board.zoneContainer(f.a, PlayZone.LIBRARY))
+        val display = ContentsDisplay(id(80), f.a, library.id, ContentsSelection.ALL, library.cards.size, false, library.cards)
+        val searching = graveyard.copy(board = graveyard.board.copy(contentsDisplays = listOf(display)))
+        val v30 = GameplayTransition(rulesVersion = SearchQueue.RULES_VERSION)
+        val put = PlayAction.MoveCard(id(9), MoveSource(id(25)), MoveDestination(library.id, MoveInsertion.TOP))
+        assertEquals("Velvet Prism Engine: Graveyard → Library top (after search)", format(put, v30, before = searching).description)
+        assertEquals("Velvet Prism Engine: Graveyard → Library top", format(put, v30, before = graveyard).description)
+        assertEquals("Velvet Prism Engine: Graveyard → Library top", format(put, v30.copy(rulesVersion = 29), before = searching).description)
+        assertEquals("Velvet Prism Engine: Graveyard → Library bottom (random order, after search)",
+            format(PlayAction.MoveToLibraryRandom(library.id, listOf(id(9)), true, seed), v30, before = searching).description)
+        val close = PlayAction.DismissContents(display.id, ContentsRest.SHUFFLE, seed)
+        assertEquals("Search closed → Library shuffled", format(close, v30.copy(contents = ContentsDisplayChange(display)), before = searching).description)
+        val waited = display.copy(queuedTop = listOf(listOf(id(9)), listOf(id(12))), queuedBottom = listOf(listOf(id(13))))
+        assertEquals("Search closed → Library shuffled · 2 on top · 1 on bottom",
+            format(close, v30.copy(contents = ContentsDisplayChange(waited)), before = searching).description)
+    }
+
     @Test fun continuousTopRevealNamesOnlyTheActualTopForBothViewers() {
         for (holder in listOf(f.a, f.b)) {
             val base = placed(holder, PlayZone.LIBRARY)

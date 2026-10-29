@@ -478,6 +478,19 @@ unordered Library layer. The client's fresh seed fixes the hidden concrete order
 Library in one invocation. History reads "<visible names / N cards>: <From> →
 Library top (random order)"; grouping is that of a cross-zone move.
 
+**Puts wait for an open Search (rules v30).** While a Search panel is open on a
+(non-Temp) Library, every card put on that Library's top or bottom (from the panel
+or any other zone, by either player, including `moveToLibraryRandom`) goes there at
+once with the ordinary move effects, leaves the panel list, and is recorded in the
+panel's `queuedTop`/`queuedBottom` (one entry per put; a random-order put is one
+entry). A card that leaves the Library, or a later put elsewhere in it, stops
+waiting; a shuffle of it ends all waiting. The close shuffles only the rest and
+keeps the waiting cards at the top and bottom in their Library order, i.e. as if
+put one by one after the shuffle: placed cards are known, each random-order put
+stays its own hidden layer. The panel shows "After shuffle: N on top · M on
+bottom"; such puts read "… → Library top (after search)" and the close
+"Search closed → Library shuffled · N on top · M on bottom".
+
 **Numbered Temp piles (rules v29).** Each player has Temp piles 1–4, individual
 piles with fixed numbers (Temp 3 can exist without Temp 2). Pile 1 keeps the v23
 ID and is always on; piles 2–4 have deterministic IDs

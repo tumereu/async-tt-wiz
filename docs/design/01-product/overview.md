@@ -86,6 +86,23 @@ The app remembers and presents what happened; the players interpret the rules.
 7. **Cooperation, not enforced secrecy or legality.** Either participant can edit
    either side and inspect hidden information. Covering is a presentation
    convention. The app does not infer costs, targets, damage, or resolution.
+   **Every gameplay action is available to both players (owner policy,
+   2026-10-29).** Either player can perform any gameplay action on either
+   player's cards, zones, panels and piles: moves from/to any zone, Look/Search/
+   Reveal and their reveal/reorder/close, hand reveal and random picks, Library
+   actions, counters, life, taps, tokens, combat, Stack, turn/step, notes, piles,
+   Temp piles and mulligans. Test: if the other player could only see the board
+   and told you over the phone what they want to do, you could run the game for
+   them. Allowed differences: quick actions, defaults and shortcuts may be
+   tailored to the acting player; hidden information the opponent owns is not
+   shown by default (acting blindly on covered cards is fine; seeing it may take
+   an explicit inspection or reveal); an action may ask an extra confirmation.
+   A hard block based on who the actor is is never allowed. These are not
+   permission rules and still apply: cards go to their owner's Hand/Library/
+   Graveyard/Exile/Temp piles (drops redirect); only game members act; Undo/Redo
+   and other history-integrity rules; personal UI state stays local; a personal
+   proposal such as an ending suggestion belongs to its author. Lower tiers refer
+   to this rule instead of repeating it.
 
 ## Boundaries
 

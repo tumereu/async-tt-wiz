@@ -323,7 +323,9 @@ Login also has the ATW logo, and each lobby player has a colored readiness icon
 
 ### 1. A cooperative table, not a rules referee
 
-- Either participant can edit either side, including inspecting hidden cards.
+- Either participant can edit either side, including inspecting hidden cards;
+  every gameplay action is available to both players (Tier 1
+  [rule 7](../01-product/overview.md#the-rules-a-player-should-be-able-to-learn-once)).
   Covered hands/cards and library order are presentation conventions, not security
   against the opponent. Routine logs/previews must not unnecessarily spoil them.
 - Card text, labels, taps, pings, and moves do not automatically pay costs, apply
@@ -405,8 +407,8 @@ Look, Reveal share one left-edge Stack-sized card grid (fewest fitting columns u
 to three, row-major Library-top first); shrink hands sideways. One shared panel
 GAME-WIDE: other opening buttons/confirm only grey, no error, server-enforced.
 Look/Reveal reorder; Search sorts type/name, groups copies BY NAME as ×N, drags
-one, shuffles on close as one display group. Initiator closes Look/Reveal via rest
-Top/Bottom in panel order, Shuffle, Graveyard, Exile. No Bottom(random), bottom-N,
+one, shuffles on close as one display group. Either player closes Look/Reveal via
+rest Top/Bottom in panel order, Shuffle, Graveyard, Exile. No Bottom(random), bottom-N,
 Move N or Reveal all. Last card departure auto-closes in the SAME event.
 
 Nine-cell card menu to panel's right/top row: Hand, Reveal+Hand, Battlefield,

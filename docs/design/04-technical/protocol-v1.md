@@ -166,6 +166,10 @@ Reasons: `invalidInput`, `inapplicable`, `movementConflict`, `stackConflict`,
 `busy`, `storageUnavailable`, `upgradeRequired`. Auth failure is connection/HTTP
 `unauthorized`, not a manufactured outcome for an unknown prior request. Human
 messages are localized client-side; diagnostic payloads never leak another game.
+`accessDenied` never refuses a gameplay command because its target belongs to, or
+was opened by, the other player; see the
+[both-players rule](../01-product/overview.md#the-rules-a-player-should-be-able-to-learn-once).
+Non-members and personal proposals (ending suggestions) remain separate cases.
 
 ## Result/update correlation and presentation
 

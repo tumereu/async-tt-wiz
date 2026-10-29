@@ -1,0 +1,1 @@
+fix: You can now act on your opponent's hand and on their Look, Search and Reveal cards too (discard from a revealed hand, discard at random, move, reorder, reveal); cards you can't see stay face down for you.

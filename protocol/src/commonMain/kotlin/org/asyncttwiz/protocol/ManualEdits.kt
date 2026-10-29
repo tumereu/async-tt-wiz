@@ -48,7 +48,8 @@ object ManualDisclosure {
     fun faceDownOutsideHiddenZones(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
         board.containers.singleOrNull { it.id == card.containerId }?.zone.let { it != PlayZone.HAND && it != PlayZone.LIBRARY }
 
-    /** An opponent never sees a face-down card's front by any route, explicit (logged) inspection included.
+    /** By default an opponent never sees a face-down card's front: ordinary inspection, menus and history keep it
+     * hidden. Only the deliberate, logged InspectFace ("Inspect other side") shows it to the inspecting player.
      * "Own" is the D-252 region rule: the zone's holder, or the card's owner on the shared Stack. */
     fun faceDownFrontHidden(state: PlayState, card: PlayCard, viewer: String): Boolean =
         faceDownOutsideHiddenZones(state.board, card) && !ownRegion(state, card, viewer)

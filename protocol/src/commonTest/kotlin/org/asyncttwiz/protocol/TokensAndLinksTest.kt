@@ -44,7 +44,8 @@ class TokensAndLinksTest {
         val wire = GameWire.json.decodeFromString<GameplayMutation>(GameWire.json.encodeToString(removed.mutation))
         assertEquals(removed.state, GameplayHistory.apply(revealed, wire))
         assertEquals(revealed, GameplayHistory.unapply(removed.state, wire))
-        assertEquals("accessDenied", apply(revealed, PlayAction.RemoveToken(token.id), 24).reason)
+        // Rules v30: the other player may remove a token from this player's Reveal too.
+        assertTrue(apply(revealed, PlayAction.RemoveToken(token.id), 24).state!!.board.contentsDisplays.isEmpty())
 
         val other = inHand.board.cards.single { !it.token }
         val bothInHand = apply(inHand, PlayAction.MoveCard(other.id, MoveSource(other.containerId, other.placement),

@@ -355,7 +355,9 @@ object GameplayRules {
             else -> null
         }
         val panel = state.board.contentsDisplays.firstOrNull { removedFromPanel in it.cardIds }
-        if (panel != null && panel.author != actor) return GameplayChange(reason = "accessDenied")
+        // Rules v30: either player moves or removes any panel card, blind when its face is hidden from them.
+        if (panel != null && panel.author != actor && rulesVersion < AnyPlayer.RULES_VERSION)
+            return GameplayChange(reason = "accessDenied")
         val resolved = LibraryKnowledge.after(state.board, if (panel == null) board else board.copy(contentsDisplays = board.contentsDisplays.mapNotNull {
             if (it.id != panel.id) it else {
                 val updated = it.copy(cardIds = it.cardIds - removedFromPanel!!,
@@ -519,7 +521,9 @@ object GameplayRules {
                     if (destination.insertion !in setOf(MoveInsertion.GAP, MoveInsertion.UNORDERED) ||
                         destination.position != null || destination.pileId != null ||
                         destination.insertion != MoveInsertion.GAP && (destination.afterId != null || destination.beforeId != null)) return reject("invalidInput")
-                    if (source.id == target.id && target.accountId != actor) return reject("inapplicable")
+                    // Rules v30: either player may reorder either Hand (the other's blind, face down).
+                    if (source.id == target.id && target.accountId != actor && rulesVersion < AnyPlayer.RULES_VERSION)
+                        return reject("inapplicable")
                     placement = null; ordered = reduced
                 }
             }
@@ -657,6 +661,14 @@ object GameplayRules {
         return CardLocation(container.id, card.placement, if (ordered) members.getOrNull(index - 1) else null,
             if (ordered) members.getOrNull(index + 1) else null)
     }
+}
+
+/** Rules v30: either player may do every action on either player's cards, panels and zones: move,
+ * reveal and reorder cards in the other's panels, reveal or pick at random from the other's Hand and
+ * reorder it. Hidden faces stay hidden (an action on an unseen card is blind) and cards still go to
+ * their owner's zones. Older recorded events keep the restrictions they were made under. */
+object AnyPlayer {
+    const val RULES_VERSION = 30
 }
 
 /** Rules v27: Graveyard and Exile remember arrival order. The newest card is index 0 (the top shown on

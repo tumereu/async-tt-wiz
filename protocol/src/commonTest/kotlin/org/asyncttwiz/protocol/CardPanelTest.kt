@@ -201,15 +201,17 @@ class CardPanelTest {
             }
         }
     }
-    @Test fun wholeGameHasOnePanelAndOnlyTheAuthorMayChangeItAndLegacyPanelsCanClose() {
+    @Test fun wholeGameHasOnePanelAndOlderRulesLetOnlyTheAuthorChangeItAndLegacyPanelsCanClose() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2))
         val display = opened.board.contentsDisplays.single()
         for (selection in ContentsSelection.entries) assertEquals("panelAlreadyOpen",
             change(opened, PlayAction.ShowContents(id(10), selection)).reason)
-        for (action in listOf(PlayAction.RevealContentsCard(display.id, id(20)),
-            PlayAction.ReorderContents(display.id, id(20)),
-            PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED))))
-            assertEquals("accessDenied", change(opened, action, b).reason)
+        // Rules v30 lets either player do these (R30AnyPlayerTest); older rules kept them author-only.
+        fun old(action: PlayAction) = GameCommand(id(request++), GameScope(opened.gameId, playId = opened.id), GameAction.Play(action), id(90), "1")
+        for (action in listOf(PlayAction.RevealContentsCard(display.id, id(20)), PlayAction.ReorderContents(display.id, id(20))))
+            assertEquals("accessDenied", LibraryRules.change(opened, b, old(action), action, rulesVersion = AnyPlayer.RULES_VERSION - 1).reason)
+        val move = PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED))
+        assertEquals("accessDenied", GameplayRules.move(opened, b, old(move), move, rulesVersion = AnyPlayer.RULES_VERSION - 1).reason)
         assertEquals("panelAlreadyOpen", change(opened, PlayAction.ShowContents(id(15), ContentsSelection.TOP), b).reason)
         val legacy = opened.copy(board = opened.board.copy(contentsDisplays = listOf(display,
             display.copy(id = id(99), author = b, containerId = id(15), cardIds = emptyList()))))

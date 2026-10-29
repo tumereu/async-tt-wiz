@@ -37,8 +37,8 @@ internal fun inspectedCorner(card: PlayCard): String = effectiveCorner(card) +
 internal fun publicFaceDown(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
     board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
 
-/** A card whose face the viewer cannot see shows no P/T, marks, notes or counters anywhere and offers
- * no value edits, except a public face-down Battlefield card. Stored values may be printed defaults. */
+/** A card whose face the viewer cannot see shows no P/T, marks, notes or counters anywhere, except a public
+ * face-down Battlefield card. Stored values may be printed defaults. Its values can still be edited blind. */
 internal fun cardValuesHidden(board: BoardState, card: PlayCard, viewer: String): Boolean =
     !CardVisibility.isVisibleFaceUp(board, card, viewer) && !publicFaceDown(board, card)
 

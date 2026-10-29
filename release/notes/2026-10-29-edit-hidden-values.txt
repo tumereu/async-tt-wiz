@@ -1,0 +1,1 @@
+mod: Hidden cards' notes, damage and other marks can be edited without showing their current values.

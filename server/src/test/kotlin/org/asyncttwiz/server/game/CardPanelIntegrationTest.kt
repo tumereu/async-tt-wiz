@@ -45,7 +45,7 @@ class CardPanelIntegrationTest {
         }
     }
 
-    @Test fun `panel commands validate authorship membership and one panel through the real service`() {
+    @Test fun `panel commands validate membership and one panel and serve both players through the real service`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
@@ -60,7 +60,10 @@ class CardPanelIntegrationTest {
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(library.id, ContentsSelection.ALL)).reason)
                 val opponentLibrary = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId != actor }
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(opponentLibrary.id, ContentsSelection.TOP), f.recipient).reason)
-                assertEquals("accessDenied", send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()), f.recipient).reason)
+                // Rules v30: the other player may blindly reveal a card of this private Look panel, to both players.
+                val blind = send(PlayAction.RevealContentsCard(panel.id, panel.cardIds[1]), f.recipient)
+                assertEquals("accepted", blind.outcome)
+                assertEquals(2, blind.mutation!!.transition.disclosures.single().viewers.size)
                 assertEquals("accepted", send(PlayAction.ReorderContents(panel.id, panel.cardIds.last(), panel.cardIds.first())).outcome)
                 val reveal = send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()))
                 assertEquals("accepted", reveal.outcome)

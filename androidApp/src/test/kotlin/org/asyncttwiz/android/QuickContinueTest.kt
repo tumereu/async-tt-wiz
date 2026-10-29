@@ -67,17 +67,46 @@ class QuickContinueTest {
         assertEquals("31 Dec 2026", format("2026-12-31T21:05:00Z"))
     }
 
-    @Test fun gameInvitationsAlwaysComeAfterActiveGamesAndAcceptedSetupAndOnlyFillFreeSlots() {
-        val invitation = game("invitation", 0, "a", GameLifecycle.LOBBY).copy(invitationState = InvitationState.PENDING)
-        val setup = game("setup", 2, lifecycle = GameLifecycle.LOBBY)
-        val active = game("active", 1)
-        assertEquals(listOf("setup", "active", "invitation"),
-            quickContinueGames(listOf(invitation, active, setup), "a").map { it.id })
-        assertEquals(listOf("own", "setup", "active"),
-            quickContinueGames(listOf(invitation, active, setup, game("own", 5, "a")), "a").map { it.id })
-        val newer = invitation.copy(id = "newer-invitation", updatedAt = game("date", 20).updatedAt)
-        assertEquals(listOf("newer-invitation", "invitation"), quickContinueGames(listOf(invitation, newer), "a").map { it.id })
-        assertEquals(listOf("active", "invitation"), quickContinueGames(listOf(invitation, active, invitation), "a").map { it.id })
+    private fun incoming(id: String, hour: Int) = game(id, hour, lifecycle = GameLifecycle.LOBBY)
+        .copy(inviter = other, recipient = self, invitationState = InvitationState.PENDING)
+    private val ordered = listOf(game("their-old", 1, "a"), game("their-new", 9, "a"),
+        incoming("in-held", 7).copy(invitationHeld = true), incoming("in-old", 3),
+        game("own-new", 8), game("outgoing", 5, lifecycle = GameLifecycle.LOBBY).copy(invitationState = InvitationState.PENDING),
+        game("own-old", 2), game("setup", 10, lifecycle = GameLifecycle.LOBBY),
+        game("declined", 0, lifecycle = GameLifecycle.LOBBY).copy(invitationState = InvitationState.DECLINED))
+
+    @Test fun sharedOrderIsOpponentActedLongestWaitingThenInvitationsThenOwnMovesAndSentInvitationsThenTheRest() {
+        assertEquals(ordered.map { it.id }, orderedGames(ordered.reversed() + ordered.shuffled(java.util.Random(4)), "a").map { it.id })
+        assertEquals(listOf(GameOrderGroup.THEIR_EVENT, GameOrderGroup.THEIR_EVENT, GameOrderGroup.INVITATION, GameOrderGroup.INVITATION,
+            GameOrderGroup.OWN_EVENT, GameOrderGroup.OWN_EVENT, GameOrderGroup.OWN_EVENT, GameOrderGroup.OTHER, GameOrderGroup.OTHER),
+            ordered.map { gameOrderGroup(it, "a") })
+        // The other seat sees the same games mirrored: Bob's move flag, Alice's sent invitation to answer.
+        assertEquals(listOf("own-old", "own-new", "outgoing", "their-new", "in-held", "in-old", "their-old", "setup", "declined"),
+            orderedGames(ordered, "b").map { it.id })
+        assertEquals(GameOrderGroup.OWN_EVENT, gameOrderGroup(game("no-flag", 1).copy(attentionHolder = null), "a"))
+        assertEquals(GameOrderGroup.OTHER, gameOrderGroup(game("cancelled", 1, "a", GameLifecycle.CANCELLED), "a"))
+        assertEquals(GameOrderGroup.OTHER, gameOrderGroup(incoming("ended", 1).copy(lifecycle = GameLifecycle.DELETED), "a"))
+    }
+
+    @Test fun menuShowsTheFirstThreeOfTheSharedOrderAndInvitationsOnlyAfterOpponentMoves() {
+        assertEquals(listOf("their-old", "their-new", "in-held"), quickContinueGames(ordered.shuffled(java.util.Random(1)), "a").map { it.id })
+        val noTheirMoves = ordered.filter { gameOrderGroup(it, "a") != GameOrderGroup.THEIR_EVENT }
+        assertEquals(listOf("in-held", "in-old", "own-new"), quickContinueGames(noTheirMoves, "a").map { it.id })
+        assertEquals(listOf("setup"), quickContinueGames(ordered.filter { it.id in setOf("setup", "declined") }, "a").map { it.id })
+        assertEquals(listOf("in-old"), quickContinueGames(listOf(incoming("in-old", 3), incoming("in-old", 3)), "a").map { it.id })
+    }
+
+    @Test fun drawerUsesTheSharedOrderWithInvitationsFromEitherListOnce() {
+        val (invitations, games) = ordered.partition { incomingInvitation(it, "a") }
+        assertEquals(ordered.map { it.id }, navigationGameRows(games.reversed(), invitations.reversed(), "a").map { it.id })
+        // An answered invitation still listed in the old invitation list is never shown as one.
+        val stale = game("in-old", 3, lifecycle = GameLifecycle.LOBBY)
+        assertEquals(listOf("in-old"), navigationGameRows(listOf(stale), listOf(stale), "a").map { it.id })
+    }
+
+    @Test fun unreadableTimestampsSortAsOldestWithoutFailing() {
+        val broken = game("broken", 1, "a").copy(updatedAt = "invalid")
+        assertEquals(listOf("broken", "fine"), orderedGames(listOf(game("fine", 1, "a"), broken), "a").map { it.id })
     }
 
     private fun pod(id: String, hour: Int, attention: PodAttention = PodAttention.NONE,

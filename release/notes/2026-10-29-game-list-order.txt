@@ -1,0 +1,1 @@
+mod: Games are listed in the same order everywhere: games waiting for your move first, then invitations, then games waiting for your opponent.

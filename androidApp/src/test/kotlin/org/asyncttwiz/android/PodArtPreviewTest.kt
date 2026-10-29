@@ -17,14 +17,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class PodArtPreviewTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun doubleFacedHoldContentStacksBothNamedPlaceholdersAndScrollsWithoutShrinkingCards() {
+    @Test fun doubleFacedHoldContentShowsOnlyTheFittedFrontLikeTheGameTable() {
         lateinit var scroll: ScrollState
         val card = InspectedCard(CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"),
             DefinitionFace("b", "Back")), layout = "modal_dfc"), listOf(null, null))
@@ -33,10 +32,9 @@ class PodArtPreviewTest {
             Box(Modifier.size(320.dp, 300.dp)) { PodArtPreviewContent(card, card.definition.name, scroll) }
         } }
         compose.onNodeWithTag("pod-preview-face-0").assertIsDisplayed()
-        compose.runOnIdle { assertTrue(scroll.maxValue > 300) }
-        compose.onNodeWithTag("pod-preview-face-1").performScrollTo().assertIsDisplayed()
-        compose.runOnIdle { assertTrue(scroll.value > 0) }
-        compose.onNodeWithText("Back").assertIsDisplayed()
+        compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
+        compose.onNodeWithText("Back").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, scroll.maxValue) }
         compose.onNodeWithText("Previous face").assertDoesNotExist()
     }
 

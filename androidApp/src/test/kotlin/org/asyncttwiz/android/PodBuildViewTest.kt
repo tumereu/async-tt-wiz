@@ -176,7 +176,8 @@ class PodBuildViewTest {
         val first = compose.onNodeWithTag("pod-build-card-first")
         first.performTouchInput { down(center); advanceEventTime(160) }
         compose.mainClock.advanceTimeBy(160)
-        compose.onNodeWithTag("pod-preview-face-1").assertExists()
+        compose.onNodeWithTag("pod-preview-face-0").assertExists()
+        compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
         first.performTouchInput { advanceEventTime(PodHoldSettleMillis + 20) }
         compose.mainClock.advanceTimeBy(PodHoldSettleMillis + 20)
         first.performTouchInput { up() }

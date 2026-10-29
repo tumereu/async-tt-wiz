@@ -44,7 +44,8 @@ internal fun PodCardPlaceholder(name: String) {
     }
 }
 
-/** Physical sides only: split/adventure/flip/room parts still use their single printed image. */
+/** Physical sides only: split/adventure/flip/room parts still use their single printed image.
+ * Used by the Build feed, which flips between them on tap; hold previews show the front only. */
 internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
     if (definition.faces.isEmpty()) return emptyList()
     return if (definition.layout in setOf("transform", "modal_dfc", "meld", "reversible_card", "double_faced_token") ||
@@ -72,7 +73,8 @@ internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: S
 
 @Composable
 internal fun PodArtPreviewContent(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
-    val faces = card?.definition?.let(::podPreviewFaces).orEmpty().ifEmpty { listOf(0) }
+    // Like the in-game hold preview: one face (the front of a double-faced card), never both stacked.
+    val faces = listOf(0)
     BoxWithConstraints(Modifier.fillMaxSize().testTag("pod-pick-art-preview"), contentAlignment = Alignment.Center) {
         val roomWidth = maxWidth - 16.dp
         val roomHeight = maxHeight - 16.dp

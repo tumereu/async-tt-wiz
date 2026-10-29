@@ -1,0 +1,1 @@
+fix: The game no longer crashes when you close a Temp pile or change who controls a Stack item.

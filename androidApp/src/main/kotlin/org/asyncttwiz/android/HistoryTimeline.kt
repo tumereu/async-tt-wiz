@@ -311,41 +311,44 @@ fun HistoryEventIcon(icon: String) {
     if (icon == "swords") {
         Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp)); return
     }
-    val vector = when (icon) {
-        "flag" -> Icons.Outlined.Flag
-        "rotate_90_degrees_cw" -> Icons.Outlined.Rotate90DegreesCw
-        "favorite" -> Icons.Outlined.FavoriteBorder
-        "open_with" -> Icons.Outlined.OpenWith
-        "chat_bubble" -> Icons.AutoMirrored.Outlined.Chat
-        "ads_click" -> Icons.Outlined.AdsClick
-        "download" -> Icons.Outlined.Download
-        "layers" -> Icons.Outlined.Layers
-        "visibility" -> Icons.Outlined.Visibility
-        "add_box" -> Icons.Outlined.AddBox
-        "control_point_duplicate" -> Icons.Outlined.ControlPointDuplicate
-        "exposure_plus_1" -> Icons.Outlined.ExposurePlus1
-        "switch_account" -> Icons.Outlined.SwitchAccount
-        "layers_clear" -> Icons.Outlined.LayersClear
-        "casino" -> Icons.Outlined.Casino
-        "outlined_flag" -> Icons.Outlined.OutlinedFlag
-        "emoji_events" -> Icons.Outlined.EmojiEvents
-        "sticky_note_2" -> Icons.AutoMirrored.Outlined.StickyNote2
-        "delete" -> Icons.Outlined.DeleteOutline
-        "shuffle" -> Icons.Outlined.Shuffle
-        "pageview" -> Icons.Outlined.Pageview
-        "close" -> Icons.Outlined.Close
-        "monetization_on" -> Icons.Outlined.MonetizationOn
-        "settings_backup_restore" -> Icons.Outlined.SettingsBackupRestore
-        "flip_camera_android" -> Icons.Outlined.FlipCameraAndroid
-        "flip" -> Icons.Outlined.Flip
-        "flip_to_front" -> Icons.Outlined.FlipToFront
-        "link" -> Icons.Outlined.Link
-        "link_off" -> Icons.Outlined.LinkOff
-        "remove_circle_outline" -> Icons.Outlined.RemoveCircleOutline
-        "format_ink_highlighter" -> Icons.Outlined.BorderColor
-        else -> error("Unsupported history icon: $icon")
-    }
-    Icon(vector, null, Modifier.size(20.dp))
+    Icon(historyIconVector(icon), null, Modifier.size(20.dp))
+}
+
+internal fun historyIconVector(icon: String): androidx.compose.ui.graphics.vector.ImageVector = when (icon) {
+    "flag" -> Icons.Outlined.Flag
+    "rotate_90_degrees_cw" -> Icons.Outlined.Rotate90DegreesCw
+    "favorite" -> Icons.Outlined.FavoriteBorder
+    "open_with" -> Icons.Outlined.OpenWith
+    "chat_bubble" -> Icons.AutoMirrored.Outlined.Chat
+    "ads_click" -> Icons.Outlined.AdsClick
+    "download" -> Icons.Outlined.Download
+    "layers" -> Icons.Outlined.Layers
+    "visibility" -> Icons.Outlined.Visibility
+    "add_box" -> Icons.Outlined.AddBox
+    "control_point_duplicate" -> Icons.Outlined.ControlPointDuplicate
+    "exposure_plus_1" -> Icons.Outlined.ExposurePlus1
+    "switch_account" -> Icons.Outlined.SwitchAccount
+    "layers_clear" -> Icons.Outlined.LayersClear
+    "casino" -> Icons.Outlined.Casino
+    "outlined_flag" -> Icons.Outlined.OutlinedFlag
+    "emoji_events" -> Icons.Outlined.EmojiEvents
+    "sticky_note_2" -> Icons.AutoMirrored.Outlined.StickyNote2
+    "delete" -> Icons.Outlined.DeleteOutline
+    "shuffle" -> Icons.Outlined.Shuffle
+    "pageview" -> Icons.Outlined.Pageview
+    "close" -> Icons.Outlined.Close
+    "monetization_on" -> Icons.Outlined.MonetizationOn
+    "settings_backup_restore" -> Icons.Outlined.SettingsBackupRestore
+    "flip_camera_android" -> Icons.Outlined.FlipCameraAndroid
+    "flip" -> Icons.Outlined.Flip
+    "flip_to_front" -> Icons.Outlined.FlipToFront
+    "link" -> Icons.Outlined.Link
+    "link_off" -> Icons.Outlined.LinkOff
+    "remove_circle_outline" -> Icons.Outlined.RemoveCircleOutline
+    "format_ink_highlighter" -> Icons.Outlined.BorderColor
+    "inbox" -> Icons.Outlined.Inbox
+    "swap_horiz" -> Icons.Outlined.SwapHoriz
+    else -> error("Unsupported history icon: $icon")
 }
 internal fun historyIconGlyph(icon: String): String = when (icon) {
     "flag" -> "⚑"; "rotate_90_degrees_cw" -> "↻"; "favorite" -> "♥"; "open_with" -> "↔";
@@ -356,6 +359,7 @@ internal fun historyIconGlyph(icon: String): String = when (icon) {
     "shuffle" -> "⤨"; "pageview" -> "▣"; "close" -> "✕"; "monetization_on" -> "◉";
     "settings_backup_restore" -> "↺"; "flip_camera_android" -> "▣"; "flip" -> "▧"; "flip_to_front" -> "▤";
     "link" -> "∞"; "link_off" -> "∦"; "remove_circle_outline" -> "⊖"; "format_ink_highlighter" -> "▰";
+    "inbox" -> "⊔"; "swap_horiz" -> "⇄";
     else -> error("Unsupported history icon: $icon")
 }
 

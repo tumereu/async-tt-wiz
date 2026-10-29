@@ -127,8 +127,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     })
     for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "EOT +1/+0"), Triple(CornerPart.RIGHT, 1, "EOT +0/+1"),
         Triple(CornerPart.LEFT, -1, "EOT −1/−0"), Triple(CornerPart.RIGHT, -1, "EOT +0/−1"))) {
-        add("eotCorner/${part.name}/$delta", symbol,
-            markAdjustment("Adjust corner EOT ${part.name.lowercase()} $delta", eot(part, delta)))
+        add("eotCorner/${part.name}/$delta", symbol, markAdjustment("EOT P/T ${symbol.removePrefix("EOT ")}", eot(part, delta)))
     }
     entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
         RingCompound(if (hidden) "—" else card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
@@ -136,12 +135,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
                 if (shown(target)) cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) } else null
             })
         }, dragValue = if (hidden) "" else card.corner, corner = true))
-    if (scope.cardActions(state) { if (shown(it) && '/' in it.corner) PlayAction.SetCorner(it.id, it.corner) else null }.isNotEmpty()) {
-        for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
-            Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {
-            add("corner/${part.name}/$delta", symbol,
-                adjustment("Adjust corner ${part.name.lowercase()} ${if (delta > 0) "+1" else "−1"}", corner(part, delta)))
-        }
+    // Always shown; disabled on cards without a two-part P/T.
+    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
+        Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {
+        add("corner/${part.name}/$delta", symbol, adjustment("P/T $symbol", corner(part, delta)))
     }
     for (color in CounterColor.entries) {
         fun adjust(delta: Int) = adjustment("${if (delta > 0) "Increase" else "Decrease"} ${color.name.lowercase()} counter", scope.cardActions(state) {

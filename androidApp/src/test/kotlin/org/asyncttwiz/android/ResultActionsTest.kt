@@ -294,4 +294,13 @@ class ResultActionsTest {
         assertNotNull(ResultActions.pendingPresentation(active, live, b.accountId))
         assertTrue(ResultActions.canResolve(active, live, live, livePlayback.position))
     }
+
+    @Test fun pendingResultStillLetsPlayersLookAtCards() {
+        assertTrue(gameLockAllows(TableIntent.Peek("card")))
+        assertTrue(gameLockAllows(TableIntent.Peek(null)))
+        assertTrue(gameLockAllows(TableIntent.Inspect("card")))
+        assertTrue(gameLockAllows(TableIntent.DismissTapUi))
+        assertFalse(gameLockAllows(TableIntent.Draw("library", "hand", "top")))
+        assertFalse(gameLockAllows(TableIntent.Submit(PlayAction.PassAttention, null)))
+    }
 }

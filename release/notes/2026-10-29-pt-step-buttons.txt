@@ -1,0 +1,1 @@
+fix: The single P/T step buttons in the card menu are always shown (greyed out when they don't apply) and have clearer icons; the until-end-of-turn ones show a small hourglass.

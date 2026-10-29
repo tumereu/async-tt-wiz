@@ -9,8 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.ExposureNeg1
-import androidx.compose.material.icons.outlined.ExposurePlus1
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,11 +47,14 @@ class ResultTablePanelTest {
         compose.onNodeWithText("“", substring = true).assertDoesNotExist()
     }
 
-    @Test fun singleValuePowerToughnessStepsUseSignedIcons() {
-        assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("+1/+0"))
-        assertEquals(Icons.Outlined.ExposurePlus1, menuIcon("EOT +0/+1"))
-        assertEquals(Icons.Outlined.ExposureNeg1, menuIcon("−1/−0"))
-        assertEquals(Icons.Outlined.ExposureNeg1, menuIcon("EOT +0/−1"))
+    @Test fun singleValuePowerToughnessStepsUseGeneratedSideIcons() {
+        assertEquals(PowerToughnessStep(1, 0, false), powerToughnessStep("P/T +1/+0"))
+        assertEquals(PowerToughnessStep(0, 1, true), powerToughnessStep("EOT P/T +0/+1"))
+        assertEquals(PowerToughnessStep(-1, 0, false), powerToughnessStep("−1/−0"))
+        assertEquals(PowerToughnessStep(0, -1, true), powerToughnessStep("EOT +0/−1"))
+        assertNull(powerToughnessStep("Set EOT P/T"))
+        assertEquals(powerToughnessStepIcon(PowerToughnessStep(1, 0, false)), menuIcon("P/T +1/+0"))
+        assertNotEquals(menuIcon("P/T +1/+0"), menuIcon("EOT P/T +1/+0"))
     }
 
     @Test fun onTablePanelHasRoleSpecificButtonsWithoutModalBackOrOutsideTapHandling() {

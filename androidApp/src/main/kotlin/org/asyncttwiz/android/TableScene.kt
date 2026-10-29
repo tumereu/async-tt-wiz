@@ -126,8 +126,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         lateinit var owner: TableGestureCoordinator
         var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
-            if (currentRuntime.gameActionsBlocked && intent !is TableIntent.Camera && intent !is TableIntent.Scroll &&
-                intent != TableIntent.DismissTapUi) return@TableGestureCoordinator
+            // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
+            if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent)) return@TableGestureCoordinator
             if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll)
                 DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {
@@ -1400,3 +1400,6 @@ internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier:
             annotations = TableAnnotationGeometry(scene, "sample"), cache = cache)
     }
 }
+
+internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
+    intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect

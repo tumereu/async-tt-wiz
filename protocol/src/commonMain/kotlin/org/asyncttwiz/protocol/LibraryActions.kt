@@ -143,7 +143,9 @@ object LibraryRules {
                 val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },
                     containers = board.containers.map { when (it.id) {
                         source.id -> it.copy(cards = order)
-                        restDestination?.id -> it.copy(cards = (it.cards + ids).sorted())
+                        // Rules v27: put there one by one in panel order, so the last panel card ends on top.
+                        restDestination?.id -> it.copy(cards = if (rulesVersion >= PileOrder.RULES_VERSION)
+                            PileOrder.arrive(it.cards, ids) else (it.cards + ids).sorted())
                         else -> it
                     } }, cards = board.cards.map { card -> when {
                         card.id in ids && restZone != null -> card.copy(containerId = restDestination!!.id,

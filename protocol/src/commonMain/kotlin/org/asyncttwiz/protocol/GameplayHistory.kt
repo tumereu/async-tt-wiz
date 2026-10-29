@@ -204,7 +204,8 @@ object GameplayHistory {
         }
         mutation.transition.movement?.let { move ->
             if (board.cards.none { it.id == move.cardId }) return false
-            val location = GameplayRules.location(board, move.cardId, orderedHand = true)
+            val location = GameplayRules.location(board, move.cardId, orderedHand = true,
+                orderedPiles = mutation.transition.rulesVersion >= PileOrder.RULES_VERSION)
             if (if (GameplayConcerns.knownTopDraw(mutation)) location.copy(beforeId = move.from.beforeId) != move.from
                 else location != move.from) return false
             if (move.stackFrom != null && GameplayRules.stackDigest(state) != move.stackFrom) return false

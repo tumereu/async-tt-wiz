@@ -118,6 +118,16 @@ class CardPanelLayoutTest {
             assertTrue(panel.typeHeaders.all { it.bounds.width == panel.bounds.width - 4 && it.bounds.height == 20f })
             assertEquals(panel.rows.first().bounds.x, panel.rows.last().bounds.x) // Singleton sections use the leftmost cell.
             assertEquals(panel.rows.first().bounds.x, panel.rows[1].bounds.x)
+            if (zone != PlayZone.LIBRARY) {
+                // Rules v27 arrival order (newest first) never leaks into the inspect panel's sorting.
+                for (order in listOf(ids.reversed(), ids.drop(2) + ids.take(2))) {
+                    val reordered = variant.copy(board = variant.board.copy(containers = variant.board.containers.map {
+                        if (it.id == container) it.copy(cards = order) else it }))
+                    val other = cardPanelGeometry(reordered, f.actor, TableLayoutState(localPileId = container), TableBounds(0f, 0f, 412f, 700f)).single()
+                    assertEquals(panel.typeHeaders, other.typeHeaders)
+                    assertEquals(panel.rows, other.rows)
+                }
+            }
         }
         val backs = listOf(ContentsEntry("a", "Card back", "Cards", "", faceVisible = false),
             ContentsEntry("b", "Card back", "Cards", "", faceVisible = false))

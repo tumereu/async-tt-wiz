@@ -68,6 +68,27 @@ object CombatStackPresentation {
 
     fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.padding
 
+    /** The longest prefix of [text] (with "…" when cut) whose estimated width fits [width]. */
+    fun ellipsized(text: String, width: Float, fontSize: Float): String {
+        if (laneTextWidth(text, fontSize) <= width) return text
+        var end = text.length
+        while (end > 1 && laneTextWidth(text.take(end).trimEnd() + "…", fontSize) > width) end--
+        return text.take(end).trimEnd() + "…"
+    }
+
+    /** Face-up planeswalkers and battles on the defending player's battlefield, in battlefield order. */
+    fun attackTargets(board: BoardState, definitions: List<SubmittedDefinition>, viewer: String): List<String> {
+        val battlefield = board.containers.singleOrNull { it.zone == PlayZone.BATTLEFIELD && it.accountId == CombatStackRules.defendingPlayer(board) }
+            ?: return emptyList()
+        val cards = board.cards.associateBy { it.id }
+        return battlefield.cards.filter { id ->
+            val card = cards[id] ?: return@filter false
+            val type = definitions.find { it.digest == card.definition }?.definition?.faces?.find { it.faceId == card.faceId }?.typeLine.orEmpty()
+            !card.isFaceDown && CardVisibility.isVisibleFaceUp(board, card, viewer) &&
+                (type.contains("Planeswalker", ignoreCase = true) || type.contains("Battle", ignoreCase = true))
+        }
+    }
+
     fun combat(board: BoardState, cardWidth: Float, cardHeight: Float,
         definitions: List<SubmittedDefinition> = emptyList(), names: Map<String, String> = emptyMap(), viewer: String = "",
         titleScale: Float = 1f, avatars: Map<String, Avatar> = emptyMap()): CombatGeometry {
@@ -80,13 +101,16 @@ object CombatStackPresentation {
         val targets = mutableListOf<CombatDropRegion>()
         val dividers = mutableListOf<Float>()
         val laneDividers = mutableListOf<Float>()
-        val groups = area.pairs.groupBy { it.attackTarget }
+        val used = area.pairs.groupBy { it.attackTarget }
+        // Every possible target always has a lane (player first, then battlefield order), so drags can reach it.
+        val groups = (listOf<String?>(null) + attackTargets(board, definitions, viewer) + used.keys).distinct()
+            .associateWith { used[it].orEmpty() }
         val pairs = groups.values.flatten()
         val lanes = mutableListOf<CombatLaneLabel>()
-        val font = 11.5f * cardWidth / 28f * cardScale(titleScale)
+        val font = 7f * cardWidth / 28f * cardScale(titleScale) // the card title size
         val pairWidths = mutableMapOf<String, Float>()
         var laneX = 0f
-        for ((target, members) in groups.ifEmpty { mapOf(null to emptyList()) }) {
+        for ((target, members) in groups) {
             val cardSpan = members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat()
                 .coerceAtLeast(cardWidth + 2 * padding)
             val targetCard = board.cards.find { it.id == target }
@@ -103,24 +127,27 @@ object CombatStackPresentation {
             val lane = CombatLaneLabel(target, label, listOf(label), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font,
                 artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
                 accountId = defender.takeIf { avatar != null })
-            // Icon and full name always fit on one row; wide lanes widen the area, which then pans.
-            val width = maxOf(cardSpan, laneWidth(lane))
+            // Icon and full name fit on one row of an occupied lane; wide lanes widen the area, which then pans.
+            // An empty lane stays one slot wide and shortens its name.
+            val width = if (members.isEmpty()) cardSpan else maxOf(cardSpan, laneWidth(lane))
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth) +
                 (width - cardSpan) / members.size
-            lanes += lane.copy(bounds = lane.bounds.copy(width = width))
+            val shown = if (members.isEmpty()) ellipsized(label, width - lane.textInset - lane.padding, font) else label
+            lanes += lane.copy(label = shown, lines = listOf(shown), bounds = lane.bounds.copy(width = width))
             if (laneX > 0) laneDividers += laneX
             laneX += width
         }
         val labelHeight = maxOf(cardWidth * .5f, lanes.maxOf { it.lineHeight + 2 * it.padding })
         var x = 0f
-        fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false) {
+        fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false,
+            lanePair: String? = before ?: after) {
             // Display grouping can make two visual neighbors nonadjacent in recorded pair order.
             val anchor = area.pairs.indexOfFirst { it.id == after }
             val gap = if (anchor >= 0) IdentityGap(after, area.pairs.getOrNull(anchor + 1)?.id) else {
                 val next = area.pairs.indexOfFirst { it.id == before }
                 IdentityGap(area.pairs.getOrNull(next - 1)?.id, before)
             }
-            val target = (pairs.find { it.id == before } ?: pairs.find { it.id == after })?.attackTarget
+            val target = pairs.find { it.id == lanePair }?.attackTarget
             for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
                 val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
@@ -129,36 +156,57 @@ object CombatStackPresentation {
                     TablePoint(at, y + rowHeight / 2))
             }
         }
-        for ((index, pair) in pairs.withIndex()) {
-            if (index > 0) dividers += x
-            val pairWidth = pairWidths.getValue(pair.id)
-            for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
-                val side = pair.side(role)
-                val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
-                var left = x + (pairWidth - rowWidth(side.size, cardWidth)) / 2
-                targets += CombatDropRegion("Append ${role.name.lowercase()} to pair ${index + 1}",
-                    TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id, attackTarget = pair.attackTarget),
-                    landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
-                for ((member, occurrence) in side.withIndex()) {
-                    val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
-                    cards += OccurrenceDrawing(occurrence.id, card,
-                        TableBounds(left, y + margin, cardWidth, cardHeight), true)
-                    targets += CombatDropRegion("Insert ${role.name.lowercase()} before ${occurrence.id}",
-                        TableBounds(left - margin, y, margin * 2, rowHeight), CombatDestination(area.id, role, pair.id,
-                            insertion = CombatInsertion.GAP, cardGap = IdentityGap(side.getOrNull(member - 1)?.id, occurrence.id)),
-                        landing = TablePoint(left, y + rowHeight / 2))
-                    left += cardWidth + margin
+        val edges = mutableListOf<Pair<Float, Float>>() // each laid-out pair's left and right x, in display order
+        for ((target, members) in groups) {
+            if (members.isEmpty()) {
+                // A whole empty lane is one drop: a new pair attacking that target, after every recorded pair.
+                val lane = lanes.first { it.cardId == target }
+                for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
+                    val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
+                    targets += CombatDropRegion("New ${role.name.lowercase()} pair attacking ${lane.label}",
+                        TableBounds(x, y, lane.bounds.width, rowHeight),
+                        CombatDestination(area.id, role, pairGap = IdentityGap(area.pairs.lastOrNull()?.id, null), attackTarget = target),
+                        // Outermost empty lanes also catch drops beyond the area's ends.
+                        lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2))
                 }
+                x += lane.bounds.width
+                continue
             }
-            x += pairWidth
+            for (pair in members) {
+                val index = edges.size
+                if (index > 0) dividers += x
+                val pairWidth = pairWidths.getValue(pair.id)
+                for (role in listOf(CombatRole.BLOCKER, CombatRole.ATTACKER)) {
+                    val side = pair.side(role)
+                    val y = labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
+                    var left = x + (pairWidth - rowWidth(side.size, cardWidth)) / 2
+                    targets += CombatDropRegion("Append ${role.name.lowercase()} to pair ${index + 1}",
+                        TableBounds(x, y, pairWidth, rowHeight), CombatDestination(area.id, role, pair.id, attackTarget = pair.attackTarget),
+                        landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
+                    for ((member, occurrence) in side.withIndex()) {
+                        val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
+                        cards += OccurrenceDrawing(occurrence.id, card,
+                            TableBounds(left, y + margin, cardWidth, cardHeight), true)
+                        targets += CombatDropRegion("Insert ${role.name.lowercase()} before ${occurrence.id}",
+                            TableBounds(left - margin, y, margin * 2, rowHeight), CombatDestination(area.id, role, pair.id,
+                                insertion = CombatInsertion.GAP, cardGap = IdentityGap(side.getOrNull(member - 1)?.id, occurrence.id)),
+                            landing = TablePoint(left, y + rowHeight / 2))
+                        left += cardWidth + margin
+                    }
+                }
+                edges += x to x + pairWidth
+                x += pairWidth
+            }
         }
-        if (area.pairs.isEmpty()) {
-            x = laneX // the default player lane's full name, at least one card slot
-            insertion(null, null, x / 2, left = true, right = true)
-        } else {
-            dividers.forEachIndexed { index, at -> insertion(pairs[index].id, pairs[index + 1].id, at) }
-            insertion(null, pairs.first().id, 0f, left = true)
-            insertion(pairs.last().id, null, x, right = true)
+        if (pairs.isNotEmpty()) {
+            for (index in 1 until pairs.size) {
+                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first)
+                // An empty lane between two pairs: the earlier pair's own right edge is a slot boundary too.
+                if (edges[index - 1].second != edges[index].first)
+                    insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
+            }
+            insertion(null, pairs.first().id, edges.first().first, left = true)
+            insertion(pairs.last().id, null, edges.last().second, right = true)
         }
         return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
             lanes.map { it.copy(bounds = it.bounds.copy(height = labelHeight)) }, laneDividers, labelHeight)

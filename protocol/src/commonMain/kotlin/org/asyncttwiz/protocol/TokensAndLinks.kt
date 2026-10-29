@@ -64,7 +64,9 @@ object TokenLinkRules {
                 val token = PlayCard(tokenId, definition.digest, actor, container.id, read?.faceId ?: face.faceId,
                     covered = read?.covered ?: false, tapped = read?.tapped ?: false, corner = read?.corner ?: face.defaultCorner(),
                     counters = read?.counters ?: emptyMap(), note = read?.note ?: "", token = true,
-                    placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false)
+                    placement = PlayPlacement(BoardPosition(x, 0), pileId), explicitlyCovered = read?.explicitlyCovered ?: false,
+                    // Rules v29: created on the Battlefield = entered this turn (also in the recorded token presence).
+                    enteredTurn = board.turn.number)
                 val presence = TokenPresence(token, CardLocation(container.id, token.placement))
                 val next = GameplayRules.canonicalBoard(board.copy(cards = (board.cards + token).sortedBy { it.id },
                     containers = board.containers.map {

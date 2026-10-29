@@ -1,0 +1,1 @@
+add: Cards that came onto the battlefield this turn show their name in blue

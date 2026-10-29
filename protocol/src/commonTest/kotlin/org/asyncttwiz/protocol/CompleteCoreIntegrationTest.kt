@@ -47,7 +47,7 @@ class CompleteCoreIntegrationTest {
         val moved = step(move)
         assertEquals(listOf(move), sequence)
         assertEquals(real.copy(containerId = gameplayId(23), placement = null, covered = false, note = "", owner = actor,
-            corner = "3/5", counters = emptyMap()), state.board.cards.single { it.id == cardId })
+            corner = "3/5", counters = emptyMap(), enteredTurn = ""), state.board.cards.single { it.id == cardId })
         assertEquals(1, moved.transition.combatStack!!.occurrences.size)
         assertEquals(beforeMove.board.links, state.board.links)
         assertEquals(beforeMove.board.stackEffects, state.board.stackEffects)

@@ -34,7 +34,10 @@ object PlayerStatus {
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val knownToAll: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val damage: String = "",
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotCorner: String = "",
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotNote: String = "") {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotNote: String = "",
+    /** Rules v29: the turn number in which this card last entered a Battlefield, see [EnteredTurn];
+     * empty off the Battlefield and in older games. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val enteredTurn: String = "") {
     val isFaceDown: Boolean get() = covered && explicitlyCovered
 }
 /** Library order is top first. Other empty zones already have stable identities for later commands. */

@@ -147,8 +147,8 @@ nonnumeric handling, grouping, Undo and request recovery apply. See the primary
 player-value section in board controls.
 
 **Player status (rules v26).** Each player has an optional short status
-(`PlayPlayer.status`, empty omitted on the wire): trimmed, at most 24 characters,
-one line without control characters. `SetStatus(text)` sets the ACTOR's own status
+(`PlayPlayer.status`, empty omitted on the wire): trimmed, at most 512 characters (64 before v30),
+without line breaks or control characters (the bubble wraps it to at most four lines). `SetStatus(text)` sets the ACTOR's own status
 (empty clears it); it is an ordinary recorded event with history text ("Status →
 Wait" / "Status cleared"), Undo/Redo under the general rule (its concerned tuple is
 that player's status), normal game activity for the opponent, and it never changes

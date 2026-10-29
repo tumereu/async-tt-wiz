@@ -1,0 +1,1 @@
+mod: Your status can now be up to 512 characters long. Its bubble wraps over up to four lines, and tapping a life total shows the whole status.

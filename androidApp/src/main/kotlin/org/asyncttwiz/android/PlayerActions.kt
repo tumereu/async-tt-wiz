@@ -3,6 +3,8 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -13,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.ImeAction
@@ -79,7 +82,7 @@ private fun PlayerLifeRow(state: PlayState, player: PlayPlayer, actions: ManualA
     }
 }
 
-/** Typing aid for the status field: one line, at most [PlayerStatus.MAX_LENGTH] characters. */
+/** Typing aid for the status field: wrapped text without line breaks, at most [PlayerStatus.MAX_LENGTH] characters. */
 object PlayerStatusInput {
     val presets = listOf("OK?", "Yes", "No", "Wait", "Thinking…", "Go ahead", "GG")
     fun typed(value: String): String = value.map { if (it.isISOControl()) ' ' else it }.joinToString("")
@@ -100,6 +103,21 @@ private fun PlayerStatusLabel(text: String, maxLines: Int, dot: Color? = null) {
         }
     }
 }
+
+/** A status in full: [STATUS_VISIBLE_LINES] lines tall at most, the rest scrolls inside the label so the
+ * panel keeps its layout (the life row stays on the edge nearest the life square). */
+@Composable
+private fun PlayerStatusText(text: String) {
+    val style = MaterialTheme.typography.labelMedium
+    val maxHeight = with(LocalDensity.current) { (style.lineHeight * STATUS_VISIBLE_LINES).toDp() }
+    Surface(shape = RoundedCornerShape(4.dp), color = Color.White, border = BorderStroke(1.dp, LocalInlinePopupColor.current.copy(alpha = .4f))) {
+        Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).heightIn(max = maxHeight).testTag("statusLabel")
+            .verticalScroll(rememberScrollState())) {
+            Text(text, Modifier.testTag("statusFull"), style = style, color = MenuInk)
+        }
+    }
+}
+private const val STATUS_VISIBLE_LINES = 4
 
 /** Personal Hide/Show and Mute/Unmute toggles; each icon and label names what a tap will do. Local to this device.
  *  Both always show; Hide is disabled while there is no status. */
@@ -125,7 +143,7 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
     if (!own) {
         // Plain info, not a control: whether the opponent has this game open right now.
         LocalOpponentPresence.current?.let { PlayerStatusLabel(rememberPresenceLine(it), maxLines = 1, dot = rememberPresenceDot(it)?.color) }
-        if (player.status.isNotEmpty()) PlayerStatusLabel("Status: “${player.status}”", maxLines = 3)
+        if (player.status.isNotEmpty()) PlayerStatusText("Status: “${player.status}”")
         StatusBubbleToggles(state, player, close)
         return
     }
@@ -134,7 +152,7 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
         if (text != player.status) submit(PlayAction.SetStatus(text))
         editing = null; close()
     }
-    PlayerStatusLabel(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", maxLines = 3)
+    PlayerStatusText(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”")
     val cells: List<Pair<MenuControl, @Composable () -> Unit>> = PlayerStatusInput.presets.map { preset ->
         MenuControl("Set status $preset", enabled, selected = player.status == preset) { set(preset) } to @Composable {
             Text(preset, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp, lineHeight = 13.sp,
@@ -160,7 +178,7 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
         }) {
             OutlinedTextField(field.value, { field.value = it.copy(text = PlayerStatusInput.typed(it.text)) },
                 Modifier.fillMaxWidth().dialogField(field).testTag("statusText"), label = { Text("Status") },
-                placeholder = { Text("Wait") }, singleLine = true,
+                placeholder = { Text("Wait") }, singleLine = false, minLines = 1, maxLines = 6,
                 supportingText = { Text("${field.text.length}/${PlayerStatus.MAX_LENGTH}") },
                 keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(enabled, submit = save))
         }

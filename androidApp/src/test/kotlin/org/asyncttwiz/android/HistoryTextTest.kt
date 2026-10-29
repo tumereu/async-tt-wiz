@@ -49,6 +49,15 @@ class HistoryTextTest {
         assertEquals("Status cleared", format(PlayAction.SetStatus("")).description)
     }
 
+    @Test fun longStatusesAreCutToOneShortLine() {
+        val long = format(PlayAction.SetStatus("Back in ten minutes. ".repeat(24).trim()), author = f.b, viewer = f.a)
+        assertEquals("Status → " + "Back in ten minutes. ".repeat(3).take(HISTORY_STATUS_LIMIT - 1).trimEnd() + "…", long.description)
+        assertEquals("x".repeat(HISTORY_STATUS_LIMIT), historyStatusText("x".repeat(HISTORY_STATUS_LIMIT)))
+        assertEquals("x".repeat(HISTORY_STATUS_LIMIT - 1) + "…", historyStatusText("x".repeat(PlayerStatus.MAX_LENGTH)))
+        // Never splits a surrogate pair.
+        assertEquals("x".repeat(HISTORY_STATUS_LIMIT - 2) + "…", historyStatusText("x".repeat(HISTORY_STATUS_LIMIT - 2) + "😀".repeat(10)))
+    }
+
     @Test fun scalarEditsShowRecordedBeforeAndAfterValuesNotRequestedDeltas() {
         val before = placed(f.a, PlayZone.BATTLEFIELD).let { base -> base.copy(board = base.board.copy(
             cards = base.board.cards.map { if (it.id == id(9)) it.copy(corner = "2/2", counters = mapOf(CounterColor.RED to "2")) else it })) }

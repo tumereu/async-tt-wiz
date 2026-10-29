@@ -105,6 +105,15 @@ internal fun historyTextsNear(tree: GameplayTree, state: PlayState, cache: Histo
 private val historyUuid = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 internal fun historyPlainText(value: String, limit: Int = 180): String = historyUuid.replace(value, "[reference]")
     .replace(Regex("\\s+"), " ").trim().take(limit)
+/** A status (up to 512 characters) as one short line: the first [limit] characters and an ellipsis when longer. */
+internal fun historyStatusText(value: String, limit: Int = HISTORY_STATUS_LIMIT): String {
+    val plain = historyPlainText(value, PlayerStatus.MAX_LENGTH)
+    if (plain.length <= limit) return plain
+    var end = limit - 1
+    if (plain[end].isLowSurrogate()) end--
+    return plain.substring(0, end).trimEnd() + "…"
+}
+internal const val HISTORY_STATUS_LIMIT = 48
 internal fun historyPlayerName(id: String, usernames: Map<String, String>): String =
     usernames[id]?.let(::historyPlainText)?.takeIf { it.isNotBlank() } ?: "A player"
 
@@ -202,7 +211,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.AdjustLife -> life(action.accountId, action.delta, true)
         is PlayAction.SetPlayerCounter -> counter(CounterTarget.PLAYER, action.accountId, action.color, action.value, false)
         is PlayAction.AdjustPlayerCounter -> counter(CounterTarget.PLAYER, action.accountId, action.color, action.delta, true)
-        is PlayAction.SetStatus -> text(if (action.text.isEmpty()) "Status cleared" else "Status → ${historyPlainText(action.text)}", "Status")
+        is PlayAction.SetStatus -> text(if (action.text.isEmpty()) "Status cleared" else "Status → ${historyStatusText(action.text)}", "Status")
         PlayAction.NextStep -> turn("Next step")
         PlayAction.EndTurn -> turn("End turn")
         is PlayAction.ChooseStep -> turn("Choose step", action.position)

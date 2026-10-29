@@ -133,11 +133,16 @@ data class TableItem(
     /** LIFE only: the player's status, drawn as a bubble beside the square (never an input target). */
     val status: String = "",
     /** A face-up Battlefield card (or its combat copy) that entered the Battlefield this turn (rules v29). */
-    val enteredThisTurn: Boolean = false
+    val enteredThisTurn: Boolean = false,
+    /** A public face-down Battlefield card's title stand-in ("?"): the same for every viewer, never its front. */
+    val coveredTitle: String = ""
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
 }
+
+/** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
+internal const val FACE_DOWN_TITLE = "?"
 
 /** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
 internal const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
@@ -381,8 +386,10 @@ object TablePresentation {
             val values = !hidden || faceDown
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
-            // Combat copies follow their live source card; a face-down card shows no title and so no mark.
-            val entered = zone == PlayZone.BATTLEFIELD && !hidden && !frozen && EnteredTurn.marked(play.board, card)
+            // Combat copies follow their live source card; a face-down card's "?" title carries the mark too.
+            val coveredTitle = if (zone == PlayZone.BATTLEFIELD && faceDown && !frozen) FACE_DOWN_TITLE else ""
+            val entered = zone == PlayZone.BATTLEFIELD && (!hidden || coveredTitle.isNotEmpty()) && !frozen &&
+                EnteredTurn.marked(play.board, card)
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                 if (entered) ", entered this turn" else ""
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
@@ -399,7 +406,7 @@ object TablePresentation {
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
-                    enteredThisTurn = entered).also { if (draw) items += it }
+                    enteredThisTurn = entered, coveredTitle = coveredTitle).also { if (draw) items += it }
         }
         // Opponent block on top (counters/Temp row above its pile row), own block at the bottom.
         val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,

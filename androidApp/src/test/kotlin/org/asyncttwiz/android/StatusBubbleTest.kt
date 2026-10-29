@@ -31,18 +31,24 @@ class StatusBubbleTest {
         assertEquals("ab…", StatusBubble.fit("ab😀cd", 18f, measure))
     }
 
-    @Test fun longTextWrapsOntoASecondLineAtASpaceAndOnlyThenEllipsizes() {
+    @Test fun longTextWrapsAtSpacesOntoAtMostFourLinesAndOnlyThenEllipsizes() {
         val measure = { text: String -> text.length * 6f }
         assertEquals(listOf("Wait"), StatusBubble.lines("Wait", 60f, measure))
         assertEquals(listOf("Back in", "five min"), StatusBubble.lines("Back in five min", 60f, measure))
-        assertEquals(listOf("Back in", "five minu…"), StatusBubble.lines("Back in five minutes", 60f, measure))
+        assertEquals(listOf("Back in", "five", "minutes"), StatusBubble.lines("Back in five minutes", 60f, measure))
         // A single long word breaks inside the word.
         assertEquals(listOf("xxxxxxxxxx", "xxxxx"), StatusBubble.lines("x".repeat(15), 60f, measure))
+        assertEquals(StatusBubble.MAX_LINES, 4)
+        assertEquals(listOf("one two", "three four", "five six", "seven eig…"),
+            StatusBubble.lines("one two three four five six seven eight nine ten", 60f, measure))
+        val longest = StatusBubble.lines("x".repeat(PlayerStatus.MAX_LENGTH), 60f, measure)
+        assertEquals(listOf("x".repeat(10), "x".repeat(10), "x".repeat(10), "x".repeat(9) + "…"), longest)
+        assertTrue(longest.all { measure(it) <= 60f })
         val life = TableBounds(10f, 100f, 48f, 48f)
         val two = StatusBubble.bounds(life, below = false, textWidth = 40f, lines = 2)
         assertEquals(StatusBubble.HEIGHT + StatusBubble.LINE, two.height)
         assertTrue(two.bottom < life.y)
-        assertEquals(StatusBubble.HEIGHT + StatusBubble.LINE, StatusBubble.bounds(life, true, 40f, lines = 5).height)
+        assertEquals(StatusBubble.HEIGHT + 3 * StatusBubble.LINE, StatusBubble.bounds(life, true, 40f, lines = 9).height)
     }
 
     @Test fun lifeItemsCarryEachPlayersStatusInBothOrientationsAndOnlySetStatusesAreAnnounced() {

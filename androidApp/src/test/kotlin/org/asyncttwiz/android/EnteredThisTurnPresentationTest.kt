@@ -28,15 +28,37 @@ class EnteredThisTurnPresentationTest {
         }
     }
 
-    @Test fun earlierTurnUnsetAndFaceDownCardsKeepTheDefaultTitle() {
+    @Test fun earlierTurnAndUnsetCardsKeepTheDefaultTitle() {
         val source = f.source(f.a, "1/3")
         val turn = f.combat().board.turn.number
         for (state in listOf(f.combat(), withEntered(f.combat(), source.id, "${turn.toInt() + 5}"),
-                withEntered(f.combat(), source.id, turn, covered = true))) {
+                withEntered(f.combat(), source.id, "${turn.toInt() + 5}", covered = true))) {
             val item = items(state, source.id).single { it.id == "card/${source.id}" }
             assertFalse(item.enteredThisTurn)
             assertEquals(android.graphics.Color.DKGRAY, item.titleColor)
             assertFalse(item.label.contains("entered this turn"), item.label)
+        }
+    }
+
+    @Test fun faceDownBattlefieldCardShowsAQuestionMarkTitleThatIsBlueWhenItEnteredThisTurn() {
+        val source = f.source(f.a, "1/3")
+        val turn = f.combat().board.turn.number
+        fun item(state: PlayState, viewer: String) = TablePresentation.scene(f.game, state, viewer, 412f, 892f, false)
+            .items.single { it.id == "card/${source.id}" }
+        for (viewer in listOf(f.a, f.b)) {
+            val fresh = item(withEntered(f.combat(), source.id, turn, covered = true), viewer)
+            assertTrue(fresh.covered)
+            assertEquals("", fresh.value)
+            assertEquals(FACE_DOWN_TITLE, fresh.coveredTitle)
+            assertTrue(fresh.enteredThisTurn)
+            assertEquals(EnteredThisTurnTitleColor, fresh.titleColor)
+            assertTrue(fresh.label.contains("entered this turn"), fresh.label)
+            val old = item(withEntered(f.combat(), source.id, "", covered = true), viewer)
+            assertEquals(FACE_DOWN_TITLE, old.coveredTitle)
+            assertFalse(old.enteredThisTurn)
+            assertEquals(android.graphics.Color.DKGRAY, old.titleColor)
+            // A face-up card keeps its own title.
+            assertEquals("", item(f.combat(), viewer).coveredTitle)
         }
     }
 

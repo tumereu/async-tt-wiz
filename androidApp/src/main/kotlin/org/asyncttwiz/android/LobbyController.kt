@@ -37,6 +37,29 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
     val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
+    internal fun tableView() = LobbyTableView(selected, detail, play, acceptedPlay, connectedGames, reconnectingGames,
+        syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence)
+}
+
+/** The [LobbyState] fields an open table reads. Games-list refreshes flip busy/loading flags in the whole
+ * state every few seconds; the table reads this narrow view ([LobbyController.table]) instead, so only a
+ * change to one of these fields recomposes it. */
+internal data class LobbyTableView(val selected: String?, val detail: GameSummary?, val play: PlayState?,
+    val acceptedPlay: PlayState?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
+    val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
+    val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?)
+
+/** [LobbyController.state] and its narrow table view, written together. An equal view is not written, so
+ * the busy/loading flips of a list refresh never invalidate the table. (Not derivedStateOf: a pending
+ * derived invalidation still recomposes a child whose parent recomposes in the same frame.) */
+private class LobbyStateHolder : MutableState<LobbyState> {
+    private val whole = mutableStateOf(LobbyState())
+    val table = mutableStateOf(LobbyState().tableView(), structuralEqualityPolicy())
+    override var value: LobbyState
+        get() = whole.value
+        set(next) { whole.value = next; table.value = next.tableView() }
+    override fun component1() = value
+    override fun component2(): (LobbyState) -> Unit = { value = it }
 }
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
@@ -50,8 +73,16 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
     private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis) : AutoCloseable {
-    var state by mutableStateOf(LobbyState())
+    private val holder = LobbyStateHolder()
+    var state by holder
         private set
+    /** Narrow read of [state] for table composition; see [LobbyTableView]. */
+    internal val table: State<LobbyTableView> get() = holder.table
+    /** The selected game's trees live in the session, outside snapshot state. Bumped whenever one of them
+     * is replaced, and read by [retainedTree]/[displayTree]/[retainedHistory], so composition that reads a
+     * tree recomposes when it changes (and not merely when some unrelated lobby field happens to). */
+    private val treeRevision = mutableLongStateOf(0L)
+    private var shownTrees: List<Any?> = emptyList()
     @Volatile private var epoch = 0L
     @Volatile private var refreshVersion = 0L
     @Volatile private var lifecycleVersion = 0L
@@ -158,6 +189,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             opponentPresence = state.selected?.let(wire::opponentPresence),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = state.selected?.let(wire::chatLoaded) == true)
+        val trees = state.selected?.let { listOf(it, wire.retainedTree(it), wire.displayTree(it), wire.retainedHistory(it)) }.orEmpty()
+        if (trees.size != shownTrees.size || trees.indices.any { trees[it] !== shownTrees[it] }) {
+            shownTrees = trees; treeRevision.longValue++
+        }
         // Never re-enter the session from its own status callback; run waiting taps right after it.
         if (queuedActions.any { canSendNow(it.gameId) }) post(::runQueued)
     }
@@ -264,12 +299,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
      * [ResultActions.blocksAt]). Reviewing: the shown point. Continuing: the armed point, then its predicted
      * new branch. Otherwise: the live endpoint. Branching away from a suggestion leaves it on the old branch. */
     fun resultLocked(): Boolean {
-        val game = state.detail ?: return false
+        // Read through the narrow view: the table calls this during composition.
+        val shown = table.value
+        val game = shown.detail ?: return false
         val personal = historyOwner
         val continuing = personal?.armed != null
         val reviewing = personal?.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional
-        val board = if (reviewing) personal?.view?.state else if (continuing) state.play else null
-        return ResultActions.blocksAt(game, state.acceptedPlay, state.play, board, inTimeline = reviewing || continuing)
+        val board = if (reviewing) personal?.view?.state else if (continuing) shown.play else null
+        return ResultActions.blocksAt(game, shown.acceptedPlay, shown.play, board, inTimeline = reviewing || continuing)
     }
     fun captureResult(): ResultTarget? = state.detail?.let { ResultActions.capture(it, state.play) }
     fun suggestResult(target: ResultTarget, outcome: SuggestedResult, note: String = ""): Boolean {
@@ -378,9 +415,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }, observed = observed, continuation = historyOwner?.armed?.let { Continuation(it, true) },
             captured = { historyOwner?.captured(it) }).also { if (it != null) historyOwner?.inspectionSubmitted(state.play) }
     }
-    fun retainedTree() = state.selected?.let { session?.retainedTree(it) }
-    fun retainedHistory() = state.selected?.let { session?.retainedHistory(it) }
-    fun displayTree() = state.selected?.let { session?.displayTree(it) }
+    fun retainedTree() = selectedTree(GameSession::retainedTree)
+    fun retainedHistory() = selectedTree(GameSession::retainedHistory)
+    fun displayTree() = selectedTree(GameSession::displayTree)
+    private fun <T> selectedTree(read: GameSession.(String) -> T?): T? {
+        treeRevision.longValue // Observed: the session's trees are not snapshot state.
+        val selected = table.value.selected ?: return null
+        return session?.read(selected)
+    }
     fun reviewHistory(nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean =
         state.selected?.let { session?.review(it, nodeId, complete) } == true
     fun reviewHistoryTarget(target: CapturedHistoryTarget, isCurrent: () -> Boolean,

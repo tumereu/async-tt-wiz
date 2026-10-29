@@ -257,7 +257,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
 
 /** Seeding accepted presentation avoids turning screenshot capture into a transport integration test. */
 internal fun Any.seed(state: Any) {
-    val field = javaClass.getDeclaredField("state\$delegate").apply { isAccessible = true }
+    // LobbyController delegates its state to a named holder that also keeps the table's narrow view.
+    val field = (javaClass.declaredFields.find { it.name == "state\$delegate" } ?: javaClass.getDeclaredField("holder"))
+        .apply { isAccessible = true }
     @Suppress("UNCHECKED_CAST")
     (field.get(this) as MutableState<Any?>).value = state
 }

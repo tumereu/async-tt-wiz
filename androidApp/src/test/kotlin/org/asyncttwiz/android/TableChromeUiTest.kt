@@ -162,7 +162,7 @@ class TableChromeUiTest {
     @Test fun loadingHasSpinnerAndOnlyFailureOffersReconnect() {
         var state by mutableStateOf(LobbyState())
         compose.setContent { MaterialTheme {
-            TableUnavailable("Table", false, loading = tableIsLoading(state, "game", null), retry = {})
+            TableUnavailable("Table", false, loading = tableIsLoading(state.tableView(), "game", null), retry = {})
         } }
         compose.onNodeWithText("Loading table…").assertIsDisplayed()
         compose.onNode(hasProgressBarRangeInfo(androidx.compose.ui.semantics.ProgressBarRangeInfo.Indeterminate)).assertIsDisplayed()

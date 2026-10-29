@@ -9,14 +9,14 @@ class TableChromeTest {
     @Test fun initialAdmissionAndCatchupAreLoadingNotUnavailable() {
         val game = TableFixture.game.id
         val connecting = LobbyState()
-        assertTrue(tableIsLoading(connecting, game, null))
-        assertTrue(tableIsLoading(connecting.copy(connectedGames = setOf(game)), game, null))
-        assertFalse(tableIsLoading(connecting.copy(connectionMessage = "Connection failed"), game, null))
-        assertFalse(tableIsLoading(connecting.copy(reconnectingGames = setOf(game)), game, null))
-        assertFalse(tableIsLoading(connecting, game, "History unavailable"))
-        assertFalse(tableIsLoading(connecting, game, null, timedOut = true))
+        assertTrue(tableIsLoading(connecting.tableView(), game, null))
+        assertTrue(tableIsLoading(connecting.copy(connectedGames = setOf(game)).tableView(), game, null))
+        assertFalse(tableIsLoading(connecting.copy(connectionMessage = "Connection failed").tableView(), game, null))
+        assertFalse(tableIsLoading(connecting.copy(reconnectingGames = setOf(game)).tableView(), game, null))
+        assertFalse(tableIsLoading(connecting.tableView(), game, "History unavailable"))
+        assertFalse(tableIsLoading(connecting.tableView(), game, null, timedOut = true))
         // A failed different game must not interrupt admission to this table.
-        assertTrue(tableIsLoading(connecting.copy(reconnectingGames = setOf("other")), game, null))
+        assertTrue(tableIsLoading(connecting.copy(reconnectingGames = setOf("other")).tableView(), game, null))
     }
 
     @Test fun quickVisibilityAndAdvanceStyleUseTurnAndMoveIndependentlyForBothPlayers() {

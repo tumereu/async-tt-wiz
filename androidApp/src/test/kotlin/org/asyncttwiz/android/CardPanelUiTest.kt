@@ -108,7 +108,9 @@ class CardPanelUiTest {
         assertTrue(f.play.board.contentsDisplays.isEmpty())
         val close = (f.commands().last().action as GameAction.Play).action as PlayAction.DismissContents
         assertNotNull(close.seed)
-        assertEquals("3", f.play.currentGroup!!.count) // Open, one card move, close+shuffle.
+        // Rules v29: open and the card move are one group; the close with its shuffle is its own step.
+        assertEquals("1", f.play.currentGroup!!.count)
+        assertEquals(f.play.currentNodeId, f.play.currentGroup!!.firstNodeId)
     }
 
     @Test fun revealAndHandAreOneRequestWithSeparateHistoryGroups() {

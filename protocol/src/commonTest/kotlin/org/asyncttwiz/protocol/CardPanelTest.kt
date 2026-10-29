@@ -63,13 +63,14 @@ class CardPanelTest {
         assertFalse(returned.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(returned.board, returned.board.cards.first(), b))
     }
-    @Test fun searchOpenMovesAndCloseShuffleHaveOneGroupAndNoRevealedKnowledgeSurvivesShuffle() {
+    @Test fun searchOpenAndMovesHaveOneGroupTheCloseShuffleItsOwnAndNoRevealedKnowledgeSurvivesShuffle() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.ALL))
         val display = opened.board.contentsDisplays.single()
         val moved = step(opened, PlayAction.MoveCard(id(20), MoveSource(id(10)), MoveDestination(id(11), MoveInsertion.UNORDERED)))
         val closed = step(moved, PlayAction.DismissContents(display.id, seed = seed))
         assertEquals(opened.currentGroup!!.id, moved.currentGroup!!.id)
-        assertEquals(opened.currentGroup.id, closed.currentGroup!!.id)
+        // Rules v29: the close (with its shuffle) is its own history step.
+        assertNotEquals(opened.currentGroup.id, closed.currentGroup!!.id)
         assertTrue(closed.board.contentsDisplays.isEmpty())
         assertEquals(RandomV1.shuffle(moved.board.containers.first().cards, seed), closed.board.containers.first().cards)
         val reveal = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2, reveal = true))
@@ -84,7 +85,7 @@ class CardPanelTest {
         val tapped = step(moved, PlayAction.SetTapped(id(20), true))
         val closed = step(tapped, PlayAction.DismissContents(panel.id, seed = seed))
         assertEquals(opened.currentGroup!!.id, tapped.currentGroup!!.id)
-        assertEquals(opened.currentGroup.id, closed.currentGroup!!.id)
+        assertNotEquals(opened.currentGroup.id, closed.currentGroup!!.id)
         val look = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2))
         val reordered = change(look, PlayAction.ReorderContents(look.board.contentsDisplays.single().id, id(21), id(20)))
         assertEquals("accepted", reordered.outcome)

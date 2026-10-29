@@ -360,6 +360,10 @@ and token-only Change owner in the primary board/Stack contracts. Reveal+Hand/To
 is explicitly TWO events in TWO groups: flip inside the same panel, then move,
 with normal pacing and no special dwell. Closing Search shuffles as one display
 group. The last panel card leaving closes it in that same event (r11).
+From rules v29 closing a Search/Look/Reveal panel (by either player) is its own
+history step: the close event, which itself moves the rest back or away and
+shuffles, starts a new group and nothing joins it. Everything before the close
+groups as before; older events group exactly as before.
 
 These categories cover the current catalog, including proposed capabilities.
 Excluded capability rows below are historical inventory only, never R1 algorithm

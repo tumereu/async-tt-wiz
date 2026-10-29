@@ -23,6 +23,14 @@ class PreparationPresentationTest {
         assertEquals("Deck", gameDeckName(actor, null, secret))
     }
 
+    @Test fun deckCoverArtIsOnlyPresentedToItsOwner() {
+        val cover = submitted.digest
+        assertEquals(cover, gameDeckCover(actor, actor, cover))
+        assertNull(gameDeckCover(actor, id(), cover))
+        assertNull(gameDeckCover(actor, null, cover))
+        assertNull(gameDeckCover(actor, actor, null))
+    }
+
     @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
         val threshold = 60f
         assertFalse(preparationSwipeCommits(59f, threshold)); assertFalse(preparationSwipeCommits(-59f, threshold))

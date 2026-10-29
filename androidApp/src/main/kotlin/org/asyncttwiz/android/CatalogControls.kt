@@ -11,10 +11,22 @@ import org.asyncttwiz.storage.CatalogProgress
 import org.asyncttwiz.storage.CatalogPhase
 import java.util.Locale
 
-internal fun catalogMb(bytes: Long): String = String.format(Locale.US, "%.0f", bytes / 1_000_000.0)
+/** Sizes in one unit picked from [scale]: KB below 1 MB, one decimal below 10 MB, whole MB above. */
+private fun catalogAmount(bytes: Long, scale: Long): String = when {
+    scale < 1_000_000 -> String.format(Locale.US, "%.0f", bytes / 1_000.0)
+    scale < 10_000_000 -> String.format(Locale.US, "%.1f", bytes / 1_000_000.0)
+    else -> String.format(Locale.US, "%.0f", bytes / 1_000_000.0)
+}
+private fun catalogUnit(scale: Long) = if (scale < 1_000_000) "KB" else "MB"
+internal fun catalogSize(bytes: Long): String = "${catalogAmount(bytes, bytes)} ${catalogUnit(bytes)}"
+/** "done / total unit", both in the total's unit so the pair reads as one quantity. */
+internal fun catalogSizes(done: Long, total: Long?): String {
+    val scale = total ?: done
+    return catalogAmount(done, scale) + (total?.let { " / ${catalogAmount(it, scale)}" } ?: "") + " " + catalogUnit(scale)
+}
 internal fun CatalogProgress.label(): String {
     if (phase == CatalogPhase.FINISHING) return "Finishing up — verifying catalog…"
-    val bytes = catalogMb(done) + (total?.let { " / ${catalogMb(it)}" } ?: "") + " MB"
+    val bytes = catalogSizes(done, total)
     return if (phase == CatalogPhase.DOWNLOADING) "Downloading card records: $bytes"
     else "Indexing card records: $bytes processed · ${String.format(Locale.US, "%,d", records)} cards"
 }
@@ -46,7 +58,7 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         DialogMainButton("Refresh full catalog", controller::confirmFullRefresh)
     }) {
         Text("This re-downloads and replaces all card records. Normal updates download only new and recent sets.")
-        Text(state.fullSize?.let { "Download size: ${catalogMb(it)} MB." } ?: "Download size unavailable (up to 4 GB).")
+        Text(state.fullSize?.let { "Download size: ${catalogSize(it)}." } ?: "Download size unavailable (up to 4 GB).")
         Text("Allow up to 4 GB for indexed records. Your installed catalog stays available if the refresh fails.")
         if (state.metered) Text("You’re on a metered connection. This download may incur data charges.")
     }
@@ -83,4 +95,4 @@ internal fun CatalogControls(controller: CatalogViewModel) {
 
 private fun catalogDownloadEstimate(state: CatalogUiState): String =
     if (state.plan?.full == false) "Update ${state.plan.sets.size} new/recent sets. Download size unavailable (at most 256 MiB per set)."
-    else state.size?.let { "Download size: ${catalogMb(it)} MB." } ?: "Download size unavailable (up to 4 GB)."
+    else state.size?.let { "Download size: ${catalogSize(it)}." } ?: "Download size unavailable (up to 4 GB)."

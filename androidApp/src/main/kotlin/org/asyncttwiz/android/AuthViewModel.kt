@@ -81,7 +81,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val saveApi = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, Executors.newSingleThreadExecutor { Thread(it, "contacts-lobby") },
-        { action -> main.post { action() } }, openGame = { controller.navigate(ShellDestination.GAMES) },
+        { action -> main.post { action() } }, openGame = { controller.push(ShellDestination.GAMES) },
         gameConnection = SocketGameConnection(BuildConfig.ACCOUNT_ORIGIN), accountId = { controller.state.account?.accountId },
         authenticationRequired = ::authenticationRequired,
         installationId = application.getSharedPreferences("installation", 0).let { preferences ->
@@ -115,7 +115,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         deckImport.connectSave(saveApi, controller::sessionToken, saved = {
             // An import started from a lobby's Choose deck returns there with the new deck highlighted.
             if (!lobby.importedForPicker(it.deck)) {
-                controller.navigate(ShellDestination.DECKS)
+                controller.push(ShellDestination.DECKS)
                 decks.open(it.deck.id)
             }
         })

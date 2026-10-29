@@ -64,6 +64,24 @@ class CatalogPromptTest {
         assertEquals("Finishing up — verifying catalog…", CatalogProgress(CatalogPhase.FINISHING, 0, null).label())
     }
 
+    @Test fun smallUpdatesShowKilobytesOrOneDecimalInsteadOfZeroMegabytes() {
+        assertEquals("Downloading card records: 120 / 450 KB", CatalogProgress(CatalogPhase.DOWNLOADING, 120_000, 450_000).label())
+        assertEquals("Downloading card records: 0.3 / 2.5 MB", CatalogProgress(CatalogPhase.DOWNLOADING, 300_000, 2_500_000).label())
+        assertEquals("Downloading card records: 40 KB", CatalogProgress(CatalogPhase.DOWNLOADING, 40_000, null).label())
+        assertEquals("Indexing card records: 0 / 80 KB processed · 0 cards", CatalogProgress(CatalogPhase.INDEXING, 0, 80_000).label())
+        assertEquals("800 KB", catalogSize(800_000))
+        assertEquals("4.2 MB", catalogSize(4_200_000))
+        assertEquals("450 MB", catalogSize(450_000_000))
+    }
+
+    @Test fun barFractionIsIndeterminateWithoutATotalAndWhileFinishing() {
+        assertEquals(0.25f, catalogFraction(CatalogProgress(CatalogPhase.DOWNLOADING, 25, 100)))
+        assertEquals(1f, catalogFraction(CatalogProgress(CatalogPhase.INDEXING, 120, 100)))
+        assertNull(catalogFraction(CatalogProgress(CatalogPhase.DOWNLOADING, 25, null)))
+        assertNull(catalogFraction(CatalogProgress(CatalogPhase.DOWNLOADING, 0, 0)))
+        assertNull(catalogFraction(CatalogProgress(CatalogPhase.FINISHING, 100, 100)))
+    }
+
     @Test fun dailyProviderBuildsDoNotPromptForFullDownloadButPendingSetsDo() {
         val policy = CatalogPromptPolicy()
         val daily = old.copy(date = "2026-10-21")

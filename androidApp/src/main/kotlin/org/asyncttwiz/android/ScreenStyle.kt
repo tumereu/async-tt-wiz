@@ -146,10 +146,15 @@ internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage
 
 @Composable
 internal fun CatalogProgressBar(progress: org.asyncttwiz.storage.CatalogProgress, modifier: Modifier = Modifier) {
-    val total = progress.total?.takeIf { it > 0 && progress.phase != org.asyncttwiz.storage.CatalogPhase.FINISHING }
-    if (total == null) LinearProgressIndicator(modifier)
-    else LinearProgressIndicator(progress = { (progress.done.toFloat() / total).coerceIn(0f, 1f) }, modifier = modifier)
+    val fraction = catalogFraction(progress)
+    if (fraction == null) LinearProgressIndicator(modifier)
+    else LinearProgressIndicator(progress = { fraction }, modifier = modifier)
 }
+
+/** Determinate share of the whole update, or null (indeterminate) when the total is unknown or finishing. */
+internal fun catalogFraction(progress: org.asyncttwiz.storage.CatalogProgress): Float? =
+    progress.total?.takeIf { it > 0 && progress.phase != org.asyncttwiz.storage.CatalogPhase.FINISHING }
+        ?.let { (progress.done.toFloat() / it).coerceIn(0f, 1f) }
 
 @Composable
 internal fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: String,

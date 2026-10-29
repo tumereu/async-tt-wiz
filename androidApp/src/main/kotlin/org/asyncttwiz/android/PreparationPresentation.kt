@@ -8,6 +8,9 @@ data class TransferFeedback(val serial: Long, val text: String)
 internal fun gameDeckName(owner: String, viewer: String?, name: String): String =
     if (owner == viewer) name else "Deck"
 
+/** The cover art identifies a deck as much as its title: another player's stays a neutral placeholder. */
+internal fun gameDeckCover(owner: String, viewer: String?, cover: String?): String? = cover?.takeIf { owner == viewer }
+
 /** Compare displayed membership, not submitted quantity or receipt counts. Includes reconciliation. */
 internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, actor: String?,
     previous: TransferFeedback?): TransferFeedback? {

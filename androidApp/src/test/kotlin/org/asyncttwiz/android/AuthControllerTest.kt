@@ -298,7 +298,7 @@ class AuthControllerTest {
         store.value = StoredSession.Present("A".repeat(43))
         val controller = AuthController(api, store, worker, local) { it() }; worker.drain()
         controller.navigate(ShellDestination.GAMES)
-        controller.navigate(ShellDestination.CONTACTS)
+        controller.push(ShellDestination.CONTACTS) // Games → New game is an in-flow step.
         controller.drawer(true); controller.back()
         assertFalse(controller.state.drawerOpen)
         assertEquals(ShellDestination.CONTACTS, controller.state.destination)
@@ -308,6 +308,35 @@ class AuthControllerTest {
         controller.restore(); worker.drain()
         assertEquals(ShellDestination.GAMES, controller.state.destination)
         controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
+    }
+
+    @Test fun topLevelSwitchesResetHistoryToMenuWhileInFlowStepsReturnWhereTheyCameFrom() {
+        val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
+        store.value = StoredSession.Present("A".repeat(43))
+        val controller = AuthController(api, store, worker, local) { it() }; worker.drain()
+        // Many drawer switches never pile up: Back from any section is Menu, then the app closes.
+        for (destination in listOf(ShellDestination.GAMES, ShellDestination.DECKS, ShellDestination.PODS,
+            ShellDestination.CONTACTS, ShellDestination.SETTINGS, ShellDestination.DECKS)) controller.navigate(destination)
+        assertEquals(ShellDestination.DECKS, controller.state.destination)
+        assertEquals(emptyList(), controller.state.backStack)
+        controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
+        // Pod → cubes → back to the pod; Back from the pod is then Menu.
+        controller.navigate(ShellDestination.PODS); controller.push(ShellDestination.DECKS)
+        assertEquals(listOf(ShellDestination.PODS), controller.state.backStack)
+        controller.back(); assertEquals(ShellDestination.PODS, controller.state.destination)
+        controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
+        // Pod → cubes → draft a cube returns to Pods without a Pods/Decks loop in the history.
+        controller.navigate(ShellDestination.PODS); controller.push(ShellDestination.DECKS); controller.push(ShellDestination.PODS)
+        assertEquals(ShellDestination.PODS, controller.state.destination); assertEquals(emptyList(), controller.state.backStack)
+        // Games → New game → Contacts → game created opens Games, not Contacts again on Back.
+        controller.navigate(ShellDestination.GAMES); controller.push(ShellDestination.CONTACTS); controller.push(ShellDestination.GAMES)
+        assertEquals(emptyList(), controller.state.backStack)
+        // Opening the current section again keeps its history; a drawer switch mid-flow drops it.
+        controller.navigate(ShellDestination.PODS); controller.push(ShellDestination.GAMES); controller.push(ShellDestination.GAMES)
+        assertEquals(listOf(ShellDestination.PODS), controller.state.backStack)
+        controller.navigate(ShellDestination.SETTINGS); assertEquals(emptyList(), controller.state.backStack)
+        controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
+        controller.push(ShellDestination.MENU); assertEquals(emptyList(), controller.state.backStack)
     }
 
     @Test fun logoutFencesQueuedCallbacksAndStorageAndNewAccountCannotInheritContext() {

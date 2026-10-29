@@ -107,8 +107,9 @@ class PodPickMarksTest {
     @Test fun librarianSlotsIncreaseOverflowLimitAndRefundKeepsLatestMarks() {
         val available = listOf("l1", "l2", "l3")
         var marks = empty.spendLibrarian(available, pack, settings).spendLibrarian(available, pack, settings)
-        val enlarged = PodPickRules(pack, settings, marks.librarians.size)
+        val enlarged = PodPickRules(pack, settings, marks.librarians)
         assertEquals(4, enlarged.requiredKeeps)
+        assertEquals(pack.cards.map { it.id } + listOf("l1", "l2"), enlarged.ids)
         for (id in listOf("1", "2", "3", "4", "5")) marks = marks.toggle(id, PodPickMark.KEEP, enlarged)
         assertEquals(listOf("2", "3", "4", "5"), marks.keeps)
         assertEquals(listOf("l1", "l2"), marks.librarians)
@@ -119,20 +120,52 @@ class PodPickMarksTest {
         assertTrue(marks.forPack(pack.copy(id = "next")).librarians.isEmpty())
     }
 
-    @Test fun librarianKeepsShrinkBurnsFirstAndCannotExceedPackOrOwnership() {
-        val small = pack.copy(cards = pack.cards.take(4))
+    @Test fun aSpentLibrarianIsAPackCardThatCanBeKeptBurnedOrLeftAndRefundRemovesItsMark() {
         val s = DraftSettings(keep = 1, burn = 2)
-        var marks = empty.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
-        assertEquals(2, PodPickRules(small, s, 1).requiredBurns)
-        marks = marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
-        val rules = PodPickRules(small, s, 2)
-        assertEquals(1, rules.requiredBurns)
-        for (id in listOf("1", "2", "3")) marks = marks.toggle(id, PodPickMark.KEEP, rules)
-        assertEquals(listOf("4"), rules.burnIds(marks))
+        var marks = empty.spendLibrarian(listOf("l1"), pack, s)
+        val rules = PodPickRules(pack, s, marks.librarians)
+        assertEquals(2, rules.requiredKeeps)
+        assertEquals(2, rules.manualBurns)
+        // Burn it with one card and keep two cards.
+        marks = marks.toggle("l1", PodPickMark.BURN, rules).toggle("1", PodPickMark.BURN, rules)
+            .toggle("2", PodPickMark.KEEP, rules).toggle("3", PodPickMark.KEEP, rules)
         assertTrue(rules.canConfirm(marks, false))
-        assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2"), small, s))
-        marks = marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s)
-        assertEquals(0, PodPickRules(small, s, 3).requiredBurns)
-        assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2", "l3", "l4"), small, s))
+        assertEquals(listOf("l1", "1"), rules.burnIds(marks))
+        // Keep it back instead: still a valid pick.
+        val back = marks.toggle("l1", PodPickMark.KEEP, rules)
+        assertEquals(listOf("3", "l1"), back.keeps)
+        assertEquals(listOf("1"), back.burns)
+        // Refunding removes it and its mark; the pick then needs one keep fewer.
+        val refunded = back.refundLibrarian("l1", pack, s)
+        assertEquals(listOf("3"), refunded.keeps)
+        assertTrue(PodPickRules(pack, s).canConfirm(refunded.toggle("4", PodPickMark.BURN, PodPickRules(pack, s)), false))
+        // Marks for another spend set do not confirm: the rules follow exactly the spent Librarians.
+        assertFalse(PodPickRules(pack, s, listOf("l2")).canConfirm(marks.copy(librarians = listOf("l2")), false))
+        assertFalse(rules.canConfirm(marks.copy(librarians = emptyList()), false))
+    }
+
+    @Test fun nearTheEndASpentLibrarianNotKeptBurnsWithTheRest() {
+        val small = pack.copy(cards = pack.cards.take(3))
+        val s = DraftSettings(keep = 1, burn = 2)
+        var marks = empty.spendLibrarian(listOf("l1", "l2"), small, s).spendLibrarian(listOf("l1", "l2"), small, s)
+        val rules = PodPickRules(small, s, marks.librarians)
+        assertEquals(3, rules.requiredKeeps)
+        // A spend never changes whether burns are automatic: 3 cards <= keep 1 + burn 2.
+        assertTrue(rules.automaticBurns)
+        assertEquals(PodPickRules(small, s).automaticBurns, rules.automaticBurns)
+        // Keep two cards and l2 back: the third card and l1 burn automatically.
+        marks = marks.toggle("1", PodPickMark.KEEP, rules).toggle("2", PodPickMark.KEEP, rules).toggle("l2", PodPickMark.KEEP, rules)
+        assertEquals(listOf("3", "l1"), rules.burnIds(marks))
+        assertTrue(rules.canConfirm(marks, false))
+        // Spending is no longer limited by the pack size; only by the Librarians owned.
+        marks = marks.spendLibrarian(listOf("l1", "l2", "l3"), small, s)
+        assertEquals(listOf("l1", "l2", "l3"), marks.librarians)
+        assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2", "l3"), small, s))
+    }
+
+    @Test fun shownPackAppendsSpentLibrariansInSpendOrder() {
+        val owned = listOf(DraftCopy("l1", "librarian", librarian = true), DraftCopy("l2", "librarian", librarian = true))
+        assertEquals(pack, pack.withSpentLibrarians(emptyList(), owned))
+        assertEquals(pack.cards + owned.reversed(), pack.withSpentLibrarians(listOf("l2", "l1"), owned).cards)
     }
 }

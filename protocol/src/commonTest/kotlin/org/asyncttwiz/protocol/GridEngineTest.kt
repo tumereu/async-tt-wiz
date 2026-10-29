@@ -41,7 +41,7 @@ class GridEngineTest {
     }
 
     private fun assertConserved(state: GridState) {
-        val accounted = state.supply + state.grids.flatMap { it.positions.filterNotNull() } +
+        val accounted = state.supply + state.grids.flatMap { it.positions.filterNotNull() + it.reserve } +
             state.pools.values.flatten() + state.log.flatMap { it.discarded }
         assertEquals(state.copies.size, accounted.size)
         assertEquals(state.copies.map { it.id }.toSet(), accounted.toSet())
@@ -95,6 +95,66 @@ class GridEngineTest {
         assertFailsWith<IllegalArgumentException> {
             GridEngine.startWithCards(listOf("a", "b"), cards + cards.first(), settings, seed)
         }
+    }
+
+    private fun setCard(index: Int) = SetSourceCard("sha256:" + index.toString(16).padStart(64, '0'),
+        "00000000-0000-0000-0000-" + index.toString(16).padStart(12, '0'), SetCardRarity.COMMON)
+    private fun setSource(boosterSize: Int? = null): SetSourceSnapshot {
+        val cards = List(20) { setCard(it + 1) }
+        val recipe = boosterSize?.let { size -> SetBoosterRecipe(listOf(SetBoosterComposition(mapOf("main" to size), 1)),
+            mapOf("main" to SetBoosterSheet(cards.associate { it.uuid to 1L }))) }
+        return SetSourceSnapshot("TST", "Test set", cards, recipe)
+    }
+    private fun booster(id: String) = id.substringBefore(":copy:")
+
+    @Test fun freshBoostersGiveEachGridRandomCardsFromItsOwnBooster() {
+        val settings = settings(grids = 3)
+        val cards = GridEngine.freshBoosterCards(setSource(), settings, 2, seed)
+        assertEquals(27, cards.size)
+        assertEquals(cards, GridEngine.freshBoosterCards(setSource(), settings, 2, seed))
+        cards.chunked(9).forEachIndexed { grid, chunk -> assertEquals(setOf("set-pack-$grid"), chunk.map { booster(it.id) }.toSet()) }
+        // Not simply the booster's first nine cards in pack order.
+        assertNotEquals(SetBoosters.generate(setSource(), 3, seed).flatMap { it.cards.take(9) }, cards)
+        val state = GridEngine.startWithCards(listOf("a", "b"), cards, settings, seed, refillsDealt = true)
+        assertEquals(cards.take(9).map { it.id }, state.grids[0].positions)
+        assertTrue(state.grids[0].reserve.isEmpty()) // two players without two picks never refill
+        assertConserved(finish(state))
+    }
+
+    @Test fun freshBoosterRefillsComeFromTheGridsOwnBoosterWithSeveralGridsOpen() {
+        val settings = settings(grids = 4, open = 2)
+        val cards = GridEngine.freshBoosterCards(setSource(), settings, 3, seed)
+        assertEquals(48, cards.size)
+        cards.chunked(12).forEachIndexed { grid, chunk -> assertEquals(setOf("set-pack-$grid"), chunk.map { booster(it.id) }.toSet()) }
+        val initial = GridEngine.startWithCards(listOf("a", "b", "c"), cards, settings, seed, refillsDealt = true)
+        assertEquals(2, initial.grids.size)
+        // The second grid opened before the first refilled, yet each refill still comes from its own booster.
+        val second = pick(initial, initial.grids[1])
+        assertEquals(cards.slice(21..23).map { it.id }, second.grids[1].positions.take(3))
+        val first = pick(second, second.grids[0])
+        assertEquals(cards.slice(9..11).map { it.id }, first.grids[0].positions.take(3))
+        assertTrue(first.grids.all { it.reserve.isEmpty() })
+        assertConserved(finish(first) { assertConserved(it) })
+    }
+
+    @Test fun smallFreshBoostersAreToppedUpFromSpareBoosters() {
+        val settings = settings(grids = 2)
+        val cards = GridEngine.freshBoosterCards(setSource(boosterSize = 5), settings, 2, seed)
+        assertEquals(18, cards.size)
+        assertEquals(cards.size, cards.map { it.id }.distinct().size)
+        cards.chunked(9).forEachIndexed { grid, chunk ->
+            assertEquals(5, chunk.count { booster(it.id) == "set-pack-$grid" })
+            assertTrue(chunk.filter { booster(it.id) != "set-pack-$grid" }.all { booster(it.id).removePrefix("set-pack-").toInt() >= 2 })
+        }
+        assertConserved(finish(GridEngine.startWithCards(listOf("a", "b"), cards, settings, seed, refillsDealt = true)))
+    }
+
+    @Test fun freshBoostersDefaultOnAndOldSettingsDecodeWithIt() {
+        assertTrue(DraftSettings.grid().freshBoosters)
+        assertTrue(Json.decodeFromString<DraftSettings>("""{"mode":"GRID"}""").freshBoosters)
+        val off = DraftSettings.grid().copy(freshBoosters = false)
+        assertEquals(off, Json.decodeFromString<DraftSettings>(Json.encodeToString(off)))
+        assertTrue(Json.decodeFromString<GridBoard>("""{"id":"g","number":1,"turns":["a"],"positions":[]}""").reserve.isEmpty())
     }
 
     @Test fun exactMaximumSupplyAndInsufficientCubes() {

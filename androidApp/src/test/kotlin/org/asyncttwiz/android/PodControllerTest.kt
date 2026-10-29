@@ -88,7 +88,7 @@ class PodControllerTest {
             pickFailure?.let { throw PodFailure(it) }
             val draft = saved.draft!!
             check(input.packId == draft.head!!.id)
-            val kept = draft.head!!.cards.filter { it.id in input.keep }
+            val kept = (draft.head!!.cards + draft.pool.filter { it.id in input.librarians }).filter { it.id in input.keep }
             val pool = draft.pool.filterNot { it.id in input.librarians } + kept
             saved = saved.copy(draft = draft.copy(head = draft.queuedPacks.firstOrNull(),
                 queuedPacks = draft.queuedPacks.drop(1), packsBehind = (draft.packsBehind - 1).coerceAtLeast(0), pool = pool),
@@ -400,6 +400,34 @@ class PodControllerTest {
         f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(marks = DraftMarks(nextPack.id, listOf("next-copy"))))
         f.open()
         assertEquals(PodPickMarks(head.id), f.controller.marks(head))
+    }
+
+    @Test fun savedMarksOnASpentLibrarianComeBackOnlyWhileItIsSpent(): Unit = Fixture().use { f ->
+        val librarian = copy.copy(id = "librarian", librarian = true)
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(pool = listOf(librarian),
+            marks = DraftMarks(head.id, keeps = listOf(copy.id, librarian.id), burns = listOf("burn"), librarians = listOf(librarian.id))))
+        f.open()
+        assertEquals(PodPickMarks(head.id, listOf(copy.id, librarian.id), listOf("burn"), listOf(librarian.id)), f.controller.marks(head))
+        // A mark on a Librarian that is not spent (or no longer owned) is dropped.
+        f.controller.clear()
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(pool = emptyList()))
+        f.open()
+        assertEquals(PodPickMarks(head.id, listOf(copy.id), listOf("burn")), f.controller.marks(head))
+    }
+
+    @Test fun keepingASpentLibrarianBackPredictsItStaysInThePool(): Unit = Fixture().use { f ->
+        val librarian = copy.copy(id = "librarian", librarian = true)
+        val pack = head.copy(cards = List(5) { copy.copy(id = "pick-$it") })
+        f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(head = pack, pool = listOf(librarian)),
+            build = PodDeckBuild(listOf(PodDeckCopy(librarian.id, PodDeckCategory.SIDE))))
+        f.open()
+        val keep = listOf(librarian.id, pack.cards.first().id)
+        f.controller.pick(keep, emptyList(), listOf(librarian.id))
+        assertEquals(keep.toSet(), f.controller.state.detail!!.draft!!.pool.map { it.id }.toSet())
+        assertEquals(PodDeckCategory.SIDE, f.controller.state.detail!!.build!!.copies.single { it.copyId == librarian.id }.category)
+        f.deliver()
+        assertEquals(keep, (f.api.calls.single().second as PickPod).keep)
+        assertEquals(keep.toSet(), f.controller.state.detail!!.draft!!.pool.map { it.id }.toSet())
     }
 
     private fun cubes(sources: () -> List<CubeSummary> = { listOf(cube) }) = object : Cubes {

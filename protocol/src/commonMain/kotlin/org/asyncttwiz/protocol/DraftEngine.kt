@@ -182,13 +182,16 @@ object DraftEngine {
         val librarians = state.copies.filter { it.librarian && it.id in owned }.map { it.id }.toSet()
         if (pick.librarians.distinct().size != pick.librarians.size || pick.librarians.any { it !in librarians })
             return reject(DraftPickRejection.INVALID_LIBRARIANS)
+        // Spent Librarians join the pack for this pick as ordinary cards: each may be kept back, burned or passed on.
+        val cards = pack.cards + pick.librarians
         val keep = state.settings.keep.toLong() + pick.librarians.size
         val selected = pick.keep + pick.burn
-        if (selected.any { it !in pack.cards }) return reject(DraftPickRejection.UNKNOWN_CARD)
+        if (selected.any { it !in cards }) return reject(DraftPickRejection.UNKNOWN_CARD)
         if (selected.distinct().size != selected.size || pick.keep.size.toLong() != keep)
             return reject(DraftPickRejection.WRONG_COUNTS)
-        val rest = pack.cards.filter { it !in pick.keep }
-        val nearEnd = pack.cards.size <= keep + state.settings.burn
+        val rest = cards.filter { it !in pick.keep }
+        // Equivalent to pack.cards.size <= settings.keep + burn: a spend never changes whether a pick is near the end.
+        val nearEnd = cards.size <= keep + state.settings.burn
         if (nearEnd) {
             if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet()) return reject(DraftPickRejection.WRONG_COUNTS)
         } else if (pick.burn.size != state.settings.burn) return reject(DraftPickRejection.WRONG_COUNTS)
@@ -235,17 +238,16 @@ object DraftEngine {
             val pack = packs[index]
             queues.getValue(pick.player).remove(pick.packId)
             val removed = (pick.keep + burned).toSet()
-            val remaining = pack.cards.filter { it !in removed }
+            // A spent Librarian that was neither kept back nor burned stays in the pack like any leftover card: it passes
+            // on, is discarded at the threshold, or goes to the next member with an automatic award.
+            val remaining = (pack.cards + pick.librarians).filter { it !in removed }
             val discard = remaining.isNotEmpty() && remaining.size <= source.settings.discardRemainingAt
             val discarded = if (discard) remaining else emptyList()
-            // Spent Librarians re-enter the pack only when, without them, it still travels on for a manual pick. On a
-            // pack's final pick (emptied, discarded or left for an automatic award) they burn with the rest instead.
-            val returned = !discard && remaining.size > source.settings.keep
-            packs[index] = pack.copy(cards = (if (discard) emptyList() else remaining) + (if (returned) pick.librarians else emptyList()))
+            packs[index] = pack.copy(cards = if (discard) emptyList() else remaining)
             pools.getValue(pick.player).removeAll(pick.librarians.toSet())
             pools.getValue(pick.player).addAll(pick.keep)
-            log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(),
-                burned.toList() + (if (returned) emptyList() else pick.librarians), discarded, librarians = pick.librarians.toList()))
+            log.add(DraftPickLog(pick.player, pack.id, pack.round, pick.keep.toList(), burned.toList(), discarded,
+                librarians = pick.librarians.toList()))
             picks[pack.id] = (picks[pack.id] ?: 0) + 1
             if (packs[index].cards.isNotEmpty()) arrive(index, passTo(pick.player, pack.round))
             return settle()
@@ -260,8 +262,9 @@ object DraftEngine {
         /**
          * Whether a live or unopened pack of rounds up to [upTo] can still reach [player] for a manual pick, assuming
          * every pick removes keep + burn cards (all of them near the end) and applies the discard threshold. Automatic
-         * awards are not picks. A Cogwork Librarian spend removes the same net keep + burn while the pack travels on and
-         * burns the Librarians on a final pick, so it never lets a pack reach further than predicted.
+         * awards are not picks. A Cogwork Librarian spend adds L cards to the pack and L keep slots, so the pick removes
+         * the same net keep + burn and is near the end exactly when it would be without the spend: a pack never reaches
+         * further than predicted.
          */
         private fun canReach(player: String, upTo: Int): Boolean = reaching(player, upTo).any()
 

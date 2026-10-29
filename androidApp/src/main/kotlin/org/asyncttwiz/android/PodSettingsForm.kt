@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -64,7 +65,7 @@ internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = when (mo
     DraftMode.BOOSTER -> DraftSettings.booster()
     DraftMode.GLIMPSE -> DraftSettings.glimpse()
     DraftMode.GRID -> DraftSettings.grid()
-}.copy(sideboardLimit = current.sideboardLimit,
+}.copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
     librarians = if (mode == DraftMode.GRID) 0 else current.librarians,
     librarianDefinition = if (mode == DraftMode.GRID) null else current.librarianDefinition)
 
@@ -105,6 +106,13 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
         if (settings.mode != DraftMode.GRID && source.kind == PodSourceKind.CUBE) key("colorBalance") {
             PodToggleTile("Color balancing", settings.colorBalance, enabled) { value -> change { it.copy(colorBalance = value) } }
         }
+        // Always shown, greyed out unless the pod drafts grids from a set.
+        key("freshBoosters") {
+            val applicable = settings.mode == DraftMode.GRID && source.kind == PodSourceKind.SET
+            PodToggleTile("Fresh boosters", settings.freshBoosters, enabled && applicable, applicable) { value ->
+                change { it.copy(freshBoosters = value) }
+            }
+        }
     }
     if (settings.mode == DraftMode.GRID) Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
@@ -112,13 +120,13 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
     }
 }
 
-/** On/off setting in the same square tile shape as the numeric settings; a tap toggles it. */
+/** On/off setting in the same square tile shape as the numeric settings; a tap toggles it. Greyed when not [applicable]. */
 @Composable
-private fun PodToggleTile(label: String, checked: Boolean, enabled: Boolean, toggle: (Boolean) -> Unit) {
+private fun PodToggleTile(label: String, checked: Boolean, enabled: Boolean, applicable: Boolean = true, toggle: (Boolean) -> Unit) {
     Surface(checked = checked, onCheckedChange = toggle, enabled = enabled, modifier = Modifier.size(96.dp),
         shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder),
         color = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
-        Box(Modifier.fillMaxSize().padding(6.dp)) {
+        Box(Modifier.fillMaxSize().padding(6.dp).alpha(if (applicable) 1f else .38f)) {
             Text(label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
             Text(if (checked) "On" else "Off", Modifier.align(Alignment.Center), style = MaterialTheme.typography.headlineSmall)
         }

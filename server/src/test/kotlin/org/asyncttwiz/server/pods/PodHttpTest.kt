@@ -167,19 +167,35 @@ class PodHttpTest {
             assertTrue(b.draft!!.pool.none { it.id in owned })
             val pack = a.draft!!.head!!
             assertTrue(pack.cards.none { it.librarian })
-            val input = PickPod(id(), a.draftAttemptId!!, pack.id, pack.cards.take(3).map { it.id },
-                pack.cards.drop(3).take(2).map { it.id }, owned)
+            val cards = pack.cards.map { it.id }
+            // Spent Librarians join the pack: Booster passes both on; Glimpse keeps one back and burns the other.
+            val input = if (mode == DraftMode.BOOSTER) PickPod(id(), a.draftAttemptId!!, pack.id, cards.take(3), cards.drop(3).take(2), owned)
+                else PickPod(id(), a.draftAttemptId!!, pack.id, listOf(owned[0]) + cards.take(2), listOf(owned[1], cards[2]), owned)
+            // Saved marks may mark a spent Librarian, but not one that is not spent.
+            val marks = SetPodDraftMarks(a.draftAttemptId!!, pack.id, input.keep, input.burn, owned)
+            f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks", marks)
+            assertEquals(DraftMarks(pack.id, input.keep, input.burn, owned), f.get(f.a, pod).draft!!.marks)
+            assertEquals("invalid_marks", json.decodeFromString<PodError>(f.send(f.a, "PUT", "/v1/pods/$pod/draft/marks",
+                marks.copy(keeps = listOf(owned[0]), burns = emptyList(), librarians = emptyList()), 400)).code)
             for (bad in listOf(input.copy(librarians = owned + owned.first()),
-                input.copy(librarians = b.draft!!.pool.map { it.id }), input.copy(keep = input.keep.take(1))))
+                input.copy(librarians = b.draft!!.pool.map { it.id }), input.copy(keep = input.keep.take(1)),
+                input.copy(burn = input.burn + cards.last())))
                 f.send(f.a, "POST", "/v1/pods/$pod/pick", bad.copy(requestId = id()), 409)
             val response = f.send(f.a, "POST", "/v1/pods/$pod/pick", input)
             assertEquals(response, f.send(f.a, "POST", "/v1/pods/$pod/pick", input))
             val picked = f.get(f.a, pod)
+            assertNull(picked.draft!!.marks)
             assertEquals(input.keep.toSet(), picked.build!!.copies.map { it.copyId }.toSet())
-            assertTrue(picked.build!!.copies.all { it.category == PodDeckCategory.MAIN })
-            assertTrue(picked.draft!!.pool.none { it.id in owned })
+            assertEquals(input.keep.toSet(), picked.draft!!.pool.map { it.id }.toSet())
             val passed = f.get(f.b, pod).draft!!.queuedPacks.single { it.id == pack.id }
-            assertEquals(pack.cards.drop(5).map { it.id } + owned, passed.cards.map { it.id })
+            if (mode == DraftMode.BOOSTER) {
+                assertTrue(picked.build!!.copies.all { it.category == PodDeckCategory.MAIN })
+                assertEquals(cards.drop(5) + owned, passed.cards.map { it.id })
+            } else {
+                // The kept-back Librarian keeps its build place; the burned one is gone.
+                assertEquals(PodDeckCategory.SIDE, picked.build!!.copies.single { it.copyId == owned[0] }.category)
+                assertEquals(cards.drop(3), passed.cards.map { it.id })
+            }
         }
         // A Librarian already in the source is ordinary supply, but becomes spendable once picked.
         f.send(f.a, "POST", "/v1/definitions", SubmitDefinitions(id(), listOf(definition)))
@@ -1103,7 +1119,7 @@ class PodHttpTest {
         val pod = f.create(DraftMode.GRID).id
         f.join(pod)
         val replacement = UpdatePod(id(), setSource = upload,
-            settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2))
+            settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2, freshBoosters = false))
         val updated = f.send(f.a, "PUT", "/v1/pods/$pod", replacement)
         assertEquals(updated, f.send(f.a, "PUT", "/v1/pods/$pod", replacement))
         val recipe = upload.snapshot.recipe!!
@@ -1128,5 +1144,28 @@ class PodHttpTest {
         val game = json.decodeFromString<GameSummary>(f.send(f.a, "POST", "/v1/pods/$pod/challenge",
             ChallengeFromPod(id(), f.b.account.accountId, "Grid challenge", basics), 201))
         assertEquals(pod, game.podId)
+    }
+
+    @Test fun `set Grid with fresh boosters gives each grid random cards from its own booster`() = fixture { f ->
+        val upload = setUpload()
+        val pod = f.create(DraftMode.GRID).id
+        f.join(pod)
+        assertTrue(f.get(f.a, pod).settings.freshBoosters) // on by default
+        val settings = DraftSettings.grid().copy(grids = 2, twoPicks = true, gridsOpenAtOnce = 2)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), setSource = upload, settings = settings.copy(freshBoosters = false)))
+        assertFalse(f.get(f.b, pod).settings.freshBoosters)
+        f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), settings = settings))
+        assertTrue(f.get(f.b, pod).settings.freshBoosters)
+        val started = f.start(pod)
+        val grids = started.grid!!.publicView.grids
+        assertEquals(2, grids.size)
+        // The fixture booster holds 3 cards: each grid takes all of its own booster and is topped up from spare boosters.
+        grids.forEachIndexed { index, grid ->
+            val boosters = grid.positions.map { it!!.id.substringBefore(":copy:") }
+            assertEquals(3, boosters.count { it == "set-pack-$index" })
+            assertTrue(boosters.filter { it != "set-pack-$index" }.all { it.removePrefix("set-pack-").toInt() >= 2 })
+        }
+        finishGrid(f, pod, listOf(f.a, f.b))
+        assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
     }
 }

@@ -39,7 +39,8 @@ class DraftEarlyOpeningTest {
     private fun pick(state: DraftState, seat: Int, librarians: List<String> = emptyList()): DraftState {
         val player = state.seating[seat]
         val id = state.queues.getValue(player).first()
-        val cards = cards(state, id)
+        // Spent Librarians join the pack: pack cards are kept first, so Librarians are kept back only on small packs.
+        val cards = cards(state, id) + librarians
         val keep = state.settings.keep + librarians.size
         val burn = if (cards.size <= keep + state.settings.burn) emptyList() else cards.drop(keep).take(state.settings.burn)
         val result = DraftEngine.pick(state, DraftPick(player, id, cards.take(keep), burn, librarians))
@@ -186,48 +187,57 @@ class DraftEarlyOpeningTest {
     private fun librarians(state: DraftState, seat: Int) = state.pools.getValue(state.seating[seat]).filter { it.startsWith("librarian:") }
     private fun manualLog(state: DraftState, seat: Int) = state.log.last { it.player == state.seating[seat] && !it.automatic }
 
-    @Test fun finalPickLibrarianSpendBurnsTheLibrarianAndTheNextRoundOpens() {
+    @Test fun finalPickLibrarianLeftInThePackGoesWithTheAutomaticAward() {
         // 5 cards, keep 1, burn 1: 5 -> 3 -> 1 (automatic).
         var state = start(cards = 5, burn = 1, librarians = 2)
         state = pick(pick(pick(state, 0), 1), 1)
         assertEquals(1, opened(state, 1)) // A's pick of B's 3-card pack would leave one card for an automatic award
         val spent = librarians(state, 0)
         assertEquals(2, spent.size)
-        state = pick(state, 0, spent) // A keeps all three cards; nothing remains for anyone, so the Librarians burn
+        // The pack shows 3 cards + 2 Librarians: A keeps the three cards, burns one Librarian and leaves the other.
+        state = pick(state, 0, spent)
         assertTrue(cards(state, pack(state, 1, 1)).isEmpty())
         assertEquals(spent, manualLog(state, 0).librarians)
-        assertTrue(manualLog(state, 0).burned.containsAll(spent))
+        assertEquals(spent.take(1), manualLog(state, 0).burned)
         assertTrue(librarians(state, 0).isEmpty())
-        assertTrue(state.pools.values.flatten().none { it in spent })
+        // The leftover Librarian is the next member's automatic award, like any last card.
+        assertEquals(spent.drop(1), state.log.single { it.automatic && it.packId == pack(state, 1, 1) }.kept)
+        assertTrue(spent[1] in state.pools.getValue(state.seating[1]))
         assertEquals(listOf(pack(state, 1, 2)), queue(state, 1)) // no revived pack queues behind B's next round
         assertEquals(1, opened(state, 0))
         assertEquals(listOf(pack(state, 0, 2)), queue(state, 0))
         finish(state)
     }
 
-    @Test fun librarianSpendLeavingAnAutomaticAwardBurnsTheLibrarian() {
-        // 4 cards, keep 1: A spends one Librarian on a 3-card pack, keeping 2 and leaving 1 for B's automatic award.
+    @Test fun librarianLeftInAPackPassesOnAsAnOrdinaryCard() {
+        // 4 cards, keep 1: A spends one Librarian on a 3-card pack and keeps 2 cards; 1 card + the Librarian pass to B.
         var state = start(cards = 4, librarians = 1)
         state = pick(pick(pick(state, 0), 1), 1)
         assertEquals(listOf(pack(state, 1, 1), pack(state, 0, 1)), queue(state, 0))
+        assertEquals(0, opened(state, 1)) // the 3-card pack was always predicted to come back to B
         val left = cards(state, pack(state, 1, 1)).last()
         val spent = librarians(state, 0)
         state = pick(state, 0, spent)
-        assertEquals(spent, manualLog(state, 0).burned)
-        val award = state.log.single { it.automatic && it.packId == pack(state, 1, 1) }
-        assertEquals(listOf(left), award.kept)
-        assertTrue(state.pools.values.flatten().none { it in spent })
+        assertTrue(manualLog(state, 0).burned.isEmpty())
+        assertEquals(listOf(left) + spent, cards(state, pack(state, 1, 1)))
+        val b = state.seating[1]
+        assertEquals(pack(state, 1, 1), queue(state, 1).first())
+        // B keeps the Librarian; A gets the last card automatically.
+        state = DraftEngine.pick(state, DraftPick(b, pack(state, 1, 1), spent)).state!!
+        assertTrue(spent.single() in state.pools.getValue(b))
+        assertEquals(listOf(left), state.log.single { it.automatic && it.packId == pack(state, 1, 1) }.kept)
         finish(state)
     }
 
-    @Test fun librarianSpendAtTheDiscardThresholdBurnsTheLibrarian() {
-        // 6 cards, keep 1, burn 2, discard at 2: A spends one Librarian, keeps 2, burns 2 and the last 2 are discarded.
-        var state = start(packs = 1, cards = 6, burn = 2, discard = 2, librarians = 1)
+    @Test fun librarianLeftAtTheDiscardThresholdIsDiscardedWithTheRest() {
+        // 6 cards, keep 1, burn 2, discard at 3: A spends one Librarian, keeps 2, burns 2; 2 cards + the Librarian are discarded.
+        var state = start(packs = 1, cards = 6, burn = 2, discard = 3, librarians = 1)
         val spent = librarians(state, 0)
         state = pick(state, 0, spent)
         val log = manualLog(state, 0)
-        assertEquals(2, log.discarded.size)
-        assertEquals(spent, log.burned.filter { it in spent })
+        assertEquals(3, log.discarded.size)
+        assertTrue(log.discarded.containsAll(spent))
+        assertTrue(log.burned.none { it in spent })
         assertTrue(cards(state, pack(state, 0, 1)).isEmpty())
         assertTrue(state.pools.values.flatten().none { it in spent })
     }
@@ -253,8 +263,7 @@ class DraftEarlyOpeningTest {
             while (!state.finished) {
                 assertTrue(steps++ < 1000, "Draft must make progress")
                 val seat = state.seating.indices.first { queue(state, it).isNotEmpty() }
-                val available = cards(state, queue(state, seat).first()).size - state.settings.keep
-                state = pick(state, seat, librarians(state, seat).take(available.coerceAtLeast(0)))
+                state = pick(state, seat, librarians(state, seat))
                 for (member in state.seating.indices) for (id in queue(state, member))
                     assertTrue(state.packs.first { it.id == id }.round >= opened(state, member),
                         "A pack of an earlier round reached a member who already opened a later one")

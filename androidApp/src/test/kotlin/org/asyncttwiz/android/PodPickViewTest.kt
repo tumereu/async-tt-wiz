@@ -136,6 +136,38 @@ class PodPickViewTest {
         assertEquals(beforeBurn, burn.fetchSemanticsNode().boundsInRoot)
     }
 
+    @Test fun aSpentLibrarianShowsInThePackAndCanBeBurnedKeptOrRefunded() {
+        val librarian = DraftCopy("l1", "librarian", librarian = true)
+        var confirmed: Triple<List<String>, List<String>, List<String>>? = null
+        compose.setContent { ScreenTheme { Surface {
+            // A small pack keeps every card, the spent Librarian included, composed in the lazy grid.
+            PodPickView(pack.copy(cards = pack.cards.take(6)), DraftSettings(keep = 1, burn = 2), definitions, false, { _, _ -> },
+                librarians = listOf(librarian), onConfirmLibrarians = { keep, burn, spent -> confirmed = Triple(keep, burn, spent) })
+        } } }
+        card("l1").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Librarian, 1 left").performScrollTo().performClick()
+        card("l1").performScrollTo().assertExists()
+        // Refund from the card's own menu takes it back out of the pack.
+        card("l1").performClick(); compose.onNodeWithText("Refund Librarian").performClick()
+        card("l1").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Librarian, 1 left").performScrollTo().performClick()
+        // Burn it like any card: one of the two burns.
+        card("l1").performScrollTo().performClick(); compose.onNodeWithText("Burn").performClick()
+        assertMark("l1", "Burn")
+        for (id in listOf("1", "2")) { card(id).performScrollTo().performClick(); compose.onNodeWithText("Keep").performClick() }
+        card("3").performScrollTo().performClick(); compose.onNodeWithText("Burn").performClick()
+        compose.onNodeWithText("Confirm · 1 Librarian").assertIsEnabled()
+        // Keep it back instead (the oldest keep makes room), then refund from the dashed slot clears its mark.
+        card("l1").performScrollTo().performClick(); compose.onNodeWithText("Keep").performClick()
+        assertMark("l1", "Keep")
+        card("4").performScrollTo().performClick(); compose.onNodeWithText("Burn").performClick()
+        compose.onNodeWithText("Confirm · 1 Librarian").assertIsEnabled().performClick()
+        assertEquals(Triple(listOf("2", "l1"), listOf("3", "4"), listOf("l1")), confirmed)
+        compose.onNodeWithTag("pod-librarian-slot-l1").performScrollTo().performClick()
+        card("l1").assertDoesNotExist()
+        compose.onNodeWithText("Confirm").assertIsEnabled()
+    }
+
     private fun hold(target: SemanticsNodeInteraction, settle: Boolean = false) {
         target.performTouchInput { down(center); advanceEventTime(160) }
         compose.mainClock.advanceTimeBy(160)

@@ -262,7 +262,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val attempt = detail.draftAttemptId ?: return
         val owned = detail.draft!!.pool.filter { it.librarian }.map { it.id }
         if (librarians.distinct().size != librarians.size || librarians.any { it !in owned }) return
-        if (state.uncertain || !PodPickRules(pack, detail.settings, librarians.size)
+        if (state.uncertain || !PodPickRules(pack, detail.settings, librarians)
                 .canConfirm(PodPickMarks(keeps = keep, burns = burn, librarians = librarians), false)) return
         val input = PickPod(requestId(), attempt, pack.id, keep.toList(), burn.toList(), librarians.toList())
         // The pick supersedes any unsent marks for this pack; a marks write already in flight is refused by the server.
@@ -326,10 +326,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         synchronized(marksLock) { pickedPacks.removeAll { it.pod == detail.id && it !in current }; if (key in pickedPacks) return }
         val saved = draft.marks?.takeIf { it.packId == head.id } ?: return
         if (key in pickMarks) return
-        val cards = head.cards.map { it.id }.toSet()
         val owned = draft.pool.filter { it.librarian }.map { it.id }.toSet()
-        pickMarks[key] = PodPickMarks(head.id, saved.keeps.filter { it in cards }, saved.burns.filter { it in cards },
-            saved.librarians.filter { it in owned })
+        val librarians = saved.librarians.filter { it in owned }
+        // Spent Librarians are cards of the pack for this pick, so their keep/burn marks come back with them.
+        val cards = head.cards.map { it.id }.toSet() + librarians
+        pickMarks[key] = PodPickMarks(head.id, saved.keeps.filter { it in cards }, saved.burns.filter { it in cards }, librarians)
     }
     private fun notesKey(detail: PodDetail?): PodNotesKey? =
         detail?.takeIf { it.phase != PodPhase.SETUP }?.draftAttemptId?.let { PodNotesKey(detail.id, it) }
@@ -488,7 +489,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val base = detail?.takeIf { it.id == write.pod && it.draftAttemptId == write.attempt } ?: continue
             val draft = base.draft ?: continue
             val pack = draft.head?.takeIf { it.id == input.packId } ?: continue
-            val kept = pack.cards.filter { it.id in input.keep }
+            // A spent Librarian kept back from the pack returns to the pool.
+            val kept = pack.withSpentLibrarians(input.librarians, draft.pool).cards.filter { it.id in input.keep }
             val pool = draft.pool.filterNot { it.id in input.librarians } + kept
             detail = base.copy(
                 draft = draft.copy(head = draft.queuedPacks.firstOrNull(), queuedPacks = draft.queuedPacks.drop(1),

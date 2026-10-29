@@ -60,17 +60,21 @@ class LibrarianDraftTest {
             DraftPick(player, pack.id, pack.cards.take(2).map { it.id }, librarians = listOf(pack.cards.first().id))).reason)
     }
 
-    @Test fun `a final pick spend burns the librarians with the rest of the pack`() {
+    @Test fun `a librarian left in a pack with no further picks follows the leftover card rules`() {
         val state = start(size = 4, burn = 2, librarians = 2)
-        val a = state.seating.first()
+        val (a, b) = state.seating
         val av = DraftEngine.privateView(state, a)
         val pack = av.head!!
         val spent = av.pool.map { it.id }
-        // Keep 3 of 4 leaves one card to burn and nothing for anyone else, so the Librarians do not pass on.
-        val next = DraftEngine.pick(state, DraftPick(a, pack.id, pack.cards.take(3).map { it.id }, librarians = spent)).state!!
-        assertEquals(listOf(pack.cards.last().id) + spent, next.log.last().burned)
+        // The pack shows 4 cards + 2 Librarians: keep 3 cards, burn the last card and one Librarian.
+        val next = DraftEngine.pick(state, DraftPick(a, pack.id, pack.cards.take(3).map { it.id },
+            listOf(pack.cards.last().id, spent[0]), spent)).state!!
+        assertEquals(listOf(pack.cards.last().id, spent[0]), next.log.last { !it.automatic }.burned)
+        // The other Librarian is the only card left, so B gets it as an automatic award.
         assertTrue(next.packs.first { it.id == pack.id }.cards.isEmpty())
-        assertTrue(next.pools.values.flatten().none { it in spent })
+        assertEquals(listOf(spent[1]), next.log.single { it.automatic && it.packId == pack.id }.kept)
+        assertTrue(spent[1] in next.pools.getValue(b))
+        assertTrue(next.pools.getValue(a).none { it in spent })
     }
 
     @Test fun `a mid pack spend returns the librarian and the picked up librarian is spendable`() {
@@ -99,12 +103,13 @@ class LibrarianDraftTest {
             head.cards.drop(2).take(2).map { it.id }, listOf(spent.first()))).reason)
     }
 
-    @Test fun `automatic awards do not spend and a spend at the discard threshold burns the librarians`() {
+    @Test fun `automatic awards do not spend and librarians left at the discard threshold are discarded`() {
         val automatic = start(size = 1, burn = 0)
         assertTrue(automatic.finished)
         assertTrue(automatic.log.all { it.automatic && it.librarians.isEmpty() })
         assertTrue(automatic.pools.values.all { it.size == 3 })
-        val state = start(size = 6, burn = 1, librarians = 2, discard = 3)
+        // 6 cards + 2 Librarians: keep 3, burn 1, and the 4 left (2 cards and both Librarians) hit the discard threshold.
+        val state = start(size = 6, burn = 1, librarians = 2, discard = 4)
         val player = state.seating.first()
         val view = DraftEngine.privateView(state, player)
         val pack = view.head!!
@@ -112,8 +117,8 @@ class LibrarianDraftTest {
         val result = DraftEngine.pick(state, DraftPick(player, pack.id, pack.cards.take(3).map { it.id },
             listOf(pack.cards[3].id), spent)).state!!
         assertTrue(result.packs.first { it.id == pack.id }.cards.isEmpty())
-        assertEquals(pack.cards.drop(4).map { it.id }, result.log.last().discarded)
-        assertEquals(listOf(pack.cards[3].id) + spent, result.log.last().burned)
+        assertEquals(pack.cards.drop(4).map { it.id } + spent, result.log.last().discarded)
+        assertEquals(listOf(pack.cards[3].id), result.log.last().burned)
         assertTrue(result.pools.values.flatten().none { it in spent })
     }
 }

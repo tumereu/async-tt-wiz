@@ -252,7 +252,12 @@ class PodService(private val runtime: ServiceRuntime) {
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
         val set = setSource(row)
         if (settings.mode == DraftMode.GRID) {
-            val next = if (set == null) GridEngine.start(players, cube, settings, seed) else {
+            val next = if (set == null) GridEngine.start(players, cube, settings, seed)
+            else if (settings.freshBoosters) {
+                // One fresh booster per grid; its nine cards and refill cards are drawn at random from it.
+                GridEngine.startWithCards(players, GridEngine.freshBoosterCards(set, settings, players.size, seed), settings, seed,
+                    refillsDealt = true)
+            } else {
                 // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
                 val needed = settings.supply(players.size, emptyList()).needed.toInt()
                 val minPack = set.recipe?.boosters?.minOf { it.contents.values.sum() } ?: 15
@@ -303,9 +308,10 @@ class PodService(private val runtime: ServiceRuntime) {
             val draft = state(row) ?: return@transaction error(409, "wrong_draft_mode")
             val player = owner.toString()
             if (draft.queues[player]?.firstOrNull() != input.packId) return@transaction error(409, "not_head_of_queue")
-            val cards = draft.packs.first { it.id == input.packId }.cards.toSet()
             val owned = draft.pools.getValue(player).toSet()
             val librarians = draft.copies.filter { it.librarian && it.id in owned }.map { it.id }.toSet()
+            // Spent Librarians are in the pack for this pick, so they can be marked like its cards.
+            val cards = draft.packs.first { it.id == input.packId }.cards.toSet() + input.librarians
             val selected = input.keeps + input.burns
             if (selected.distinct().size != selected.size || selected.any { it !in cards } ||
                 input.librarians.distinct().size != input.librarians.size || input.librarians.any { it !in librarians })

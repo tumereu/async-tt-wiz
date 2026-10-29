@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.DraftCopy
 import org.asyncttwiz.protocol.DraftPrivatePack
 import org.asyncttwiz.protocol.DraftSettings
 
@@ -22,17 +23,18 @@ internal data class PodPickMarks(
 
     fun unmark(id: String) = copy(keeps = keeps - id, burns = burns - id)
 
+    /** A spent Librarian joins the pack as a card for this pick and adds one keep slot. */
     fun spendLibrarian(available: List<String>, pack: DraftPrivatePack, settings: DraftSettings): PodPickMarks {
-        if (settings.keep + librarians.size >= pack.cards.size) return this
         val next = available.firstOrNull { it !in librarians } ?: return this
         return copy(librarians = librarians + next).trim(pack, settings)
     }
 
+    /** Takes the Librarian back out of the pack, with any keep or burn mark on it. */
     fun refundLibrarian(id: String, pack: DraftPrivatePack, settings: DraftSettings) =
-        copy(librarians = librarians - id).trim(pack, settings)
+        copy(librarians = librarians - id, keeps = keeps - id, burns = burns - id).trim(pack, settings)
 
     private fun trim(pack: DraftPrivatePack, settings: DraftSettings): PodPickMarks {
-        val rules = PodPickRules(pack, settings, librarians.size)
+        val rules = PodPickRules(pack, settings, librarians)
         return copy(keeps = keeps.takeLast(rules.requiredKeeps), burns = burns.takeLast(rules.manualBurns))
     }
 
@@ -47,9 +49,11 @@ internal data class PodPickMarks(
     }
 }
 
-internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val spentLibrarians: Int = 0) {
-    val ids = pack.cards.map { it.id }
-    val requiredKeeps = minOf(settings.keep + spentLibrarians, ids.size)
+/** The pack as shown for this pick: its cards followed by the spent [librarians], which are ordinary cards here. */
+internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val librarians: List<String> = emptyList()) {
+    val ids = pack.cards.map { it.id } + librarians
+    val spentLibrarians get() = librarians.size
+    val requiredKeeps = minOf(settings.keep + librarians.size, ids.size)
     val automaticBurns = ids.size <= requiredKeeps.toLong() + settings.burn
     val manualBurns = if (automaticBurns) 0 else settings.burn
     val requiredBurns = if (automaticBurns) ids.size - requiredKeeps else settings.burn
@@ -62,7 +66,14 @@ internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val
 
     fun canConfirm(marks: PodPickMarks, busy: Boolean): Boolean {
         val burns = burnIds(marks)
-        return !busy && ids.isNotEmpty() && marks.librarians.size == spentLibrarians && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
+        return !busy && ids.isNotEmpty() && marks.librarians == librarians && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
             (marks.keeps + burns).let { selected -> selected.distinct().size == selected.size && selected.all { it in ids } }
     }
+}
+
+/** [this] pack with the spent Librarians (in spend order) added as cards, as the picker sees it before confirming. */
+internal fun DraftPrivatePack.withSpentLibrarians(spent: List<String>, owned: List<DraftCopy>): DraftPrivatePack {
+    if (spent.isEmpty()) return this
+    val copies = owned.associateBy { it.id }
+    return copy(cards = cards + spent.mapNotNull(copies::get))
 }

@@ -365,6 +365,7 @@ object GameplayRules {
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
         }), action, command.requestId)
+            .let { if (rulesVersion >= SearchQueue.RULES_VERSION) SearchQueue.update(it, action) else it }
         val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
             .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }
         val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)

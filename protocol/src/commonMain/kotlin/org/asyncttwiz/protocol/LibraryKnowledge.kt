@@ -190,6 +190,8 @@ internal object LibraryKnowledge {
             }
         }
         var shuffled = false
+        // Rules v30: a Search close places its waiting cards around the shuffled rest.
+        var closing: List<LibraryLayer>? = null
         when (action) {
             is PlayAction.Mulligan -> shuffled = action.libraryId == library.id
             is PlayAction.ShuffleLibrary -> shuffled = action.containerId == library.id
@@ -205,7 +207,7 @@ internal object LibraryKnowledge {
                 it.id == action.displayId && it.containerId == library.id }?.let { display ->
                 val ids = display.cardIds.filter { it in members }
                 when (if (display.search) ContentsRest.SHUFFLE else action.rest) {
-                    ContentsRest.SHUFFLE -> shuffled = true
+                    ContentsRest.SHUFFLE -> { shuffled = true; closing = SearchQueue.closeLayers(display, library.cards, ::newId) }
                     ContentsRest.TOP -> edge(ids, top = true, ordered = true)
                     ContentsRest.BOTTOM -> edge(ids, top = false, ordered = true)
                     // Seeded by nobody's choice: their order stays unknown, as one layer of their own.
@@ -218,7 +220,7 @@ internal object LibraryKnowledge {
         // Inconsistent layers (never produced by the rules) stay untouched until something changes there.
         if (!shuffled && placed.isEmpty() && library.cards == old.cards &&
             LibraryLayers.segments(old).isEmpty() && library.layers == old.layers) return old.layers
-        var parts = if (shuffled) all() else {
+        var parts = if (shuffled) closing ?: all() else {
             // Inconsistent layers know nothing: the old cards count as one hidden layer.
             val segments = LibraryLayers.segments(old).map { it.layer }.ifEmpty { listOf(LibraryLayer(newId(), false, old.cards)) }
             val remaining = segments.map { layer ->

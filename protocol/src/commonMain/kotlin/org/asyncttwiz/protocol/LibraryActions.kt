@@ -9,7 +9,12 @@ import kotlinx.serialization.Serializable
 @Serializable data class ContentsDisplay(val id: String, val author: String, val containerId: String,
     val selection: ContentsSelection, val requestedCount: Int, val reveal: Boolean, val cardIds: List<String>,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealedIds: Set<String> = emptySet(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelVersion: Int = 1) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelVersion: Int = 1,
+    /** Rules v30, a Search on a Library: the cards put on its top / bottom while it is open, waiting to be
+     * placed after the close shuffle (see [SearchQueue]). One entry per put in put order; a random-order put
+     * is one entry of all its cards. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val queuedTop: List<List<String>> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val queuedBottom: List<List<String>> = emptyList()) {
     fun facesVisibleTo(accountId: String) = reveal || author == accountId
     fun faceVisibleTo(cardId: String, accountId: String) = facesVisibleTo(accountId) || cardId in revealedIds
     val search get() = selection == ContentsSelection.ALL && !reveal
@@ -145,7 +150,8 @@ object LibraryRules {
                     ContentsRest.BOTTOM -> rest + ids
                     ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
                     ContentsRest.GRAVEYARD, ContentsRest.EXILE -> rest
-                    ContentsRest.SHUFFLE -> RandomV1.shuffle(source.cards, seed)
+                    ContentsRest.SHUFFLE -> if (rulesVersion >= SearchQueue.RULES_VERSION) SearchQueue.closeOrder(display, source.cards, seed)
+                        else RandomV1.shuffle(source.cards, seed)
                 }
                 if (restZone != null && restDestination == null) return GameplayChange(reason = "missingReference")
                 val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },

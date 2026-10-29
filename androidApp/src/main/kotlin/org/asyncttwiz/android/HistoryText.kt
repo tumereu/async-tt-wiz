@@ -47,6 +47,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
     fun tempNumber(id: String): Int? = container(id).let { c -> if (c != null) c.tempNumber.takeIf { c.temp } else tempRefs[id]?.number }
     fun temp(id: String) = tempNumber(id) != null
     fun known(id: String) = temp(id) || container(id) != null
+    fun searchWaits(libraryId: String) = transition.rulesVersion >= SearchQueue.RULES_VERSION &&
+        before?.board?.let(SearchQueue::search)?.containerId == libraryId
     fun zone(id: String) = tempNumber(id)?.let { "Temp $it" } ?: container(id)?.zone?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Another zone"
     fun visible(card: PlayCard): Boolean {
         val area = container(card.containerId) ?: return false
@@ -147,10 +149,12 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                     MoveInsertion.BOTTOM -> " bottom"
                     else -> ""
                 } else ""
+                // Rules v30: a top/bottom put onto a searched Library waits for the search to close.
+                val waits = if (edge.isNotEmpty() && searchWaits(target)) " (after search)" else ""
                 // Without board context a zone is unknown: say only that the card moved, never a made-up zone.
                 val route = if (!known(source) || !known(target)) null
                     else if (source == target && container(source)?.zone == PlayZone.BATTLEFIELD) "moved on ${named(target)}"
-                    else "${named(source)} → ${named(target)}$edge"
+                    else "${named(source)} → ${named(target)}$edge$waits"
                 val subject = card(action.cardId).takeUnless { shownCard(action.cardId) == null }
                 HistoryText(historyPlainText(historyMoveText(subject ?: "A card", route)), if (draw) "Draw" else "Move", HistoryMove(subject, route))
             }
@@ -159,7 +163,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             // Names only cards the viewer could see where they came from; the new order is never shown.
             val sources = action.cardIds.map { id -> before?.board?.cards?.find { it.id == id }?.containerId }
             val from = sources.filterNotNull().distinct().map(::zone).distinct()
-            val target = "${playerPrefix(container(action.libraryId)?.accountId ?: event.author)}Library ${if (action.bottom) "bottom" else "top"} (random order)"
+            val target = "${playerPrefix(container(action.libraryId)?.accountId ?: event.author)}Library ${if (action.bottom) "bottom" else "top"} (random order${if (searchWaits(action.libraryId)) ", after search" else ""})"
             val route = if (from.isEmpty() || sources.any { it == null }) target else "${from.joinToString(", ")} → $target"
             val subject = historyMoveSubjects(action.cardIds.map { id -> card(id).takeUnless { shownCard(id) == null } })
             HistoryText(historyPlainText(historyMoveText(subject, route)), "Move", HistoryMove(subject, route))
@@ -183,8 +187,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 if (action.reveal) "Reveal" else if (action.selection == ContentsSelection.ALL) "Search" else "Look")
         }
         is PlayAction.DismissContents -> text(if (transition.contents?.from?.let { container(it.containerId)?.zone == PlayZone.HAND && it.reveal } == true) "Hand reveal done"
-            else if (transition.contents?.from?.search == true) "Search closed → Library shuffled"
-            else "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
+            else transition.contents?.from?.takeIf { it.search }?.let { search -> "Search closed → Library shuffled" +
+                listOfNotNull(searchQueueCount(SearchQueue.topCount(search), "top"),
+                    searchQueueCount(SearchQueue.bottomCount(search), "bottom")).joinToString("") { " · $it" } }
+            ?: "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
         is PlayAction.RevealContentsCard -> text("${card(action.cardId)} revealed in panel", "Reveal card")
         is PlayAction.ReorderContents -> text("Card panel reordered", "Reorder panel")
         is PlayAction.EventComment -> text("Comment: ${historyPlainText(action.text)}", "Comment")

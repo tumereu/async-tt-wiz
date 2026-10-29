@@ -1,0 +1,1 @@
+fix: Cards you put on top or bottom of a library while searching it now stay there after the search shuffles the rest

@@ -133,10 +133,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 container(target)?.zone == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP
             if (source == target && container(source)?.zone == PlayZone.HAND) text("Hand reordered", "Reorder hand")
             else {
-                // A zone is named by its owner only when it isn't the moved card's owner's (e.g. a stolen creature).
+                // Only a battlefield that isn't the moved card's owner's is named by its player (e.g. a stolen creature).
                 val owner = (shownCard(action.cardId) ?: before?.board?.cards?.find { it.id == action.cardId })?.owner
-                fun named(id: String) = zone(id).let { name ->
-                    container(id)?.accountId?.takeIf { owner != null && it != owner }?.let { "${historyPlayerName(it, usernames)}'s $name" } ?: name }
+                fun named(id: String) = zone(id).let { name -> container(id)?.takeIf { it.zone == PlayZone.BATTLEFIELD }?.accountId
+                    ?.takeIf { owner != null && it != owner }?.let { "${historyPlayerName(it, usernames)}'s $name" } ?: name }
                 val insertion = action.destination.libraryInsertion ?: action.destination.insertion
                 val edge = if (container(target)?.zone == PlayZone.LIBRARY && !temp(target)) when (insertion) {
                     MoveInsertion.TOP -> " top"

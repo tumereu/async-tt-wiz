@@ -1,0 +1,1 @@
+fix: A waiting win, loss or draw suggestion no longer locks the timeline at points before it was made, or on other branches.

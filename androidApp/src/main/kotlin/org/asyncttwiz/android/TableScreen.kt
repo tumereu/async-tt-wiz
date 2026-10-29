@@ -66,7 +66,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val game = state.detail ?: return
     val interactive = game.id !in state.reconnectingGames
     val live = state.play
-    val resultLocked = ResultActions.blocksGameActions(game, state.acceptedPlay, live)
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
     val tree = controller.retainedTree()
@@ -109,6 +108,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
         else endpoint.live(live, history.view?.state, awaitingIndex,
             position?.cursorId?.takeIf { playback.livePanelReveal })
+    val resultLocked = ResultActions.blocksAt(game, state.acceptedPlay, live, play, reviewing)
     SideEffect {
         endpoint.presented(play)
         play?.let {
@@ -245,7 +245,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                     if (!history.foreground || controller.state.detail?.id != game.id ||
                         controller.state.detail?.playId != play.id ||
                         game.id in controller.state.reconnectingGames) false else {
-                        if (ResultActions.blocksGameActions(controller.state.detail ?: game, controller.state.acceptedPlay, controller.state.play)) false
+                        if (ResultActions.blocksAt(controller.state.detail ?: game, controller.state.acceptedPlay,
+                                controller.state.play, play, reviewing)) false
                         else if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
                         else controller.annotateBatch(actions)
                     }

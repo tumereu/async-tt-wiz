@@ -80,7 +80,7 @@ class ResultActionsTest {
         assertFalse(f.session.pending(game.id)); assertEquals(prediction, f.session.play(active))
     }
 
-    @Test fun pendingSuggestionBlocksBothClientsAtTheLiveEndpointEvenWhileReviewingAnEarlierBoard() {
+    @Test fun pendingSuggestionBlocksBothClientsAtTheLiveEndpoint() {
         val proposed = proposed()
         assertFalse(ResultActions.blocksGameActions(active, initial))
         assertTrue(ResultActions.blocksGameActions(active, proposed))
@@ -293,6 +293,17 @@ class ResultActionsTest {
         livePlayback.finishPanelReveal()
         assertNotNull(ResultActions.pendingPresentation(active, live, b.accountId))
         assertTrue(ResultActions.canResolve(active, live, live, livePlayback.position))
+    }
+
+    @Test fun timelineLocksOnlyOnceTheShownBoardIncludesTheSuggestion() {
+        val proposed = proposed()
+        // Reviewing a point before the suggestion (or another branch without it) is not locked.
+        assertFalse(ResultActions.blocksAt(active, proposed, proposed, initial, reviewing = true))
+        assertTrue(ResultActions.blocksAt(active, proposed, proposed, proposed, reviewing = true))
+        // At the live end the live endpoint decides, whatever board is on screen.
+        assertTrue(ResultActions.blocksAt(active, proposed, proposed, initial, reviewing = false))
+        assertFalse(ResultActions.blocksAt(active, initial, initial, initial, reviewing = false))
+        assertFalse(ResultActions.blocksAt(game, proposed, proposed, proposed, reviewing = true))
     }
 
     @Test fun pendingResultStillLetsPlayersLookAtCards() {

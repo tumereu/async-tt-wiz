@@ -312,10 +312,10 @@ class HistoryTextTest {
         val hidden = state.copy(board = state.board.copy(cards = state.board.cards.map { it.copy(containerId = id(21)) }))
         val move = PlayAction.MoveCard(id(9), MoveSource(id(21)), MoveDestination(id(23), MoveInsertion.EMPTY))
         val movement = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(21)), CardLocation(id(23))))
-        // The fixture's alice-owned card sits in bob's zones, so both are named as bob's.
-        assertEquals("Velvet Prism Engine: bob's Hand → bob's Battlefield", format(move, movement, hidden, f.b).description)
+        // The fixture's alice-owned card moves onto bob's battlefield, so only that zone is named as bob's.
+        assertEquals("Velvet Prism Engine: Hand → bob's Battlefield", format(move, movement, hidden, f.b).description)
         val faceDown = movement.copy(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
-        assertEquals("A card: bob's Hand → bob's Battlefield", format(move, faceDown, hidden, f.b).description)
+        assertEquals("A card: Hand → bob's Battlefield", format(move, faceDown, hidden, f.b).description)
 
         val public = hidden.copy(board = hidden.board.copy(cards = hidden.board.cards.map { it.copy(containerId = id(23)) }))
         val cover = GameplayTransition(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
@@ -325,8 +325,8 @@ class HistoryTextTest {
         assertEquals("Velvet Prism Engine face up", format(PlayAction.SetCovered(id(9), false), uncover, covered, f.b).description)
         val toHand = PlayAction.MoveCard(id(9), MoveSource(id(23)), MoveDestination(id(21), MoveInsertion.UNORDERED))
         val returning = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(23)), CardLocation(id(21))))
-        assertEquals("Velvet Prism Engine: bob's Battlefield → bob's Hand", format(toHand, returning, public, f.b).description)
-        assertEquals("A card: bob's Battlefield → bob's Hand", format(toHand, returning, covered, f.b).description)
+        assertEquals("Velvet Prism Engine: bob's Battlefield → Hand", format(toHand, returning, public, f.b).description)
+        assertEquals("A card: bob's Battlefield → Hand", format(toHand, returning, covered, f.b).description)
     }
 
     @Test fun historicalTextUsesEventTimeBoardAndSurvivesLaterRevealsAndForks() {

@@ -26,6 +26,12 @@ object ResultActions {
     fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
         listOf(accepted, predicted).any { capture(game, it) != null && it?.board?.resultSuggestion != null }
 
+    /** At the live end the live endpoint owns the lock. In the timeline only a displayed board that already
+     * includes the suggestion locks; a suggestion still "about to come", or on another branch, does not. */
+    fun blocksAt(game: GameSummary, accepted: PlayState?, predicted: PlayState?, displayed: PlayState?, reviewing: Boolean): Boolean =
+        if (reviewing) capture(game, displayed) != null && displayed?.board?.resultSuggestion != null
+        else blocksGameActions(game, accepted, predicted)
+
     /** Visibility belongs to the displayed replayed board, not the live action lock. */
     fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? {
         val target = capture(game, displayed) ?: return null

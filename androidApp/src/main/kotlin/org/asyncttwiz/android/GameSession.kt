@@ -485,7 +485,12 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
             (account != null && account != actor)) return refused("sessionUnavailable")
         val replica = plays[game.id] ?: return refused("replicaMissing")
-        if (ResultActions.blocksGameActions(current, replica.accepted, play(current)) &&
+        // A continuation from an earlier timeline point is gated by its own board (checked when it is prepared),
+        // so a pending suggestion further along the old line does not block it.
+        val continuationBoard = continuation?.let { replica.tree?.tree?.preparedState(it.nodeId) }
+        val locked = if (continuation == null) ResultActions.blocksGameActions(current, replica.accepted, play(current))
+            else continuationBoard?.board?.resultSuggestion != null
+        if (locked &&
             (action as? GameAction.Play)?.action !is PlayAction.DeclineResult &&
             (action as? GameAction.Play)?.action !is PlayAction.WithdrawResult) return refused("pendingResult")
         // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact

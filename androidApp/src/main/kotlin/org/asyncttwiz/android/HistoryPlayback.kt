@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 import org.asyncttwiz.protocol.*
 import kotlinx.collections.immutable.toPersistentMap
@@ -18,7 +19,9 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
     internal val source: GameplayTree? = null, previous: HistoryTree? = null,
     lazyPresentation: Boolean = false) {
     val nodes = source?.nodes ?: mutations.associateBy { it.id }
-    var texts = texts; internal set
+    /** Snapshot state: texts made later (a reviewed board) reach the timeline and tree dialog. Lazy text
+     * maps compare equal while still empty, so a new map always counts as a change. */
+    var texts by mutableStateOf(texts, referentialEqualityPolicy()); internal set
     private val changed = if (source != null && previous?.source != null) source.changedNodeIdsSince(previous.source) else null
     private val priorIndex: HistoryIndex? = previous?.takeIf { changed != null && (!lazyPresentation || it.hasPresentationIndex) }?.index
     private val priorNodes: Map<String, GameplayMutation> = if (priorIndex != null) previous?.nodes.orEmpty() else emptyMap()

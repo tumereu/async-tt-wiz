@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicReference
 
 /** Personal display/armed intent only. The session remains the sole tree, prediction and FIFO owner.
  * Cold indexing and graph projection run on the supplied worker. */
@@ -34,6 +35,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     private var textIndex: HistoryTree? = null
     private var acceptedIndex: HistoryTree? = null
     private var acceptedTree: GameplayTree? = null
+    // Event texts made while a board was at hand (live end, predictions, playback/review points).
+    // Merged from the index and text workers; read through immutable snapshots.
+    private val textCache = AtomicReference(HistoryTextCache(null, emptyMap()))
+    private val textWork = LatestReview(worker)
     private var opening = false
     private var lastSeen: String? = null
     private var recordSeen: ((String, String) -> Unit)? = null
@@ -90,7 +95,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 emptyList(), accepted.currentNodeId, version, containers = accepted.initial.board.containers,
                 source = acceptedCopy, previous = retained ?: acceptedIndex?.takeIf { it.rootId == accepted.initial.root.id }, lazyPresentation = true)
             if (generation != epoch) return@submit
-            index.texts = TimelineTexts(isolated, viewer, names); textIndex = index; acceptedIndex = acceptedHistory
+            index.texts = TimelineTexts(isolated, viewer, names, liveTexts(isolated, viewer, names, generation))
+            textIndex = index; acceptedIndex = acceptedHistory
             post {
                 if (!closed && generation == epoch) {
                     indexedEpoch = generation
@@ -129,12 +135,55 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (next.cursor != null && (!index.contains(next.cursor) ||
                         (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
+                next.state?.let { reviewTexts(index, it) }
                 eventText.displayed(next.cursor, next.state, position.mode, index.nodes, textViewer, usernames, index::isAncestor)
                 stepChanges?.takeIf { it.first == next.cursor }?.let { changes.apply(it.second); stepChanges = null }
                 if (position.mode == HistoryMode.PLAYBACK && next.cursor != null && next.cursor != position.cursorId)
                     playback.scrub(next.cursor)
             }
         }) error = "History is not downloaded yet."
+    }
+
+    /** Worker: texts of the events just before the live end, stepped back from its board (no replay).
+     * Events a change rewrote or re-parented lose their old texts first, and so do their descendants. */
+    private fun liveTexts(tree: GameplayTree, viewer: String?, names: Map<String, String>, generation: Long): HistoryTextCache {
+        val retained = tree.endpointIndex() // Built here, so presentation lookups never index on the UI thread.
+        val previous = textIndex?.source?.takeIf { it.initial.root.id == tree.initial.root.id }
+        val changed = previous?.let(tree::changedNodeIdsSince).orEmpty()
+        val dropped = if (changed.isEmpty()) emptySet() else retained.descendants(changed.filter(tree.nodes::containsKey)) + changed
+        val head = tree.preparedState(tree.currentNodeId)
+        val added = head?.let { historyTextsNear(tree, it, textCache.get().forContext(viewer, names), HEAD_TEXT_WINDOW,
+            dropped = dropped) { generation == epoch } }.orEmpty()
+        return textCache.updateAndGet { it.forContext(viewer, names).with(added, dropped) }
+    }
+
+    /** A shown board names its own event, its neighbours and a short stretch ahead on the live line;
+     * work is queued only when one of those has no text yet. */
+    private fun reviewTexts(index: HistoryTree, state: PlayState) {
+        val source = index.source ?: return
+        val cursor = state.currentNodeId
+        if (state.id != source.initial.id || !index.contains(cursor)) return
+        val viewer = textViewer; val names = usernames
+        val cache = textCache.get().forContext(viewer, names)
+        val retained = source.endpointIndex()
+        val line = retained.paths[index.sharedHeadId]
+        val depth = retained.positions[cursor]?.depth
+        val forward = if (line != null && depth != null && line.getOrNull(depth) == cursor)
+            line.subList(depth + 1, minOf(line.size, depth + 1 + REVIEW_TEXT_AHEAD)) else emptyList()
+        fun missing(id: String) = id in source.nodes && cache.text(source, id) == null
+        if (!missing(cursor) && retained.children[cursor].orEmpty().none(::missing) && forward.none(::missing)) return
+        val generation = epoch
+        textWork.submit("texts") {
+            if (generation != epoch) return@submit
+            val added = historyTextsNear(source, state, cache, REVIEW_TEXT_BACK, forward, REVIEW_TEXT_AHEAD) { generation == epoch }
+            if (added.isEmpty()) return@submit
+            textCache.updateAndGet { it.forContext(viewer, names).with(added) }
+            post {
+                val shown = playback?.tree
+                if (!closed && generation == epoch && shown === index && textViewer == viewer && usernames == names)
+                    shown.texts = TimelineTexts(source, viewer, names, textCache.get())
+            }
+        }
     }
 
     fun select(node: String) { clearChanges(); cancel(); playback?.takeIf { it.tree.contains(node) }?.scrub(node) }
@@ -266,6 +315,12 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     }
 
     fun leaving() { clearChanges(); lastPresentedLive?.let { recordSeen?.invoke(it.first, it.second) } }
-    override fun close() { leaving(); eventText.clear(); closed = true; epoch++; displayEpoch++; indexes.clear(); cancel(); view = null; tree = null; playback = null
-        acceptedTree = null; explorerHistory = null; acceptedIndex = null; textIndex = null }
+    override fun close() { leaving(); eventText.clear(); closed = true; epoch++; displayEpoch++; indexes.clear(); textWork.clear(); cancel(); view = null; tree = null; playback = null
+        acceptedTree = null; explorerHistory = null; acceptedIndex = null; textIndex = null; textCache.set(HistoryTextCache(null, emptyMap())) }
 }
+
+/** Events before the live end that get texts from its board on each update (stepped back, never replayed). */
+internal const val HEAD_TEXT_WINDOW = 128
+/** Events before / after a shown board that get texts from it. */
+internal const val REVIEW_TEXT_BACK = 64
+internal const val REVIEW_TEXT_AHEAD = 32

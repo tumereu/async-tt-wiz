@@ -4,16 +4,20 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import kotlin.test.*
 
+/** Defender (8) has a planeswalker (80), a creature (82) and a Siege (83, protected by the attacker, so not a target);
+ * the attacker (7) has its own Siege (81) on its battlefield. */
 internal fun attackTargetState(): PlayState {
     val base = combatState()
-    val definitions = listOf("Legendary Planeswalker — Test", "Battle — Siege", "Creature").mapIndexed { n, type ->
+    val definitions = listOf("Legendary Planeswalker — Test", "Battle — Siege", "Creature", "Battle — Siege").mapIndexed { n, type ->
         val definition = CardDefinition("Target $n", listOf(DefinitionFace(combatId(90 + n), "Target $n", typeLine = type)))
         SubmittedDefinition(DeckJson.digest(definition), definition)
     }
-    val targets = definitions.mapIndexed { n, definition -> PlayCard(combatId(80 + n), definition.digest, combatId(8),
-        combatId(70), combatId(90 + n), covered = false, placement = PlayPlacement(BoardPosition(n, 0), combatId(100 + n))) }
+    val targets = definitions.mapIndexed { n, definition -> PlayCard(combatId(80 + n), definition.digest,
+        if (n == 1) combatId(7) else combatId(8), if (n == 1) combatId(10) else combatId(70), combatId(90 + n), covered = false,
+        placement = PlayPlacement(BoardPosition(if (n == 1) 6 else n, 0), combatId(100 + n))) }
     val initial = base.copy(definitions = base.definitions + definitions, board = base.board.copy(cards = base.board.cards + targets,
-        containers = base.board.containers + PlayContainer(combatId(70), PlayZone.BATTLEFIELD, combatId(8), targets.map { it.id })))
+        containers = base.board.containers.map { if (it.id == combatId(10)) it.copy(cards = it.cards + combatId(81)) else it } +
+            PlayContainer(combatId(70), PlayZone.BATTLEFIELD, combatId(8), targets.filter { it.containerId == combatId(70) }.map { it.id })))
     val commands = CombatCommands()
     val declared = CombatStackController.declare(initial, combatId(7), (20..22).map { CombatStackController.bind(initial.board, combatId(it)) },
         false, commands::command).prediction
@@ -122,7 +126,7 @@ class AttackTargetPresentationTest {
         assertTrue(plain.label.startsWith("→ "))
     }
 
-    @Test fun emptyCombatHasDefaultPlayerLabelAndChoicesOnlyIncludeDefendingWalkersAndBattles() {
+    @Test fun emptyCombatHasDefaultPlayerLabelAndChoicesOnlyIncludeDefendingWalkersAndOwnSieges() {
         val original = attackTargetState()
         val empty = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(pairs = emptyList())))
         val labels = CombatStackPresentation.combat(empty.board, 48f, 68f, empty.definitions, mapOf(combatId(8) to "Bob")).lanes
@@ -146,6 +150,37 @@ class AttackTargetPresentationTest {
             assertEquals(drop.destination.attackTarget, result.prediction.board.combat!!.pairs.single().attackTarget)
         }
         assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(original, mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
+    }
+
+    @Test fun lanesAndAttackMenuListPlayerThenDefenderWalkersThenAttackerSiegesInBattlefieldOrder() {
+        val original = attackTargetState()
+        val battlemage = CardDefinition("Battlemage", listOf(DefinitionFace(combatId(96), "Battlemage", typeLine = "Creature — Human Battlemage")))
+        val submitted = SubmittedDefinition(DeckJson.digest(battlemage), battlemage)
+        val cards = original.board.cards.associateBy { it.id }
+        val walker2 = cards.getValue(combatId(80)).copy(id = combatId(84), placement = PlayPlacement(BoardPosition(7, 0), combatId(104)))
+        val siege2 = cards.getValue(combatId(81)).copy(id = combatId(85), placement = PlayPlacement(BoardPosition(7, 0), combatId(105)))
+        val mage = PlayCard(combatId(86), submitted.digest, combatId(7), combatId(10), combatId(96), covered = false,
+            placement = PlayPlacement(BoardPosition(8, 0), combatId(106)))
+        val state = original.copy(definitions = original.definitions + submitted, board = original.board.copy(
+            cards = original.board.cards + walker2 + siege2 + mage,
+            containers = original.board.containers.map { when (it.id) {
+                combatId(70) -> it.copy(cards = listOf(combatId(83), combatId(84)) + (it.cards - combatId(83)))
+                combatId(10) -> it.copy(cards = listOf(combatId(86), combatId(85)) + it.cards)
+                else -> it
+            } }))
+        val expected = listOf(null, combatId(84), combatId(80), combatId(85), combatId(81))
+        val names = mapOf(combatId(8) to "Bob")
+        for (viewer in listOf(combatId(7), combatId(8))) {
+            assertEquals(expected, CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, names, viewer).lanes.map { it.cardId })
+            assertEquals(expected, attackTargetChoices(state, names, viewer).map { it.first })
+        }
+        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(state, names, combatId(7)).map { it.second })
+        // The opponent's Siege, a Battlemage and creatures are never targets, and the reducer agrees.
+        for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state, id))
+        for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state, id))
+        // On the other player's turn the roles swap: their walkers are safe, the old attacker's Siege is protected.
+        val swapped = state.copy(board = state.board.copy(turn = state.board.turn.copy(accountId = combatId(8))))
+        assertEquals(listOf(null, combatId(83)), attackTargetChoices(swapped, emptyMap(), combatId(7)).map { it.first })
     }
 
     @Test fun attackTargetChoicesExcludeFaceDownWalkersAndBattlesEvenWhenKnown() {

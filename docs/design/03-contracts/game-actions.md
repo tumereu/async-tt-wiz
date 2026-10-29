@@ -163,6 +163,18 @@ for Undo. There are still no order controls (D-226), and the pile's inspect pane
 keeps its type sections with cards alphabetical within each type. Events recorded
 under older rules replay unchanged.
 
+**Siege battles as attack targets (rules v28).** Every printed battle is a Siege:
+its caster controls it and an opponent protects it, so the caster attacks it. A
+combat pair may target a face-up Planeswalker on the defending player's battlefield
+or a face-up Battle on the attacking (turn) player's own battlefield; a Battle on
+the defender's battlefield and any face-down card are not targets. Types are read
+from the type part of the type line (before "—"), so a "Battlemage" subtype is not a
+Battle. The combat area shows lanes in the order player, defender's planeswalkers,
+attacker's battles (each in battlefield order), and Attack → lists the same order.
+Combat damage to a battle target still lowers its corner (defense). Events recorded
+under older rules keep the old check (Planeswalker or Battle text on the defender's
+battlefield) for replay and Undo.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

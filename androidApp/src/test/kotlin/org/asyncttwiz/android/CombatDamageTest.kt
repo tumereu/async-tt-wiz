@@ -270,6 +270,16 @@ class CombatDamageTest {
         val battle = f.play.copy(definitions = f.play.definitions.map { submitted -> submitted.copy(definition = submitted.definition.copy(
             faces = submitted.definition.faces.map { if (it.typeLine == "Planeswalker") it.copy(typeLine = "Battle", loyalty = "", defense = "4") else it })) })
         assertEquals(result, f.assign(state = battle))
+        // Rules v28: a Siege on the attacker's own battlefield takes the damage the same way.
+        val own = f.id(10)
+        val siege = battle.copy(board = battle.board.copy(
+            cards = battle.board.cards.map { if (it.id == f.target) it.copy(containerId = own) else it },
+            containers = battle.board.containers.map { c -> when (c.id) {
+                own -> c.copy(cards = c.cards + f.target)
+                else -> c.copy(cards = c.cards - f.target)
+            } }))
+        assertTrue(CombatStackRules.canAttack(siege, f.target))
+        assertEquals(result, f.assign(state = siege))
     }
 
     @Test fun unknownRecipientNumbersDoNotProducePartialDamageOrLifelink() {

@@ -34,7 +34,7 @@ class PileOrderTest {
     private fun run(state: PlayState, actions: List<PlayAction>, first: Int): PlayState =
         actions.foldIndexed(state) { n, s, a -> change(s, a, first + n).state!! }
 
-    @Test fun rulesVersionIs27() = assertEquals(27, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun rulesVersionIs27() { assertEquals(27, PileOrder.RULES_VERSION); assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= PileOrder.RULES_VERSION) }
 
     @Test fun newestArrivalIsTheTopAndRecordsItsNeighbours() {
         val root = gameplayFixture(); val ids = cards(root, library)

@@ -88,15 +88,40 @@ import kotlinx.serialization.Serializable
 @Serializable data class StackIdentity(val kind: String, val id: String, val sourceId: String)
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
 
+/** Rules v28: every printed battle is a Siege, which its caster controls and an opponent protects; the
+ * caster attacks it. So a face-up Planeswalker is attackable on the defending player's battlefield and a
+ * face-up Battle on the attacking (turn) player's own battlefield; a Battle on the defender's battlefield
+ * is not (the attacker protects it). Types are read from the type part of the type line (before "—"), so
+ * a subtype such as "Battlemage" is not a Battle. Events recorded under older rules keep the old check. */
+object AttackTargets {
+    const val RULES_VERSION = 28
+    private val space = Regex("\\s+")
+    /** The supertype and card type words of [typeLine], never its subtypes. */
+    fun types(typeLine: String): List<String> =
+        typeLine.substringBefore('—').substringBefore(" - ").split(space).filter { it.isNotEmpty() }
+    fun hasType(typeLine: String, type: String) = types(typeLine).any { it.equals(type, ignoreCase = true) }
+    /** Whose battlefield a face-up card with [typeLine] must be on to be attacked this combat, or null. */
+    fun battlefieldOwner(board: BoardState, typeLine: String): String? = when {
+        hasType(typeLine, "Planeswalker") -> CombatStackRules.defendingPlayer(board)
+        hasType(typeLine, "Battle") -> CombatStackRules.attackingPlayer(board)
+        else -> null
+    }
+}
+
 object CombatStackRules {
     fun defendingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId != board.turn.accountId }?.accountId
-    fun canAttack(state: PlayState, cardId: String): Boolean {
+    /** The player whose combat it is (the turn player), derived like [defendingPlayer]. */
+    fun attackingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId == board.turn.accountId }?.accountId
+    fun canAttack(state: PlayState, cardId: String, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
         val card = state.board.cards.singleOrNull { it.id == cardId } ?: return false
         val container = state.board.containers.singleOrNull { it.id == card.containerId } ?: return false
         val face = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card.faceId } ?: return false
-        return container.zone == PlayZone.BATTLEFIELD && container.accountId == defendingPlayer(state.board) &&
+        if (container.zone != PlayZone.BATTLEFIELD) return false
+        if (rulesVersion < AttackTargets.RULES_VERSION) return container.accountId == defendingPlayer(state.board) &&
             (face.typeLine.contains("Planeswalker", ignoreCase = true) || face.typeLine.contains("Battle", ignoreCase = true))
+        val owner = AttackTargets.battlefieldOwner(state.board, face.typeLine) ?: return false
+        return !card.isFaceDown && container.accountId == owner
     }
 
     fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
@@ -200,7 +225,7 @@ object CombatStackRules {
                     }
                     is CombatAction.SetAttackTarget -> {
                         if (area?.id != action.areaId || area.pairs.none { it.id == action.pairId }) return reject("missingReference")
-                        if (action.cardId != null && !canAttack(state, action.cardId)) return reject("inapplicable")
+                        if (action.cardId != null && !canAttack(state, action.cardId, rulesVersion)) return reject("inapplicable")
                         board.copy(combat = area.copy(pairs = area.pairs.map {
                             if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
                         }))
@@ -227,7 +252,7 @@ object CombatStackRules {
                         val pairs = reduced.pairs.toMutableList()
                         val pairIndex: Int
                         if (destination.pairId == null) {
-                            if (destination.attackTarget != null && !canAttack(state, destination.attackTarget)) return reject("inapplicable")
+                            if (destination.attackTarget != null && !canAttack(state, destination.attackTarget, rulesVersion)) return reject("inapplicable")
                             pairIndex = gapIndex(pairs.map { it.id }, destination.pairGap) ?: return reject("destinationChanged")
                             pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
                         } else {

@@ -144,7 +144,7 @@ internal object GameplayConcerns {
             is ConcernField.Exists -> encoded(TokenLinkRules.exists(b, field.endpoint))
             is ConcernField.Occupied -> encoded(TokenLinkRules.occupied(b, field.id))
             is ConcernField.DefinitionAvailable -> encoded(state.definitions.any { it.digest == field.digest })
-            is ConcernField.AttackTargetEligible -> encoded(CombatStackRules.canAttack(state, field.id))
+            is ConcernField.AttackTargetEligible -> encoded(CombatStackRules.canAttack(state, field.id, mutation.transition.rulesVersion))
             is ConcernField.AttackTargetIncident -> encoded(b.combat?.pairs.orEmpty().filter { it.attackTarget == field.id }.map { it.id }.sorted())
             ConcernField.DefendingPlayer -> encoded(CombatStackRules.defendingPlayer(b))
             ConcernField.PanelSlot -> encoded(b.contentsDisplays.map { it.id }.sorted())

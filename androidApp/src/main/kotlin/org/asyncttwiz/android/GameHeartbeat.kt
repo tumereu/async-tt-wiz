@@ -48,8 +48,14 @@ internal class GameHeartbeatTracker(private val presenceId: String = UUID.random
     fun heartbeat(): GamePresence? = game?.let { GamePresence(it, presenceId, didSomething).also { didSomething = false } }
 }
 
-/** Main-thread lifecycle owner; socket first, bounded authenticated HTTP fallback off the UI thread. */
-internal class GameHeartbeatController(private val socket: (String, GamePresence) -> Boolean) : AutoCloseable {
+/** Main-thread lifecycle owner; socket first, bounded authenticated HTTP fallback off the UI thread.
+ * Leaving always goes over HTTP too: a socket send only queues, and on a dead or soon frozen socket the
+ * "left" mark is lost while the app sits in the background. */
+internal class GameHeartbeatController(
+    private val http: (String, GamePresence) -> Unit = { token, presence -> kotlinx.coroutines.runBlocking {
+        ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) } } },
+    private val socket: (String, GamePresence) -> Boolean,
+) : AutoCloseable {
     private val tracker = GameHeartbeatTracker()
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private val worker = java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS,
@@ -74,10 +80,8 @@ internal class GameHeartbeatController(private val socket: (String, GamePresence
     }
     fun input() = tracker.input()
     private fun send(token: String?, presence: GamePresence) {
-        if (token == null || socket(token, presence)) return
-        worker.execute { runCatching { kotlinx.coroutines.runBlocking {
-            ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.heartbeat(token, presence) }
-        } } }
+        if (token == null || socket(token, presence) && !presence.left) return
+        worker.execute { runCatching { http(token, presence) } }
     }
     override fun close() { display(null, token); main.removeCallbacks(pulse); worker.shutdown() }
 }

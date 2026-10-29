@@ -100,7 +100,9 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                         sql.deleteFrom(PUSH).where(exact).execute()
                 } else if (activity > summary.activityId!!) {
                     sql.deleteFrom(PUSH).where(exact).execute() // A reminder whose stretch the recipient answered.
-                } else if (summary.seenThrough!! >= summary.activityId!! || ActivityTiming.present(recipient, time)) {
+                } else if (summary.seenThrough!! >= summary.activityId!!) {
+                    // Seen only by a heartbeat after the event. A recipient who merely may be present (a recent
+                    // heartbeat, the app possibly closed since) only postpones the push below.
                     sql.deleteFrom(PUSH).where(exact).execute()
                 } else if (summary.authorId != null && !ActivityTiming.due(ActivityTiming.leases(sql, game, summary.authorId!!),
                         recipient, summary.lastEventAt!!, summary.yourMove!!, time)) {

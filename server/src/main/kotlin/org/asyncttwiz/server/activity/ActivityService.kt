@@ -262,21 +262,18 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val id = nextActivityId(sql, owner)
             sql.insertInto(EVENT).set(EVENT.ACCOUNT_ID, owner).set(EVENT.ACTIVITY_ID, id).set(EVENT.KIND, kind.name)
                 .set(EVENT.GAME_ID, game).set(EVENT.IDENTITY, identity).set(EVENT.AUTHOR_ID, author).set(EVENT.CREATED_AT, time).execute()
-            // Keep presence suppression atomic without another action/undo SQL statement.
-            val present = if (kind == ActivityKind.GAME) ActivityTiming.present(game, owner, time) else DSL.falseCondition()
+            // Never seen here: only a later heartbeat of the recipient in this game marks it seen. A recent
+            // heartbeat proves presence only up to that heartbeat; the app may have closed since.
             val armed = move && kind == ActivityKind.GAME
             sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, kind.name)
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
                 .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
-                .set(SUMMARY.SEEN_THROUGH, DSL.`when`(present, id).otherwise(0L))
-                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(present, false).otherwise(newMessage))
+                .set(SUMMARY.NEW_MESSAGE, newMessage)
                 .set(SUMMARY.REMINDER_MOVE_AT, if (armed) time else null)
                 .onConflict(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.KIND).doUpdate()
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
                 .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
-                .set(SUMMARY.SEEN_THROUGH, DSL.greatest(SUMMARY.SEEN_THROUGH, DSL.excluded(SUMMARY.SEEN_THROUGH)))
-                .set(SUMMARY.NEW_MESSAGE, DSL.`when`(DSL.excluded(SUMMARY.SEEN_THROUGH).eq(id), false)
-                    .otherwise(DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE))))
+                .set(SUMMARY.NEW_MESSAGE, DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE)))
                 .set(SUMMARY.REMINDER_MOVE_AT, if (armed) DSL.excluded(SUMMARY.REMINDER_MOVE_AT) else SUMMARY.REMINDER_MOVE_AT)
                 // Re-arming keeps a sent reminder within one stretch; a stretch the recipient answered starts anew.
                 // (ON CONFLICT expressions see the existing row, so this compares against the previous move.)

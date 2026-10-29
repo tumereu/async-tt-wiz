@@ -66,10 +66,12 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode != DraftMode.GRID }
         ?.let { json.decodeFromString<DraftState>(it.data()) }
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
-        ?.let { json.decodeFromString<GridState>(it.data()) }
+        // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
+        ?.let { GridEngine.resume(json.decodeFromString<GridState>(it.data())) }
     private fun pools(row: PodRecord) = gridState(row)?.pools ?: state(row)!!.pools
     private fun copies(row: PodRecord) = gridState(row)?.copies ?: state(row)!!.copies
-    private fun gridWaiting(state: GridState?, player: String) = state?.grids?.count { it.currentPlayer == player } ?: 0
+    /** Grids the member can pick from now; grids of rounds they have not opened wait unseen and do not count. */
+    private fun gridWaiting(state: GridState?, player: String) = state?.queues?.get(player)?.size ?: 0
     private fun members(sql: DSLContext, pod: UUID) = sql.selectFrom(MEMBER).where(MEMBER.POD_ID.eq(pod)).orderBy(MEMBER.ACCOUNT_ID).fetch()
     private fun pending(sql: DSLContext, pod: UUID) = sql.selectFrom(INVITE).where(INVITE.POD_ID.eq(pod)).and(INVITE.STATE.eq("PENDING")).orderBy(INVITE.ACCOUNT_ID).fetch()
     private fun identity(sql: DSLContext, id: UUID): AccountIdentity {
@@ -255,8 +257,7 @@ class PodService(private val runtime: ServiceRuntime) {
             val next = if (set == null) GridEngine.start(players, cube, settings, seed)
             else if (settings.freshBoosters) {
                 // One fresh booster per grid; its nine cards and refill cards are drawn at random from it.
-                GridEngine.startWithCards(players, GridEngine.freshBoosterCards(set, settings, players.size, seed), settings, seed,
-                    refillsDealt = true)
+                GridEngine.startWithCards(players, GridEngine.freshBoosterCards(set, settings, players.size, seed), settings, seed)
             } else {
                 // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
                 val needed = settings.supply(players.size, emptyList()).needed.toInt()
@@ -619,8 +620,11 @@ class PodService(private val runtime: ServiceRuntime) {
             val build = json.decodeFromString<PodDeckBuild>(member.build!!.data())
             sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
-            // More simultaneous turns do not notify a member who already has an actionable grid.
-            if (gridWaiting(previous, player) == 0 && gridWaiting(next, player) > 0)
+            // More simultaneous turns do not notify a member who already has an actionable grid. As with packs, the
+            // picker's just-picked grid does not count, so their next round's grids opening early notify them too.
+            val queue = next.queues[player].orEmpty()
+            val hadGrids = previous?.queues?.get(player).orEmpty().any { it in queue }
+            if (!hadGrids && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
         if (next.finished && previous?.finished != true) {
@@ -698,12 +702,13 @@ class PodService(private val runtime: ServiceRuntime) {
         val view = draft?.let { DraftEngine.privateView(it, owner.toString()) }?.let { it.copy(marks = marks(sql, row, owner, it.head)) }
         val public = draft?.let(DraftEngine::publicStatus)
         val grid = gridState(row)
-        val gridView = grid?.let { PodGridView(GridEngine.publicView(it), GridEngine.privateView(it, owner.toString())) }
+        val gridView = grid?.let { PodGridView(GridEngine.publicView(it, owner.toString()), GridEngine.privateView(it, owner.toString())) }
         val members = members(sql, row.id!!)
         val mine = members.first { it.accountId == owner }
         val visible = view?.head?.cards.orEmpty() + view?.queuedPacks.orEmpty().flatMap { it.cards } +
             view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
-            gridView?.publicView?.grids.orEmpty().flatMap { it.positions.filterNotNull() } +
+            (gridView?.publicView?.grids.orEmpty() + gridView?.publicView?.finishedGrids.orEmpty())
+                .flatMap { it.positions.filterNotNull() + it.slots.mapNotNull { slot -> slot.copy } } +
             gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded }
         val definitions = visible.map { it.definition }.toSet()
         val cards = if (definitions.isEmpty()) emptyList() else sql.selectFrom(DEFINITION).where(DEFINITION.DIGEST.`in`(definitions))

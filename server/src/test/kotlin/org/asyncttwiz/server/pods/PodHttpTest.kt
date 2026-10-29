@@ -10,6 +10,7 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.encodeToJsonElement
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
@@ -873,14 +874,18 @@ class PodHttpTest {
         var actions = 0
         while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
             val before = players.associateWith { f.get(it, pod) }
-            val public = before.values.first().grid!!.publicView
             for ((player, detail) in before) {
                 assertNull(detail.draft)
-                assertEquals(public, detail.grid!!.publicView)
+                // Each member sees the grids of the rounds they have opened; their pickable grids are all among them.
+                val public = detail.grid!!.publicView
+                assertEquals(before.values.first().grid!!.publicView.seating, public.seating)
                 assertEquals(player.account.accountId, detail.grid!!.mine.player)
+                val queue = detail.grid!!.mine.queue
+                assertEquals(queue.firstOrNull(), detail.grid!!.mine.headGridId)
+                assertEquals(public.grids.filter { it.currentPlayer == player.account.accountId }.map { it.id }.toSet(), queue.toSet())
                 assertEquals(detail.grid!!.mine.pool.map { it.id }.toSet(), detail.build!!.copies.map { it.copyId }.toSet())
                 assertEquals(detail.grid!!.mine.pool.size, detail.build!!.copies.size)
-                val waiting = public.grids.count { it.currentPlayer == player.account.accountId }
+                val waiting = queue.size
                 assertEquals(waiting, detail.members.single { it.account == player.account }.packsWaiting)
                 assertEquals(waiting > 0, detail.members.single { it.account == player.account }.picking)
                 val hints = f.activity(player).entries.filter { it.gameId == pod && it.kind == ActivityKind.POD_YOUR_PICK }
@@ -888,7 +893,9 @@ class PodHttpTest {
                 if (waiting > 0) assertEquals(detail.draftAttemptId, hints.single().identity)
                 assertEquals(if (waiting > 0) PodAttention.YOUR_PICK else PodAttention.NONE,
                     f.list(player).pods.single { it.id == pod }.attention)
-                val visible = public.grids.flatMap { it.positions.filterNotNull() } + public.log.flatMap { it.kept + it.discarded } + detail.grid!!.mine.pool
+                val visible = (public.grids + public.finishedGrids).flatMap { it.slots.mapNotNull { slot -> slot.copy } } +
+                    public.log.flatMap { it.kept + it.discarded } + detail.grid!!.mine.pool
+                assertTrue((public.grids + public.finishedGrids).all { it.slots.size == 9 })
                 assertEquals(visible.map { it.definition }.toSet(), detail.definitions.map { it.digest }.toSet())
                 val payload = json.encodeToString(detail)
                 assertFalse(payload.contains("sourceSnapshot")); assertFalse(payload.contains("\"supply\":["))
@@ -898,9 +905,11 @@ class PodHttpTest {
             val counts = players.associateWith { f.count(ActivityKind.POD_YOUR_PICK, pod, it) }
             f.select(player, pod)
             for (other in players) {
-                val had = before.getValue(other).grid!!.mine.headGridId != null
-                val has = f.get(other, pod).grid!!.mine.headGridId != null
-                assertEquals(counts.getValue(other) + if (!had && has) 1 else 0, f.count(ActivityKind.POD_YOUR_PICK, pod, other))
+                // A hint when grids reach an empty queue; the picker's just-picked grid does not count.
+                val had = before.getValue(other).grid!!.mine.queue
+                val has = f.get(other, pod).grid!!.mine.queue
+                assertEquals(counts.getValue(other) + if (has.isNotEmpty() && had.none { it in has }) 1 else 0,
+                    f.count(ActivityKind.POD_YOUR_PICK, pod, other))
             }
             check(++actions < 100)
         }
@@ -946,6 +955,59 @@ class PodHttpTest {
         assertTrue(f.get(player, pod).submitted); assertNull(f.get(other, pod).deck)
     }
 
+    @Test fun `Grid HTTP opens a member's next round early with attention and a hint while the other still picks`() = fixture { f ->
+        val pod = f.create(DraftMode.GRID).id; f.join(pod)
+        f.configure(pod, DraftSettings.grid().copy(grids = 6, gridsOpenAtOnce = 3))
+        val seating = f.start(pod).grid!!.publicView.seating
+        val (first, second) = seating.map { id -> listOf(f.a, f.b).single { it.account.accountId == id } }
+        f.select(first, pod); f.select(first, pod) // Grids 1 and 3, where the first seat picks first.
+        f.select(second, pod) // Grid 2.
+        val hints = f.count(ActivityKind.POD_YOUR_PICK, pod, first)
+        f.select(first, pod) // The first seat's last pick of round 1; only the second seat's picks of grids 1 and 3 remain.
+        val early = f.get(first, pod).grid!!
+        assertEquals(listOf("grid-4"), early.mine.queue)
+        assertEquals(2, early.mine.round)
+        assertEquals(listOf(5), early.publicView.grids.filter { it.round == 2 }.map { it.number })
+        assertEquals(PodAttention.YOUR_PICK, f.list(first).pods.single { it.id == pod }.attention)
+        assertEquals(hints + 1, f.count(ActivityKind.POD_YOUR_PICK, pod, first))
+        assertTrue(f.activity(first).entries.any { it.gameId == pod && it.kind == ActivityKind.POD_YOUR_PICK })
+        val behind = f.get(second, pod)
+        assertEquals(1, behind.grid!!.mine.round)
+        assertEquals(listOf("grid-0", "grid-2"), behind.grid!!.mine.queue)
+        assertTrue(behind.grid!!.publicView.grids.none { it.round == 2 })
+        assertEquals(1, behind.members.single { it.account == first.account }.packsWaiting)
+        f.select(first, pod) // Grid 5 waits unseen for the second seat.
+        assertEquals(PodAttention.NONE, f.list(first).pods.single { it.id == pod }.attention)
+        assertEquals(listOf("grid-0", "grid-2"), f.get(second, pod).grid!!.mine.queue)
+        finishGrid(f, pod, listOf(f.a, f.b))
+    }
+
+    @Test fun `Grid HTTP pods saved before per-member opening continue`() = fixture { f ->
+        val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
+        f.configure(pod, DraftSettings.grid().copy(grids = 4, gridsOpenAtOnce = 2))
+        f.start(pod)
+        // Rewrite the stored snapshot the old way: only round 1 dealt, no refill cards, the rest still in the supply.
+        f.db.connection().use { connection ->
+            val stored = connection.prepareStatement("select draft_state::text from pod where id = ?").use { statement ->
+                statement.setObject(1, UUID.fromString(pod))
+                statement.executeQuery().use { rows -> rows.next(); json.decodeFromString<GridState>(rows.getString(1)) }
+            }
+            val dealt = stored.grids.take(2)
+            val old = stored.copy(grids = dealt.map { it.copy(reserve = emptyList()) },
+                supply = stored.supply + stored.grids.drop(2).flatMap { it.positions.filterNotNull() + it.reserve } + dealt.flatMap { it.reserve })
+            val element = kotlinx.serialization.json.JsonObject(json.encodeToJsonElement(old).let { it as kotlinx.serialization.json.JsonObject }
+                .filterKeys { it !in setOf("queues", "held", "opened") })
+            connection.prepareStatement("update pod set draft_state = ?::jsonb where id = ?").use { statement ->
+                statement.setString(1, element.toString()); statement.setObject(2, UUID.fromString(pod)); statement.executeUpdate()
+            }
+        }
+        val resumed = f.get(f.a, pod).grid!!
+        assertEquals(2, resumed.publicView.grids.size)
+        finishGrid(f, pod, listOf(f.a, f.b, f.c))
+        assertEquals(48, listOf(f.a, f.b, f.c).sumOf { f.get(it, pod).grid!!.mine.pool.size } +
+            f.get(f.a, pod).grid!!.publicView.log.sumOf { it.discarded.size })
+    }
+
     @Test fun `three player Grid HTTP refills rotates starters and completes parallel rounds`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
         f.configure(pod, DraftSettings.grid().copy(grids = 5, gridsOpenAtOnce = 2))
@@ -984,8 +1046,11 @@ class PodHttpTest {
         val picked = f.send(first, "POST", "/v1/pods/$pod/grid/select", input)
         assertEquals(picked, f.send(first, "POST", "/v1/pods/$pod/grid/select", input))
         reject(first, input.copy(index = 1), "request_conflict")
+        // The other member's own fresh grid comes before the grid just passed to them.
+        reject(other, input.copy(requestId = id()), "not_head_grid")
+        f.select(other, pod)
         reject(other, input.copy(requestId = id()), "empty_line")
-        assertTrue(f.get(other, pod).grid!!.mine.pool.isEmpty())
+        assertEquals(3, f.get(other, pod).grid!!.mine.pool.size)
         val cancel = PodDraftRequest(id(), input.draftAttemptId)
         f.send(f.a, "POST", "/v1/pods/$pod/cancel", cancel)
         val reset = f.get(f.a, pod)

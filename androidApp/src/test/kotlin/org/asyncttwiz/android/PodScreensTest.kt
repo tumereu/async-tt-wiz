@@ -365,10 +365,13 @@ class PodScreensTest {
         val nobody = booster.copy(members = booster.members.map { it.copy(packsWaiting = 0) })
         assertEquals("Waiting for other players", podWaitingText(nobody, alice.accountId))
         val board = GridPublicBoard("grid", 3, List(9) { null }, bob.accountId)
-        val grid = booster.copy(settings = DraftSettings.grid(), members = listOf(PodMember(alice), PodMember(bob)),
+        val grid = booster.copy(settings = DraftSettings.grid(), members = listOf(PodMember(alice), PodMember(bob, packsWaiting = 1)),
             grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(2, 6, false, listOf(alice.accountId, bob.accountId), listOf(board), emptyList()),
                 GridPrivateView(alice.accountId, emptyList(), null)))
         assertEquals("Waiting for Bob · Round 2 of 6", podWaitingText(grid, alice.accountId))
+        // Members open grid rounds early: the caller's own round wins, and the server's counts say who still picks.
+        val early = grid.copy(grid = grid.grid!!.copy(mine = GridPrivateView(alice.accountId, emptyList(), null, round = 3, rounds = 6)))
+        assertEquals("Waiting for Bob · Round 3 of 6", podWaitingText(early, alice.accountId))
     }
 
     @Test fun pickOrientationNamesRoundPickAndWhoPassedThePack() {

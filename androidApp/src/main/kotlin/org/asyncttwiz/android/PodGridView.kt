@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,12 +9,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.PodGridView as GridViewData
 
@@ -30,6 +32,38 @@ internal class PodGridRules(val board: GridPublicBoard, mine: GridPrivateView) {
 
     fun canSelect(line: GridLine) = myTurn && positions(line).any { board.positions.getOrNull(it) != null }
     fun highlighted(position: Int, line: GridLine?) = line != null && canSelect(line) && position in positions(line)
+}
+
+/** Picker colours: yours as at the table, then one per other member in seating order. */
+internal fun podGridColors(seating: List<String>, me: String): Map<String, Color> {
+    val others = listOf(OpponentTableColor, Color(0xff3457b3), Color(0xffb7791f))
+    return (listOf(me to OwnTableColor) + seating.filter { it != me }.mapIndexed { index, player -> player to others[index % others.size] })
+        .toMap()
+}
+
+/** One grid card: shown in place as dealt, its picker, whether it was discarded, whether it is a refill card. */
+internal data class PodGridCell(val copy: DraftCopy?, val pickedBy: String?, val discarded: Boolean, val refill: Boolean)
+
+/** Slots from current servers; an older server sends only the live board. */
+internal fun podGridCells(board: GridPublicBoard): List<PodGridCell> =
+    if (board.slots.size == 9) board.slots.map { PodGridCell(it.copy, it.pickedBy, board.finished && it.pickedBy == null && it.copy != null, it.refill) }
+    else List(9) { PodGridCell(board.positions.getOrNull(it), null, false, false) }
+
+/** Your current pick first, then the other open grids in number order, then finished grids (as the server orders them). */
+internal fun podGridOrder(view: GridViewData): List<GridPublicBoard> {
+    val head = view.publicView.grids.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
+    return listOfNotNull(head) + view.publicView.grids.filter { it != head }.sortedBy { it.number } + view.publicView.finishedGrids
+}
+
+internal fun podGridHeader(board: GridPublicBoard, view: GridViewData, totalGrids: Int, members: List<AccountIdentity>): String {
+    val me = view.mine.player
+    val status = when {
+        board.finished -> "Finished"
+        board.currentPlayer == me && board.id == view.mine.headGridId -> "Your pick"
+        board.currentPlayer == me -> "Your pick next"
+        else -> "Waiting for " + (members.find { it.accountId == board.currentPlayer }?.username ?: "other players")
+    }
+    return "$status · Grid ${board.number}/$totalGrids"
 }
 
 @Composable
@@ -49,11 +83,11 @@ fun PodGridView(
     // A refill can preserve both the grid id and player: reset on the authoritative board/log too.
     var selected by remember(head, log.count { it.gridId == head?.id }) { mutableStateOf<GridLine?>(null) }
     val rules = if (head != null) PodGridRules(head, view.mine) else null
-    val waiting = view?.publicView?.grids.orEmpty().count { it.currentPlayer == view?.mine?.player } - if (head != null) 1 else 0
     var inspected by remember { mutableStateOf<DraftCopy?>(null) }
     val previewScroll = rememberScrollState()
+    val colors = view?.let { podGridColors(it.publicView.seating, it.mine.player) }.orEmpty()
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-        val boards = if (head != null) listOf(head) else view?.publicView?.grids.orEmpty().sortedBy { it.number }
+        val boards = view?.let(::podGridOrder).orEmpty()
         if (head == null && boards.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             PodPickWaiting(waitingText, onMainMenu)
         } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -62,12 +96,11 @@ fun PodGridView(
                 PodPickWaiting(waitingText, onMainMenu)
             }
             boards.forEach { board -> key(board.id) {
-                val boardRules = view?.let { PodGridRules(board, it.mine) }
-                Text("Grid ${board.number}/$totalGrids" + if (waiting > 0) " · +$waiting waiting" else "",
-                    Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
-                PodGridLog(log.filter { it.gridId == board.id }, definitions, members)
-                PodGridBoard(board, boardRules, selected.takeIf { head?.id == board.id }, !busy,
-                    onSelect = { selected = it }, definitions = definitions, inspect = { copy, open ->
+                Text(podGridHeader(board, view!!, totalGrids, members), Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall)
+                PodGridBoard(board, rules.takeIf { board.id == head?.id }, selected.takeIf { head?.id == board.id }, !busy,
+                    onSelect = { selected = it }, definitions = definitions, members = members, colors = colors,
+                    inspect = { copy, open ->
                         // Several fingers may hold cards: the latest hold shows, and only its release closes.
                         if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
                         else if (inspected == copy) inspected = null
@@ -85,29 +118,14 @@ fun PodGridView(
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
 }
 
-@Composable
-private fun PodGridLog(log: List<GridPublicPickLog>, definitions: Map<String, CardDefinition>, members: List<AccountIdentity>) {
-    if (log.isEmpty()) return
-    var expanded by remember(log.first().gridId) { mutableStateOf(false) }
-    fun description(entry: GridPublicPickLog): String {
-        val name = members.find { it.accountId == entry.player }?.username ?: entry.player
-        val line = entry.line ?: return "$name skipped: no cards remaining"
-        return "$name took ${if (line.type == GridLineType.ROW) "row" else "column"} ${line.index + 1}: " +
-            entry.kept.joinToString { definitions[it.definition]?.name ?: "Card data unavailable" }
-    }
-    Text(description(log.last()), Modifier.fillMaxWidth().clickable { expanded = !expanded }.semantics {
-        contentDescription = if (expanded) "Collapse grid selections" else "Expand grid selections"
-    }, style = MaterialTheme.typography.bodySmall, maxLines = if (expanded) Int.MAX_VALUE else 1,
-        overflow = TextOverflow.Ellipsis)
-    if (expanded) log.dropLast(1).forEach { Text(description(it), style = MaterialTheme.typography.bodySmall) }
-}
-
+/** Arrows only when [rules] is given (the grid you are picking from now). */
 @Composable
 private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
-    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, inspect: (DraftCopy, Boolean) -> Unit,
-    inspectScroll: (Float) -> Unit = {}) {
+    onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, members: List<AccountIdentity>,
+    colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit, inspectScroll: (Float) -> Unit = {}) {
+    val cells = podGridCells(board)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (rules != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Spacer(Modifier.width(40.dp))
             repeat(3) { column ->
                 PodGridArrow(GridLine(GridLineType.COLUMN, column), rules, selected, enabled, Modifier.weight(1f), onSelect)
@@ -115,27 +133,46 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
         }
         repeat(3) { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                PodGridArrow(GridLine(GridLineType.ROW, row), rules, selected, enabled, Modifier.width(40.dp), onSelect)
+                if (rules != null) PodGridArrow(GridLine(GridLineType.ROW, row), rules, selected, enabled, Modifier.width(40.dp), onSelect)
                 repeat(3) { column ->
                     val position = row * 3 + column
-                    val copy = board.positions.getOrNull(position)
+                    val cell = cells[position]
+                    val copy = cell.copy
+                    val live = board.positions.getOrNull(position) != null
                     val highlighted = rules?.highlighted(position, selected) == true
+                    val picker = cell.pickedBy?.let { colors[it] ?: OpponentTableColor }
+                    val name = copy?.let { definitions[it.definition]?.name ?: "Card data unavailable" }
+                    val pickerName = cell.pickedBy?.let { id -> members.find { it.accountId == id }?.username ?: "another player" }
                     Box(Modifier.weight(1f).aspectRatio(1f / 1.4f)
                         .testTag("pod-grid-${board.id}-slot-$position").semantics {
-                            contentDescription = copy?.let { definitions[it.definition]?.name ?: "Card data unavailable" } ?: "Empty slot"
+                            contentDescription = name?.let { listOfNotNull(it, pickerName?.let { "picked by $it" },
+                                "discarded".takeIf { cell.discarded }, "new".takeIf { cell.refill }).joinToString(", ") } ?: "Empty slot"
                             stateDescription = if (highlighted) "Highlighted" else "Unselected"
                         }
                         .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                        .border(if (highlighted) 3.dp else 1.dp,
-                            if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        .border(when { highlighted && live -> 3.dp; picker != null -> 3.dp; else -> 1.dp },
+                            when { highlighted && live -> MaterialTheme.colorScheme.primary; picker != null -> picker
+                                else -> MaterialTheme.colorScheme.outlineVariant },
                             MaterialTheme.shapes.extraSmall).padding(3.dp)) {
                         if (copy != null) {
                             val currentInspect by rememberUpdatedState(inspect)
                             val currentInspectScroll by rememberUpdatedState(inspectScroll)
-                            PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize().pointerInput(copy) {
-                                podPickGestures(onTap = {}, onInspect = { currentInspect(copy, it) },
-                                    onInspectScroll = { currentInspectScroll(it) })
-                            })
+                            PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize()
+                                .alpha(if (cell.discarded) 0.35f else 1f).pointerInput(copy) {
+                                    podPickGestures(onTap = {}, onInspect = { currentInspect(copy, it) },
+                                        onInspectScroll = { currentInspectScroll(it) })
+                                })
+                            if (cell.refill) Text("New", Modifier.align(Alignment.BottomStart)
+                                .background(MaterialTheme.colorScheme.tertiary, MaterialTheme.shapes.extraSmall)
+                                .padding(horizontal = 3.dp), color = MaterialTheme.colorScheme.onTertiary, fontSize = 9.sp,
+                                lineHeight = 10.sp)
+                            if (cell.pickedBy != null) {
+                                val account = members.find { it.accountId == cell.pickedBy }
+                                Box(Modifier.align(Alignment.TopEnd).size(18.dp).clearAndSetSemantics {}
+                                    .background(picker ?: OpponentTableColor, CircleShape).padding(2.dp)) {
+                                    if (account != null) Avatar(account, size = 14.dp)
+                                }
+                            }
                         }
                     }
                 }

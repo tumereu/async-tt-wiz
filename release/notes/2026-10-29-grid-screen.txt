@@ -1,0 +1,1 @@
+mod: Grid draft shows every grid as dealt, with each picked card framed in its picker's colour, discarded cards dimmed and refills marked New; arrows only on the grid you pick from

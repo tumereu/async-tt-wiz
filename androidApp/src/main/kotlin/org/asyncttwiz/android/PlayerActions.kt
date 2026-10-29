@@ -134,7 +134,7 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
         if (text != player.status) submit(PlayAction.SetStatus(text))
         editing = null; close()
     }
-    PlayerStatusLabel(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", maxLines = 1)
+    PlayerStatusLabel(if (player.status.isEmpty()) "No status" else "Status: “${player.status}”", maxLines = 3)
     val cells: List<Pair<MenuControl, @Composable () -> Unit>> = PlayerStatusInput.presets.map { preset ->
         MenuControl("Set status $preset", enabled, selected = player.status == preset) { set(preset) } to @Composable {
             Text(preset, Modifier.padding(horizontal = 2.dp).clearAndSetSemantics {}, fontSize = 12.sp, lineHeight = 13.sp,

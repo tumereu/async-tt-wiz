@@ -149,20 +149,37 @@ class CardPanelLayoutTest {
         }
     }
 
-    @Test fun fixedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {
-        val display = manyCards().board.contentsDisplays.single()
+    @Test fun unifiedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {
+        val play = manyCards()
+        val display = play.board.contentsDisplays.single()
         val id = display.cardIds.first()
-        assertEquals(10, panelCardActions.size)
-        assertEquals(listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom", "Stack"), panelCardActions.map { it.label })
-        assertTrue(panelCardActions.all { panelCardActionEnabled(it, display, id, null) })
+        assertEquals(18, panelCardActions.size)
+        assertEquals(listOf("Inspect", "Other side", "Ping", "Hand", "Reveal\nhand", "Battlefield", "Tapped", "Stack", "Graveyard",
+            "Exile", "Library top", "Reveal\ntop", "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4"),
+            panelCardActions.map { it.label })
+        // A Library look panel: only shuffling into its own Library is greyed.
+        assertEquals(listOf("Shuffle into library"), panelCardActions.filterNot {
+            panelCardActionEnabled(it, display, listOf(id), null, play.board) }.map { it.name })
         for (revealed in listOf(display.copy(reveal = true), display.copy(revealedIds = setOf(id)))) {
-            assertEquals(listOf("Reveal+Hand", "Reveal+Top"), panelCardActions.filterNot { panelCardActionEnabled(it, revealed, id, null) }.map { it.label })
+            assertEquals(listOf("Reveal+Hand", "Reveal+Top", "Shuffle into library"), panelCardActions.filterNot {
+                panelCardActionEnabled(it, revealed, listOf(id), null, play.board) }.map { it.name })
         }
+        // Some selected cards still unrevealed: the reveal variants stay available.
+        assertTrue(panelCardActions.filter { it.reveal }.all { panelCardActionEnabled(it, display.copy(revealedIds = setOf(id)),
+            display.cardIds.take(2), null, play.board) })
         for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
-            val disabled = panelCardActions.filterNot { panelCardActionEnabled(it, display, id, zone) }
+            val disabled = panelCardActions.filterNot { panelCardActionEnabled(it, display, listOf(id), zone) }
             assertEquals(3, disabled.size)
             assertTrue(disabled.all { it.reveal || it.zone == zone })
         }
+    }
+
+    @Test fun panelTargetsAreTheTappedCardOrTheSelectedCardsOfThatPanelOnly() {
+        val display = manyCards().board.contentsDisplays.single()
+        val (a, b, c) = display.cardIds.take(3)
+        assertEquals(listOf(a), panelCardTargets(display, a, emptySet()))
+        assertEquals(listOf(a), panelCardTargets(display, a, setOf(b, c, "elsewhere")))
+        assertEquals(listOf(a, c), panelCardTargets(display, c, setOf(c, a, "elsewhere")))
     }
 
     @Test fun localPileTogglesReplacesSurvivesMenusAndUpdatesWithoutCommands() {

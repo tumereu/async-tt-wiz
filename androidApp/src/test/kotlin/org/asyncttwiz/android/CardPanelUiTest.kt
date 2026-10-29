@@ -307,10 +307,10 @@ class CardPanelUiTest {
         compose.onAllNodesWithContentDescription(item.label)[0].performClick()
         compose.mainClock.advanceTimeBy(350)
         for ((name, label) in listOf("Reveal+Hand" to "Reveal\nhand", "Battlefield tapped" to "Tapped",
-            "Reveal+Top" to "Reveal\ntop")) {
+            "Reveal+Top" to "Reveal\ntop", "Inspect other side" to "Other side")) {
             compose.onNodeWithContentDescription(name).assertWidthIsEqualTo(CardRingGeometry.cell.dp)
                 .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
-            assertEquals(label, panelCardActionLabel(panelCardActions.single { it.label == name }))
+            assertEquals(label, panelCardActionLabel(panelCardActions.single { it.name == name }))
         }
         compose.onNodeWithContentDescription("Hand").assertWidthIsEqualTo(CardRingGeometry.cell.dp)
             .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
@@ -334,8 +334,8 @@ class CardPanelUiTest {
         compose.onNodeWithContentDescription(item.label).assertIsSelected()
         for (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
-        assertEquals(10, panelCardActions.size)
-        val menu = compose.onNodeWithContentDescription("Hand").fetchSemanticsNode().boundsInRoot
+        assertEquals(18, panelCardActions.size)
+        val menu = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
         assertEquals(s.cardPanels.maxOf { it.bounds.right } + 4, menu.left, .1f)
         assertEquals(local.viewport.bounds.y + 2, menu.top, .1f)
         compose.runOnIdle { ui.dismiss() }

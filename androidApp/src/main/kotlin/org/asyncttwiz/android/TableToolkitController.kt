@@ -228,13 +228,21 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun phasePicker() { dismiss(); panel = "phase" }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
 
-    /** Open information is a personal route, not a shared View/Reveal reference display. */
-    fun openPublicPile(id: String) {
+    /** Open information is a personal route, not a shared View/Reveal reference display.
+     * [toggle] closes the pile's panel when it is already open; the pile menu's Search and the
+     * pile double-tap always open (or keep) it. */
+    fun openPublicPile(id: String, toggle: Boolean = true) {
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
         if (container.zone == PlayZone.STACK) { stackContents(); return }
         dismiss(); showStackBubbles(null)
-        layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { it == layoutState.value.localPileId })
+        layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { toggle && it == layoutState.value.localPileId })
+    }
+    /** A Graveyard/Exile pile tap opens that pile's menu (either player's pile), like the Library menu. */
+    fun openPileMenu(id: String) {
+        current()?.board?.containers?.singleOrNull { it.id == id && it.zone in PublicPiles.zones } ?: return
+        dismiss(); showStackBubbles(null)
+        panel = "pile/$id"
     }
     /** Personal selection only: a whole card panel joins (or leaves) the current selection. */
     fun selectAll(ids: List<String>, selected: Boolean) {
@@ -308,6 +316,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 dismiss(); manual.player(play, requireNotNull(item.owner), counters = item.kind == TableItemKind.COUNTER)
             }
             item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
+            item.zone in PublicPiles.zones -> openPileMenu(item.id)
             else -> openPublicPile(item.id)
         }
         popupItem = item
@@ -415,32 +424,69 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return submit(action)
     }
     fun cardPanelAction(display: ContentsDisplay, id: String, zone: PlayZone, reveal: Boolean = false,
-        bottom: Boolean = false, tapped: Boolean = false) = batch {
-        if (display.author != viewer || id !in display.cardIds || !enabled()) return@batch
-        // Disclosure and onward movement keep distinct history groups inside one invocation.
-        if (reveal && !submit(PlayAction.RevealContentsCard(display.id, id))) return@batch
-        val play = current() ?: return@batch
-        val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
-            play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
-                (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
-        } ?: return@batch
-        val card = play.board.cards.single { it.id == id }
-        if (submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination), UUID.randomUUID().toString())) {
-            if (tapped) submit(PlayAction.SetTapped(id, true))
-            dismiss()
-        }
+        bottom: Boolean = false, tapped: Boolean = false) = cardPanelAction(display, listOf(id), zone, reveal, bottom, tapped)
+    /** Panel cards [ids] (the tapped card, or the selected cards of this panel) as ONE invocation.
+     * Disclosure and onward movement keep distinct history groups inside it. */
+    fun cardPanelAction(display: ContentsDisplay, ids: List<String>, zone: PlayZone, reveal: Boolean = false,
+        bottom: Boolean = false, tapped: Boolean = false, shuffle: Boolean = false): Boolean {
+        if (display.author != viewer || ids.isEmpty() || ids.any { it !in display.cardIds } || !enabled()) return false
+        return moveToOwnerZones(ids, zone, bottom, tapped, shuffle, reveal = display.takeIf { reveal }).also { if (it) dismiss() }
     }
-    fun localPanelAction(id: String, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false) = batch {
-        val play = current()?.takeIf { enabled() } ?: return@batch
-        val card = play.board.cards.singleOrNull { it.id == id && it.containerId == layoutState.value.localPileId } ?: return@batch
-        val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
-            play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
-                (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
-        } ?: return@batch
-        if (submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination))) {
-            if (tapped) submit(PlayAction.SetTapped(id, true))
-            dismiss()
+    fun localPanelAction(id: String, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false) =
+        localPanelAction(listOf(id), zone, bottom, tapped)
+    /** Cards of the open Graveyard/Exile panel, each into its OWNER's [zone], as ONE invocation. */
+    fun localPanelAction(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false,
+        shuffle: Boolean = false): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val pile = layoutState.value.localPileId ?: return false
+        if (ids.isEmpty() || ids.any { id -> play.board.cards.none { it.id == id && it.containerId == pile } }) return false
+        return moveToOwnerZones(ids, zone, bottom, tapped, shuffle).also { if (it) dismiss() }
+    }
+    /** The whole Graveyard/Exile pile [containerId] into its cards' owners' [zone] (Library: random order,
+     * or shuffled in with [shuffle]) as ONE invocation. Never into a Hand. */
+    fun pileToZone(containerId: String, zone: PlayZone, bottom: Boolean = false, shuffle: Boolean = false): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        if (zone == PlayZone.HAND) return false
+        val pile = play.board.containers.singleOrNull { it.id == containerId && it.zone in PublicPiles.zones } ?: return false
+        return moveToOwnerZones(PublicPiles.movable(play.board, pile.cards, zone), zone, bottom, shuffle = shuffle)
+            .also { if (it) dismiss() }
+    }
+    /** [ids] each into its OWNER's [zone] as ONE invocation. Two or more cards onto a Library top or bottom
+     * go in random order ([toLibraryRandom]); [shuffle] instead shuffles every receiving Library afterwards.
+     * [reveal] first reveals the not yet revealed cards of that panel. */
+    internal fun moveToOwnerZones(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false,
+        shuffle: Boolean = false, reveal: ContentsDisplay? = null): Boolean = batchResult {
+        val play = current()?.takeIf { enabled() } ?: return@batchResult false
+        val cards = PublicPiles.movable(play.board, ids, zone)
+        if (cards.isEmpty()) return@batchResult false
+        if (reveal != null) for (id in cards.filter { it !in reveal.revealedIds })
+            if (!submit(PlayAction.RevealContentsCard(reveal.id, id))) return@batchResult false
+        if (zone == PlayZone.LIBRARY && !shuffle && cards.size >= 2) return@batchResult toLibraryRandom(cards, bottom)
+        if (!moveEachToOwnerZone(cards, zone, bottom, tapped)) return@batchResult false
+        if (shuffle) {
+            val board = current()?.board ?: return@batchResult false
+            for (library in cards.mapNotNull { id -> board.cards.singleOrNull { it.id == id }?.owner }.distinct()
+                .mapNotNull { board.zoneContainer(it, PlayZone.LIBRARY) })
+                if (!submit(PlayAction.ShuffleLibrary(library.id, RandomV1.encodeSeed(ByteArray(32).also {
+                        java.security.SecureRandom().nextBytes(it) })))) return@batchResult false
         }
+        true
+    }
+    /** One ordinary move per card, in [ids] order, into each card's OWNER's [zone], inside the current batch. */
+    internal fun moveEachToOwnerZone(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false): Boolean = batchResult {
+        var sent = false
+        for (id in ids.distinct()) {
+            val play = current()?.takeIf { enabled() } ?: return@batchResult false
+            val card = play.board.cards.singleOrNull { it.id == id } ?: return@batchResult false
+            val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
+                play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
+                    (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
+            } ?: return@batchResult false
+            if (!submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination))) return@batchResult false
+            if (tapped && !submit(PlayAction.SetTapped(id, true))) return@batchResult false
+            sent = true
+        }
+        sent
     }
     fun libraryController(source: String, hand: String): LibraryController? {
         val playId = current()?.id ?: return null

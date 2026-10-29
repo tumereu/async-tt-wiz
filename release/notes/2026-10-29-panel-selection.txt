@@ -1,0 +1,1 @@
+mod: Card menus in all side panels have the same buttons, and act on all selected cards of that panel. Drag on empty panel space to select cards; scroll a panel with two fingers or double-tap-drag, also over cards. Changing the mode no longer closes the graveyard panel.

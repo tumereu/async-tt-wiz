@@ -166,7 +166,9 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithText("Manage Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
-                compose.onNodeWithContentDescription("Alice graveyard, 3 cards").performClick()
+                // A pile tap opens its menu; the double-tap opens the search panel.
+                compose.onNodeWithContentDescription("Alice graveyard, 3 cards").performTouchInput { doubleClick() }
+                compose.mainClock.advanceTimeBy(500)
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
                 compose.onNode(isDialog()).assertDoesNotExist()
                 compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
@@ -381,17 +383,17 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel").assertIsSelected()
-        val labels = listOf("Hand", "Reveal+Hand", "Battlefield", "Battlefield tapped", "Graveyard", "Exile", "Top", "Reveal+Top", "Bottom")
-        val first = compose.onNodeWithContentDescription("Hand").fetchSemanticsNode().boundsInRoot
+        val labels = panelCardActions.map { it.name }
+        val first = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
         for ((index, label) in labels.withIndex()) {
             val cell = compose.onNodeWithContentDescription(label).assertIsDisplayed()
             if (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top")) cell.assertIsNotEnabled()
-            else cell.assertIsEnabled()
+            else if (label != "Ping / Unping" && label != "Inspect other side") cell.assertIsEnabled()
             val bounds = cell.fetchSemanticsNode().boundsInRoot
             assertEquals(CardRingGeometry.cell, bounds.width)
             assertEquals(CardRingGeometry.cell, bounds.height)
-            assertEquals(first.left + index % 3 * (first.width + 2f), bounds.left, .1f)
-            assertEquals(first.top + index / 3 * (first.height + 2f), bounds.top, .1f)
+            assertEquals(first.left + index % 5 * (first.width + 2f), bounds.left, .1f)
+            assertEquals(first.top + index / 5 * (first.height + 2f), bounds.top, .1f)
         }
         assertTrue(sent.isEmpty())
     }

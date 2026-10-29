@@ -279,7 +279,7 @@ class TableToolkitWiringTest {
         assertTrue(ui.handle(TableIntent.Rotate(TableScope(combat, stackIds + combat), true)))
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(f.source(f.a, "1/3").id, true)), sent)
     }
-    @Test fun publicPileTapsRouteToLiveContentsWithoutViewRevealOrDismissRequests() {
+    @Test fun publicPileTapsOpenPileMenusAndSearchRoutesToLiveContentsWithoutRequests() {
         var play = TableStatesFixture.combat()
         val sent = mutableListOf<PlayAction>()
         val ui = TableToolkitController(TableStatesFixture.a, { play }, { true }, { action, _ -> sent += action; true })
@@ -293,6 +293,10 @@ class TableToolkitWiringTest {
                 assertEquals("manageStack", ui.panel)
                 assertNull(ui.publicContents())
             } else {
+                // A tap opens the pile menu (rules: double-tap or its Search opens the panel); no request either way.
+                assertEquals("pile/${item.id}", ui.panel)
+                assertNull(ui.publicContents())
+                ui.openPublicPile(item.id, toggle = false)
                 val contents = assertNotNull(ui.publicContents())
                 assertEquals(item.id, contents.containerId)
                 val container = play.board.containers.single { it.id == item.id }

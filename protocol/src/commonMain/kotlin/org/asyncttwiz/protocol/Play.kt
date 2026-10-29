@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 
 /** Rules v26: a player's own short status shown in a bubble by their life total. */
 object PlayerStatus {
-    const val MAX_LENGTH = 24
+    const val MAX_LENGTH = 64
     /** Both players start each new play with this exact status until they set another one. */
     const val OPENING = "Mulliganing"
     /** Empty (cleared), or already trimmed, at most [MAX_LENGTH] characters, one line without control characters. */

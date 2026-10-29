@@ -10,7 +10,7 @@ import kotlin.math.roundToInt
 data class TableGesturePreview(val pressedId: String? = null, val scope: TableScope? = null,
     val point: TablePoint? = null, val rectangle: TableBounds? = null,
     val destination: TableDestination? = null, val delta: Int? = null,
-    val marking: Boolean = false, val markIndex: Int? = null)
+    val marking: Boolean = false, val markIndex: Int? = null, val panel: String? = null)
 
 /** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
@@ -126,8 +126,10 @@ class TableGestureCoordinator(
         }
         if (old != null) {
             if (((item?.zone == PlayZone.STACK && old.capture.item?.zone == PlayZone.STACK) ||
-                    (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY) && item.id == old.capture.item?.id) ||
-                    (item == null && old.capture.item == null && scene.worldInput(point))) &&
+                    (item != null && (item.kind == TableItemKind.CARD || item.zone == PlayZone.LIBRARY || item.publicPile) &&
+                        item.id == old.capture.item?.id) ||
+                    (item == null && old.capture.item == null && scene.worldInput(point)) ||
+                    (item == null && old.capture.item == null && region.isCardPanel && region == old.capture.panRegion)) &&
                 distance(point, old.capture.start) <= slopDp * 4 && time <= old.deadline) {
                 next.double = true
                 next.replacingLocal = old.shown && item != null
@@ -178,8 +180,10 @@ class TableGestureCoordinator(
             pending = null
             c.phase = when {
                 c.double && c.item == null && c.panRegion == WORLD_PAN_REGION -> Phase.PAN
-                c.viewport?.id?.startsWith("cardPanel/") == true && abs(dy) > abs(dx) &&
-                    c.item == null -> Phase.SCROLL
+                // Panels pan like the table: double-tap-drag anywhere (also over cards) scrolls; a one-finger
+                // drag on empty panel space draws the selection rectangle, on a card it drags the card.
+                c.panRegion.isCardPanel && c.double -> Phase.SCROLL
+                c.panRegion.isCardPanel && c.item == null -> if (reviewing) Phase.SCROLL else Phase.RECTANGLE
                 c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> Phase.DRAG
                 c.viewport?.maxScrollY?.let { it > 0 } == true && abs(dy) > abs(dx) && c.item == null -> Phase.SCROLL
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
@@ -201,7 +205,7 @@ class TableGestureCoordinator(
             Phase.SCROLL -> c.viewport?.let { p -> if (p.maxScrollY > 0 && (p.id.startsWith("cardPanel/") || abs(dy) > abs(dx)))
                 emit(TableIntent.Scroll(p.id, (p.scrollY - dy).coerceIn(0f, p.maxScrollY), vertical = true))
                 else emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
-            Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point))
+            Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point), panel = c.panRegion?.takeIf { it.isCardPanel })
             Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
                 preview = TableGesturePreview(c.item?.id, point = point,
                     delta = valueDragDelta(dx, dy, side = requireNotNull(c.item).valueDragSide).toInt())
@@ -228,6 +232,9 @@ class TableGestureCoordinator(
         when (c.phase) {
             Phase.PRESS -> if (c.double && c.item == null && scene.worldInput(c.start)) {
                 scene.world?.fit()?.let(::navigate)
+            } else if (c.double && c.item?.publicPile == true) {
+                // Graveyard/Exile double-tap: the search panel (the single tap already opened the pile menu).
+                emit(TableIntent.SearchPile(c.item.id))
             } else if (c.double && c.item?.zone == PlayZone.LIBRARY) {
                 val hand = c.item.drawHandId
                 val top = c.scope?.contextId
@@ -258,7 +265,7 @@ class TableGestureCoordinator(
                     else -> "targetMissing"
                 })
             } else if (doubleTapEnabled && ((c.selection.mode != TableMode.PING && c.item?.kind == TableItemKind.CARD) ||
-                (c.selection.mode != TableMode.PING && c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK)))) {
+                (c.selection.mode != TableMode.PING && (c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK) || c.item?.publicPile == true)))) {
                 // Opening personal UI never waits for double-tap recognition. The second gesture
                 // dismisses that UI before drawing/rotating/entering explicit Stack actions.
                 single(c)
@@ -267,7 +274,8 @@ class TableGestureCoordinator(
             } else {
                 single(c)
                 // Empty taps remain immediate; retain only recognition metadata for navigation.
-                if (doubleTapEnabled && c.item == null && scene.worldInput(c.start)) pending = Tap(c, time + doubleMillis, true)
+                if (doubleTapEnabled && c.item == null && (scene.worldInput(c.start) || c.panRegion.isCardPanel))
+                    pending = Tap(c, time + doubleMillis, true)
             }
             Phase.MARK -> if (writable && c.bubble != null && (preview.markIndex != c.bubble.selected || c.bubble.multipleMarks) &&
                 c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
@@ -291,7 +299,8 @@ class TableGestureCoordinator(
                     }
                 }
             }
-            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.copy(ids = scene.rectangle(rectangle(c.start, point)))))
+            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.copy(ids = if (c.panRegion.isCardPanel)
+                scene.panelRectangle(c.panRegion!!, rectangle(c.start, point)) else scene.rectangle(rectangle(c.start, point)))))
             Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
@@ -462,6 +471,22 @@ class TableGestureCoordinator(
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
     private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))
+}
+
+private val String?.isCardPanel get() = this?.startsWith("cardPanel/") == true
+/** A Graveyard or Exile pile control (not a card inside a panel). */
+internal val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
+/** Cards of one panel viewport under the rectangle (every copy of a grouped row); nothing outside that panel. */
+internal fun TableScene.panelRectangle(viewport: String, bounds: TableBounds): Set<String> {
+    val groups = cardPanels.firstOrNull { it.viewport.id == viewport }?.rows.orEmpty().associate { it.entry.cardId to it.cardIds }
+    return items.filter {
+        it.kind == TableItemKind.CARD && it.viewport == viewport && it.visible.any { part -> part.intersection(bounds) != null }
+    }.flatMap { item -> item.cardId?.let { groups[it] ?: listOf(it) }.orEmpty() }.toSet()
+}
+
+/** The cards a rectangle being drawn would select (null when none is drawn). */
+internal fun TableScene.rectangleSelection(preview: TableGesturePreview): Set<String>? = preview.rectangle?.let { b ->
+    preview.panel?.let { panelRectangle(it, b) } ?: rectangle(b)
 }
 
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */

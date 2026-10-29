@@ -101,13 +101,82 @@ class TableGesturesTest {
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
         gestures.update(scene, TableSelection(), true)
-        gestures.down(TablePoint(50f, 100f), 0)
-        gestures.move(TablePoint(60f, 80f), 20)
-        gestures.move(TablePoint(300f, 50f), 40)
+        // A panel pans with a double-tap-drag (a plain one-finger drag on empty panel space draws a rectangle).
+        gestures.down(TablePoint(50f, 100f), 0); gestures.up(TablePoint(50f, 100f), 10); events.clear()
+        gestures.down(TablePoint(50f, 100f), 100)
+        gestures.move(TablePoint(60f, 80f), 120)
+        gestures.move(TablePoint(300f, 50f), 140)
         gestures.transform(TablePoint(0f, -10f), 1f, world.viewport.center)
         assertEquals(3, events.filterIsInstance<TableIntent.Scroll>().size)
         assertTrue(events.filterIsInstance<TableIntent.Scroll>().all { it.viewportId == port.id && it.vertical })
         assertTrue(events.none { it is TableIntent.Camera || it is TableIntent.Move })
+    }
+
+    private val panelPort = TableViewport("cardPanel/test", TableBounds(0f, 0f, 100f, 200f), 100f, 0f, contentHeight = 600f)
+    private fun panelCard(id: String, y: Float) = TableItem("card/$id", TableBounds(10f, y, 28f, 40f), "Panel $id", id,
+        kind = TableItemKind.CARD, cardId = id, zone = PlayZone.GRAVEYARD, viewport = panelPort.id)
+    private fun panelScene(): TableScene {
+        val field = TableItem("card/f", TableBounds(110f, 10f, 28f, 40f), "Field f", "f",
+            kind = TableItemKind.CARD, cardId = "f", zone = PlayZone.BATTLEFIELD)
+        val world = TableWorld(TableBounds(100f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
+        return TableScene(listOf(panelCard("p1", 10f), panelCard("p2", 60f), field), emptyList(), listOf(panelPort), world = world)
+    }
+
+    @Test fun oneFingerDragOnEmptyPanelSpaceDrawsARectangleSelectingOnlyThatPanelsCards() {
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.update(panelScene(), TableSelection(mode = TableMode.SELECT, ids = setOf("f")), true)
+        gestures.down(TablePoint(5f, 5f), 0)
+        gestures.move(TablePoint(150f, 150f), 20)
+        assertEquals(panelPort.id, gestures.preview.panel)
+        assertEquals(setOf("p1", "p2"), panelScene().rectangleSelection(gestures.preview))
+        gestures.up(TablePoint(150f, 150f), 30)
+        assertEquals(setOf("p1", "p2"), events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
+        assertTrue(events.none { it is TableIntent.Scroll })
+    }
+
+    @Test fun panelDoubleTapDragAndTwoFingersScrollOverCardsWhileOneFingerDragsTheCard() {
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        val card = panelCard("p1", 10f).bounds.center
+        gestures.update(panelScene(), TableSelection(), true)
+        // One finger on a card drags it.
+        gestures.down(card, 0); gestures.move(TablePoint(card.x, card.y + 60f), 20)
+        assertEquals("p1", gestures.preview.scope?.contextId)
+        gestures.cancel(); events.clear()
+        // Double-tap-drag over the card scrolls the panel.
+        gestures.down(card, 1000); gestures.up(card, 1010)
+        assertTrue(events.any { it is TableIntent.Actions })
+        events.clear()
+        gestures.down(card, 1100); gestures.move(TablePoint(card.x, card.y - 30f), 1120); gestures.up(TablePoint(card.x, card.y - 30f), 1130)
+        assertEquals(TableIntent.Scroll(panelPort.id, 30f, vertical = true), events.filterIsInstance<TableIntent.Scroll>().last())
+        assertTrue(events.none { it is TableIntent.Move || it is TableIntent.Actions || it is TableIntent.Selection })
+        events.clear()
+        // Two fingers starting on a card scroll too.
+        gestures.down(card, 3000)
+        gestures.transform(TablePoint(0f, -20f), 1f, card)
+        assertEquals(TableIntent.Scroll(panelPort.id, 20f, vertical = true), events.filterIsInstance<TableIntent.Scroll>().single())
+        assertTrue(events.none { it is TableIntent.Camera })
+    }
+
+    @Test fun graveyardPileTapOpensActionsAndDoubleTapSearchesWithoutPingModeDoubleTaps() {
+        val grave = TableItem("grave", TableBounds(200f, 300f, 28f, 40f), "Graveyard", "", zone = PlayZone.GRAVEYARD, cards = listOf("g"))
+        val exile = TableItem("exile", TableBounds(250f, 300f, 28f, 40f), "Exile", "", zone = PlayZone.EXILE, cards = listOf("e"))
+        for (pile in listOf(grave, exile)) {
+            val events = mutableListOf<TableIntent>()
+            val gestures = TableGestureCoordinator(events::add)
+            gestures.update(TableScene(listOf(grave, exile), emptyList()), TableSelection(), true)
+            val p = pile.bounds.center
+            gestures.down(p, 0); gestures.up(p, 10)
+            assertEquals(pile.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
+            gestures.down(p, 100); gestures.up(p, 110)
+            assertEquals(TableIntent.SearchPile(pile.id), events.filterIsInstance<TableIntent.SearchPile>().single())
+            assertEquals(1, events.count { it is TableIntent.Actions })
+            gestures.update(TableScene(listOf(grave, exile), emptyList()), TableSelection(mode = TableMode.PING), true)
+            events.clear()
+            gestures.down(p, 1000); gestures.up(p, 1010); gestures.down(p, 1100); gestures.up(p, 1110)
+            assertTrue(events.none { it is TableIntent.SearchPile })
+        }
     }
 
     @Test fun hitTestingSamplesTheDrawnSceneWithoutCompositionUpdates() {

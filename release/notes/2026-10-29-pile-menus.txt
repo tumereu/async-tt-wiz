@@ -1,0 +1,1 @@
+add: Tapping a graveyard or exile pile opens its menu: search, all cards to library top or bottom in random order, shuffle all into library, all to exile or graveyard, all to Temp 1. Double-tap opens the search.

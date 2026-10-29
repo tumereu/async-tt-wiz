@@ -16,7 +16,8 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 private const val PANEL_HEADER = 28f
-data class CardPanelRow(val entry: ContentsEntry, val copies: Int, val bounds: TableBounds)
+data class CardPanelRow(val entry: ContentsEntry, val copies: Int, val bounds: TableBounds,
+    val cardIds: List<String> = listOf(entry.cardId))
 data class CardPanelTypeHeader(val title: String, val bounds: TableBounds)
 data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBounds,
     val viewport: TableViewport, val rows: List<CardPanelRow>, val columns: Int = 1,
@@ -91,7 +92,7 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
             section.forEachIndexed { n, group ->
                 val b = TableBounds(bounds.x + (width - columns * columnPitch) / 2 + panelColumn(n, section.size, columns) * columnPitch + 2,
                     y + n / columns * rowPitch + 2, 28f * scale, 40f * scale)
-                if (b.intersection(portBounds) != null) rows += CardPanelRow(group.first(), group.size, b)
+                if (b.intersection(portBounds) != null) rows += CardPanelRow(group.first(), group.size, b, group.map { it.cardId })
             }
             y += ceil(section.size.toDouble() / columns).toInt() * rowPitch
         }
@@ -175,23 +176,43 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
     }
 }
 
-internal data class PanelCardAction(val label: String, val zone: PlayZone, val reveal: Boolean = false,
-    val bottom: Boolean = false, val tapped: Boolean = false)
-internal val panelCardActions = listOf(PanelCardAction("Hand", PlayZone.HAND), PanelCardAction("Reveal+Hand", PlayZone.HAND, reveal = true),
-    PanelCardAction("Battlefield", PlayZone.BATTLEFIELD), PanelCardAction("Battlefield tapped", PlayZone.BATTLEFIELD, tapped = true),
-    PanelCardAction("Graveyard", PlayZone.GRAVEYARD), PanelCardAction("Exile", PlayZone.EXILE),
-    PanelCardAction("Top", PlayZone.LIBRARY), PanelCardAction("Reveal+Top", PlayZone.LIBRARY, reveal = true),
-    PanelCardAction("Bottom", PlayZone.LIBRARY, bottom = true), PanelCardAction("Stack", PlayZone.STACK))
-internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDisplay, id: String, localZone: PlayZone?): Boolean =
-    action.zone != localZone && (!action.reveal || localZone == null && !display.reveal && id !in display.revealedIds)
+/** One cell of the unified panel card menu. [name] is the accessible name (and icon key), [label] the cell text. */
+internal data class PanelCardAction(val name: String, val label: String = name, val zone: PlayZone? = null,
+    val reveal: Boolean = false, val bottom: Boolean = false, val tapped: Boolean = false, val shuffle: Boolean = false,
+    val temp: Int? = null)
+/** The same 5-column layout for every left card panel (search, look, reveal, Graveyard, Exile): 18 cells, 4 rows. */
+internal val panelCardActions = listOf(PanelCardAction("Inspect"), PanelCardAction("Inspect other side", "Other side"),
+    PanelCardAction("Ping / Unping", "Ping"),
+    PanelCardAction("Hand", zone = PlayZone.HAND), PanelCardAction("Reveal+Hand", "Reveal\nhand", PlayZone.HAND, reveal = true),
+    PanelCardAction("Battlefield", zone = PlayZone.BATTLEFIELD), PanelCardAction("Battlefield tapped", "Tapped", PlayZone.BATTLEFIELD, tapped = true),
+    PanelCardAction("Stack", zone = PlayZone.STACK), PanelCardAction("Graveyard", zone = PlayZone.GRAVEYARD),
+    PanelCardAction("Exile", zone = PlayZone.EXILE),
+    PanelCardAction("Library top", zone = PlayZone.LIBRARY), PanelCardAction("Reveal+Top", "Reveal\ntop", PlayZone.LIBRARY, reveal = true),
+    PanelCardAction("Library bottom", zone = PlayZone.LIBRARY, bottom = true),
+    PanelCardAction("Shuffle into library", zone = PlayZone.LIBRARY, shuffle = true)) +
+    TempPiles.NUMBERS.map { PanelCardAction("Temp $it", temp = it) }
 
-internal fun panelCardActionLabel(action: PanelCardAction) = when (action.label) {
-    // Two lines keep the reveal variants distinguishable from plain Hand/Top without truncation.
-    "Reveal+Hand" -> "Reveal\nhand"
-    "Reveal+Top" -> "Reveal\ntop"
-    "Battlefield tapped" -> "Tapped"
-    else -> action.label
+/** The tapped card alone, or (when it is selected) every selected card of THIS panel. */
+internal fun panelCardTargets(display: ContentsDisplay, id: String, selected: Set<String>): List<String> =
+    if (id in selected) display.cardIds.filter { it in selected } else listOf(id)
+
+/** Zone moves only; Inspect, Other side, Ping and Temp cells have their own gates. */
+internal fun panelCardActionEnabled(action: PanelCardAction, display: ContentsDisplay, ids: List<String>, localZone: PlayZone?,
+    board: BoardState? = null): Boolean {
+    val zone = action.zone ?: return true
+    val container = board?.containers?.singleOrNull { it.id == display.containerId }
+    val own = localZone ?: container?.zone?.takeUnless { container.temp }
+    if (zone != PlayZone.LIBRARY && zone == own) return false
+    // Search/Look panels keep Library top/bottom (reordering); shuffling into its own Library is meaningless.
+    if (action.shuffle && own == PlayZone.LIBRARY) return false
+    if (action.reveal && (localZone != null || display.reveal || ids.all { it in display.revealedIds })) return false
+    if (board == null) return true
+    if (PublicPiles.movable(board, ids, zone).isEmpty()) return false
+    return zone != PlayZone.STACK || libraryDestinations(board, sourceIds = ids).any { (_, d) ->
+        board.containers.any { it.id == d.containerId && it.zone == PlayZone.STACK } }
 }
+
+internal fun panelCardActionLabel(action: PanelCardAction) = action.label
 
 /** Fixed anchors are scene geometry, not the tapped card's row. No additional popup chrome. */
 @Composable
@@ -204,10 +225,12 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
     val display = panel.display
     val id = if (rest) null else route.getOrNull(2)?.takeIf { it in display.cardIds } ?: return
     val cell = CardRingGeometry.cell.toFloat()
-    val width = if (rest) 5 * cell + 8f else 3 * cell + 4f
-    val height = if (rest) cell else ceil(panelCardActions.size / 3f) * (cell + 2f) - 2f
+    val columns = CardRingPages.columns
+    val width = if (rest) 5 * cell + 8f else columns * cell + (columns - 1) * 2f
+    val height = if (rest) cell else ceil(panelCardActions.size / columns.toFloat()) * (cell + 2f) - 2f
     val x = if (rest) panel.closeBounds.x else scene.cardPanels.maxOf { it.bounds.right } + 4f
     val y = if (rest) panel.closeBounds.y else panel.viewport.bounds.y + 2f
+    val annotations = LocalTableMenuAnnotations.current
     TableInlinePopup(toolkit.panel.orEmpty(), id ?: display.id, panel.bounds, true, OwnTableColor, toolkit::dismiss,
         width.dp, height.dp, description = if (rest) "Panel rest choices" else "Panel card actions",
         placement = TableBounds(x, y, width, height)) {
@@ -217,12 +240,42 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
                 InlinePopupCell(MenuControl(label, toolkit.enabled()) { toolkit.resolveCardPanel(display, destination) })
             }
         } else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            for (row in panelCardActions.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for (action in row) InlinePopupCell(MenuControl(action.label,
-                    toolkit.enabled() && panelCardActionEnabled(action, display, id!!, panel.localZone)) {
-                    if (panel.localZone != null) toolkit.localPanelAction(id!!, action.zone, action.bottom, action.tapped)
-                    else toolkit.cardPanelAction(display, id!!, action.zone, action.reveal, action.bottom, action.tapped)
-                }, label = panelCardActionLabel(action))
+            val controls = panelCardControls(toolkit, play, panel, id!!, annotations)
+            for (row in panelCardActions.zip(controls).chunked(columns)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for ((action, control) in row) InlinePopupCell(control, label = panelCardActionLabel(action))
+            }
+        }
+    }
+}
+
+/** Controls in [panelCardActions] order. Inspect and Other side act on the tapped card; every other cell on
+ * [panelCardTargets] as ONE invocation; two or more cards onto a Library top/bottom go in random order. */
+internal fun panelCardControls(toolkit: TableToolkitController, play: PlayState, panel: CardPanelGeometry, id: String,
+    annotations: TableMenuAnnotations?): List<MenuControl> {
+    val display = panel.display
+    val enabled = toolkit.enabled()
+    val ids = panelCardTargets(display, id, toolkit.selectionState.value.ids)
+    val card = play.board.cards.singleOrNull { it.id == id }
+    val faces = card?.let { c -> play.definitions.singleOrNull { it.digest == c.definition }?.definition?.faces }.orEmpty()
+    // A face visible in the panel offers its other face; a face-down entry offers its hidden front (logged).
+    val visible = toolkit.popupItem?.takeIf { it.cardId == id }?.covered == false
+    val other = if (!visible) faces.singleOrNull { it.faceId == card?.faceId } else faces.firstOrNull { it.faceId != card?.faceId }
+    val temps = tempPileTools(toolkit, play, ids, enabled)
+    return panelCardActions.map { action ->
+        when {
+            action.name == "Inspect" -> MenuControl(action.name) { toolkit.inspect(id) }
+            action.name == "Inspect other side" -> MenuControl(action.name, enabled && card != null && other != null) {
+                if (card != null && other != null) toolkit.submit(PlayAction.InspectFace(card.id, other.faceId, card.containerId))
+            }
+            action.name == "Ping / Unping" -> MenuControl(action.name, enabled && annotations != null) {
+                if (annotations != null && annotations.submit(ids.flatMap { target ->
+                        tablePingIntent(play, annotations.reference, PingTarget(PingTargetKind.CARD, target)).actions() })) toolkit.dismiss()
+            }
+            action.temp != null -> temps[action.temp - 1]
+            else -> MenuControl(action.name, enabled && panelCardActionEnabled(action, display, ids, panel.localZone, play.board)) {
+                val zone = requireNotNull(action.zone)
+                if (panel.localZone != null) toolkit.localPanelAction(ids, zone, action.bottom, action.tapped, action.shuffle)
+                else toolkit.cardPanelAction(display, ids, zone, action.reveal, action.bottom, action.tapped, action.shuffle)
             }
         }
     }

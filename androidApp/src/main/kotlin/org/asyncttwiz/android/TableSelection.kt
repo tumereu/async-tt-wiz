@@ -51,6 +51,8 @@ sealed interface TableIntent {
     data class Inspect(val cardId: String) : TableIntent
     data class Peek(val cardId: String?) : TableIntent
     data object DismissTapUi : TableIntent
+    /** Personal: open the search panel of a Graveyard/Exile pile (its double-tap). */
+    data class SearchPile(val containerId: String) : TableIntent
     data class Draw(val libraryId: String, val handId: String, val topId: String) : TableIntent
     data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap(),
         val toggle: Boolean = false) : TableIntent

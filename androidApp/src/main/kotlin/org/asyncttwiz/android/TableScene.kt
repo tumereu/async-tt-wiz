@@ -152,6 +152,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     }
                 }
                 is TableIntent.StackBubbles -> if (toolkit != null) toolkit.showStackBubbles(intent.entryId) else localStackBubble = intent.entryId
+                is TableIntent.SearchPile -> toolkit?.openPublicPile(intent.containerId, toggle = false)
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
@@ -252,7 +253,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
             val presented = presentation?.invoke()
-            if (presented?.localPanelOutside(point) == true &&
+            // Changing the interaction mode keeps the Graveyard/Exile panel open.
+            val modeButton = presented?.modeButton ?: TableBounds(size.width / density - 56f, size.height / density - 112f, 48f, 48f)
+            if (presented?.localPanelOutside(point) == true && !modeButton.contains(point) &&
                 relay.ring?.outside?.invoke(screenOrigin + down.position) != false &&
                 presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
             val bubble = presented?.stackBubbles
@@ -492,7 +495,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                          if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                             if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                         }
-                          selected = item.cardId in (preview.rectangle?.let(rendered.value.scene::rectangle) ?: selection.ids) ||
+                          selected = item.cardId in (rendered.value.scene.rectangleSelection(preview) ?: selection.ids) ||
                               toolkit?.panel?.startsWith("panelCard/") == true && item.cardId == toolkit.popupItem?.cardId
                          if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
                              stateDescription = "Related source and projections share this source identity; selection is independent"
@@ -840,10 +843,27 @@ internal object StatusBubble {
     const val DOT = 8f
     fun dot(life: TableBounds, below: Boolean): TableBounds =
         TableBounds(life.right - DOT / 2, (if (below) life.bottom else life.y) - DOT / 2, DOT, DOT)
-    fun bounds(life: TableBounds, below: Boolean, textWidth: Float): TableBounds {
+    /** Extra height of each further text line. */
+    const val LINE = 13f
+    const val MAX_LINES = 2
+    fun bounds(life: TableBounds, below: Boolean, textWidth: Float, lines: Int = 1): TableBounds {
         val width = maxOf(textWidth + 2 * PADDING, 28f)
-        val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - HEIGHT
-        return TableBounds(life.x, y, width, HEIGHT)
+        val height = HEIGHT + (lines.coerceIn(1, MAX_LINES) - 1) * LINE
+        val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - height
+        return TableBounds(life.x, y, width, height)
+    }
+    /** The whole text on one line when it fits; otherwise wrapped (at a space when possible) onto a
+     * second line, which is ellipsized when even two lines are not enough. */
+    fun lines(text: String, maxWidth: Float, measure: (String) -> Float): List<String> {
+        if (measure(text) <= maxWidth) return listOf(text)
+        var end = text.length
+        while (end > 1 && (measure(text.substring(0, end)) > maxWidth || text[end].isLowSurrogate())) end--
+        if (end >= text.length) return listOf(fit(text, maxWidth, measure))
+        val space = text.lastIndexOf(' ', end).takeIf { it > 0 && text[end] != ' ' }
+        val split = space ?: end
+        val first = text.substring(0, split).trimEnd()
+        val rest = text.substring(split).trimStart()
+        return if (rest.isEmpty()) listOf(fit(first, maxWidth, measure)) else listOf(first, fit(rest, maxWidth, measure))
     }
     /** The whole text when it fits, otherwise the longest prefix followed by an ellipsis. */
     fun fit(text: String, maxWidth: Float, measure: (String) -> Float): String {
@@ -1206,7 +1226,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             }
         }
     }
-    val highlighted = preview.rectangle?.let(scene::rectangle) ?: selection.ids
+    val highlighted = scene.rectangleSelection(preview) ?: selection.ids
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {
@@ -1359,8 +1379,9 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
         val canvasWidth = this.size.width / density
         val maxText = (minOf(StatusBubble.MAX_WIDTH, canvasWidth - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
-        val label = StatusBubble.fit(i.status, maxText) { cache.measure(it) / density }
-        val bubble = StatusBubble.bounds(i.bounds, below = i.valueDragSide == ValueDragSide.TOP, cache.measure(label) / density)
+        val lines = StatusBubble.lines(i.status, maxText) { cache.measure(it) / density }
+        val bubble = StatusBubble.bounds(i.bounds, below = i.valueDragSide == ValueDragSide.TOP,
+            lines.maxOf { cache.measure(it) } / density, lines.size)
         val tipX = i.bounds.center.x
         val tail = androidx.compose.ui.graphics.Path().apply {
             val base = if (i.valueDragSide == ValueDragSide.TOP) bubble.y + .5f else bubble.bottom - .5f
@@ -1376,7 +1397,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         drawLine(Color.White, xy(tipX - 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom),
             xy(tipX + 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom), 1.5f * density)
         paint.color = android.graphics.Color.rgb(32, 42, 46)
-        text(label, bubble.x + StatusBubble.PADDING, bubble.center.y - cache.centerOffset() / density, label.length)
+        lines.forEachIndexed { n, line ->
+            text(line, bubble.x + StatusBubble.PADDING, bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+                cache.centerOffset() / density, line.length)
+        }
         paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
     }
     for (ping in pings) {
@@ -1434,4 +1458,4 @@ internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier:
 }
 
 internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
-    intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect
+    intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect || intent is TableIntent.SearchPile

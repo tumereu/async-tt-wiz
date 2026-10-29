@@ -35,7 +35,7 @@ class PlayerStatusRuntimeTest {
                 assertTrue(activity.page(f.b, null).entries.none { it.authorId == f.b.account.accountId })
                 // Invalid text is rejected by the shared rules.
                 assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) {
-                    f.recipient.execute(f.recipient.command(PlayAction.SetStatus("x".repeat(25)))) }.code)
+                    f.recipient.execute(f.recipient.command(PlayAction.SetStatus("x".repeat(65)))) }.code)
             }
         }
     }

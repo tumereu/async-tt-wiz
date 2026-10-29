@@ -149,10 +149,10 @@ class PlayerStatusUiTest {
         field.assertTextContains("Wait")
         assertEquals(TextRange(0, 4), field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange])
         // Focus and keyboard come from the shared rememberDialogField helper (see DialogInputTest).
-        field.performTextReplacement("  Back in five minutes, sorry!  ")
+        field.performTextReplacement("  Back in five minutes, sorry! " + "x".repeat(40) + "  ")
         assertEquals(PlayerStatus.MAX_LENGTH, field.fetchSemanticsNode().config[SemanticsProperties.EditableText].text.length)
         field.performImeAction()
-        assertEquals(listOf<PlayAction>(PlayAction.SetStatus("Back in five minutes,")), sent)
+        assertEquals(listOf<PlayAction>(PlayAction.SetStatus("Back in five minutes, sorry! " + "x".repeat(33))), sent)
         compose.onAllNodes(isDialog()).assertCountEquals(0)
     }
 

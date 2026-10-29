@@ -15,12 +15,14 @@ class PlayerStatusTest {
 
     @Test fun rulesVersionIsAtLeast26() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 26)
 
-    @Test fun statusIsEmptyOrTrimmedSingleLineAndAtMost24Characters() {
+    @Test fun statusIsEmptyOrTrimmedSingleLineAndAtMost64Characters() {
         fun valid(text: String) = GameWire.valid(command(text))
-        for (good in listOf("", "Wait", "Thinking…", "x".repeat(24), "GG ✨", PlayerStatus.OPENING)) assertTrue(valid(good), good)
-        for (bad in listOf("x".repeat(25), " Wait", "Wait ", "two\nlines", "tab\there", "nul\u0000", "\uD800"))
+        for (good in listOf("", "Wait", "Thinking…", "x".repeat(24), "x".repeat(64), "GG ✨", PlayerStatus.OPENING)) assertTrue(valid(good), good)
+        for (bad in listOf("x".repeat(65), " Wait", "Wait ", "two\nlines", "tab\there", "nul\u0000", "\uD800"))
             assertFalse(valid(bad), bad)
         assertEquals("invalidInput", GameplayRules.change(play(), a, command("Wait\n")).reason)
+        assertEquals(64, PlayerStatus.MAX_LENGTH)
+        assertEquals("x".repeat(64), GameplayRules.change(play(), a, command("x".repeat(64))).state!!.board.players.first().status)
     }
 
     @Test fun emptyStatusKeepsTheOldWireShapeAndActionsRoundTrip() {

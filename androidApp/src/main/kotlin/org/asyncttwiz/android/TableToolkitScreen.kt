@@ -106,7 +106,13 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 })
             }
         }
-        else -> if (panel?.startsWith("contents/") == true) {
+        else -> if (panel?.startsWith("pile/") == true) {
+            val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }
+            if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
+            else InlinePopupPanel(toolkit::dismiss, moveZoneLabel(pile.zone), width = 152.dp, height = 104.dp, key = panel) {
+                PublicPileActions(toolkit, play, pile)
+            }
+        } else if (panel?.startsWith("contents/") == true) {
             val pile = toolkit.publicContents()
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}",

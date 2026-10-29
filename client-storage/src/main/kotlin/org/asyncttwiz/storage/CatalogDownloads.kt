@@ -221,10 +221,13 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
         check(directory.isDirectory || directory.mkdirs())
         val downloads = mutableListOf<Triple<CatalogSet, File, String>>()
         val reserve = 64L * 1024 * 1024
+        // Progress covers the whole update, not each set: per-set restarts made a small update flicker empty/full.
+        val sources = plan.sets.map { set -> source.setSource(set.code).let { it to it.size() } }
+        val overall = sources.map { it.second }.takeIf { sizes -> sizes.all { it != null } }?.sumOf { it!! }
+        var completed = 0L
         try {
-            plan.sets.forEach { set ->
-                val setSource = source.setSource(set.code)
-                val total = setSource.size()
+            plan.sets.zip(sources).forEach { (set, sized) ->
+                val (setSource, total) = sized
                 val compressed = total ?: HttpCatalogSource.MAX_SET_BYTES
                 val installedSize = directory.listFiles()?.filter { it.extension == "db" }?.sumOf { it.length() } ?: 0
                 check(freeBytes() >= installedSize + compressed + minOf(HttpCatalogSource.MAX_DECODED_SET_BYTES, compressed * 12) + reserve) {
@@ -234,32 +237,39 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
                 val checksum = setSource.checksum()
                 downloads += Triple(set, file, checksum)
                 val digest = MessageDigest.getInstance("SHA-256")
-                progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, total))
+                if (completed == 0L) progress(CatalogProgress(CatalogPhase.DOWNLOADING, 0, overall))
                 FileOutputStream(file).use { output ->
                     java.security.DigestOutputStream(output, digest).use { checked ->
                         setSource.download(checked) { bytes ->
                             check(bytes <= HttpCatalogSource.MAX_SET_BYTES && freeBytes() >= reserve)
-                            progress(CatalogProgress(CatalogPhase.DOWNLOADING, bytes, total))
+                            progress(CatalogProgress(CatalogPhase.DOWNLOADING, completed + bytes, overall))
                         }
                         checked.flush(); output.fd.sync()
                     }
                 }
                 check(digest.digest().joinToString("") { "%02x".format(it) } == checksum) { "Catalog checksum mismatch" }
+                completed += file.length()
             }
+            val indexingTotal = downloads.sumOf { it.second.length() }
+            var indexed = 0L
+            var records = 0L
             return repository.stage(copyInstalled = true,
                 finishing = { progress(CatalogProgress(CatalogPhase.FINISHING, 0, null)) }) { index ->
+                progress(CatalogProgress(CatalogPhase.INDEXING, 0, indexingTotal))
                 downloads.forEach { (set, file, checksum) ->
                     index.removeSet(set.code)
-                    progress(CatalogProgress(CatalogPhase.INDEXING, 0, file.length()))
+                    var setRecords = 0L
                     CountingInput(FileInputStream(file)).use { compressed ->
                         GZIPInputStream(compressed, 64 * 1024).use { gzip ->
                             MtgJsonCatalog().import(LimitedInput(gzip, minOf(decodedLimit, HttpCatalogSource.MAX_DECODED_SET_BYTES)),
                                 index, plan.metadata.copy(checksum = checksum), set.code) { count ->
                                 check(freeBytes() >= reserve)
-                                progress(CatalogProgress(CatalogPhase.INDEXING, compressed.count, file.length(), count))
+                                setRecords = count
+                                progress(CatalogProgress(CatalogPhase.INDEXING, indexed + compressed.count, indexingTotal, records + count))
                             }
                         }
                     }
+                    indexed += file.length(); records += setRecords
                 }
                 plan.metadata.copy(checksum = "") // A mixed catalog has no AllPrintings checksum.
             }

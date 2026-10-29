@@ -68,11 +68,11 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     PodsDestination(pods, state.account!!.accountId, if (!landscape || podPlay) ({ controller.drawer(true) }) else null, lobby,
                         manageCubes = {
                             collectionCubes = true
-                            controller.navigate(ShellDestination.DECKS)
+                            controller.push(ShellDestination.DECKS)
                         }, mainMenu = { controller.navigate(ShellDestination.MENU) })
                 } else if (state.destination == ShellDestination.DECKS && cubes != null) {
                     ManageCollectionScreen(cubes, decks, deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog,
-                        draftCube = pods?.let { podController -> { id -> podController.newPod(id); controller.navigate(ShellDestination.PODS) } },
+                        draftCube = pods?.let { podController -> { id -> podController.newPod(id); controller.push(ShellDestination.PODS) } },
                         initiallyCubes = collectionCubes)
                 } else if (state.destination == ShellDestination.DECKS && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
@@ -84,7 +84,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
                     if (destination == ShellDestination.PODS) pods?.showList()
                     if (destination == ShellDestination.DECKS) collectionCubes = false
                     controller.navigate(destination)
-                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller, pods)
+                }, catalog, deckImport, decks, lobby, state.account!!.accountId, controller::logout, controller, pods,
+                    push = controller::push)
             }
         }
     }
@@ -170,7 +171,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
                 // One combined handler owns tap/hold; nesting another clickable drawer item would
                 // allow a recognized context hold to also open the game on release.
                 Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
-                    .gameRowActions(lobby!!, game) { lobby.open(game.id); controller.drawer(false) }
+                    .gameRowActions(lobby!!, game) { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
                     .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
                     color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
                     Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
@@ -261,14 +262,15 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
 @Composable
 internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
-    logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null) {
+    logout: () -> Unit = {}, auth: AuthController? = null, pods: PodController? = null,
+    push: (ShellDestination) -> Unit = navigate) {
     Column(Modifier.fillMaxSize()) {
         if (destination == ShellDestination.MENU) {
             if (hamburger) ScreenHeader("", open) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
         } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
             if (hamburger) open else null, Modifier.testTag("destination-title")) {
             if (destination == ShellDestination.GAMES)
-                ScreenCreateAction("New game", "add", { lobby?.contacts(true); navigate(ShellDestination.CONTACTS) })
+                ScreenCreateAction("New game", "add", { lobby?.contacts(true); push(ShellDestination.CONTACTS) })
             if (destination == ShellDestination.DECKS && deckImport != null)
                 ScreenCreateAction("Import deck", "import", deckImport::open, Modifier.testTag("import-deck"))
         }

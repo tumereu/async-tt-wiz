@@ -83,7 +83,8 @@ class DeckReauthenticationTest {
             lateinit var library: DeckLibraryController
             val auth = AuthController(accounts, store, authWorker,
                 clearPrivateWork = { clears++; importer.exit(); library.clear() }, post = { it() })
-            authWorker.drain(); auth.navigate(ShellDestination.DECKS); authWorker.drain()
+            // An in-flow step leaves a non-empty history that same-account reauthentication must keep.
+            authWorker.drain(); auth.navigate(ShellDestination.PODS); auth.push(ShellDestination.DECKS); authWorker.drain()
             var revoked = false; var lostReplies = 3; var effects = 0
             val mutationBodies = mutableListOf<String>(); val tokens = mutableListOf<String>()
             val identities = mutableSetOf<String>()
@@ -126,7 +127,7 @@ class DeckReauthenticationTest {
                 assertNull(auth.state.account); assertTrue(importer.state.preview)
                 accounts.failure = null; login(auth, authWorker)
                 assertNotNull(auth.state.account); assertEquals(ShellDestination.DECKS, auth.state.destination)
-                assertEquals(listOf(ShellDestination.MENU), auth.state.backStack); assertEquals(0, clears)
+                assertEquals(listOf(ShellDestination.PODS), auth.state.backStack); assertEquals(0, clears)
                 // A delayed failure of the old request must not invalidate the replacement credential.
                 auth.authenticationRequired("A".repeat(43)); assertNotNull(auth.state.account)
                 revoked = false; importer.save(); worker.drain()

@@ -1,0 +1,1 @@
+mod: Back from any section opened from the menu now returns to the main menu, and Back again leaves the app, instead of stepping through every screen you visited.

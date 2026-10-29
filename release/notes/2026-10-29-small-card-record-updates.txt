@@ -1,0 +1,1 @@
+fix: Small card record updates show their size in KB instead of "0 / 0 MB", and the progress bar fills steadily instead of flickering.

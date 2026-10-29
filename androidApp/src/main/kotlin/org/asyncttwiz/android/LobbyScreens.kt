@@ -358,11 +358,13 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
         if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
     } else {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val definition = preparation.definitions.find { it.digest == deck.cover }?.definition
-            definition?.faces?.firstOrNull()?.let { face ->
-                CardArtwork(ArtworkReference(face.scryfallId, 0, deck.cover!!, "small", face.imageUri), definition.name,
+            val cover = gameDeckCover(accountId, viewer, deck.cover)
+            val definition = cover?.let { digest -> preparation.definitions.find { it.digest == digest }?.definition }
+            val face = definition?.faces?.firstOrNull()
+            if (cover != null && face != null) {
+                CardArtwork(ArtworkReference(face.scryfallId, 0, cover, "small", face.imageUri), definition.name,
                     48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
-            }
+            } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
             Column {
                 Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",

@@ -289,11 +289,24 @@ class AuthController(
         if (!closed && state.account != null) state = state.copy(drawerOpen = open)
     }
 
-    fun navigate(destination: ShellDestination) {
+    /** Top-level switch (drawer, Menu, notification): Back from any section returns to Menu, then leaves the app. */
+    fun navigate(destination: ShellDestination) = go(destination, emptyList())
+
+    /** In-flow step inside a section (Games → New game, Pod → cubes): Back returns to the screen it came from.
+     * Reaching a screen already in the history pops back to it instead of stacking a loop. */
+    fun push(destination: ShellDestination) {
+        val stack = state.backStack
+        val earlier = stack.lastIndexOf(destination)
+        go(destination, when {
+            destination == ShellDestination.MENU -> emptyList()
+            destination == state.destination -> stack
+            earlier >= 0 -> stack.take(earlier)
+            else -> stack + state.destination
+        })
+    }
+
+    private fun go(destination: ShellDestination, stack: List<ShellDestination>) {
         if (closed || state.account == null) return
-        val stack = if (destination == ShellDestination.MENU) emptyList()
-            else if (destination == state.destination) state.backStack
-            else state.backStack + state.destination
         state = state.copy(destination = destination, backStack = stack, drawerOpen = false)
         saveDestination()
     }

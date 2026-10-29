@@ -203,6 +203,16 @@ class CatalogIncrementalTest {
             assertEquals(hash(files["/ZPA.json.gz"]!!), repo().installedSets().single { it.code == "ZPA" }.checksum)
             assertEquals(tokensBefore.filter { it.printing.set != "ZPA" }.map { it.printing.id }, repo().searchTokens("").tokens.map { it.printing.id })
             assertEquals(CatalogPhase.FINISHING, events.last().phase)
+            // One bar for the whole update: totals cover every set and progress never restarts per set.
+            val downloadTotal = files["/ZPA.json.gz"]!!.size.toLong() + files["/CON_.json.gz"]!!.size
+            for (phase in listOf(CatalogPhase.DOWNLOADING, CatalogPhase.INDEXING)) {
+                val phased = events.filter { it.phase == phase }
+                assertTrue(phased.isNotEmpty(), phase.name)
+                assertTrue(phased.all { it.total == downloadTotal }, phase.name)
+                assertEquals(phased.map { it.done }.sorted(), phased.map { it.done }, phase.name)
+                assertEquals(phased.map { it.records }.sorted(), phased.map { it.records }, phase.name)
+            }
+            assertEquals(downloadTotal, events.last { it.phase == CatalogPhase.DOWNLOADING }.done)
             assertFalse(requests.any { "AllPrintings" in it })
             assertTrue(requests.all { it == "/SetList.json" || it.startsWith("/ZPA.") || it.startsWith("/CON_.") })
             redirect = true

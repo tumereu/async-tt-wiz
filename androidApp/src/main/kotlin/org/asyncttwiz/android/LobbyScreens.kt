@@ -105,40 +105,14 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = controller::refresh, loading = state.busy) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item {
+            // One list in the shared order (see gameListOrder): invitations sit between the two kinds of game.
+            val games = orderedGames(state.games + state.invitations.filter { incomingInvitation(it, accountId) }, accountId)
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row { Text("GAMES", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge); Text(state.games.size.toString(), style = MaterialTheme.typography.bodySmall) }
+                    Row { Text("GAMES", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge); Text(games.size.toString(), style = MaterialTheme.typography.bodySmall) }
                     HorizontalDivider()
-                    if (state.loaded && state.games.isEmpty()) Text("No games yet.")
-                    GameRows(state.games, controller, accountId, Modifier.fillMaxWidth())
-                }
-            }
-        }
-        item {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row { Text("Invitations", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge); Text("${state.invitations.size} pending", style = MaterialTheme.typography.bodySmall) }
-                    HorizontalDivider()
-                    if (state.loaded && state.invitations.isEmpty()) Text("No pending invitations.")
-                    for (game in state.invitations) Surface(color = ScreenBackground, border = BorderStroke(1.dp, ScreenBorder), shape = MaterialTheme.shapes.medium) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(game.gameName, fontWeight = FontWeight.SemiBold)
-                            game.podName?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Avatar(game.inviter)
-                                Text(game.inviter.username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text("${gameStatus(game, accountId)} · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ScreenButton(onClick = { controller.respond(game, true) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames && !game.invitationHeld,
-                                    modifier = Modifier.weight(1f)) { EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Accept") }
-                                ScreenOutlinedButton(onClick = { controller.respond(game, false) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
-                                    modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                                    EntryIcon(null, "close"); Spacer(Modifier.width(8.dp)); Text("Decline")
-                                }
-                            }
-                        }
-                    }
+                    if (state.loaded && games.isEmpty()) Text("No games yet.")
+                    GameRows(games, controller, accountId, Modifier.fillMaxWidth())
                 }
             }
         }

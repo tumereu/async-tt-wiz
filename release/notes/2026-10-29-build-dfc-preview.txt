@@ -1,0 +1,1 @@
+mod: Holding a double-faced card while drafting or building shows its front side, like during games, and closes when you let go.

@@ -12,28 +12,47 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Each menu panel ranks actions, other active items, then invitations, independently. */
+/** The one game order shared by the Games screen, the Menu quick list and the drawer. */
+internal enum class GameOrderGroup {
+    /** In play and the opponent made the latest event: the viewer holds the move flag. */
+    THEIR_EVENT,
+    /** Invitations and pod challenges (held or not) waiting for the viewer's answer. */
+    INVITATION,
+    /** In play with the viewer's own latest move, and invitations the viewer sent. */
+    OWN_EVENT,
+    /** Not in play: setup, declined, ended. */
+    OTHER,
+}
+
+/** GameSummary has no latest-event author; the server-computed move flag ([GameSummary.attentionHolder])
+ * passes to the viewer exactly when the opponent hands over, so it stands in for "the opponent acted last". */
+internal fun gameOrderGroup(game: GameSummary, accountId: String): GameOrderGroup = when {
+    game.lifecycle == GameLifecycle.ACTIVE -> if (game.attentionHolder == accountId) GameOrderGroup.THEIR_EVENT else GameOrderGroup.OWN_EVENT
+    game.lifecycle != GameLifecycle.LOBBY || game.invitationState != InvitationState.PENDING -> GameOrderGroup.OTHER
+    incomingInvitation(game, accountId) -> GameOrderGroup.INVITATION
+    game.inviter.accountId == accountId -> GameOrderGroup.OWN_EVENT
+    else -> GameOrderGroup.OTHER
+}
+
+/** Groups in [GameOrderGroup] order; the longest-waiting move first, everything else newest first. */
+internal fun gameListOrder(accountId: String): Comparator<GameSummary> =
+    panelOrder({ it.id }, { it.updatedAt }) { gameOrderGroup(it, accountId).ordinal }
+
+internal fun orderedGames(games: List<GameSummary>, accountId: String): List<GameSummary> =
+    games.distinctBy { it.id }.sortedWith(gameListOrder(accountId))
+
+/** Menu panel: the first three of the shared order; declined and ended games are left out. */
 internal fun quickContinueGames(games: List<GameSummary>, accountId: String): List<GameSummary> =
-    games.distinctBy { it.id }.filter { it.lifecycle == GameLifecycle.ACTIVE ||
-        it.lifecycle == GameLifecycle.LOBBY && it.invitationState != InvitationState.DECLINED
-    }.sortedWith(panelOrder({ it.id }, { it.updatedAt }) {
-        when {
-            it.invitationState == InvitationState.PENDING -> 2
-            it.lifecycle == GameLifecycle.ACTIVE && it.attentionHolder == accountId -> 0
-            else -> 1
-        }
-    }).take(3)
+    orderedGames(games.filter { it.lifecycle == GameLifecycle.ACTIVE ||
+        it.lifecycle == GameLifecycle.LOBBY && it.invitationState != InvitationState.DECLINED }, accountId).take(3)
 
 /** A pending invitation or pod challenge (held or not) this player still has to answer. */
 internal fun incomingInvitation(game: GameSummary, accountId: String) = game.lifecycle == GameLifecycle.LOBBY &&
     game.invitationState == InvitationState.PENDING && game.recipient.accountId == accountId
 
-/** Drawer Games section: invitations needing an answer first, newest first, then the games as listed. */
-internal fun navigationGameRows(games: List<GameSummary>, invitations: List<GameSummary>, accountId: String): List<GameSummary> {
-    val incoming = invitations.filter { incomingInvitation(it, accountId) }.distinctBy { it.id }
-        .sortedWith(compareByDescending<GameSummary> { runCatching { Instant.parse(it.updatedAt) }.getOrNull() }.thenBy { it.id })
-    return incoming + games.filter { game -> incoming.none { it.id == game.id } }
-}
+/** Drawer Games section: the games and the invitations needing an answer, in the shared order. */
+internal fun navigationGameRows(games: List<GameSummary>, invitations: List<GameSummary>, accountId: String): List<GameSummary> =
+    orderedGames(invitations.filter { incomingInvitation(it, accountId) } + games, accountId)
 
 internal data class QuickContinuePod(val pod: PodSummary? = null, val invitation: PodInvitation? = null) {
     val id: String get() = pod?.id ?: requireNotNull(invitation).podId
@@ -54,7 +73,8 @@ internal fun quickContinuePods(pods: List<PodSummary>, invitations: List<PodInvi
 private fun <T> panelOrder(id: (T) -> String, time: (T) -> String, priority: (T) -> Int): Comparator<T> =
     Comparator { a, b ->
         val rank = priority(a).compareTo(priority(b))
-        val activity = Instant.parse(time(a)).compareTo(Instant.parse(time(b)))
+        // An unreadable time sorts as the oldest rather than failing the whole list.
+        val activity = compareValues(runCatching { Instant.parse(time(a)) }.getOrNull(), runCatching { Instant.parse(time(b)) }.getOrNull())
         when {
             rank != 0 -> rank
             activity != 0 -> if (priority(a) == 0) activity else -activity

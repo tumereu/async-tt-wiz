@@ -200,7 +200,13 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 paired("Change deck", "Prepare deck")
                 compose.onNodeWithContentDescription("Cancel game").assertIsDisplayed()
             }
-            "play" -> paired("Accept", "Decline")
+            "play" -> {
+                // The invitation is answered in place within the one ordered Games list.
+                compose.onNodeWithText("Invitations").assertDoesNotExist()
+                val a = compose.onNodeWithContentDescription("Accept invitation").fetchSemanticsNode().boundsInRoot
+                val b = compose.onNodeWithContentDescription("Decline invitation").fetchSemanticsNode().boundsInRoot
+                assertEquals(a.top, b.top, .5f, "Invitation actions must not stack")
+            }
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
             "choose-cover" -> paired("Use cover", "Cancel")
               "import-link" -> {

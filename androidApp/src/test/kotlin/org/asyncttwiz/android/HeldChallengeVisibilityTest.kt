@@ -30,14 +30,15 @@ class HeldChallengeVisibilityTest {
         assertEquals("Invitation pending", gameStatus(held.copy(invitationHeld = false), self.accountId))
     }
 
-    @Test fun drawerListsIncomingInvitationsNewestFirstAboveGames() {
+    @Test fun drawerListsIncomingInvitationsNewestFirstAboveOwnMovesAndSetup() {
         fun game(id: String, hour: Int, inviter: AccountIdentity = self, recipient: AccountIdentity = other,
             state: InvitationState = InvitationState.ACCEPTED) = GameSummary(id, id, "2026-10-20T00:00:00Z", inviter, recipient,
             "round", "invite", state, updatedAt = "2026-10-27T${hour.toString().padStart(2, '0')}:00:00Z")
         val games = listOf(game("game-1", 5), game("game-2", 1), game("outgoing", 3, state = InvitationState.PENDING))
         val invitations = listOf(game("old-invite", 2, other, self, InvitationState.PENDING),
             held.copy(id = "new-held", updatedAt = "2026-10-27T09:00:00Z"))
-        assertEquals(listOf("new-held", "old-invite", "game-1", "game-2", "outgoing"),
+        // Setup games come after the sent invitation (own latest move), newest first.
+        assertEquals(listOf("new-held", "old-invite", "outgoing", "game-1", "game-2"),
             navigationGameRows(games, invitations, self.accountId).map { it.id })
         assertTrue(incomingInvitation(held, self.accountId))
         assertFalse(incomingInvitation(held, other.accountId))

@@ -243,8 +243,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val statusBubbles = remember(statusStore, runtime.statusHistory) { StatusBubbles(statusStore, runtime.statusHistory ?: { null }) }
     val statusVersion = statusBubbles.version
     val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
+    val presenceDot = rememberPresenceDot(runtime.opponentPresence)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes,
-        LocalStatusBubbles provides statusBubbles) {
+        LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
@@ -433,7 +434,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
-                    pingPulse?.value ?: 0f, statusModes)
+                    pingPulse?.value ?: 0f, statusModes, presenceDot)
             }
             runtime.ownPodDeckName?.let { name ->
                 scene.items.firstOrNull { it.owner == accountId && it.zone == PlayZone.LIBRARY && it.drawHandId != null }?.let { library ->
@@ -880,7 +881,8 @@ private class TableDrawCache(density: Float) {
 private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
-    cache: TableDrawCache, pingPhase: Float = 0f, statusModes: Map<String, StatusBubbleMode> = emptyMap()) {
+    cache: TableDrawCache, pingPhase: Float = 0f, statusModes: Map<String, StatusBubbleMode> = emptyMap(),
+    presenceDot: PresenceDot? = null) {
     val density = density
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
@@ -1238,6 +1240,12 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 paint.color = android.graphics.Color.WHITE; paint.textSize = 24 * density; paint.isFakeBoldText = true
                 centeredText(i.value, b, 24f)
                 paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
+                if (presenceDot != null && i.owner != viewer) {
+                    // Opponent presence: inside the top-right corner, clear of the status dot/bubble below the square.
+                    val center = xy(b.right - 7f, b.y + 7f)
+                    drawCircle(Color.White, 4.5f * density, center)
+                    drawCircle(presenceDot.color, 3.5f * density, center)
+                }
             }
             TableItemKind.COUNTER -> {
                 val marker = when (i.counter) {

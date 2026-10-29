@@ -102,6 +102,13 @@ class GameSession(private val connection: GameConnection, private val credential
     private val preparations = mutableMapOf<String, PreparationReplica>()
     private val ownPodDeckNames = mutableMapOf<String, String>()
     fun ownPodDeckName(gameId: String): String? = ownPodDeckNames[gameId]
+    /** The opponent's presence per game while this connection is up; dropped on disconnect so it never goes stale. */
+    private val presences = mutableMapOf<String, ReceivedPresence>()
+    fun opponentPresence(gameId: String): ReceivedPresence? = presences[gameId]
+    private fun presence(gameId: String, value: OpponentPresence) {
+        val next = ReceivedPresence(value, now())
+        if (presences[gameId]?.let { PresenceText.same(it, next) } != true) presences[gameId] = next
+    }
     private val plays = mutableMapOf<String, GameplayReplica>()
     private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String, val playId: String?,
         val tail: MutableList<GameRevision> = mutableListOf())
@@ -245,7 +252,7 @@ class GameSession(private val connection: GameConnection, private val credential
         statusChanged()
     }
     private fun clearContext(gameId: String) {
-        ownPodDeckNames.remove(gameId)
+        ownPodDeckNames.remove(gameId); presences.remove(gameId)
         observedPlays.remove(gameId)
         evictDownload(gameId)
         inspections.entries.removeAll { (_, observer) ->
@@ -418,7 +425,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 override fun opened() = deliver {
                     AppLog.info("game", "Connected")
                     reconnectTrace.stepAll("socketConnectedHttpAuthenticated")
-                    send(GameHello(processId, installationId, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+                    send(GameHello(processId, installationId, maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
                 }
                 override fun message(message: GameServerMessage) = deliver {
                     val failure = runCatching { receive(message) }.exceptionOrNull()
@@ -656,7 +663,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun receive(message: GameServerMessage) {
         when (message) {
             is GameWelcome -> {
-                require(message.protocolMajor == 1 && message.minor == 0 && message.engineVersion == 1 && message.readFormat == 1)
+                require(message.protocolMajor == 1 && message.minor in 0..GAME_PROTOCOL_MINOR && message.engineVersion == 1 && message.readFormat == 1)
                 if (message.gameplayRulesVersion != CURRENT_GAMEPLAY_RULES_VERSION) {
                     incompatibleRules(clientOlder = message.gameplayRulesVersion > CURRENT_GAMEPLAY_RULES_VERSION)
                     return
@@ -698,6 +705,8 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameHead -> {
                 require(message.gameId == message.summary.id && message.revision == message.summary.revision)
                 if (message.gameId !in streams) return
+                // Presence is read fresh with every head; it is not revisioned state.
+                message.opponentPresence?.let { presence(message.gameId, it) }
                 // Fence old-incarnation reads before they can create a replica or trigger recovery.
                 // A leading HTTP summary is deliberately not this accepted-state boundary.
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
@@ -798,6 +807,8 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
             }
             is GameUpgradeRequired -> incompatibleRules(clientOlder = true)
+            is GamePresenceUpdate -> if (message.gameId in streams && available(message.gameId))
+                presence(message.gameId, message.opponent)
             is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
         }
         checkHeadGaps()
@@ -1333,7 +1344,7 @@ class GameSession(private val connection: GameConnection, private val credential
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; resumePing = null; token = null; connection.disconnect(); sent.clear(); chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear()
-        recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear()
+        recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear(); presences.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.values.forEach { it.subscription.close() }; inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); reviewVersions.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();

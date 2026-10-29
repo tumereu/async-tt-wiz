@@ -56,6 +56,8 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun available() = !workers.isShutdown && tasks.none { it.isDone } && dispatcher.available()
     fun validatePending() = games.validatePending()
     fun endpoint(token: String, accountId: String): Endpoint = GameSocket(token, accountId)
+    /** A player's presence flipped: tell the opponent's open tables now (no SQL; heads re-check every 30 s). */
+    fun presenceChanged(change: org.asyncttwiz.server.activity.PresenceChange) { sockets.forEach { it.presence(change) } }
     override fun close() {
         workers.shutdownNow()
         // toArray is weakly consistent; toList() can throw when a socket leaves between size() and next().
@@ -68,6 +70,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         private val connectionId = UUID.randomUUID()
         private lateinit var session: Session
         private var hello: GameHello? = null
+        @Volatile private var minor = 0
         private val subscriptions = ConcurrentHashMap.newKeySet<String>()
         private val streams = ConcurrentHashMap.newKeySet<String>()
         private val outgoing = ArrayDeque<String>()
@@ -104,13 +107,14 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (message.gameplayRulesVersion < CURRENT_GAMEPLAY_RULES_VERSION) {
                     send(GameAdmissionError("gameplayRulesUpgradeRequired", false)); return
                 }
-                hello = message; send(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
+                hello = message; minor = minOf(message.maxMinor, GAME_PROTOCOL_MINOR)
+                send(GameWelcome(minor = minor, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
             }
             val negotiated = hello ?: run { send(GameAdmissionError("upgradeRequired", false)); return }
             if (message is GamePing) {
                 message.presence?.let { presence ->
                     dispatcher.submit(presence.gameId, text.encodeToByteArray().size) {
-                        org.asyncttwiz.server.activity.ActivityService(runtime).heartbeat(principal(), presence)
+                        org.asyncttwiz.server.activity.ActivityService(runtime).heartbeat(principal(), presence)?.let(::presenceChanged)
                     }
                 }
                 send(GamePong(message.correlationId)); return
@@ -157,7 +161,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                                     if (failure.code != "accessDenied") throw failure
                                 }
                             }
-                            send(games.subscriptionHead(principal, gameId))
+                            send(games.subscriptionHead(principal, gameId, presence = minor >= 1))
                         } catch (failure: Exception) { subscriptions.remove(gameId); throw failure }
                     }
                     else -> Unit
@@ -186,9 +190,13 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         fun heartbeat() {
             if (System.nanoTime() - lastTraffic > TimeUnit.SECONDS.toNanos(90)) { stop(); return }
             for (gameId in subscriptions) dispatcher.submit(gameId) {
-                send(games.subscriptionHead(principal(), gameId))
+                send(games.subscriptionHead(principal(), gameId, presence = minor >= 1))
             }.whenComplete { _, failure -> if (failure != null) stop() }
             if (subscriptions.isEmpty()) send(GamePong("heartbeat"))
+        }
+        fun presence(change: org.asyncttwiz.server.activity.PresenceChange) {
+            if (minor >= 1 && change.accountId != accountId && change.gameId in subscriptions)
+                send(GamePresenceUpdate(change.gameId, change.presence))
         }
         private fun send(message: GameServerMessage) = sendText(GameWire.encode(message))
         @Synchronized private fun sendText(text: String) {

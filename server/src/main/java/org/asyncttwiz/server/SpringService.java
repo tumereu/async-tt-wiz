@@ -139,7 +139,7 @@ public final class SpringService implements AutoCloseable {
             pods = health ? null : new org.asyncttwiz.server.pods.PodHttp(runtime);
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
-            activity = health ? null : new ActivityHttp(runtime);
+            activity = health ? null : new ActivityHttp(runtime, hub::presenceChanged);
             crashReports = health ? null : new CrashReportHttp(runtime, java.time.Clock.systemUTC());
             appReleases = health ? null : new org.asyncttwiz.server.releases.AppReleaseHttp();
             problemReports = health ? null : new org.asyncttwiz.server.diagnostics.ProblemReportHttp(runtime);

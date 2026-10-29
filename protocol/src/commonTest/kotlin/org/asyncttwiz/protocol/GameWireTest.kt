@@ -14,6 +14,21 @@ class GameWireTest {
         assertEquals(1, (GameWire.decodeClient("""{"type":"hello","processId":"$id","installationId":"$id"}""") as GameHello).gameplayRulesVersion)
         assertEquals(1, (GameWire.json.decodeFromString<GameServerMessage>("""{"type":"welcome"}""") as GameWelcome).gameplayRulesVersion)
     }
+    @Test fun opponentPresenceIsMinorOneAndOmittedFromHeadsWithoutIt() {
+        val hello = GameHello(id, id, maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
+        assertEquals(hello, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(hello)))
+        val summary = GameSummary(id, "Game", "2026-10-29T00:00:00Z", AccountIdentity(id, "A"), AccountIdentity(id, "B"), id, id,
+            InvitationState.PENDING)
+        val plain = GameHead(id, "0", summary)
+        assertFalse(GameWire.encode(plain).contains("opponentPresence"), "older clients never see the new field")
+        val head = plain.copy(opponentPresence = OpponentPresence(PresenceState.IDLE, idleSeconds = 130, lastSeenSeconds = 2))
+        assertTrue(GameWire.encode(head).contains(""""opponentPresence":{"state":"IDLE","idleSeconds":130,"lastSeenSeconds":2}"""))
+        assertEquals(head, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(head)))
+        val update = GamePresenceUpdate(id, OpponentPresence(PresenceState.OFFLINE))
+        assertEquals("""{"type":"presence","gameId":"$id","opponent":{"state":"OFFLINE","idleSeconds":null,"lastSeenSeconds":null}}""",
+            GameWire.encode(update))
+        assertEquals(update, GameWire.json.decodeFromString<GameServerMessage>("""{"type":"presence","gameId":"$id","opponent":{"state":"OFFLINE"}}"""))
+    }
     @Test fun typedRoundTripsAndTransportIndependentCanonicalIntent() {
         val command = command()
         val encoded = GameWire.json.encodeToString<GameClientMessage>(command)

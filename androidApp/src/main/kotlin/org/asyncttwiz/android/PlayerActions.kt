@@ -118,6 +118,8 @@ private fun PlayerStatusSection(state: PlayState, player: PlayPlayer, own: Boole
     submit: (PlayAction) -> Boolean) {
     val color = LocalInlinePopupColor.current
     if (!own) {
+        // Plain info, not a control: whether the opponent has this game open right now.
+        LocalOpponentPresence.current?.let { PlayerStatusLabel(rememberPresenceLine(it), maxLines = 1) }
         if (player.status.isNotEmpty()) PlayerStatusLabel("Status: “${player.status}”", maxLines = 3)
         StatusBubbleToggles(state, player, close)
         return

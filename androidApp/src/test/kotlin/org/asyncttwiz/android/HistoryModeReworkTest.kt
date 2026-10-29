@@ -83,6 +83,9 @@ class HistoryModeReworkTest {
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Rewind to the branch point, then play"))
         auto.assert(SemanticsMatcher.keyNotDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
         compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Rewind", useUnmergedTree = true).assertExists()
+        // The rewind is the only way on: the steppers wait until it has passed the branch point.
+        for (description in listOf("Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
         compose.onNodeWithText("Opponent branched").assertDoesNotExist() // The table centre text carries it.
         auto.performTouchInput { longClick() }
         compose.runOnIdle { assertTrue(continued.isEmpty()); assertTrue(player.branched) }

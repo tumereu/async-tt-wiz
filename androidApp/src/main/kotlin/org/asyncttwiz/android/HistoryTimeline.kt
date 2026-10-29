@@ -372,7 +372,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
-                enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
+                enabled = previousEnabled && controlsEnabled && !branchPending) { TableChromeIcon("previous") }
             run {
                 var captured by remember { mutableStateOf<String?>(null) }
                 // A pending opponent branch rewinds before playing on; branching here is not offered.
@@ -402,12 +402,14 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                             Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp).align(Alignment.CenterEnd), tint = Color(0xff5b896c))
                         } else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
-                        Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
+                        // A pending branch can only be rewound; the player just chooses when it starts.
+                        Text(if (branchPending && !position.playing) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
+                            fontSize = 16.sp, lineHeight = 20.sp)
                     }
                 }
             }
             IconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
-                enabled = nextEnabled && controlsEnabled) { TableChromeIcon("next") }
+                enabled = nextEnabled && controlsEnabled && !branchPending) { TableChromeIcon("next") }
         }
     }
 }

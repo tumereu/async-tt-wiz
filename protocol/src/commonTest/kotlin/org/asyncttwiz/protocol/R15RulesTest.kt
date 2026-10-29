@@ -104,6 +104,10 @@ class R15RulesTest {
     }
 
     /** Rules v29 stamps the entered turn on arrival; these simulated v15 events predate that field. */
+    /** Creation as recorded before rules v30 (always row 0, never onto a pile), which these old events used. */
+    private fun v29Change(state: PlayState, action: PlayAction, request: Int) = TokenLinkRules.change(state, gameplayId(7),
+        GameCommand(gameplayId(request), GameScope(state.gameId, playId = state.id), GameAction.Play(action), gameplayId(80), "1"),
+        action, rulesVersion = 29).let { it.copy(mutation = GameplayHistory.recontextualize(state, it.mutation!!.copy(schemaVersion = 2))) }
     private fun withoutEnteredTurn(change: GameplayChange) = change.copy(
         state = change.state!!.let { it.copy(board = it.board.copy(cards = it.board.cards.map { card -> card.copy(enteredTurn = "") })) },
         mutation = change.mutation!!.let { it.copy(transition = it.transition.copy(tokens = it.transition.tokens.map { token ->
@@ -122,7 +126,7 @@ class R15RulesTest {
 
     @Test fun retainedVersion15TokenCreationKeepsItsRecordedPileReorderingAndSeal() {
         val original = piledState()
-        val change = withoutEnteredTurn(gameplayChange(original, PlayAction.CreateToken(TokenCatalog.blank), 200))
+        val change = withoutEnteredTurn(v29Change(original, PlayAction.CreateToken(TokenCatalog.blank), 200))
         // The old event recorded a global card-ID sort, including the unintended pile changes.
         val next = change.state!!.let { it.copy(board = it.board.copy(containers = it.board.containers.map { container ->
             if (container.id == fieldId) container.copy(cards = container.cards.sorted()) else container
@@ -139,7 +143,7 @@ class R15RulesTest {
 
     @Test fun retainedVersion15MoveKeepsItsRecordedMapOrderAndSeal() {
         val original = counterState()
-        val clone = withoutEnteredTurn(gameplayChange(original, PlayAction.CloneToken(gameplayId(10)), 201)).state!!
+        val clone = withoutEnteredTurn(v29Change(original, PlayAction.CloneToken(gameplayId(10)), 201)).state!!
         val token = clone.board.cards.single { it.token }
         val move = PlayAction.MoveCard(token.id, MoveSource(fieldId, token.placement),
             MoveDestination(gameplayId(21), MoveInsertion.UNORDERED))

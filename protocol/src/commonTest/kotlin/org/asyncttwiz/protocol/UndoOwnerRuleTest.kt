@@ -63,8 +63,11 @@ class UndoOwnerRuleTest {
     }
 
     @Test fun tokenAutoPlacementReadsVacancy() {
-        var tree = move(GameplayTree(root()), b, id(10), grid(1))
+        // A non-land token starts in the main row (rules v30): B's move frees the cell it then takes.
+        var tree = move(GameplayTree(root()), a, id(10), MoveDestination(id(22), MoveInsertion.EMPTY, BoardPosition(0, 1)))
+        tree = move(tree, b, id(10), grid(1))
         tree = play(tree, a, PlayAction.CreateToken(TokenCatalog.blank))
+        assertEquals(BoardPosition(0, 1), state(tree).board.cards.single { it.token }.placement!!.position)
         assertEquals("replayBlocked", control(tree, b).reason)
     }
 

@@ -70,7 +70,8 @@ class TokensAndLinksTest {
             val token = result.state!!.board.cards.single { it.token }
             assertEquals(CommandIds.uuidV5(id(20), "token/0"), token.id)
             assertEquals(CommandIds.uuidV5(id(20), "pile/0"), token.placement!!.pileId)
-            assertEquals(BoardPosition(1, 0), token.placement.position)
+            // Rules v30: a non-land token starts at the first free cell of the main row (row 1).
+            assertEquals(BoardPosition(0, 1), token.placement.position)
             assertEquals(choice.digest, token.definition)
             assertEquals(choice.definition.faces.first().faceId, token.faceId)
             assertEquals(choice.definition.faces.first().corner, token.corner)

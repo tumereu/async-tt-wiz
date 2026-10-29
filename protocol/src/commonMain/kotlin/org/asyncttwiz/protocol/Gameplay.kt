@@ -500,9 +500,7 @@ object GameplayRules {
                     placement = PlayPlacement(position, pile)
                     ordered = members(board, target, placement).filter { it != card.id }
                     if (ordered.isEmpty() || board.cards.none { it.id in ordered && it.placement == placement }) return reject("movementConflict")
-                    // Rules v30: a pile of tokens of one kind may grow past three cards.
-                    if (ordered.size >= TokenStacks.PILE_LIMIT && !TokenStacks.fits(
-                            ordered.map { id -> board.cards.single { it.id == id } } + card, rulesVersion)) return reject("movementConflict")
+                    if (ordered.size >= 3) return reject("movementConflict")
                     if (destination.insertion == MoveInsertion.PILE_GAP) {
                         val addressed = destination.targetCardId ?: return reject("invalidInput")
                         if (addressed !in ordered) return reject("movementConflict")

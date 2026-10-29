@@ -241,9 +241,6 @@ object TokenActions {
         listOf(face.corner.ifEmpty { if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) "${face.power}/${face.toughness}" else "" },
             face.rulesText.ifBlank { TokenIdentity.attributes(face) }).filter(String::isNotBlank).joinToString(" · ")
     }
-    /** Row zero is the land row; creation placement is lowered to ordinary recorded moves. */
-    internal fun row(definition: CardDefinition): Int =
-        if ("Land" in StackContexts.types(definition.faces.first().typeLine)) 0 else 1
     /** Uses the existing exact snapshot encoding; never re-fetches faces from a newer generation. */
     internal fun definitions(page: CatalogTokenPage): List<SubmittedDefinition> = page.tokens.map { token ->
         val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, token.faces, emptyList()).definition(page.metadata)

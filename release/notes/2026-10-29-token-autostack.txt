@@ -1,1 +1,1 @@
-add: A new token goes on top of a pile of the same untouched tokens on your battlefield, and a pile of more than three shows how many cards it has.
+add: A new token joins a pile of the same tokens on the battlefield (up to three per pile), and new tokens that are not lands, including copies, always appear in the creature row.

@@ -8,7 +8,7 @@ class PlayBatchClientTest {
     private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true },
         f.lobby::gameplay, playBatch = f.lobby::gameplayBatch, playTree = f.lobby::displayTree)
 
-    @Test fun catalogTokensUseTypeAppropriateFreeRowsInOneUndoableInvocationAndKeepFlippableDesignations() {
+    @Test fun catalogTokensUseTypeAppropriateRowsStackUpToThreeAndKeepFlippableDesignations() {
         for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Token Land — Forest", "Card", "Dungeon", "")) {
             val f = BasicTableFixture()
             val definition = CardDefinition(if (type == "Card") "Day // Night" else "Token", listOf(
@@ -19,24 +19,23 @@ class PlayBatchClientTest {
             try {
                 val ui = toolkit(f)
                 val before = f.play.board
-                repeat(2) { index ->
+                repeat(4) { index ->
                     val count = f.commands().size
                     ui.tokens.catalog(); ui.tokens.create(submitted)
                     assertFalse(ui.tokens.showingCatalog, ui.tokens.error)
                     val command = f.commands().drop(count).single()
-                    val actions = command.playActions()
+                    // Rules v30: the token is created straight in its row (no follow-up move); the second and third
+                    // identical tokens join the first one's pile and the fourth finds it full and starts a new pile.
+                    assertIs<PlayAction.CreateToken>(command.playActions().single())
                     val row = if ("Land" in type) 0 else 1
-                    // Rules v30: the second identical token stacks onto the first one's pile, with no row move.
-                    assertEquals(if (row == 0 || index > 0) 1 else 2, actions.size)
-                    assertIs<PlayAction.CreateToken>(actions.first())
-                    if (row != 0 && index == 0) assertIs<PlayAction.MoveCard>(actions.last())
                     val tokens = f.play.board.cards.filter { it.token }
                     assertEquals(index + 1, tokens.size)
-                    assertEquals(setOf(BoardPosition(0, row)), tokens.map { it.placement!!.position }.toSet())
-                    assertEquals(1, tokens.map { it.placement }.distinct().size)
+                    assertEquals(if (index < 3) setOf(BoardPosition(0, row)) else setOf(BoardPosition(0, row), BoardPosition(1, row)),
+                        tokens.map { it.placement!!.position }.toSet())
+                    assertEquals(if (index < 3) 1 else 2, tokens.map { it.placement }.distinct().size)
                     assertEquals(2, f.play.definitions.single { it.digest == submitted.digest }.definition.faces.size)
                 }
-                assertTrue(f.lobby.historyControl(GameAction.Undo))
+                repeat(3) { assertTrue(f.lobby.historyControl(GameAction.Undo)) }
                 assertEquals(1, f.play.board.cards.count { it.token })
                 val first = f.play.board.cards.single { it.token }
                 assertTrue(ui.submit(PlayAction.SetFace(first.id, f.id(902))))

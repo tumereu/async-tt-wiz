@@ -147,26 +147,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Convenience members are lowered against the current draft, then sent together. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        if (action is PlayAction.CreateToken) {
-            return batchResult(invocationId ?: UUID.randomUUID().toString()) {
-                val before = current() ?: return@batchResult false
-                if (!enqueue(action, invocation)) return@batchResult false
-                val after = current() ?: return@batchResult false
-                val token = after.board.cards.singleOrNull { card -> before.board.cards.none { it.id == card.id } }
-                    ?: return@batchResult false
-                val row = TokenActions.row(action.definition.definition)
-                if (token.placement?.position?.y == row) return@batchResult true
-                // Rules v30: a token stacked onto a pile of its kind stays on that pile, whatever its row.
-                if (after.board.cards.any { it.id != token.id && it.placement == token.placement && it.containerId == token.containerId })
-                    return@batchResult true
-                val occupied = after.board.cards.filter { it.containerId == token.containerId && it.id != token.id }
-                    .mapNotNull { it.placement?.position }.toSet()
-                var column = 0
-                while (BoardPosition(column, row) in occupied) column++
-                enqueue(PlayAction.MoveCard(token.id, MoveSource(token.containerId, token.placement),
-                    MoveDestination(token.containerId, MoveInsertion.EMPTY, BoardPosition(column, row))), invocation)
-            }
-        }
         // A face-down cast moves the real card: a projection would reveal its hand source.
         if (action is PlayAction.MoveCard && action.removeStackEntryId == null && action.faceDown != true && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {

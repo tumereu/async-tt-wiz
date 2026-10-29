@@ -2,13 +2,13 @@ package org.asyncttwiz.protocol
 
 import kotlin.test.*
 
-/** Rules v30: a newly created token goes on top of a Battlefield pile of identical fresh tokens. */
+/** Rules v30: a newly created token goes on top of a Battlefield pile of identical fresh tokens with room (three cards). */
 class R30TokenStacksTest {
     private val a = gameplayId(7)
     private val b = gameplayId(8)
     private val battlefield = gameplayId(22)
-    private fun token(name: String, face: Int): SubmittedDefinition {
-        val definition = CardDefinition(name, listOf(DefinitionFace(gameplayId(face), name, corner = "1/1")), token = true)
+    private fun token(name: String, face: Int, type: String = "Token Creature — $name"): SubmittedDefinition {
+        val definition = CardDefinition(name, listOf(DefinitionFace(gameplayId(face), name, corner = "1/1", typeLine = type)), token = true)
         return SubmittedDefinition(DeckJson.digest(definition), definition)
     }
     private val goblin = token("Goblin", 40)
@@ -38,19 +38,73 @@ class R30TokenStacksTest {
         assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= TokenStacks.RULES_VERSION)
     }
 
-    @Test fun sameTokenGoesOnTopOfThePileAndThePileGrowsPastThree() {
+    @Test fun sameTokenJoinsAPileWithRoomAndAFullPileMakesItStartANewOne() {
         var state = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val first = created(state, 100)
-        assertEquals(BoardPosition(0, 0), first.placement!!.position)
-        for (n in 101..104) state = accepted(state, PlayAction.CreateToken(goblin), n)
-        val tokens = (100..104).map { created(state, it) }
+        assertEquals(BoardPosition(0, 1), first.placement!!.position)
+        for (n in 101..102) state = accepted(state, PlayAction.CreateToken(goblin), n)
+        val tokens = (100..102).map { created(state, it) }
         assertTrue(tokens.all { it.placement == first.placement })
         // Newest on top.
         assertEquals(tokens.reversed().map { it.id }, pile(state, first))
+        // The pile is full: the fourth starts a new pile at the next free cell, and the fifth joins that one.
+        state = accepted(state, PlayAction.CreateToken(goblin), 103)
+        val fourth = created(state, 103)
+        assertEquals(BoardPosition(1, 1), fourth.placement!!.position)
+        assertEquals(CommandIds.uuidV5(gameplayId(103), "pile/0"), fourth.placement!!.pileId)
+        assertEquals(listOf(fourth.id), pile(state, fourth))
+        assertEquals(3, pile(state, first).size)
+        state = accepted(state, PlayAction.CreateToken(goblin), 104)
+        assertEquals(fourth.placement, created(state, 104).placement)
         // A different token starts its own pile at the next free cell.
         state = accepted(state, PlayAction.CreateToken(soldier), 105)
-        assertEquals(BoardPosition(1, 0), created(state, 105).placement!!.position)
+        assertEquals(BoardPosition(2, 1), created(state, 105).placement!!.position)
         assertEquals(listOf(created(state, 105).id), pile(state, created(state, 105)))
+    }
+
+    @Test fun anIdenticalTokenFromAnEarlierTurnIsJoinedAndTheNewOneShowsItEnteredThisTurn() {
+        val root = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
+        val old = created(root, 100)
+        val earlier = edit(root, old.id) { it.copy(enteredTurn = "0") }
+        val next = accepted(earlier, PlayAction.CreateToken(goblin), 101)
+        val token = created(next, 101)
+        assertEquals(old.placement, token.placement)
+        assertEquals(listOf(token.id, old.id), pile(next, old))
+        assertEquals(next.board.turn.number, token.enteredTurn)
+        assertEquals("0", card(next, old.id).enteredTurn)
+    }
+
+    @Test fun onlyLandTokensGoToTheLandRow() {
+        for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Card", "Dungeon", "", "Creature — Landshark"))
+            assertEquals(1, TokenStacks.row(DefinitionFace(gameplayId(1), "Token", typeLine = type)), type)
+        for (type in listOf("Token Land — Forest", "Token Artifact Land", "Land"))
+            assertEquals(0, TokenStacks.row(DefinitionFace(gameplayId(1), "Token", typeLine = type)), type)
+        assertEquals(1, TokenStacks.row(null))
+    }
+
+    @Test fun aNewTokenStartsAPileAtTheFirstFreeCellOfItsRow() {
+        val forest = token("Forest", 42, "Token Land — Forest")
+        // A real card already sits at (0,1).
+        var state = accepted(gameplayFixture(), PlayAction.MoveCard(gameplayId(10), MoveSource(gameplayId(20), edge = MoveSourceEdge.TOP),
+            MoveDestination(battlefield, MoveInsertion.EMPTY, BoardPosition(0, 1))), 99)
+        state = accepted(state, PlayAction.CreateToken(goblin), 100)
+        assertEquals(BoardPosition(1, 1), created(state, 100).placement!!.position)
+        state = accepted(state, PlayAction.CreateToken(forest), 101)
+        assertEquals(BoardPosition(0, 0), created(state, 101).placement!!.position)
+        state = accepted(state, PlayAction.CreateToken(TokenCatalog.blank), 102)
+        assertEquals(BoardPosition(2, 1), created(state, 102).placement!!.position)
+        // A clone uses the row of the face it copies, also when it cannot join a pile (tapped source).
+        state = accepted(state, PlayAction.SetTapped(created(state, 101).id, true), 103)
+        state = accepted(state, PlayAction.CloneToken(created(state, 101).id), 104)
+        assertEquals(BoardPosition(1, 0), created(state, 104).placement!!.position)
+        state = accepted(state, PlayAction.SetTapped(created(state, 100).id, true), 105)
+        state = accepted(state, PlayAction.CloneToken(created(state, 100).id), 106)
+        assertEquals(BoardPosition(3, 1), created(state, 106).placement!!.position)
+        // A face-down copy of a land token goes to the main row: its row shows nothing of the hidden face.
+        state = edit(state, created(state, 101).id) { it.copy(covered = true, explicitlyCovered = true) }
+        state = accepted(state, PlayAction.CloneToken(created(state, 101).id), 107)
+        assertTrue(created(state, 107).covered)
+        assertEquals(BoardPosition(4, 1), created(state, 107).placement!!.position)
     }
 
     @Test fun rulesV29KeepsAPileOfItsOwn() {
@@ -59,7 +113,8 @@ class R30TokenStacksTest {
         val command = GameCommand(gameplayId(101), GameScope(state.gameId, playId = state.id), GameAction.Play(action), gameplayId(80), "1")
         val old = TokenLinkRules.change(state, a, command, action, rulesVersion = 29)
         val next = assertNotNull(old.state, old.reason)
-        assertEquals(BoardPosition(1, 0), created(next, 101).placement!!.position)
+        // Older rules: always the first free cell of row 0, never onto a pile.
+        assertEquals(BoardPosition(0, 0), created(next, 101).placement!!.position)
         assertEquals(CommandIds.uuidV5(gameplayId(101), "pile/0"), created(next, 101).placement!!.pileId)
         assertEquals(29, old.mutation!!.transition.rulesVersion)
     }
@@ -76,8 +131,6 @@ class R30TokenStacksTest {
             { edit(it, id) { c -> c.copy(corner = "2/2") } },
             { edit(it, id) { c -> c.copy(covered = true, explicitlyCovered = true) } },
             { edit(it, id) { c -> c.copy(token = false) } },
-            // Entered on an earlier turn: the new one would show "entered this turn" and the others not.
-            { edit(it, id) { c -> c.copy(enteredTurn = "0") } },
             { accepted(it, PlayAction.Link(LinkEndpoint(LinkEndpointKind.CARD, id), LinkEndpoint(LinkEndpointKind.PLAYER, b)), 150) },
             { s -> accepted(s, PlayAction.Combat(CombatAction.Open), 150).let { open ->
                 accepted(open, PlayAction.Combat(CombatAction.Declare(open.board.combat!!.id, id)), 151) } })
@@ -100,7 +153,7 @@ class R30TokenStacksTest {
         assertEquals(listOf(created(next, 103).id), pile(next, created(next, 103)))
     }
 
-    @Test fun ofSeveralPilesTheLargestThenTheFirstInReadingOrder() {
+    @Test fun ofSeveralPilesTheFullestWithRoomThenTheFirstInReadingOrder() {
         var state = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         state = accepted(state, PlayAction.CreateToken(soldier), 101)
         // Make the second pile a Goblin too: two equal one-card Goblin piles at (0,0) and (1,0).
@@ -109,11 +162,15 @@ class R30TokenStacksTest {
         val second = created(state, 101).placement!!
         state = accepted(state, PlayAction.CreateToken(goblin), 102)
         assertEquals(first, created(state, 102).placement)
-        // Move that token onto the second pile: now it is the larger one and wins.
+        // Move that token onto the second pile: now it is the fuller one and wins.
         state = accepted(state, moveOnto(state, created(state, 102).id, second), 103)
         state = accepted(state, PlayAction.CreateToken(goblin), 104)
         assertEquals(second, created(state, 104).placement)
         assertEquals(3, pile(state, created(state, 104)).size)
+        // The second pile is full now: the next one goes to the first pile.
+        state = accepted(state, PlayAction.CreateToken(goblin), 105)
+        assertEquals(first, created(state, 105).placement)
+        assertEquals(2, pile(state, created(state, 105)).size)
     }
 
     @Test fun cloneJoinsWhenItLooksTheSameAndNotWhenItCopiesATappedToken() {
@@ -129,29 +186,15 @@ class R30TokenStacksTest {
         assertNotEquals(source.placement!!.position, created(copy, 103).placement!!.position)
     }
 
-    @Test fun aWholeTokenPileMovesPastThreeButOtherPilesStayAtThree() {
+    @Test fun aTokenPileStillHoldsThreeCards() {
         var state = gameplayFixture()
-        for (n in 100..104) state = accepted(state, PlayAction.CreateToken(goblin), n)
-        val ids = pile(state, created(state, 100))
-        assertEquals(5, ids.size)
-        // Drag the whole pile to another cell: the first card opens a pile, the rest go under it.
-        state = accepted(state, PlayAction.MoveCard(ids[0], MoveSource(battlefield, card(state, ids[0]).placement),
-            MoveDestination(battlefield, MoveInsertion.EMPTY, BoardPosition(4, 1))), 110)
-        for ((n, id) in ids.drop(1).withIndex())
-            state = accepted(state, moveOnto(state, id, card(state, ids[0]).placement!!, MoveInsertion.PILE_BOTTOM), 111 + n)
-        assertEquals(ids, pile(state, card(state, ids[0])))
-        // Under rules v29 a fourth card is refused.
-        val out = accepted(state, PlayAction.MoveCard(ids[3], MoveSource(battlefield, card(state, ids[3]).placement),
-            MoveDestination(battlefield, MoveInsertion.EMPTY, BoardPosition(0, 2))), 120)
-        val target = card(out, ids[0]).placement!!
-        val back = moveOnto(out, ids[3], target, MoveInsertion.PILE_BOTTOM)
-        val command = GameCommand(gameplayId(121), GameScope(out.gameId, playId = out.id), GameAction.Play(back), gameplayId(80), "1")
-        assertEquals("movementConflict", GameplayRules.move(out, a, command, back, rulesVersion = 29).reason)
-        val again = accepted(out, back, 121)
-        assertEquals(5, pile(again, card(again, ids[0])).size)
-        // Another kind of card cannot join a pile past three.
-        val mixed = accepted(again, PlayAction.CreateToken(soldier), 130)
-        assertEquals("movementConflict", gameplayChange(mixed, moveOnto(mixed, created(mixed, 130).id, target), 131).reason)
+        for (n in 100..103) state = accepted(state, PlayAction.CreateToken(goblin), n)
+        val full = created(state, 100).placement!!
+        assertEquals(3, pile(state, created(state, 100)).size)
+        val fourth = created(state, 103)
+        assertNotEquals(full, fourth.placement)
+        for (insertion in listOf(MoveInsertion.PILE_TOP, MoveInsertion.PILE_BOTTOM))
+            assertEquals("movementConflict", gameplayChange(state, moveOnto(state, fourth.id, full, insertion), 110).reason)
     }
 
     // Undo: allowed iff later events' concerned tuples are unchanged.

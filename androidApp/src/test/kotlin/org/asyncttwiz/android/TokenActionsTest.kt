@@ -39,15 +39,6 @@ class TokenActionsTest {
         assertEquals(TokenActions.detail(definition), org.asyncttwiz.storage.CatalogTokenChoice.from(submitted).detail)
     }
 
-    @Test fun onlyLandTokensUseTheLandRowIncludingBlankAndDesignations() {
-        for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Card", "Dungeon", "", "Creature — Landshark")) {
-            assertEquals(1, TokenActions.row(CardDefinition("Token", listOf(DefinitionFace(id(1), "Token", typeLine = type)), token = true)), type)
-        }
-        for (type in listOf("Token Land — Forest", "Token Artifact Land")) {
-            assertEquals(0, TokenActions.row(CardDefinition("Token", listOf(DefinitionFace(id(1), "Token", typeLine = type)), token = true)), type)
-        }
-    }
-
     @Test fun searchIncludesBlankFiltersNonTokensAndPreservesExactPrintingIdentity() {
         fun soldier(printing: String): SubmittedDefinition = CardDefinition("Soldier", listOf(
             DefinitionFace(id(1), "Soldier", corner = "1/1")), token = true, printingId = printing)

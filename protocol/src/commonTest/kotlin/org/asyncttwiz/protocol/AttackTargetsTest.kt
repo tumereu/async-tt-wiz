@@ -82,17 +82,105 @@ class AttackTargetsTest {
     @Test fun setClearValidateAndReplayTargets() {
         val original = declared()
         assertNull(original.board.combat!!.pairs.single().attackTarget)
-        for (target in listOf(id(21), id(22))) {
-            val changed = exact(original, retarget(original, target))
+        val siege = ownBattle(original)
+        for ((state, target) in listOf(original to id(21), siege to id(22))) {
+            val changed = exact(state, retarget(state, target))
             assertEquals(target, changed.state!!.board.combat!!.pairs.single().attackTarget)
-            assertEquals(listOf(CombatAttackTargetChange(original.board.combat.pairs.single().id, null, target)),
+            assertEquals(listOf(CombatAttackTargetChange(state.board.combat!!.pairs.single().id, null, target)),
                 changed.mutation!!.transition.combatStack!!.attackTargets)
-            assertEquals(original.board, exact(changed.state, retarget(changed.state, null)).state!!.board)
+            assertEquals(state.board, exact(changed.state, retarget(changed.state, null)).state!!.board)
         }
-        for (target in listOf(id(20), id(23), id(999))) assertEquals("inapplicable", change(original, retarget(original, target)).reason)
+        // Rules v28: the defender's battle is protected by the attacker, so it is not a target.
+        for (target in listOf(id(20), id(22), id(23), id(999))) assertEquals("inapplicable", change(original, retarget(original, target)).reason)
         val own = original.copy(board = original.board.copy(containers = original.board.containers.map {
             if (it.id == id(11)) it.copy(accountId = id(7)) else it }))
         assertEquals("inapplicable", change(own, retarget(own, id(21))).reason)
+        assertNull(change(own, retarget(own, id(22))).reason)
+    }
+
+    /** Moves the Siege (card 22) onto the attacking player's (id 7) own battlefield. */
+    private fun ownBattle(state: PlayState, faceDown: Boolean = false) = state.copy(board = state.board.copy(
+        cards = state.board.cards.map { if (it.id == id(22)) it.copy(containerId = id(10),
+            covered = faceDown, explicitlyCovered = faceDown) else it },
+        containers = state.board.containers.map { when (it.id) {
+            id(10) -> it.copy(cards = it.cards + id(22))
+            id(11) -> it.copy(cards = it.cards - id(22))
+            else -> it
+        } }))
+
+    @Test fun rulesV28AttackOwnFaceUpSiegesAndPlaneswalkersOnTheDefenderOnly() {
+        val original = declared()
+        val siege = ownBattle(original)
+        assertTrue(CombatStackRules.canAttack(siege, id(22)))
+        assertFalse(CombatStackRules.canAttack(original, id(22)))
+        assertTrue(CombatStackRules.canAttack(original, id(21)))
+        val place = exact(siege, PlayAction.Combat(CombatAction.Place(id(20), CombatDestination(siege.board.combat!!.id,
+            CombatRole.ATTACKER, pairGap = IdentityGap(siege.board.combat.pairs.single().id), attackTarget = id(22)),
+            CombatStackRules.location(siege.board.combat, siege.board.combat.pairs.single().attackers.single().id))))
+        assertEquals(listOf(id(22)), place.state!!.board.combat!!.pairs.map { it.attackTarget })
+        val opponentBattle = PlayAction.Combat(CombatAction.Place(id(20), CombatDestination(original.board.combat!!.id,
+            CombatRole.ATTACKER, pairGap = IdentityGap(original.board.combat.pairs.single().id), attackTarget = id(22)),
+            CombatStackRules.location(original.board.combat, original.board.combat.pairs.single().attackers.single().id)))
+        assertEquals("inapplicable", change(original, opponentBattle).reason)
+        // Face-down cards never are targets.
+        assertEquals("inapplicable", change(ownBattle(original, faceDown = true), retarget(original, id(22))).reason)
+        // Once the turn passes, the old attacker's battle is the new defender's: replay is blocked.
+        val event = exact(siege, retarget(siege, id(22))).mutation!!
+        assertTrue(event.transition.concerns!!.fields.any { it.field == ConcernField.AttackTargetEligible(id(22)) })
+        val otherTurn = siege.copy(board = siege.board.copy(turn = siege.board.turn.copy(accountId = id(8))))
+        assertNull(GameplayHistory.apply(otherTurn, event))
+    }
+
+    @Test fun cardTypesComeFromTheTypePartOfTheTypeLine() {
+        assertTrue(AttackTargets.hasType("Battle — Siege", "Battle"))
+        assertTrue(AttackTargets.hasType("Legendary Planeswalker — Jace", "planeswalker"))
+        assertTrue(AttackTargets.hasType("Battle - Siege", "Battle"))
+        assertFalse(AttackTargets.hasType("Creature — Human Battlemage", "Battle"))
+        assertFalse(AttackTargets.hasType("Creature — Planeswalker", "Planeswalker"))
+        assertFalse(AttackTargets.hasType("Battlemage", "Battle"))
+        val original = declared()
+        val battlemage = ownBattle(original).let { s -> s.copy(definitions = s.definitions.map { submitted ->
+            submitted.copy(definition = submitted.definition.copy(faces = submitted.definition.faces.map {
+                if (it.typeLine.startsWith("Battle")) it.copy(typeLine = "Creature — Human Battlemage") else it }))
+        }) }
+        assertFalse(CombatStackRules.canAttack(battlemage, id(22)))
+        assertFalse(CombatStackRules.canAttack(battlemage, id(22), rulesVersion = 27)) // v27: not on the defender's side
+    }
+
+    /** A combat command executed and recorded (delta, concerns, seal) as a v27 build did. */
+    private fun recordedV27(state: PlayState, command: GameCommand): GameplayChange {
+        val change = CombatStackRules.change(state, id(7), command, rulesVersion = 27)
+        val mutation = change.mutation ?: return change
+        val next = change.state!!
+        val delta = GameplayDeltas.capture(state, next, mutation.id, orderedPiles = true)
+        val recorded = GameplayHistory.recontextualize(state, mutation.copy(schemaVersion = 2,
+            transition = mutation.transition.copy(delta = delta, concerns = GameplayConcerns.capture(state, next, mutation, delta)),
+            bookkeeping = GameplayBookkeeping(state.currentGroup, state.currentBranchId, next.currentGroup)))
+        return change.copy(mutation = recorded.copy(transition = recorded.transition.copy(
+            delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded)))))
+    }
+
+    @Test fun rulesVersionIs28() {
+        assertEquals(28, AttackTargets.RULES_VERSION)
+        assertEquals(AttackTargets.RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+    }
+
+    @Test fun rulesV27EventsKeepTheDefenderBattleCheckForReplayAndUndo() {
+        val original = declared()
+        assertTrue(CombatStackRules.canAttack(original, id(22), rulesVersion = 27))
+        assertFalse(CombatStackRules.canAttack(ownBattle(original), id(22), rulesVersion = 27))
+        val command = GameCommand(id(request++), GameScope(original.gameId, playId = original.id),
+            GameAction.Play(retarget(original, id(22))), id(9), "1")
+        val legacy = recordedV27(original, command)
+        val event = assertNotNull(legacy.mutation, legacy.reason)
+        assertEquals(27, event.transition.rulesVersion)
+        assertEquals(id(22), legacy.state!!.board.combat!!.pairs.single().attackTarget)
+        assertTrue(event.transition.concerns!!.fields.any { it.field == ConcernField.AttackTargetEligible(id(22)) })
+        // The recorded v27 event still replays, applies and unapplies under a v28 build.
+        assertEquals(legacy.state.board, GameplayHistory.replay(original, event).state!!.board)
+        assertEquals(legacy.state, GameplayHistory.apply(original, event))
+        assertEquals(original, GameplayHistory.unapply(legacy.state, event))
+        assertEquals("inapplicable", CombatStackRules.change(ownBattle(original), id(7), command, rulesVersion = 27).reason)
     }
 
     @Test fun targetDepartureFallsBackInTheSameMoveAndExactInverseRestoresIt() {
@@ -116,7 +204,7 @@ class AttackTargetsTest {
         val unavailable = original.copy(board = original.board.copy(cards = original.board.cards.map {
             if (it.id == id(21)) it.copy(containerId = id(13), placement = null) else it }))
         assertNull(GameplayHistory.replay(unavailable, event).state)
-        val otherTarget = exact(original, retarget(original, id(22))).state!!
+        val otherTarget = ownBattle(original).let { exact(it, retarget(it, id(22))).state!! }
         assertNull(GameplayHistory.replay(otherTarget, event).state)
     }
 

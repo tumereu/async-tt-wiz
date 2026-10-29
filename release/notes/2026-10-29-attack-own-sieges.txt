@@ -1,0 +1,1 @@
+add: You can attack your own Siege battles (protected by your opponent) during combat; the combat area and the Attack menu show them too.

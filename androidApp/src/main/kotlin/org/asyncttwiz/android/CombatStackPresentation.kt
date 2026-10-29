@@ -76,17 +76,19 @@ object CombatStackPresentation {
         return text.take(end).trimEnd() + "…"
     }
 
-    /** Face-up planeswalkers and battles on the defending player's battlefield, in battlefield order. */
+    /** Rules v28: face-up planeswalkers on the defending player's battlefield, then face-up battles (Sieges)
+     * on the attacking player's own battlefield, each in battlefield order. */
     fun attackTargets(board: BoardState, definitions: List<SubmittedDefinition>, viewer: String): List<String> {
-        val battlefield = board.containers.singleOrNull { it.zone == PlayZone.BATTLEFIELD && it.accountId == CombatStackRules.defendingPlayer(board) }
-            ?: return emptyList()
         val cards = board.cards.associateBy { it.id }
-        return battlefield.cards.filter { id ->
-            val card = cards[id] ?: return@filter false
-            val type = definitions.find { it.digest == card.definition }?.definition?.faces?.find { it.faceId == card.faceId }?.typeLine.orEmpty()
-            !card.isFaceDown && CardVisibility.isVisibleFaceUp(board, card, viewer) &&
-                (type.contains("Planeswalker", ignoreCase = true) || type.contains("Battle", ignoreCase = true))
-        }
+        fun on(player: String?, type: String) = board.containers
+            .singleOrNull { it.zone == PlayZone.BATTLEFIELD && player != null && it.accountId == player }?.cards.orEmpty().filter { id ->
+                val card = cards[id] ?: return@filter false
+                val typeLine = definitions.find { it.digest == card.definition }?.definition?.faces
+                    ?.find { it.faceId == card.faceId }?.typeLine.orEmpty()
+                !card.isFaceDown && CardVisibility.isVisibleFaceUp(board, card, viewer) &&
+                    AttackTargets.battlefieldOwner(board, typeLine) == player && AttackTargets.hasType(typeLine, type)
+            }
+        return on(CombatStackRules.defendingPlayer(board), "Planeswalker") + on(CombatStackRules.attackingPlayer(board), "Battle")
     }
 
     fun combat(board: BoardState, cardWidth: Float, cardHeight: Float,

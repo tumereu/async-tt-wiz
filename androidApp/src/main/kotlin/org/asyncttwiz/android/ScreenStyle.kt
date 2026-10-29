@@ -294,6 +294,7 @@ internal fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modi
 internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "menu" -> Icons.Outlined.Menu
     "close" -> Icons.Outlined.Close
+    "rotate" -> Icons.Outlined.Rotate90DegreesCw
     "cancel" -> Icons.Outlined.Cancel
     "decks" -> Icons.Outlined.Style
     "contacts" -> Icons.Outlined.PeopleOutline

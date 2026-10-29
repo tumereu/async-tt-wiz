@@ -20,7 +20,7 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
     val state = controller.state ?: return
     val card = state.card
     val face = card.definition.faces[state.face]
-    ScreenDialog(controller::close, Modifier.widthIn(max = 340.dp).semantics { paneTitle = "Card inspection" }) {
+    ScreenDialog(controller::close, Modifier.widthIn(max = if (state.degrees % 180 != 0) 380.dp else 340.dp).semantics { paneTitle = "Card inspection" }) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             ScreenIconButton("Close card inspection", "close", controller::close)
         }
@@ -32,14 +32,24 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
             val density = LocalDensity.current
             val scale = if (state.enlarged) 2 else 1
             val reference = card.artwork[state.face]
-            if (reference?.printing != null || reference?.customUrl != null) {
-                Box(Modifier.fillMaxWidth().height(336.dp).horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
+            val orientation = card.orientation(state.face)
+            if (reference?.printing != null || reference?.customUrl != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
+                // A card printed sideways shows turned, across the full width.
+                val sideways = state.degrees % 180 != 0
+                val width = if (sideways) maxWidth else 240.dp
+                val height = if (sideways) maxWidth / 1.4f else 336.dp
+                Box(Modifier.fillMaxWidth().height(height).horizontalScroll(rememberScrollState()).verticalScroll(rememberScrollState())
                     .semantics { contentDescription = "Card artwork viewport" }, contentAlignment = Alignment.TopCenter) {
-                    CardArtwork(reference, face.name, with(density) { (240.dp * scale).roundToPx() },
-                        with(density) { (336.dp * scale).roundToPx() }, Modifier.requiredSize(240.dp * scale, 336.dp * scale),
-                        placeholder = { InspectorArtworkPlaceholder(reference, face.name) })
+                    CardArtwork(reference, face.name, with(density) { (width * scale).roundToPx() },
+                        with(density) { (height * scale).roundToPx() }, Modifier.requiredSize(width * scale, height * scale),
+                        placeholder = { InspectorArtworkPlaceholder(reference, face.name) }, degrees = state.degrees)
                 }
-                ScreenOutlinedButton(onClick = controller::zoom) { EntryIcon(null, "search"); Spacer(Modifier.width(8.dp)); Text(if (state.enlarged) "Fit artwork" else "Enlarge artwork") }
+            }
+            if (reference?.printing != null || reference?.customUrl != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ScreenOutlinedButton(onClick = controller::zoom, Modifier.weight(1f)) { EntryIcon(null, "search"); Spacer(Modifier.width(8.dp)); Text(if (state.enlarged) "Fit artwork" else "Enlarge artwork") }
+                // Aftermath and flip halves: a personal turn to read the other half.
+                if (orientation.alternate != null)
+                    ScreenIconButton(if (state.turned) "Rotate back" else "Rotate card", "rotate", controller::turn)
             }
             Column(Modifier.fillMaxWidth().semantics { contentDescription = "Card inspection content" }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(face.name, style = MaterialTheme.typography.titleLarge)

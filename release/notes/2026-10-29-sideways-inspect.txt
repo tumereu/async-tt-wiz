@@ -1,0 +1,1 @@
+add: Split cards, Rooms, Planes and Battles now turn sideways when you look at them up close, so they read the right way; Aftermath and flip cards get a button to turn them.

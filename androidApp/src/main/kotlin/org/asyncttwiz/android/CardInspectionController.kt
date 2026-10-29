@@ -15,14 +15,18 @@ data class InspectedCard(val definition: CardDefinition, val artwork: List<Artwo
     }
 }
 
-data class CardInspectionState(val card: InspectedCard, val face: Int = 0, val enlarged: Boolean = false)
+/** [turned] is the personal rotate-button state of the shown face (aftermath/flip halves). */
+data class CardInspectionState(val card: InspectedCard, val face: Int = 0, val enlarged: Boolean = false, val turned: Boolean = false) {
+    val degrees get() = card.orientation(face).shown(turned)
+}
 
 /** Owned by the existing rotation-retained feature controller; private state is cleared on Logout/exit. */
 class CardInspectionController {
     var state by mutableStateOf<CardInspectionState?>(null)
         private set
     fun open(card: InspectedCard) { state = CardInspectionState(card) }
-    fun face(index: Int) { state?.let { if (index in it.card.definition.faces.indices) state = it.copy(face = index, enlarged = false) } }
+    fun face(index: Int) { state?.let { if (index in it.card.definition.faces.indices) state = it.copy(face = index, enlarged = false, turned = false) } }
     fun zoom() { state = state?.let { it.copy(enlarged = !it.enlarged) } }
+    fun turn() { state = state?.let { it.copy(turned = !it.turned) } }
     fun close() { state = null }
 }

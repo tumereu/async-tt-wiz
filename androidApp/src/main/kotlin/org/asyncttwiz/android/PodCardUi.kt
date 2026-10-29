@@ -74,21 +74,29 @@ internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: S
 internal fun PodArtPreviewContent(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
     val faces = card?.definition?.let(::podPreviewFaces).orEmpty().ifEmpty { listOf(0) }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("pod-pick-art-preview"), contentAlignment = Alignment.Center) {
-        val width = if (faces.size == 1) minOf(maxWidth - 16.dp, (maxHeight - 16.dp) / 1.4f)
-            else minOf(maxWidth - 16.dp, 320.dp)
-        val height = width * 1.4f
+        val roomWidth = maxWidth - 16.dp
+        val roomHeight = maxHeight - 16.dp
+        // A card printed sideways shows turned and as large as fits (held previews have no rotate button).
+        val turns = faces.map { card?.orientation(it)?.degrees ?: 0 }
+        val sizes = turns.map { degrees ->
+            val width = if (degrees % 180 != 0) { if (faces.size == 1) minOf(roomWidth, roomHeight * 1.4f) else minOf(roomWidth, 448.dp) }
+                else if (faces.size == 1) minOf(roomWidth, roomHeight / 1.4f) else minOf(roomWidth, 320.dp)
+            width to if (degrees % 180 != 0) width / 1.4f else width * 1.4f
+        }
         val density = LocalDensity.current
-        ArtworkViewport(Modifier.width(width).heightIn(max = maxHeight - 16.dp)
+        ArtworkViewport(Modifier.width(sizes.maxOf { it.first }).heightIn(max = roomHeight)
             .semantics { contentDescription = "Card artwork viewport" }, scroll) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                faces.forEach { index ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                faces.forEachIndexed { position, index ->
+                    val (width, height) = sizes[position]
                     val name = if (faces.size == 1) fallback else card?.definition?.faces?.getOrNull(index)?.name ?: fallback
                     val reference = card?.artwork?.getOrNull(index)
                     CardArtwork(reference?.copy(size = "large"), name,
                         with(density) { width.roundToPx() }.coerceIn(1, 4096),
                         with(density) { height.roundToPx() }.coerceIn(1, 4096),
                         Modifier.requiredSize(width, height).testTag("pod-preview-face-$index"),
-                        placeholder = { PodCardPlaceholder(name) }, previewReference = reference?.copy(size = "normal"))
+                        placeholder = { PodCardPlaceholder(name) }, previewReference = reference?.copy(size = "normal"),
+                        degrees = turns[position])
                 }
             }
         }

@@ -90,6 +90,7 @@ internal fun menuIcon(name: String): ImageVector {
         "remove from combat" in n -> Icons.Outlined.RemoveCircleOutline
         "declare" in n -> Icons.Outlined.Gavel
         "remove token" in n -> Icons.Outlined.DeleteOutline
+        n == "rotate card" || n == "rotate back" -> Icons.Outlined.Rotate90DegreesCw
         "untap" in n -> Icons.Outlined.Rotate90DegreesCcw
         "tap" == n || "tap selected" in n -> Icons.Outlined.Rotate90DegreesCw
         "select" in n -> MultipleSelectionIcon

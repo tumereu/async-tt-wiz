@@ -152,6 +152,17 @@ has it. A bubble by each life square shows the status; tapping your own life tot
 offers presets (Wait, Ready, Thinking…, Got a response, No responses, BRB, GG), free
 text and Clear; the opponent's panel shows their full status read-only.
 
+**Graveyard/Exile arrival order (rules v27).** Graveyard and Exile remember the
+order cards arrived in: the newest card is the top of the pile (shown on the table)
+and when it leaves the next card down shows. Cards moved as one action land in the
+order they are moved, so the last one ends on top (milling 3 puts the third milled
+card on top; a Look/Reveal rest goes away in panel order). Cards already in a pile
+keep their order (piles from older rules stay as they were); moving a card within
+its own pile keeps its place. Pile order is a concerned tuple like Hand/Library order
+for Undo. There are still no order controls (D-226), and the pile's inspect panel
+keeps its type sections with cards alphabetical within each type. Events recorded
+under older rules replay unchanged.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

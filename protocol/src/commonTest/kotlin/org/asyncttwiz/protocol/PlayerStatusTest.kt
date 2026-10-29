@@ -13,7 +13,7 @@ class PlayerStatusTest {
     private fun command(text: String, n: Int = 10) = command(GameAction.Play(PlayAction.SetStatus(text)), n)
     private fun command(action: GameAction, n: Int) = GameCommand(id(n), GameScope(id(3), playId = id(6)), action, id(11), "1")
 
-    @Test fun rulesVersionIs26() = assertEquals(26, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun rulesVersionIsAtLeast26() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 26)
 
     @Test fun statusIsEmptyOrTrimmedSingleLineAndAtMost24Characters() {
         fun valid(text: String) = GameWire.valid(command(text))

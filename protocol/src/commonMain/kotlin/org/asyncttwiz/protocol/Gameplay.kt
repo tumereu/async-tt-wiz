@@ -206,7 +206,8 @@ object GameplayRules {
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
-        val delta = GameplayDeltas.capture(state, next, mutation.id, (mutation.action as? PlayAction.SetProjectionNote)?.occurrenceId)
+        val delta = GameplayDeltas.capture(state, next, mutation.id, (mutation.action as? PlayAction.SetProjectionNote)?.occurrenceId,
+            orderedPiles = mutation.transition.rulesVersion >= PileOrder.RULES_VERSION)
         val recorded = GameplayHistory.recontextualize(state, mutation.copy(schemaVersion = 2,
             transition = mutation.transition.copy(delta = delta,
                 concerns = GameplayConcerns.capture(state, next, mutation, delta)),
@@ -494,7 +495,7 @@ object GameplayRules {
             PlayZone.GRAVEYARD, PlayZone.EXILE -> {
                 if (destination.insertion != MoveInsertion.UNORDERED || destination.position != null || destination.pileId != null ||
                     destination.afterId != null || destination.beforeId != null) return reject("invalidInput")
-                placement = null; ordered = emptyList()
+                placement = null; ordered = if (rulesVersion >= PileOrder.RULES_VERSION) reduced else emptyList()
             }
         }
         val index = when (destination.insertion) {
@@ -523,7 +524,9 @@ object GameplayRules {
             PlayZone.BATTLEFIELD -> reduced.filter { it !in ordered } + inserted
             PlayZone.HAND -> if (coverRulesVersion < 3) (reduced + card.id).sorted()
                 else if (destination.insertion == MoveInsertion.GAP) inserted else reduced + card.id
-            PlayZone.GRAVEYARD, PlayZone.EXILE -> (reduced + card.id).sorted()
+            // Rules v27: arrival order, newest on top; a move within the same pile keeps the card's place.
+            PlayZone.GRAVEYARD, PlayZone.EXILE -> if (rulesVersion < PileOrder.RULES_VERSION) (reduced + card.id).sorted()
+                else if (source.id == target.id) target.cards else inserted
             else -> inserted
         }
         val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
@@ -560,8 +563,9 @@ object GameplayRules {
                 source.id -> it.copy(cards = it.cards.filter { id -> id != card.id })
                 else -> it
             } }))
-        val from = location(board, card.id, orderedHand = coverRulesVersion >= 3)
-        val to = location(next, card.id, orderedHand = coverRulesVersion >= 3)
+        val orderedPiles = rulesVersion >= PileOrder.RULES_VERSION
+        val from = location(board, card.id, orderedHand = coverRulesVersion >= 3, orderedPiles = orderedPiles)
+        val to = location(next, card.id, orderedHand = coverRulesVersion >= 3, orderedPiles = orderedPiles)
         if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds } &&
             LibraryKnowledge.after(board, next, action) == board) return GameplayChange(state)
         val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
@@ -611,15 +615,28 @@ object GameplayRules {
             container.copy(cards = container.cards.sortedBy { placements[it]?.pileId }) else container })
     }
 
-    internal fun location(board: BoardState, cardId: String, orderedHand: Boolean = false): CardLocation {
+    internal fun location(board: BoardState, cardId: String, orderedHand: Boolean = false,
+        orderedPiles: Boolean = false): CardLocation {
         val card = board.cards.single { it.id == cardId }
         val container = board.containers.single { it.id == card.containerId }
-        val ordered = container.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK, PlayZone.BATTLEFIELD) || orderedHand && container.zone == PlayZone.HAND
+        val ordered = container.zone in setOf(PlayZone.LIBRARY, PlayZone.STACK, PlayZone.BATTLEFIELD) ||
+            orderedHand && container.zone == PlayZone.HAND || orderedPiles && container.zone in PileOrder.zones
         val members = if (ordered) members(board, container, card.placement) else emptyList()
         val index = members.indexOf(cardId)
         return CardLocation(container.id, card.placement, if (ordered) members.getOrNull(index - 1) else null,
             if (ordered) members.getOrNull(index + 1) else null)
     }
+}
+
+/** Rules v27: Graveyard and Exile remember arrival order. The newest card is index 0 (the top shown on
+ * the table); a card leaving reveals the next one down. Cards already there keep their order (old games
+ * stay id-sorted); only new arrivals go on top. Older recorded events keep their unordered deltas. */
+object PileOrder {
+    const val RULES_VERSION = 27
+    val zones = setOf(PlayZone.GRAVEYARD, PlayZone.EXILE)
+    /** [arrivals] in the order they are put there, so the last one ends on top. */
+    fun arrive(pile: List<String>, arrivals: List<String>): List<String> =
+        arrivals.asReversed() + pile.filterNot { it in arrivals.toSet() }
 }
 
 /** Rules v23: a face-down Battlefield card (morph, manifest, disguise, cloak) has a PUBLIC 2/2 corner.

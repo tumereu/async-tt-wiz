@@ -19,6 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import coil3.ImageLoader
@@ -236,10 +239,14 @@ internal fun ArtworkViewport(modifier: Modifier = Modifier, scroll: ScrollState 
 @Composable
 fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, height: Int,
     modifier: Modifier = Modifier, service: CardArtworkService? = null, crop: Boolean = false,
-    placeholder: (@Composable () -> Unit)? = null, previewReference: ArtworkReference? = null) {
+    placeholder: (@Composable () -> Unit)? = null, previewReference: ArtworkReference? = null, degrees: Int = 0) {
     val context = LocalContext.current
-    val request = reference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, width, height) }
-    val previewRequest = previewReference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, width, height) }
+    // A quarter-turned image is printed upright: decode it at the box's swapped size.
+    val quarter = degrees % 180 != 0
+    val decodeWidth = if (quarter) height else width
+    val decodeHeight = if (quarter) width else height
+    val request = reference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, decodeWidth, decodeHeight) }
+    val previewRequest = previewReference?.takeIf { it.printing != null || it.customUrl != null }?.let { CardArtworkRequest(it, decodeWidth, decodeHeight) }
     val availableService = service ?: PublicArtwork.current()
     // Inspection can reuse the displayed thumbnail on its very first frame, even
     // though the thumbnail's decode target differs from the full-size request.
@@ -252,7 +259,7 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
         value = null
         if (previewRequest != null && cachedPreview == null) {
             val artwork = service ?: PublicArtwork.get(context)
-            val result = artwork.loader.execute(ImageRequest.Builder(context).data(previewRequest).size(width, height).build())
+            val result = artwork.loader.execute(ImageRequest.Builder(context).data(previewRequest).size(decodeWidth, decodeHeight).build())
             currentCoroutineContext().ensureActive()
             value = previewRequest to (result as? SuccessResult)?.image
         }
@@ -261,7 +268,7 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
         value = null
         if (request != null) {
             val artwork = service ?: PublicArtwork.get(context)
-            val result = artwork.loader.execute(ImageRequest.Builder(context).data(request).size(width, height).build())
+            val result = artwork.loader.execute(ImageRequest.Builder(context).data(request).size(decodeWidth, decodeHeight).build())
             currentCoroutineContext().ensureActive()
             value = request to (result as? SuccessResult)?.image
         }
@@ -270,6 +277,22 @@ fun CardArtwork(reference: ArtworkReference?, fallback: String, width: Int, heig
         val loaded = result?.takeIf { it.first == request }?.second ?: cachedPreview ?:
             preview?.takeIf { it.first == previewRequest }?.second
         if (loaded == null) { if (placeholder != null) placeholder() else Text(fallback) }
-        else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize(), contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
+        else Image(loaded.asPainter(context), contentDescription = fallback, modifier = Modifier.fillMaxSize().turned(degrees),
+            contentScale = if (crop) ContentScale.Crop else ContentScale.Fit)
+    }
+}
+
+/** Turns content clockwise by a multiple of 90°; a quarter turn lays it out in the swapped box. */
+internal fun Modifier.turned(degrees: Int): Modifier = when {
+    degrees % 360 == 0 -> this
+    degrees % 180 == 0 -> graphicsLayer { rotationZ = degrees.toFloat() }
+    else -> layout { measurable, constraints ->
+        val placeable = measurable.measure(Constraints(constraints.minHeight, constraints.maxHeight,
+            constraints.minWidth, constraints.maxWidth))
+        layout(placeable.height, placeable.width) {
+            placeable.placeWithLayer((placeable.height - placeable.width) / 2, (placeable.width - placeable.height) / 2) {
+                rotationZ = degrees.toFloat()
+            }
+        }
     }
 }

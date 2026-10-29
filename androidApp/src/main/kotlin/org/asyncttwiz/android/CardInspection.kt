@@ -56,11 +56,15 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                     MenuButton("Next face", Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { controller.face(state.face + 1) }
                 }
                 key(card, state.face) {
+                    val orientation = card.orientation(state.face)
+                    val sideways = state.degrees % 180 != 0
                     val artwork: @Composable (Dp) -> Unit = { heightLimit ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                val width = minOf(maxWidth, 320.dp, if (peek) heightLimit / 1.4f else 320.dp)
-                                val height = width * 1.4f
+                                // A card printed sideways shows turned and as large as fits: the full width, within the height.
+                                val width = if (sideways) minOf(maxWidth, heightLimit * 1.4f)
+                                    else minOf(maxWidth, 320.dp, if (peek) heightLimit / 1.4f else 320.dp)
+                                val height = if (sideways) width / 1.4f else width * 1.4f
                                 val density = LocalDensity.current
                                 val scale = if (!peek && state.enlarged) 2 else 1
                                 ArtworkViewport(Modifier.fillMaxWidth().height(height)
@@ -71,7 +75,8 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                         Modifier.requiredSize(width * scale, height * scale)
                                             // Inspection always shows the whole printed card, including token corners.
                                             .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier),
-                                        placeholder = { InspectorArtworkPlaceholder(card.artwork[state.face], "Artwork for ${face.name}") })
+                                        placeholder = { InspectorArtworkPlaceholder(card.artwork[state.face], "Artwork for ${face.name}") },
+                                        degrees = state.degrees)
                                     // The owner's own face-down card: the front stays readable but is plainly marked.
                                     if (faceDown) Box(Modifier.requiredSize(width * scale, height * scale)
                                         .background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
@@ -79,7 +84,12 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                     }
                                 }
                             }
-                            if (!peek) MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", onClick = controller::zoom)
+                            if (!peek) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", Modifier.weight(1f), onClick = controller::zoom)
+                                // Aftermath and flip halves: a personal turn to read the other half.
+                                if (orientation.alternate != null)
+                                    ManualActionSquare(if (state.turned) "Rotate back" else "Rotate card", "", onClick = controller::turn)
+                            }
                         }
                     }
                     val text: @Composable () -> Unit = {
@@ -120,7 +130,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                         val availableHeight = maxHeight
                         if (maxWidth > maxHeight && maxWidth >= 480.dp) {
                             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) { artwork(availableHeight) }
+                                Column(Modifier.weight(if (sideways) 1.5f else 1f).fillMaxHeight().verticalScroll(rememberScrollState())) { artwork(availableHeight) }
                                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(contentScroll)
                                     .semantics { contentDescription = "Card inspection content" }) { text() }
                             }

@@ -116,20 +116,29 @@ class TableControlsInteractionTest {
         compose.onNodeWithText("Redo").assertDoesNotExist()
     }
 
-    @Test fun ownHandMakesRoomForTheModeSquareInBothOrientationsAndEveryHandSize() {
+    @Test fun modeSquareScalesWithTheHandAndFitsItsRowInBothOrientations() {
         val play = TableFixture.play(hand = 12, board = 2)
-        for (landscape in listOf(false, true)) for (size in listOf(.5f, 1f, 3f)) {
+        for (landscape in listOf(false, true)) for (size in listOf(.5f, .75f, 1f, 1.5f, 3f)) {
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
             val appearance = CardAppearance(customizeAreas = true, areas = mapOf(CardArea.HAND to size))
             val scene = TablePresentation.scene(TableFixture.game, play, "a", width, height, landscape, appearance = appearance)
             val hand = scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }.bounds
             val mode = assertNotNull(scene.modeButton, "$landscape $size")
-            assertEquals(TablePresentation.MODE_BUTTON, mode.width); assertEquals(TablePresentation.MODE_BUTTON, mode.height)
+            val side = TablePresentation.modeButtonSize(size, hand.height)
+            assertEquals(side, mode.width); assertEquals(side, mode.height)
+            assertTrue(side >= TablePresentation.MIN_MODE_BUTTON, "$landscape $size")
+            if (size == 1f) assertEquals(TablePresentation.MODE_BUTTON, side)
+            if (size > 1f) assertTrue(side > TablePresentation.MODE_BUTTON, "$landscape $size scales up")
             assertNull(mode.intersection(hand), "$landscape $size")
             assertEquals(hand.right + TablePresentation.MODE_BUTTON_GAP, mode.x)
             assertTrue(mode.right <= width - 8f, "$landscape $size")
-            assertEquals(minOf(hand.bottom, hand.center.y + mode.height / 2), mode.bottom, .01f)
+            if (hand.height >= TablePresentation.MIN_MODE_BUTTON) {
+                // Fits the row: centred on it, never over the battlefield.
+                assertTrue(mode.y >= hand.y && mode.bottom <= hand.bottom, "$landscape $size")
+                assertEquals(hand.center.y, mode.center.y, .01f)
+                assertNull(mode.intersection(scene.world!!.visibleViewport), "$landscape $size")
+            } else assertEquals(hand.bottom, mode.bottom, .01f) // Minimum touch size, aligned to the row bottom.
             assertTrue(scene.items.filter { it.zone == PlayZone.HAND && it.owner == "a" && it.kind == TableItemKind.CARD }
                 .all { card -> card.visible.all { it.intersection(mode) == null } })
         }

@@ -22,11 +22,6 @@ import kotlinx.serialization.Serializable
 object LibraryRules {
     /** Either player may close (dismiss) any panel from this rules version on. */
     const val ANY_PLAYER_CLOSES_RULES_VERSION = 29
-    /** Rests that move the panel cards into a public pile, showing their faces to everyone. */
-    val publishingRests = setOf(ContentsRest.GRAVEYARD, ContentsRest.EXILE)
-    /** May [accountId] send this panel's cards to a public pile? Only if every face is already visible to them. */
-    fun mayPublishRest(display: ContentsDisplay, accountId: String) =
-        display.cardIds.all { display.faceVisibleTo(it, accountId) }
 
     fun slice(cards: List<String>, selection: ContentsSelection, count: Int): List<String> {
         require(count >= 0)
@@ -119,10 +114,9 @@ object LibraryRules {
             }
             is PlayAction.DismissContents -> {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
-                // Rules v29: either player may close any panel so a game never gets stuck on a forgotten one,
-                // but a non-author may not publish faces they never saw (Graveyard/Exile rest).
-                if (display.author != actor && (rulesVersion < ANY_PLAYER_CLOSES_RULES_VERSION ||
-                        !display.search && action.rest in publishingRests && !mayPublishRest(display, actor)))
+                // Rules v29: either player may close any panel, with the author's very same choices,
+                // so a game never gets stuck on a forgotten one.
+                if (display.author != actor && rulesVersion < ANY_PLAYER_CLOSES_RULES_VERSION)
                     return GameplayChange(reason = "accessDenied")
                 val source = board.containers.single { it.id == display.containerId }
                 // Hand reveals are references: Done returns them simply by removing the tray,

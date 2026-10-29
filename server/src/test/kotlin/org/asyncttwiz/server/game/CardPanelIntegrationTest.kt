@@ -60,8 +60,6 @@ class CardPanelIntegrationTest {
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(library.id, ContentsSelection.ALL)).reason)
                 val opponentLibrary = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId != actor }
                 assertEquals("panelAlreadyOpen", send(PlayAction.ShowContents(opponentLibrary.id, ContentsSelection.TOP), f.recipient).reason)
-                // Rules v29: the opponent may close it too, but never into a public pile it has not seen.
-                assertEquals("accessDenied", send(PlayAction.DismissContents(panel.id, ContentsRest.GRAVEYARD), f.recipient).reason)
                 assertEquals("accessDenied", send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()), f.recipient).reason)
                 assertEquals("accepted", send(PlayAction.ReorderContents(panel.id, panel.cardIds.last(), panel.cardIds.first())).outcome)
                 val reveal = send(PlayAction.RevealContentsCard(panel.id, panel.cardIds.first()))
@@ -79,6 +77,12 @@ class CardPanelIntegrationTest {
                 assertEquals("accepted", send(PlayAction.DismissContents(forgotten.id), f.recipient).outcome)
                 assertTrue(state().board.contentsDisplays.isEmpty())
                 assertEquals(forgotten.cardIds, state().board.containers.single { it.id == library.id }.cards.take(2))
+                // Rules v29: the opponent closes with the author's very same choices, Graveyard included.
+                assertEquals("accepted", send(PlayAction.ShowContents(library.id, ContentsSelection.TOP, 2)).outcome)
+                val graveyardPanel = state().board.contentsDisplays.single()
+                assertEquals("accepted", send(PlayAction.DismissContents(graveyardPanel.id, ContentsRest.GRAVEYARD), f.recipient).outcome)
+                val graveyard = state().board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == actor }
+                assertTrue(graveyard.cards.containsAll(graveyardPanel.cardIds))
             }
         }
     }

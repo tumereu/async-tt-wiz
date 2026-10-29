@@ -212,9 +212,13 @@ object TablePresentation {
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
-    /** The Interaction mode square beside the viewer's own hand, and its gap from the hand row. */
+    /** The Interaction mode square beside the viewer's own hand at 1× hand size, its minimum touch size,
+     * and its gap from the hand row. */
     const val MODE_BUTTON = 48f
+    const val MIN_MODE_BUTTON = 40f
     const val MODE_BUTTON_GAP = 4f
+    /** The square scales with the hand size and fits the hand row, never below [MIN_MODE_BUTTON]. */
+    fun modeButtonSize(handScale: Float, railHeight: Float) = minOf(MODE_BUTTON * handScale, railHeight).coerceAtLeast(MIN_MODE_BUTTON)
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
     const val TOOLBAR = 212f
     private const val PILE_START = 76f
@@ -390,6 +394,7 @@ object TablePresentation {
                 boardTop + sidebarContent - sidebarRow - landscapeExtra[1] - sidebarScroll)
             else listOf(HEADER + counterHeights[0], ownDockY)
         var modeButton: TableBounds? = null
+        val modeSize = modeButtonSize(appearance.size(CardArea.HAND), railHeight)
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
             val hand = container(player.accountId, PlayZone.HAND)
@@ -397,12 +402,12 @@ object TablePresentation {
                 if (landscape) TableBounds(sidebar + 10f, 2f, (width - sidebar - toolbarWidth - 20f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
             } else TableBounds(if (landscape) sidebar + 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                 (width - (if (landscape) sidebar + 20f else 16f) - MODE_BUTTON - MODE_BUTTON_GAP).coerceAtLeast(28f), railHeight)
+                 (width - (if (landscape) sidebar + 20f else 16f) - modeSize - MODE_BUTTON_GAP).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
-            // The own hand gives up its outer end to the Interaction mode square. A short rail keeps the
-            // full square, bottom-aligned with the rail so it never covers the piles below.
+            // The own hand gives up its outer end to the Interaction mode square, centred on the row. A row
+            // shorter than the minimum touch size keeps the minimum, bottom-aligned so it never covers the piles below.
             if (ownSide) modeButton = TableBounds(handBounds.right + MODE_BUTTON_GAP,
-                handBounds.bottom - MODE_BUTTON - ((handBounds.height - MODE_BUTTON) / 2).coerceAtLeast(0f), MODE_BUTTON, MODE_BUTTON)
+                handBounds.bottom - modeSize - ((handBounds.height - modeSize) / 2).coerceAtLeast(0f), modeSize, modeSize)
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll

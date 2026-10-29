@@ -608,7 +608,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         if (!runtime.reviewing) Box(Modifier.offset(
             (modeButton?.x ?: (maxWidth.value - 56f)).dp, (modeButton?.y ?: (maxHeight.value - 112f)).dp)) {
             ActionSquare("Interaction mode", "", !runtime.gameActionsBlocked,
-                modifier = Modifier.size(48.dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
+                modifier = Modifier.size((modeButton?.width ?: 48f).dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                     contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
                 }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
                 onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })

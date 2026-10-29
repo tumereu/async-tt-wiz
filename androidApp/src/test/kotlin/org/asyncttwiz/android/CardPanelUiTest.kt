@@ -239,13 +239,12 @@ class CardPanelUiTest {
         return display
     }
 
-    @Test fun eitherPlayerClosesAForgottenLookPanelWithoutPublishingUnseenFaces() {
+    @Test fun eitherPlayerClosesAForgottenLookPanelWithTheAuthorsChoices() {
         val display = opponentPanel(ContentsSelection.TOP)
         // Select all and card actions stay the author's; closing is anyone's.
         compose.onNodeWithContentDescription("Select all in Look panel").assertDoesNotExist()
         click("Close opponent's Look panel")
-        for (label in listOf("Top", "Bottom", "Shuffle")) compose.onNodeWithContentDescription(label).assertIsEnabled()
-        for (label in listOf("Graveyard", "Exile")) compose.onNodeWithContentDescription(label).assertIsNotEnabled()
+        for (label in listOf("Top", "Bottom", "Shuffle", "Graveyard", "Exile")) compose.onNodeWithContentDescription(label).assertIsEnabled()
         click("Top")
         assertTrue(f.play.board.contentsDisplays.isEmpty())
         val close = assertIs<PlayAction.DismissContents>((f.commands().last().action as GameAction.Play).action)

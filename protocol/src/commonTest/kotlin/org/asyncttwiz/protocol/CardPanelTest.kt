@@ -219,26 +219,20 @@ class CardPanelTest {
         assertFalse(GameplayRules.valid(PlayAction.RevealContentsCard(display.id, "bad")))
         assertFalse(GameplayRules.valid(PlayAction.DismissContents(display.id, seed = "bad")))
     }
-    @Test fun eitherPlayerClosesAnyPanelButANonAuthorNeverPublishesUnseenFaces() {
+    @Test fun eitherPlayerClosesAnyPanelWithTheAuthorsChoices() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()
-        // The opponent may close the author's private Look panel without exposing it.
+        // The opponent may close the author's private Look panel with every rest the author has.
         for (rest in listOf(ContentsRest.TOP, ContentsRest.BOTTOM, ContentsRest.BOTTOM_RANDOM, ContentsRest.SHUFFLE)) {
             val closed = step(opened, PlayAction.DismissContents(display.id, rest, seed), b)
             assertTrue(closed.board.contentsDisplays.isEmpty())
             assertTrue(closed.board.cards.none { CardVisibility.isVisibleFaceUp(closed.board, it, b) })
         }
         assertEquals(display.cardIds + id(23) + id(24), step(opened, PlayAction.DismissContents(display.id), b).board.containers.first().cards)
-        for (rest in LibraryRules.publishingRests) assertEquals("accessDenied",
-            change(opened, PlayAction.DismissContents(display.id, rest, seed), b).reason)
-        assertFalse(LibraryRules.mayPublishRest(display, b))
-        assertTrue(LibraryRules.mayPublishRest(display, a))
-        // Once every face is shown to the closer (or in a Reveal panel) public rests are theirs to choose.
-        var shown = opened
-        for (card in display.cardIds) shown = step(shown, PlayAction.RevealContentsCard(display.id, card))
-        assertTrue(LibraryRules.mayPublishRest(shown.board.contentsDisplays.single(), b))
-        val graveyard = step(shown, PlayAction.DismissContents(display.id, ContentsRest.GRAVEYARD, seed), b)
-        assertEquals(display.cardIds.toSet(), graveyard.board.containers.single { it.id == id(12) }.cards.toSet())
+        for ((rest, pile) in listOf(ContentsRest.GRAVEYARD to id(12), ContentsRest.EXILE to id(13))) {
+            val moved = step(opened, PlayAction.DismissContents(display.id, rest, seed), b)
+            assertEquals(display.cardIds.toSet(), moved.board.containers.single { it.id == pile }.cards.toSet())
+        }
         val revealed = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2, reveal = true))
         step(revealed, PlayAction.DismissContents(revealed.board.contentsDisplays.single().id, ContentsRest.EXILE, seed), b)
         // A Search always shuffles, whoever closes it.

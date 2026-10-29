@@ -212,13 +212,9 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
         width.dp, height.dp, description = if (rest) "Panel rest choices" else "Panel card actions",
         placement = TableBounds(x, y, width, height)) {
         if (rest) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            // A closer who has not seen every face cannot send them to a public pile (shown, disabled).
-            val publish = LibraryRules.mayPublishRest(display, toolkit.viewer)
             for ((label, destination) in listOf("Top" to ContentsRest.TOP, "Bottom" to ContentsRest.BOTTOM,
                 "Shuffle" to ContentsRest.SHUFFLE, "Graveyard" to ContentsRest.GRAVEYARD, "Exile" to ContentsRest.EXILE)) {
-                InlinePopupCell(MenuControl(label, toolkit.enabled() && (publish || destination !in LibraryRules.publishingRests)) {
-                    toolkit.resolveCardPanel(display, destination)
-                })
+                InlinePopupCell(MenuControl(label, toolkit.enabled()) { toolkit.resolveCardPanel(display, destination) })
             }
         } else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             for (row in panelCardActions.chunked(3)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {

@@ -131,8 +131,16 @@ data class TableItem(
     /** The Temp pile's number 1..4 (0 for every other item); an empty pile may not exist yet (placeholder). */
     val tempNumber: Int = 0,
     /** LIFE only: the player's status, drawn as a bubble beside the square (never an input target). */
-    val status: String = ""
-)
+    val status: String = "",
+    /** A face-up Battlefield card (or its combat copy) that entered the Battlefield this turn (rules v29). */
+    val enteredThisTurn: Boolean = false
+) {
+    /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
+    val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
+}
+
+/** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
+internal const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
     val holdsAttention: Boolean = false) {
@@ -373,7 +381,10 @@ object TablePresentation {
             val values = !hidden || faceDown
             val title = if (hidden) "Covered card" else f?.name ?: "Card (definition unavailable)"
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
-            val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}"
+            // Combat copies follow their live source card; a face-down card shows no title and so no mark.
+            val entered = zone == PlayZone.BATTLEFIELD && !hidden && !frozen && EnteredTurn.marked(play.board, card)
+            val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
+                if (entered) ", entered this turn" else ""
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -387,7 +398,8 @@ object TablePresentation {
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
-                    frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty()).also { if (draw) items += it }
+                    frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
+                    enteredThisTurn = entered).also { if (draw) items += it }
         }
         // Opponent block on top (counters/Temp row above its pile row), own block at the bottom.
         val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,

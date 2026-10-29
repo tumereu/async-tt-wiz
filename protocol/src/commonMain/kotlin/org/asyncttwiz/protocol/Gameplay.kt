@@ -354,7 +354,8 @@ object GameplayRules {
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
         }), action)
-        val cleanup = if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved
+        val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
+            .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }
         val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)
             ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.

@@ -1072,7 +1072,10 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         if (mode == TableArtworkMode.CUSTOM_CARD) { damageBadge(); cardAnnotations(i, x, y, z); paint.textSize = 11 * density; return@translate }
         paint.textSize = 7 * titleScale * z * density; paint.isFakeBoldText = true
         val titleInset = if (i.token) cardWidth * .22f else 2 * z
+        val textColor = paint.color
+        if (i.enteredThisTurn) paint.color = i.titleColor
         fittedText(title, x + titleInset, y + (1 + 7 * titleScale) * z, cardWidth - 2 * titleInset)
+        paint.color = textColor
         paint.isFakeBoldText = false
         if (mode == TableArtworkMode.ART_CROP && artBottom > titleBand) drawTableArtwork(requireNotNull(art),
             TableBounds(x + 2 * z, y + titleBand * z, cardWidth - 4 * z, (artBottom - titleBand) * z))

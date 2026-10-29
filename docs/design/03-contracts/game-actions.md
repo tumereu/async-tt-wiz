@@ -188,6 +188,17 @@ two separate events). "Declare + tap" records the taps first and then the
 declarations, so they fold into one group. Events recorded under older rules
 group exactly as before.
 
+**Entered this turn (rules v29).** A card that arrives on a battlefield stores the
+current turn number (turns count both players' turns) in the same event as the
+move: from any other zone or pile (Hand, Stack, Graveyard, Exile, Library, Temp
+piles, panels), a token or clone created there, or a move to the other player's
+battlefield. Moving within the same battlefield, tapping, flipping, combat and
+edits keep it; leaving the battlefield clears it. There is no cleanup event: the
+card counts as entered this turn while its stored number equals the current turn
+number. The table draws such a face-up card's name in blue. For Undo, an entering
+event concerns the stored value and the current turn number (so undoing an earlier
+turn change beneath it is refused). Events recorded under older rules store nothing.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

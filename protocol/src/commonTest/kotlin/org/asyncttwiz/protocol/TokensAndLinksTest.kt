@@ -91,7 +91,8 @@ class TokensAndLinksTest {
         assertReplayAndInverse(linked, clone)
         val source = linked.board.cards.single()
         val token = clone.state!!.board.cards.single { it.token }
-        assertEquals(source.copy(id = token.id, owner = id(7), token = true, placement = token.placement), token)
+        assertEquals(source.copy(id = token.id, owner = id(7), token = true, placement = token.placement,
+            enteredTurn = linked.board.turn.number), token)
         assertEquals(linked.board.links, clone.state.board.links) // never copies incident links
         assertEquals(source, clone.state.board.cards.single { !it.token })
         assertEquals(submitted, clone.mutation!!.transition.cloneRead!!.definition)

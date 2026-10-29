@@ -394,6 +394,14 @@ internal object GameplayConcerns {
                     for (key in listOf("damage", "eotCorner", "eotNote")) entity("card", c.id, key)
             } }
         }
+        if (mutation.transition.rulesVersion >= EnteredTurn.RULES_VERSION) {
+            // Arrival assigns the entered turn (even unchanged) and leaving clears it. The stored value
+            // is the current turn number, so an entering event also concerns it: undoing an earlier
+            // turn change beneath it would leave a stale mark.
+            val arrivals = EnteredTurn.arrivals(from.board, to.board)
+            arrivals.keys.forEach { entity("card", it, "enteredTurn") }
+            if (arrivals.values.any { it.isNotEmpty() }) entity("turn", "", "number")
+        }
         if (mutation.transition.rulesVersion >= 18) {
             when (val action = mutation.action) {
                 is PlayAction.MoveCard -> fields += ConcernField.AttackTargetIncident(action.cardId)

@@ -102,7 +102,8 @@ class PilePrefixInsertionTest {
         assertEquals("accepted", accepted.outcome)
         assertEquals("", accepted.state!!.board.cards.single { it.id == a }.note)
         assertEquals("current target note", accepted.state.board.cards.single { it.id == x }.note)
-        assertEquals(edited.board.cards.single { it.id == a }.copy(containerId = field, placement = placement(root), covered = false, note = ""),
+        assertEquals(edited.board.cards.single { it.id == a }.copy(containerId = field, placement = placement(root), covered = false, note = "",
+            enteredTurn = edited.board.turn.number),
             accepted.state.board.cards.single { it.id == a })
         assertNull(accepted.mutation!!.transition.movement!!.stackFrom)
         assertEquals("invalidInput", gameplayChange(root, first.copy(expectedStackDigest = GameplayRules.stackDigest(root)), 143).reason)

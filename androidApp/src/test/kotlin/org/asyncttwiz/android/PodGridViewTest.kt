@@ -55,8 +55,7 @@ class PodGridViewTest {
     @Test fun arrowsHighlightLinesAndConfirmSendsGridLineWithoutChangingBoard() {
         var confirmed: Triple<String, GridLineType, Int>? = null
         show(onConfirm = { grid, line, index -> confirmed = Triple(grid, line, index) })
-        compose.onNodeWithText("Grid 1/18").assertIsDisplayed()
-        compose.onNodeWithText("+0 waiting", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Your pick · Grid 1/18").assertIsDisplayed()
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Select row 2").performClick().assertIsSelected()
         repeat(9) { assertHighlighted(it, it in 3..5) }
@@ -80,12 +79,21 @@ class PodGridViewTest {
         compose.onAllNodesWithContentDescription("Empty slot").assertCountEquals(3)
     }
 
-    @Test fun headGridIsShownWithOtherActionableGridsCountAndBusyDisablesActions() {
+    @Test fun yourPickComesFirstThenOtherOpenGridsThenFinishedOnesWithArrowsOnlyOnYourPick() {
         var busy by mutableStateOf(false)
         val later = board.copy(id = "later", number = 2)
-        show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(board, later))) }, busy = { busy })
-        compose.onNodeWithText("Grid 1/18 · +1 waiting").assertIsDisplayed()
-        compose.onNodeWithTag("pod-grid-later-slot-0").assertDoesNotExist()
+        val waiting = board.copy(id = "waiting", number = 3, currentPlayer = "bob")
+        val done = board.copy(id = "done", number = 4, positions = List(9) { null }, currentPlayer = null, finished = true)
+        val older = done.copy(id = "older", number = 5)
+        show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waiting, later, board),
+            finishedGrids = listOf(done, older)), mine = mine.copy(queue = listOf(board.id, later.id))) }, busy = { busy })
+        val headers = listOf("Your pick · Grid 1/18", "Your pick next · Grid 2/18", "Waiting for Bob · Grid 3/18",
+            "Finished · Grid 4/18", "Finished · Grid 5/18")
+        val tops = headers.map { compose.onNodeWithText(it).fetchSemanticsNode().positionInRoot.y }
+        assertEquals(tops.sorted(), tops)
+        compose.onAllNodesWithContentDescription("Select row 1").assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("Select column 3").assertCountEquals(1)
+        compose.onNodeWithTag("pod-grid-later-slot-0").assertExists()
         compose.onNodeWithContentDescription("Select row 1").performClick()
         compose.runOnIdle { busy = true }
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
@@ -98,9 +106,8 @@ class PodGridViewTest {
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waitingBoard, waitingBoard.copy(id = "later", number = 2))),
             mine = mine.copy(headGridId = null)) })
         compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
-        compose.onNodeWithText("+0 waiting", substring = true).assertDoesNotExist()
-        compose.onAllNodesWithContentDescription("Select row 1").onFirst().assertIsNotEnabled()
-        compose.onAllNodesWithContentDescription("Select column 2").onFirst().assertIsNotEnabled()
+        compose.onNodeWithText("Waiting for Bob · Grid 1/18").assertExists()
+        compose.onAllNodesWithContentDescription("Select row 1").assertCountEquals(0)
         compose.onNodeWithTag("pod-grid-later-slot-0").assertExists()
         compose.onNodeWithText("Confirm").assertDoesNotExist()
         compose.onNodeWithText("Build").assertDoesNotExist()
@@ -145,15 +152,33 @@ class PodGridViewTest {
         repeat(9) { assertHighlighted(it, it < 3) }
     }
 
-    @Test fun logShowsLatestSelectionAndExpandsOnlyThisGridsEarlierSelections() {
-        val first = GridPublicPickLog("bob", "grid-0", GridLine(GridLineType.ROW, 1), cards.take(3), emptyList())
-        val latest = GridPublicPickLog("alice", "grid-0", GridLine(GridLineType.COLUMN, 0), cards.drop(3).take(2), emptyList())
-        show(view = { initial.copy(publicView = initial.publicView.copy(log = listOf(first, first.copy(gridId = "other"), latest))) })
-        compose.onNodeWithText("Alice took column 1: Card 3, Card 4").assertIsDisplayed()
-        compose.onNodeWithText("Bob took row 2: Card 0, Card 1, Card 2").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Expand grid selections").performClick()
-        compose.onAllNodesWithText("Bob took row 2: Card 0, Card 1, Card 2").assertCountEquals(1)
-        compose.onNodeWithContentDescription("Collapse grid selections").performClick()
-        compose.onNodeWithText("Bob took row 2: Card 0, Card 1, Card 2").assertDoesNotExist()
+    @Test fun cardsStayInPlaceWithPickersRefillsAndDiscardsInsteadOfATextLog() {
+        val slots = cards.mapIndexed { index, copy -> when (index) {
+            0, 1, 2 -> GridPublicSlot(copy.copy(id = "new-$index"), if (index == 1) "bob" else null, refill = true)
+            4, 7 -> GridPublicSlot(copy, "bob")
+            6, 8 -> GridPublicSlot(copy, "alice")
+            else -> GridPublicSlot(copy)
+        } }
+        val done = board.copy(positions = List(9) { null }, currentPlayer = null, finished = true, slots = slots)
+        val log = listOf(GridPublicPickLog("bob", "grid-0", GridLine(GridLineType.COLUMN, 1), cards.take(3), emptyList()))
+        show(view = { initial.copy(publicView = initial.publicView.copy(grids = emptyList(), finishedGrids = listOf(done), log = log),
+            mine = mine.copy(headGridId = null)) })
+        compose.onNodeWithText("Finished · Grid 1/18").assertExists()
+        slot(1).assertContentDescriptionEquals("Card 1, picked by Bob, new")
+        slot(0).assertContentDescriptionEquals("Card 0, discarded, new")
+        slot(4).assertContentDescriptionEquals("Card 4, picked by Bob")
+        slot(8).assertContentDescriptionEquals("Card 8, picked by Alice")
+        slot(3).assertContentDescriptionEquals("Card 3, discarded")
+        compose.onAllNodesWithText("New").assertCountEquals(3)
+        compose.onNodeWithText("took", substring = true).assertDoesNotExist()
+        compose.onAllNodesWithContentDescription("Select row 1").assertCountEquals(0)
+        assertHoldPreview(slot(3))
+    }
+
+    @Test fun pickerColoursUseYourTableColourAndDistinctOthers() {
+        val colors = podGridColors(listOf("bob", "alice", "carol"), "alice")
+        assertEquals(OwnTableColor, colors["alice"])
+        assertEquals(OpponentTableColor, colors["bob"])
+        assertEquals(3, colors.values.distinct().size)
     }
 }

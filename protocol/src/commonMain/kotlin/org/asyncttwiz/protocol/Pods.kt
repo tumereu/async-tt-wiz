@@ -19,12 +19,12 @@ import kotlinx.serialization.Serializable
     val setCode: String? = null, val setName: String? = null, val boosterKind: SetBoosterKind? = null,
     val boosterName: String? = null,
 )
-/** Public boards/log plus only the caller's pool and oldest actionable grid. */
+/** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
 /** Uploaded atomically with the source; every snapshot definition must be included. */
 @Serializable data class PodSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>)
 @Serializable data class PodMember(
-    /** GRID uses packsWaiting for the number of open grids where this member has a turn. */
+    /** GRID uses packsWaiting for the number of grids this member can pick from now (their queue). */
     val account: AccountIdentity, val packsWaiting: Int = 0, val picksMade: Int = 0,
     val building: Boolean = false, val submitted: Boolean = false,
     val picking: Boolean = false,

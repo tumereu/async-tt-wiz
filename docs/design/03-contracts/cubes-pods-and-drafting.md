@@ -240,11 +240,22 @@ Draftmancer's Grid, unchanged in geometry:
 - With 3–4 players, empty positions refill after the first selection.
 - Option for 2 players: **two picks each** per grid (order ABAB, next grid BABA),
   which also refills after the first selection.
-- After all selections, leftovers are discarded and the next grid is dealt.
-- **Grids open at once** (default 1, tile): several grids run in parallel,
-  each with its own rotating starter. You act in the oldest grid where it is your
-  turn.
-- The board and everyone's selections are public to pod members.
+- After all selections, leftovers are discarded.
+- **Grids open at once** (default 1, tile): a round opens that many grids, each
+  with its own rotating starter.
+- Round 30: every grid is dealt at the start with its nine cards and its own
+  refill cards, so a grid's cards never depend on when anyone picks. Grids use the
+  same scheduling as packs (one shared rule for all draft modes): each member has
+  a queue of grids where it is their turn (fresh grids first, a new arrival never
+  replaces the grid they are looking at), and opens their next round's grids as
+  soon as no grid of their opened rounds can still come to them (they are not in
+  its remaining turns). E.g. 2 players, 3 open: once A has made all their round 1
+  picks, A gets the round 2 grids where A picks first while B is still on round 1.
+  A grid passed to a member who has not opened its round waits unseen for them.
+  A grid is seen once its first picker opens its round. Pods saved before this
+  rule deal their remaining grids and continue with it.
+- The boards and everyone's selections of grids you have seen are public to pod
+  members; grids of rounds you have not opened stay hidden.
 
 ### Sideboard limit
 
@@ -368,12 +379,18 @@ Pod setting, default **unlimited**; optionally a finite number (0 allowed).
 
 ### Grid screen
 
-The board fills the width, with arrow buttons left of each row and above each
-column. Tap an arrow to highlight the line, then **Confirm**. Gaps show as empty
-slots. A log line above the board ("B took row 2: …") expands to the grid's
-earlier selections. Arrows are disabled when it is not your turn. Header shows
-grid progress and grids waiting. Hold uses the same 150ms, artwork-only,
-release-to-close preview as Booster/Glimpse, not the full card inspector.
+Round 30: every grid you have seen is shown as dealt, 3×3, cards staying in
+place: your current pick first, then the other open grids, then finished grids
+(most recently finished first). Each has a header: "Your pick · Grid 4/18",
+"Your pick next · Grid 6/18", "Waiting for <name> · Grid 5/18" or "Finished ·
+Grid 3/18". A picked card gets a border in its picker's colour (yours is the
+table's own colour, others the opponent colour, then blue and amber) and a small
+avatar badge; a finished grid's discarded cards are dimmed; refill cards are
+marked "New" (they take the place of the first selection's cards). Only the grid
+you are picking from has arrow buttons left of each row and above each column:
+tap an arrow to highlight the line, then **Confirm**. There is no text pick log.
+Hold uses the same 150ms, artwork-only, release-to-close preview as
+Booster/Glimpse, not the full card inspector.
 
 ### Build
 

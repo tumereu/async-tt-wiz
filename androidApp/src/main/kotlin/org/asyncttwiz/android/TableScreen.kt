@@ -66,7 +66,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
 internal fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean,
     onIntent: ((TableIntent) -> Boolean)? = null, placements: Map<String, TablePlacement> = emptyMap(),
     runtime: TableRuntimeHooks = TableRuntimeHooks()) {
-    val state = controller.state
+    // Never the whole lobby state: its games-list refresh would recompose the table every few seconds.
+    val state = controller.table.value
     val game = state.detail ?: return
     val interactive = game.id !in state.reconnectingGames
     val live = state.play
@@ -271,7 +272,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
                          pauseForInspection = { playback?.pause() },
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
-                        navigation = hamburger, chatUnread = state.chat.unread,
+                        navigation = hamburger, chatUnread = state.chatUnread,
                          history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
                           onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
                           continueHere = if (!resultLocked && reviewing && history.armed == null && interactive &&
@@ -339,7 +340,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
 }
 
 /** Absence of an accepted head is normal during socket admission and initial catch-up, not failure. */
-internal fun tableIsLoading(state: LobbyState, gameId: String, historyError: String?, timedOut: Boolean = false) =
+internal fun tableIsLoading(state: LobbyTableView, gameId: String, historyError: String?, timedOut: Boolean = false) =
     historyError == null && state.connectionMessage == null && gameId !in state.reconnectingGames && !timedOut
 
 private fun activityPost(action: () -> Unit) { android.os.Handler(android.os.Looper.getMainLooper()).post { action() } }
@@ -368,9 +369,9 @@ private tailrec fun tableActivity(context: Context): ComponentActivity? = when (
 internal fun tableToolkit(controller: LobbyController, history: TableHistoryController, game: GameSummary,
     accountId: String, playId: String?): TableToolkitController = TableToolkitController(accountId, {
         val personal = controller.history
-        (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.state.play)
+        (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.table.value.play)
             ?.takeIf { it.id == playId && it.gameId == game.id }
-    }, { history.foreground && game.id !in controller.state.reconnectingGames && !controller.resultLocked() &&
+    }, { history.foreground && game.id !in controller.table.value.reconnectingGames && !controller.resultLocked() &&
         (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
     controller::gameplay, ending = { intent ->
         val target = controller.captureResult()
@@ -382,5 +383,5 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
                 ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
         }
     }, acceptedInspection = controller::inspectFace,
-    waitingForConnection = { game.id !in controller.state.connectedGames }, playBatch = controller::gameplayBatch,
+    waitingForConnection = { game.id !in controller.table.value.connectedGames }, playBatch = controller::gameplayBatch,
     playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } })

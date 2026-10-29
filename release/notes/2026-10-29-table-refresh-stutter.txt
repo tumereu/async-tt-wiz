@@ -1,0 +1,1 @@
+fix: The game table no longer stutters every few seconds

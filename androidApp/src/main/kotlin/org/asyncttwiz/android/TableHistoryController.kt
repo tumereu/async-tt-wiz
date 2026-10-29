@@ -25,7 +25,8 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     @Volatile private var epoch = 0L
     private var indexedEpoch = 0L
     private var displayEpoch = 0L
-    private var viewVersion: String? = null
+    // Observed: canArm/canRequestContinuation read it in composition, and it can change while [view] stays equal.
+    private var viewVersion by mutableStateOf<String?>(null)
     private var closed = false
     private var textViewer: String? = null
     private val indexes = LatestReview(worker)

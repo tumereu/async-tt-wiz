@@ -123,7 +123,8 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val actor = owner(principal)
-            val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING")).and(GAME.POD_INVITATION_HELD.isFalse)
+            // Held pod challenges are listed too; the recipient sees them before their deck is in.
+            val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
                 else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED")))
             val ids = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))

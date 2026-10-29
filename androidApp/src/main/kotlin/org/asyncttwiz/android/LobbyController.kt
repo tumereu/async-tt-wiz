@@ -174,7 +174,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val mine = accountId()
         val listed = (game.lifecycle == GameLifecycle.LOBBY || game.lifecycle == GameLifecycle.ACTIVE) && sessionAvailable(game.id)
         val inGames = listed && (game.inviter.accountId == mine || game.invitationState == InvitationState.ACCEPTED)
-        val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING && !game.invitationHeld
+        val inInvites = listed && game.recipient.accountId == mine && game.invitationState == InvitationState.PENDING
         state = state.copy(games = updatedGameRows(state.games, game, inGames),
             invitations = updatedGameRows(state.invitations, game, inInvites),
             detail = if (state.selected == game.id) game else state.detail)
@@ -225,6 +225,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun respond(game: GameSummary, accept: Boolean) {
         if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
+        // A held pod challenge can be declined at once; accepting waits for the player's submitted deck.
+        if (accept && game.invitationHeld) return
         session?.submit(game, if (accept) GameAction.AcceptInvitation else GameAction.DeclineInvitation)
     }
     fun reinvite(game: GameSummary) {

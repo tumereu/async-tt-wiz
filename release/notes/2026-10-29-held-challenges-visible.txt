@@ -1,0 +1,1 @@
+add: A pod challenge now shows up right away, even before your deck is submitted: you can decline it at once and accept it once your deck is in. Invitations also appear at the top of the Games list in the side menu.

@@ -46,7 +46,9 @@ import java.time.format.FormatStyle
 internal fun gameDate(game: GameSummary): String = runCatching {
     DateTimeFormatter.ofPattern("d MMM uuuu").withZone(ZoneId.systemDefault()).format(Instant.parse(game.createdAt))
 }.getOrDefault("")
-internal fun gameStatus(game: GameSummary): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
+/** With [accountId], a held pod challenge reads from the recipient's side: they see it but must submit first. */
+internal fun gameStatus(game: GameSummary, accountId: String? = null): String = if (game.lifecycle == GameLifecycle.ACTIVE) "In play"
+    else if (game.invitationHeld && accountId != null && accountId == game.recipient.accountId) "Challenged you · submit your deck to accept"
     else if (game.invitationHeld) "Waiting for ${game.recipient.username}'s deck" else when (game.invitationState) {
     InvitationState.PENDING -> "Invitation pending"
     InvitationState.DECLINED -> "Invitation declined"
@@ -126,9 +128,9 @@ internal fun GamesContent(controller: LobbyController, accountId: String) {
                                 Avatar(game.inviter)
                                 Text(game.inviter.username, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("${gameStatus(game)} · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${gameStatus(game, accountId)} · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ScreenButton(onClick = { controller.respond(game, true) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
+                                ScreenButton(onClick = { controller.respond(game, true) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames && !game.invitationHeld,
                                     modifier = Modifier.weight(1f)) { EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Accept") }
                                 ScreenOutlinedButton(onClick = { controller.respond(game, false) }, enabled = game.id in state.connectedGames && game.id !in state.pendingGames,
                                     modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {

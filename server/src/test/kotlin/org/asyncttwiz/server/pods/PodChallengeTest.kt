@@ -10,7 +10,6 @@ import org.asyncttwiz.server.cubes.CubeService
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.OwnedPostgres
 import org.asyncttwiz.server.decks.DeckService
-import org.asyncttwiz.server.game.GameProtocolFailure
 import org.asyncttwiz.server.game.GameService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -340,11 +339,16 @@ class PodChallengeTest {
         val game = f.challenge(pod)
         assertTrue(game.invitationHeld)
         assertFalse(json.encodeToString(game.copy(invitationHeld = false)).contains("invitationHeld")) // Older clients never see it.
-        // The recipient cannot see, open, accept or be notified about the held challenge.
-        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.isEmpty())
+        // The recipient sees the held challenge among their invitations at once but cannot accept it yet,
+        // and is notified only when their deck releases it.
+        val incoming = json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single()
+        assertEquals(game.id, incoming.id); assertTrue(incoming.invitationHeld)
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.isEmpty())
         assertEquals(404, f.lobby.head(f.b, game.id).status)
-        assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { f.stream(f.b, game) }.code)
+        val early = f.stream(f.b, game)
+        assertTrue(f.games.head(f.b, game.id).summary.invitationHeld)
+        assertNull(f.games.head(f.b, game.id).preparation)
+        assertEquals("inapplicable", early.execute(GameAction.AcceptInvitation).reason)
         assertTrue(invitations(f.b).isEmpty())
         // The challenger sees it, prepares and gets ready meanwhile.
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.single().invitationHeld)
@@ -371,6 +375,36 @@ class PodChallengeTest {
         val started = f.games.head(f.a, game.id)
         assertEquals(GameLifecycle.ACTIVE, started.summary.lifecycle)
         assertEquals(80, started.play!!.board.cards.size) // Each main lost one card to the side.
+    }
+
+    @Test fun `a held challenge can be declined and reinvited before submitting and notifies only on release`() = fixture { f ->
+        val pod = f.pod()
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        fun invitations(who: AccountService.Principal) = activity.page(who, "0").entries.filter { it.kind == ActivityKind.INVITATION }
+        f.submit(f.a, pod)
+        val game = f.challenge(pod)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
+        assertEquals(InvitationState.DECLINED, f.games.head(f.a, game.id).summary.invitationState)
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.isEmpty())
+        // Reinviting while still held stays silent until the deck is in.
+        assertEquals("accepted", f.stream(f.a, game).execute(GameAction.Reinvite).outcome)
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single().invitationHeld)
+        assertTrue(invitations(f.b).isEmpty())
+        f.submit(f.b, pod)
+        assertFalse(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single().invitationHeld)
+        assertEquals(game.id, invitations(f.b).single().gameId)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.AcceptInvitation).outcome)
+    }
+
+    @Test fun `a challenge declined while held is released silently`() = fixture { f ->
+        val pod = f.pod()
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        f.submit(f.a, pod)
+        val game = f.challenge(pod)
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
+        f.submit(f.b, pod)
+        assertFalse(f.games.head(f.a, game.id).summary.invitationHeld)
+        assertTrue(activity.page(f.b, "0").entries.none { it.kind == ActivityKind.INVITATION })
     }
 
     @Test fun `held challenges are withdrawn when either player leaves and released per recipient`() = fixture { f ->

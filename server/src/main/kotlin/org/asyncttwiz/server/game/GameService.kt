@@ -44,9 +44,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     }.getOrThrow()
     private fun authorize(game: GameRecord?, actor: UUID, recovery: Boolean = false): GameRecord {
         if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||
-            (!recovery && game.lifecycle !in listOf("LOBBY", "ACTIVE")) ||
-            // A held pod challenge does not exist for its recipient until they submit their deck.
-            (game.podInvitationHeld == true && actor == game.recipientId))
+            (!recovery && game.lifecycle !in listOf("LOBBY", "ACTIVE")))
             throw GameProtocolFailure("accessDenied")
         return game
     }
@@ -474,7 +472,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val invitation = sql.selectFrom(INVITATION).where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
         when (command.action) {
             GameAction.AcceptInvitation, GameAction.DeclineInvitation -> {
-                if (account != game.recipientId || game.podInvitationHeld == true) return "accessDenied"
+                if (account != game.recipientId) return "accessDenied"
+                // A held pod challenge is visible and declinable, but accepting waits for the recipient's deck.
+                if (command.action == GameAction.AcceptInvitation && game.podInvitationHeld == true) return "inapplicable"
                 if (invitation.state != "PENDING") return "inapplicable"
                 if (command.action == GameAction.AcceptInvitation)
                     PodService(runtime).acceptChallenge(sql, lobby.summary(sql, game.id!!), command.requestId)
@@ -488,7 +488,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 val next = UUID.randomUUID()
                 sql.insertInto(INVITATION).set(INVITATION.ID, next).set(INVITATION.GAME_ID, game.id).execute()
                 sql.update(GAME).set(GAME.CURRENT_INVITATION, next).where(GAME.ID.eq(game.id)).execute()
-                org.asyncttwiz.server.activity.ActivityService.record(sql, game.recipientId!!,
+                // A still-held challenge notifies when the recipient's deck releases it.
+                if (game.podInvitationHeld != true) org.asyncttwiz.server.activity.ActivityService.record(sql, game.recipientId!!,
                     ActivityKind.INVITATION, game.id!!, next, account)
             }
             else -> error("Preparation uses the shared preparation processor")

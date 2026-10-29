@@ -1,0 +1,1 @@
+fix: In the side menu, a game invitation now shows its full name instead of being squeezed to one letter.

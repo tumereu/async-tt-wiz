@@ -29,7 +29,12 @@ class HandReorderTest {
             assertEquals(change, GameplayHistory.replay(state, change.mutation))
             assertEquals(state.board, GameplayHistory.reverse(change.state, change.mutation))
             assertEquals("noOp", gameplayChange(change.state, action, 110).outcome)
-            assertEquals("inapplicable", gameplayChange(state, action, 111, actor = 8).reason)
+            // Rules v30: the other player may reorder this Hand too, blind; older rules refused it.
+            val other = gameplayChange(state, action, 111, actor = 8)
+            assertEquals(change.state.board.containers, other.state!!.board.containers)
+            assertTrue(other.mutation!!.transition.disclosures.isEmpty())
+            assertEquals("inapplicable", GameplayRules.move(state, gameplayId(8), command.copy(requestId = gameplayId(112)), action,
+                rulesVersion = AnyPlayer.RULES_VERSION - 1).reason)
         }
     }
 

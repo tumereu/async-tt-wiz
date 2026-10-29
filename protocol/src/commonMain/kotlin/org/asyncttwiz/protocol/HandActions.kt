@@ -35,7 +35,8 @@ internal object HandRules {
         }
         val hand = board.containers.singleOrNull { it.id == handId && it.zone == PlayZone.HAND }
             ?: return GameplayChange(reason = "missingReference")
-        if (hand.accountId != actor) return GameplayChange(reason = "accessDenied")
+        // Rules v30: either player may reveal from, or pick at random from, either Hand.
+        if (hand.accountId != actor && rulesVersion < AnyPlayer.RULES_VERSION) return GameplayChange(reason = "accessDenied")
         if (action is PlayAction.RandomHand) {
             if (action.selectedIds.any { it !in hand.cards } || hand.cards.isEmpty())
                 return GameplayChange(reason = "movementConflict")

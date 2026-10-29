@@ -54,10 +54,11 @@ class HiddenValuesAndTempPileTest {
             for (kind in listOf(ManualValueKind.CORNER, ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.NOTE))
                 assertNull(scope.value(play, ManualValue(kind), "a"), "$id $kind")
             assertNull(scope.value(play, ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), "a"))
-            assertTrue(scope.actions(play, ManualValue(ManualValueKind.CORNER), "9/9", "a").isEmpty())
+            // Hidden values are edited blind: the editor starts empty and never shows the stored value.
+            assertEquals(listOf<PlayAction>(PlayAction.SetNote(id, "x")), scope.actions(play, ManualValue(ManualValueKind.NOTE), "x", "a"))
             val actions = ManualActions().apply { cards(play, id, listOf(id)) }
             actions.edit(ManualValue(ManualValueKind.CORNER), play, "a")
-            assertNull(actions.editor, id)
+            assertEquals("", assertNotNull(actions.editor, id).text)
         }
         val faceDown = ManualScope(play.gameId, play.id, "b/BATTLEFIELD/3", listOf("b/BATTLEFIELD/3"))
         assertEquals("2/2", faceDown.value(play, ManualValue(ManualValueKind.CORNER), "a"))
@@ -77,7 +78,7 @@ class HiddenValuesAndTempPileTest {
         assertTrue(opponentHand.counters.isEmpty())
     }
 
-    @Test fun faceDownStackCardMenuOffersNoValueEdits() {
+    @Test fun faceDownStackCardMenuEditsValuesBlind() {
         val initial = play()
         val stack = initial.board.containers.single { it.zone == PlayZone.STACK }
         val id = "00000000-0000-4000-8000-000000000555"
@@ -95,9 +96,13 @@ class HiddenValuesAndTempPileTest {
         } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Inspect").assertIsEnabled()
-        compose.onNodeWithContentDescription("Set damage").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Increase damage").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Edit card note").assertIsNotEnabled()
+        // Every action stays available (rules v30 policy); the values themselves stay hidden.
+        compose.onNodeWithContentDescription("Set damage").assertIsEnabled()
+        compose.onNodeWithContentDescription("Increase damage").assertIsEnabled()
+        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
+        // The note editor starts empty: a blind edit never shows the stored note.
+        toolkit.manual.edit(ManualValue(ManualValueKind.NOTE), play, "a")
+        assertEquals("", assertNotNull(toolkit.manual.editor).text)
     }
 
     private fun withTemp(play: PlayState, ids: List<String>): PlayState {

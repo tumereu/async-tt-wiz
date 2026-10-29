@@ -32,9 +32,7 @@ class ManualActions {
     fun edit(field: ManualValue, state: PlayState, viewer: String) {
         val bound = scope ?: return
         if (!bound.usable(state)) return
-        // A hidden card's stored values (often printed defaults) are neither shown nor editable.
-        if (!bound.player && !(field.kind == ManualValueKind.NOTE && bound.noteViewId != null) &&
-            state.board.cards.singleOrNull { it.id == bound.contextId }?.let { cardValuesHidden(state.board, it, viewer) } != false) return
+        // A hidden card's stored values (often printed defaults) are never shown: its editor starts empty (blind edit).
         editor = ValueDraft(bound, field, bound.value(state, field, viewer).orEmpty())
         keywords = null
     }
@@ -130,7 +128,7 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
                 else PlayAction.SetCounter(CounterTarget.PLAYER, id, field.color!!, text)
             } else {
                 val card = state.board.cards.singleOrNull { it.id == id }
-                if (card == null || cardValuesHidden(state.board, card, viewer)) null else when (field.kind) {
+                if (card == null) null else when (field.kind) {
                     ManualValueKind.DAMAGE -> PlayAction.SetDamage(id, text)
                     ManualValueKind.EOT_CORNER -> PlayAction.SetEotCorner(id, text)
                     ManualValueKind.EOT_NOTE -> PlayAction.SetEotNote(id, text)

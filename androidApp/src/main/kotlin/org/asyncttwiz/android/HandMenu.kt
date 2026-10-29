@@ -4,7 +4,8 @@ import org.asyncttwiz.protocol.*
 
 internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     selection: TableSelection, names: Map<String, String>, enabled: Boolean): List<MenuControl> {
-    val hand = play.board.containers.singleOrNull { it.zone == PlayZone.HAND && it.accountId == toolkit.viewer &&
+    // Either player's Hand (rules v30): the other player acts on its cards blind, face down.
+    val hand = play.board.containers.singleOrNull { it.zone == PlayZone.HAND &&
         play.board.cards.any { card -> card.id == bound.contextViewId && card.containerId == it.id } } ?: return emptyList()
     val ids = bound.sourceIds.filter { it in hand.cards }
     val scope = TableScope(bound.contextViewId, ids)

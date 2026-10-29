@@ -189,7 +189,8 @@ class CardPanelUiTest {
         assertTrue(before.cardPanels.single().rows.all { !it.entry.faceVisible && it.entry.name == "Card back" })
         assertTrue(before.items.filter { it.viewport.startsWith("cardPanel/") }.all { it.covered && it.value.isEmpty() })
         compose.onNodeWithText("Card back").assertDoesNotExist()
-        assertTrue(before.items.filter { it.viewport.startsWith("cardPanel/") }.all { !before.canDrag(it) })
+        // Rules v30: the non-author may drag (move, reorder) these face-down cards too.
+        assertTrue(before.items.filter { it.viewport.startsWith("cardPanel/") }.all { before.canDrag(it) })
         val id = panel().cardIds.first()
         compose.runOnIdle { assertTrue(f.lobby.gameplay(PlayAction.RevealContentsCard(panel().id, id))) }
         compose.waitForIdle()
@@ -243,8 +244,8 @@ class CardPanelUiTest {
 
     @Test fun eitherPlayerClosesAForgottenLookPanelWithTheAuthorsChoices() {
         val display = opponentPanel(ContentsSelection.TOP)
-        // Select all and card actions stay the author's; closing is anyone's.
-        compose.onNodeWithContentDescription("Select all in Look panel").assertDoesNotExist()
+        // Select all, card actions and closing are anyone's (rules v30).
+        compose.onNodeWithContentDescription("Select all in Look panel").assertIsDisplayed()
         click("Close opponent's Look panel")
         for (label in listOf("Top", "Bottom", "Shuffle", "Graveyard", "Exile")) compose.onNodeWithContentDescription(label).assertIsEnabled()
         click("Top")
@@ -254,6 +255,33 @@ class CardPanelUiTest {
         assertEquals(ContentsRest.TOP, close.rest)
         assertEquals(display.cardIds, f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards.take(2))
         assertTrue(f.play.board.cards.none { CardVisibility.isVisibleFaceUp(f.play.board, it, f.actor) })
+    }
+
+    @Test fun theOtherPlayerMovesALookCardIntoItsOwnersHandBlind() {
+        // The opponent looks at their own Library top 2; this player moves one into the opponent's Hand without seeing it.
+        val ids = listOf(f.id(40), f.id(41))
+        val library = f.container(PlayZone.LIBRARY, f.other)
+        val root = f.root.copy(board = f.root.board.copy(
+            cards = f.root.board.cards.map { it.copy(owner = f.other, containerId = library) },
+            containers = f.root.board.containers.map { when (it.id) {
+                library -> f.root.board.containers.single { c -> c.id == f.container(PlayZone.LIBRARY) }.let { mine ->
+                    it.copy(cards = mine.cards, layers = mine.layers) }
+                f.container(PlayZone.LIBRARY) -> it.copy(cards = emptyList(), layers = emptyList())
+                else -> it
+            } },
+            contentsDisplays = listOf(ContentsDisplay(f.id(500), f.other, library, ContentsSelection.TOP, 2, false, ids, panelVersion = 3))))
+        f.connect(root)
+        ui = TableToolkitController(f.actor, { f.lobby.state.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
+        mount()
+        val item = scene().items.first { it.viewport.startsWith("cardPanel/") && it.cardId == ids[0] }
+        assertTrue(item.covered)
+        compose.onAllNodesWithContentDescription(item.label)[0].performClick()
+        click("Hand")
+        assertEquals(f.container(PlayZone.HAND, f.other), f.card(40).containerId)
+        assertEquals(listOf(ids[1]), f.play.board.contentsDisplays.single().cardIds)
+        assertTrue(f.play.board.cards.none { CardVisibility.isVisibleFaceUp(f.play.board, it, f.actor) })
+        val moved = f.lobby.displayTree()!!.nodes.values.last { it.action is PlayAction.MoveCard }
+        assertFalse(historyText(moved, root, f.actor).description.contains(f.definition.faces.single().name))
     }
 
     @Test fun eitherPlayerClosesAForgottenRevealWithTheFullRestChoice() {

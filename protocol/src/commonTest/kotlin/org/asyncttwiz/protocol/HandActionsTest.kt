@@ -71,10 +71,12 @@ class HandActionsTest {
             RandomV1.encodeSeed(ByteArray(32) { byte.toByte() }), HandRandomResult.DISCARD).cardId }.toSet()
         assertEquals(subset.toSet(), picked)
     }
-    @Test fun randomRejectsForeignHandsStaleSelectionForgedPicksAndEmptyHand() {
+    @Test fun randomRejectsStaleSelectionForgedPicksAndEmptyHand() {
         val state = root()
         val action = HandActions.random(state.board, id(11), listOf(id(20)), seed, HandRandomResult.DISCARD)
-        assertEquals("accessDenied", GameplayRules.change(state, b, command(state, action)).reason)
+        // Rules v30: the other player may pick at random from this Hand; older rules refused it.
+        assertEquals("accepted", GameplayRules.change(state, b, command(state, action)).outcome)
+        assertEquals("accessDenied", HandRules.change(state, b, command(state, action), action, rulesVersion = AnyPlayer.RULES_VERSION - 1).reason)
         assertEquals("invalidInput", GameplayRules.change(state, a, command(state, action.copy(cardId = id(21)))).reason)
         assertEquals("movementConflict", GameplayRules.change(state, a, command(state, action.copy(selectedIds = listOf(id(99))))).reason)
         val empty = state.copy(board = state.board.copy(cards = emptyList(), containers = state.board.containers.map { it.copy(cards = emptyList()) }))

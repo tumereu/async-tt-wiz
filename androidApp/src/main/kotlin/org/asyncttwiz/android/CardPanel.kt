@@ -115,7 +115,7 @@ internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, pane
             "${panel.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}", if (row.entry.faceVisible) row.entry.name else "",
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,
             viewport = panel.viewport.id, cardId = card.id, covered = !row.entry.faceVisible,
-            frozen = panel.localZone == null && panel.display.author != viewer, artwork = art,
+            artwork = art,
             panelRevealed = panel.localZone == null && panel.display.author == viewer && !panel.display.reveal &&
                 card.id in panel.display.revealedIds,
             corner = if (row.entry.faceVisible) effectiveCorner(card) else "", note = if (row.entry.faceVisible) card.note else "",
@@ -155,7 +155,7 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
                 Icon(if (display.search && panel.localZone == null && !display.reveal) Icons.Outlined.Search else menuIcon(panel.title),
                     null, Modifier.size(14.dp))
                 Text(display.cardIds.size.toString(), Modifier.weight(1f), fontSize = 10.sp, maxLines = 1)
-                if (display.author == viewer && toolkit != null && display.cardIds.size > 1) {
+                if (toolkit != null && display.cardIds.size > 1) {
                     val all = toolkit.selectionState.value.ids.containsAll(display.cardIds)
                     IconButton({ toolkit.selectAll(display.cardIds, !all) }, modifier = Modifier.width(20.dp).height(24.dp)) {
                         Icon(menuIcon("Select all"), "${if (all) "Deselect" else "Select"} all in ${panel.title} panel", Modifier.size(14.dp),
@@ -219,9 +219,8 @@ internal fun panelCardActionLabel(action: PanelCardAction) = action.label
 internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, scene: TableScene) {
     val route = toolkit.panel?.split('/') ?: return
     val rest = route.first() == "panelRest"
-    // Card actions stay author-only; the rest chooser also serves the opponent closing a forgotten panel.
-    val panel = scene.cardPanels.singleOrNull { it.display.id == route.getOrNull(1) &&
-        (rest || it.display.author == toolkit.viewer) } ?: return
+    // Either player uses any panel's card actions and rest chooser (rules v30).
+    val panel = scene.cardPanels.singleOrNull { it.display.id == route.getOrNull(1) } ?: return
     val display = panel.display
     val id = if (rest) null else route.getOrNull(2)?.takeIf { it in display.cardIds } ?: return
     val cell = CardRingGeometry.cell.toFloat()

@@ -274,8 +274,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
-        val real = play.board.cards.singleOrNull { it.id == scope.contextId }
-        if (real != null && play.board.containers.any { it.id == real.containerId && it.zone == PlayZone.HAND && it.accountId != viewer }) return
         val bound = bind(scope, sources) ?: return
         val previous = panel?.takeIf { it.startsWith("contents/") }
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
@@ -305,7 +303,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (item.viewport.startsWith("cardPanel/")) {
             val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))
                 .singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
-            if (display.author != viewer || !enabled()) return
+            // Either player acts on any panel's cards (rules v30), blind on faces hidden from them.
+            if (!enabled()) return
             dismiss(); popupItem = item; panel = "panelCard/${display.id}/${item.cardId}"
             return
         }
@@ -406,20 +405,20 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         ids.isNotEmpty() && ids.distinct().all { id ->
             val play = current() ?: return@all false
             val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
-            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }) return@all false
+            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return@all false
             val destination = handPlayDestination(play, card) ?: return@all false
             basic.handle(TableIntent.Move(TableScope(id, listOf(id)), destination,
                 BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
         }
     }
-    /** Morph/disguise: every selected own hand card enters the Stack face down and, being always a 2/2
+    /** Morph/disguise: every selected hand card enters the Stack face down and, being always a 2/2
      * permanent, auto-resolves onto the Battlefield like a hand double-tap: separate history group, same
      * invocation (one-step Undo), all in one batch. */
     fun castFaceDown(ids: List<String>): Boolean = batchResult {
         ids.isNotEmpty() && ids.distinct().all { id ->
             val play = current() ?: return@all false
             val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
-            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }) return@all false
+            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return@all false
             if (!submit(HandActions.castFaceDown(play, id))) return@all false
             val next = current()?.takeIf { enabled() && id in CombatStackRules.stack(it.board).cards } ?: return@all true
             // Exactly the manual resolver, as the double-tap uses: rules v24 keep it face down as a 2/2.
@@ -440,7 +439,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * Disclosure and onward movement keep distinct history groups inside it. */
     fun cardPanelAction(display: ContentsDisplay, ids: List<String>, zone: PlayZone, reveal: Boolean = false,
         bottom: Boolean = false, tapped: Boolean = false, shuffle: Boolean = false): Boolean {
-        if (display.author != viewer || ids.isEmpty() || ids.any { it !in display.cardIds } || !enabled()) return false
+        if (ids.isEmpty() || ids.any { it !in display.cardIds } || !enabled()) return false
         return moveToOwnerZones(ids, zone, bottom, tapped, shuffle, reveal = display.takeIf { reveal }).also { if (it) dismiss() }
     }
     fun localPanelAction(id: String, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false) =

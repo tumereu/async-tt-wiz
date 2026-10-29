@@ -33,7 +33,7 @@ class HandMenuTest {
         assertTrue(actions.filterIsInstance<PlayAction.MoveCard>().any { it.cardId == ids[1] })
         assertTrue(actions.filterIsInstance<PlayAction.MoveCard>().none { it.cardId == ids[2] })
     }
-    @Test fun handMenusAreOwnerOnlyAndRevealCapturesWholeSelectionWhileRandomUsesActualSelection() {
+    @Test fun handMenusServeBothPlayersAndRevealCapturesWholeSelectionWhileRandomUsesActualSelection() {
         val (play, ids) = handPlay("Instant", "Instant", "Instant")
         val sent = mutableListOf<PlayAction>()
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
@@ -48,10 +48,25 @@ class HandMenuTest {
         assertEquals(ids[1], random.cardId)
         controls.single { it.name == "Exile random" }.click()
         assertNotEquals(random.seed, assertIs<PlayAction.RandomHand>(sent.last()).seed)
-        val opponent = TableToolkitController(f.b, { play }, { true }, { _, _ -> error("Not allowed") })
+        // Rules v30: the other player gets the very same Hand menu and acts blind, face down.
+        val other = mutableListOf<PlayAction>()
+        val opponent = TableToolkitController(f.b, { play }, { true }, { action, _ -> other += action; true })
         opponent.openCard(TableScope(ids[0], listOf(ids[0])))
-        assertNull(opponent.capture)
-        assertTrue(handMenuTools(opponent, play, bound, TableSelection(), emptyMap(), true).isEmpty())
+        val theirs = assertNotNull(opponent.capture)
+        val menu = handMenuTools(opponent, play, theirs, TableSelection(), emptyMap(), true)
+        assertEquals(controls.map { it.name }, menu.map { it.name })
+        for (name in listOf("Play", "Face down", "Reveal", "Discard", "Exile", "Discard random", "Reveal random"))
+            assertTrue(menu.single { it.name == name }.enabled, name)
+        menu.single { it.name == "Discard random" }.click()
+        val discard = assertIs<PlayAction.RandomHand>(other.single())
+        assertEquals(HandRandomResult.DISCARD, discard.result)
+        val hand = play.board.cards.single { it.id == ids[0] }.containerId
+        val changed = GameplayRules.change(play, f.b, GameCommand(f.id("opponent-random"), GameScope(play.gameId, playId = play.id),
+            GameAction.Play(discard), f.id("opponent-invocation"), "1"))
+        assertEquals("accepted", changed.outcome, changed.reason)
+        assertEquals(play.board.zoneContainer(f.a, PlayZone.GRAVEYARD)!!.id,
+            changed.state!!.board.cards.single { it.id == discard.cardId }.containerId)
+        assertTrue(play.board.cards.filter { it.containerId == hand }.none { CardVisibility.isVisibleFaceUp(play.board, it, f.b) })
     }
     @Test fun faceDownCastsAndAutoResolvesTheWholeSelectionInOneBatchWithoutProjections() {
         val (play, ids) = handPlay("Creature", "Instant")

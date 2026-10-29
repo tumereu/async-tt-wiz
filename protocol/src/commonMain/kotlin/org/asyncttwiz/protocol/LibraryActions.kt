@@ -172,9 +172,11 @@ object LibraryRules {
             }
             is PlayAction.RevealContentsCard -> {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(reason = "missingReference")
-                if (display.author != actor) return GameplayChange(reason = "accessDenied")
+                if (display.author != actor && rulesVersion < AnyPlayer.RULES_VERSION) return GameplayChange(reason = "accessDenied")
                 if (action.cardId !in display.cardIds) return GameplayChange(reason = "missingReference")
-                if (display.faceVisibleTo(action.cardId, board.players.first { it.accountId != actor }.accountId)) return GameplayChange(state)
+                // Already shown to everyone: nothing to reveal. (The author always sees it, so for the author this is
+                // "the other player sees it"; a non-author may reveal a card blindly, to both players at once.)
+                if (board.players.all { display.faceVisibleTo(action.cardId, it.accountId) }) return GameplayChange(state)
                 val card = board.cards.single { it.id == action.cardId }
                 val updated = display.copy(revealedIds = display.revealedIds + card.id,
                     panelVersion = if (contentsRulesVersion >= 2) 3 else display.panelVersion)
@@ -186,7 +188,7 @@ object LibraryRules {
             }
             is PlayAction.ReorderContents -> {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(reason = "missingReference")
-                if (display.author != actor) return GameplayChange(reason = "accessDenied")
+                if (display.author != actor && rulesVersion < AnyPlayer.RULES_VERSION) return GameplayChange(reason = "accessDenied")
                 if (display.search || action.cardId !in display.cardIds || action.beforeId == action.cardId ||
                     action.beforeId != null && action.beforeId !in display.cardIds) return GameplayChange(reason = "inapplicable")
                 val remaining = display.cardIds - action.cardId

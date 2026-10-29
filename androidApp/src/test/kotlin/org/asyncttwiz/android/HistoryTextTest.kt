@@ -22,8 +22,8 @@ class HistoryTextTest {
     private fun event(action: PlayAction, transition: GameplayTransition = GameplayTransition(), author: String = f.a) =
         GameplayMutation(id(100), id(5), id(6), id(101), author, null, action, transition)
     private fun format(action: PlayAction, transition: GameplayTransition = GameplayTransition(),
-        before: PlayState = state, author: String = f.a, count: Int = 1, viewer: String = f.a) =
-        historyText(event(action, transition, author), before, viewer, names, count)
+        before: PlayState = state, author: String = f.a, viewer: String = f.a) =
+        historyText(event(action, transition, author), before, viewer, names)
 
     private fun placed(holder: String, zone: PlayZone, faceDown: Boolean = false): PlayState {
         val base = state
@@ -31,7 +31,7 @@ class HistoryTextTest {
             PlayContainer(id(26), PlayZone.GRAVEYARD, f.b))
         val target = containers.single { it.accountId == holder && it.zone == zone }
         return base.copy(board = base.board.copy(cards = base.board.cards.map {
-            if (it.id != id(9)) it else it.copy(containerId = target.id,
+            if (it.id != id(9)) it else it.copy(containerId = target.id, owner = holder,
                 covered = faceDown || zone in listOf(PlayZone.LIBRARY, PlayZone.HAND), explicitlyCovered = faceDown)
         }, containers = containers.map { it.copy(cards = (if (it.id == target.id) listOf(id(9)) else emptyList()) + (it.cards - id(9))) }))
     }
@@ -124,7 +124,8 @@ class HistoryTextTest {
                 MoveDestination(hand, MoveInsertion.UNORDERED)))
             val drawn = assertNotNull(draw.state)
             for (viewer in listOf(f.a, f.b)) {
-                assertEquals("Drew 1", historyText(draw.mutation, before, viewer, names).description)
+                assertEquals("${if (viewer == holder) "Velvet Prism Engine" else "A card"}: Library → Hand",
+                    historyText(draw.mutation, before, viewer, names).description)
                 assertEquals("${if (viewer == holder) "Velvet Prism Engine" else "A card"} tapped",
                     format(PlayAction.SetTapped(id(9), true), before = drawn, author = holder, viewer = viewer).description)
             }
@@ -132,7 +133,7 @@ class HistoryTextTest {
                 val returned = apply(drawn, holder, PlayAction.MoveCard(id(9), MoveSource(hand), MoveDestination(library, insertion)), 301)
                 for (viewer in listOf(f.a, f.b)) {
                     val subject = if (viewer == holder) "Velvet Prism Engine" else "A card"
-                    assertEquals("$subject → Library ${insertion.name.lowercase()}", historyText(returned.mutation, drawn, viewer, names).description)
+                    assertEquals("$subject: Hand → Library ${insertion.name.lowercase()}", historyText(returned.mutation, drawn, viewer, names).description)
                     assertEquals("A card tapped", format(PlayAction.SetTapped(id(9), true), before = returned.state!!, viewer = viewer).description)
                 }
             }
@@ -149,7 +150,7 @@ class HistoryTextTest {
                 MoveDestination(graveyard, MoveInsertion.UNORDERED), faceDown = faceDown))
             for (viewer in listOf(f.a, f.b)) {
                 val subject = if (!faceDown || zone == PlayZone.HAND && viewer == holder) "Velvet Prism Engine" else "A card"
-                assertEquals("$subject → Graveyard", historyText(moved.mutation, before, viewer, names).description,
+                assertEquals("$subject: ${zone.name.lowercase().replaceFirstChar { it.uppercase() }} → Graveyard", historyText(moved.mutation, before, viewer, names).description,
                     "$zone / faceDown=$faceDown / holder=$holder / viewer=$viewer")
             }
         }
@@ -249,12 +250,21 @@ class HistoryTextTest {
     @Test fun drawNeverNamesAnOpponentsCardAndGroupsHaveCompactCounts() {
         val action = PlayAction.MoveCard(id(12), MoveSource(id(13), edge = MoveSourceEdge.TOP),
             MoveDestination(id(21), MoveInsertion.UNORDERED))
-        assertEquals(HistoryText("Drew 1", "Draw"), format(action, author = f.b))
-        assertEquals(HistoryText("Drew 7", "Draw ×7"), format(action, author = f.b, count = 7))
+        val single = format(action, author = f.b)
+        assertEquals("A card: Library → Hand", single.description)
+        assertEquals("Draw", single.label)
         val texts = (1..7).associate { id(100 + it) to format(action, author = f.b) }
         val range = HistoryRange(id(100), id(100), texts.keys.toList(), texts.keys.first(), HistoryGlyph.DRAW,
             f.b, null, HistoryPoint(0f, 0f))
-        assertEquals(HistoryText("Drew 7", "Draw ×7"), historyRangeText(range, texts))
+        assertEquals(HistoryText("7 cards: Library → Hand", "Draw ×7"), historyRangeText(range, texts))
+        // Your own draws list every name; unseen cards collapse into a count after them.
+        val seen = HistoryMove("Shock", "Library → Hand")
+        val mixed = mapOf(id(201) to HistoryText("", "Draw", seen), id(202) to HistoryText("", "Draw", seen.copy(subject = "Opt")),
+            id(203) to single, id(204) to single)
+        val mixedRange = range.copy(nodeIds = mixed.keys.toList(), representativeId = id(201))
+        assertEquals(HistoryText("Shock, Opt, 2 cards: Library → Hand", "Draw ×4"), historyRangeText(mixedRange, mixed))
+        assertEquals("A card", historyMoveSubjects(listOf(null)))
+        assertEquals("Shock, 1 card", historyMoveSubjects(listOf("Shock", null)))
     }
 
     @Test fun visibleCardsAreNamedButCoveredCardsAndOpponentsHandsAreNot() {
@@ -262,7 +272,7 @@ class HistoryTextTest {
             if (it.id == id(9)) it.copy(containerId = id(20), covered = false) else it
         }))
         val move = PlayAction.MoveCard(id(9), MoveSource(id(20)), MoveDestination(id(22), MoveInsertion.EMPTY))
-        assertEquals("Velvet Prism Engine → Battlefield", format(move, before = before).description)
+        assertEquals("Velvet Prism Engine: Hand → Battlefield", format(move, before = before).description)
         assertEquals(HistoryText("Velvet Prism Engine tapped", "Tap"), format(PlayAction.SetTapped(id(9), true), before = before))
         val covered = before.copy(board = before.board.copy(cards = before.board.cards.map {
             it.copy(containerId = id(22), covered = true, explicitlyCovered = true)
@@ -302,9 +312,10 @@ class HistoryTextTest {
         val hidden = state.copy(board = state.board.copy(cards = state.board.cards.map { it.copy(containerId = id(21)) }))
         val move = PlayAction.MoveCard(id(9), MoveSource(id(21)), MoveDestination(id(23), MoveInsertion.EMPTY))
         val movement = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(21)), CardLocation(id(23))))
-        assertEquals("Velvet Prism Engine → Battlefield", format(move, movement, hidden, f.b).description)
+        // The fixture's alice-owned card sits in bob's zones, so both are named as bob's.
+        assertEquals("Velvet Prism Engine: bob's Hand → bob's Battlefield", format(move, movement, hidden, f.b).description)
         val faceDown = movement.copy(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
-        assertEquals("A card → Battlefield", format(move, faceDown, hidden, f.b).description)
+        assertEquals("A card: bob's Hand → bob's Battlefield", format(move, faceDown, hidden, f.b).description)
 
         val public = hidden.copy(board = hidden.board.copy(cards = hidden.board.cards.map { it.copy(containerId = id(23)) }))
         val cover = GameplayTransition(fields = listOf(GameplayFieldChange(id(9), GameplayField.EXPLICITLY_COVERED, "false", "true")))
@@ -314,8 +325,8 @@ class HistoryTextTest {
         assertEquals("Velvet Prism Engine face up", format(PlayAction.SetCovered(id(9), false), uncover, covered, f.b).description)
         val toHand = PlayAction.MoveCard(id(9), MoveSource(id(23)), MoveDestination(id(21), MoveInsertion.UNORDERED))
         val returning = GameplayTransition(movement = GameplayMoveChange(id(9), CardLocation(id(23)), CardLocation(id(21))))
-        assertEquals("Velvet Prism Engine → Hand", format(toHand, returning, public, f.b).description)
-        assertEquals("A card → Hand", format(toHand, returning, covered, f.b).description)
+        assertEquals("Velvet Prism Engine: bob's Battlefield → bob's Hand", format(toHand, returning, public, f.b).description)
+        assertEquals("A card: bob's Battlefield → bob's Hand", format(toHand, returning, covered, f.b).description)
     }
 
     @Test fun historicalTextUsesEventTimeBoardAndSurvivesLaterRevealsAndForks() {
@@ -342,7 +353,7 @@ class HistoryTextTest {
         val hiddenTap = tree.currentNodeId
         for (viewer in listOf(f.a, f.b)) {
             val texts = historyTexts(tree, viewer, names)
-            assertEquals("Drew 1", texts.getValue(draw).description)
+            assertEquals("${if (viewer == f.b) "Velvet Prism Engine" else "A card"}: Library → Hand", texts.getValue(draw).description)
             assertEquals("Velvet Prism Engine tapped", texts.getValue(tap).description)
             assertEquals("A card tapped", texts.getValue(hiddenTap).description)
             assertEquals("Comment: ready", texts.getValue(comment).description)

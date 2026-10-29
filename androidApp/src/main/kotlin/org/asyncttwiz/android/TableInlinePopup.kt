@@ -64,27 +64,38 @@ internal fun ringShortLabel(name: String): String = when (name) {
     "Declare without tapping" -> "Declare"
     "Ping / Unping" -> "Ping"
     "Add Stack effect" -> "Effect"
-    "Select / deselect" -> "Select"
     "Remove Stack effect" -> "Rm effect"
     "Remove from combat" -> "Rm combat"
-    "Source actions" -> "Source"
     else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
+}
+
+/** A layout cell nobody supplied stays visible and disabled; a layout never shows a hole. */
+internal fun ringPlaceholder(id: String): RingEntry {
+    val name = when (id) {
+        "inspect" -> "Inspect"
+        "note" -> "Edit card note"
+        "otherSide" -> "Inspect other side"
+        "owner" -> "Owner"
+        else -> id
+    }
+    return RingEntry(id, ringShortLabel(name), MenuControl(name, false) {})
 }
 
 @Composable
 internal fun CardActionRing(game: String, viewer: String, identity: String, viewId: String,
-    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit, token: Boolean = false, inHand: Boolean = false) {
+    entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit,
+    layout: CardMenuLayout, pages: List<CardRingPage> = CardRingPages.pages(layout)) {
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
-    var page by remember(viewer, game) { mutableIntStateOf(store.read()) }
-    val pages = CardRingPages.resolve(entries.map { it.id }, token = token, inHand = inHand)
+    var page by remember(viewer, game, layout) { mutableIntStateOf(store.read(layout)) }
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
     // Reserve the tallest page, including empty rows, so placement and the header never jump.
     val gridRows = pages.maxOf { inlinePopupGridRows(CardRingPages.layout(it.actions)) }
     val anchor = LocalCardRingAnchors.current[viewId]
-    val selectPage: (Int) -> Unit = { page = it; store.write(it) }
-    val switchPage: (Int) -> Unit = { delta -> selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
+    val paged = pages.size > 1
+    val selectPage: (Int) -> Unit = { page = it; store.write(it, layout) }
+    val switchPage: (Int) -> Unit = { delta -> if (paged) selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val gridWidth = CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap
     // A full-height header must not force the menu over its card on small screens.
@@ -97,9 +108,10 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
     TableInlinePopup(identity, viewId, anchor, own, ownerColor, dismiss,
         description = "Card action ring", title = "Card actions", switchPage = switchPage) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
+            // A single-page layout has no page header at all.
+            if (paged) InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
             key(identity, viewId, selectedPage) {
-                Column(Modifier.heightIn(max = (contentHeight - 52f).coerceAtLeast(48f).dp)
+                Column(Modifier.heightIn(max = (contentHeight - if (paged) 52f else 0f).coerceAtLeast(48f).dp)
                     .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                     repeat(gridRows) { row ->
@@ -107,7 +119,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                             var column = 0
                             while (column < CardRingPages.columns) {
                                 val slot = slots.firstOrNull { it.cell == row * CardRingPages.columns + column }
-                                val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } }
+                                val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } ?: ringPlaceholder(s.id) }
                                 if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
                                 else if (entry.compound != null) RingWidget(entry, ownerColor)
                                 else InlinePopupCell(entry.control, entry.label, ownerColor,

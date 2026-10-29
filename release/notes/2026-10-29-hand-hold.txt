@@ -1,0 +1,1 @@
+fix: Holding your finger on an empty part of your hand no longer shows the first card of your hand

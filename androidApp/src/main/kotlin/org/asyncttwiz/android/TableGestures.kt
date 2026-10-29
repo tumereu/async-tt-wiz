@@ -57,7 +57,8 @@ class TableGestureCoordinator(
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
     val busy get() = capture != null || pending != null || spring != null
-    private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered }
+    // The hand row background previews nothing; its cards have their own items.
+    private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
     val peeking get() = capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
         it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&

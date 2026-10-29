@@ -44,20 +44,19 @@ class CombatMenuInteractionTest {
         return toolkit
     }
 
-    @Test fun projectionUsesTheOrdinaryPagedGridAndRemovalUsesTheCapturedMultiselection() {
+    @Test fun projectionUsesTheCombatOnlyPageAndRemovalUsesTheCapturedMultiselection() {
         render(menu = true)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Set corner").assertExists()
+        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
         compose.onNodeWithContentDescription("Attack →").assertExists()
-        compose.onNodeWithContentDescription("Remove from combat").performClick()
+        compose.ringClick("Remove from combat")
         val actions = batches.single().map { assertIs<PlayAction.Combat>(it).action }
         assertEquals(setOf(f.id("attacker1"), f.id("attacker2")), actions.map { assertIs<CombatAction.Remove>(it).occurrenceId }.toSet())
     }
 
     @Test fun attackTargetPickerUsesOneBatchForAllSelectedAttackerPairs() {
         val toolkit = render(menu = true, targeted = true)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Attack →").performClick()
+        compose.ringClick("Attack →")
         compose.onNodeWithText("Bob").performClick()
         assertEquals(2, batches.single().size)
         val targets = batches.single().map { assertIs<CombatAction.SetAttackTarget>(assertIs<PlayAction.Combat>(it).action) }
@@ -78,8 +77,7 @@ class CombatMenuInteractionTest {
 
     @Test fun projectionNoteEditsEverySelectedOccurrenceInOneBatch() {
         render(menu = true)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Edit card note").performClick()
+        compose.ringClick("Edit card note")
         compose.onNode(hasSetTextAction()).performTextReplacement("combat note")
         compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
         val notes = batches.single().map { assertIs<PlayAction.SetProjectionNote>(it) }
@@ -87,14 +85,10 @@ class CombatMenuInteractionTest {
         assertTrue(notes.all { it.value == "combat note" })
     }
 
-    @Test fun projectionCornerEditsEverySelectedSourceInOneBatch() {
+    @Test fun projectionGraveyardMovesEverySelectedSourceInOneBatch() {
         render(menu = true)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Set corner").performClick()
-        compose.onNode(hasSetTextAction()).performTextReplacement("5")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        val corners = batches.single().map { assertIs<PlayAction.SetCorner>(it) }
-        assertEquals(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), corners.map { it.cardId }.toSet())
-        assertTrue(corners.all { it.value == "5" })
+        compose.ringClick("Graveyard")
+        val moves = batches.single().map { assertIs<PlayAction.MoveCard>(it) }
+        assertEquals(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), moves.map { it.cardId }.toSet())
     }
 }

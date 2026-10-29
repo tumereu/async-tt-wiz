@@ -78,7 +78,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         else actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer)
     })
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
-    if (card.token) add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", battlefield, color = ownerColor) {
+    add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", battlefield && card.token, color = ownerColor) {
         val next = state.board.players.firstOrNull { it.accountId != card.owner }
         if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
     })
@@ -155,19 +155,19 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
             }, dragValue = card.counters[color]?.takeIf { it.isNotEmpty() } ?: "0"), counterColor(color))
     }
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
-    val inHand = zone == PlayZone.HAND && !projection
-    val shownEntries = if (inHand) entries.filter { it.id in CardRingPages.hand.flatMap { page -> page.actions } } else entries
+    val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
+    val pages = CardRingPages.pages(layout, token = card.token, attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id)))
     val view = previewViewId ?: card.id
     val anchors = LocalCardRingAnchors.current
     CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {
-    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, shownEntries, card.owner == viewer, ownerColor, actions::close, token = card.token, inHand = inHand)
+    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
         val size = rememberCardAppearance().size(CardArea.PANELS)
         val anchor = TableBounds(maxWidth.value / 2 - 24 * size, maxHeight.value / 2 - 50 * size, 48f * size, 100f * size)
         Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
-            CardActionRing(state.gameId, viewer, scope.contextId, view, shownEntries, card.owner == viewer, ownerColor, actions::close, token = card.token, inHand = inHand)
+            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages)
         }
     }
     }

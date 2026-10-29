@@ -628,7 +628,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
         sent
     }
-    fun openAttackTargets() { manual.close(); panel = "attackTarget" }
+    /** [viewIds] re-captures attacker copies when opened from the real card's menu. */
+    fun openAttackTargets(viewIds: List<String>? = null) {
+        if (viewIds != null) capture = capture?.copy(viewIds = viewIds)
+        manual.close(); panel = "attackTarget"
+    }
     fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean = batchResult {
         val board = current()?.board ?: return@batchResult false
         if (board.combat?.id != bound.areaId) return@batchResult false

@@ -13,8 +13,9 @@ internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bou
         MenuControl("Face down", enabled) { if (toolkit.castFaceDown(ids)) toolkit.dismiss() },
         MenuControl("Reveal", enabled && play.board.contentsDisplays.isEmpty()) {
             if (toolkit.submit(PlayAction.RevealHand(hand.id, ids))) toolkit.dismiss()
-        }) + moves.filter { it.name in listOf("Graveyard", "Exile", "Library top", "Library bottom", "Shuffle into library") }
+        }) + moves.filter { it.name in listOf("Battlefield", "Graveyard", "Exile", "Library top", "Library bottom", "Shuffle into library") }
         .map { if (it.name == "Graveyard") it.copy(name = "Discard") else it } +
+        tempPileTools(toolkit, play, ids, enabled) +
         HandRandomResult.entries.map { result ->
             val label = when (result) {
                 HandRandomResult.DISCARD -> "Discard random"

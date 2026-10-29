@@ -192,7 +192,7 @@ class MainActivity : ComponentActivity() {
                         Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.")
                     }
                 }
-                Surface(Modifier.fillMaxSize().then(if (BuildConfig.DEBUG) Modifier.drawWithContent {
+                Surface(Modifier.fillMaxSize().then(if (BuildConfig.DIAGNOSTICS) Modifier.drawWithContent {
                     drawContent()
                     // A completed content draw, not Choreographer's pre-draw frame timestamp.
                     DebugLatency.drawn()

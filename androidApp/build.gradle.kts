@@ -177,8 +177,12 @@ android {
         val contact = providers.gradleProperty("atwArtContact").orElse("").get()
         require(contact.length <= 200 && contact.all { it.code in 32..126 && it != '"' && it != '\\' })
         buildConfigField("String", "ART_CONTACT", "\"$contact\"")
+        // Crash, jank and latency uploads to the server's debug report store. Not tied to
+        // DEBUG: the non-debuggable personalTest identity keeps them, release never has them.
+        buildConfigField("boolean", "DIAGNOSTICS", "false")
     }
     buildTypes.getByName("debug") {
+        buildConfigField("boolean", "DIAGNOSTICS", "true")
         buildConfigField("boolean", "ACCOUNT_SWITCHER",
             providers.gradleProperty("atwAccountSwitcher").orElse("true").get().toBooleanStrict().toString())
         // Without an override, preserve AGP's existing persistent local debug signer.
@@ -209,10 +213,15 @@ android {
         // The release manifest also forbids cleartext, even if misconfigured.
         buildConfigField("String", "ACCOUNT_ORIGIN", "\"${origin.takeIf { it.startsWith("https://") }.orEmpty()}\"")
     }
-    // Separate install identity without renaming the existing debug/release tasks.
+    // Separate install identity without renaming the existing debug/release tasks. Not debuggable
+    // and R8-optimized like release (below), so it performs like the store build; BuildConfig.DEBUG
+    // is false, local-dev allowances stay off, and DIAGNOSTICS keeps the debug report uploads.
     buildTypes.create("personalTest") {
         initWith(buildTypes.getByName("debug"))
         matchingFallbacks += "debug"
+        isDebuggable = false
+        isJniDebuggable = false
+        buildConfigField("boolean", "DIAGNOSTICS", "true")
         applicationIdSuffix = ".test"
         versionNameSuffix = "-test"
         signingConfig = signingConfigs.getByName("debug")
@@ -226,10 +235,11 @@ android {
         buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
         manifestPlaceholders["resetHost"] = "desktop-b2kalvm.tail27cccc.ts.net"
     }
-    // Release shrinks and optimizes with R8 but keeps names, so problem-report stack traces stay
-    // readable. -PatwMinify=true applies the same setup to debug, for local device checks only.
+    // Release and personalTest shrink and optimize with R8 but keep names, so problem-report stack traces
+    // stay readable. -PatwMinify=true applies the same setup to debug, for local device checks only.
     val minifyDebug = providers.gradleProperty("atwMinify").orElse("false").get().toBooleanStrict()
-    listOfNotNull(buildTypes.getByName("release"), buildTypes.getByName("debug").takeIf { minifyDebug }).forEach {
+    listOfNotNull(buildTypes.getByName("release"), buildTypes.getByName("personalTest"),
+        buildTypes.getByName("debug").takeIf { minifyDebug }).forEach {
         it.isMinifyEnabled = true
         it.isShrinkResources = true
         it.proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

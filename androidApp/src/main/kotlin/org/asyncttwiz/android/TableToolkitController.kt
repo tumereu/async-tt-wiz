@@ -522,7 +522,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             if (!table.enabled(intent.scope)) return false
             return performCombatDamage(intent)
         }
-        // Deliberately NOT one batch: two separate history events and undo steps.
+        // Deliberately NOT one batch: two events; Declare blockers stays a timeline point (rules v29).
         if (intent is TableActionIntent.Combat && intent.tool == CombatTool.ASSUME_NO_BLOCKS) {
             if (!table.enabled(intent.scope)) return false
             return assumeNoBlocks().also { refreshAttackSelection() }

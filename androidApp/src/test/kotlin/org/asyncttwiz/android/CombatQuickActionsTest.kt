@@ -52,7 +52,7 @@ class CombatQuickActionsTest {
             assertTrue(offerings(at(f.play, position)).none { it.name == QuickActions.ASSUME_NO_BLOCKS })
     }
 
-    @Test fun assumeNoBlocksRecordsTwoSeparateStepsAndOneUndoReturnsToDeclareBlockers() {
+    @Test fun assumeNoBlocksRecordsTwoSeparateStepsAndGroupsWithDeclareBlockersAsAnEndpoint() {
         val f = CombatDamageFixture()
         val h = Harness(at(f.play, TurnPosition.DECLARE_ATTACKERS), f.actor)
         assertTrue(h.toolkit.perform(offerings(h.current()).single { it.name == QuickActions.ASSUME_NO_BLOCKS }.intent))
@@ -67,6 +67,9 @@ class CombatQuickActionsTest {
         val boundary = requireNotNull(h.tree.stateAt(blockers.id))
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(boundary.board.turn))
         assertEquals(f.defender, boundary.board.attentionHolder)
+        // Rules v29: Declare blockers is its own history group, a timeline endpoint the defender can continue from.
+        assertNotEquals(boundary.currentGroup!!.id, h.current().currentGroup!!.id)
+        assertEquals(blockers.id, boundary.currentGroup!!.lastNodeId)
         // One undo returns to Declare blockers, not to Declare attackers.
         h.undo()
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(h.current().board.turn))

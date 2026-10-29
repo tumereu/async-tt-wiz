@@ -162,7 +162,7 @@ class AttackTargetsTest {
 
     @Test fun rulesVersionIs28() {
         assertEquals(28, AttackTargets.RULES_VERSION)
-        assertEquals(AttackTargets.RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= AttackTargets.RULES_VERSION)
     }
 
     @Test fun rulesV27EventsKeepTheDefenderBattleCheckForReplayAndUndo() {

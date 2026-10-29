@@ -175,6 +175,14 @@ Combat damage to a battle target still lowers its corner (defense). Events recor
 under older rules keep the old check (Planeswalker or Battle text on the defender's
 battlefield) for replay and Undo.
 
+**Declare blockers is a history boundary (rules v29).** A step change (Next step
+or a chosen step) whose result is Declare blockers is its own history group: it
+never joins the previous group and nothing joins it. The timeline therefore always
+stops there, and the defender can continue from Declare blockers even when the
+turn player moved straight on (for example "Assume no blocks", which records
+Declare blockers and Combat damage as two separate events). Events recorded under
+older rules group exactly as before.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

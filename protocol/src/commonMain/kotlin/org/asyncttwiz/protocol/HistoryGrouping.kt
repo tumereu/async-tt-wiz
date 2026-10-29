@@ -43,6 +43,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class HistoryRepresentative(val nodeId: String, val semantic: HistorySemantic)
 
 object HistoryGrouping {
+    /** From this gameplay rules version a step change into Declare blockers is an isolated history group. */
+    const val BLOCKERS_BOUNDARY_RULES_VERSION = 29
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
@@ -162,9 +164,15 @@ object HistoryGrouping {
                 is PlayAction.SetNote -> action.cardId
                 else -> null
             }) else versioned
+        // Rules v29: reaching Declare blockers is its own group, a timeline endpoint the defender can continue from.
+        val blockers = if (transition != null && transition.rulesVersion >= BLOCKERS_BOUNDARY_RULES_VERSION &&
+            (action is PlayAction.ChooseStep || action == PlayAction.NextStep) &&
+            transition.fields.any { it.field == GameplayField.STEP && it.to == TurnPosition.DECLARE_BLOCKERS.step } &&
+            transition.fields.none { it.field == GameplayField.PHASE && it.to != TurnPosition.DECLARE_BLOCKERS.phase })
+            casting.copy(isolated = true) else casting
         val panel = transition?.contents?.from ?: transition?.contents?.to
         return if (panel?.search == true && panel.panelVersion >= 2 && action !is PlayAction.RevealContentsCard)
-            casting.copy(panelSession = panel.id) else casting
+            blockers.copy(panelSession = panel.id) else blockers
     }
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */

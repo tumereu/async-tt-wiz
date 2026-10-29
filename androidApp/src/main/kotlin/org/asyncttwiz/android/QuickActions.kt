@@ -87,7 +87,7 @@ object QuickActions {
                 val declared = play.board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
                 add(if (declared) "Select more attackers" else "Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
                 if (!declared) add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
-                // Two separate steps (Declare blockers, then Combat damage), never one atomic batch.
+                // Two separate steps (Declare blockers, then Combat damage): the defender can continue from blocks.
                 else add(ASSUME_NO_BLOCKS, "", TableActionIntent.Combat(scope, CombatTool.ASSUME_NO_BLOCKS, context.combatAreaId))
             }
             // Experimental damage aid; all offerings live in one removable helper.

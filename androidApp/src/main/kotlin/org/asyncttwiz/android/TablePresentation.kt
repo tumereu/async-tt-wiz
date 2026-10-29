@@ -133,7 +133,9 @@ data class TableItem(
     /** LIFE only: the player's status, drawn as a bubble beside the square (never an input target). */
     val status: String = "",
     /** A face-up Battlefield card (or its combat copy) that entered the Battlefield this turn (rules v29). */
-    val enteredThisTurn: Boolean = false
+    val enteredThisTurn: Boolean = false,
+    /** A face-up Battlefield token's kind (definition and face): piles of one kind may hold more than three (rules v30). */
+    val tokenKind: String? = null
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -188,8 +190,14 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         }
         return items.asReversed().firstOrNull { item -> item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true }
     }
-    fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
-        it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
+    fun rectangle(bounds: TableBounds): Set<String> {
+        val hits = items.filter { it.kind == TableItemKind.CARD && it.visible.any { part -> part.intersection(bounds) != null } }
+        // A token pile taller than three keeps its lower cards out of sight: touching it selects the whole pile.
+        val piles = hits.filter { it.tokenKind != null }.map { hit -> items.filter { it.kind == TableItemKind.CARD &&
+            it.tokenKind == hit.tokenKind && it.viewport == hit.viewport && it.footprint == hit.footprint } }
+            .filter { pile -> pile.any { it.visible.isEmpty() } }
+        return (hits + piles.flatten()).mapNotNull { it.cardId }.toSet()
+    }
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }
     /** Resolve once on first down, before a centroid can cross into another region. */
     fun panRegion(point: TablePoint): String? {
@@ -372,7 +380,8 @@ object TablePresentation {
             return TableViewport(id, bounds, content, offset, hand).also(ports::add)
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
-            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true): TableItem {
+            viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true,
+            pileSize: Int = 1): TableItem {
             val hidden = if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
@@ -383,8 +392,10 @@ object TablePresentation {
             val tapped = zone == PlayZone.BATTLEFIELD && !projection && card.tapped
             // Combat copies follow their live source card; a face-down card shows no title and so no mark.
             val entered = zone == PlayZone.BATTLEFIELD && !hidden && !frozen && EnteredTurn.marked(play.board, card)
+            // A token pile taller than its three visible layers shows its size on the top card.
+            val copies = if (pileSize > TokenStacks.PILE_LIMIT) pileSize else 1
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
-                if (entered) ", entered this turn" else ""
+                (if (entered) ", entered this turn" else "") + if (copies > 1) ", pile of $copies" else ""
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -399,7 +410,9 @@ object TablePresentation {
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
-                    enteredThisTurn = entered).also { if (draw) items += it }
+                    enteredThisTurn = entered, copies = copies,
+                    tokenKind = if (card.token && zone == PlayZone.BATTLEFIELD && !hidden && !projection) "${card.definition}/${card.faceId}" else null)
+                .also { if (draw) items += it }
         }
         // Opponent block on top (counters/Temp row above its pile row), own block at the bottom.
         val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,
@@ -431,6 +444,7 @@ object TablePresentation {
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
+            val pileSizes = battlefield.cards.groupingBy { byId[it]?.placement }.eachCount()
             // Stable sorting retains container order and the fallback column without indexOf scans.
             battlefield.cards.withIndex().sortedByDescending { positions[it.value]?.pileIndex ?: 0 }
                 .forEach { (order, id) -> byId[id]?.let { c ->
@@ -443,7 +457,8 @@ object TablePresentation {
                     val cardHeight = if (c.tapped) cw else ch
                     val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
                     val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, fieldScale)
-                    card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
+                    card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id,
+                        pileSize = if (p.pileIndex == 0 && c.placement != null) pileSizes[c.placement] ?: 1 else 1)
                 } }
             val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * columnPitch
             port(battlefield.id, field.bounds, logicalWidth * zoom)

@@ -1,0 +1,1 @@
+add: A new token goes on top of a pile of the same untouched tokens on your battlefield, and a pile of more than three shows how many cards it has.

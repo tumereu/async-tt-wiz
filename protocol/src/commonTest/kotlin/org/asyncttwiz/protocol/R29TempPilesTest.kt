@@ -42,7 +42,7 @@ class R29TempPilesTest {
 
     @Test fun rulesVersionIs29() {
         assertEquals(29, TempPiles.RULES_VERSION)
-        assertEquals(TempPiles.RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= TempPiles.RULES_VERSION)
     }
 
     @Test fun pileOneKeepsItsV23IdAndEveryPileHasItsOwn() {

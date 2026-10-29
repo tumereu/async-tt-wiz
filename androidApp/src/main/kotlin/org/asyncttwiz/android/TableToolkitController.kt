@@ -156,6 +156,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                     ?: return@batchResult false
                 val row = TokenActions.row(action.definition.definition)
                 if (token.placement?.position?.y == row) return@batchResult true
+                // Rules v30: a token stacked onto a pile of its kind stays on that pile, whatever its row.
+                if (after.board.cards.any { it.id != token.id && it.placement == token.placement && it.containerId == token.containerId })
+                    return@batchResult true
                 val occupied = after.board.cards.filter { it.containerId == token.containerId && it.id != token.id }
                     .mapNotNull { it.placement?.position }.toSet()
                 var column = 0

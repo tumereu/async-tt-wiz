@@ -39,7 +39,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 id to if (context != null && old != null) TablePoint(destination.column + old.column - context.column,
                     destination.row + old.row - context.row) else TablePoint((destination.column + index).toFloat(), destination.row.toFloat())
             }
-            if (positions.groupBy { it.second }.any { (p, members) -> members.size > 3 || scene.items.any {
+            if (positions.groupBy { it.second }.any { (p, members) -> !tokenPileFits(scene, members.map { it.first }, emptyList()) || scene.items.any {
                 it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
                     old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
             val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->

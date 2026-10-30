@@ -39,9 +39,11 @@ internal fun historyIconLabel(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.FLIP_TO_FRONT -> "Uncover"; HistoryIcon.ADD_BOX -> "Token"; HistoryIcon.CONTROL_POINT_DUPLICATE -> "Clone"
     HistoryIcon.DELETE -> "Remove token"; HistoryIcon.LINK -> "Link"; HistoryIcon.LINK_OFF -> "Remove link"
     HistoryIcon.SWORDS -> "Combat"; HistoryIcon.LAYERS_CLEAR -> "Close / remove Stack effect"
-    HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "Remove occurrence"; HistoryIcon.LAYERS -> "Stack entry / removal"; HistoryIcon.DOWNLOAD -> "Draw"
+    HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "Remove occurrence"; HistoryIcon.LAYERS -> "Stack entry / removal"; HistoryIcon.DOWNLOAD -> "Draw / to hand"
     HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "Mark Stack text"; HistoryIcon.EMOJI_EVENTS -> "Result suggestion"
-    HistoryIcon.INBOX -> "Temporary pile"; HistoryIcon.SWAP_HORIZ -> "Stack controller"; HistoryIcon.UNKNOWN -> "Change"
+    HistoryIcon.INBOX -> "Temporary pile"; HistoryIcon.SWAP_HORIZ -> "Stack controller"
+    HistoryIcon.SPACE_DASHBOARD -> "To battlefield"; HistoryIcon.DELETE_SWEEP -> "To graveyard"; HistoryIcon.BLOCK -> "To exile"
+    HistoryIcon.LIBRARY_BOOKS -> "To library"; HistoryIcon.UNKNOWN -> "Change"
 }
 
 data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<String>,

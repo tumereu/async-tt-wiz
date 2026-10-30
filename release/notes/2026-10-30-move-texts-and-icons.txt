@@ -1,0 +1,1 @@
+mod: Card moves in the game history now read as plain sentences like "Drew 2 cards", "Discarded Shock" or "Put Opt onto the battlefield", and their icons show where the card went: hand, battlefield, stack, graveyard, exile, library or a temporary pile

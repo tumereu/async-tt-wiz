@@ -69,6 +69,25 @@ object HistoryGrouping {
     const val BLOCKERS_BOUNDARY_RULES_VERSION = 29
     /** From this gameplay rules version closing a card panel (with its rest moves and shuffle) is its own history step. */
     const val PANEL_CLOSE_STEP_RULES_VERSION = 29
+    /** From this gameplay rules version a card move's icon names where the card went (see [moveIcon]);
+     * events recorded earlier keep the icons they were recorded with. */
+    const val MOVE_TARGET_ICONS_RULES_VERSION = 32
+
+    /** Rules v32 icon for a move into [to]: a move within the same zone keeps [HistoryIcon.OPEN_WITH]. */
+    fun moveIcon(to: PlayContainer, sameZone: Boolean): HistoryIcon = when {
+        sameZone -> HistoryIcon.OPEN_WITH
+        to.temp -> HistoryIcon.INBOX
+        else -> zoneIcon(to.zone)
+    }
+    fun zoneIcon(zone: PlayZone): HistoryIcon = when (zone) {
+        PlayZone.HAND -> HistoryIcon.DOWNLOAD
+        PlayZone.BATTLEFIELD -> HistoryIcon.SPACE_DASHBOARD
+        PlayZone.STACK -> HistoryIcon.LAYERS
+        PlayZone.GRAVEYARD -> HistoryIcon.DELETE_SWEEP
+        PlayZone.EXILE -> HistoryIcon.BLOCK
+        PlayZone.LIBRARY -> HistoryIcon.LIBRARY_BOOKS
+    }
+
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
@@ -80,6 +99,7 @@ object HistoryGrouping {
      * Zone identity comes from accepted containers, not labels, card text, timers or invocation proximity. */
     fun classify(action: PlayAction, containers: List<PlayContainer> = emptyList(),
         transition: GameplayTransition? = null): HistorySemantic {
+        val targetIcons = transition != null && transition.rulesVersion >= MOVE_TARGET_ICONS_RULES_VERSION
         val semantic = when (action) {
         is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.FLAG)
         is PlayAction.DeclineResult, is PlayAction.WithdrawResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.CLOSE)
@@ -99,13 +119,20 @@ object HistoryGrouping {
             HistoryIcon.VISIBILITY, isolated = true)
         is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, HistoryIcon.SHUFFLE, action.libraryId)
         // Grouped like any cross-zone move into that Library.
-        is PlayAction.MoveToLibraryRandom -> HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, HistoryIcon.OPEN_WITH, "random/${action.libraryId}")
+        is PlayAction.MoveToLibraryRandom -> HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE,
+            if (targetIcons) HistoryIcon.LIBRARY_BOOKS else HistoryIcon.OPEN_WITH, "random/${action.libraryId}")
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
             if (action.reveal) HistoryIcon.VISIBILITY else HistoryIcon.PAGEVIEW)
         is PlayAction.RevealHand -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY, isolated = true)
         is PlayAction.RandomHand -> HistorySemantic(if (action.result == HandRandomResult.REVEAL)
             HistorySignificance.EXPLICIT_DISCLOSURE else HistorySignificance.CROSS_ZONE_MOVE,
-            if (action.result == HandRandomResult.REVEAL) HistoryIcon.VISIBILITY else HistoryIcon.OPEN_WITH,
+            when {
+                action.result == HandRandomResult.REVEAL -> HistoryIcon.VISIBILITY
+                !targetIcons -> HistoryIcon.OPEN_WITH
+                action.result == HandRandomResult.DISCARD -> HistoryIcon.DELETE_SWEEP
+                action.result == HandRandomResult.EXILE -> HistoryIcon.BLOCK
+                else -> HistoryIcon.LIBRARY_BOOKS
+            },
             if (action.result == HandRandomResult.REVEAL) null else "${action.handId}/${action.result}", isolated = true)
         is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, HistoryIcon.CLOSE)
         is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY, isolated = true)
@@ -163,10 +190,12 @@ object HistoryGrouping {
                 action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
                 from == PlayZone.STACK && to == PlayZone.STACK ->
                     HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
-                from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS)
+                from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL,
+                    if (targetIcons) moveIcon(toContainer, false) else HistoryIcon.LAYERS)
                 to == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_ENTRY, HistoryIcon.LAYERS)
                 else -> HistorySemantic(if (sameZone) HistorySignificance.SAME_ZONE_PLACEMENT else HistorySignificance.CROSS_ZONE_MOVE,
-                    if (from == PlayZone.LIBRARY && !fromContainer.temp && to == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
+                    if (targetIcons) moveIcon(toContainer, sameZone)
+                    else if (from == PlayZone.LIBRARY && !fromContainer.temp && to == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
                         HistoryIcon.DOWNLOAD else HistoryIcon.OPEN_WITH, "${action.source.containerId}/${action.destination.containerId}")
             }
         }

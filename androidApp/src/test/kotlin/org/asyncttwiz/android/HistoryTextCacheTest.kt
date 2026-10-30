@@ -53,7 +53,7 @@ class HistoryTextCacheTest {
             }
             tree = play(tree, 720, PlayAction.SetLife(f.a, "17"))
             h.history.update(tree, "v9", game(tree), viewer); h.drain()
-            val expected = if (viewer == f.b) cardNames.map { "$it: Library → Hand" } else List(4) { "A card: Library → Hand" }
+            val expected = if (viewer == f.b) cardNames.map { "Drew $it" } else List(4) { "Drew a card" }
             assertEquals(expected, texts(h, draws), "viewer=$viewer")
             // The timeline strip reads the same texts.
             val strip = HistoryTimelineLayout.events(h.history.playback!!.tree, tree.currentNodeId)
@@ -73,11 +73,11 @@ class HistoryTextCacheTest {
             }
             val undone = control(tree, GameAction.Undo, 900)
             h.history.update(undone, "undo", game(tree), f.b); h.drain()
-            assertEquals(cardNames.take(3).map { "$it: Library → Hand" }, texts(h, draws.take(3)))
+            assertEquals(cardNames.take(3).map { "Drew $it" }, texts(h, draws.take(3)))
             val redone = control(undone, GameAction.Redo, 901)
             assertEquals(draws.last(), redone.currentNodeId)
             h.history.update(redone, "redo", game(tree), f.b); h.drain()
-            assertEquals(cardNames.map { "$it: Library → Hand" }, texts(h, draws))
+            assertEquals(cardNames.map { "Drew $it" }, texts(h, draws))
         }
     }
 
@@ -99,18 +99,18 @@ class HistoryTextCacheTest {
             }
             h.history.select(draws[1]); review(draws[1])
             // The reviewed draw, the one before it (stepped back) and those after it (stepped forward).
-            assertEquals(List(4) { "A card: Library → Hand" }, texts(h, draws))
+            assertEquals(List(4) { "Drew a card" }, texts(h, draws))
             val source = assertNotNull(shown.source)
             assertEquals(0, source.work.rootMaterializations)
             assertEquals(0, source.work.replayedNodes)
             // Stepping on keeps every text; nothing older reverts to the generic wording.
             h.history.playback!!.next(); review(h.history.playback!!.position.cursorId)
             h.history.playback!!.next(); review(h.history.playback!!.position.cursorId)
-            assertEquals(List(4) { "A card: Library → Hand" }, texts(h, draws))
+            assertEquals(List(4) { "Drew a card" }, texts(h, draws))
             // A newer live event keeps the stored texts as well.
             val next = play(tree, 5000, PlayAction.SetLife(f.b, "3"))
             h.history.update(next, "v2", game(next), f.a); h.drain()
-            assertEquals(List(4) { "A card: Library → Hand" }, texts(h, draws))
+            assertEquals(List(4) { "Drew a card" }, texts(h, draws))
         }
     }
 
@@ -124,8 +124,8 @@ class HistoryTextCacheTest {
         for (viewer in listOf(f.a, f.b)) {
             val made = historyTextsNear(cold, shownAt, HistoryTextCache(viewer, names), back = 8, forward = listOf(draws[3]), ahead = 8)
             assertEquals(draws.toSet(), made.keys)
-            val subjects = if (viewer == f.b) cardNames else List(4) { "A card" }
-            assertEquals(subjects.map { "$it: Library → Hand" }, draws.map { made.getValue(it).text.description })
+            val subjects = if (viewer == f.b) cardNames else List(4) { "a card" }
+            assertEquals(subjects.map { "Drew $it" }, draws.map { made.getValue(it).text.description })
         }
         assertEquals(0, cold.work.rootMaterializations)
         assertEquals(0, cold.work.replayedNodes)
@@ -144,7 +144,7 @@ class HistoryTextCacheTest {
         val names = mapOf(f.a to "alice", f.b to "bob")
         val made = historyTextsNear(tree, tree.preparedState(tree.currentNodeId)!!, HistoryTextCache(f.b, names), back = 8)
         val cache = HistoryTextCache(f.b, names).with(made)
-        assertEquals("Shock: Library → Hand", cache.text(tree, draws[0])?.description)
+        assertEquals("Drew Shock", cache.text(tree, draws[0])?.description)
         // The same event id with a different record (e.g. a prediction the server answered differently).
         val node = tree.nodes.getValue(draws[0])
         val rewritten = tree.copy(nodes = tree.nodes + (node.id to node.copy(invocationId = id(999))))
@@ -156,6 +156,6 @@ class HistoryTextCacheTest {
         assertEquals(2, bounded.size)
         // The texts made first leave first.
         assertNull(bounded.text(tree, draws[3]))
-        assertEquals("Shock: Library → Hand", bounded.text(tree, draws[0])?.description)
+        assertEquals("Drew Shock", bounded.text(tree, draws[0])?.description)
     }
 }

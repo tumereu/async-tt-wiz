@@ -18,7 +18,7 @@ class HistoryEveryActionTest {
 
     private val library = id(20); private val hand = id(21); private val battlefield = id(22); private val graveyard = id(23)
     private val stack = id(24); private val temp = id(25); private val temp2 = id(26); private val libraryB = id(27)
-    private val battlefieldB = id(28)
+    private val battlefieldB = id(28); private val exile = id(29)
 
     private val initial: PlayState by lazy {
         val base = f.root().initial
@@ -33,7 +33,8 @@ class HistoryEveryActionTest {
             PlayContainer(graveyard, PlayZone.GRAVEYARD, a, listOf(id(33))), PlayContainer(stack, PlayZone.STACK, null, listOf(id(34))),
             PlayContainer(temp, PlayZone.LIBRARY, a, listOf(id(35)), temp = true),
             PlayContainer(temp2, PlayZone.LIBRARY, a, temp = true, tempNumber = 2),
-            PlayContainer(libraryB, PlayZone.LIBRARY, b, listOf(id(37))), PlayContainer(battlefieldB, PlayZone.BATTLEFIELD, b, listOf(id(36))))
+            PlayContainer(libraryB, PlayZone.LIBRARY, b, listOf(id(37))), PlayContainer(battlefieldB, PlayZone.BATTLEFIELD, b, listOf(id(36))),
+            PlayContainer(exile, PlayZone.EXILE, a))
         base.copy(board = base.board.copy(cards = cards, containers = containers))
     }
 
@@ -55,6 +56,7 @@ class HistoryEveryActionTest {
             move(30, library, hand, MoveSourceEdge.TOP), move(32, battlefield, graveyard), move(32, battlefield, battlefield),
             move(31, hand, stack), move(34, stack, battlefield), move(34, stack, stack), move(32, battlefield, hand, removeStackEntryId = id(34)),
             move(30, library, temp, MoveSourceEdge.TOP), move(35, temp, temp2), move(33, graveyard, library), move(36, battlefieldB, libraryB),
+            move(31, hand, exile), move(31, hand, battlefieldB), move(32, battlefield, battlefieldB), move(33, graveyard, hand),
             PlayAction.MoveToLibraryRandom(library, listOf(id(31), id(33)), true, seed),
             PlayAction.ShuffleLibrary(library, seed), PlayAction.SetKeepTopRevealed(library, true),
             PlayAction.Mulligan(library, hand, listOf(id(31)), 7, seed),
@@ -62,6 +64,8 @@ class HistoryEveryActionTest {
             PlayAction.RevealHand(hand, listOf(id(31))),
             PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.REVEAL, id(31)),
             PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.DISCARD, id(31)),
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.EXILE, id(31)),
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.LIBRARY_BOTTOM, id(31)),
             PlayAction.DismissContents(id(51)), PlayAction.DismissContents(id(51), ContentsRest.BOTTOM_RANDOM, seed),
             PlayAction.RevealContentsCard(id(51), id(30)), PlayAction.ReorderContents(id(51), id(30), id(35)),
             PlayAction.EventComment(reference, "Remember the trigger"),
@@ -255,6 +259,33 @@ class HistoryEveryActionTest {
             if (index % 4 == 1) mutation.copy(grouping = stored[index % stored.size]) else mutation }
         present(mixed)
         present(mixed.take(1).map { it.copy(grouping = stored.first()) })
+    }
+
+    /** Rules v32: a move's icon names its target; a move within one zone keeps the move icon. */
+    @Test fun everyMoveRecordsItsTargetIconAtCurrentRules() {
+        val expected = listOf(
+            move(30, library, hand, MoveSourceEdge.TOP) to HistoryIcon.DOWNLOAD, move(33, graveyard, hand) to HistoryIcon.DOWNLOAD,
+            move(31, hand, battlefieldB) to HistoryIcon.SPACE_DASHBOARD, move(34, stack, battlefield) to HistoryIcon.SPACE_DASHBOARD,
+            move(31, hand, stack) to HistoryIcon.LAYERS, move(32, battlefield, graveyard) to HistoryIcon.DELETE_SWEEP,
+            move(31, hand, exile) to HistoryIcon.BLOCK, move(33, graveyard, library) to HistoryIcon.LIBRARY_BOOKS,
+            move(36, battlefieldB, libraryB) to HistoryIcon.LIBRARY_BOOKS,
+            move(30, library, temp, MoveSourceEdge.TOP) to HistoryIcon.INBOX, move(35, temp, temp2) to HistoryIcon.INBOX,
+            move(32, battlefield, battlefield) to HistoryIcon.OPEN_WITH, move(32, battlefield, battlefieldB) to HistoryIcon.OPEN_WITH,
+            move(34, stack, stack) to HistoryIcon.OPEN_WITH,
+            move(32, battlefield, hand, removeStackEntryId = id(34)) to HistoryIcon.LAYERS_CLEAR,
+            PlayAction.MoveToLibraryRandom(library, listOf(id(31), id(33)), true, seed) to HistoryIcon.LIBRARY_BOOKS,
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.DISCARD, id(31)) to HistoryIcon.DELETE_SWEEP,
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.EXILE, id(31)) to HistoryIcon.BLOCK,
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.LIBRARY_BOTTOM, id(31)) to HistoryIcon.LIBRARY_BOOKS,
+            PlayAction.RandomHand(hand, listOf(id(31)), seed, HandRandomResult.REVEAL, id(31)) to HistoryIcon.VISIBILITY,
+            PlayAction.RemoveToken(id(32)) to HistoryIcon.DELETE)
+        for ((action, icon) in expected) {
+            val recorded = HistoryGrouping.classify(action, initial.board.containers, transition(action, CURRENT_GAMEPLAY_RULES_VERSION))
+            assertEquals(icon, recorded.icon, "$action")
+            // Only the icon is new: grouping reads exactly what the previous rules recorded.
+            assertEquals(HistoryGrouping.classify(action, initial.board.containers, transition(action, 31)).copy(icon = icon), recorded)
+            draw(icon)
+        }
     }
 
     @Test fun everyIconDrawsAndUnknownNamesDecodeToANeutralDot() {

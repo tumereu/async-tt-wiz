@@ -52,7 +52,7 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
     val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
     val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
-    val changes: TableChanges? = null, val ownPodDeckName: String? = null,
+    val changes: TableChanges? = null,
     /** The opponent's presence: a dot on their life square and a line in their life panel. */
     val opponentPresence: ReceivedPresence? = null,
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
@@ -270,7 +270,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                         !controller.acceptResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
                                     else history.cancelContinuation()
                                }),
-                          ownPodDeckName = state.ownPodDeckName, statusHistory = statusHistory,
+                          statusHistory = statusHistory,
                           opponentPresence = state.opponentPresence,
                           liveView = position?.mode == HistoryMode.LIVE || resumeHeld, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),

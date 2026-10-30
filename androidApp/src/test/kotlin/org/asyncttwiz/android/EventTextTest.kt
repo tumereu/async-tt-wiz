@@ -49,15 +49,15 @@ class EventTextTest {
     @Test fun groupTextComesFromTheShownBoardAndNeverNamesUnseenCards() {
         val game = game()
         val shown = game.tree.stateAt(game.draws.last())!!
-        assertEquals("4 cards: Library → Hand", eventGroupText(game.tree.nodes, shown, f.a, names)?.description)
-        assertEquals("Shock, Opt, Ponder, Brainstorm: Library → Hand", eventGroupText(game.tree.nodes, shown, f.b, names)?.description)
+        assertEquals("Drew 4 cards", eventGroupText(game.tree.nodes, shown, f.a, names)?.description)
+        assertEquals("Drew Shock, Opt, Ponder, Brainstorm", eventGroupText(game.tree.nodes, shown, f.b, names)?.description)
         // A board inside the group tells only the events it includes.
-        assertEquals("Shock, Opt: Library → Hand",
+        assertEquals("Drew Shock, Opt",
             eventGroupText(game.tree.nodes, game.tree.stateAt(game.draws[1])!!, f.b, names)?.description)
         assertEquals("Life 20 → 17", eventGroupText(game.tree.nodes, game.tree.stateAt(game.aliceLife)!!, f.b, names)?.description)
         assertNull(eventGroupText(game.tree.nodes, game.tree.initial, f.a, names), "the initial state has no event")
         // Too long a group reads as its last event, never as a miscounted group.
-        assertEquals("A card: Library → Hand", eventGroupText(game.tree.nodes, shown, f.a, names, limit = 2)?.description)
+        assertEquals("Drew a card", eventGroupText(game.tree.nodes, shown, f.a, names, limit = 2)?.description)
     }
 
     @Test fun timelineShowsEveryGroupIncludingOwnAndMovingBackwardsShowsTheGroupNowShown() {
@@ -70,7 +70,7 @@ class EventTextTest {
             show(game, game.draws.last())
             assertNull(feed.chip, "the previous text goes at once, never shown over another board")
             drain()
-            assertEquals("4 cards: Library → Hand", feed.chip?.text)
+            assertEquals("Drew 4 cards", feed.chip?.text)
             show(game, game.tree.initial.root.id); drain()
             assertNull(feed.chip)
         }
@@ -82,7 +82,7 @@ class EventTextTest {
             show(game, game.bobLife); show(game, game.aliceLife); show(game, game.draws.last())
             assertEquals(1, work.size, "superseded texts are never computed")
             drain()
-            assertEquals("4 cards: Library → Hand", feed.chip?.text)
+            assertEquals("Drew 4 cards", feed.chip?.text)
             // A text computed for a board already left behind is dropped.
             show(game, game.aliceLife); work.removeFirst().run()
             show(game, game.bobLife)
@@ -151,7 +151,7 @@ class EventTextTest {
             drain(); assertNull(feed.chip)
             feed.enabled = true
             show(game, game.draws.last()); drain()
-            assertEquals("4 cards: Library → Hand", feed.chip?.text)
+            assertEquals("Drew 4 cards", feed.chip?.text)
         }
     }
 
@@ -171,7 +171,7 @@ class EventTextTest {
             val (node, complete) = reviews.removeFirst()
             complete(DownloadedHistoryState(1L, node, state = game.tree.stateAt(node!!)))
             drain()
-            assertEquals("4 cards: Library → Hand", history.eventText.chip?.text)
+            assertEquals("Drew 4 cards", history.eventText.chip?.text)
         }
         assertNull(history.eventText.chip)
     }

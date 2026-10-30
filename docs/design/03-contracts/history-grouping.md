@@ -42,6 +42,21 @@ animation coalescing never changes the grouping algorithm or publication timing.
 The remaining grouping questions below concern presentation only; they are not
 questions about atomic gameplay units or which changes enter the tree.
 
+## Card move icons and texts (rules v32)
+
+From rules v32 a card move's icon names where the card went: hand `download`,
+battlefield `space_dashboard`, Stack `layers`, graveyard `delete_sweep`, exile
+`block`, library (any edge, random order included) `library_books`, Temp pile
+`inbox`. A move within one zone (repositioning, reorder, another player's
+battlefield) keeps `open_with`; Stack projection pulls keep `layers_clear`, token
+removal `delete`. Random hand results use their target's icon (reveal stays
+`visibility`). Only the icon changes: significance, keys and grouping are as
+before. Icons are stored with each event, so events recorded under rules ≤ v31
+keep their recorded icons. Move texts are neutral sentences recomputed from
+events ("Drew 2 cards", "Discarded Shock", "Put Opt onto the battlefield from
+graveyard", "bob gains control of X"): they never name the acting player nor claim
+why a card moved, and a group of moves merges each kind into one sentence.
+
 ## R1 representative group icons — D-299
 
 **Superseded by owner playtest r6b:** use the group's LAST event's icon and author

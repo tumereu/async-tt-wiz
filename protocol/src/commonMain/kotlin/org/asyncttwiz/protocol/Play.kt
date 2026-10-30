@@ -63,7 +63,8 @@ object PlayerStatus {
  * gain them without any board migration and retained events keep replaying unchanged. */
 object TempPiles {
     const val RULES_VERSION = 29
-    /** Rules v31: closing a Search of a Temp pile no longer shuffles it; the pile keeps its order. */
+    /** Rules v31: closing a Search of a Temp pile no longer shuffles it; the pile keeps its order. Closing a
+     * Look with rest Top puts the looked-at cards back in place (see [lookKeepsPlace]). */
     const val SEARCH_RULES_VERSION = 31
     const val COUNT = 4
     val NUMBERS = 1..COUNT
@@ -111,6 +112,19 @@ object TempPiles {
     /** Whether closing [display], shown from [source], leaves [source] exactly as it is (rules v31 Temp Search). */
     fun searchKeepsOrder(source: PlayContainer, display: ContentsDisplay, rulesVersion: Int): Boolean =
         display.search && source.temp && display.containerId == source.id && rulesVersion >= SEARCH_RULES_VERSION
+
+    /** Rules v31: closing a Look on a Temp pile with rest Top puts the looked-at cards back in the places they
+     * hold now, in the panel's (possibly reordered) order, so cards put on the pile meanwhile stay on top. */
+    fun lookKeepsPlace(source: PlayContainer, display: ContentsDisplay, rest: ContentsRest, rulesVersion: Int): Boolean =
+        !display.search && rest == ContentsRest.TOP && source.temp && display.containerId == source.id &&
+            rulesVersion >= SEARCH_RULES_VERSION
+
+    /** [cards] with the members of [shown] replaced, slot by slot, by [shown] in its order. */
+    fun inPlace(cards: List<String>, shown: List<String>): List<String> {
+        val members = shown.toSet()
+        val next = shown.iterator()
+        return cards.map { if (it in members) next.next() else it }
+    }
 
     /** ONE batch moving the whole pile, in its current order, onto the owner's Library top or bottom. */
     fun allToLibrary(board: BoardState, tempId: String, bottom: Boolean): List<PlayAction.MoveCard> {

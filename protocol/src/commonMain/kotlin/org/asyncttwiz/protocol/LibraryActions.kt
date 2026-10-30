@@ -149,7 +149,8 @@ object LibraryRules {
                 val restDestination = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == restZone }
                 val order = when (resolution) {
                     null -> source.cards
-                    ContentsRest.TOP -> ids + rest
+                    ContentsRest.TOP -> if (TempPiles.lookKeepsPlace(source, display, ContentsRest.TOP, rulesVersion))
+                        TempPiles.inPlace(source.cards, ids) else ids + rest
                     ContentsRest.BOTTOM -> rest + ids
                     ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
                     ContentsRest.GRAVEYARD, ContentsRest.EXILE -> rest

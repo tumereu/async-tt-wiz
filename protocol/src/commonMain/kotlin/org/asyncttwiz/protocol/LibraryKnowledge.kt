@@ -210,7 +210,12 @@ internal object LibraryKnowledge {
                 // Rules v31: closing a Temp pile Search leaves the pile (and what is known of it) as it is.
                 if (!TempPiles.searchKeepsOrder(old, display, rulesVersion)) when (if (display.search) ContentsRest.SHUFFLE else action.rest) {
                     ContentsRest.SHUFFLE -> { shuffled = true; closing = SearchQueue.closeLayers(display, library.cards, ::newId) }
-                    ContentsRest.TOP -> edge(ids, top = true, ordered = true)
+                    // Rules v31 Temp Look: each looked-at card is known where it went back; others stay as they were.
+                    ContentsRest.TOP -> if (TempPiles.lookKeepsPlace(old, display, ContentsRest.TOP, rulesVersion)) {
+                        placed = ids.toSet()
+                        place = { parts -> ids.sortedBy { library.cards.indexOf(it) }.fold(parts) { acc, id ->
+                            insertKnown(acc, id, library.cards.indexOf(id), ::newId) } }
+                    } else edge(ids, top = true, ordered = true)
                     ContentsRest.BOTTOM -> edge(ids, top = false, ordered = true)
                     // Seeded by nobody's choice: their order stays unknown, as one layer of their own.
                     ContentsRest.BOTTOM_RANDOM -> edge(ids, top = false, ordered = false)

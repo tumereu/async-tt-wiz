@@ -155,4 +155,48 @@ class R31TempPilesTest {
             assertEquals(listOf(gameplayId(14)), moved.board.contentsDisplays.single().cardIds)
         }
     }
+
+    private fun lookReorderAndAdd(start: PlayState): PlayState {
+        var state = exact(start, PlayAction.ShowContents(pile(start), ContentsSelection.TOP, 3))
+        val display = state.board.contentsDisplays.single()
+        assertEquals((10..12).map(::gameplayId), display.cardIds)
+        state = exact(state, PlayAction.ReorderContents(display.id, gameplayId(12), gameplayId(10)))
+        // The other player puts a Library card on the pile while it is being looked at.
+        val add = LibraryActions.moveCaptured(state.board, listOf(gameplayId(13)), MoveDestination(pile(start), MoveInsertion.TOP)).single()
+        return exact(state, add, actor = b)
+    }
+
+    @Test fun closingATempLookKeepsCardsAddedMeanwhileOnTopAndTheShownOrderBelow() {
+        val open = lookReorderAndAdd(root())
+        assertEquals(gameplayId(13), cards(open.board, pile(open)).first())
+        val dismiss = PlayAction.DismissContents(open.board.contentsDisplays.single().id, ContentsRest.TOP)
+        val closed = exact(open, dismiss)
+        assertEquals(listOf(13, 12, 10, 11).map(::gameplayId), cards(closed.board, pile(open)))
+        // Everyone saw where each card went: the whole pile is now known.
+        assertTrue(closed.board.containers.single { it.id == pile(open) }.layers.all { it.ordered })
+        // Rules v30 put the looked-at cards above the added one.
+        val old = assertNotNull(LibraryRules.change(open, a, command(open, GameAction.Play(dismiss)), dismiss,
+            rulesVersion = TempPiles.SEARCH_RULES_VERSION - 1).state)
+        assertEquals(listOf(12, 10, 11, 13).map(::gameplayId), cards(old.board, pile(open)))
+        // A Library Look still puts the shown cards on top.
+        val look = exact(root(), PlayAction.ShowContents(library, ContentsSelection.TOP, 1))
+        val added = exact(look, LibraryActions.moveCaptured(look.board, listOf(gameplayId(10)),
+            MoveDestination(library, MoveInsertion.TOP)).single())
+        val back = exact(added, PlayAction.DismissContents(added.board.contentsDisplays.single().id, ContentsRest.TOP))
+        assertEquals(listOf(13, 10, 14).map(::gameplayId), cards(back.board, library))
+    }
+
+    @Test fun theInPlaceCloseUndoesExactly() {
+        val start = root()
+        var tree = GameplayTree(start)
+        tree = batch(tree, listOf(PlayAction.ShowContents(pile(start), ContentsSelection.TOP, 3)))
+        val display = board(tree).contentsDisplays.single()
+        tree = batch(tree, listOf(PlayAction.ReorderContents(display.id, gameplayId(12), gameplayId(10))))
+        tree = batch(tree, LibraryActions.moveCaptured(board(tree), listOf(gameplayId(13)), MoveDestination(pile(start), MoveInsertion.TOP)), actor = b)
+        val open = board(tree)
+        tree = batch(tree, listOf(PlayAction.DismissContents(display.id, ContentsRest.TOP)))
+        assertEquals(listOf(13, 12, 10, 11).map(::gameplayId), cards(board(tree), pile(start)))
+        tree = undo(tree)
+        assertEquals(open, board(tree))
+    }
 }

@@ -524,7 +524,10 @@ it. Card panels on a Temp pile offer the ordinary destinations plus Temp N (top 
 that pile, face down) and never queue. Closing a Search of a Temp pile no longer
 shuffles it: the pile and its layers stay exactly as they were (events recorded
 under rules ≤ v30 keep their recorded shuffle). The client closes a Temp pile Look
-with rest Top (its shown order) and offers no rest choices.
+with rest Top and offers no rest choices; under rules v31 rest Top on a Temp pile puts
+the looked-at cards back in the places they now hold, in the panel's order, so cards
+put on the pile while it was open stay on top (events under older rules keep the
+looked-at cards on top).
 
 **Token stacks (rules v30).** A newly created token (Create token or Clone) goes on
 top of a pile on its battlefield that holds fewer than three cards when every card

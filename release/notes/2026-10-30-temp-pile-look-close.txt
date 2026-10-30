@@ -1,1 +1,1 @@
-mod: Looking through a Temp pile no longer shuffles it or asks where the cards go when you close it
+mod: Looking through a Temp pile no longer shuffles it or asks where the cards go when you close it; cards put on the pile meanwhile stay on top

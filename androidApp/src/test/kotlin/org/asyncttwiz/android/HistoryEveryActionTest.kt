@@ -288,6 +288,34 @@ class HistoryEveryActionTest {
         }
     }
 
+    /** Rules v34: edits show their direction; steps, turns, view and combat closes and attack targets have their own icons. */
+    @Test fun everyDirectionIconRecordsAtCurrentRulesAndDraws() {
+        val expected = listOf(
+            PlayAction.AdjustLife(b, "2") to HistoryIcon.FAVORITE, PlayAction.AdjustLife(b, "-2") to HistoryIcon.HEART_BROKEN,
+            PlayAction.AdjustCounter(CounterTarget.CARD, id(32), CounterColor.GREEN, "1") to HistoryIcon.EXPOSURE_PLUS_1,
+            PlayAction.AdjustCounter(CounterTarget.CARD, id(32), CounterColor.GREEN, "-1") to HistoryIcon.EXPOSURE_NEG_1,
+            PlayAction.ClearCardCounter(id(32), CounterColor.GREEN) to HistoryIcon.EXPOSURE_ZERO,
+            PlayAction.AdjustPlayerCounter(b, CounterColor.BLUE, "1") to HistoryIcon.ARROW_CIRCLE_UP,
+            PlayAction.AdjustCounter(CounterTarget.PLAYER, b, CounterColor.GRAY, "-1") to HistoryIcon.ARROW_CIRCLE_DOWN,
+            PlayAction.AdjustCorner(id(32), CornerPart.BOTH, 1) to HistoryIcon.TRENDING_UP,
+            PlayAction.AdjustEotCorner(id(32), CornerPart.LEFT, -1) to HistoryIcon.TRENDING_DOWN,
+            PlayAction.AdjustDamage(id(32), "1") to HistoryIcon.LOCAL_FIRE_DEPARTMENT, PlayAction.AdjustDamage(id(32), "-1") to HistoryIcon.HEALING,
+            PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS) to HistoryIcon.ARROW_FORWARD,
+            PlayAction.NextStep to HistoryIcon.SKIP_NEXT, PlayAction.EndTurn to HistoryIcon.SKIP_NEXT,
+            PlayAction.PassAttention to HistoryIcon.OUTLINED_FLAG,
+            PlayAction.DismissContents(id(51)) to HistoryIcon.VISIBILITY_OFF, PlayAction.DeclineResult(id(50)) to HistoryIcon.CLOSE,
+            PlayAction.Combat(CombatAction.Close(id(60))) to HistoryIcon.CHECK,
+            PlayAction.Stack(StackAction.RemoveEffect(id(62))) to HistoryIcon.LAYERS_CLEAR,
+            PlayAction.Combat(CombatAction.SetAttackTarget(id(60), id(61), id(36))) to HistoryIcon.GPS_FIXED)
+        for ((action, icon) in expected) {
+            val recorded = HistoryGrouping.classify(action, initial.board.containers, transition(action, CURRENT_GAMEPLAY_RULES_VERSION))
+            assertEquals(icon, recorded.icon, "$action")
+            assertEquals(HistoryGrouping.classify(action, initial.board.containers, transition(action, 33)).copy(icon = icon), recorded)
+            draw(icon)
+        }
+        present(chain(expected.map { it.first }, CURRENT_GAMEPLAY_RULES_VERSION, true))
+    }
+
     @Test fun everyIconDrawsAndUnknownNamesDecodeToANeutralDot() {
         for (icon in HistoryIcon.entries) draw(icon)
         val semantic = HistorySemantic(HistorySignificance.PING, HistoryIcon.ADS_CLICK)

@@ -6,7 +6,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
-const val CURRENT_GAMEPLAY_RULES_VERSION = 33
+const val CURRENT_GAMEPLAY_RULES_VERSION = 34
 /** Highest socket protocol minor this build speaks. 1: the opponent's presence on heads and [GamePresenceUpdate].
  *  2: servers understand [GameCommand.expectedSelection]; clients send it only after a welcome with minor >= 2.
  *  Clients offer it as [GameHello.maxMinor]; servers send minor-1 data only to sockets that offered it. */

@@ -357,6 +357,20 @@ internal fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.
     HistoryIcon.DELETE_SWEEP -> Icons.Outlined.DeleteSweep
     HistoryIcon.BLOCK -> Icons.Outlined.Block
     HistoryIcon.LIBRARY_BOOKS -> Icons.AutoMirrored.Outlined.LibraryBooks
+    HistoryIcon.HEART_BROKEN -> Icons.Outlined.HeartBroken
+    HistoryIcon.EXPOSURE_NEG_1 -> Icons.Outlined.ExposureNeg1
+    HistoryIcon.EXPOSURE_ZERO -> Icons.Outlined.ExposureZero
+    HistoryIcon.ARROW_CIRCLE_UP -> Icons.Outlined.ArrowCircleUp
+    HistoryIcon.ARROW_CIRCLE_DOWN -> Icons.Outlined.ArrowCircleDown
+    HistoryIcon.TRENDING_UP -> Icons.AutoMirrored.Outlined.TrendingUp
+    HistoryIcon.TRENDING_DOWN -> Icons.AutoMirrored.Outlined.TrendingDown
+    HistoryIcon.LOCAL_FIRE_DEPARTMENT -> Icons.Outlined.LocalFireDepartment
+    HistoryIcon.HEALING -> Icons.Outlined.Healing
+    HistoryIcon.ARROW_FORWARD -> Icons.AutoMirrored.Outlined.ArrowForward
+    HistoryIcon.SKIP_NEXT -> Icons.Outlined.SkipNext
+    HistoryIcon.VISIBILITY_OFF -> Icons.Outlined.VisibilityOff
+    HistoryIcon.CHECK -> Icons.Outlined.Check
+    HistoryIcon.GPS_FIXED -> Icons.Outlined.GpsFixed
     HistoryIcon.SWORDS -> null
     HistoryIcon.UNKNOWN -> Icons.Outlined.FiberManualRecord
 }
@@ -371,6 +385,11 @@ internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.FLIP_TO_FRONT -> "▤"; HistoryIcon.LINK -> "∞"; HistoryIcon.LINK_OFF -> "∦"; HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "⊖"
     HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "▰"; HistoryIcon.INBOX -> "⊔"; HistoryIcon.SWAP_HORIZ -> "⇄"
     HistoryIcon.SPACE_DASHBOARD -> "▦"; HistoryIcon.DELETE_SWEEP -> "⌫"; HistoryIcon.BLOCK -> "⊘"; HistoryIcon.LIBRARY_BOOKS -> "▥"
+    HistoryIcon.HEART_BROKEN -> "♡"; HistoryIcon.EXPOSURE_NEG_1 -> "−1"; HistoryIcon.EXPOSURE_ZERO -> "0"
+    HistoryIcon.ARROW_CIRCLE_UP -> "⇑"; HistoryIcon.ARROW_CIRCLE_DOWN -> "⇓"; HistoryIcon.TRENDING_UP -> "↗"
+    HistoryIcon.TRENDING_DOWN -> "↘"; HistoryIcon.LOCAL_FIRE_DEPARTMENT -> "♨"; HistoryIcon.HEALING -> "✚"
+    HistoryIcon.ARROW_FORWARD -> "→"; HistoryIcon.SKIP_NEXT -> "⇥"; HistoryIcon.VISIBILITY_OFF -> "◌"; HistoryIcon.CHECK -> "✓"
+    HistoryIcon.GPS_FIXED -> "⌖"
     HistoryIcon.UNKNOWN -> "•"
 }
 

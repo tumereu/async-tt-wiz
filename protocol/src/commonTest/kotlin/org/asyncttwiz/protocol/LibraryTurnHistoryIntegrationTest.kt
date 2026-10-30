@@ -58,15 +58,15 @@ class LibraryTurnHistoryIntegrationTest {
         val display = view.transition.contents!!.to!!
         assertEquals(current.board.containers.first().cards.take(2), display.cardIds)
         assertTrue(display.facesVisibleTo(id(7))); assertFalse(display.facesVisibleTo(id(8)))
-        accept(PlayAction.DismissContents(display.id), true, "closure", 6, "close")
+        accept(PlayAction.DismissContents(display.id), true, "closure", 6, "visibility_off")
         assertTrue(current.board.contentsDisplays.isEmpty())
         // Rules v29: a panel close is its own history step; nothing joins it.
         val reveal = accept(PlayAction.ShowContents(id(10), ContentsSelection.BOTTOM, 2, reveal = true), true, "view", 7, "visibility")
         val revealed = reveal.transition.contents!!.to!!
         assertEquals(current.board.containers.first().cards.takeLast(2), revealed.cardIds)
         assertTrue(revealed.facesVisibleTo(id(8)))
-        accept(PlayAction.DismissContents(revealed.id), true, "closure", 8, "close")
-        val turn = accept(PlayAction.EndTurn, true, "leading", 9, "outlined_flag")
+        accept(PlayAction.DismissContents(revealed.id), true, "closure", 8, "visibility_off")
+        val turn = accept(PlayAction.EndTurn, true, "leading", 9, "skip_next")
         assertEquals(HistorySignificance.TURN_TRANSITION, turn.grouping!!.significance)
         assertEquals(TurnState(id(8), "2"), current.board.turn)
         val die = accept(PlayAction.RollDie(6, 4), true, "random", 10, "casino")
@@ -74,7 +74,7 @@ class LibraryTurnHistoryIntegrationTest {
         val coin = accept(PlayAction.FlipCoin(CoinFace.TAILS), false, "random", 10, "casino")
         assertEquals("monetization_on", coin.grouping!!.icon.wire)
         assertEquals(GameplayRandomResult(RandomTool.COIN, "TAILS"), coin.transition.random)
-        accept(PlayAction.SetPlayerCounter(id(7), CounterColor.BLUE, "3"), false, "edit", 12, "exposure_plus_1")
+        accept(PlayAction.SetPlayerCounter(id(7), CounterColor.BLUE, "3"), false, "edit", 12, "arrow_circle_up")
         val draw = accept(LibraryActions.draw(current.board, id(10), id(11), 1).single(), true, "move", 13, "download")
         assertEquals("${id(10)}/${id(11)}", draw.grouping!!.key)
         accept(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), false, "move", 13, "download")
@@ -93,7 +93,7 @@ class LibraryTurnHistoryIntegrationTest {
         val result = GameplayRules.change(cleanup, id(7), command(PlayAction.NextStep, 1))
         assertEquals("accepted", result.outcome)
         assertEquals(HistorySignificance.TURN_TRANSITION, result.mutation!!.grouping!!.significance)
-        assertEquals("outlined_flag", result.mutation.grouping.icon.wire)
+        assertEquals("skip_next", result.mutation.grouping.icon.wire)
         assertEquals(result, GameplayHistory.replay(cleanup, result.mutation))
         val reference = EventReference(initial.id, initial.currentNodeId)
         for (action in listOf(PlayAction.EventComment(reference, "comment"),

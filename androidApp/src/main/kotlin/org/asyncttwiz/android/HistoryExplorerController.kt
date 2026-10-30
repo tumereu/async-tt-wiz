@@ -43,7 +43,13 @@ internal fun historyIconLabel(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "Mark Stack text"; HistoryIcon.EMOJI_EVENTS -> "Result suggestion"
     HistoryIcon.INBOX -> "Temporary pile"; HistoryIcon.SWAP_HORIZ -> "Stack controller"
     HistoryIcon.SPACE_DASHBOARD -> "To battlefield"; HistoryIcon.DELETE_SWEEP -> "To graveyard"; HistoryIcon.BLOCK -> "To exile"
-    HistoryIcon.LIBRARY_BOOKS -> "To library"; HistoryIcon.UNKNOWN -> "Change"
+    HistoryIcon.LIBRARY_BOOKS -> "To library"; HistoryIcon.HEART_BROKEN -> "Life loss"
+    HistoryIcon.EXPOSURE_NEG_1 -> "Counter removed"; HistoryIcon.EXPOSURE_ZERO -> "Counters cleared"
+    HistoryIcon.ARROW_CIRCLE_UP -> "Player counter up"; HistoryIcon.ARROW_CIRCLE_DOWN -> "Player counter down"
+    HistoryIcon.TRENDING_UP -> "Power/toughness up"; HistoryIcon.TRENDING_DOWN -> "Power/toughness down"
+    HistoryIcon.LOCAL_FIRE_DEPARTMENT -> "Damage"; HistoryIcon.HEALING -> "Damage removed"
+    HistoryIcon.ARROW_FORWARD -> "Next step"; HistoryIcon.SKIP_NEXT -> "Next turn"; HistoryIcon.VISIBILITY_OFF -> "Close view"
+    HistoryIcon.CHECK -> "Close combat"; HistoryIcon.GPS_FIXED -> "Attack target"; HistoryIcon.UNKNOWN -> "Change"
 }
 
 data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<String>,

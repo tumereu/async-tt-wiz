@@ -94,6 +94,74 @@ object HistoryGrouping {
      * [HistorySignificance.STEP_PASSED], joins like any step change and never ends a group (not even Declare
      * blockers), so the whole advance stays one group. */
     const val STEP_RUN_RULES_VERSION = StepRun.RULES_VERSION
+    /** From this gameplay rules version an edit's icon shows the direction of the change and step, turn, view-close,
+     * combat-close and attack-target events get their own icons (see [directionIcon]); events recorded earlier keep
+     * the icons they were recorded with. Only the icon changes: significance, keys and grouping are as before. */
+    const val DIRECTION_ICONS_RULES_VERSION = 34
+
+    /** Rules v34 icon for [action], or null where the earlier icon stays. Adjustments read their delta's sign;
+     * absolute Set edits compare the recorded old and new value (empty counts as 0, P/T as power + toughness).
+     * An unchanged or non-numeric value reads as an increase. */
+    internal fun directionIcon(action: PlayAction, transition: GameplayTransition): HistoryIcon? {
+        val down by lazy { direction(action, transition) < 0 }
+        fun pick(up: HistoryIcon, decrease: HistoryIcon) = if (down) decrease else up
+        val turnChanged = transition.fields.any { it.field == GameplayField.TURN_PLAYER }
+        return when (action) {
+            is PlayAction.SetLife, is PlayAction.AdjustLife -> pick(HistoryIcon.FAVORITE, HistoryIcon.HEART_BROKEN)
+            is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter ->
+                pick(HistoryIcon.ARROW_CIRCLE_UP, HistoryIcon.ARROW_CIRCLE_DOWN)
+            is PlayAction.SetCounter -> if (action.target == CounterTarget.PLAYER)
+                pick(HistoryIcon.ARROW_CIRCLE_UP, HistoryIcon.ARROW_CIRCLE_DOWN)
+                else pick(HistoryIcon.EXPOSURE_PLUS_1, HistoryIcon.EXPOSURE_NEG_1)
+            is PlayAction.AdjustCounter -> if (action.target == CounterTarget.PLAYER)
+                pick(HistoryIcon.ARROW_CIRCLE_UP, HistoryIcon.ARROW_CIRCLE_DOWN)
+                else pick(HistoryIcon.EXPOSURE_PLUS_1, HistoryIcon.EXPOSURE_NEG_1)
+            is PlayAction.ClearCardCounter -> HistoryIcon.EXPOSURE_ZERO
+            is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner ->
+                pick(HistoryIcon.TRENDING_UP, HistoryIcon.TRENDING_DOWN)
+            is PlayAction.SetDamage, is PlayAction.AdjustDamage -> pick(HistoryIcon.LOCAL_FIRE_DEPARTMENT, HistoryIcon.HEALING)
+            PlayAction.EndTurn -> HistoryIcon.SKIP_NEXT
+            PlayAction.NextStep, is PlayAction.ChooseStep -> if (turnChanged) HistoryIcon.SKIP_NEXT else HistoryIcon.ARROW_FORWARD
+            is PlayAction.DismissContents -> HistoryIcon.VISIBILITY_OFF
+            is PlayAction.Combat -> when (action.action) {
+                is CombatAction.Close -> HistoryIcon.CHECK
+                is CombatAction.SetAttackTarget -> HistoryIcon.GPS_FIXED
+                else -> null
+            }
+            else -> null
+        }
+    }
+
+    /** Sign of a numeric edit: negative for a decrease, positive for an increase, 0 when unchanged or unknown. */
+    private fun direction(action: PlayAction, transition: GameplayTransition): Int {
+        fun sign(delta: String) = ManualText.number(delta)?.sign() ?: 0
+        when (action) {
+            is PlayAction.AdjustLife -> return sign(action.delta)
+            is PlayAction.AdjustPlayerCounter -> return sign(action.delta)
+            is PlayAction.AdjustCounter -> return sign(action.delta)
+            is PlayAction.AdjustDamage -> return sign(action.delta)
+            is PlayAction.AdjustCorner -> return action.delta.sign()
+            is PlayAction.AdjustEotCorner -> return action.delta.sign()
+            else -> Unit
+        }
+        val change = transition.fields.firstOrNull { it.field in NUMERIC_FIELDS } ?: return 0
+        val pt = change.field == GameplayField.CORNER || change.field == GameplayField.EOT_CORNER
+        val from = amount(change.from, pt) ?: return 0
+        val to = amount(change.to, pt) ?: return 0
+        return to.compareTo(from)
+    }
+    private val NUMERIC_FIELDS = setOf(GameplayField.LIFE, GameplayField.COUNTER, GameplayField.PLAYER_COUNTER,
+        GameplayField.CORNER, GameplayField.EOT_CORNER, GameplayField.DAMAGE)
+    /** Empty counts as 0; a P/T "a/b" counts as a + b, so a change on both sides at once reads by its sum. */
+    private fun amount(text: String?, pt: Boolean): Long? {
+        val value = text?.trim().orEmpty()
+        if (value.isEmpty()) return 0
+        val parts = value.split('/')
+        if (pt && parts.size == 2) return (ManualText.number(parts[0]) ?: return null) + (ManualText.number(parts[1]) ?: return null)
+        return ManualText.number(value)
+    }
+    private fun Long.sign(): Int = compareTo(0)
+    private fun Int.sign(): Int = compareTo(0)
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
@@ -108,7 +176,7 @@ object HistoryGrouping {
         val targetIcons = transition != null && transition.rulesVersion >= MOVE_TARGET_ICONS_RULES_VERSION
         // Passed steps exist from rules v33 only; under older rules a step choice is ordinary step tracking.
         val stepRun = transition != null && transition.rulesVersion >= STEP_RUN_RULES_VERSION
-        val semantic = when (action) {
+        val recorded = when (action) {
         is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.FLAG)
         is PlayAction.DeclineResult, is PlayAction.WithdrawResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.CLOSE)
         PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, HistoryIcon.OUTLINED_FLAG)
@@ -209,6 +277,8 @@ object HistoryGrouping {
             }
         }
         }
+        val semantic = if (transition != null && transition.rulesVersion >= DIRECTION_ICONS_RULES_VERSION)
+            directionIcon(action, transition)?.let { recorded.copy(icon = it) } ?: recorded else recorded
         val versioned = if (transition?.rulesVersion?.let { it >= 13 } == true) semantic.copy(rulesVersion = 2,
             untap = action is PlayAction.SetTapped && !action.tapped || transition.fields.any {
                 it.field == GameplayField.TAPPED && it.to == "false" } && action !is PlayAction.MoveCard && action !is PlayAction.Mulligan,

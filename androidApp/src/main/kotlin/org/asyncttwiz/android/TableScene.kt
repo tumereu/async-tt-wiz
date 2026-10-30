@@ -174,7 +174,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (card != null && permitted != null) {
                         inspectedCard = card
                         inspector.open(InspectedCard.retained(card.definition, permitted),
-                            permitted.faces.indexOfFirst { it.faceId == card.faceId })
+                            permitted.faces.indexOfFirst { it.faceId == card.faceId }, flippedOnTable(state.definitions.firstOrNull { it.digest == card.definition }?.definition ?: permitted, card.faceId))
                     }
                 }
                 is TableIntent.Ping -> {

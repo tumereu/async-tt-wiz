@@ -25,10 +25,12 @@ import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
     val projection: Boolean, val frozen: Boolean = false, val textMarks: Set<Int> = emptySet())
-/** [emptyLane] marks the one drop covering a whole empty attack-target lane row; it is never narrowed. */
+/** [emptyLane] marks the one drop covering a whole empty attack-target lane row. [exact] regions keep their
+ * bounds on the table (empty lanes and one-sided pair-edge gaps); other new-pair gaps narrow to a screen tolerance.
+ * Only the outermost drop on each side extends beyond the area's ends ([extendLeft]/[extendRight]). */
 data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination,
     val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center,
-    val emptyLane: Boolean = false) {
+    val emptyLane: Boolean = false, val exact: Boolean = emptyLane) {
     fun contains(point: TablePoint) = point.y >= bounds.y && point.y < bounds.bottom &&
         (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
 }
@@ -161,8 +163,10 @@ object CombatStackPresentation {
         fun rowY(role: CombatRole) = if (mirrored) { if (role == CombatRole.ATTACKER) 0f else rowHeight }
             else labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
         var x = 0f
+        // [left]/[right]: a margin-wide gap just inside the pair starting/ending at [at], never narrowed;
+        // [extend]: it also catches drops beyond that end of the area (only when nothing lies further out).
         fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false,
-            lanePair: String? = before ?: after) {
+            lanePair: String? = before ?: after, extend: Boolean = false) {
             // Display grouping can make two visual neighbors nonadjacent in recorded pair order.
             val anchor = area.pairs.indexOfFirst { it.id == after }
             val gap = if (anchor >= 0) IdentityGap(after, area.pairs.getOrNull(anchor + 1)?.id) else {
@@ -174,8 +178,8 @@ object CombatStackPresentation {
                 val y = rowY(role)
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
                     TableBounds(at - if (left) 0f else if (right) margin else 12f, y, if (left || right) margin else 24f, rowHeight),
-                    CombatDestination(area.id, role, pairGap = gap, attackTarget = target), left, right,
-                    TablePoint(at, y + rowHeight / 2))
+                    CombatDestination(area.id, role, pairGap = gap, attackTarget = target), left && extend, right && extend,
+                    TablePoint(at, y + rowHeight / 2), exact = left || right)
             }
         }
         val edges = mutableListOf<Pair<Float, Float>>() // each laid-out pair's left and right x, in display order
@@ -223,13 +227,15 @@ object CombatStackPresentation {
         }
         if (pairs.isNotEmpty()) {
             for (index in 1 until pairs.size) {
-                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first)
-                // An empty lane between two pairs: the earlier pair's own right edge is a slot boundary too.
-                if (edges[index - 1].second != edges[index].first)
-                    insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
+                // An empty lane between two pairs keeps both pair edges one-sided, so the whole empty lane
+                // stays its own drop (a centered gap tolerance would reach into it).
+                val apart = kotlin.math.abs(edges[index - 1].second - edges[index].first) > .01f
+                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first, left = apart)
+                if (apart) insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
             }
-            insertion(null, pairs.first().id, edges.first().first, left = true)
-            insertion(pairs.last().id, null, edges.last().second, right = true)
+            // The area's end gaps extend outward only when no empty lane lies beyond them.
+            insertion(null, pairs.first().id, edges.first().first, left = true, extend = edges.first().first < .01f)
+            insertion(pairs.last().id, null, edges.last().second, right = true, extend = edges.last().second > x - .01f)
         }
         return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
             lanes.map { it.copy(bounds = it.bounds.copy(y = if (mirrored) rowHeight * 2 else 0f, height = labelHeight)) },

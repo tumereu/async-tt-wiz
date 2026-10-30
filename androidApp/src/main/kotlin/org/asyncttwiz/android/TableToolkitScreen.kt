@@ -267,11 +267,10 @@ internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, vi
 private fun AttackTargetRow(play: PlayState, cardId: String?, label: String, defender: AccountIdentity?,
     current: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val ink = MenuInk.copy(alpha = if (enabled || current) 1f else .38f)
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).heightIn(min = 44.dp)
-        .border(if (current) 2.dp else 1.dp, if (current) OwnTableColor else MenuBorder, MaterialTheme.shapes.extraSmall)
-        .ringInputTarget().pressFeedback(enabled).clickable(enabled = enabled, onClick = onClick)
-        .semantics { contentDescription = "Attack $label${if (current) ", current target" else ""}" }
-        .padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The same opaque, bordered, shadowed cell as every other floating popup control; the gaps stay outside.
+    RingPress(MenuControl("Attack $label${if (current) ", current target" else ""}", enabled, selected = current, click = onClick),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp), LocalInlinePopupColor.current) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         val card = cardId?.let { id -> play.board.cards.find { it.id == id } }
         if (card == null) {
             if (defender != null) Avatar(defender, size = 32.dp)
@@ -284,5 +283,6 @@ private fun AttackTargetRow(play: PlayState, cardId: String?, label: String, def
         Text(label, Modifier.weight(1f).padding(start = 8.dp), color = ink, fontSize = 13.sp, lineHeight = 15.sp,
             fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (current) Icon(menuIcon("Accept"), null, Modifier.size(18.dp), tint = OwnTableColor)
+    }
     }
 }

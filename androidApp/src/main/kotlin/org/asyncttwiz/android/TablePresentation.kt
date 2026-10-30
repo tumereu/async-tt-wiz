@@ -582,7 +582,7 @@ object TablePresentation {
             val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
             val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
                 it.destination.insertion == CombatInsertion.APPEND }.minOfOrNull { it.bounds.width * zoom / 2 - .01f } ?: 12f)
-            region.copy(bounds = if (region.destination.pairId == null && !region.extendLeft && !region.extendRight && !region.emptyLane)
+            region.copy(bounds = if (region.destination.pairId == null && !region.exact)
                 row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }

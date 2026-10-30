@@ -1,0 +1,1 @@
+fix: The choices in the "Attack" menu now have a solid background, so the table no longer shows through them.

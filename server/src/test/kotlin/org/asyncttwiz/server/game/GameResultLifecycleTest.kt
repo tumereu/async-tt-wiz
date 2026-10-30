@@ -179,6 +179,49 @@ class GameResultLifecycleTest {
         }
     }
 
+    @Test fun `show deck is a per game per player lobby flag kept across plays and hidden again in a new game`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                val bId = f.b.account.accountId
+                fun shown(viewer: AccountService.Principal = f.a) =
+                    f.games.head(viewer, f.game.id).preparation!!.players.associate { it.accountId to it.deckShown }
+                // The lobby toggle is not a gameplay action: an active game refuses it.
+                assertEquals("lifecycleEnded", f.other.execute(GameAction.ShowDeck(true)).reason)
+                f.owner.execute(f.suggestion())
+                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                assertEquals("accepted", f.other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+                assertEquals(setOf(false), shown().values.toSet(), "Hidden by default")
+                assertFalse("deckShown" in GameWire.encode(f.games.head(f.a, f.game.id)))
+                f.owner.execute(GameAction.Ready)
+                assertEquals("accepted", f.other.execute(GameAction.ShowDeck(true)).outcome)
+                for (viewer in listOf(f.a, f.b)) assertEquals(mapOf(f.a.account.accountId to false, bId to true), shown(viewer))
+                assertTrue(f.games.head(f.a, f.game.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.ready,
+                    "Showing a deck never withdraws Ready")
+                assertEquals(1, count(db, "SELECT count(*) FROM player_preparation WHERE deck_shown AND account_id = '$bId'"))
+                val revision = f.games.revisions(f.a, f.game.id, "0").revisions.last()
+                assertTrue(revision.preparation!!.players.single { it.accountId == bId }.deckShown)
+                // Kept for the next play of the same game, through the start and the return to the lobby.
+                f.other.execute(GameAction.Ready)
+                assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
+                f.owner.execute(f.suggestion())
+                val next = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                assertEquals("accepted", f.other.execute(GameAction.AcceptResult(next.id)).outcome)
+                assertTrue(shown().getValue(bId))
+                // It can be switched off again.
+                assertEquals("accepted", f.other.execute(GameAction.ShowDeck(false)).outcome)
+                assertFalse(shown().getValue(bId))
+                assertEquals("accepted", f.other.execute(GameAction.ShowDeck(true)).outcome)
+                // A new game between the same players starts hidden.
+                val fresh = GameWire.json.decodeFromString<GameSummary>(LobbyService(f.runtime).create(f.a,
+                    CreateInvitation(id(), bId, "Fresh game")).body)
+                val freshOwner = Stream(f.games, f.a, fresh.id)
+                freshOwner.execute(GameAction.SelectDeck(f.source.deck.id, f.source.deck.revision))
+                assertTrue(f.games.head(f.a, fresh.id).preparation!!.players.none { it.deckShown })
+            }
+        }
+    }
+
     @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -344,7 +387,9 @@ class GameResultLifecycleTest {
             assertEquals(2, count("SELECT count(*) FROM player_preparation WHERE game_id='$gameId'"))
             assertEquals(1, count("SELECT count(*) FROM game_inbox WHERE request_id='$request' AND result='${GameWire.json.encodeToString(original)}'"))
             // V41 (rules v29 library layers) then deletes the started game with everything that belongs to it.
-            assertEquals(1, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
+            assertEquals(1, Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("41").load()
+                .migrate().migrationsExecuted)
+            FoundationMigrations.migrate(db.settings); assertEquals(0, FoundationMigrations.migrate(db.settings))
             for (table in listOf("game", "game_play", "player_preparation", "game_inbox", "game_definition", "invitation"))
                 assertEquals(0, count("SELECT count(*) FROM $table"), table)
             assertEquals(2, count("SELECT count(*) FROM account"))

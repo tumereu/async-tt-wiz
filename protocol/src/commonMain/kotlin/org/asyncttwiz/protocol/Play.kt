@@ -236,6 +236,11 @@ object StartRules {
             }
             // Concerns later plays only, so nobody's Ready is withdrawn.
             is GameAction.SetAlternateStarter -> PreparationChange(current.copy(alternateStarter = action.enabled))
+            // Display only: nobody's Ready is withdrawn. The server fills a shown pod deck's private name.
+            is GameAction.ShowDeck -> PreparationChange(current.copy(players = current.players.map {
+                if (it.accountId == actor) it.copy(deckShown = action.shown, shownPodDeckName = it.shownPodDeckName.takeIf { action.shown })
+                else it
+            }))
             GameAction.Ready -> when {
                 player.deck == null -> reject("deckRequired")
                 PodGamePreparation.readyProblem(current, actor) != null -> reject(PodGamePreparation.readyProblem(current, actor)!!)

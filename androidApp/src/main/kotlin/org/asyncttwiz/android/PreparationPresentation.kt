@@ -4,12 +4,14 @@ import org.asyncttwiz.protocol.*
 
 data class TransferFeedback(val serial: Long, val text: String)
 
-/** Names are trusted-client presentation only; never expose another player's game deck title. */
-internal fun gameDeckName(owner: String, viewer: String?, name: String): String =
-    if (owner == viewer) name else "Deck"
+/** Another player's game deck title stays "Deck" unless that player shows it ([PlayerPreparation.deckShown]).
+ * A shown pod deck uses its private name, which the server sends only while the deck is shown. */
+internal fun gameDeckName(owner: String, viewer: String?, name: String, shown: Boolean = false, shownPodName: String? = null): String =
+    if (owner == viewer) name else if (shown) shownPodName ?: name else "Deck"
 
-/** The cover art identifies a deck as much as its title: another player's stays a neutral placeholder. */
-internal fun gameDeckCover(owner: String, viewer: String?, cover: String?): String? = cover?.takeIf { owner == viewer }
+/** The cover art identifies a deck as much as its title: another player's stays a neutral placeholder unless shown. */
+internal fun gameDeckCover(owner: String, viewer: String?, cover: String?, shown: Boolean = false): String? =
+    cover?.takeIf { owner == viewer || shown }
 
 /** Compare displayed membership, not submitted quantity or receipt counts. Includes reconciliation. */
 internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparation?, actor: String?,

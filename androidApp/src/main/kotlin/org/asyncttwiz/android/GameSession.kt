@@ -457,7 +457,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (action == GameAction.DeleteGame) return deleteGame(game)
         if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
-            action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics ||
+            action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics || action is GameAction.ShowDeck ||
             action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
         if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
@@ -591,7 +591,7 @@ class GameSession(private val connection: GameConnection, private val credential
         else StartRules.change(game, base, actor, scope, action)
 
     fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
-        if (action !is GameAction.SetStarter && action !is GameAction.SetAlternateStarter && action !is GameAction.SetPodGameBasics &&
+        if (action !is GameAction.SetStarter && action !is GameAction.SetAlternateStarter && action !is GameAction.SetPodGameBasics && action !is GameAction.ShowDeck &&
             action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false

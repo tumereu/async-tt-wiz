@@ -1,0 +1,1 @@
+add: In a game's setup you can switch on "Show deck name & art" so your opponent sees your deck's name and cover.

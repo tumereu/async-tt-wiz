@@ -457,7 +457,9 @@ each with a sticky header and count. Trash starts expanded (it is last).
   characters, nonblank, no controls), including after submission. PodDetail returns
   only the caller's deckName. Challenges snapshot each name in owner-only game-head
   metadata (ownPodDeckName), never shared decks, revisions or replay events; it
-  survives pod deletion and labels the owner's lobby and game deck only.
+  survives pod deletion and labels the owner's lobby and game deck only — unless
+  the owner switches on **Show deck name & art** for that game (GameAction.ShowDeck):
+  while on, the shared preparation carries it as PlayerPreparation.shownPodDeckName.
 
 ### Stats
 

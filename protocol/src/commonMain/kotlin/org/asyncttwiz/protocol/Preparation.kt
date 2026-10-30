@@ -17,7 +17,12 @@ import kotlinx.serialization.Serializable
             entry.definition, entry.section)
     }
 }
-@Serializable data class PlayerPreparation(val accountId: String, val ready: Boolean = false, val deck: PreparedDeck? = null)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class PlayerPreparation(val accountId: String, val ready: Boolean = false, val deck: PreparedDeck? = null,
+    /** The player shows this game's deck name and cover to the opponent ([GameAction.ShowDeck]). Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deckShown: Boolean = false,
+    /** Pod games only, while [deckShown]: the player's private pod deck name, filled by the server. Omitted otherwise. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val shownPodDeckName: String? = null)
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
     val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList(),

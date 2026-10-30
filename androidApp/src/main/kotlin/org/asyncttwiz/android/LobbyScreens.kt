@@ -177,6 +177,8 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
                         PreparedSummary(state.preparation, accountId, accountId, state.ownPodDeckName)
+                        if (ownPlayer?.deck != null) ShowDeckChip(ownPlayer.deckShown,
+                            enabled = game.lifecycle == GameLifecycle.LOBBY, onChange = controller::showDeck)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                              // Lobby actions stay enabled while the connection (re)opens; taps run once it is ready.
                              if (game.podId == null && state.preparation?.podRules == null) ScreenOutlinedButton(onClick = controller::chooseDeck,
@@ -325,6 +327,15 @@ private fun PlayerReadiness(account: AccountIdentity, ready: Boolean) {
     }
 }
 
+/** Own deck only: on, the opponent sees this game's deck name and cover instead of the neutral placeholder. */
+@Composable
+internal fun ShowDeckChip(shown: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    FilterChip(selected = shown, onClick = { onChange(!shown) }, enabled = enabled,
+        label = { Text("Show deck name & art") },
+        modifier = Modifier.semantics { contentDescription = "Show deck name and art to opponent" },
+        leadingIcon = if (shown) ({ Icon(Icons.Outlined.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }) else null)
+}
+
 @Composable
 internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, viewer: String?, ownPodDeckName: String? = null) {
     val player = preparation?.players?.find { it.accountId == accountId }
@@ -334,7 +345,7 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
         if (player?.ready != true) Text("No deck selected", style = MaterialTheme.typography.bodyMedium)
     } else {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val cover = gameDeckCover(accountId, viewer, deck.cover)
+            val cover = gameDeckCover(accountId, viewer, deck.cover, player?.deckShown == true)
             val definition = cover?.let { digest -> preparation.definitions.find { it.digest == digest }?.definition }
             val face = definition?.faces?.firstOrNull()
             if (cover != null && face != null) {
@@ -342,7 +353,7 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
                     48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
             } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
             Column {
-                Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name, player?.deckShown == true, player?.shownPodDeckName), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

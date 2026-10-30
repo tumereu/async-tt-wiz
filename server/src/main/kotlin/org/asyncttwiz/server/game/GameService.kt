@@ -303,7 +303,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
             is GameAction.SetPodGameBasics -> applyPodBasics(sql, game, inbox.accountId!!, command)
-            is GameAction.SetStarter, is GameAction.SetAlternateStarter, GameAction.Ready, GameAction.WithdrawReady ->
+            is GameAction.SetStarter, is GameAction.SetAlternateStarter, is GameAction.ShowDeck, GameAction.Ready, GameAction.WithdrawReady ->
                 applyReadiness(sql, game, inbox.accountId!!, command)
             else -> applyInvitation(sql, game, inbox.accountId!!, command)
         }

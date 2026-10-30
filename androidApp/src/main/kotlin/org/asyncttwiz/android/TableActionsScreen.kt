@@ -97,12 +97,9 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
         val choices = if (zone == PlayZone.LIBRARY) listOf(false, true) else listOf(false)
         for (bottom in choices) {
             val label = moveZoneLabel(zone, bottom)
-            // The destination cell is captured by this rendered control, not recomputed in a later callback.
-            val destination = if (zone == PlayZone.BATTLEFIELD) {
-                val occupied = play.board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
-                val column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }
-                TableDestination.Grid(target.id, column, 0, ownerOnly = true)
-            } else TableDestination.Container(target.id, zone, bottom)
+            // Battlefield: no cell is chosen here; each card takes its normal row's first free cell when sent.
+            val destination = if (zone == PlayZone.BATTLEFIELD) TableDestination.Grid.auto(target.id)
+                else TableDestination.Container(target.id, zone, bottom)
             add(MenuControl(label, enabled && currentZone != zone) { if (request(TableIntent.Move(scope, destination, sources))) dismiss() })
         }
     }

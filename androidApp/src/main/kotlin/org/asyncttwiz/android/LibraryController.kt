@@ -104,7 +104,7 @@ class LibraryController(
             if (ids.any { id -> current.board.cards.singleOrNull { it.id == id }?.let {
                     CombatStackRules.canProject(current.board, it) } != true }) return LibrarySubmission(0, ids.size)
             TableDestination.Container(target.id, target.zone)
-        } else destination.position?.let { TableDestination.Grid(target.id, it.x, it.y, ownerOnly = true) } ?: return LibrarySubmission(0, ids.size)
+        } else destination.position?.let { TableDestination.Grid.auto(target.id) } ?: return LibrarySubmission(0, ids.size)
         return moveRequest?.invoke(TableIntent.Move(TableScope(ids.first(), ids), bound, sources, UUID.randomUUID().toString()))
             ?: LibrarySubmission(0, ids.size)
     }

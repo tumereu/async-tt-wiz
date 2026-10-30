@@ -283,7 +283,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         PlayAction.EndTurn -> turn("End turn")
         is PlayAction.ChooseStep -> turn("Choose step", action.position)
         is PlayAction.RollDie -> text("d${historyPlainText(action.sides)} → ${action.value}", "Roll d${historyPlainText(action.sides)}")
-        is PlayAction.FlipCoin -> text(action.value.name.lowercase().replaceFirstChar { it.uppercase() }, "Flip coin")
+        is PlayAction.FlipCoin -> text(coinResultText(action.value), "Flip coin")
         is PlayAction.MoveCard -> {
             val source = action.source.containerId
             val target = action.destination.containerId

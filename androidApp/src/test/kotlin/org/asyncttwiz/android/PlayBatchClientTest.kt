@@ -141,7 +141,8 @@ class PlayBatchClientTest {
             assertEquals(accepted.stateAt(accepted.currentNodeId), replica.display)
             val battlefield = replica.display!!.board.containers.single { it.id == f.container(PlayZone.BATTLEFIELD) }
             assertEquals(expected.toSet(), battlefield.cards.toSet()) // Battlefield membership is unordered.
-            assertEquals(listOf(BoardPosition(0, 0), BoardPosition(1, 0)), expected.map { id ->
+            // Round 34: nonland cards (the fixture's) go to the main row, each to the next free cell.
+            assertEquals(listOf(BoardPosition(0, 1), BoardPosition(1, 1)), expected.map { id ->
                 replica.display!!.board.cards.single { it.id == id }.placement!!.position })
         }
     }

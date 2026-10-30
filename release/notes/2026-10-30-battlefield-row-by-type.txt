@@ -1,0 +1,1 @@
+fix: Cards put onto the battlefield from a menu go to the land row only if they are lands; everything else goes to the main row

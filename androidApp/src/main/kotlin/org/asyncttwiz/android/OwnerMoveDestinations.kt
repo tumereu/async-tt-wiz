@@ -27,10 +27,8 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Ta
         } else destination
         is TableDestination.Grid -> if (destination.ownerOnly) {
             val target = board.containers.singleOrNull { it.zone == PlayZone.BATTLEFIELD && it.accountId == owner } ?: return destination
-            if (target.id == destination.containerId) destination else {
-                val occupied = board.cards.filter { it.containerId == target.id }.mapNotNull { it.placement?.position }.toSet()
-                destination.copy(containerId = target.id, column = generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }, row = 0)
-            }
+            // Redirected: no cell was chosen on that Battlefield, so each card takes its normal row's first free cell.
+            if (target.id == destination.containerId) destination else TableDestination.Grid.auto(target.id)
         } else destination
         else -> destination
     }

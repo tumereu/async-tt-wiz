@@ -1,0 +1,1 @@
+fix: When a player searches their graveyard or exile, the other player now sees those cards face up

@@ -36,7 +36,15 @@ sealed interface TableDestination {
     data class Container(val id: String, val zone: org.asyncttwiz.protocol.PlayZone,
         val bottom: Boolean = false, val handGap: org.asyncttwiz.protocol.IdentityGap? = null) : TableDestination
     data class CardPile(val cardId: String, val source: TableMoveSource? = null) : TableDestination
-    data class Grid(val containerId: String, val column: Int, val row: Int, val ownerOnly: Boolean = false) : TableDestination
+    /** [auto]: a menu move without a chosen cell; each card takes the first free cell of its own normal row
+     * ([org.asyncttwiz.protocol.BattlefieldPlacement]) and [column]/[row] are ignored. */
+    data class Grid(val containerId: String, val column: Int, val row: Int, val ownerOnly: Boolean = false,
+        val auto: Boolean = false) : TableDestination {
+        companion object {
+            /** "Battlefield" from a menu: the card owners' Battlefields, each card on its normal row. */
+            fun auto(containerId: String) = Grid(containerId, 0, 0, ownerOnly = true, auto = true)
+        }
+    }
     data class Combat(val destination: org.asyncttwiz.protocol.CombatDestination) : TableDestination
 }
 

@@ -276,10 +276,13 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
     }
 
-    @Test fun everydayDamageAndEotAdjustmentsBatchTheWholeSelection() {
+    @Test fun moreDamageAndEverydayEotAdjustmentsBatchTheWholeSelection() {
         render(multi = true)
-        compose.ringPage(1)
+        // Round 34: damage is rarely needed, so it is the last cell of More.
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Increase damage").assertIsDisplayed().performClick()
+        compose.ringPage(1)
+        compose.onNodeWithContentDescription("Increase damage").assertDoesNotExist()
         compose.onNodeWithContentDescription("Increase EOT P/T").assertIsDisplayed().performClick()
         val ids = listOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id)
         compose.runOnIdle {

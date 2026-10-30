@@ -293,7 +293,8 @@ class HistoryTextTest {
             GameplayFieldChange(id(2), GameplayField.PHASE, "BEGINNING", "BEGINNING"),
             GameplayFieldChange(id(2), GameplayField.STEP, "UPKEEP", "DRAW")))).description)
         assertEquals("d6 → 4", format(PlayAction.RollDie(6, 4)).description)
-        assertEquals("Heads", format(PlayAction.FlipCoin(CoinFace.HEADS)).description)
+        assertEquals("Heads / win", format(PlayAction.FlipCoin(CoinFace.HEADS)).description)
+        assertEquals("Tails / loss", format(PlayAction.FlipCoin(CoinFace.TAILS)).description)
         assertEquals("Comment: hello there", format(PlayAction.EventComment(EventReference(id(2), id(5)), "hello\nthere")).description)
     }
 

@@ -50,7 +50,7 @@ class TableEventFeedbackScreenshotTest {
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.onNodeWithText("d20 → 14").assertIsDisplayed()
         compose.onNodeWithText("d6 → 2").assertIsDisplayed()
-        compose.onNodeWithText("Heads").assertIsDisplayed()
+        compose.onNodeWithText("Heads / win").assertIsDisplayed()
         val file = File("build/outputs/roborazzi/table-rolls-both-players.png")
         requireNotNull(file.parentFile).mkdirs()
         compose.onRoot().captureRoboImage(file.path)

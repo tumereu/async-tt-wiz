@@ -1,5 +1,9 @@
 # Design documentation — high level to low level
 
+**Current behaviour lives in the [feature catalog](features/README.md)**; the
+direction is in the [roadmap](roadmap.md). The tiered design below is older and
+partly superseded: where it disagrees with the catalog, the catalog wins.
+
 Start with **[Tier 1: product and usability principles](design/01-product/overview.md)**.
 You should not need decision logs or an agent handoff to understand the app.
 
@@ -24,8 +28,8 @@ Decision history is retained in [docs/decisions.md](decisions.md).
 See the [self-hosting guide](../deploy/README.md) to play with another person.
 
 The [cubes, pods, and drafting design](design/03-contracts/cubes-pods-and-drafting.md)
-and [profiles and avatars](design/03-contracts/profiles-and-avatars.md) are approved
-feature additions (2026-10-26), not yet implemented. They cover collection cubes,
+and [profiles and avatars](design/03-contracts/profiles-and-avatars.md) are implemented
+feature additions (2026-10-26). They cover collection cubes,
 MTG set boosters, asynchronous 2–8-player drafting, deckbuilding, independent 1v1
 games within a pod, and player avatars.
 

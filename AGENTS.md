@@ -6,9 +6,8 @@ server. The app records and shows what happened; players interpret the rules.
 
 ## Goal right now
 
-Deliver a **working R1**: real app + real backend, features usable end to end.
-Working software first; UI polish comes later. Do not build anything outside the
-task you were given.
+Finish the Android client (see `docs/roadmap.md`) without breaking what already
+works. Do not build anything outside the task you were given.
 
 ## Where things are
 
@@ -19,12 +18,29 @@ task you were given.
 | `androidApp/` | Compose app (`org.asyncttwiz.android`) |
 | `server/` | Spring Boot server, Flyway migrations, jOOQ |
 | `e2e/` | Device/journey tests (optional; slow) |
-| `docs/design/` | The spec. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/` |
+| `docs/features/` | **Feature catalog**: every current behaviour, one line each, with IDs (`TBL-012`) |
+| `docs/roadmap.md` | Long-term product direction |
+| `docs/design/` | Older, larger spec. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/` |
 | `docs/design/02-experience/ui/` | UI mockups: `images/*.png` (portrait/landscape), `review.md` notes, `feedback.md` owner feedback |
 
-Read only the spec sections your task needs. The spec is large and partly
-over-specified; when it conflicts with simplicity, prefer the simplest behavior
-that satisfies the product overview, and mention the choice in your final reply.
+Read the catalog files your task touches before changing code. Read only the
+spec sections your task needs; where the spec and the catalog disagree, the
+catalog wins. Where neither says, ask rather than pick.
+
+## Protecting existing features
+
+- Every catalog entry is a feature the owner wants kept. A task changes or
+  removes an entry only when the task names that behaviour. If your work would
+  change any other entry, stop and ask instead of choosing.
+- When the owner approves a new or changed behaviour, update its catalog entry
+  in the same commit as the code.
+- Tests that protect an entry mention its ID in the test name or a comment
+  above it (`// TBL-012`). Changing or deleting such a test requires the entry
+  to change in the same commit.
+- Screenshot tests compare against committed images in
+  `androidApp/src/test/screenshots/`. Re-record only for an intended visual
+  change (`./scripts/gradle.sh :androidApp:testDebugUnitTest -Pscreenshots=record
+  --tests <Class>`) and list the changed images in your final reply.
 
 ## Rules
 
@@ -33,7 +49,8 @@ that satisfies the product overview, and mention the choice in your final reply.
   selection, open menus, review cursor) is purely local.
 - Write production code and proportionate tests (unit/integration for logic,
   server tests for endpoints). **Do not** write reports, evidence files, JSON
-  ledgers, coverage maps, validation scripts, or process documentation.
+  ledgers, coverage maps or process documentation. The feature catalog and the
+  build checks that guard it are the exception.
 - Do not edit files outside your task's scope; do not refactor unrelated code.
 - Build/test with `./scripts/gradle.sh <tasks>` (wraps gradlew for WSL). Useful
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
@@ -42,8 +59,8 @@ that satisfies the product overview, and mention the choice in your final reply.
 - If a check fails, fix the cause. If the same failure persists after two real
   attempts, or the failure is environmental (network, Docker, emulator), stop
   and report it instead of retrying.
-- Never weaken or delete a test just to make it pass, unless the test encodes
-  behavior your task explicitly changes.
+- Never weaken or delete a test just to make it pass. A test may change only
+  when it encodes behaviour your task names (see "Protecting existing features").
 - Every user-visible change gets a release note: one file per change,
   `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
   `mod: <text>` or `fix: <text>`. Plain words a player understands, no
@@ -51,4 +68,5 @@ that satisfies the product overview, and mention the choice in your final reply.
 - Commit your work on your current branch with a descriptive message when done.
   Do not push, merge, rebase other branches or touch other worktrees.
 - Finish with a short plain-text summary: what you built, what you tested, what
-  is still missing or uncertain. No more than ~20 lines.
+  is still missing or uncertain, and which catalog entries you added, changed or
+  removed. No more than ~20 lines.

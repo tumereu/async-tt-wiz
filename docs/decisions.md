@@ -1,3 +1,5 @@
+> Historical decision log. Current behaviour: [feature catalog](features/README.md).
+
 # 9. Decisions and open questions
 
 ## 9.1 Confirmed owner decisions

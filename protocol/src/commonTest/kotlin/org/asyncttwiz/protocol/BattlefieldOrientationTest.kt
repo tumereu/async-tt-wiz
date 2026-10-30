@@ -40,6 +40,22 @@ class BattlefieldOrientationTest {
         }
     }
 
+    /** The battlefield feels infinite: drags may place cards at negative columns, which the rules accept and replay. */
+    @Test fun battlefieldMovesAcceptNegativeColumnsAndReplayExactly() {
+        val root = inZone(PlayZone.BATTLEFIELD)
+        val card = root.board.cards.first()
+        val field = root.board.containers.single { it.zone == PlayZone.BATTLEFIELD }
+        val change = gameplayChange(root, PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+            MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(-4, 1))))
+        val next = assertNotNull(change.state, change.reason)
+        assertEquals(BoardPosition(-4, 1), next.board.cards.first().placement!!.position)
+        val event = assertNotNull(change.mutation)
+        assertEquals(next, GameplayHistory.apply(root, event))
+        assertEquals(root, GameplayHistory.unapply(next, event))
+        val decoded = GameWire.json.decodeFromString<GameplayMutation>(DeckJson.canonical(event))
+        assertEquals(next, GameplayHistory.apply(root, decoded))
+    }
+
     @Test fun legacyTappedCardsAreNormalizedByOtherNonBattlefieldMovesToo() {
         val root = inZone(PlayZone.HAND, tapped = true)
         val card = root.board.cards.first()

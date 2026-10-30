@@ -1,0 +1,1 @@
+fix: The battlefield no longer ends partway across the screen when you scroll left, and you can drop cards anywhere you can scroll to

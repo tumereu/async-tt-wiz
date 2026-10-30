@@ -1,0 +1,1 @@
+add: Draft Stats show how many cards of each type your deck has

@@ -17,6 +17,8 @@ internal data class PodStats(
     /** Main nonland copies per colored-symbol pattern of the front cost, most common first. */
     val pipPatterns: List<Pair<String, Int>> = emptyList(),
     val noPips: Int = 0,
+    /** Main copies per word of the front type line before the dash, basics included; most common first, zeros absent. */
+    val types: List<Pair<String, Long>> = emptyList(),
 )
 
 internal data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
@@ -29,6 +31,11 @@ private val podStatsSymbols = Regex("\\{([^{}]+)\\}")
 private val podStatsLand = Regex("\\bLand\\b", RegexOption.IGNORE_CASE)
 private val podStatsCreature = Regex("\\bCreature\\b", RegexOption.IGNORE_CASE)
 private val podStatsBasicTypes = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
+
+/** Each word of the front type line before the type/subtype dash: "Legendary Artifact Creature — Golem" gives three. */
+internal fun podStatsTypeWords(typeLine: String): List<String> =
+    typeLine.substringBefore(" // ").substringBefore('—').substringBefore(" - ")
+        .split(Regex("\\s+")).filter { it.isNotEmpty() }.distinct()
 
 internal fun podStatsIsLand(card: CardDefinition): Boolean =
     card.faces.firstOrNull()?.let { podStatsLand.containsMatchIn(it.typeLine) } == true
@@ -138,11 +145,15 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
     var missing = 0
     var colorlessLands = 0
     val patterns = mutableMapOf<String, Int>()
+    val types = mutableMapOf<String, Long>()
+    // Basics are counts, not drafted copies: "Basic Land — Plains" and so on.
+    if (build.basics.total > 0) for (word in podStatsTypeWords("Basic Land")) types[word] = (types[word] ?: 0) + build.basics.total
     for (entry in build.copies.filter { it.category == PodDeckCategory.MAIN }) {
         val copy = copies[entry.copyId]
         val card = copy?.definition?.let(definitions::get)
         val face = card?.faces?.firstOrNull()
         if (card == null || face == null) { missing++; continue }
+        for (word in podStatsTypeWords(face.typeLine)) types[word] = (types[word] ?: 0) + 1
         if (podStatsLand.containsMatchIn(face.typeLine)) {
             lands++
             val produced = podStatsLandColors(card)
@@ -164,7 +175,8 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
     }
     val listed = patterns.filterKeys { it.isNotEmpty() }.toList()
         .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
-    return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, listed, patterns[""] ?: 0)
+    val typeCounts = types.toList().sortedWith(compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first })
+    return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, listed, patterns[""] ?: 0, typeCounts)
 }
 
 internal fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->

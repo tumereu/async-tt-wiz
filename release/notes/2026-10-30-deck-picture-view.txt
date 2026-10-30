@@ -1,0 +1,1 @@
+mod: Saved decks and draft decks now show their cards as pictures, like when you prepare a deck for a game, and both views have a columns setting (3 by default).

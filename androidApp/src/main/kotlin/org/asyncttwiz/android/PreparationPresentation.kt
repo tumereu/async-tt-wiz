@@ -91,9 +91,17 @@ internal data class PreparationGroup(val type: PreparationTypeGroup, val tiles: 
 
 /** A section's moved cards (not stepper-supplied basics) by type group; empty groups are left out, tiles by name. */
 internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
-    definitions: Map<String, CardDefinition>): List<PreparationGroup> {
-    val tiles = deck.entries.filter { it.section == section && it.suppliedBasic == null }.groupBy { it.definition }
-        .map { (digest, entries) -> PreparationTile(digest, definitions[digest], entries.sumOf { it.quantity.toLong() }) }
+    definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
+    deck.entries.filter { it.section == section && it.suppliedBasic == null }.map { it.definition to it.quantity.toLong() }, definitions)
+
+/** A saved deck's section in the same type groups as game preparation; every entry, basics included, is a tile. */
+internal fun preparationGroups(deck: SavedDeck, section: SavedDeckSection,
+    definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
+    deck.entries.filter { it.section == section }.map { it.definition to it.quantity.toLong() }, definitions)
+
+private fun preparationGroups(cards: List<Pair<String, Long>>, definitions: Map<String, CardDefinition>): List<PreparationGroup> {
+    val tiles = cards.groupBy({ it.first }, { it.second })
+        .map { (digest, quantities) -> PreparationTile(digest, definitions[digest], quantities.sum()) }
         .filter { it.quantity > 0 }
     val byGroup = tiles.groupBy { preparationTypeGroup(it.definition?.faces?.firstOrNull()?.typeLine.orEmpty()) }
     return PreparationTypeGroup.entries.mapNotNull { group ->
@@ -101,7 +109,3 @@ internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
             ?.let { PreparationGroup(group, it) }
     }
 }
-
-/** Tiles per row: as many of at least [minimum] wide as fit with [gap] between them, never fewer than one. */
-internal fun preparationColumns(width: Float, minimum: Float, gap: Float): Int =
-    if (minimum <= 0f) 1 else ((width + gap) / (minimum + gap)).toInt().coerceAtLeast(1)

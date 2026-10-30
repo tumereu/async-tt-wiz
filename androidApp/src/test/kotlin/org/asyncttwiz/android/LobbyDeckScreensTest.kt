@@ -282,10 +282,8 @@ class LobbyDeckScreensTest {
             compose.runOnIdle { worker.drain() }
             compose.onNodeWithText("Saved deck").assertIsDisplayed()
             compose.onNodeWithText("Bear deck").assertIsDisplayed()
-            compose.onNodeWithText("Mainboard").assertIsDisplayed()
-            compose.onNodeWithText("Sideboard").assertIsDisplayed()
-            compose.onNodeWithText("2 cards").assertIsDisplayed()
-            compose.onNodeWithText("0 cards").assertIsDisplayed()
+            compose.onNodeWithText("Mainboard · 2").assertIsDisplayed()
+            compose.onNodeWithText("Sideboard · 0").assertIsDisplayed()
             compose.onNodeWithContentDescription("Exit without saving").assertDoesNotExist()
             assertEquals(saved?.deck?.id, library.state.selected)
         } finally { importer.close(); library.close(); worker.drain() }

@@ -17,7 +17,7 @@ import org.asyncttwiz.storage.ArtworkReference
 @Composable
 internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((String) -> Unit)? = null,
     chooseCover: (() -> Unit)? = null, enabled: Boolean = true,
-    padding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+    padding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp), trailing: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(padding),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(48.dp).then(if (chooseCover != null) Modifier.clickable(enabled = enabled,
@@ -30,5 +30,6 @@ internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((Strin
         else ScreenTextField(name, onName, Modifier.weight(1f).testTag("deck-name")
             .semantics { contentDescription = "Deck name" }, enabled = enabled, placeholder = "Deck name",
             keyboardOptions = imeOptions(ImeAction.Next))
+        trailing?.invoke()
     }
 }

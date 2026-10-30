@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +34,6 @@ import org.asyncttwiz.protocol.*
 import kotlin.math.roundToInt
 
 private val PreparationGutter = 16.dp
-private val PreparationTileMinimum = 80.dp
 private val PreparationTileGap = 4.dp
 /** Same distance as a Build card swipe. */
 private val PreparationSwipeThreshold = 20.dp
@@ -59,68 +59,40 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
     val menus = remember { PodCardMenuOwner() }
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
+    val columns = rememberDeckViewColumns(DeckViewScreen.PREPARATION)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(state.ownPodDeckName ?: "Prepare deck", hamburger)
         // Always allocated, including before the first move and after the text fades.
-        Box(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
-            Text(if (!connected) "Disconnected · preparation is read-only" else feedback?.text.orEmpty(), Modifier.alpha(if (!connected) 1f else alpha.value).semantics {
+        Row(Modifier.fillMaxWidth().height(40.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (!connected) "Disconnected · preparation is read-only" else feedback?.text.orEmpty(), Modifier.weight(1f).alpha(if (!connected) 1f else alpha.value).semantics {
                 liveRegion = LiveRegionMode.Polite
                 contentDescription = feedback?.text?.let { "Latest transfer: $it" } ?: "Latest transfer"
             }, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+            DeckViewColumnsControl(columns)
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val columns = preparationColumns((maxWidth - PreparationGutter * 2).value, PreparationTileMinimum.value, PreparationTileGap.value)
-            // One scroll for both sections; bottom room keeps the floating undo off the last row.
-            LazyColumn(Modifier.fillMaxSize().testTag("preparation"), contentPadding = PaddingValues(bottom = 80.dp)) {
-                for (source in SavedDeckSection.entries) {
-                    val title = source.label()
-                    val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
-                    val color = source.preparationColor()
-                    val groups = preparationGroups(deck, source, definitions)
-                    if (source == SavedDeckSection.SIDEBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
-                    item("header-$source") {
-                        Surface(Modifier.fillMaxWidth().animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
-                            color = color.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)) {
-                            Text("$title · ${deck.count(source)}", Modifier.padding(horizontal = PreparationGutter, vertical = 10.dp)
-                                .semantics { heading() }, color = color, style = MaterialTheme.typography.titleLarge)
-                        }
-                    }
-                    if (preparation.podRules != null) item("basics-$source") {
-                        Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180))
-                            .padding(horizontal = PreparationGutter - 4.dp, vertical = 4.dp)) {
-                            PodBasicSteppers(PodGamePreparation.basics(deck, source), connected && !pending,
-                                deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS,
-                                if (source == SavedDeckSection.SIDEBOARD) title else null) { land, delta -> controller.changePodBasic(land, delta, source) }
-                        }
-                    }
-                    if (groups.isEmpty() && deck.count(source) == 0L) item("empty-$source") {
-                        Text("Empty", Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    for (group in groups) item("group-$source-${group.type}") {
-                        Column(Modifier.fillMaxWidth().animateItem(fadeInSpec = tween(180), placementSpec = tween(180), fadeOutSpec = tween(180))
-                            .padding(horizontal = PreparationGutter)) {
-                            Text("${group.type.label} · ${group.count}", Modifier.padding(top = 12.dp, bottom = 6.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall)
-                            PreparationGrid(columns, PreparationTileGap) {
-                                // Keyed by card, so a tile that loses one copy keeps its gesture and place.
-                                for (tile in group.tiles) key(tile.digest) {
-                                    val key = "$source/${tile.digest}"
-                                    PreparationCard(tile, key, title, opposite, connected, menus,
-                                        { all -> controller.captureTransfer(tile.digest, source, all) }, controller::transfer,
-                                        { controller.inspectPrepared(tile.digest) },
-                                        onHold = { open ->
-                                            if (open) {
-                                                menus.open = null
-                                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
-                                                held = key to tile
-                                            } else if (held?.first == key) held = null
-                                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
-                                }
-                            }
-                        }
-                    }
+        // One scroll for both sections; bottom room keeps the floating undo off the last row.
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("preparation"), contentPadding = PaddingValues(bottom = 80.dp)) {
+            for (source in SavedDeckSection.entries) {
+                val title = source.label()
+                val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
+                visualDeckSection(source, deck.count(source), preparationGroups(deck, source, definitions), columns.count,
+                    basics = if (preparation.podRules == null) null else ({
+                        PodBasicSteppers(PodGamePreparation.basics(deck, source), connected && !pending,
+                            deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS,
+                            if (source == SavedDeckSection.SIDEBOARD) title else null) { land, delta -> controller.changePodBasic(land, delta, source) }
+                    })) { tile ->
+                    val key = "$source/${tile.digest}"
+                    PreparationCard(tile, key, title, opposite, connected, menus,
+                        { all -> controller.captureTransfer(tile.digest, source, all) }, controller::transfer,
+                        { controller.inspectPrepared(tile.digest) },
+                        onHold = { open ->
+                            if (open) {
+                                menus.open = null
+                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                held = key to tile
+                            } else if (held?.first == key) held = null
+                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
                 }
             }
         }
@@ -142,6 +114,73 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         PodCardArtPreview(card, tile.name, previewScroll)
     }
     DeckCardInspection(controller.inspection)
+}
+
+/** One section of the visual deck shared by game preparation and saved-deck viewing: a coloured "Mainboard · 60" header,
+ * optional [basics] steppers, then type groups of card tiles [columns] wide drawn by [tile]. */
+internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
+    basics: (@Composable () -> Unit)? = null, tile: @Composable (PreparationTile) -> Unit) {
+    val title = source.label()
+    val color = source.preparationColor()
+    if (source == SavedDeckSection.SIDEBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
+    item("header-$source") {
+        Surface(Modifier.fillMaxWidth().animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
+            color = color.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)) {
+            Text("$title · $count", Modifier.padding(horizontal = PreparationGutter, vertical = 10.dp)
+                .semantics { heading() }, color = color, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+    if (basics != null) item("basics-$source") {
+        Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180))
+            .padding(horizontal = PreparationGutter - 4.dp, vertical = 4.dp)) { basics() }
+    }
+    if (groups.isEmpty() && count == 0L) item("empty-$source") {
+        Text("Empty", Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    for (group in groups) item("group-$source-${group.type}") {
+        Column(Modifier.fillMaxWidth().animateItem(fadeInSpec = tween(180), placementSpec = tween(180), fadeOutSpec = tween(180))
+            .padding(horizontal = PreparationGutter)) {
+            Text("${group.type.label} · ${group.count}", Modifier.padding(top = 12.dp, bottom = 6.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall)
+            PreparationGrid(columns, PreparationTileGap) {
+                // Keyed by card, so a tile that loses one copy keeps its gesture and place.
+                for (card in group.tiles) key(card.digest) { tile(card) }
+            }
+        }
+    }
+}
+
+/** A read-only deck tile: tap inspects, a short hold previews the card until release. Nothing moves. */
+@Composable
+internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String, inspect: () -> Unit,
+    onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
+    val currentInspect by rememberUpdatedState(inspect)
+    val currentHold by rememberUpdatedState(onHold)
+    val currentHoldScroll by rememberUpdatedState(onHoldScroll)
+    val name = tile.name
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("deck-card-$key")) {
+        val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
+        Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
+            .pointerInput(key) {
+                podPickGestures(onTap = { currentInspect() }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) })
+            }
+            .clearAndSetSemantics {
+                contentDescription = "$name, ${tile.quantity} copies, $title"
+                onClick("Inspect $name") { currentInspect(); true }
+            }) { PreparationTileFace(tile, width) }
+    }
+}
+
+/** Card art filling the tile, with a "×3" badge when the tile holds more than one copy. */
+@Composable
+private fun BoxScope.PreparationTileFace(tile: PreparationTile, width: Int,
+    reference: org.asyncttwiz.storage.ArtworkReference? = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }) {
+    val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
+    CardArtwork(reference, tile.name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(tile.name) })
+    if (tile.quantity > 1) Text("×${tile.quantity}", Modifier.align(Alignment.BottomStart).padding(2.dp)
+        .background(PreparationBadge, RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
+        color = Color.White, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1)
 }
 
 /** Row-major tiles [columns] wide, all one width, [gap] apart. One layout parent keeps keyed tiles across rows. */
@@ -187,7 +226,6 @@ private fun PreparationCard(tile: PreparationTile, key: String, title: String, o
     fun move(all: Boolean) = currentCapture(all)?.let(currentSubmit) == true
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("preparation-card-$key")) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
-        val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
         val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .pointerInput(key, enabled, threshold) {
@@ -213,12 +251,7 @@ private fun PreparationCard(tile: PreparationTile, key: String, title: String, o
                 customActions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
                     CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) },
                     CustomAccessibilityAction("Inspect $name") { inspect(); true })
-            }) {
-            CardArtwork(reference, name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(name) })
-            if (tile.quantity > 1) Text("×${tile.quantity}", Modifier.align(Alignment.BottomStart).padding(2.dp)
-                .background(PreparationBadge, RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
-                color = Color.White, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1)
-        }
+            }) { PreparationTileFace(tile, width, reference) }
         if (drag != 0f) PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold),
             if (opposite == SavedDeckSection.MAINBOARD) PodDeckCategory.MAIN else PodDeckCategory.SIDE)
         PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {

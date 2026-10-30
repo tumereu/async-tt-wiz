@@ -21,6 +21,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
@@ -59,7 +60,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
-             "decks", "deck-detail", "deck-edit", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
+             "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
@@ -96,6 +97,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
             }
         } else null
         if (screen == "prepare-deck") compose.mainClock.autoAdvance = false
+        // Deck view columns are a personal device setting: 3 by default, the "-columns" shot uses 5.
+        ApplicationProvider.getApplicationContext<android.content.Context>().getSharedPreferences("deck-view", 0).edit().clear()
+            .apply { if (screen == "deck-detail-columns") putInt(deckViewColumnsKey(DeckViewScreen.SAVED, if (landscape) 2 else 1), 5) }.commit()
         compose.setContent {
             ScreenTheme {
                 Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
@@ -125,7 +129,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                 when (screen) {
                                     "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
-                                    "deck-detail", "deck-art", "choose-cover", "delete-deck" ->
+                                    "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover", "delete-deck" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
                                      "deck-edit", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-link" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
@@ -208,6 +212,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 assertEquals(a.top, b.top, .5f, "Invitation actions must not stack")
             }
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
+            "prepare-deck", "prepare-deck-faded" -> compose.onNodeWithContentDescription("Columns").assert(hasText("3"))
             "choose-cover" -> paired("Use cover", "Cancel")
               "import-link" -> {
                   compose.onNodeWithTag("deck-url").assertIsDisplayed()
@@ -221,11 +226,15 @@ class NonGameplayScreenshotTest(private val screen: String) {
                   compose.onNodeWithTag("deck-list").assertExists()
                   compose.onNodeWithText("Edit pasted list").assertDoesNotExist()
               }
-             "deck-detail" -> {
-                 compose.onNodeWithText("Edit").assertIsDisplayed()
+             "deck-detail", "deck-detail-columns", "draft-deck-detail" -> {
+                 compose.onNodeWithText(if (screen == "draft-deck-detail") "Save as deck" else "Edit").assertIsDisplayed()
                  compose.onNodeWithText("Save").assertDoesNotExist()
-                 val row = compose.onNodeWithText("Meadow Sentinel").fetchSemanticsNode().boundsInRoot
-                 assertTrue(row.height <= 48f)
+                 compose.onNodeWithText("Mainboard · 60").assertIsDisplayed()
+                 val columns = if (screen == "deck-detail-columns") 5 else 3
+                 compose.onNodeWithContentDescription("Columns").assert(hasText("$columns"))
+                 val tile = compose.onNodeWithContentDescription("Meadow Sentinel, 4 copies, Mainboard").fetchSemanticsNode().boundsInRoot
+                 val room = (if (landscape) 892f - 220f else 412f) - 32f
+                 assertEquals((room - 4f * (columns - 1)) / columns, tile.width, 2f, "Tiles split the row into the chosen columns")
              }
               "deck-edit" -> {
                   compose.onNodeWithTag("save-deck").assertIsDisplayed()
@@ -326,8 +335,10 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
             SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[1].digest, 4),
             SavedDeckEntry(SavedDeckSection.MAINBOARD, definitions[2].digest, 48),
             SavedDeckEntry(SavedDeckSection.SIDEBOARD, definitions[4].digest, 15))
+        val shown = if (screen == "draft-deck-detail") decks.first().copy(name = "Cube night · Alex",
+            draft = DraftDeckOrigin("pod-1", "Cube night")) else decks.first()
         library.seed(DeckLibraryState(decks = decks, selected = decks.first().id, loaded = true,
-            detail = DeckDetail(SavedDeck(decks.first(), entries), definitions.associate { it.digest to it.definition }),
+            detail = DeckDetail(SavedDeck(shown, entries), definitions.associate { it.digest to it.definition }),
              dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; "delete-deck" -> DeckDialog.DELETE; else -> null },
             draftCover = definitions.first().digest))
         if (screen == "deck-art") library.inspect(definitions.first().digest)

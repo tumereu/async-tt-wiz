@@ -3,7 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,9 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -32,6 +29,9 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     importDeck: ((DeckDetail) -> Unit)? = null) {
     val state = controller.state
     BackHandler { controller.back() }
+    val columns = rememberDeckViewColumns(DeckViewScreen.SAVED)
+    var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
+    val previewScroll = rememberScrollState()
     if (state.dialog == DeckDialog.COVER && state.detail != null) {
         CoverScreen(controller, openNavigation); return
     }
@@ -51,47 +51,32 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::retry, loading = state.busy) {
         Column(Modifier.fillMaxSize()) {
         state.detail?.let { detail ->
-            DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover)
+            DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover, padding = PaddingValues(start = 16.dp, end = 8.dp,
+                top = 8.dp, bottom = 8.dp)) { DeckViewColumnsControl(columns) }
             detail.saved.deck.draft?.let { origin ->
                 Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The game preparation view, read-only: both sections in one scroll, tap inspects, hold previews.
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
                 for (section in SavedDeckSection.entries) {
-                    val total = detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
-                    ScreenOutlinedButton(onClick = { controller.section(section) }, Modifier.weight(1f)
-                        .semantics { selected = section == state.section }, colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (section == state.section) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface)) {
-                        EntryIcon(null, if (section == SavedDeckSection.MAINBOARD) "decks" else "import"); Spacer(Modifier.width(8.dp))
-                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                             Text(if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard", maxLines = 1,
-                                 fontWeight = if (section == state.section) FontWeight.Bold else FontWeight.Normal)
-                             Text("$total cards", maxLines = 1, style = MaterialTheme.typography.labelSmall)
-                         }
+                    val title = if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
+                    visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
+                        preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
+                        val key = "$section/${tile.digest}"
+                        VisualDeckCard(tile, key, title, { controller.inspect(tile.digest) }, onHold = { open ->
+                            if (open) {
+                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                held = key to tile
+                            } else if (held?.first == key) held = null
+                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
                     }
                 }
-            }
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                for (entry in detail.saved.entries.filter { it.section == state.section }) {
-                    val definition = detail.definitions.getValue(entry.definition)
-                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Inspect ${definition.name}") { controller.inspect(entry.definition) }
-                         .heightIn(min = 48.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(entry.quantity.toString(), Modifier.widthIn(min = 24.dp))
-                          Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) { DefinitionThumbnail(entry.definition, definition) }
-                        Text(definition.name, Modifier.weight(1f))
-                    }
-                    HorizontalDivider()
+                item("delete") {
+                    TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text(if (detail.saved.deck.draft != null) "Delete draft deck" else "Delete saved deck") }
                 }
-            }
-            }
-             TextButton(onClick = { controller.edit(DeckDialog.DELETE) },
-                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                 Text(if (detail.saved.deck.draft != null) "Delete draft deck" else "Delete saved deck") }
             }
         }
     }
@@ -99,6 +84,12 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     }
     FloatingTransientError(state.error.takeIf { state.dialog == null }, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
+    }
+    held?.second?.let { tile ->
+        val card = remember(tile.digest, tile.definition) {
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+        }
+        PodCardArtPreview(card, tile.name, previewScroll)
     }
     DeckCardInspection(controller.inspection)
     if (state.dialog == DeckDialog.RENAME || state.dialog == DeckDialog.DELETE) {
@@ -192,12 +183,6 @@ private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Un
     FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
     }
-}
-
-@Composable
-private fun DefinitionThumbnail(digest: String, definition: CardDefinition) {
-    val face = definition.faces.first()
-    DeckThumbnail(ArtworkReference(face.scryfallId, 0, digest, "small", face.imageUri), definition.name, 22.dp, 30.dp)
 }
 
 @Composable

@@ -50,6 +50,29 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
     }
 }
 
+internal val DeckViewColumnRange = 1..10
+
+/** Personal per-orientation tile columns of a visual deck view, 3 by default. Game preparation ([DeckViewScreen.PREPARATION])
+ * and saved-deck viewing ([DeckViewScreen.SAVED]) keep separate counts, as the draft's pick and Build views do. */
+internal enum class DeckViewScreen(internal val key: String) { PREPARATION("preparation"), SAVED("saved") }
+
+@Composable
+internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
+    val context = LocalContext.current.applicationContext
+    val orientation = LocalConfiguration.current.orientation
+    val preferences = remember(context) { context.getSharedPreferences("deck-view", Context.MODE_PRIVATE) }
+    return remember(preferences, orientation, screen) {
+        PodBuildColumns(preferences, deckViewColumnsKey(screen, orientation), DeckViewColumnRange, 3)
+    }
+}
+
+internal fun deckViewColumnsKey(screen: DeckViewScreen, orientation: Int) = "${screen.key}-columns-$orientation"
+
+/** The Build view's columns control, inline: fewer, the count, more. */
+@Composable
+internal fun DeckViewColumnsControl(columns: PodBuildColumns) =
+    PodColumnControl("${columns.count}", "Columns", columns.count, columns.range, columns::choose)
+
 /** Header cog opening a small floating panel with every pod view's layout setting; values apply live. */
 @Composable
 internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns,

@@ -95,11 +95,21 @@ class PreparationPresentationTest {
         assertTrue(preparationGroups(unknown, SavedDeckSection.MAINBOARD, definitions).isEmpty())
     }
 
-    @Test fun tilesFitAtLeastTheMinimumWidthAndAlwaysOnePerRow() {
-        assertEquals(4, preparationColumns(380f, 80f, 4f)) // Portrait phone.
-        assertEquals(10, preparationColumns(860f, 80f, 4f)) // Landscape phone.
-        assertEquals(1, preparationColumns(40f, 80f, 4f))
-        assertEquals(2, preparationColumns(164f, 80f, 4f))
+    @Test fun aSavedDeckUsesTheSameTypeGroupsWithEveryEntryBasicsIncludedAsATile() {
+        fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
+            .let { SubmittedDefinition(DeckJson.digest(it), it) }
+        val bear = card("Bear", "Creature — Bear"); val forest = card("Forest", "Basic Land — Forest"); val bolt = card("Bolt", "Instant")
+        val definitions = listOf(bear, forest, bolt).associate { it.digest to it.definition }
+        val saved = SavedDeck(DeckSummary(id(), "Deck", "1", "now", 21, 2), listOf(
+            SavedDeckEntry(SavedDeckSection.MAINBOARD, forest.digest, 17),
+            SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 3),
+            SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 1),
+            SavedDeckEntry(SavedDeckSection.SIDEBOARD, bolt.digest, 2)))
+        val main = preparationGroups(saved, SavedDeckSection.MAINBOARD, definitions)
+        assertEquals(listOf(PreparationTypeGroup.CREATURES to listOf("Bear" to 4L), PreparationTypeGroup.LANDS to listOf("Forest" to 17L)),
+            main.map { group -> group.type to group.tiles.map { it.name to it.quantity } })
+        assertEquals(listOf(PreparationGroup(PreparationTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 2)))),
+            preparationGroups(saved, SavedDeckSection.SIDEBOARD, definitions))
     }
 
     @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {

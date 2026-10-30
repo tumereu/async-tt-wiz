@@ -115,6 +115,38 @@ data class GridPickResult(val state: GridState? = null, val reason: GridPickReje
     val rounds: Int = 0,
 )
 
+/** Row-major board positions of a line, in position order; empty for an index outside 0..2. */
+fun GridLine.positions(): List<Int> = if (index !in 0..2) emptyList() else when (type) {
+    GridLineType.ROW -> List(3) { index * 3 + it }
+    GridLineType.COLUMN -> List(3) { it * 3 + index }
+}
+
+/** One board a grid showed: its nine [slots] and the selections made on it ([picks], oldest first, all with a line). */
+data class GridBoardStage(val slots: List<GridPublicSlot>, val picks: List<GridPublicPickLog>)
+
+/**
+ * The boards [board] showed, oldest first, rebuilt from its public slots and the public [log]: one board, or when the
+ * first selection's line was refilled, the board before the refill (as dealt, with only that selection made) and then
+ * the board after it (refill cards in place, with the later selections). Only public data is used: the cards the first
+ * selection kept and cards that stayed in place were seen by everyone who sees the grid, and refill cards appear only
+ * on the board after the refill, which was live by then. A board without slots (older servers) stays one board.
+ */
+fun gridBoardStages(board: GridPublicBoard, log: List<GridPublicPickLog>): List<GridBoardStage> {
+    val entries = log.filter { it.gridId == board.id }
+    val first = entries.firstOrNull()
+    val line = first?.line
+    if (board.slots.size != 9 || board.slots.none { it.refill } || line == null)
+        return listOf(GridBoardStage(board.slots, entries.filter { it.line != null }))
+    // The first selection met a full board, so it kept its line's cards in position order.
+    val taken = line.positions()
+    val before = board.slots.mapIndexed { position, slot ->
+        val index = taken.indexOf(position)
+        if (index >= 0) GridPublicSlot(first.kept.getOrNull(index), first.player.takeIf { index < first.kept.size })
+        else GridPublicSlot(slot.copy)
+    }
+    return listOf(GridBoardStage(before, listOf(first)), GridBoardStage(board.slots, entries.drop(1).filter { it.line != null }))
+}
+
 object GridEngine {
     /** Canonical inputs and RandomV1 make seating and the entire draw order reproducible. */
     fun start(players: List<String>, cube: List<DraftCubeEntry>, settings: DraftSettings, seed: String): GridState {
@@ -330,10 +362,7 @@ object GridEngine {
         return List(9) { Triple(cards[it], pickers[it], refilled[it]) }
     }
 
-    private fun linePositions(line: GridLine): List<Int> = when (line.type) {
-        GridLineType.ROW -> List(3) { line.index * 3 + it }
-        GridLineType.COLUMN -> List(3) { it * 3 + line.index }
-    }
+    private fun linePositions(line: GridLine): List<Int> = line.positions()
 
     /** Grid pick rules on the shared [DraftSchedule]; only transition-local collections are mutated. */
     private class Working(private val source: GridState) : DraftSchedule(source.seating, source.settings.rounds,

@@ -1,0 +1,1 @@
+mod: Grid draft boards show each pick as a coloured band along its row or column, and a refilled grid also shows how it looked before the refill

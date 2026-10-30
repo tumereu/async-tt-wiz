@@ -365,11 +365,12 @@ internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTr
     if (tapped) bounds.height else bounds.width, if (tapped) bounds.width else bounds.height,
     if (tapped) 90f else 0f)
 
-/** Receipts, count labels, ownership and disclosure metadata are not motion targets. A Temp pile's members are:
- * its cards have no drawing of their own, so a move into or out of one changes nothing else in the scene. */
+/** Receipts, count labels, ownership and disclosure metadata are not motion targets. A dock pile's members are:
+ * they have no drawing of their own, so a move between two piles changes nothing else in the scene. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
 internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
-    listOf(it.bounds, it.tapped, it.covered, it.faceId, it.cards.takeIf { _ -> it.temp }) }
+    listOf(it.bounds, it.tapped, it.covered, it.faceId, it.cards.takeIf { _ -> it.dockPile }) }
+private val TableItem.dockPile get() = kind == TableItemKind.PILE && zone in DOCK_PILE_ZONES
 
 internal const val CARD_ROTATION_DURATION_MILLIS = 90
 internal const val CARD_FLIP_DURATION_MILLIS = 350
@@ -555,18 +556,20 @@ class HistorySceneAnimation(initial: TableScene) {
                         viewport = pile?.viewport ?: departure.item.viewport)))
             }
         }
-        // Temp piles hide their cards like a Library, so a card moving between a Temp pile and another hidden or
-        // public pile has no individual drawing on either side. It flies face down from pile to pile instead.
+        // Dock pile members (Library, Graveyard, Exile, Temp piles) have no drawing of their own, so a card moving
+        // from one pile to another flies from pile to pile: with the face its pile shows (Graveyard/Exile), else
+        // face down. A Library endpoint keeps the flight covered (see frame), exactly like draws.
         val formerPiles = destination.pileMembers()
         for ((cardId, to) in target.pileMembers()) {
             val from = formerPiles[cardId] ?: continue
             val key = "card/$cardId"
-            if (from.id == to.id || !from.temp && !to.temp || key in start || key in end) continue
-            val card = TableItem(key, from.bounds, "Covered card", "", to.owner, to.zone, kind = TableItemKind.CARD,
-                viewport = from.viewport, cardId = cardId, covered = true, footprint = from.bounds)
-            start = start + (key to HistoryAnimatedItem(card, from.bounds, 1f))
-            end = end + (key to HistoryAnimatedItem(card.copy(bounds = to.bounds, footprint = to.bounds, viewport = to.viewport),
-                to.bounds, 0f))
+            if (from.id == to.id || key in start || key in end) continue
+            fun drawing(scene: TableScene, pile: TableItem) = scene.pileCards[cardId]?.copy(bounds = pile.bounds,
+                footprint = pile.bounds, viewport = pile.viewport) ?: TableItem(key, pile.bounds, "Covered card", "",
+                pile.owner, pile.zone, kind = TableItemKind.CARD, viewport = pile.viewport, cardId = cardId,
+                covered = true, footprint = pile.bounds)
+            start = start + (key to HistoryAnimatedItem(drawing(destination, from), from.bounds, 1f))
+            end = end + (key to HistoryAnimatedItem(drawing(target, to), to.bounds, 0f))
         }
         val flights = stackRemovalFlights(destination, target)
         stackFlightIds = flights.map { it.entry.animationId }.toSet()
@@ -607,7 +610,7 @@ class HistorySceneAnimation(initial: TableScene) {
 
     /** Card ID -> the dock pile (Library, Graveyard, Exile or Temp pile) holding it. */
     private fun TableScene.pileMembers(): Map<String, TableItem> = buildMap {
-        for (item in items) if (item.kind == TableItemKind.PILE && item.zone in DOCK_PILE_ZONES) for (id in item.cards) put(id, item)
+        for (item in items) if (item.dockPile) for (id in item.cards) put(id, item)
     }
     private fun TableScene.stackContains(id: String?) = items.any {
         it.zone == org.asyncttwiz.protocol.PlayZone.STACK && it.kind == TableItemKind.PILE && id in it.cards

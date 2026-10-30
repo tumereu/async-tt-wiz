@@ -89,6 +89,18 @@ class ArtworkDiskCache(private val directory: File, val budget: Long = 256L * 10
     }
 }
 
+/** One artwork network request. [failure] is null when it produced usable bytes (or a 304). */
+data class ArtworkAttempt(val image: Boolean, val url: String, val failure: String?, val millis: Long,
+    val bytes: Int, val failures: Int, val retryInMillis: Long)
+
+/** Diagnostics for every artwork download; the default records nothing. */
+interface ArtworkLog {
+    fun attempt(attempt: ArtworkAttempt) {}
+    /** A load that ended without art for a reason other than a failed request. */
+    fun failed(reference: ArtworkReference, failure: Throwable) {}
+    companion object { val NONE = object : ArtworkLog {} }
+}
+
 /** All work is demand-driven. Coalesces each metadata/image key across card instances.
  * Failures are ordinary missing art, never a semantic definition error. */
 class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val transport: ArtworkTransport,
@@ -96,7 +108,8 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
     private val apiBase: String = "https://api.scryfall.com/cards/",
     private val now: () -> Long = System::currentTimeMillis,
     private val imageCheck: (ByteArray, String) -> Boolean = Companion::raster,
-    private val gate: ArtworkGate = ArtworkGate()) {
+    private val gate: ArtworkGate = ArtworkGate(),
+    private val log: ArtworkLog = ArtworkLog.NONE) {
     private class Pending(val future: CompletableFuture<ArtworkEntry?>, val ticket: ArtworkGate.Ticket)
     private val pending = ConcurrentHashMap<String, Pending>()
     private val connection = AtomicLong()
@@ -123,7 +136,10 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
                 if (entry?.status != 404) break
             }
             null
-        } catch (_: Exception) { null }
+        } catch (failure: Exception) {
+            if (failure !is InterruptedException) runCatching { log.failed(reference, failure) }
+            null
+        }
     }
 
     /** Called once per offline -> online transition; successful public cache entries stay intact. */
@@ -222,10 +238,13 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
         val sameConnection = (failedConnections[key] ?: 0L) == generation
         if (old != null && old.expires > now() && (old.status == 200 || sameConnection)) return old
         if (Thread.currentThread().isInterrupted) throw InterruptedException()
-        val response = try { gate.run(ticket) { transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) } }
-            catch (error: Exception) {
+        var error: Exception? = null
+        var started = now()
+        val response = try { gate.run(ticket) { started = now(); transport.get(url, maximum, old?.etag.orEmpty(), old?.modified.orEmpty()) } }
+            catch (failure: Exception) {
                 // A cancelled request (interrupted wait, throttle sleep or socket) is not an outage.
-                if (error is InterruptedException || Thread.currentThread().isInterrupted) throw InterruptedException()
+                if (failure is InterruptedException || Thread.currentThread().isInterrupted) throw InterruptedException()
+                error = failure
                 ArtworkResponse(503)
             }
         val valid = response.status == 200 && response.bytes.size <= maximum &&
@@ -245,8 +264,19 @@ class HttpArtworkRepository(private val cache: ArtworkDiskCache, private val tra
         }
         cache.write(key, entry)
         if (entry.status != 200) failedConnections[key] = generation else failedConnections.remove(key)
+        val failure = when {
+            valid || response.status == 304 -> null
+            error != null -> describe(error)
+            response.status == 200 -> if (image) "not a usable image" else "unusable card data"
+            else -> "HTTP ${response.status}"
+        }
+        runCatching { log.attempt(ArtworkAttempt(image, url, failure, now() - started, response.bytes.size, failures,
+            if (failure == null) 0 else (entry.expires - now()).coerceAtLeast(0))) }
         return entry
     }
+    private fun describe(error: Throwable): String = generateSequence(error) { it.cause.takeIf { cause -> cause !== it } }.take(3)
+        .joinToString(" <- ") { "${it.javaClass.simpleName}: ${it.message.orEmpty().take(200)}" }
+
     private fun validMetadata(bytes: ByteArray): Boolean = runCatching {
         // Bound nesting before Gson's tree parser, not after it.
         val reader = com.google.gson.stream.JsonReader(bytes.inputStream().reader(Charsets.UTF_8))

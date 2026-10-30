@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
         // Resume only nudges that owner; it must never create a UI-owned connection.
         auth.lobby.foreground()
         auth.activity.foreground()
+        PublicArtwork.current()?.wake("app opened")
     }
 
     override fun onPause() {

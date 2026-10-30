@@ -267,20 +267,63 @@ class ArtworkTest {
         assertEquals(1792576800000L, HttpArtworkTransport.retryAfter(date, 0))
     }
 
+    @Test fun everyRequestAndSwallowedFailureIsReported() {
+        val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/front"}}""".toByteArray()
+        val attempts = mutableListOf<ArtworkAttempt>()
+        val failures = mutableListOf<Throwable>()
+        val log = object : ArtworkLog {
+            override fun attempt(attempt: ArtworkAttempt) { attempts += attempt }
+            override fun failed(reference: ArtworkReference, failure: Throwable) { failures += failure }
+        }
+        var imageOnline = false
+        val disk = cache()
+        val art = HttpArtworkRepository(disk, ArtworkTransport { url, _, _, _ ->
+            when {
+                url == "$origin/cards/$id" -> ArtworkResponse(200, card, "application/json")
+                imageOnline -> ArtworkResponse(200, png(), "image/png")
+                else -> throw java.net.UnknownHostException("cards.test")
+            }
+        }, policy, "$origin/cards/", { clock }, log = log)
+        val reference = ArtworkReference(id, 0, "v1")
+        assertNull(art.load(reference))
+        assertEquals(listOf(false, true), attempts.map { it.image })
+        assertNull(attempts[0].failure)
+        assertEquals("UnknownHostException: cards.test", attempts[1].failure)
+        assertEquals(1, attempts[1].failures)
+        assertEquals(ArtworkRetrySchedule.backoff(1), attempts[1].retryInMillis)
+        clock += 60_000; imageOnline = true
+        assertNotNull(art.load(reference))
+        assertNull(attempts.last().failure)
+        assertEquals("$origin/front", attempts.last().url)
+        // Unusable card data never reaches the network log as a request failure, but is still reported.
+        val broken = HttpArtworkRepository(cache("broken"), ArtworkTransport { _, _, _, _ ->
+            ArtworkResponse(200, """{"object":"card","id":"other"}""".toByteArray(), "application/json")
+        }, policy, "$origin/cards/", { clock }, log = log)
+        assertNull(broken.load(reference))
+        assertEquals(1, failures.size)
+    }
+
     @Test fun urlDnsAndProductionIsolationPolicy() {
         val addresses = listOf("0.0.0.0", "10.1.2.3", "100.64.1.2", "127.0.0.1", "169.254.169.254",
             "172.16.0.1", "192.168.1.1", "192.0.2.1", "198.18.0.1", "198.51.100.1", "203.0.113.1",
             "224.0.0.1", "255.255.255.255", "::1", "::", "fc00::1", "fe80::1", "2001:db8::1", "::ffff:127.0.0.1")
         for (address in addresses) assertFalse(ArtworkUrlPolicy.publicAddress(InetAddress.getByName(address)), address)
-        for (address in listOf("1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"))
-            assertTrue(ArtworkUrlPolicy.publicAddress(InetAddress.getByName(address)))
+        for (address in listOf("1.1.1.1", "8.8.8.8", "2606:4700:4700::1111", "192.2.1.1", "192.0.32.1", "198.51.1.1"))
+            assertTrue(ArtworkUrlPolicy.publicAddress(InetAddress.getByName(address)), address)
+        // IPv6-only mobile networks reach IPv4-only hosts (Scryfall's image CDN) through NAT64.
+        assertTrue(ArtworkUrlPolicy.publicAddress(InetAddress.getByName("64:ff9b::3982:2101")))
+        for (address in listOf("64:ff9b::a01:203", "64:ff9b::7f00:1", "64:ff9b::c0a8:101"))
+            assertFalse(ArtworkUrlPolicy.publicAddress(InetAddress.getByName(address)), address)
+        val nat64 = ArtworkUrlPolicy(lookup = { listOf(InetAddress.getByName("64:ff9b::3982:2101"), InetAddress.getByName("57.130.33.1")) })
+        assertEquals(2, nat64.addresses("cards.test").size)
         val production = ArtworkUrlPolicy(lookup = { listOf(InetAddress.getByName("127.0.0.1")) })
         for (url in listOf("file:///etc/passwd", "data:image/svg+xml,x", "http://public.test/art", "https://user:secret@public.test/art",
             "https://public.test:8080/art", "https://public.test/art#fragment", "https://public.test@127.0.0.1/art"))
             assertThrows(Exception::class.java) { production.validate(url) }
         assertThrows(Exception::class.java) { production.addresses("public.test") }
         val mixed = ArtworkUrlPolicy(lookup = { listOf(InetAddress.getByName("8.8.8.8"), InetAddress.getByName("10.1.1.1")) })
-        assertThrows(Exception::class.java) { mixed.addresses("mixed.test") }
+        val refused = assertThrows(Exception::class.java) { mixed.addresses("mixed.test") }
+        assertTrue(refused.message!!.contains("mixed.test") && refused.message!!.contains("10.1.1.1"), refused.message)
         assertThrows(Exception::class.java) { ArtworkUrlPolicy("http://192.168.1.1:1234") }
         assertThrows(Exception::class.java) { policy.validate("http://127.0.0.1:12346/art") }
         assertThrows(Exception::class.java) { policy.validate("https://scryfall.com/art") }

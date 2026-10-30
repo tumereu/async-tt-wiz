@@ -1,0 +1,1 @@
+fix: Card pictures that failed to load try again as soon as you return to the app.

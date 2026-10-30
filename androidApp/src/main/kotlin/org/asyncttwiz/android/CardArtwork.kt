@@ -38,6 +38,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
@@ -93,8 +94,9 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     private val transport = HttpArtworkTransport(policy,
         "AsyncTabletopWizards/${BuildConfig.VERSION_NAME} (artwork; contact: ${BuildConfig.ART_CONTACT.ifEmpty { "not configured" }})",
         throttled = { scryfallApiRequest(it) || it.toString().startsWith(apiBase) })
+    private val diagnostics = ArtworkDiagnostics()
     val repository = HttpArtworkRepository(disk, transport, policy, apiBase,
-        imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null }, gate = ArtworkGate(DOWNLOADS))
+        imageCheck = { bytes, _ -> ArtworkDecoder.bounds(bytes) != null }, gate = ArtworkGate(DOWNLOADS), log = diagnostics)
     private val failed = MutableStateFlow<Set<String>>(emptySet())
     /** Reference keys whose latest attempt failed; their own loads keep retrying in the background. */
     val unavailable: StateFlow<Set<String>> = failed
@@ -120,13 +122,21 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
             val available = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            if (available && !online) {
-                repository.connectivityRestored()
-                connection.value += 1
-            }
+            if (available && !online) wake("network back")
             online = available
         }
         override fun onLost(network: Network) { online = false }
+        // A background app's network can be cut off while the device itself stays online.
+        override fun onBlockedStatusChanged(network: Network, blocked: Boolean) { if (!blocked) wake("network allowed again") }
+    }
+
+    /** Waiting artwork retries run now, over fresh connections: after the app's network was cut
+     * off (app in background, network change) pooled connections can be dead. */
+    fun wake(reason: String) {
+        transport.evictConnections()
+        repository.connectivityRestored()
+        connection.value += 1
+        diagnostics.woke(reason)
     }
     private val decodes = Semaphore(2)
     val loader = ImageLoader.Builder(application)
@@ -164,6 +174,7 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     init {
         application.registerComponentCallbacks(this)
         connectivity.registerDefaultNetworkCallback(networkCallback)
+        background.launch { while (true) { delay(ArtworkDiagnostics.WINDOW); diagnostics.roll() } }
     }
     override fun onConfigurationChanged(newConfig: Configuration) = Unit
     override fun onLowMemory() { loader.memoryCache?.clear() }

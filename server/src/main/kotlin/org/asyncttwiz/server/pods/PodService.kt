@@ -71,8 +71,8 @@ class PodService(private val runtime: ServiceRuntime) {
         ?.let { GridEngine.resume(json.decodeFromString<GridState>(it.data())) }
     private fun pools(row: PodRecord) = gridState(row)?.pools ?: state(row)!!.pools
     private fun copies(row: PodRecord) = gridState(row)?.copies ?: state(row)!!.copies
-    /** Grids the member can pick from now; grids of rounds they have not opened wait unseen and do not count. */
-    private fun gridWaiting(state: GridState?, player: String) = state?.queues?.get(player)?.size ?: 0
+    /** Grids the member can select from in a row if nobody else acts (see [GridEngine.consecutivePicks]). */
+    private fun gridWaiting(state: GridState?, player: String) = state?.let { GridEngine.consecutivePicks(it, player) } ?: 0
     private fun members(sql: DSLContext, pod: UUID) = sql.selectFrom(MEMBER).where(MEMBER.POD_ID.eq(pod)).orderBy(MEMBER.ACCOUNT_ID).fetch()
     private fun pending(sql: DSLContext, pod: UUID) = sql.selectFrom(INVITE).where(INVITE.POD_ID.eq(pod)).and(INVITE.STATE.eq("PENDING")).orderBy(INVITE.ACCOUNT_ID).fetch()
     private fun identity(sql: DSLContext, id: UUID): AccountIdentity {
@@ -694,7 +694,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val pods = rows.mapNotNull { row ->
             val members = members(sql, row.id!!)
             val mine = members.firstOrNull { it.accountId == owner } ?: return@mapNotNull null
-            val waiting = state(row)?.queues?.get(owner.toString())?.size ?: gridWaiting(gridState(row), owner.toString())
+            val waiting = state(row)?.let { DraftEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(gridState(row), owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
                 row.phase == "DRAFTED" && mine.submittedDeck == null -> PodAttention.BUILD

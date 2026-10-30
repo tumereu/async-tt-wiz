@@ -387,7 +387,10 @@ class PodHttpTest {
         val heldA = f.get(f.a, pod)
         assertEquals(bPack, heldA.draft!!.head!!.id); assertTrue(heldA.draft!!.queuedPacks.isEmpty())
         assertEquals(0, heldA.draft!!.packsBehind)
-        assertEquals(1, heldA.members.first { it.account == f.a.account }.packsWaiting)
+        // A's one queued pick, then A opens round two: A's own pack and the held one are picks in a row too.
+        assertEquals(3, heldA.members.first { it.account == f.a.account }.packsWaiting)
+        assertEquals(3, f.list(f.a).pods.single { it.id == pod }.packsWaiting)
+        assertEquals(0, heldA.members.first { it.account == f.b.account }.packsWaiting)
         assertEquals(2, hints(f.a))
         f.pick(f.a, pod) // A opens round two: A's own fresh pack first, then the held, picked one; the release notifies A
         val opened = f.get(f.a, pod).draft!!
@@ -886,7 +889,11 @@ class PodHttpTest {
                 assertEquals(detail.grid!!.mine.pool.map { it.id }.toSet(), detail.build!!.copies.map { it.copyId }.toSet())
                 assertEquals(detail.grid!!.mine.pool.size, detail.build!!.copies.size)
                 val waiting = queue.size
-                assertEquals(waiting, detail.members.single { it.account == player.account }.packsWaiting)
+                // The count adds next-round grids the member would open themselves; positive exactly with a queue.
+                val count = detail.members.single { it.account == player.account }.packsWaiting
+                assertTrue(count >= waiting)
+                assertEquals(waiting > 0, count > 0)
+                assertEquals(count, f.list(player).pods.single { it.id == pod }.packsWaiting)
                 assertEquals(waiting > 0, detail.members.single { it.account == player.account }.picking)
                 val hints = f.activity(player).entries.filter { it.gameId == pod && it.kind == ActivityKind.POD_YOUR_PICK }
                 assertEquals(waiting > 0, hints.isNotEmpty())

@@ -92,6 +92,18 @@ class PodPickChromeTest {
             assertEquals(bobBounds, bobAvatar.fetchSemanticsNode().boundsInRoot)
             compose.onNodeWithTag("pod-play-header").assertHeightIsEqualTo(PodPlayHeaderHeight)
             compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "$count packs waiting")).assertExists()
+            // Counts above nine show "9+", widening the circle into a pill of the same height, still inside the slim row.
+            val label = if (count > 9) "9+" else "$count"
+            val badge = compose.onAllNodesWithTag("pod-member-badge", useUnmergedTree = true)
+                .filter(hasAnyDescendant(hasText(label)).or(hasText(label))).onFirst()
+            badge.assertHeightIsEqualTo(12.dp)
+            val bounds = badge.fetchSemanticsNode().boundsInRoot
+            val text = compose.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue(bounds.left <= text.left && text.right <= bounds.right, "The badge text fits inside the badge")
+            assertTrue(bounds.bottom <= header.bottom)
+            // Never narrower than the circle; how much "9+" widens it depends on the font.
+            assertTrue(bounds.width >= 11.5f)
+            if (count <= 9) assertEquals(12f, bounds.width, .5f)
         }
     }
 

@@ -1182,6 +1182,10 @@ class PodControllerTest {
         assertEquals(cube.id, (f.api.calls.single().second as CreatePod).cubeId)
     }
 
+    @Test fun avatarBadgeShowsCheckDigitsAndNinePlus() {
+        assertEquals(listOf("✓", "1", "9", "9+", "9+"), listOf(0, 1, 9, 10, 270).map(::podBadgeText))
+    }
+
     @Test fun packCountsUseSingularOnlyForOneInRowsAndMemberBadges() {
         for (count in listOf(0, 1, 2, 12)) {
             val text = "$count ${if (count == 1) "pack" else "packs"}"

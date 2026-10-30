@@ -373,21 +373,25 @@ internal fun PodDraftMemberRow(detail: PodDetail) {
     Row(Modifier.fillMaxWidth().height(28.dp).horizontalScroll(rememberScrollState()).testTag("pod-draft-members"),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         detail.members.forEach { member ->
-            // Grid: the server counts the member's pickable grids, including grids of rounds this viewer has not opened.
+            // Picks the member can make in a row if nobody else acts, next-round packs (Grid: grids) they open included.
             val waiting = member.packsWaiting
             Box(Modifier.size(28.dp).semantics {
                 if (drafting) stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
             }) {
                 Avatar(member.account, size = 28.dp)
-                if (drafting && waiting <= 9) Box(Modifier.align(Alignment.BottomEnd).size(12.dp)
-                    .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape),
+                // A circle for one character, a pill for "9+".
+                if (drafting) Box(Modifier.align(Alignment.BottomEnd).testTag("pod-member-badge").height(12.dp).widthIn(min = 12.dp)
+                    .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape)
+                    .padding(horizontal = 2.dp),
                     contentAlignment = Alignment.Center) {
-                    Text(if (waiting == 0) "✓" else "$waiting", color = Color.White, fontSize = 9.sp, lineHeight = 10.sp)
+                    Text(podBadgeText(waiting), color = Color.White, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1, softWrap = false)
                 }
             }
         }
     }
 }
+
+internal fun podBadgeText(waiting: Int) = when { waiting <= 0 -> "✓"; waiting > 9 -> "9+"; else -> "$waiting" }
 
 /** Who still holds packs (or grid turns), plus the caller's round. */
 internal fun podWaitingText(detail: PodDetail, accountId: String): String {

@@ -1,0 +1,1 @@
+mod: The number on a drafter's picture now counts every pack they can pick in a row, including next round's packs they would open themselves, and shows 9+ for larger counts

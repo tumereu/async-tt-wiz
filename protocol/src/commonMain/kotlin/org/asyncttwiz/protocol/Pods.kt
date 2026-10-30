@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 /** Pod HTTP v1. DraftState is deliberately not part of any response. */
 @Serializable enum class PodPhase { SETUP, DRAFTING, DRAFTED }
 @Serializable enum class PodAttention { YOUR_PICK, BUILD, NONE }
+/** [packsWaiting] is the caller's [PodMember.packsWaiting]. */
 @Serializable data class PodSummary(
     val id: String, val name: String, val phase: PodPhase, val creator: AccountIdentity,
     val members: List<AccountIdentity>, val attention: PodAttention, val packsWaiting: Int,
@@ -24,7 +25,11 @@ import kotlinx.serialization.Serializable
 /** Uploaded atomically with the source; every snapshot definition must be included. */
 @Serializable data class PodSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>)
 @Serializable data class PodMember(
-    /** GRID uses packsWaiting for the number of grids this member can pick from now (their queue). */
+    /**
+     * packsWaiting: picks the member can make in a row if nobody else does anything (DraftEngine/GridEngine
+     * consecutivePicks): their queue plus next-round packs (GRID: grids) they would open themselves. Positive exactly
+     * when their queue is not empty.
+     */
     val account: AccountIdentity, val packsWaiting: Int = 0, val picksMade: Int = 0,
     val building: Boolean = false, val submitted: Boolean = false,
     val picking: Boolean = false,

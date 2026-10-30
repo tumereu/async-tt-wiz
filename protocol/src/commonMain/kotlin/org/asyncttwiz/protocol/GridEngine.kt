@@ -250,6 +250,19 @@ object GridEngine {
         return GridPickResult(state = Working(current).applyPick(pick, positions))
     }
 
+    /**
+     * Selections [player] can make in a row if no other member does anything: their queue, the grids they open
+     * themselves when they open later rounds early, and held grids that opening releases, as long as it keeps going.
+     * Simulated with the real rules on one scratch copy, always taking the first nonempty line. A member never has two
+     * turns of one grid in a row, so the line choice never changes the count: after any one selection it is exactly one
+     * less. Positive exactly when the queue is not empty; 0 for non-members and finished drafts.
+     */
+    fun consecutivePicks(state: GridState, player: String): Int {
+        val current = resume(state)
+        if (current.finished || current.queues[player].isNullOrEmpty()) return 0
+        return Working(current).soloPicks(player)
+    }
+
     /** Grids [player] can pick from now, head first. */
     fun queue(state: GridState, player: String): List<String> = resume(state).queues[player].orEmpty()
 
@@ -350,11 +363,32 @@ object GridEngine {
         }
 
         fun applyPick(pick: GridPick, positions: List<Int>): GridState {
+            move(pick, positions)
+            return settle()
+        }
+
+        /** See [consecutivePicks]. Every selection finishes a turn, which bounds the loop. */
+        fun soloPicks(player: String): Int {
+            val lines = GridLineType.entries.flatMap { type -> List(3) { GridLine(type, it) } }
+            var budget = grids.sumOf { it.turns.size - it.selection }
+            var count = 0
+            while (!finished && budget-- > 0) {
+                val id = queue(player).firstOrNull() ?: break
+                val board = grid(id).positions
+                val line = lines.firstOrNull { line -> linePositions(line).any { board[it] != null } } ?: break
+                move(GridPick(player, id, line), linePositions(line))
+                open()
+                count++
+            }
+            return count
+        }
+
+        /** The selection's board and pool changes, without opening rounds. */
+        private fun move(pick: GridPick, positions: List<Int>) {
             val index = indexes.getValue(pick.gridId)
             take(pick.player, pick.gridId)
             advance(index, pick.line, positions)
             grids[index].currentPlayer?.let { arrive(pick.gridId, it) }
-            return settle()
         }
 
         private fun advance(index: Int, line: GridLine?, selected: List<Int>) {

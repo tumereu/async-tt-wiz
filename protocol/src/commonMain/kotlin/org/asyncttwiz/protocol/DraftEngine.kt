@@ -85,7 +85,10 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
     /** Present only when the saved marks belong to [head]. */
     val marks: DraftMarks? = null,
 )
-/** No card/pack identities or log. Picks include automatic awards; waiting is not finished until the draft ends. */
+/**
+ * No card/pack identities or log. Picks include automatic awards; waiting is not finished until the draft ends.
+ * [packsWaiting] is [DraftEngine.consecutivePicks]: positive exactly when the member's queue is not empty.
+ */
 @Serializable data class DraftMemberStatus(val player: String, val packsWaiting: Int, val picksMade: Int, val finished: Boolean)
 @Serializable data class DraftPublicStatus(val round: Int, val rounds: Int, val finished: Boolean, val members: List<DraftMemberStatus>)
 
@@ -217,9 +220,21 @@ object DraftEngine {
 
     fun publicStatus(state: DraftState) = DraftPublicStatus(
         if (state.finished) state.settings.rounds else state.round + 1, state.settings.rounds, state.finished,
-        state.seating.map { player -> DraftMemberStatus(player, state.queues.getValue(player).size,
+        state.seating.map { player -> DraftMemberStatus(player, consecutivePicks(state, player),
             state.log.count { it.player == player }, state.finished) },
     )
+
+    /**
+     * Manual picks [player] can make in a row if no other member does anything: their queue, the packs they open
+     * themselves when they open later rounds early, and held packs that opening releases, as long as it keeps going.
+     * Simulated with the real pick rules on one scratch copy (head pack, first keep cards, normal or near-end burns, no
+     * Librarian spends). Pick counts never depend on which cards are picked, so after any one pick by [player] the count
+     * is exactly one less. Positive exactly when the queue is not empty; 0 for non-members and finished drafts.
+     */
+    fun consecutivePicks(state: DraftState, player: String): Int {
+        if (state.finished || state.queues[player].isNullOrEmpty()) return 0
+        return Working(state).soloPicks(player)
+    }
 
     /** Pack rules on the shared [DraftSchedule]; mutable scratch space is private to one transition. */
     private class Working(private val source: DraftState) : DraftSchedule(source.seating, source.settings.rounds,
@@ -239,6 +254,31 @@ object DraftEngine {
         override fun picks(item: String) = picks[item] ?: 0
 
         fun applyPick(pick: DraftPick, burned: List<String>): DraftState {
+            move(pick, burned)
+            return settle()
+        }
+
+        /** See [consecutivePicks]. Every pick removes at least keep >= 1 card, which bounds the loop. */
+        fun soloPicks(player: String): Int {
+            val settings = source.settings
+            var budget = packs.sumOf { it.cards.size }
+            var count = 0
+            while (!finished && budget-- > 0) {
+                val id = queue(player).firstOrNull() ?: break
+                val cards = pack(id).cards
+                // Queued packs always hold more than keep cards (smaller ones are awarded on arrival).
+                if (cards.size < settings.keep) break
+                val rest = cards.drop(settings.keep)
+                val nearEnd = cards.size <= settings.keep + settings.burn
+                move(DraftPick(player, id, cards.take(settings.keep)), if (nearEnd) rest else rest.take(settings.burn))
+                open()
+                count++
+            }
+            return count
+        }
+
+        /** The pick's pack and pool changes, without opening rounds. */
+        private fun move(pick: DraftPick, burned: List<String>) {
             val index = packIndexes.getValue(pick.packId)
             val pack = packs[index]
             take(pick.player, pick.packId)
@@ -255,7 +295,6 @@ object DraftEngine {
                 librarians = pick.librarians.toList()))
             picks[pack.id] = (picks[pack.id] ?: 0) + 1
             if (packs[index].cards.isNotEmpty()) arrive(pack.id, passTo(pick.player, pack.round))
-            return settle()
         }
 
         private fun passTo(player: String, round: Int): String {

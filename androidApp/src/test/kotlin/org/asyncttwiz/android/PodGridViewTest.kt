@@ -171,7 +171,10 @@ class PodGridViewTest {
             else -> GridPublicSlot(copy)
         } }
         val done = board.copy(positions = List(9) { null }, currentPlayer = null, finished = true, slots = slots)
-        val log = listOf(GridPublicPickLog("bob", "grid-0", GridLine(GridLineType.COLUMN, 1), cards.take(3), emptyList()))
+        // Alice's row 1 was refilled; Bob's column 2 and Alice's row 3 were picked from the refilled board.
+        val log = listOf(GridPublicPickLog("alice", "grid-0", GridLine(GridLineType.ROW, 0), cards.take(3), emptyList()),
+            GridPublicPickLog("bob", "grid-0", GridLine(GridLineType.COLUMN, 1), listOf(slots[1].copy!!, cards[4], cards[7]), emptyList()),
+            GridPublicPickLog("alice", "grid-0", GridLine(GridLineType.ROW, 2), listOf(cards[6], cards[8]), listOf(cards[3], cards[5])))
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = emptyList(), finishedGrids = listOf(done), log = log),
             mine = mine.copy(headGridId = null)) })
         compose.onNodeWithText("Finished · Grid 1/18").assertExists()
@@ -181,6 +184,15 @@ class PodGridViewTest {
         slot(8).assertContentDescriptionEquals("Card 8, picked by Alice")
         slot(3).assertContentDescriptionEquals("Card 3, discarded")
         compose.onAllNodesWithText("New").assertCountEquals(3)
+        // The board before the refill, above in the same frame: Alice's original row, nothing discarded yet.
+        val before = compose.onNodeWithText("Before refill").fetchSemanticsNode().positionInRoot.y
+        val after = compose.onNodeWithText("After refill").fetchSemanticsNode().positionInRoot.y
+        assertTrue(before < after && after < slot(0).fetchSemanticsNode().positionInRoot.y)
+        fun earlier(index: Int) = compose.onNodeWithTag("pod-grid-grid-0-stage0-slot-$index")
+        (0..2).forEach { earlier(it).assertContentDescriptionEquals("Card $it, picked by Alice") }
+        (3..8).forEach { earlier(it).assertContentDescriptionEquals("Card $it") }
+        compose.onNode(hasTestTag("pod-grid-grid-0-group") and hasAnyDescendant(hasTestTag("pod-grid-grid-0-stage0-slot-0")) and
+            hasAnyDescendant(hasTestTag("pod-grid-grid-0-slot-0"))).assertExists()
         compose.onNodeWithText("took", substring = true).assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Select row 1").assertCountEquals(0)
         assertHoldPreview(slot(3))
@@ -196,18 +208,52 @@ class PodGridViewTest {
         assertEquals(1f, podGridArtAlpha(plain.copy(pickedBy = "bob"), live = false, highlighted = false, selecting = true))
     }
 
-    @Test fun everyPickedCardIsTintedInItsPickersColourOnLiveAndFinishedGrids() {
-        val live = board.copy(positions = cards.mapIndexed { index, copy -> copy.takeIf { index >= 3 } },
-            slots = cards.mapIndexed { index, copy -> GridPublicSlot(copy, "bob".takeIf { index < 3 }) })
-        val done = GridPublicBoard("done", 2, List(9) { null }, null, finished = true, slots = cards.mapIndexed { index, copy ->
-            GridPublicSlot(copy, when (index) { 1, 4 -> "bob"; 7 -> "alice"; else -> null })
-        })
-        show({ GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(live), emptyList(), finishedGrids = listOf(done)), mine) })
-        fun tint(grid: String, index: Int) = compose.onNodeWithTag("pod-grid-$grid-pick-tint-$index", useUnmergedTree = true)
-        (0..2).forEach { tint("grid-0", it).assertExists() }
-        (3..8).forEach { tint("grid-0", it).assertDoesNotExist() }
-        listOf(1, 4, 7).forEach { tint("done", it).assertExists() }
-        listOf(0, 2, 3, 5, 6, 8).forEach { tint("done", it).assertDoesNotExist() }
+    @Test fun bandsRunAlongEachPickedLineWithEarlierPicksOnTop() {
+        fun pick(player: String, line: GridLine) = GridPublicPickLog(player, "grid-0", line, emptyList(), emptyList())
+        val picks = listOf(pick("alice", GridLine(GridLineType.ROW, 0)), pick("bob", GridLine(GridLineType.COLUMN, 1)),
+            pick("carol", GridLine(GridLineType.ROW, 2)), pick("dave", GridLine(GridLineType.COLUMN, 0)),
+            GridPublicPickLog("erin", "grid-0", null, emptyList(), emptyList()))
+        // Drawing order, bottom first: where lines cross, the earlier pick lies on top.
+        fun players(position: Int) = podGridBands(picks, position).map { it.player }
+        assertEquals(listOf("dave", "alice"), players(0))
+        assertEquals(listOf("bob", "alice"), players(1))
+        assertEquals(listOf("alice"), players(2))
+        assertEquals(listOf("dave"), players(3))
+        assertEquals(listOf("bob"), players(4))
+        assertEquals(emptyList(), players(5))
+        assertEquals(listOf("dave", "carol"), players(6))
+        assertEquals(listOf("carol", "bob"), players(7))
+    }
+
+    @Test fun onlyRefilledGridsGetBoardLabels() {
+        assertNull(podGridStageLabel(0, 1))
+        assertEquals(listOf("Before refill", "After refill"), List(2) { podGridStageLabel(it, 2) })
+        assertEquals(listOf("Before refill", "After refill 1", "After refill 2"), List(3) { podGridStageLabel(it, 3) })
+    }
+
+    @Test fun liveRefilledGridShowsTheEarlierBoardAboveWithArrowsOnlyOnTheCurrentOne() {
+        val refills = List(3) { DraftCopy("refill-$it", "definition-$it") }
+        val live = board.copy(positions = refills + cards.drop(3),
+            slots = (refills + cards.drop(3)).mapIndexed { index, copy -> GridPublicSlot(copy, refill = index < 3) })
+        val log = listOf(GridPublicPickLog("bob", "grid-0", GridLine(GridLineType.ROW, 0), cards.take(3), emptyList()))
+        val unrefilled = board.copy(id = "plain", number = 2, currentPlayer = "bob")
+        show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(live, unrefilled), log = log)) })
+        compose.onNodeWithText("Before refill").assertExists()
+        compose.onNodeWithTag("pod-grid-grid-0-stage0-slot-0").assertContentDescriptionEquals("Card 0, picked by Bob")
+        slot(0).assertContentDescriptionEquals("Card 0, new")
+        compose.onAllNodesWithContentDescription("Select row 1").assertCountEquals(1)
+        compose.onNodeWithContentDescription("Select row 1").performClick()
+        repeat(9) { assertHighlighted(it, it < 3) }
+        compose.onNodeWithTag("pod-grid-grid-0-stage0-slot-0").assert(
+            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Unselected"))
+        // The earlier board lines up with the arrowed one, column by column.
+        val earlier = compose.onNodeWithTag("pod-grid-grid-0-stage0-slot-4").fetchSemanticsNode().boundsInRoot
+        val current = slot(4).fetchSemanticsNode().boundsInRoot
+        assertEquals(current.left, earlier.left)
+        assertEquals(current.width, earlier.width)
+        // A grid without a refill keeps one board and no labels.
+        compose.onAllNodesWithText("After refill").assertCountEquals(1)
+        compose.onNodeWithTag("pod-grid-plain-stage0-slot-0").assertDoesNotExist()
     }
 
     @Test fun pickerColoursUseYourTableColourAndDistinctOthers() {

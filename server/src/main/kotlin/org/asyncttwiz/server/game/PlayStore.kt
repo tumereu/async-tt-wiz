@@ -16,7 +16,7 @@ internal object PlayStore {
         .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
         .where(GAME.ID.eq(game)).fetchOne(GAME_PLAY.PAYLOAD)?.let { GameWire.json.decodeFromString(it) }
 
-    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand): String? {
+    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, summary: (UUID) -> GameSummary): String? {
         val id = UUID.fromString(game.id)
         val change = GameResultRules.accept(game, read(sql, id), PreparationStore.read(sql, game), actor, command)
         change.preparation?.let { preparation ->
@@ -25,6 +25,7 @@ internal object PlayStore {
                 .execute().also { check(it == 1) }
             DeckVisibilityStore.recordFinished(sql, preparation)
             PreparationStore.returnToLobby(sql, preparation)
+            DeckVisibilityStore.revealFinished(sql, preparation, summary)
         }
         return change.reason
     }

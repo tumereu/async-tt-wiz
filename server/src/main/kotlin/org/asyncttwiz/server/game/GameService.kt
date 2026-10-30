@@ -296,7 +296,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             }
         } else null
         val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded" else if (isGameplay) gameplay!!.reason else when (command.action) {
-            is GameAction.AcceptResult -> PlayStore.accept(sql, lobby.summary(sql, game.id!!), inbox.accountId.toString(), command)
+            is GameAction.AcceptResult -> PlayStore.accept(sql, lobby.summary(sql, game.id!!), inbox.accountId.toString(), command) { lobby.summary(sql, it) }
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
@@ -512,6 +512,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             return "invalidDeck"
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
+            if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
             if (StartRules.canStart(summary, preparation)) PlayStore.start(sql, summary, preparation, command.requestId)
         }
         return change.reason

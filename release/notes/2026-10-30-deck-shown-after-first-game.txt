@@ -1,0 +1,1 @@
+fix: With "Show after first game", your deck is now shown to an opponent once you finish a game with it against them, also in the rematch of that game and in other games already waiting with that deck

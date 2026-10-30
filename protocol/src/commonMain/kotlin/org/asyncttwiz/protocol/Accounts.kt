@@ -48,6 +48,14 @@ data class SessionCreated(val token: String, val account: AccountIdentity) {
     override fun toString() = "SessionCreated[redacted]"
 }
 
+/** Default for each new game's "Show deck name & art" toggle; the server applies it when a deck is selected. */
+@Serializable
+enum class DeckVisibility { VISIBLE, HIDDEN, AFTER_FIRST_GAME }
+
+/** Server-side account preferences (`GET`/`PUT /account/settings`). Defaults are omitted on the wire. */
+@Serializable
+data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.AFTER_FIRST_GAME)
+
 @Serializable
 data class AccountError(val code: String, val field: String? = null)
 

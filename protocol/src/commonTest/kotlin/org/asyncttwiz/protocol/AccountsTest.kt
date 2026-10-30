@@ -12,6 +12,13 @@ class AccountsTest {
         val updated = legacy.copy(avatar = Avatar("00000000-0000-0000-0000-000000000001", 1))
         assertEquals(updated, AccountJson.format.decodeFromString<AccountIdentity>(AccountJson.format.encodeToString(updated)))
     }
+    @Test fun accountSettingsDefaultToShowAfterFirstGameAndRoundTrip() {
+        assertEquals(AccountSettings(DeckVisibility.AFTER_FIRST_GAME), AccountJson.format.decodeFromString<AccountSettings>("{}"))
+        assertEquals("{}", AccountJson.format.encodeToString(AccountSettings()))
+        for (option in DeckVisibility.entries) assertEquals(AccountSettings(option),
+            AccountJson.format.decodeFromString<AccountSettings>(AccountJson.format.encodeToString(AccountSettings(option))))
+        assertEquals("""{"deckVisibility":"HIDDEN"}""", AccountJson.format.encodeToString(AccountSettings(DeckVisibility.HIDDEN)))
+    }
     @Test fun credentialsRoundTripWithoutNormalizationOrDiagnosticDisclosure() {
         val input = RegisterAccount("Straße", "Local@Example.invalid", " \tPäSS e\u0301😀\n")
         val encoded = AccountJson.format.encodeToString(input)

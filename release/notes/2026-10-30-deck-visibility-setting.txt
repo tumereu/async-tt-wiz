@@ -1,0 +1,1 @@
+add: New "Deck visibility" setting picks whether your deck name and art start shown in new games: Visible, Hidden, or Show after first game (the default, shown once you have finished a game with that deck against that opponent).

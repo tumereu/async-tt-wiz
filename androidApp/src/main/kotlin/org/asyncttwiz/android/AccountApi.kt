@@ -82,6 +82,12 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
     internal suspend fun setTokenFavorites(token: String, favorites: org.asyncttwiz.protocol.TokenFavorites): org.asyncttwiz.protocol.TokenFavorites =
         decode(call(HttpMethod.Put, "/account/token-favorites", AccountJson.format.encodeToString(favorites), token))
 
+    internal suspend fun accountSettings(token: String): org.asyncttwiz.protocol.AccountSettings =
+        decode(call(HttpMethod.Get, "/account/settings", token = token))
+
+    internal suspend fun setAccountSettings(token: String, settings: org.asyncttwiz.protocol.AccountSettings): org.asyncttwiz.protocol.AccountSettings =
+        decode(call(HttpMethod.Put, "/account/settings", AccountJson.format.encodeToString(settings), token))
+
     internal suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
         if (!BuildConfig.DIAGNOSTICS) return false
         // Keep the complete trace locally, but don't send bodies the server would discard anyway.

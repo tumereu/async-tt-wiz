@@ -195,13 +195,11 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
 internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewModel?) {
     val state = controller.state
     val account = state.account ?: return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Profile", style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Avatar(account, size = 48.dp)
-            Text(account.username, Modifier.weight(1f))
-            FilledTonalIconButton(onClick = { controller.editProfile() }) { EntryIcon("Edit profile", "edit") }
-        }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Avatar(account, size = 48.dp)
+        Text(account.username, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        FilledTonalIconButton(onClick = { controller.editProfile() }) { EntryIcon("Edit profile", "edit") }
     }
     if (state.profileDialog) {
         val nameField = rememberDialogField(account.username, account.accountId, focusOnOpen = false)

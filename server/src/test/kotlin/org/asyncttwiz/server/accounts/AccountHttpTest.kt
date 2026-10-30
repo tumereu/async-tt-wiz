@@ -115,6 +115,36 @@ class AccountHttpTest {
             }
         }
     }
+    @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            val path = "/account/settings"
+            fun get(session: String) = request(settings, "GET", path, token = session)
+            fun put(session: String?, body: String) = request(settings, "PUT", path, body.toByteArray(), token = session)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                for (method in listOf("GET", "PUT")) assertEquals(401, request(settings, method, path, "{}".toByteArray()).statusCode())
+                fun login(email: String) = json.decodeFromString<SessionCreated>(post(settings, "/sessions",
+                    json.encodeToString(CreateSession(email, "password"))).body()).token
+                assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("Prefs", "prefs@example.invalid", "password"))).statusCode())
+                assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("OtherPrefs", "other-prefs@example.invalid", "password"))).statusCode())
+                val token = login("prefs@example.invalid"); val secondDevice = login("prefs@example.invalid")
+                val other = login("other-prefs@example.invalid")
+                assertEquals(AccountSettings(DeckVisibility.AFTER_FIRST_GAME), json.decodeFromString<AccountSettings>(get(token).body()))
+                for (option in DeckVisibility.entries) {
+                    val reply = put(token, json.encodeToString(AccountSettings(option)))
+                    assertEquals(200, reply.statusCode())
+                    assertEquals(AccountSettings(option), json.decodeFromString<AccountSettings>(reply.body()))
+                    assertEquals(AccountSettings(option), json.decodeFromString<AccountSettings>(get(secondDevice).body()))
+                }
+                assertEquals(400, put(token, """{"deckVisibility":"SOMETIMES"}""").statusCode())
+                assertEquals(AccountSettings(DeckVisibility.AFTER_FIRST_GAME), json.decodeFromString<AccountSettings>(get(token).body()))
+                assertEquals(AccountSettings(), json.decodeFromString<AccountSettings>(get(other).body()))
+                assertEquals(405, request(settings, "POST", path, token = token).statusCode())
+            }
+        }
+    }
     private val json = AccountJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }

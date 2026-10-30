@@ -23,6 +23,7 @@ internal object PlayStore {
             sql.update(GAME_PLAY).set(GAME_PLAY.ENDED_REQUEST_ID, UUID.fromString(command.requestId))
                 .where(GAME_PLAY.ID.eq(UUID.fromString(game.playId!!))).and(GAME_PLAY.ENDED_REQUEST_ID.isNull)
                 .execute().also { check(it == 1) }
+            DeckVisibilityStore.recordFinished(sql, preparation)
             PreparationStore.returnToLobby(sql, preparation)
         }
         return change.reason

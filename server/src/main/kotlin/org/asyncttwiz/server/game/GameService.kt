@@ -443,9 +443,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (summary.podId != null) return "podDeckFixed"
         val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
         val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
-        val change = PreparationRules.select(summary, PreparationStore.read(sql, summary), account.toString(),
+        val current = PreparationStore.read(sql, summary)
+        val change = PreparationRules.select(summary, current, account.toString(),
             command.requestId, command.scope, action, source, definitions)
-        change.state?.let { PreparationStore.saveSelection(sql, account, it) }
+        change.state?.let { state ->
+            PreparationStore.saveSelection(sql, account, state)
+            // The account default decides the deck's visibility whenever a different deck is chosen; re-selecting
+            // the same deck keeps this game's own Show deck choice.
+            val previous = current.players.single { it.accountId == account.toString() }.deck?.sourceId
+            if (previous != action.deckId) DeckVisibilityStore.apply(sql, summary, account, action.deckId)
+        }
         return change.reason
     }
 

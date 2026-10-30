@@ -62,33 +62,32 @@ internal fun CatalogControls(controller: CatalogViewModel) {
         Text("Allow up to 4 GB for indexed records. Your installed catalog stays available if the refresh fails.")
         if (state.metered) Text("You’re on a metered connection. This download may incur data charges.")
     }
-    InitialLoadArea(state.loaded, Modifier.widthIn(max = 540.dp).fillMaxWidth()
+    InitialLoadArea(state.loaded, Modifier.fillMaxWidth()
         .heightIn(min = if (state.loaded) 0.dp else 160.dp).testTag("catalog-controls")) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Card records", style = MaterialTheme.typography.titleMedium)
-        Text(state.installed?.let { "Installed: ${it.date} · ${it.records} records" }
-            ?: "Download card records before importing a new deck. Artwork loads only when needed.")
-        Box(Modifier.fillMaxWidth().testTag("catalog-status")) {
-            Text(state.status?.takeIf { !state.background && !state.error }.orEmpty(),
-                Modifier.fillMaxWidth().padding(bottom = 8.dp), minLines = 2, maxLines = 2)
-            if (!state.background) state.progress?.let {
-                CatalogProgressBar(it, Modifier.fillMaxWidth().align(Alignment.BottomCenter))
-            }
+    Column(Modifier.fillMaxWidth()) {
+        SettingsSectionHeader("Card records")
+        SettingsLabel(state.installed?.let { "Installed: ${it.date} · ${String.format(Locale.US, "%,d", it.records)} records" }
+            ?: "Not installed", if (state.installed == null) "Download card records before importing a new deck. Artwork loads only when needed." else null,
+            Modifier.padding(vertical = 4.dp))
+        // Status and progress only while there is something to say; failures use the floating message instead.
+        val status = state.status?.takeIf { !state.background && !state.error }
+        val progress = state.progress?.takeIf { !state.background }
+        if (status != null || progress != null) Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("catalog-status"),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (status != null) Text(status, style = MaterialTheme.typography.bodyMedium)
+            if (progress != null) CatalogProgressBar(progress, Modifier.fillMaxWidth())
         }
         if (state.available != null) {
-            Text("${catalogDownloadEstimate(state)} ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."}")
+            Text("${catalogDownloadEstimate(state)} ${if (state.metered) "This connection may charge for data." else "Using an unmetered connection."}",
+                Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
             ScreenButton(onClick = controller::consent, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy) {
                 EntryIcon(null, "download"); Spacer(Modifier.width(8.dp)); Text(if (state.error) "Retry download" else "Download card records")
             }
         }
-        TextButton(onClick = { controller.foreground(force = true) }, Modifier.fillMaxWidth().height(48.dp)
-            .testTag("catalog-check"), enabled = !state.busy) {
-            // Full width keeps Check/Retry stable; left-aligned like the other text actions.
-            EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text(if (state.error && state.available == null) "Retry" else "Check for updates")
-            Spacer(Modifier.weight(1f))
-        }
-        if (state.installed != null) TextButton(onClick = controller::requestFullRefresh,
-            Modifier.heightIn(min = 48.dp), enabled = !state.busy) { Text("Refresh full catalog") }
+        SettingsActionRow(if (state.error && state.available == null) "Retry" else "Check for updates", "refresh",
+            { controller.foreground(force = true) }, Modifier.testTag("catalog-check"), enabled = !state.busy)
+        if (state.installed != null) SettingsActionRow("Refresh full catalog", "sync", controller::requestFullRefresh,
+            Modifier.testTag("catalog-full-refresh"), enabled = !state.busy)
     }
     }
 }

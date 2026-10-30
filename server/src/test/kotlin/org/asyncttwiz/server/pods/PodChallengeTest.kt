@@ -250,6 +250,33 @@ class PodChallengeTest {
         assertEquals(aName, f.games.head(f.a, game.id).ownPodDeckName)
     }
 
+    @Test fun `pod decks follow the deck visibility default per opponent`() = fixture { f ->
+        val pod = f.pod(three = true)
+        f.submit(f.a, pod); f.submit(f.b, pod); f.submit(f.c, pod)
+        fun shown(game: GameSummary, of: AccountService.Principal) =
+            f.games.head(of, game.id).preparation!!.players.single { it.accountId == of.account.accountId }.deckShown
+        val first = f.challenge(pod); val owner = f.stream(f.a, first); val recipient = f.stream(f.b, first)
+        recipient.execute(GameAction.AcceptInvitation)
+        assertFalse(shown(first, f.a)); assertFalse(shown(first, f.b))
+        owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
+        owner.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.WIN)))
+        val suggestion = f.games.head(f.a, first.id).play!!.board.resultSuggestion!!
+        assertEquals("accepted", recipient.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+        assertFalse(shown(first, f.a), "Ending the first game reveals nothing by itself")
+        // The same pod decks against the same opponent: both start shown, the inviter's already in the challenge.
+        val second = f.challenge(pod)
+        assertTrue(shown(second, f.a))
+        f.stream(f.b, second).execute(GameAction.AcceptInvitation)
+        assertTrue(shown(second, f.b))
+        assertTrue(f.games.head(f.b, second.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.shownPodDeckName != null)
+        // Against another pod member it is a first game again, unless the account always shows its decks.
+        val third = f.challenge(pod, opponent = f.c)
+        assertFalse(shown(third, f.a))
+        org.asyncttwiz.server.accounts.AccountSettingsService(f.runtime).set(f.c.account.accountId, AccountSettings(DeckVisibility.VISIBLE))
+        f.stream(f.c, third).execute(GameAction.AcceptInvitation)
+        assertTrue(shown(third, f.c))
+    }
+
     @Test fun `recipient deck lists basics and definitions stay private until acceptance including revisions and declined or withdrawn invitations`() = fixture(uniqueCards = true) { f ->
         val pod = f.pod()
         val counts = PodDeckBasics(plains = 37, island = 4)

@@ -212,10 +212,11 @@ class GameResultLifecycleTest {
                 assertEquals("accepted", f.other.execute(GameAction.ShowDeck(false)).outcome)
                 assertFalse(shown().getValue(bId))
                 assertEquals("accepted", f.other.execute(GameAction.ShowDeck(true)).outcome)
-                // A new game between the same players starts hidden.
+                // A new game follows the account default; with Hidden it starts hidden although A finished a game with this deck against B.
                 val fresh = GameWire.json.decodeFromString<GameSummary>(LobbyService(f.runtime).create(f.a,
                     CreateInvitation(id(), bId, "Fresh game")).body)
                 val freshOwner = Stream(f.games, f.a, fresh.id)
+                org.asyncttwiz.server.accounts.AccountSettingsService(f.runtime).set(f.a.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
                 freshOwner.execute(GameAction.SelectDeck(f.source.deck.id, f.source.deck.revision))
                 assertTrue(f.games.head(f.a, fresh.id).preparation!!.players.none { it.deckShown })
             }

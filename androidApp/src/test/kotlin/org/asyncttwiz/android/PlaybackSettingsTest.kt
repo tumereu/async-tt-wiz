@@ -107,7 +107,7 @@ class PlaybackSettingsTest {
     @Test fun settingsShowsSameTogglesAndDelay() {
         val settings = HistoryPlaybackPreferences(context, "settings")
         compose.setContent { MaterialTheme { SettingsContent(null, "settings") {} } }
-        compose.onNodeWithText("Playback").assertIsDisplayed()
+        compose.onNodeWithText("Timeline playback").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("auto-pause-ATTACKERS").performScrollTo().assertIsOff().performClick().assertIsOn()
         compose.runOnIdle { assertTrue(PlaybackAutoPause.ATTACKERS in settings.autoPause) }
         compose.onNodeWithTag("history-playback-pause").performScrollTo().assertIsDisplayed()
@@ -157,10 +157,10 @@ class PlaybackSettingsTest {
         assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
     }
 
-    @Test fun catalogAtBottomKeepsSettingsStableAndCompactInPortrait() = assertCatalogGeometry()
+    @Test fun catalogSectionReservesNoSpaceAndKeepsPreferencesStableInPortrait() = assertCatalogGeometry()
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun catalogAtBottomKeepsSettingsStableAndCompactInLandscape() = assertCatalogGeometry()
+    fun catalogSectionReservesNoSpaceAndKeepsPreferencesStableInLandscape() = assertCatalogGeometry()
 
     private fun assertCatalogGeometry() {
         val models = ViewModelStore()
@@ -170,14 +170,19 @@ class PlaybackSettingsTest {
         }
         try {
             compose.setContent { MaterialTheme { SettingsContent(catalog, "gap") {} } }
-            // Compare unclipped bounds: Card records is below all preferences, even on short screens.
-            val fixedSections = listOf("playback-settings", "card-size", "logout", "app-version")
+            // Preferences sit above Card records, so catalog changes never move them; About & account follows it.
+            val fixedSections = listOf("playback-settings", "card-size")
                 .associateWith { compose.onNodeWithTag(it).getUnclippedBoundsInRoot() }
-            val controls = compose.onNodeWithTag("catalog-controls").getUnclippedBoundsInRoot()
-            assertEquals(24.dp, controls.top - fixedSections.getValue("app-version").bottom)
-            assertTrue(controls.bottom - controls.top < 300.dp, "Installed catalog must not reserve a large empty block: $controls")
+            fun controls() = compose.onNodeWithTag("catalog-controls").getUnclippedBoundsInRoot()
+            assertTrue(controls().top > fixedSections.getValue("playback-settings").bottom)
+            assertTrue(compose.onNodeWithTag("app-version").getUnclippedBoundsInRoot().top > controls().bottom)
+            assertTrue(compose.onNodeWithTag("logout").getUnclippedBoundsInRoot().top > compose.onNodeWithTag("app-version").getUnclippedBoundsInRoot().bottom,
+                "Log out is last")
+            // Idle installed catalog: header, installed line and two rows, with no reserved status space.
+            compose.onNodeWithTag("catalog-status").assertDoesNotExist()
             val check = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
-            val status = compose.onNodeWithTag("catalog-status").getUnclippedBoundsInRoot()
+            assertTrue(check.top - controls().top <= 120.dp, "Header and installed line only above the actions: ${controls()} $check")
+            assertEquals(controls().bottom, compose.onNodeWithTag("catalog-full-refresh").getUnclippedBoundsInRoot().bottom)
             val installed = catalog.state
             val available = CatalogMetadata("2026-10-26", "2", records = 200)
             for (state in listOf(
@@ -195,12 +200,14 @@ class PlaybackSettingsTest {
                     continue
                 }
                 val action = compose.onNodeWithTag("catalog-check").getUnclippedBoundsInRoot()
-                val slot = compose.onNodeWithTag("catalog-status").getUnclippedBoundsInRoot()
                 assertEquals(check.right - check.left, action.right - action.left)
                 assertEquals(check.bottom - check.top, action.bottom - action.top)
-                assertEquals(status.bottom - status.top, slot.bottom - slot.top)
+                if (state.status != null && !state.error) compose.onNodeWithTag("catalog-status").assertExists()
+                if (state.progress != null) compose.onNodeWithTag("catalog-status").assertExists()
                 if (state.error) {
                     compose.onNodeWithText("Retry").assertExists()
+                    // Failures are a floating message, not text inside the section.
+                    compose.onNodeWithTag("catalog-status").assertDoesNotExist()
                     compose.onNodeWithText("Synthetic network failure").assertIsDisplayed()
                     assertEquals(check, action)
                 }

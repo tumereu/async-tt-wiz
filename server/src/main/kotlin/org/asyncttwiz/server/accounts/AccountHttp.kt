@@ -33,16 +33,17 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val resets: PasswordResetService? = null, settings: ResetMailSettings? = null) {
     private val service = AccountService(runtime)
     private val tokenFavorites = TokenFavoritesService(runtime)
+    private val accountSettings = AccountSettingsService(runtime)
     private val limits = AccountRateLimits()
     private val json = AccountJson.format
     private val form = if (resets != null && settings != null) ResetFormHttp(resets, settings, limits) else null
-    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/account/username", "/account/avatar", "/account/token-favorites", "/password-reset-requests", "/password-resets", "/password-reset-links",
+    private val paths = setOf("/accounts", "/sessions", "/session", "/account", "/account/username", "/account/avatar", "/account/token-favorites", "/account/settings", "/password-reset-requests", "/password-resets", "/password-reset-links",
         "/reset-password", "/reset-password/request")
     private val security = FilterChainProxy(DefaultSecurityFilterChain({ true }, listOf(
         SecurityContextHolderFilter(NullSecurityContextRepository()),
         object : OncePerRequestFilter() {
             override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
-                if (request.requestURI in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites")) {
+                if (request.requestURI in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites", "/account/settings")) {
                     val principal = bearer(request)?.let(service::authenticate)
                     if (principal != null) {
                         SecurityContextHolder.getContext().authentication =
@@ -54,7 +55,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
         },
         ExceptionTranslationFilter({ _, response, _ -> error(response, 401, "authentication_required") }, NullRequestCache()),
         AuthorizationFilter { authentication, request ->
-            AuthorizationDecision(request.requestURI !in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites") || authentication.get().isAuthenticated)
+            AuthorizationDecision(request.requestURI !in setOf("/account", "/account/username", "/account/avatar", "/account/token-favorites", "/account/settings") || authentication.get().isAuthenticated)
         },
     )))
 
@@ -110,6 +111,15 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
                 val input = json.decodeFromString<org.asyncttwiz.protocol.TokenFavorites>(body(request, response) ?: return)
                 reply(response, 200, json.encodeToString(tokenFavorites.set(principal.account.accountId, input)))
+            }
+            "GET" to "/account/settings" -> {
+                val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
+                reply(response, 200, json.encodeToString(accountSettings.read(principal.account.accountId)))
+            }
+            "PUT" to "/account/settings" -> {
+                val principal = SecurityContextHolder.getContext().authentication!!.principal as AccountService.Principal
+                val input = json.decodeFromString<org.asyncttwiz.protocol.AccountSettings>(body(request, response) ?: return)
+                reply(response, 200, json.encodeToString(accountSettings.set(principal.account.accountId, input)))
             }
             "POST" to "/password-reset-links" -> {
                 val reset = resets ?: run { error(response, 503, "unavailable"); return }
@@ -169,7 +179,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 "/accounts", "/sessions", "/password-reset-requests", "/password-resets", "/password-reset-links" -> "POST"
                 "/account" -> "GET"
                 "/account/username", "/account/avatar" -> "PUT"
-                "/account/token-favorites" -> "GET, PUT"
+                "/account/token-favorites", "/account/settings" -> "GET, PUT"
                 else -> "DELETE"
             }); error(response, 405, "method_not_allowed") }
         }

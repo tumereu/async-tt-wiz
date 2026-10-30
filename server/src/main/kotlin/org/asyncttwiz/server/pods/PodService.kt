@@ -534,6 +534,8 @@ class PodService(private val runtime: ServiceRuntime) {
         sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.POD_DECK_NAME, name)
             .where(PLAYER_PREPARATION.GAME_ID.eq(UUID.fromString(summary.id)))
             .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(UUID.fromString(player))).execute()
+        // A pod deck is the player's deck from this pod: the pod id is its stable identity.
+        org.asyncttwiz.server.game.DeckVisibilityStore.apply(sql, summary, UUID.fromString(player), row.id.toString())
     }
 
     fun leave(principal: AccountService.Principal, id: String, input: PodRequest): Result =

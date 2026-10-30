@@ -17,23 +17,25 @@ import kotlin.math.roundToInt
 @Composable
 internal fun CardSettings(preferences: CardAppearancePreferences = rememberCardAppearancePreferences()) {
     val appearance by preferences.state()
-    Column(Modifier.fillMaxWidth().testTag("cards-settings"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Cards", style = MaterialTheme.typography.titleMedium)
-        Text("Saved on this device. Global card size also applies to the battlefield, independently of zoom. Text sizes apply to all table cards.",
-            style = MaterialTheme.typography.bodySmall)
-        CardScaleSlider("Card size", "card-size", appearance.cardSize, { preferences.setSize(it) }, appearance,
-            appearance.cardSize)
+    Column(Modifier.fillMaxWidth().testTag("cards-settings")) {
+        // One sample card shows both card size and text size; per-area sizes each show their own area's card.
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Card sizes are saved on this device. Card size also applies to the battlefield, independently of zoom. " +
+                "Text sizes apply to all table cards.", Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            CardSample(appearance, appearance.cardSize, "card-size-sample")
+        }
+        CardScaleSlider("Card size", "card-size", appearance.cardSize, { preferences.setSize(it) })
         CardCustomizeToggle("Customize per area", appearance.customizeAreas, preferences::customizeAreas)
         if (appearance.customizeAreas) for (area in CardArea.entries) {
             CardScaleSlider(area.label, "card-size-${area.name}", appearance.size(area), { preferences.setSize(it, area) },
                 appearance, appearance.size(area))
         }
-        CardScaleSlider("Card text size", "card-text-size", appearance.textSize, { preferences.setText(it) },
-            appearance.copy(customizeText = false), appearance.cardSize)
+        CardScaleSlider("Card text size", "card-text-size", appearance.textSize, { preferences.setText(it) })
         CardCustomizeToggle("Customize per text", appearance.customizeText, preferences::customizeText)
         if (appearance.customizeText) for (part in CardTextScalePart.entries) {
-            CardScaleSlider(part.label, "card-text-${part.name}", appearance.text(part), { preferences.setText(it, part) },
-                appearance, appearance.cardSize)
+            CardScaleSlider(part.label, "card-text-${part.name}", appearance.text(part), { preferences.setText(it, part) })
         }
     }
 }
@@ -41,33 +43,37 @@ internal fun CardSettings(preferences: CardAppearancePreferences = rememberCardA
 @Composable
 private fun CardCustomizeToggle(label: String, checked: Boolean, change: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(checked, role = Role.Checkbox, onValueChange = change),
-        verticalAlignment = Alignment.CenterVertically) {
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Checkbox(checked, null)
-        Text(label)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
 private fun CardScaleSlider(label: String, tag: String, value: Float, change: (Float) -> Unit,
-    appearance: CardAppearance, sampleScale: Float) {
+    appearance: CardAppearance? = null, sampleScale: Float = 1f) {
     var exact by remember { mutableStateOf(false) }
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-            TextButton({ exact = true }, Modifier.testTag("$tag-value")) {
-                Text("${value}×")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f)) {
+            Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                SettingsLabel(label, modifier = Modifier.weight(1f))
+                TextButton({ exact = true }, Modifier.testTag("$tag-value"), contentPadding = SettingsValuePadding) { Text("${value}×") }
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Slider(value, { change((it * 100).roundToInt() / 100f) }, valueRange = MIN_CARD_SCALE..MAX_CARD_SCALE,
-                modifier = Modifier.weight(1f).testTag(tag))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Sample card", style = MaterialTheme.typography.labelSmall)
-                SampleTableCard(appearance, sampleScale, Modifier.testTag("$tag-sample"))
-            }
+                modifier = Modifier.testTag(tag))
         }
+        if (appearance != null) CardSample(appearance, sampleScale, "$tag-sample")
     }
     if (exact) CardScaleInput(label, value, { exact = false }) { change(it); exact = false }
+}
+
+@Composable
+private fun CardSample(appearance: CardAppearance, scale: Float, tag: String) {
+    Column(Modifier.widthIn(min = 64.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Sample", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SampleTableCard(appearance, scale, Modifier.testTag(tag))
+    }
 }
 
 @Composable

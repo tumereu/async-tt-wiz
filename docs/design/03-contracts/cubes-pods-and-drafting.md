@@ -460,6 +460,11 @@ each with a sticky header and count. Trash starts expanded (it is last).
   survives pod deletion and labels the owner's lobby and game deck only — unless
   the owner switches on **Show deck name & art** for that game (GameAction.ShowDeck):
   while on, the shared preparation carries it as PlayerPreparation.shownPodDeckName.
+  Its starting value comes from the owner's account setting **Deck visibility**
+  (`/account/settings`: VISIBLE, HIDDEN, or AFTER_FIRST_GAME = default), applied by the
+  server whenever a different deck is selected (pod decks: when the challenge deck is
+  saved). AFTER_FIRST_GAME shows the deck iff that deck (saved deck id; pod id for a
+  pod deck) already finished a play with an accepted result against the same opponent.
 
 ### Stats
 

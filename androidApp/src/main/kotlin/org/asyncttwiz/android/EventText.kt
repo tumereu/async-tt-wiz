@@ -137,10 +137,8 @@ internal fun EventTextSetting(accountId: String) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("event-text-setting")
         .toggleable(enabled, role = Role.Switch, onValueChange = { preferences.enabled = it }),
         verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("Event text", style = MaterialTheme.typography.titleSmall)
-            Text("Briefly show what just happened at the top of the table", style = MaterialTheme.typography.bodySmall)
-        }
+        SettingsLabel("Event text", "Briefly show what just happened at the top of the table",
+            Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
         Switch(checked = enabled, onCheckedChange = null)
     }
 }

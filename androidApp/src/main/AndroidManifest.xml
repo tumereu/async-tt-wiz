@@ -26,6 +26,7 @@
         <service android:name=".ActivityPushService" android:exported="false" android:enabled="${fcmEnabled}">
             <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>
+        <receiver android:name=".ActivityDismissReceiver" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTask"

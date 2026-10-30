@@ -129,6 +129,12 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    override fun onStop() {
+        // Going to the background (or closing) starts the waiting-game checks; a rotation is neither.
+        if (!isChangingConfigurations) AndroidActivityDelivery.get(this).background()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]

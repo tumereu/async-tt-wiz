@@ -20,7 +20,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
     private val limits = AccountRateLimits()
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence")) return false
+        if (path !in listOf("/activity", "/activity/installations", "/activity/target", "/activity/presence", "/activity/waiting")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         fun reply(status: Int, body: String = "") {
@@ -42,6 +42,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
                     reply(200, ActivityWire.json.encodeToString(activity.target(principal, kind,
                         request.getParameter("game").orEmpty(), request.getParameter("identity").orEmpty())))
                 }
+                "GET" to "/activity/waiting" -> reply(200, ActivityWire.json.encodeToString(activity.waiting(principal)))
                 "GET" to "/activity" -> reply(200, ActivityWire.json.encodeToString(activity.page(principal, request.getParameter("after"))))
                 "PUT" to "/activity/presence", "PUT" to "/activity/installations" -> {
                     val media = request.contentType.orEmpty().split(';').map(String::trim)

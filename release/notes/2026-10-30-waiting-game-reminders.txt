@@ -1,0 +1,1 @@
+add: If a game is waiting for your move and no notice reached you, the app now reminds you itself, at first after 15 minutes and later at least once a day until you open the app; a reminder you swipe away stays away until your opponent does something new

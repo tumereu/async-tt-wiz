@@ -141,6 +141,18 @@ data class TableItem(
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
 }
 
+/** Lazily built, memoized drawings of public pile members, asked for only by cards that changed pile. Derived
+ * from the scene's own board, so it takes no part in scene equality. [built] counts drawings made (tests). */
+class PileCardDrawings(private val build: (String) -> TableItem?) {
+    private val made = HashMap<String, TableItem?>()
+    internal var built = 0; private set
+    operator fun get(cardId: String): TableItem? = if (cardId in made) made[cardId]
+        else build(cardId).also { made[cardId] = it; if (it != null) built++ }
+    override fun equals(other: Any?) = other is PileCardDrawings
+    override fun hashCode() = 0
+    companion object { val NONE get() = PileCardDrawings { null } }
+}
+
 /** Shown in the title position of a face-down Battlefield card; it says nothing about the hidden front. */
 internal const val FACE_DOWN_TITLE = "?"
 
@@ -177,9 +189,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val tempPiles: Map<String, List<String>> = emptyMap(),
     /** The viewer's screen-fixed Interaction mode square at the outer end of their own hand row. */
     val modeButton: TableBounds? = null,
-    /** Card ID -> its undrawn face-up (or covered, when face down) drawing at its Graveyard/Exile pile: the
-     * look of a card flying from or to a public pile. Library and Temp pile members fly face down. */
-    val pileCards: Map<String, TableItem> = emptyMap()) {
+    /** The undrawn face-up (or covered, when face down) drawing of a Graveyard/Exile member: the look of a
+     * card flying from or to a public pile. Library and Temp pile members fly face down. */
+    val pileCards: PileCardDrawings = PileCardDrawings.NONE) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
@@ -383,8 +395,6 @@ object TablePresentation {
         val sidebarContent = max(2 * sidebarRow + landscapeExtra.sum() + middleHeight, sidebarBounds.height)
         val sidebarScroll = if (landscape) (ui.scrollY["sidebar"] ?: 0f).coerceIn(0f, (sidebarContent - sidebarBounds.height).coerceAtLeast(0f)) else 0f
         val items = mutableListOf<TableItem>()
-        // Undrawn faces of Graveyard/Exile members, so pile-to-pile flights show what the pile shows.
-        val pileCards = mutableMapOf<String, TableItem>()
         val ports = mutableListOf<TableViewport>()
         fun port(id: String, bounds: TableBounds, content: Float, hand: Boolean = false): TableViewport {
             val offset = (ui.scroll[id] ?: 0f).coerceIn(0f, (content - bounds.width).coerceAtLeast(0f))
@@ -517,9 +527,6 @@ object TablePresentation {
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
-                if (zone in PublicPiles.zones) for (id in c.cards) byId[id]?.let { member ->
-                    pileCards[id] = card(member, b, b, c.accountId, zone, if (c.temp) tempPort.id else dp.id, draw = false)
-                }
             }
             run {
                 // Temp piles take the counters' room: the counters shrink, take their own row (more than one
@@ -627,7 +634,14 @@ object TablePresentation {
                 p.accountId to TempPiles.NUMBERS.map { TempPiles.containerId(play.id, p.accountId, it) } },
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },
-            modeButton = modeButton, pileCards = pileCards), play, viewer, panels), width, height)
+            modeButton = modeButton, pileCards = PileCardDrawings { id ->
+                // Built only on demand: for a card that changed pile, never for every pile member per update.
+                val member = byId[id] ?: return@PileCardDrawings null
+                val pile = play.board.containers.firstOrNull { it.id == member.containerId && it.zone in PublicPiles.zones }
+                    ?: return@PileCardDrawings null
+                val at = TableBounds(0f, 0f, pileWidth, pileHeight)
+                card(member, at, at, pile.accountId, pile.zone, "", draw = false)
+            }), play, viewer, panels), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

@@ -542,4 +542,33 @@ class TableAnimationTest {
         animation.retarget(TableFixture.scene(reordered), 1f)
         assertTrue(animation.frame(.1f).none { it.item.cardId == id })
     }
+
+    @Test fun pileDrawingsAreBuiltOnlyForCardsThatChangedPile() {
+        // 80 cards in each player's Graveyard and Exile, plus a Library and a Battlefield card.
+        val base = TableFixture.play(board = 1, library = 2)
+        fun filled(owner: String): List<PlayCard> = listOf(PlayZone.GRAVEYARD, PlayZone.EXILE).flatMap { zone ->
+            (0 until 80).map { PlayCard("$owner/$zone/$it", TableFixture.submitted.digest, owner, "$owner/$zone", "face") } }
+        val extra = filled("a") + filled("b")
+        val big = base.copy(board = base.board.copy(cards = base.board.cards + extra, containers = base.board.containers.map { c ->
+            c.copy(cards = c.cards + extra.filter { it.containerId == c.id }.map { it.id }) }))
+        val before = TableFixture.scene(big)
+        // An unrelated update (a tap) builds no pile drawing at all.
+        val tapped = TableFixture.scene(big.copy(board = big.board.copy(cards = big.board.cards.map {
+            if (it.id == "a/BATTLEFIELD/0") it.copy(tapped = true) else it })))
+        val animation = HistorySceneAnimation(before)
+        val started = System.nanoTime()
+        assertTrue(animation.retarget(tapped, 1f))
+        val tapMillis = (System.nanoTime() - started) / 1e6
+        assertEquals(0, before.pileCards.built); assertEquals(0, tapped.pileCards.built)
+        // A mill builds exactly the milled card's drawing; Graveyard -> Exile builds only the moved ones.
+        val milledPlay = moved(big, listOf("b/LIBRARY/0"), "b/GRAVEYARD")
+        val milled = TableFixture.scene(milledPlay)
+        assertTrue(animation.retarget(milled, 1f))
+        assertEquals(1, milled.pileCards.built)
+        val exiled = TableFixture.scene(moved(milledPlay, listOf("b/GRAVEYARD/3", "b/GRAVEYARD/4"), "b/EXILE"))
+        assertTrue(animation.retarget(exiled, 1f))
+        assertEquals(3, milled.pileCards.built, "the milled card plus the two departing Graveyard cards")
+        assertEquals(2, exiled.pileCards.built)
+        println("pile drawings benchmark: tap retarget ${"%.2f".format(tapMillis)} ms with 320 public pile cards")
+    }
 }

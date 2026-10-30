@@ -1,0 +1,1 @@
+fix: Your deck's name no longer shows above your library during a game

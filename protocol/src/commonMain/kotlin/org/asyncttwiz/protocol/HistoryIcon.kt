@@ -23,6 +23,8 @@ enum class HistoryIcon(val wire: String) {
     DELETE("delete"), LINK("link"), LINK_OFF("link_off"), SWORDS("swords"), LAYERS("layers"), LAYERS_CLEAR("layers_clear"),
     REMOVE_CIRCLE_OUTLINE("remove_circle_outline"), FORMAT_INK_HIGHLIGHTER("format_ink_highlighter"),
     SWAP_HORIZ("swap_horiz"),
+    /** Rules v32 move icons by target: Battlefield, Graveyard, Exile, Library. */
+    SPACE_DASHBOARD("space_dashboard"), DELETE_SWEEP("delete_sweep"), BLOCK("block"), LIBRARY_BOOKS("library_books"),
     /** Older clients' result glyph; no current event records it, retained data may. */
     EMOJI_EVENTS("emoji_events"),
     /** Decoded from a name this build does not know. */

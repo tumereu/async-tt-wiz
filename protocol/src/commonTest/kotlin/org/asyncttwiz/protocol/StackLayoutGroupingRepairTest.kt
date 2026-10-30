@@ -45,7 +45,12 @@ class StackLayoutGroupingRepairTest {
                 MoveDestination(target.id, insertion), if (to == PlayZone.STACK && original.containerId != target.id)
                     GameplayRules.stackDigest(before) else null)
             val mutation = step(action, request, significance,
-                if (significance.category == HistoryCategory.I) "layers" else "open_with", start, representative, count)
+                // Rules v32: a move's icon names its target zone; layout within one zone keeps the move icon.
+                when (significance) {
+                    HistorySignificance.STACK_ENTRY -> "layers"
+                    HistorySignificance.STACK_LAYOUT, HistorySignificance.SAME_ZONE_PLACEMENT -> "open_with"
+                    else -> HistoryGrouping.zoneIcon(to).wire
+                }, start, representative, count)
             val movement = assertNotNull(mutation.transition.movement)
             assertEquals(original.id, movement.cardId)
             assertEquals(original.containerId, movement.from.containerId)

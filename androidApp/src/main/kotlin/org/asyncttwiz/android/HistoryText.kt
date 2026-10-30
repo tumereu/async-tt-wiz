@@ -8,9 +8,12 @@ import kotlinx.collections.immutable.toPersistentMap
 import org.asyncttwiz.protocol.*
 
 data class HistoryText(val description: String, val label: String, val move: HistoryMove? = null)
-/** A card move: [subject] is the card's name, or null when the viewer could not see it at the time.
- * [route] is "From → To", or null when a zone is unknown (no board context); it then reads "moved". */
-data class HistoryMove(val subject: String?, val route: String?)
+/** A card move: [subjects] are the moved cards' names, null for each card the viewer could not see at the time.
+ * [template] is the move's sentence with [HISTORY_CARDS] where the cards go ("Drew …"), or null when a
+ * zone is unknown (no board context); it then reads "X moved". Moves with the same template merge in a group. */
+data class HistoryMove(val subjects: List<String?>, val template: String?)
+/** Where a move sentence names its cards; a private-use character no name contains. */
+internal const val HISTORY_CARDS = "\uE000"
 
 /** Only visible timeline entries are projected. Texts the client made while it held an event's
  * before-board come from [known]; otherwise never materialize a distant board for a label: absent
@@ -204,6 +207,70 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         val position = TurnPosition.entries.find { it.phase == phase && it.step == step } ?: fallback
         return text(position?.let { "Moved to ${it.label}" } ?: if (label == "End turn") "Turn ended" else "Turn advanced", label)
     }
+    fun move(subjects: List<String?>, template: String?, label: String) = HistoryText(
+        historyPlainText(historyMoveText(historyMoveSubjects(subjects), template)), label, HistoryMove(subjects, template))
+    /** A zone as a move sentence names it: "graveyard", "the battlefield", "Temp 2"; a player's name only
+     * when it isn't [owner]'s (the moved cards' owner), e.g. "bob's battlefield" for a stolen creature. */
+    fun holder(id: String, owner: String?) = (container(id)?.accountId ?: tempRefs[id]?.accountId)?.takeIf { owner != null && it != owner }
+    fun place(id: String, owner: String?): String {
+        val area = container(id)
+        val name = tempNumber(id)?.let { "Temp $it" } ?: when (area?.zone) {
+            PlayZone.HAND -> "hand"; PlayZone.LIBRARY -> "library"; PlayZone.GRAVEYARD -> "graveyard"
+            PlayZone.EXILE -> "exile"; PlayZone.BATTLEFIELD -> "battlefield"; PlayZone.STACK -> "stack"; null -> "another zone"
+        }
+        val holder = holder(id, owner)
+        return when {
+            holder != null -> "${historyPlayerName(holder, usernames)}'s $name"
+            area?.zone == PlayZone.BATTLEFIELD || area?.zone == PlayZone.STACK -> "the $name"
+            else -> name
+        }
+    }
+    /** The sentence and label of a card move between two known places. Neutral verbs only: the table can't
+     * know why a card moved, so never "died", "destroyed" or "resolved"; never the acting player's name. */
+    fun moveSentence(action: PlayAction.MoveCard, source: String, target: String, owner: String?): Pair<String, String> {
+        val x = HISTORY_CARDS
+        val from = if (temp(source)) null else container(source)?.zone
+        val to = if (temp(target)) null else container(target)?.zone
+        val top = from == PlayZone.LIBRARY && action.source.edge == MoveSourceEdge.TOP
+        fun origin(named: Boolean) = if (named || temp(source)) " from ${place(source, owner)}" else ""
+        // Only a zone that isn't the owner's is named after the main verb ("Drew X into bob's hand").
+        val into = if (holder(target, owner) != null) " into ${place(target, owner)}" else ""
+        if (source == target) when (to) {
+            PlayZone.BATTLEFIELD -> return "$x moved on ${place(target, owner)}" to "Move"
+            PlayZone.LIBRARY -> if ((action.destination.libraryInsertion ?: action.destination.insertion) !in
+                setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM)) return "$x moved within ${place(target, owner)}" to "Move"
+            else -> return "$x moved within ${place(target, owner)}" to "Move"
+        }
+        return when (to) {
+            PlayZone.HAND -> when {
+                top -> "Drew $x$into" to "Draw"
+                from == PlayZone.LIBRARY -> "Took $x from ${place(source, owner)}$into" to "Take"
+                else -> "Returned $x to ${place(target, owner)}${origin(false)}" to "Return"
+            }
+            PlayZone.BATTLEFIELD -> if (from == PlayZone.BATTLEFIELD)
+                "${historyPlayerName(container(target)?.accountId.orEmpty(), usernames)} gains control of $x" to "Gain control"
+                else "Put $x onto ${place(target, owner)}${origin(from != PlayZone.HAND)}" to "Put onto battlefield"
+            PlayZone.STACK -> "Cast $x${if (action.faceDown == true) " face down" else ""}${origin(from != PlayZone.HAND)}" to "Cast"
+            PlayZone.GRAVEYARD -> when {
+                from == PlayZone.HAND -> "Discarded $x$into" to "Discard"
+                top -> "Milled $x$into" to "Mill"
+                else -> "Put $x into ${place(target, owner)}${origin(from != PlayZone.BATTLEFIELD)}" to "Put into graveyard"
+            }
+            PlayZone.EXILE -> "Exiled $x$into${origin(from != PlayZone.BATTLEFIELD)}" to "Exile"
+            PlayZone.LIBRARY -> {
+                val insertion = action.destination.libraryInsertion ?: action.destination.insertion
+                // Rules v30: a top/bottom put onto a searched Library waits for the search to close.
+                val waits = if (insertion in setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM) && searchWaits(target)) " (after search)" else ""
+                val library = place(target, owner)
+                when (insertion) {
+                    MoveInsertion.TOP -> "Put $x on top of $library${origin(false)}$waits"
+                    MoveInsertion.BOTTOM -> "Put $x on the bottom of $library${origin(false)}$waits"
+                    else -> "Put $x into $library${origin(false)}"
+                } to "Put into library"
+            }
+            null -> "Put $x into ${place(target, owner)}${origin(false)}" to "Put into ${place(target, null)}"
+        }
+    }
     val result = when (val action = event.action) {
         PlayAction.PassAttention -> text("Move passed → ${transition.attention?.to?.let { historyPlayerName(it, usernames) } ?: "the other player"}", "Pass move")
         is PlayAction.SetTapped -> text("${card(action.cardId)} ${if (action.tapped) "tapped" else "untapped"}", if (action.tapped) "Tap" else "Untap")
@@ -220,38 +287,22 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.MoveCard -> {
             val source = action.source.containerId
             val target = action.destination.containerId
-            val draw = container(source)?.zone == PlayZone.LIBRARY && !temp(source) &&
-                container(target)?.zone == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP
             if (source == target && container(source)?.zone == PlayZone.HAND) text("Hand reordered", "Reorder hand")
             else {
-                // Only a battlefield that isn't the moved card's owner's is named by its player (e.g. a stolen creature).
-                val owner = (shownCard(action.cardId) ?: before?.board?.cards?.find { it.id == action.cardId })?.owner
-                fun named(id: String) = zone(id).let { name -> container(id)?.takeIf { it.zone == PlayZone.BATTLEFIELD }?.accountId
-                    ?.takeIf { owner != null && it != owner }?.let { "${historyPlayerName(it, usernames)}'s $name" } ?: name }
-                val insertion = action.destination.libraryInsertion ?: action.destination.insertion
-                val edge = if (container(target)?.zone == PlayZone.LIBRARY && !temp(target)) when (insertion) {
-                    MoveInsertion.TOP -> " top"
-                    MoveInsertion.BOTTOM -> " bottom"
-                    else -> ""
-                } else ""
-                // Rules v30: a top/bottom put onto a searched Library waits for the search to close.
-                val waits = if (edge.isNotEmpty() && searchWaits(target)) " (after search)" else ""
-                // Without board context a zone is unknown: say only that the card moved, never a made-up zone.
-                val route = if (!known(source) || !known(target)) null
-                    else if (source == target && container(source)?.zone == PlayZone.BATTLEFIELD) "moved on ${named(target)}"
-                    else "${named(source)} → ${named(target)}$edge$waits"
                 val subject = card(action.cardId).takeUnless { shownCard(action.cardId) == null }
-                HistoryText(historyPlainText(historyMoveText(subject ?: "A card", route)), if (draw) "Draw" else "Move", HistoryMove(subject, route))
+                // Without board context a zone is unknown: say only that the card moved, never a made-up zone.
+                val (template, label) = if (!known(source) || !known(target)) null to "Move" else moveSentence(action, source, target,
+                    (shownCard(action.cardId) ?: before?.board?.cards?.find { it.id == action.cardId })?.owner)
+                move(listOf(subject), template, label)
             }
         }
         is PlayAction.MoveToLibraryRandom -> {
             // Names only cards the viewer could see where they came from; the new order is never shown.
-            val sources = action.cardIds.map { id -> before?.board?.cards?.find { it.id == id }?.containerId }
-            val from = sources.filterNotNull().distinct().map(::zone).distinct()
-            val target = "${playerPrefix(container(action.libraryId)?.accountId ?: event.author)}Library ${if (action.bottom) "bottom" else "top"} (random order${if (searchWaits(action.libraryId)) ", after search" else ""})"
-            val route = if (from.isEmpty() || sources.any { it == null }) target else "${from.joinToString(", ")} → $target"
-            val subject = historyMoveSubjects(action.cardIds.map { id -> card(id).takeUnless { shownCard(id) == null } })
-            HistoryText(historyPlainText(historyMoveText(subject, route)), "Move", HistoryMove(subject, route))
+            val owners = action.cardIds.mapNotNull { id -> before?.board?.cards?.find { it.id == id }?.owner }.distinct()
+            val library = if (container(action.libraryId) == null) "library" else place(action.libraryId, owners.singleOrNull())
+            val waits = if (searchWaits(action.libraryId)) " (after search)" else ""
+            val template = "Put $HISTORY_CARDS ${if (action.bottom) "on the bottom of" else "on top of"} $library in random order$waits"
+            move(action.cardIds.map { id -> card(id).takeUnless { shownCard(id) == null } }, template, "Put into library")
         }
         is PlayAction.ShuffleLibrary -> text("${if (temp(action.containerId)) zone(action.containerId) else "Library"} shuffled", "Shuffle")
         is PlayAction.SetTempPile -> text("${playerPrefix(action.accountId)}Temp ${action.number} → ${if (action.on) "on" else "off"}",
@@ -259,12 +310,15 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.SetKeepTopRevealed -> text("Library top reveal → ${if (action.enabled) "on" else "off"}", "Top reveal ${if (action.enabled) "on" else "off"}")
         is PlayAction.Mulligan -> text("Mulligan to ${action.drawCount}", "Mulligan")
         is PlayAction.RevealHand -> text("Hand revealed → ${action.cardIds.size} cards", "Reveal hand")
-        is PlayAction.RandomHand -> text("Random hand card → ${when (action.result) {
-            HandRandomResult.DISCARD -> "Graveyard"
-            HandRandomResult.REVEAL -> "Reveal"
-            HandRandomResult.EXILE -> "Exile"
-            HandRandomResult.LIBRARY_BOTTOM -> "Library bottom"
-        }}", "Random hand")
+        is PlayAction.RandomHand -> {
+            val subject = card(action.cardId).takeUnless { shownCard(action.cardId) == null }
+            when (action.result) {
+                HandRandomResult.DISCARD -> move(listOf(subject), "Discarded $HISTORY_CARDS at random", "Discard")
+                HandRandomResult.EXILE -> move(listOf(subject), "Exiled $HISTORY_CARDS from hand at random", "Exile")
+                HandRandomResult.LIBRARY_BOTTOM -> move(listOf(subject), "Put $HISTORY_CARDS from hand on the bottom of library at random", "Put into library")
+                HandRandomResult.REVEAL -> text(historyMoveText(historyMoveSubjects(listOf(subject)), "Revealed $HISTORY_CARDS from hand at random"), "Reveal")
+            }
+        }
         is PlayAction.ShowContents -> {
             val size = transition.contents?.to?.cardIds?.size
             val quantity = size?.let { "$it ${if (it == 1) "card" else "cards"}" } ?: "cards"
@@ -404,13 +458,18 @@ internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<St
     return texts.toPersistentMap()
 }
 
-private fun historyMoveText(subject: String, route: String?) = if (route == null) "$subject moved" else "$subject: $route"
+/** A move sentence for [subjects] (see [historyMoveSubjects]): [template] filled in, or "X moved" without one. */
+private fun historyMoveText(subjects: String, template: String?): String {
+    val text = template?.replace(HISTORY_CARDS, subjects) ?: "$subjects moved"
+    return if (template == null || template.startsWith(HISTORY_CARDS)) text.replaceFirstChar { it.uppercase() } else text
+}
 
 /** Longest group text; anything longer is cut and ends with "…". */
 internal const val HISTORY_RANGE_TEXT_MAX = 180
 
-/** A group's text. A group of only card moves lists every card the viewer could see ("Shock, Opt, 2 cards:
- * Library → Hand"); unseen cards collapse into "N cards". Any other group reads as its representative event. */
+/** A group's text. A group of only card moves merges moves of the same kind, in order of first appearance
+ * ("Drew Shock, Opt, 2 cards; Discarded a card"); unseen cards collapse into "N cards". Any other group reads
+ * as its representative event. */
 internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>,
     fallback: (String) -> HistoryText? = { null }): HistoryText =
     historyGroupText(range.nodeIds, range.representativeId ?: range.targetId, texts, fallback)
@@ -423,21 +482,22 @@ internal fun historyGroupText(nodeIds: List<String>, representativeId: String, t
     if (nodeIds.size < 2) return representative
     val moves = ArrayList<HistoryText>(nodeIds.size)
     for (id in nodeIds) moves += text(id)?.takeIf { it.move != null } ?: return representative
-    val description = moves.groupBy { it.move!!.route }.entries.joinToString("; ") { (route, group) ->
-        historyMoveText(historyMoveSubjects(group.map { it.move!!.subject }), route)
+    val description = moves.groupBy { it.move!!.template }.entries.joinToString("; ") { (template, group) ->
+        historyMoveText(historyMoveSubjects(group.flatMap { it.move!!.subjects }), template)
     }
     val plain = historyPlainText(description, Int.MAX_VALUE)
     return HistoryText(if (plain.length <= HISTORY_RANGE_TEXT_MAX) plain
         else plain.take(HISTORY_RANGE_TEXT_MAX - 1).trimEnd() + "…",
-        if (moves.all { it.label == "Draw" }) "Draw ×${moves.size}" else representative.label)
+        moves.first().label.takeIf { label -> moves.all { it.label == label } }?.let { "$it ×${moves.size}" } ?: representative.label)
 }
 
+/** The cards of a move sentence: every name the viewer could see, then the unseen ones as "a card" / "N cards". */
 internal fun historyMoveSubjects(subjects: List<String?>): String {
     val hidden = subjects.count { it == null }
     val names = subjects.filterNotNull()
     return (names + listOfNotNull(when {
         hidden == 0 -> null
-        hidden == 1 -> if (names.isEmpty()) "A card" else "1 card"
+        hidden == 1 -> if (names.isEmpty()) "a card" else "1 card"
         else -> "$hidden cards"
     })).joinToString(", ")
 }

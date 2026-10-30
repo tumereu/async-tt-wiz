@@ -353,6 +353,10 @@ internal fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.
     HistoryIcon.FORMAT_INK_HIGHLIGHTER -> Icons.Outlined.BorderColor
     HistoryIcon.INBOX -> Icons.Outlined.Inbox
     HistoryIcon.SWAP_HORIZ -> Icons.Outlined.SwapHoriz
+    HistoryIcon.SPACE_DASHBOARD -> Icons.Outlined.SpaceDashboard
+    HistoryIcon.DELETE_SWEEP -> Icons.Outlined.DeleteSweep
+    HistoryIcon.BLOCK -> Icons.Outlined.Block
+    HistoryIcon.LIBRARY_BOOKS -> Icons.AutoMirrored.Outlined.LibraryBooks
     HistoryIcon.SWORDS -> null
     HistoryIcon.UNKNOWN -> Icons.Outlined.FiberManualRecord
 }
@@ -365,7 +369,9 @@ internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.SHUFFLE -> "⤨"; HistoryIcon.PAGEVIEW -> "▣"; HistoryIcon.CLOSE -> "✕"; HistoryIcon.MONETIZATION_ON -> "◉"
     HistoryIcon.SETTINGS_BACKUP_RESTORE -> "↺"; HistoryIcon.FLIP_CAMERA_ANDROID -> "▣"; HistoryIcon.FLIP -> "▧"
     HistoryIcon.FLIP_TO_FRONT -> "▤"; HistoryIcon.LINK -> "∞"; HistoryIcon.LINK_OFF -> "∦"; HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "⊖"
-    HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "▰"; HistoryIcon.INBOX -> "⊔"; HistoryIcon.SWAP_HORIZ -> "⇄"; HistoryIcon.UNKNOWN -> "•"
+    HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "▰"; HistoryIcon.INBOX -> "⊔"; HistoryIcon.SWAP_HORIZ -> "⇄"
+    HistoryIcon.SPACE_DASHBOARD -> "▦"; HistoryIcon.DELETE_SWEEP -> "⌫"; HistoryIcon.BLOCK -> "⊘"; HistoryIcon.LIBRARY_BOOKS -> "▥"
+    HistoryIcon.UNKNOWN -> "•"
 }
 
 @Composable

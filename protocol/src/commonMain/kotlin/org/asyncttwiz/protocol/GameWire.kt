@@ -8,8 +8,9 @@ import kotlinx.serialization.json.*
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
 const val CURRENT_GAMEPLAY_RULES_VERSION = 31
 /** Highest socket protocol minor this build speaks. 1: the opponent's presence on heads and [GamePresenceUpdate].
+ *  2: servers understand [GameCommand.expectedSelection]; clients send it only after a welcome with minor >= 2.
  *  Clients offer it as [GameHello.maxMinor]; servers send minor-1 data only to sockets that offered it. */
-const val GAME_PROTOCOL_MINOR = 1
+const val GAME_PROTOCOL_MINOR = 2
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -56,10 +57,17 @@ const val GAME_PROTOCOL_MINOR = 1
     val requestIds: List<String>) : GameClientMessage
 @Serializable @SerialName("subscribe") data class SubscribeGame(val gameId: String, val revision: String = "0",
     val readFormats: List<Int> = listOf(1)) : GameClientMessage
+/** [expectedSelection] (protocol minor 2, ordinary play only): the active line the client acted on, as the
+ *  tree's selection control id ([GameplayTree.selectionKey]). It changes only when a continuation forks and
+ *  becomes active, never by Undo/Redo or play on the same line. If it no longer matches, the action raced
+ *  with a deliberate branch and is refused ("branched"), never moved to another line. Absent: no check. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable @SerialName("command") data class GameCommand(val requestId: String, val scope: GameScope,
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
     val invocationId: String? = null, val continuation: Continuation? = null,
-    val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
+    val inlineDefinitions: List<SubmittedDefinition> = emptyList(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val expectedSelection: String? = null) : GameClientMessage
 @Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
@@ -118,6 +126,7 @@ object GameWire {
         command.continuation?.let {
             require(command.action.isPlay && it.explicit && DeckValidation.uuid(it.nodeId))
         }
+        command.expectedSelection?.let { require(command.action.isPlay && command.continuation == null && DeckValidation.uuid(it)) }
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {

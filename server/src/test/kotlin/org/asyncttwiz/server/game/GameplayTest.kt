@@ -355,4 +355,92 @@ class GameplayTest {
             println("PASS real HTTP accounts/decks and two authenticated gameplay sockets, no-ack draw/tap/life pipeline equals shared prediction, compatible opponent life uses actual input, Stack ignores orientation but rejects stale ordered entries, concrete revision/result/history HTTP codec and replay agree, original retry no duplication and no alternate write ingress")
         }
     }
+
+    @Test fun `two sockets refuse a move that raced with the opponent's continuation and leave same line play and undo as before`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
+                InetAddress.getByName("127.0.0.1"), port())
+            SpringService(settings).use { service ->
+                service.start()
+                gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
+                    HttpResponse.BodyHandlers.ofString()).statusCode() == 200 }
+                val a = account(settings, "RaceA"); val b = account(settings, "RaceB")
+                post(settings, "/v1/contacts", AddContact(gameplayId(), b.account.accountId), a.token)
+                val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations", CreateInvitation(gameplayId(), b.account.accountId, "Race"), a.token).body())
+                fun deck(actor: SessionCreated): SavedDeck {
+                    val definition = CardDefinition("Race", listOf(DefinitionFace(gameplayId(), "Face", corner = "1/1")))
+                    val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+                    assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(gameplayId(), listOf(submitted)), actor.token).statusCode())
+                    return json.decodeFromString(post(settings, "/v1/decks", CreateDeck(gameplayId(), "Source", listOf(
+                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 5))), actor.token).body())
+                }
+                val ad = deck(a); val bd = deck(b)
+                Socket(settings, a.token).use { alice -> Socket(settings, b.token).use { bob ->
+                    val ast = alice.open(game); val bst = bob.open(game)
+                    fun setup(socket: Socket, stream: GameStreamReady, action: GameAction): GameRevision {
+                        val command = GameCommand(gameplayId(), GameScope(game.id, game.preparationRound,
+                            if (action == GameAction.AcceptInvitation) game.invitationId else null), action, stream.streamId, stream.generation)
+                        socket.send(command); assertEquals("accepted", socket.result(command.requestId).outcome)
+                        return socket.revision(command.requestId)
+                    }
+                    setup(alice, ast, GameAction.SelectDeck(ad.deck.id, ad.deck.revision)); setup(alice, ast, GameAction.SetStarter(StarterChoice(a.account.accountId)))
+                    setup(bob, bst, GameAction.AcceptInvitation); setup(bob, bst, GameAction.SelectDeck(bd.deck.id, bd.deck.revision))
+                    setup(alice, ast, GameAction.Ready); val started = setup(bob, bst, GameAction.Ready)
+                    val root = started.play!!
+                    var tree = TreeSync.generation(GameplayTree(root))
+                    fun command(action: GameAction, stream: GameStreamReady, seen: GameplayTree? = tree.tree) = GameCommand(gameplayId(),
+                        GameScope(game.id, playId = root.id), action, stream.streamId, stream.generation, expectedSelection = seen?.selectionKey)
+                    fun command(action: PlayAction, stream: GameStreamReady, seen: GameplayTree? = tree.tree) = command(GameAction.Play(action), stream, seen)
+                    /** Send on [socket]; both sockets see the accepted revision. */
+                    fun play(socket: Socket, input: GameCommand): GameRevision {
+                        socket.send(input)
+                        val result = socket.result(input.requestId); assertEquals("accepted", result.outcome, result.reason)
+                        val revision = (if (socket === alice) bob else alice).revision(input.requestId)
+                        tree = TreeSync.apply(tree, revision.treeDelta!!)
+                        return revision
+                    }
+                    fun life() = tree.tree.stateAt(tree.tree.currentNodeId)!!.board.players.single { it.accountId == a.account.accountId }.life
+                    play(alice, command(PlayAction.AdjustLife(a.account.accountId, "1"), ast))
+                    val split = tree.tree
+                    // Same line: Bob's edit reaches the server before Alice's, made without seeing it. Hers applies after it.
+                    val bobsEdit = command(PlayAction.SetLife(b.account.accountId, "30"), bst)
+                    val alicesEdit = command(PlayAction.AdjustLife(a.account.accountId, "-1"), ast)
+                    val bobsNode = play(bob, bobsEdit).mutation!!.id
+                    assertEquals(bobsNode, play(alice, alicesEdit).mutation!!.parentId)
+                    assertEquals("20", life())
+                    // Bob undoes his latest own edit before Alice's next one arrives: still applied at the head.
+                    val seenBeforeUndo = tree.tree
+                    val undo = command(GameAction.Undo, bst, null)
+                    play(bob, undo)
+                    assertFalse(bobsNode in tree.tree.nodes)
+                    val afterUndo = tree.tree.currentNodeId
+                    assertEquals(afterUndo, play(alice, command(PlayAction.AdjustLife(a.account.accountId, "-1"), ast, seenBeforeUndo)).mutation!!.parentId)
+                    assertEquals("19", life())
+
+                    // The real branch: Bob deliberately continues from the split point; Alice's move, made on the line
+                    // she saw, arrives after it and is refused rather than landing in Bob's new line.
+                    val seenBeforeBranch = tree.tree
+                    val headBeforeBranch = tree.tree.currentNodeId
+                    val continued = play(bob, command(PlayAction.AdjustLife(b.account.accountId, "-1"), bst, null)
+                        .copy(continuation = Continuation(split.currentNodeId, true)))
+                    val branchHead = tree.tree.currentNodeId
+                    assertNotEquals(headBeforeBranch, branchHead)
+                    val raced = command(PlayAction.AdjustLife(a.account.accountId, "-5"), ast, seenBeforeBranch)
+                    alice.send(raced)
+                    val refused = alice.result(raced.requestId)
+                    assertEquals("rejected", refused.outcome); assertEquals("branched", refused.reason)
+                    assertNull(refused.commitRevision); assertNull(refused.mutation)
+                    alice.send(SubscribeGame(game.id)); val head = alice.next<GameHead>()
+                    assertEquals(continued.resultRevision, head.revision)
+                    assertEquals(branchHead, head.play!!.currentNodeId)
+                    // Having received the branch, her next move is played on it as usual.
+                    play(alice, command(PlayAction.AdjustLife(a.account.accountId, "-2"), ast))
+                    assertEquals(branchHead, tree.tree.nodes.getValue(tree.tree.currentNodeId).parentId)
+                    assertEquals("19", life())
+                } }
+            }
+        }
+    }
+
 }

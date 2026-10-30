@@ -199,6 +199,8 @@ class GameSession(private val connection: GameConnection, private val credential
     @Volatile private var epoch = 0L
     private var connected = false
     private var welcome = false
+    /** The last welcome's protocol minor: [GameCommand.expectedSelection] is sent only to servers that understand it. */
+    private var serverMinor = 0
     private var compatibilityError: String? = null
     private var compatibilityRetryAt = Long.MAX_VALUE
     private var lastCredential: String? = null
@@ -524,8 +526,12 @@ class GameSession(private val connection: GameConnection, private val credential
                 it.command.action !is GameAction.AcceptResult && !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return refused("predictionCapacityOrPlayChanged")
         val stream = streams.getValue(game.id)
+        // Ordinary play names the active line it was made on (including an own pending branch): one that races
+        // with the opponent's deliberate branch is refused instead of landing in their new line.
+        val expectedSelection = replica.displayTree?.selectionKey?.takeIf { action.isPlay && continuation == null && serverMinor >= 2 }
         val command = GameCommand(requestId, GameScope(game.id, playId = current.playId),
-            action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation)
+            action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation,
+            expectedSelection = expectedSelection)
         if (!GameWire.valid(command)) return refused("invalidCommand")
         // A control can become eligible after an already-inflight original. Failure to predict is
         // not authority to suppress the server's processing-time candidate.
@@ -669,6 +675,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     return
                 }
                 compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE
+                serverMinor = message.minor
                 reconnectTrace.stepAll("protocolWelcome")
                 welcome = true; error = null; resumePending = false; resumePing = null; openStreams()
             }
@@ -947,6 +954,7 @@ class GameSession(private val connection: GameConnection, private val credential
             "sideboardLimit" -> "Side exceeds this pod's sideboard limit. Move cards to Main."
             "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
             "starterRequired" -> "Choose the starting player to get ready."
+            "branched" -> "Your opponent went back to an earlier point — your last action wasn't applied."
             else -> "This game has changed. Refresh and try again."
         }
         if (result.outcome != "accepted") inspections.remove(result.requestId)?.let { observer ->

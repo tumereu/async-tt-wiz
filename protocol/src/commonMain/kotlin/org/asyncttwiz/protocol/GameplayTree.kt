@@ -281,6 +281,10 @@ import kotlin.concurrent.Volatile
         return GameplayTreeChange(next, targetId = mutation.id)
     }
 
+    /** The active line's identity for [GameCommand.expectedSelection]: the request that made the current
+     * selection by forking (explicit continuation), or the root before any. Undo/Redo never change it. */
+    val selectionKey: String get() = selectionControlId ?: initial.root.id
+
     /** Legacy selection helper, no longer exposed as a command. Review never activates shared state. */
     fun activate(nodeId: String): GameplayTreeChange = when {
         nodeId != initial.root.id && nodeId !in nodes -> GameplayTreeChange(reason = "missingReference")

@@ -54,6 +54,14 @@ per-mutation relevant state and N remain open; see
   multiple actions in flight, arrival-order application and individual outcomes
   remain D-183/D-184. Most ordinary actions succeed. Rejections still use D-185
   difference-only animated reconciliation; acknowledgement alone does not animate.
+- **Raced with a deliberate branch (decision 2026-10-30).** Ordinary play carries
+  the active selection its client saw (the request id of the continuation that
+  made the current line active, or the root). It changes only when a play forks
+  a new active line (an explicit continuation, or rarely ordinary play at a point
+  whose other future Undo left in place), never by same-line play or Undo/Redo.
+  A mismatch rejects the request (whole batch) with `branched`; no edit, no
+  re-targeting. Not a whole-head lock: the opponent's same-line actions and
+  Undo/Redo before it still let it apply at the current head.
 - **Keep deliberate history semantics.** D-179 explicit historical continuation
   and D-236 server-ordered latest-own Undo requests remain distinct. The general
   acceptance policy does not authorize implicit forks or the old batch's proposed

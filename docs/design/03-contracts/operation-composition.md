@@ -24,6 +24,9 @@ not an API/schema choice or implementation authorization.
    players' Redo queues atomically under D-258. Rejection
    creates neither a board mutation nor an automatic branch. A retry recovers the
    original outcome without reactivating its branch or overwriting newer state.
+   An ordinary request that names a different active selection than the
+   current one raced with a deliberate continuation and is refused ("branched",
+   2026-10-30); it is never re-targeted to another line.
 
 Example: at B Stack is empty; live C contains effect E. Deliberately creating F
 at B compares expected `[]` with B's `[]`, producing a branch containing F, while

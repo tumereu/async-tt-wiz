@@ -104,9 +104,10 @@ class HistoryPlaybackTest {
     }
 
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
-    private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a"): GameplayMutation {
+    private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a",
+        branch: Int = 50): GameplayMutation {
         val semantic = HistorySemantic(kind, HistoryIcon.FLAG, if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
-        return GameplayMutation(id(n), id(parent), id(50), id(n + 100), id(70), null,
+        return GameplayMutation(id(n), id(parent), id(branch), id(n + 100), id(70), null,
             PlayAction.SetLife(id(70), n.toString()), GameplayTransition(), grouping = semantic)
     }
     private fun tree(nodes: List<GameplayMutation>, head: Int = nodes.lastOrNull()?.id?.takeLast(12)?.toInt() ?: 0,
@@ -312,5 +313,100 @@ class HistoryPlaybackTest {
             assertFalse(player.position.playing)
             assertEquals(id(2), player.position.cursorId)
         }
+    }
+
+    /** 0-1-2-3 is the old line (branch 50); 4-5 (branch 51) continued from 1 and is live. At 2 two newer
+     * branches start (6, 7) beside its own continuation 3; at 3, where branch 50 ends, two more (8, then 9). */
+    private fun forked(): HistoryTree {
+        fun n(n: Int, parent: Int, branch: Int = 50) = node(n, parent, key = "k$n", branch = branch)
+        return tree(listOf(n(1, 0), n(2, 1), n(3, 2), n(4, 1, 51), n(5, 4, 51), n(6, 2, 52), n(7, 2, 53),
+            n(8, 3, 54), n(9, 3, 55)), head = 5)
+    }
+
+    @Test fun previousAndNextStepOneGroupAlongTheLiveLineAndNeverPlay() {
+        val player = HistoryPlayback(forked())
+        player.scrub(id(1))
+        assertEquals(id(5), player.visibleTip)
+        assertFalse(player.offLiveLine); assertFalse(player.oldBranch)
+        player.next(); assertEquals(id(4), player.position.cursorId) // The live continuation, not the old 2.
+        player.next(); assertEquals(id(5), player.position.cursorId)
+        player.next() // Disabled at the tip: stays, paused in timeline mode.
+        assertEquals(HistoryPosition(id(5), HistoryMode.PLAYBACK, false, "v5"), player.position)
+        player.previous(); player.previous(); player.previous()
+        assertEquals(id(0), player.position.cursorId)
+        player.previous(); assertEquals(id(0), player.position.cursorId)
+        assertFalse(player.position.playing)
+    }
+
+    @Test fun anOldBranchIsTheVisibleLineToItsOwnTipFollowingItsBranchThenTheNewestOne() {
+        val player = HistoryPlayback(forked())
+        player.scrub(id(2)) // Picked in the game tree.
+        assertTrue(player.offLiveLine); assertTrue(player.oldBranch); assertFalse(player.branched)
+        assertFalse(player.stripLocked)
+        // At 2 its own branch (3) wins over the newer 6 and 7; at 3 branch 50 ends, so the newest (9) follows.
+        assertEquals(id(9), player.visibleTip)
+        player.next(); assertEquals(id(3), player.position.cursorId)
+        player.next(); assertEquals(id(9), player.position.cursorId)
+        player.next(); assertEquals(id(9), player.position.cursorId)
+        assertFalse(player.position.playing)
+        assertEquals(TimelinePlaybackStatus.PAUSED, player.status)
+        // Back over the split onto the shared part: the chosen line stays, so Next returns along it.
+        player.previous(); player.previous(); player.previous()
+        assertEquals(id(1), player.position.cursorId)
+        assertFalse(player.oldBranch)
+        assertEquals(id(9), player.visibleTip)
+        player.next(); assertEquals(id(2), player.position.cursorId)
+        assertFalse(player.position.playing)
+        player.scrubFromStrip(id(0)) // A strip tap on the shared part keeps the line too.
+        assertEquals(id(9), player.visibleTip)
+        player.scrubFromStrip(id(9)); assertEquals(id(9), player.position.cursorId)
+        // Each branch is its own line.
+        player.scrub(id(6)); assertEquals(id(6), player.visibleTip)
+        player.scrub(id(8)); assertEquals(id(8), player.visibleTip)
+        player.scrub(id(4)); assertEquals(id(5), player.visibleTip)
+        player.scrub(id(1)); assertEquals(id(5), player.visibleTip) // A pick on the shared part shows the live line.
+    }
+
+    @Test fun autoOnAnOldBranchRewindsToTheSplitThenPlaysTheLiveLine() {
+        val player = HistoryPlayback(forked())
+        player.scrub(id(9))
+        player.play()
+        assertEquals(TimelinePlaybackStatus.REWINDING, player.status)
+        assertTrue(player.stripLocked)
+        player.next(true); assertEquals(id(3), player.position.cursorId)
+        player.next(true); assertEquals(id(2), player.position.cursorId)
+        player.next(true); assertEquals(id(1), player.position.cursorId)
+        assertFalse(player.offLiveLine)
+        assertEquals(TimelinePlaybackStatus.PLAYING, player.status)
+        assertEquals(id(5), player.visibleTip)
+        player.next(true); assertEquals(id(4), player.position.cursorId)
+        player.pause(); player.previous()
+        assertEquals(id(1), player.position.cursorId)
+        assertEquals(id(5), player.visibleTip) // Auto went live: the old line no longer holds.
+        player.next(); assertEquals(id(4), player.position.cursorId)
+    }
+
+    @Test fun opponentBranchedStaysLockedUntilTheRewindStarts() {
+        val player = HistoryPlayback(forked())
+        player.openFrom(id(3))
+        assertTrue(player.branched); assertTrue(player.stripLocked)
+        assertTrue(player.offLiveLine); assertFalse(player.oldBranch)
+        player.next(); player.previous()
+        assertEquals(id(3), player.position.cursorId)
+        assertFalse(player.position.playing)
+        assertTrue(player.branched)
+        assertEquals(id(9), player.visibleTip)
+    }
+
+    @Test fun receivingKeepsAChosenOldLineAndTheLiveLineGrows() {
+        val base = forked()
+        val player = HistoryPlayback(base)
+        player.scrub(id(9)); player.previous(); player.previous(); player.previous()
+        assertEquals(id(1), player.position.cursorId)
+        val grown = tree(base.nodes.values.toList() + node(10, 5, key = "k10", branch = 51), head = 10)
+        player.receive(grown)
+        assertEquals(id(9), player.visibleTip)
+        assertFalse(player.branched)
+        player.scrub(id(4)); assertEquals(id(10), player.visibleTip)
     }
 }

@@ -228,7 +228,10 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     require(pauseMillis > 0)
     val position = playback.position
     val stripCursor = if (readOnly) playCursorId else position.cursorId
+    // Timeline mode: the whole visible line (live line, or the old branch the cursor is on) to its tip.
+    val visibleTip = playback.visibleTip
     val endpoint = when {
+        !readOnly -> visibleTip
         playback.tree.isAncestor(stripCursor, timelineEndpoint) -> timelineEndpoint
         playback.tree.isAncestor(stripCursor, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
         else -> stripCursor
@@ -277,10 +280,11 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     }
     val transport: @Composable () -> Unit = {
         HistoryTransport(position, position.cursorId != playback.tree.rootId,
-            position.cursorId != playback.tree.sharedHeadId, connected && continuationReady,
+            position.cursorId != visibleTip, connected && continuationReady,
             playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
                 if (connected && playback.canContinue(captured)) continuation(captured)
-            }, controlsEnabled = !playback.transportLocked, branchPending = playback.branched)
+            }, controlsEnabled = !playback.transportLocked, branchPending = playback.branched,
+            offLiveLine = playback.offLiveLine)
     }
     val panel: @Composable () -> Unit = {
         val timelineRow: @Composable () -> Unit = {
@@ -368,7 +372,9 @@ internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
 fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean, connected: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onPause: () -> Unit,
     onContinue: (String) -> Unit, modifier: Modifier = Modifier, controlsEnabled: Boolean = true,
-    branchPending: Boolean = false) {
+    branchPending: Boolean = false, offLiveLine: Boolean = branchPending) {
+    // Auto always heads for the live game: off the live line that starts with a rewind to the split point.
+    val rewind = branchPending || offLiveLine
     val current by rememberUpdatedState(position)
     val continueAction by rememberUpdatedState(onContinue)
     val play by rememberUpdatedState(onPlay)
@@ -384,7 +390,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                 val canBranch = connected && controlsEnabled && !branchPending
                 Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
                     role = Role.Button; contentDescription = "Auto advance"
-                    stateDescription = if (branchPending && !position.playing) "Rewind to the branch point, then play"
+                    stateDescription = if (rewind && !position.playing) "Rewind to the branch point, then play"
                         else if (position.playing) "Auto: on" else "Auto: off"
                     if (!controlsEnabled) disabled() else onClick { toggle(); true }
                     if (canBranch) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
@@ -402,12 +408,12 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                 }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (branchPending) Icon(Icons.Outlined.FastRewind, null,
+                        if (rewind) Icon(Icons.Outlined.FastRewind, null,
                             Modifier.size(20.dp).semantics { testTag = "Rewind and play" }, tint = Color(0xffa84f58))
                         else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
                         // A pending branch can only be rewound; the player just chooses when it starts.
-                        Text(if (branchPending && !position.playing) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
+                        Text(if (rewind && !position.playing) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
                             fontSize = 16.sp, lineHeight = 20.sp)
                     }
                 }

@@ -60,6 +60,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val statusHistory: ((String) -> GameplayMutation?)? = null,
     /** The shown timeline point was left behind by a different continuation; see [HistoryPlayback.branched]. */
     val opponentBranched: Boolean = false,
+    /** The shown timeline point is on an old branch the player went to themselves; see [HistoryPlayback.oldBranch]. */
+    val oldBranch: Boolean = false,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
     val timelinePlayback: TimelinePlaybackStatus? = null)
 
@@ -308,7 +310,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                    playControls = playControls, rewindPauseMillis = playbackRewindPause)
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
-                        opponentBranched = playback?.branched == true,
+                        opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,
                         timelinePlayback = if (!editable) playback?.status else null,
                         continuationArmed = history.armed != null,
                           controlsConnected = interactive && history.foreground && !resultLocked,

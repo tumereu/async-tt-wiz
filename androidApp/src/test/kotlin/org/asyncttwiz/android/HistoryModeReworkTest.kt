@@ -107,6 +107,42 @@ class HistoryModeReworkTest {
         compose.mainClock.autoAdvance = true
     }
 
+    @Test fun anOldBranchPickedByThePlayerStepsAlongItsOwnLineAndOffersRewind() {
+        val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
+        val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
+        val old2 = F.play(old1, PlayAction.AdjustLife(F.a, "1"), 102)
+        val branch = F.change(old2, F.command(old2, GameAction.Play(PlayAction.AdjustLife(F.b, "2")), 103)
+            .copy(continuation = Continuation(common.currentNodeId, true)), F.b)
+        val player = HistoryPlayback(HistoryTree(branch.initial.root.id, emptyList(), branch.currentNodeId,
+            "branch", containers = branch.initial.board.containers, source = branch, lazyPresentation = true))
+        player.scrub(old1.currentNodeId) // Picked in the game tree.
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(player, branch.currentNodeId, F.a, true, 1_500, {})
+        } }
+        fun stripEnd() = compose.onNode(SemanticsMatcher.keyIsDefined(
+            androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo)).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo].range.endInclusive
+        compose.runOnIdle { assertTrue(player.oldBranch); assertFalse(player.branched) }
+        val auto = compose.onNodeWithContentDescription("Auto advance")
+        auto.assertIsEnabled().assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Rewind to the branch point, then play"))
+        compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Rewind", useUnmergedTree = true).assertExists()
+        // Not locked: hold-to-branch from here stays offered.
+        auto.assert(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
+        assertEquals(3f, stripEnd()) // root, common, old1, old2: the whole old branch.
+        compose.onNodeWithContentDescription("Next").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(old2.currentNodeId, player.position.cursorId); assertFalse(player.position.playing) }
+        compose.onNodeWithContentDescription("Next").assertIsNotEnabled() // The old branch's tip.
+        compose.onNodeWithContentDescription("Previous").performClick()
+        compose.onNodeWithContentDescription("Previous").performClick()
+        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.offLiveLine) }
+        assertEquals(3f, stripEnd()) // Still the chosen line on the shared part.
+        compose.onNodeWithContentDescription("Auto advance").assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))
+        compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     @Test fun tableCentreTextNamesAPendingBranchAndThePlaybackStatus() {
         var branched by mutableStateOf(true)
         var status by mutableStateOf(TimelinePlaybackStatus.PAUSED)

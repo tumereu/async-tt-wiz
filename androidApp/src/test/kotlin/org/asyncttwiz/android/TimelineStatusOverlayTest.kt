@@ -62,4 +62,23 @@ class TimelineStatusOverlayTest {
         compose.mainClock.advanceTimeBy(PLAYBACK_FLASH_HOLD_MILLIS + EVENT_TEXT_FADE_OUT_MILLIS + 100)
         compose.onNodeWithTag("playback-flash").assertDoesNotExist()
     }
+
+    @Test fun oldBranchShowsANeutralGreyChipAboveTheUsualStatus() {
+        var opponent by mutableStateOf(false)
+        compose.setContent { MaterialTheme { TimelineCentreText(opponent, PAUSED, oldBranch = true) } }
+        compose.onNodeWithTag("timeline-branch-chip").assertIsDisplayed()
+        compose.onNodeWithText("Old branch").assertIsDisplayed()
+        compose.onNodeWithText("Timeline mode").assertDoesNotExist()
+        compose.onNodeWithText("Paused").assertIsDisplayed()
+        // Same chip as the orange "Opponent branched", in a neutral grey.
+        val old = assertNotNull(timelineBranchChip(opponentBranched = false, oldBranch = true))
+        assertEquals("Old branch", old.label)
+        assertEquals(OldBranchColor, old.background)
+        assertEquals(old.background.red, old.background.green, .05f); assertEquals(old.background.green, old.background.blue, .05f)
+        assertEquals(OpponentBranchedColor, timelineBranchChip(opponentBranched = true, oldBranch = true)?.background)
+        assertNull(timelineBranchChip(opponentBranched = false, oldBranch = false))
+        compose.runOnIdle { opponent = true } // A pending opponent branch wins.
+        compose.onNodeWithText("Opponent branched").assertIsDisplayed()
+        compose.onNodeWithText("Old branch").assertDoesNotExist()
+    }
 }

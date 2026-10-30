@@ -12,6 +12,7 @@ class HistoryIconCoverageTest {
         assertTrue("inbox" in icons && "swap_horiz" in icons, "scan found $icons")
         for (icon in icons) {
             historyIconGlyph(icon)
+            HistoryGlyph.fromIcon(icon)
             if (icon != "swords") historyIconVector(icon)
         }
     }

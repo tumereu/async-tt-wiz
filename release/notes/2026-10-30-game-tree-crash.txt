@@ -1,0 +1,1 @@
+fix: Opening the game tree no longer crashes the game after a temporary pile or Stack controller change

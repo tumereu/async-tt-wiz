@@ -39,7 +39,8 @@ enum class HistoryGlyph(val label: String, val icon: String) {
     REMOVE("Remove token", "delete"), LINK("Link", "link"), UNLINK("Remove link", "link_off"),
     COMBAT("Combat", "swords"), CLOSE("Close / remove Stack effect", "layers_clear"),
     OCCURRENCE_REMOVE("Remove occurrence", "remove_circle_outline"), STACK("Stack entry / removal", "layers"), DRAW("Draw", "download"),
-    TEXT_MARK("Mark Stack text", "format_ink_highlighter"), RESULT("Result suggestion", "emoji_events");
+    TEXT_MARK("Mark Stack text", "format_ink_highlighter"), RESULT("Result suggestion", "emoji_events"),
+    PILE("Temporary pile", "inbox"), CONTROLLER("Stack controller", "swap_horiz");
 
     val symbol: String get() = historyIconGlyph(icon)
     companion object {

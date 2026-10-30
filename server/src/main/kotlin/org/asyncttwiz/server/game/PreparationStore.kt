@@ -32,7 +32,10 @@ internal object PreparationStore {
             .fetchSingle().let { it.value1() to it.value2()!! }
         return PreparationRules.empty(summary).let { empty -> empty.copy(players = empty.players.map { player ->
             val row = rows[player.accountId]
-            player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) })
+            val shown = row?.deckShown == true
+            // A pod deck's private name reaches the opponent only while its player shows the deck.
+            player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) },
+                deckShown = shown, shownPodDeckName = row?.podDeckName?.takeIf { shown })
         }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice(),
             alternateStarter = alternate,
             podRules = if (summary.podId == null) null else PodGameRules(sql.select(GAME.POD_SIDEBOARD_LIMIT).from(GAME)
@@ -43,10 +46,11 @@ internal object PreparationStore {
         val game = UUID.fromString(state.gameId)
         sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice))
             .set(GAME.ALTERNATE_STARTER, state.alternateStarter).where(GAME.ID.eq(game)).execute()
-        val ready = state.players.single { it.accountId == actor.toString() }.ready
+        val player = state.players.single { it.accountId == actor.toString() }
         sql.insertInto(PLAYER_PREPARATION).set(PLAYER_PREPARATION.GAME_ID, game).set(PLAYER_PREPARATION.ACCOUNT_ID, actor)
-            .set(PLAYER_PREPARATION.READY, ready).onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID)
-            .doUpdate().set(PLAYER_PREPARATION.READY, ready).execute()
+            .set(PLAYER_PREPARATION.READY, player.ready).set(PLAYER_PREPARATION.DECK_SHOWN, player.deckShown)
+            .onConflict(PLAYER_PREPARATION.GAME_ID, PLAYER_PREPARATION.ACCOUNT_ID)
+            .doUpdate().set(PLAYER_PREPARATION.READY, player.ready).set(PLAYER_PREPARATION.DECK_SHOWN, player.deckShown).execute()
     }
 
     fun returnToLobby(sql: DSLContext, state: LobbyPreparation) {

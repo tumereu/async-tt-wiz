@@ -31,6 +31,18 @@ class PreparationPresentationTest {
         assertNull(gameDeckCover(actor, actor, null))
     }
 
+    @Test fun aShownDeckPresentsItsNameAndCoverToTheOpponentWithThePodNameFirst() {
+        val viewer = id(); val cover = submitted.digest
+        assertEquals("Mono red", gameDeckName(actor, viewer, "Mono red", shown = true))
+        assertEquals("Private pod plan", gameDeckName(actor, viewer, "Pod name", shown = true, shownPodName = "Private pod plan"))
+        assertEquals("Deck", gameDeckName(actor, viewer, "Pod name", shown = false, shownPodName = "Private pod plan"))
+        assertEquals(cover, gameDeckCover(actor, viewer, cover, shown = true))
+        assertNull(gameDeckCover(actor, viewer, null, shown = true))
+        // The owner's own view never depends on the flag.
+        assertEquals("Mono red", gameDeckName(actor, actor, "Mono red", shown = false))
+        assertEquals(cover, gameDeckCover(actor, actor, cover, shown = false))
+    }
+
     @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
         val threshold = 60f
         assertFalse(preparationSwipeCommits(59f, threshold)); assertFalse(preparationSwipeCommits(-59f, threshold))

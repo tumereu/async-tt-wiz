@@ -221,6 +221,35 @@ class PodChallengeTest {
         checkHeads()
     }
 
+    @Test fun `a shown pod deck sends its private name to the opponent only while shown`() = fixture { f ->
+        val pod = f.pod()
+        val attempt = f.detail(f.a, pod).draftAttemptId!!
+        val aName = "Private white strategy"; val bName = "Private green strategy"
+        assertEquals(200, f.pods.deckName(f.a, pod, SetPodDeckName(id(), attempt, aName)).status)
+        assertEquals(200, f.pods.deckName(f.b, pod, SetPodDeckName(id(), attempt, bName)).status)
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val game = f.challenge(pod)
+        val owner = f.stream(f.a, game); val recipient = f.stream(f.b, game)
+        // Only a player in the game may set a flag, and only their own: the recipient after accepting.
+        assertEquals("accessDenied", recipient.execute(GameAction.ShowDeck(true)).reason)
+        recipient.execute(GameAction.AcceptInvitation)
+        fun player(viewer: AccountService.Principal, of: AccountService.Principal) =
+            f.games.head(viewer, game.id).preparation!!.players.single { it.accountId == of.account.accountId }
+        assertFalse(GameWire.encode(f.games.head(f.b, game.id)).contains(aName))
+        assertEquals("accepted", owner.execute(GameAction.ShowDeck(true)).outcome)
+        for (viewer in listOf(f.a, f.b)) {
+            assertTrue(player(viewer, f.a).deckShown); assertEquals(aName, player(viewer, f.a).shownPodDeckName)
+            assertFalse(player(viewer, f.b).deckShown); assertNull(player(viewer, f.b).shownPodDeckName)
+        }
+        assertFalse(GameWire.encode(f.games.head(f.a, game.id)).contains(bName))
+        assertTrue(f.games.revisions(f.b, game.id, "0").revisions.last().preparation!!.players
+            .single { it.accountId == f.a.account.accountId }.shownPodDeckName == aName)
+        assertEquals("accepted", owner.execute(GameAction.ShowDeck(false)).outcome)
+        assertFalse(GameWire.encode(f.games.head(f.b, game.id)).contains(aName))
+        assertFalse(player(f.b, f.a).deckShown)
+        assertEquals(aName, f.games.head(f.a, game.id).ownPodDeckName)
+    }
+
     @Test fun `recipient deck lists basics and definitions stay private until acceptance including revisions and declined or withdrawn invitations`() = fixture(uniqueCards = true) { f ->
         val pod = f.pod()
         val counts = PodDeckBasics(plains = 37, island = 4)

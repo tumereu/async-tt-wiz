@@ -33,6 +33,8 @@ const val GAME_PROTOCOL_MINOR = 1
     @Serializable @SerialName("setStarter") data class SetStarter(val choice: StarterChoice) : GameAction
     /** Lobby toggle: after each play the starter choice switches to the player who did not start it. */
     @Serializable @SerialName("setAlternateStarter") data class SetAlternateStarter(val enabled: Boolean) : GameAction
+    /** Lobby toggle for the actor's own deck: show its name and cover to the opponent (this game only). */
+    @Serializable @SerialName("showDeck") data class ShowDeck(val shown: Boolean) : GameAction
     @Serializable @SerialName("ready") data object Ready : GameAction
     @Serializable @SerialName("withdrawReady") data object WithdrawReady : GameAction
     @Serializable @SerialName("deleteGame") data object DeleteGame : GameAction
@@ -149,7 +151,7 @@ object GameWire {
                     require(command.scope.invitationId == null)
                     require(action.choice.accountId == null || DeckValidation.uuid(action.choice.accountId))
                 }
-                is GameAction.SetAlternateStarter -> require(command.scope.invitationId == null)
+                is GameAction.SetAlternateStarter, is GameAction.ShowDeck -> require(command.scope.invitationId == null)
                 GameAction.Ready, GameAction.WithdrawReady, GameAction.CancelSetup -> require(command.scope.invitationId == null)
                 else -> require(command.scope.invitationId != null)
             }

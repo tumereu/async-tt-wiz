@@ -245,6 +245,18 @@ class HistoryEveryActionTest {
         }
     }
 
+    @Test fun groupingsWithUnknownValuesFromANewerServerStillDraw() {
+        val stored = listOf("""{"significance":"ADDED_LATER","icon":"added_later"}""",
+            """{"significance":"ADDED_LATER","icon":"open_with","key":"a/b"}""",
+            """{"significance":"PING","icon":"added_later"}""")
+            .map { GameWire.json.decodeFromString(HistorySemantic.serializer(), it) }
+        val known = chain(samples(), CURRENT_GAMEPLAY_RULES_VERSION, true)
+        val mixed = known.mapIndexed { index, mutation ->
+            if (index % 4 == 1) mutation.copy(grouping = stored[index % stored.size]) else mutation }
+        present(mixed)
+        present(mixed.take(1).map { it.copy(grouping = stored.first()) })
+    }
+
     @Test fun everyIconDrawsAndUnknownNamesDecodeToANeutralDot() {
         for (icon in HistoryIcon.entries) draw(icon)
         val semantic = HistorySemantic(HistorySignificance.PING, HistoryIcon.ADS_CLICK)

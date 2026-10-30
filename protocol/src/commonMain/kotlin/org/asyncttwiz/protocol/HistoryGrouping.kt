@@ -1,6 +1,12 @@
 package org.asyncttwiz.protocol
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
 /** Semantic presentation categories, not request types or rules-engine interpretations. */
 @Serializable enum class HistoryCategory(val key: String) {
@@ -8,8 +14,10 @@ import kotlinx.serialization.Serializable
     V("view"), H("shuffle"), F("closure"), R("random"), P("ping"), B("backward"), S("ending"), O("leading"), U("untap")
 }
 
-/** D-299 ranks. The representative retains the event's literal icon, never a rank-label icon. */
-@Serializable enum class HistorySignificance(val category: HistoryCategory, val rank: Int, val anchor: Boolean = true) {
+/** D-299 ranks. The representative retains the event's literal icon, never a rank-label icon. Wire names are the
+ * constant names; a name this build does not know (a newer server) decodes as [UNKNOWN] instead of failing. */
+@Serializable(with = HistorySignificanceSerializer::class)
+enum class HistorySignificance(val category: HistoryCategory, val rank: Int, val anchor: Boolean = true) {
     ENDING_SUGGESTION(HistoryCategory.S, 10), STACK_ENTRY(HistoryCategory.I, 20), STACK_REMOVAL(HistoryCategory.I, 20),
     EXPLICIT_DISCLOSURE(HistoryCategory.V, 30), TOKEN_CLONE_CREATION(HistoryCategory.C, 40),
     COMBAT_MEMBERSHIP(HistoryCategory.K, 50), COMBAT_AREA_CREATION(HistoryCategory.K, 60),
@@ -22,7 +30,17 @@ import kotlinx.serialization.Serializable
     DIE_COIN_RUN(HistoryCategory.R, 30, false), ORIENTATION(HistoryCategory.T, 40, false),
     TURN_TRANSITION(HistoryCategory.B, 50, false), PHASE_STEP_TRACKING(HistoryCategory.B, 60, false),
     EVENT_COMMENT(HistoryCategory.B, 70, false), PING(HistoryCategory.P, 80, false),
-    ATTENTION_PASS(HistoryCategory.B, 90, false)
+    ATTENTION_PASS(HistoryCategory.B, 90, false),
+    /** Decoded from a name this build does not know: it never anchors or represents a group and joins like a comment. */
+    UNKNOWN(HistoryCategory.B, 100, false)
+}
+
+internal object HistorySignificanceSerializer : KSerializer<HistorySignificance> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("org.asyncttwiz.protocol.HistorySignificance", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: HistorySignificance) = encoder.encodeString(value.name)
+    override fun deserialize(decoder: Decoder): HistorySignificance = decoder.decodeString().let { name ->
+        HistorySignificance.entries.firstOrNull { it.name == name } ?: HistorySignificance.UNKNOWN }
 }
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -37,7 +55,9 @@ import kotlinx.serialization.Serializable
     /** Rules v29 step into Declare blockers: joins only the author's attacker declaration and closes the group. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val endsGroup: Boolean = false) {
     init {
-        require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
+        // An unknown (newer) significance may carry a key this build cannot judge; decoding it must not fail.
+        require(significance == HistorySignificance.UNKNOWN ||
+            (significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
     }
     val category: HistoryCategory get() = if (untap) HistoryCategory.U else significance.category
 }
@@ -189,7 +209,8 @@ object HistoryGrouping {
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */
     fun append(previous: GameplayGroup?, nodeId: String, requestId: String, author: String, semantic: HistorySemantic): GameplayGroup {
         val incoming = semantic.category
-        val context = previous?.let { group -> HistoryCategory.entries.single { it.key == group.category } }
+        // A category key this build does not know (a newer server) continues like a group led by a comment or ping.
+        val context = previous?.let { group -> HistoryCategory.entries.firstOrNull { it.key == group.category } ?: HistoryCategory.O }
         val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
         val casting = semantic.rulesVersion >= 3 && previous?.stackEntryId != null

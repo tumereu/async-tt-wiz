@@ -77,7 +77,7 @@ class HistoryGroupingTest {
     @Test fun literalD299RanksAndPrefixTieFixtures() {
         assertEquals(listOf(10,20,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180),
             HistorySignificance.entries.filter { it.anchor }.map { it.rank })
-        assertEquals(listOf(10,20,30,40,50,60,70,80,90), HistorySignificance.entries.filter { !it.anchor }.map { it.rank })
+        assertEquals(listOf(10,20,30,40,50,60,70,80,90,100), HistorySignificance.entries.filter { !it.anchor }.map { it.rank })
         fun check(kinds: List<HistorySignificance>, icons: List<String>, expected: List<Int>) {
             var representative: HistoryRepresentative? = null
             kinds.forEachIndexed { index, kind ->

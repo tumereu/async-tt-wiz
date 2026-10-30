@@ -30,7 +30,7 @@ class DeckVisibilityTest {
         }
     }
 
-    private class Fixture(val runtime: ServiceRuntime) {
+    private class Fixture(val runtime: ServiceRuntime, val db: OwnedPostgres) {
         private val accounts = AccountService(runtime)
         fun account(name: String): AccountService.Principal {
             accounts.register(name, "$name@example.invalid", "synthetic password")
@@ -74,7 +74,7 @@ class DeckVisibilityTest {
             runtime.start()
             val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
             while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
-            test(Fixture(runtime))
+            test(Fixture(runtime, db))
         }
     }
 
@@ -84,9 +84,28 @@ class DeckVisibilityTest {
         val (a1, b1) = f.game(f.a, f.b)
         f.select(a1, x); b1.execute(GameAction.AcceptInvitation); f.select(b1, bDeck)
         assertFalse(f.shown(a1)); assertFalse(f.shown(b1))
+        // Other games of the pair already holding a deck before the first game finishes.
+        val (waiting, _) = f.game(f.a, f.b); f.select(waiting, x)
+        val (chosen, _) = f.game(f.a, f.b); f.select(chosen, x)
+        assertEquals("accepted", chosen.execute(GameAction.ShowDeck(true)).outcome)
+        assertEquals("accepted", chosen.execute(GameAction.ShowDeck(false)).outcome)
+        val (other, _) = f.game(f.a, f.b); f.select(other, y)
+        val (elsewhere, _) = f.game(f.a, f.c); f.select(elsewhere, x)
+        val waitingRevision = f.games.head(f.a, waiting.gameId).summary.revision
         f.finish(a1, b1)
-        // The first game stays hidden: ending it never reveals anything by itself.
-        assertFalse(f.shown(a1)); assertFalse(f.shown(b1))
+        // The finished game's next play shows both decks, to the opponent too.
+        assertTrue(f.shown(a1)); assertTrue(f.shown(b1)); assertTrue(f.shown(b1, f.a)); assertTrue(f.shown(a1, f.b))
+        // Another lobby game already holding the deck shows it too, through a revision of its own.
+        assertTrue(f.shown(waiting))
+        val revision = f.games.revisions(f.a, waiting.gameId, waitingRevision).revisions.single()
+        assertTrue(revision.preparation!!.players.single { it.accountId == f.a.account.accountId }.deckShown)
+        assertFalse(f.shown(chosen), "The player's own choice in a game stays")
+        assertFalse(f.shown(other), "Another deck has not finished a game against B")
+        assertFalse(f.shown(elsewhere), "The deck has not finished a game against C")
+        // Hidden again by hand in the finished game: later finishes keep that choice.
+        assertEquals("accepted", a1.execute(GameAction.ShowDeck(false)).outcome)
+        f.finish(a1, b1)
+        assertFalse(f.shown(a1)); assertTrue(f.shown(b1))
 
         // A later game against the same opponent: the same saved deck, even after editing it, starts shown.
         assertEquals(200, f.decks.update(f.a, x.deck.id, UpdateDeck(id(), "Deck X renamed")).status)
@@ -126,5 +145,22 @@ class DeckVisibilityTest {
         f.settings.set(f.a.account.accountId, AccountSettings(DeckVisibility.VISIBLE))
         assertFalse(f.shown(a2))
         f.select(a2, x); assertTrue(f.shown(a2))
+    }
+
+    @Test fun `the migration shows lobby decks that already finished a game against the same opponent`() = fixture { f ->
+        val x = f.deck(f.a, "Deck X"); val y = f.deck(f.a, "Deck Y"); val bDeck = f.deck(f.b, "Deck B")
+        val (a1, b1) = f.game(f.a, f.b)
+        f.select(a1, x); b1.execute(GameAction.AcceptInvitation); f.select(b1, bDeck)
+        val (other, _) = f.game(f.a, f.b); f.select(other, y)
+        f.finish(a1, b1)
+        // The state the earlier server left: the finished game back in its lobby with both decks still hidden.
+        fun sql(statement: String) = f.db.connection().use { it.createStatement().execute(statement) }
+        sql("UPDATE player_preparation SET deck_shown = false")
+        f.settings.set(f.b.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
+        sql("ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version = '46'")
+        assertEquals(1, FoundationMigrations.migrate(f.db.settings))
+        assertTrue(f.shown(a1)); assertTrue(f.shown(b1, f.a))
+        assertFalse(f.shown(b1), "An account that hides its decks stays hidden")
+        assertFalse(f.shown(other), "Another deck has not finished a game against B")
     }
 }

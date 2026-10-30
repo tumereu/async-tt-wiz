@@ -258,11 +258,21 @@ class PodChallengeTest {
         val first = f.challenge(pod); val owner = f.stream(f.a, first); val recipient = f.stream(f.b, first)
         recipient.execute(GameAction.AcceptInvitation)
         assertFalse(shown(first, f.a)); assertFalse(shown(first, f.b))
+        // A challenge sent before the first game ends already holds the challenger's pod deck.
+        val early = f.challenge(pod, who = f.b, opponent = f.a)
+        assertFalse(shown(early, f.b))
         owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
         owner.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.WIN)))
         val suggestion = f.games.head(f.a, first.id).play!!.board.resultSuggestion!!
         assertEquals("accepted", recipient.execute(GameAction.AcceptResult(suggestion.id)).outcome)
-        assertFalse(shown(first, f.a), "Ending the first game reveals nothing by itself")
+        // Back in the lobby for the next play, both pod decks are shown with their names.
+        assertTrue(shown(first, f.a)); assertTrue(shown(first, f.b))
+        val aDeck = f.games.head(f.a, first.id).ownPodDeckName!!
+        assertEquals(aDeck, f.games.head(f.b, first.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.shownPodDeckName)
+        // So is the challenger's deck in the challenge already sent, and the recipient's once they accept.
+        assertTrue(shown(early, f.b))
+        f.stream(f.a, early).execute(GameAction.AcceptInvitation)
+        assertTrue(shown(early, f.a))
         // The same pod decks against the same opponent: both start shown, the inviter's already in the challenge.
         val second = f.challenge(pod)
         assertTrue(shown(second, f.a))

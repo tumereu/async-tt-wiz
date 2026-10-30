@@ -186,6 +186,9 @@ class GameResultLifecycleTest {
                 val bId = f.b.account.accountId
                 fun shown(viewer: AccountService.Principal = f.a) =
                     f.games.head(viewer, f.game.id).preparation!!.players.associate { it.accountId to it.deckShown }
+                // The toggle itself, without "Show after first game" revealing the decks when the play ends.
+                for (player in listOf(f.a, f.b)) org.asyncttwiz.server.accounts.AccountSettingsService(f.runtime)
+                    .set(player.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
                 // The lobby toggle is not a gameplay action: an active game refuses it.
                 assertEquals("lifecycleEnded", f.other.execute(GameAction.ShowDeck(true)).reason)
                 f.owner.execute(f.suggestion())

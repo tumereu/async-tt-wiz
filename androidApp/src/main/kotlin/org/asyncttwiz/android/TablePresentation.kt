@@ -582,17 +582,17 @@ object TablePresentation {
             val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
             val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
                 it.destination.insertion == CombatInsertion.APPEND }.minOfOrNull { it.bounds.width * zoom / 2 - .01f } ?: 12f)
-            region.copy(bounds = if (region.destination.pairId == null && !region.extendLeft && !region.extendRight)
+            region.copy(bounds = if (region.destination.pairId == null && !region.exact)
                 row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
-        // Dividers span only the card rows, so each target label visibly spans its whole lane.
-        val dividers = combat.dividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.rowsTop), camera) to
+        // Card-slot separators span only the card rows; lane separators cross the whole area, label row included.
+        val dividers = combat.slotDividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.rowsTop), camera) to
              world.screen(TablePoint(x + combatX, combatY + combat.rowsBottom), camera) }
-        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY + combat.rowsTop), camera) to
-            world.screen(TablePoint(x + combatX, combatY + combat.rowsBottom), camera) }
+        val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
+            world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
         val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds), fontSize = lane.fontSize * zoom,
-            padding = lane.padding * zoom,
+            padding = lane.padding * zoom, inset = lane.inset * zoom,
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
         val clippedPorts = if (landscape) ports.map { p ->

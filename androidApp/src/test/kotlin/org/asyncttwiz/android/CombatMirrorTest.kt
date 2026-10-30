@@ -63,12 +63,14 @@ class CombatMirrorTest {
                 assertTrue(attackers.all { a -> blockers.all { b -> a.bounds.center.y < b.bounds.center.y } })
                 assertTrue(cards.all { it.bounds.bottom <= labelTop + .01f })
                 assertTrue(scene.combatDividers.all { (from, to) -> to.y <= labelTop + .01f && from.y < to.y })
-                assertTrue(scene.combatLaneDividers.all { (_, to) -> to.y <= labelTop + .01f })
             } else {
                 assertTrue(blockers.all { b -> attackers.all { a -> b.bounds.center.y < a.bounds.center.y } })
                 assertTrue(cards.all { it.bounds.y >= labelBottom - .01f })
                 assertTrue(scene.combatDividers.all { (from, _) -> from.y >= labelBottom - .01f })
             }
+            // Lane separators (if any) cross the whole area: both card rows and the label row, wherever it is.
+            assertTrue(scene.combatLaneDividers.all { (from, to) -> from.y <= minOf(labelTop, cards.minOf { it.bounds.y }) + .01f &&
+                to.y >= maxOf(labelBottom, cards.maxOf { it.bounds.bottom }) - .01f })
             // Each role's drop row contains that role's cards and never the label row.
             for (drop in scene.combatDrops.filter { it.destination.pairId != null && it.destination.insertion == CombatInsertion.APPEND }) {
                 val own = if (drop.destination.role == CombatRole.ATTACKER) attackers else blockers

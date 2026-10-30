@@ -1,0 +1,1 @@
+fix: Dragging an attacker into an empty part of another target's area now changes what it attacks.

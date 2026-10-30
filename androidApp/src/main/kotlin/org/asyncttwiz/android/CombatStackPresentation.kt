@@ -25,8 +25,12 @@ import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
     val projection: Boolean, val frozen: Boolean = false, val textMarks: Set<Int> = emptySet())
+/** [emptyLane] marks the one drop covering a whole empty attack-target lane row. [exact] regions keep their
+ * bounds on the table (empty lanes and one-sided pair-edge gaps); other new-pair gaps narrow to a screen tolerance.
+ * Only the outermost drop on each side extends beyond the area's ends ([extendLeft]/[extendRight]). */
 data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination,
-    val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center) {
+    val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center,
+    val emptyLane: Boolean = false, val exact: Boolean = emptyLane) {
     fun contains(point: TablePoint) = point.y >= bounds.y && point.y < bounds.bottom &&
         (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
 }
@@ -39,15 +43,21 @@ data class CombatGeometry(val width: Float, val height: Float, val cards: List<O
     /** Vertical span of the two card rows (everything but the lane label row). */
     val rowsTop get() = if (mirrored) 0f else labelHeight
     val rowsBottom get() = if (mirrored) height - labelHeight else height
+    /** Card-slot separators: [dividers] that are not also lane separators. They span only the card rows,
+     * while lane separators ([laneDividers]) cross the whole area height, the label row included. */
+    val slotDividers get() = dividers.filter { x -> laneDividers.none { kotlin.math.abs(it - x) < .01f } }
 }
-/** [accountId] marks a player lane drawn with that player's round avatar icon. */
+/** [accountId] marks a player lane drawn with that player's round avatar icon. [inset] is the horizontal
+ * space kept free at each lane edge, so the icon and name never touch a lane separator. */
 data class CombatLaneLabel(val cardId: String?, val label: String, val lines: List<String>, val bounds: TableBounds,
     val artwork: org.asyncttwiz.storage.ArtworkReference? = null, val fontSize: Float = 11.5f,
-    val padding: Float = 2f, val accountId: String? = null) {
+    val padding: Float = 2f, val accountId: String? = null, val inset: Float = padding) {
     val lineHeight get() = fontSize * 1.25f
     val artworkHeight get() = lineHeight
     val artworkWidth get() = if (accountId != null) artworkHeight else artworkHeight / 1.4f
-    val textInset get() = if (cardId != null || accountId != null) artworkWidth + 2 * padding else padding
+    val textInset get() = inset + if (cardId != null || accountId != null) artworkWidth + padding else 0f
+    /** Room for the name between [textInset] and the right edge's [inset]. */
+    val textWidth get() = bounds.width - textInset - inset
 }
 data class StackGeometry(val width: Float, val height: Float, val count: Int,
     val visible: List<OccurrenceDrawing>, val orderedIds: List<String>)
@@ -55,8 +65,19 @@ data class StackGeometry(val width: Float, val height: Float, val count: Int,
 /** dp scene geometry; the caller passes the exact current ordinary-table card dimensions. */
 object CombatStackPresentation {
     fun cardGap(cardWidth: Float) = cardWidth * .04f
-    // The ordinary card outline is 1.5dp at 28dp card width; leave two outlines each side.
-    fun slotMargin(cardWidth: Float) = cardWidth * 3f / 28f
+    // Separator strokes and gaps scale with the card like its outline (1.5dp at the default 28dp card width),
+    // so they keep their proportions at every card size and zoom.
+    fun cardOutline(cardWidth: Float) = cardWidth * 1.5f / 28f
+    fun laneDividerStroke(cardWidth: Float) = cardWidth * 2f / 28f
+    fun slotDividerStroke(cardWidth: Float) = cardWidth * 1f / 28f
+    const val LANE_DIVIDER_ALPHA = .55f
+    const val SLOT_DIVIDER_ALPHA = .22f
+    /** Free space between a separator line and the nearest card outline, lane icon or name. */
+    fun dividerClearance(cardWidth: Float) = cardWidth * 2f / 28f
+    /** Horizontal lane-label inset: half the lane separator plus the clearance. */
+    fun laneLabelInset(cardWidth: Float) = laneDividerStroke(cardWidth) / 2 + dividerClearance(cardWidth)
+    /** Every slot edge may border a lane separator: its half stroke, the clearance, then the card's outer outline half. */
+    fun slotMargin(cardWidth: Float) = laneLabelInset(cardWidth) + cardOutline(cardWidth) / 2
     fun rowWidth(count: Int, cardWidth: Float) = count * cardWidth + cardGap(cardWidth) * (count - 1).coerceAtLeast(0)
     fun slotWidth(blockers: Int, attackers: Int, cardWidth: Float) =
         maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
@@ -73,15 +94,7 @@ object CombatStackPresentation {
         }
     }.toFloat() * fontSize * 1.06f
 
-    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.padding
-
-    /** The longest prefix of [text] (with "…" when cut) whose estimated width fits [width]. */
-    fun ellipsized(text: String, width: Float, fontSize: Float): String {
-        if (laneTextWidth(text, fontSize) <= width) return text
-        var end = text.length
-        while (end > 1 && laneTextWidth(text.take(end).trimEnd() + "…", fontSize) > width) end--
-        return text.take(end).trimEnd() + "…"
-    }
+    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.inset
 
     /** Rules v28: face-up planeswalkers on the defending player's battlefield, then face-up battles (Sieges)
      * on the attacking player's own battlefield, each in battlefield order. */
@@ -135,14 +148,12 @@ object CombatStackPresentation {
             }
             val lane = CombatLaneLabel(target, label, listOf(label), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font,
                 artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
-                accountId = defender.takeIf { avatar != null })
-            // Icon and full name fit on one row of an occupied lane; wide lanes widen the area, which then pans.
-            // An empty lane stays one slot wide and shortens its name.
-            val width = if (members.isEmpty()) cardSpan else maxOf(cardSpan, laneWidth(lane))
+                accountId = defender.takeIf { avatar != null }, inset = laneLabelInset(cardWidth))
+            // Icon and full name always fit on one row, empty lanes included; wide lanes widen the area, which then pans.
+            val width = maxOf(cardSpan, laneWidth(lane))
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth) +
                 (width - cardSpan) / members.size
-            val shown = if (members.isEmpty()) ellipsized(label, width - lane.textInset - lane.padding, font) else label
-            lanes += lane.copy(label = shown, lines = listOf(shown), bounds = lane.bounds.copy(width = width))
+            lanes += lane.copy(bounds = lane.bounds.copy(width = width))
             if (laneX > 0) laneDividers += laneX
             laneX += width
         }
@@ -152,8 +163,10 @@ object CombatStackPresentation {
         fun rowY(role: CombatRole) = if (mirrored) { if (role == CombatRole.ATTACKER) 0f else rowHeight }
             else labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
         var x = 0f
+        // [left]/[right]: a margin-wide gap just inside the pair starting/ending at [at], never narrowed;
+        // [extend]: it also catches drops beyond that end of the area (only when nothing lies further out).
         fun insertion(after: String?, before: String?, at: Float, left: Boolean = false, right: Boolean = false,
-            lanePair: String? = before ?: after) {
+            lanePair: String? = before ?: after, extend: Boolean = false) {
             // Display grouping can make two visual neighbors nonadjacent in recorded pair order.
             val anchor = area.pairs.indexOfFirst { it.id == after }
             val gap = if (anchor >= 0) IdentityGap(after, area.pairs.getOrNull(anchor + 1)?.id) else {
@@ -165,8 +178,8 @@ object CombatStackPresentation {
                 val y = rowY(role)
                 targets += CombatDropRegion("New ${role.name.lowercase()} pair ${if (before == null) "at end" else "before $before"}",
                     TableBounds(at - if (left) 0f else if (right) margin else 12f, y, if (left || right) margin else 24f, rowHeight),
-                    CombatDestination(area.id, role, pairGap = gap, attackTarget = target), left, right,
-                    TablePoint(at, y + rowHeight / 2))
+                    CombatDestination(area.id, role, pairGap = gap, attackTarget = target), left && extend, right && extend,
+                    TablePoint(at, y + rowHeight / 2), exact = left || right)
             }
         }
         val edges = mutableListOf<Pair<Float, Float>>() // each laid-out pair's left and right x, in display order
@@ -180,7 +193,8 @@ object CombatStackPresentation {
                         TableBounds(x, y, lane.bounds.width, rowHeight),
                         CombatDestination(area.id, role, pairGap = IdentityGap(area.pairs.lastOrNull()?.id, null), attackTarget = target),
                         // Outermost empty lanes also catch drops beyond the area's ends.
-                        lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2))
+                        lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2),
+                        emptyLane = true)
                 }
                 x += lane.bounds.width
                 continue
@@ -213,13 +227,15 @@ object CombatStackPresentation {
         }
         if (pairs.isNotEmpty()) {
             for (index in 1 until pairs.size) {
-                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first)
-                // An empty lane between two pairs: the earlier pair's own right edge is a slot boundary too.
-                if (edges[index - 1].second != edges[index].first)
-                    insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
+                // An empty lane between two pairs keeps both pair edges one-sided, so the whole empty lane
+                // stays its own drop (a centered gap tolerance would reach into it).
+                val apart = kotlin.math.abs(edges[index - 1].second - edges[index].first) > .01f
+                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first, left = apart)
+                if (apart) insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
             }
-            insertion(null, pairs.first().id, edges.first().first, left = true)
-            insertion(pairs.last().id, null, edges.last().second, right = true)
+            // The area's end gaps extend outward only when no empty lane lies beyond them.
+            insertion(null, pairs.first().id, edges.first().first, left = true, extend = edges.first().first < .01f)
+            insertion(pairs.last().id, null, edges.last().second, right = true, extend = edges.last().second > x - .01f)
         }
         return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
             lanes.map { it.copy(bounds = it.bounds.copy(y = if (mirrored) rowHeight * 2 else 0f, height = labelHeight)) },
@@ -291,12 +307,15 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
         Box(Modifier.horizontalScroll(rememberScrollState()).widthIn(min = laneWidth), contentAlignment = Alignment.Center) {
             Box(Modifier.size(scene.width.dp, scene.height.dp)) {
                 Canvas(Modifier.fillMaxSize()) {
-                    for (x in scene.dividers) drawLine(Color.Black.copy(alpha = if (x in scene.laneDividers) .7f else .22f),
+                    for (x in scene.slotDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.SLOT_DIVIDER_ALPHA),
                         Offset(x.dp.toPx(), scene.rowsTop.dp.toPx()), Offset(x.dp.toPx(), scene.rowsBottom.dp.toPx()),
-                        (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
+                        CombatStackPresentation.slotDividerStroke(cardWidth).dp.toPx())
+                    for (x in scene.laneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
+                        Offset(x.dp.toPx(), 0f), Offset(x.dp.toPx(), scene.height.dp.toPx()),
+                        CombatStackPresentation.laneDividerStroke(cardWidth).dp.toPx())
                 }
                 for (lane in scene.lanes) Text(lane.label, Modifier.offset(lane.bounds.x.dp, lane.bounds.y.dp)
-                    .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(lane.padding.dp),
+                    .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(horizontal = lane.inset.dp, vertical = lane.padding.dp),
                     fontSize = lane.fontSize.sp, lineHeight = lane.lineHeight.sp, maxLines = 1, softWrap = false)
                 for (region in scene.destinations) {
                     val b = region.bounds

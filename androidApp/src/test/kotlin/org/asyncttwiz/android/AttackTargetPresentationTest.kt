@@ -110,6 +110,78 @@ class AttackTargetPresentationTest {
         assertTrue(CombatStackPresentation.laneTextWidth(long, 10f) > CombatStackPresentation.laneTextWidth("Bob", 10f))
     }
 
+    @Test fun separatorsKeepClearOfCardsAndLaneNamesAtEveryCardSize() {
+        val p = CombatStackPresentation
+        // At the default 28dp card: 2dp lane lines over 1dp slot lines, each with 2dp free on both sides.
+        assertEquals(2f, p.laneDividerStroke(28f), .001f)
+        assertEquals(1f, p.slotDividerStroke(28f), .001f)
+        assertEquals(2f, p.dividerClearance(28f), .001f)
+        assertTrue(p.LANE_DIVIDER_ALPHA > p.SLOT_DIVIDER_ALPHA)
+        val original = attackTargetState()
+        val area = original.board.combat!!
+        // Pairs 0 and 2 attack the player, pair 1 the Siege (81); the planeswalker lane (80) between them is empty.
+        val state = original.copy(board = original.board.copy(combat = area.copy(pairs = area.pairs.mapIndexed { n, pair ->
+            pair.copy(attackTarget = if (n == 1) combatId(81) else null) })))
+        for (cardWidth in listOf(14f, 28f, 48f, 84f)) for (viewer in listOf(combatId(7), combatId(8))) {
+            val scene = p.combat(state.board, cardWidth, cardWidth * 40 / 28, state.definitions, mapOf(combatId(8) to "Bob"), viewer)
+            assertEquals(listOf(null, combatId(80), combatId(81)), scene.lanes.map { it.cardId })
+            assertEquals(scene.lanes.drop(1).map { it.bounds.x }, scene.laneDividers)
+            assertEquals(1, scene.slotDividers.size)
+            assertTrue(scene.slotDividers.none { x -> scene.laneDividers.any { kotlin.math.abs(it - x) < .01f } })
+            val clearance = p.dividerClearance(cardWidth)
+            fun assertClear(lines: List<Float>, stroke: Float) {
+                for (x in lines) for (card in scene.cards) {
+                    val outer = card.bounds.copy(x = card.bounds.x - p.cardOutline(cardWidth) / 2,
+                        width = card.bounds.width + p.cardOutline(cardWidth))
+                    val gap = if (outer.center.x < x) x - stroke / 2 - outer.right else outer.x - (x + stroke / 2)
+                    assertTrue(gap >= clearance - .001f, "card ${card.viewId} is $gap from the line at $x")
+                }
+            }
+            assertClear(scene.slotDividers, p.slotDividerStroke(cardWidth))
+            assertClear(scene.laneDividers, p.laneDividerStroke(cardWidth))
+            // Icon and name start and end the stroke half plus the clearance away from the lane edges.
+            for (lane in scene.lanes) {
+                assertEquals(p.laneDividerStroke(cardWidth) / 2 + clearance, lane.inset, .001f)
+                assertTrue(p.laneTextWidth(lane.label, lane.fontSize) <= lane.textWidth + .001f)
+            }
+        }
+    }
+
+    @Test fun tableSceneEmptyLaneBetweenOccupiedLanesIsOneWholeDropAndItsSeparatorsCrossTheLabels() {
+        val initial = TableFixture.play(board = 2, library = 0)
+        val definition = TableFixture.definition.copy(faces = listOf(TableFixture.definition.faces.single().copy(
+            name = "Ajani, the Exceedingly Long-Named Walker", typeLine = "Planeswalker")))
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        val state = initial.copy(definitions = listOf(submitted), board = initial.board.copy(
+            cards = initial.board.cards.map { it.copy(definition = submitted.digest) },
+            combat = CombatArea("combat", listOf(
+                CombatPair("p0", attackers = listOf(CombatOccurrence("o0", "a/BATTLEFIELD/0"))),
+                CombatPair("p1", attackers = listOf(CombatOccurrence("o1", "a/BATTLEFIELD/1")), attackTarget = "b/BATTLEFIELD/1")))))
+        for (landscape in listOf(false, true)) for (viewer in listOf("a", "b")) {
+            val scene = TablePresentation.scene(TableFixture.game, state, viewer,
+                if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
+            assertEquals(listOf(null, "b/BATTLEFIELD/0", "b/BATTLEFIELD/1"), scene.combatLabels.map { it.cardId })
+            val empty = scene.combatLabels[1]
+            assertEquals("Ajani, the Exceedingly Long-Named Walker", empty.label)
+            val drops = scene.combatDrops.filter { it.emptyLane }
+            assertEquals(2, drops.size)
+            for (drop in drops) {
+                assertEquals("b/BATTLEFIELD/0", drop.destination.attackTarget)
+                assertEquals(empty.bounds.x, drop.bounds.x, .01f)
+                assertEquals(empty.bounds.width, drop.bounds.width, .01f)
+            }
+            assertEquals(2, scene.combatLaneDividers.size)
+            assertTrue(scene.combatDividers.isEmpty())
+            val cards = scene.items.filter { it.viewport == "combat" }
+            assertEquals(2, cards.size)
+            for ((from, to) in scene.combatLaneDividers) {
+                assertTrue(from.y <= minOf(empty.bounds.y, cards.minOf { it.bounds.y }) + .01f)
+                assertTrue(to.y >= maxOf(empty.bounds.bottom, cards.maxOf { it.bounds.bottom }) - .01f)
+                assertTrue(scene.combatLabels.any { kotlin.math.abs(it.bounds.x - from.x) < .01f })
+            }
+        }
+    }
+
     @Test fun tableScenePassesProfileAvatarsToThePlayerLane() {
         val initial = TableFixture.play(board = 1, library = 0)
         val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
@@ -133,14 +205,25 @@ class AttackTargetPresentationTest {
         assertEquals(listOf(null, combatId(80), combatId(81)), labels.map { it.cardId })
         assertEquals("→ Bob", labels.first().label)
         assertTrue(labels.drop(1).all { it.label.startsWith("Tar") })
-        // Empty lanes stay one card slot wide; a long name is shortened to fit, never widening the area.
+        // Empty lanes are at least one card slot wide and always show their full name on one row,
+        // widening the area (which then pans) rather than shortening the name.
         val long = CombatStackPresentation.combat(empty.board, 28f, 40f, empty.definitions,
             mapOf(combatId(8) to "Bartholomew the Long-Named"))
         val slot = 28f + 2 * CombatStackPresentation.slotMargin(28f)
-        assertTrue(long.lanes.all { kotlin.math.abs(it.bounds.width - slot) < .001f })
-        assertEquals(3 * slot, long.width, .001f)
-        assertTrue(long.lanes.first().label.endsWith("…"))
-        for (lane in long.lanes) assertTrue(lane.textInset + CombatStackPresentation.laneTextWidth(lane.label, lane.fontSize) <= lane.bounds.width + .001f)
+        assertEquals("→ Bartholomew the Long-Named", long.lanes.first().label)
+        assertTrue(long.lanes.first().bounds.width > slot)
+        for (lane in long.lanes) {
+            assertFalse(lane.label.endsWith("…"))
+            assertEquals(maxOf(slot, CombatStackPresentation.laneWidth(lane)), lane.bounds.width, .001f)
+            assertTrue(CombatStackPresentation.laneTextWidth(lane.label, lane.fontSize) <= lane.textWidth + .001f)
+        }
+        assertEquals(long.lanes.sumOf { it.bounds.width.toDouble() }.toFloat(), long.width, .001f)
+        // Each empty lane's drop covers that whole (widened) lane in both card rows.
+        for (lane in long.lanes) {
+            val drops = long.destinations.filter { it.destination.attackTarget == lane.cardId }
+            assertEquals(2, drops.size)
+            assertTrue(drops.all { it.emptyLane && it.bounds.x == lane.bounds.x && it.bounds.width == lane.bounds.width })
+        }
         // Each empty lane is one whole drop per row, creating a pair attacking that lane's target.
         val attackerDrops = long.destinations.filter { it.destination.role == CombatRole.ATTACKER }
         assertEquals(listOf(null, combatId(80), combatId(81)), attackerDrops.map { it.destination.attackTarget })

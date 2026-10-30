@@ -1,0 +1,1 @@
+mod: Combat target names are always shown in full, and target dividers now run through the name row with a little more space around cards.

@@ -25,8 +25,10 @@ import org.asyncttwiz.protocol.*
 
 data class OccurrenceDrawing(val viewId: String, val card: PlayCard, val bounds: TableBounds,
     val projection: Boolean, val frozen: Boolean = false, val textMarks: Set<Int> = emptySet())
+/** [emptyLane] marks the one drop covering a whole empty attack-target lane row; it is never narrowed. */
 data class CombatDropRegion(val label: String, val bounds: TableBounds, val destination: CombatDestination,
-    val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center) {
+    val extendLeft: Boolean = false, val extendRight: Boolean = false, val landing: TablePoint = bounds.center,
+    val emptyLane: Boolean = false) {
     fun contains(point: TablePoint) = point.y >= bounds.y && point.y < bounds.bottom &&
         (extendLeft || point.x >= bounds.x) && (extendRight || point.x < bounds.right)
 }
@@ -39,15 +41,21 @@ data class CombatGeometry(val width: Float, val height: Float, val cards: List<O
     /** Vertical span of the two card rows (everything but the lane label row). */
     val rowsTop get() = if (mirrored) 0f else labelHeight
     val rowsBottom get() = if (mirrored) height - labelHeight else height
+    /** Card-slot separators: [dividers] that are not also lane separators. They span only the card rows,
+     * while lane separators ([laneDividers]) cross the whole area height, the label row included. */
+    val slotDividers get() = dividers.filter { x -> laneDividers.none { kotlin.math.abs(it - x) < .01f } }
 }
-/** [accountId] marks a player lane drawn with that player's round avatar icon. */
+/** [accountId] marks a player lane drawn with that player's round avatar icon. [inset] is the horizontal
+ * space kept free at each lane edge, so the icon and name never touch a lane separator. */
 data class CombatLaneLabel(val cardId: String?, val label: String, val lines: List<String>, val bounds: TableBounds,
     val artwork: org.asyncttwiz.storage.ArtworkReference? = null, val fontSize: Float = 11.5f,
-    val padding: Float = 2f, val accountId: String? = null) {
+    val padding: Float = 2f, val accountId: String? = null, val inset: Float = padding) {
     val lineHeight get() = fontSize * 1.25f
     val artworkHeight get() = lineHeight
     val artworkWidth get() = if (accountId != null) artworkHeight else artworkHeight / 1.4f
-    val textInset get() = if (cardId != null || accountId != null) artworkWidth + 2 * padding else padding
+    val textInset get() = inset + if (cardId != null || accountId != null) artworkWidth + padding else 0f
+    /** Room for the name between [textInset] and the right edge's [inset]. */
+    val textWidth get() = bounds.width - textInset - inset
 }
 data class StackGeometry(val width: Float, val height: Float, val count: Int,
     val visible: List<OccurrenceDrawing>, val orderedIds: List<String>)
@@ -55,8 +63,19 @@ data class StackGeometry(val width: Float, val height: Float, val count: Int,
 /** dp scene geometry; the caller passes the exact current ordinary-table card dimensions. */
 object CombatStackPresentation {
     fun cardGap(cardWidth: Float) = cardWidth * .04f
-    // The ordinary card outline is 1.5dp at 28dp card width; leave two outlines each side.
-    fun slotMargin(cardWidth: Float) = cardWidth * 3f / 28f
+    // Separator strokes and gaps scale with the card like its outline (1.5dp at the default 28dp card width),
+    // so they keep their proportions at every card size and zoom.
+    fun cardOutline(cardWidth: Float) = cardWidth * 1.5f / 28f
+    fun laneDividerStroke(cardWidth: Float) = cardWidth * 2f / 28f
+    fun slotDividerStroke(cardWidth: Float) = cardWidth * 1f / 28f
+    const val LANE_DIVIDER_ALPHA = .55f
+    const val SLOT_DIVIDER_ALPHA = .22f
+    /** Free space between a separator line and the nearest card outline, lane icon or name. */
+    fun dividerClearance(cardWidth: Float) = cardWidth * 2f / 28f
+    /** Horizontal lane-label inset: half the lane separator plus the clearance. */
+    fun laneLabelInset(cardWidth: Float) = laneDividerStroke(cardWidth) / 2 + dividerClearance(cardWidth)
+    /** Every slot edge may border a lane separator: its half stroke, the clearance, then the card's outer outline half. */
+    fun slotMargin(cardWidth: Float) = laneLabelInset(cardWidth) + cardOutline(cardWidth) / 2
     fun rowWidth(count: Int, cardWidth: Float) = count * cardWidth + cardGap(cardWidth) * (count - 1).coerceAtLeast(0)
     fun slotWidth(blockers: Int, attackers: Int, cardWidth: Float) =
         maxOf(rowWidth(blockers, cardWidth), rowWidth(attackers, cardWidth)) + 2 * slotMargin(cardWidth)
@@ -73,15 +92,7 @@ object CombatStackPresentation {
         }
     }.toFloat() * fontSize * 1.06f
 
-    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.padding
-
-    /** The longest prefix of [text] (with "…" when cut) whose estimated width fits [width]. */
-    fun ellipsized(text: String, width: Float, fontSize: Float): String {
-        if (laneTextWidth(text, fontSize) <= width) return text
-        var end = text.length
-        while (end > 1 && laneTextWidth(text.take(end).trimEnd() + "…", fontSize) > width) end--
-        return text.take(end).trimEnd() + "…"
-    }
+    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.inset
 
     /** Rules v28: face-up planeswalkers on the defending player's battlefield, then face-up battles (Sieges)
      * on the attacking player's own battlefield, each in battlefield order. */
@@ -135,14 +146,12 @@ object CombatStackPresentation {
             }
             val lane = CombatLaneLabel(target, label, listOf(label), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font,
                 artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
-                accountId = defender.takeIf { avatar != null })
-            // Icon and full name fit on one row of an occupied lane; wide lanes widen the area, which then pans.
-            // An empty lane stays one slot wide and shortens its name.
-            val width = if (members.isEmpty()) cardSpan else maxOf(cardSpan, laneWidth(lane))
+                accountId = defender.takeIf { avatar != null }, inset = laneLabelInset(cardWidth))
+            // Icon and full name always fit on one row, empty lanes included; wide lanes widen the area, which then pans.
+            val width = maxOf(cardSpan, laneWidth(lane))
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth) +
                 (width - cardSpan) / members.size
-            val shown = if (members.isEmpty()) ellipsized(label, width - lane.textInset - lane.padding, font) else label
-            lanes += lane.copy(label = shown, lines = listOf(shown), bounds = lane.bounds.copy(width = width))
+            lanes += lane.copy(bounds = lane.bounds.copy(width = width))
             if (laneX > 0) laneDividers += laneX
             laneX += width
         }
@@ -180,7 +189,8 @@ object CombatStackPresentation {
                         TableBounds(x, y, lane.bounds.width, rowHeight),
                         CombatDestination(area.id, role, pairGap = IdentityGap(area.pairs.lastOrNull()?.id, null), attackTarget = target),
                         // Outermost empty lanes also catch drops beyond the area's ends.
-                        lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2))
+                        lane === lanes.first(), lane === lanes.last(), TablePoint(x + lane.bounds.width / 2, y + rowHeight / 2),
+                        emptyLane = true)
                 }
                 x += lane.bounds.width
                 continue
@@ -291,12 +301,15 @@ fun CombatLane(state: PlayState, viewer: String, cardWidth: Float, cardHeight: F
         Box(Modifier.horizontalScroll(rememberScrollState()).widthIn(min = laneWidth), contentAlignment = Alignment.Center) {
             Box(Modifier.size(scene.width.dp, scene.height.dp)) {
                 Canvas(Modifier.fillMaxSize()) {
-                    for (x in scene.dividers) drawLine(Color.Black.copy(alpha = if (x in scene.laneDividers) .7f else .22f),
+                    for (x in scene.slotDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.SLOT_DIVIDER_ALPHA),
                         Offset(x.dp.toPx(), scene.rowsTop.dp.toPx()), Offset(x.dp.toPx(), scene.rowsBottom.dp.toPx()),
-                        (if (x in scene.laneDividers) 3.dp else 1.dp).toPx())
+                        CombatStackPresentation.slotDividerStroke(cardWidth).dp.toPx())
+                    for (x in scene.laneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
+                        Offset(x.dp.toPx(), 0f), Offset(x.dp.toPx(), scene.height.dp.toPx()),
+                        CombatStackPresentation.laneDividerStroke(cardWidth).dp.toPx())
                 }
                 for (lane in scene.lanes) Text(lane.label, Modifier.offset(lane.bounds.x.dp, lane.bounds.y.dp)
-                    .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(lane.padding.dp),
+                    .size(lane.bounds.width.dp, scene.labelHeight.dp).padding(horizontal = lane.inset.dp, vertical = lane.padding.dp),
                     fontSize = lane.fontSize.sp, lineHeight = lane.lineHeight.sp, maxLines = 1, softWrap = false)
                 for (region in scene.destinations) {
                     val b = region.bounds

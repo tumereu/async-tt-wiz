@@ -1162,12 +1162,14 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
         0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
             drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
-            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = .22f), xy(from.x, from.y), xy(to.x, to.y), density)
-            for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = .7f), xy(from.x, from.y), xy(to.x, to.y), 3 * density)
+            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.SLOT_DIVIDER_ALPHA),
+                xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.slotDividerStroke(scene.cardWidth) * density)
+            for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
+                xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.laneDividerStroke(scene.cardWidth) * density)
             for (label in scene.combatLabels) {
                 val bounds = label.bounds
                 val font = label.fontSize
-                val thumb = TableBounds(bounds.x + label.padding, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
+                val thumb = TableBounds(bounds.x + label.inset, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
                 if (label.cardId != null) {
                     val image = label.artwork?.key?.let(artwork::get)
                     if (image != null) drawTableArtwork(image, thumb)
@@ -1186,7 +1188,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
                 paint.textSize = font * density; paint.isFakeBoldText = true
                 label.lines.forEachIndexed { index, line ->
                     fittedText(line, bounds.x + label.textInset, bounds.y + label.padding + font + index * label.lineHeight,
-                        bounds.width - label.textInset - label.padding)
+                        label.textWidth)
                 }
                 paint.isFakeBoldText = false; paint.textSize = 11 * density
             }

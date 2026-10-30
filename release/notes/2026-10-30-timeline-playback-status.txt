@@ -1,0 +1,1 @@
+add: Timeline mode shows whether playback is playing, paused or rewinding, with a large play or pause sign in the corner when it changes

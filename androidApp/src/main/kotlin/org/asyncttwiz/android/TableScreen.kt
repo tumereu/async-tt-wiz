@@ -59,7 +59,9 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** History lookup for personal status bubble hides; see [StatusBubbleRules]. */
     val statusHistory: ((String) -> GameplayMutation?)? = null,
     /** The shown timeline point was left behind by a different continuation; see [HistoryPlayback.branched]. */
-    val opponentBranched: Boolean = false)
+    val opponentBranched: Boolean = false,
+    /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
+    val timelinePlayback: TimelinePlaybackStatus? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable
@@ -307,6 +309,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         opponentBranched = playback?.branched == true,
+                        timelinePlayback = if (!editable) playback?.status else null,
                         continuationArmed = history.armed != null,
                           controlsConnected = interactive && history.foreground && !resultLocked,
                         pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))

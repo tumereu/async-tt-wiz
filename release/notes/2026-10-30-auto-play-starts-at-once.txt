@@ -1,0 +1,1 @@
+mod: Starting auto play or a rewind takes the first step right away

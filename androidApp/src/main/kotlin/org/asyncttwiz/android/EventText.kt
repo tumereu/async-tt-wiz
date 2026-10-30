@@ -2,12 +2,8 @@ package org.asyncttwiz.android
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
@@ -17,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -38,6 +35,8 @@ internal data class EventTextChip(val cursorId: String, val text: String, val se
 
 internal const val EVENT_TEXT_MIN_MILLIS = 2_000L
 internal fun eventTextLifetimeMillis(pauseMillis: Long) = maxOf(EVENT_TEXT_MIN_MILLIS, pauseMillis)
+/** Only the final disappearance animates; showing and replacing are instant. */
+internal const val EVENT_TEXT_FADE_OUT_MILLIS = 450
 
 /** The shown group's text, from the board shown at its last event: each earlier event of the group is
  * stepped back once from there (no replay). The texts are the timeline/tree-dialog texts, so they never
@@ -156,10 +155,8 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
         feed.expire(chip.serial)
     }
     Box(modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-        AnimatedContent(chip, transitionSpec = {
-            fadeIn(tween(120)) togetherWith fadeOut(tween(if (targetState == null) 450 else 120)) using SizeTransform(clip = false)
-        }, contentKey = { it?.serial }, label = "event-text") { shown ->
-            if (shown != null) Box(Modifier.padding(horizontal = 8.dp, vertical = 3.dp).widthIn(max = 420.dp)
+        InstantShowFadeOut(chip) { shown ->
+            Box(Modifier.padding(horizontal = 8.dp, vertical = 3.dp).widthIn(max = 420.dp)
                 .background(Color(0xf0253d44), RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 3.dp)
                 .testTag("event-text")
@@ -170,4 +167,19 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
             }
         }
     }
+}
+
+/** Shows [value] at once and swaps a new value in at once; only its going away (to null) fades out.
+ * Purely visual: no pointer handlers. */
+@Composable
+internal fun <T : Any> InstantShowFadeOut(value: T?, modifier: Modifier = Modifier,
+    fadeMillis: Int = EVENT_TEXT_FADE_OUT_MILLIS, content: @Composable (T) -> Unit) {
+    var leaving by remember { mutableStateOf<T?>(null) }
+    val alpha = remember { Animatable(1f) }
+    LaunchedEffect(value) {
+        if (value != null) { leaving = value; alpha.snapTo(1f) }
+        else if (leaving != null) { alpha.animateTo(0f, tween(fadeMillis)); leaving = null }
+    }
+    val shown = value ?: leaving ?: return
+    Box(modifier.graphicsLayer { this.alpha = if (value != null) 1f else alpha.value }) { content(shown) }
 }

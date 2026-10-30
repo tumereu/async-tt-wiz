@@ -8,6 +8,8 @@ import org.asyncttwiz.protocol.*
 import kotlinx.collections.immutable.toPersistentMap
 
 enum class HistoryMode { LIVE, PLAYBACK }
+/** What the timeline transport is doing, for the table's centre text and corner flash. */
+enum class TimelinePlaybackStatus { PLAYING, PAUSED, REWINDING }
 data class HistoryPosition(val cursorId: String, val mode: HistoryMode = HistoryMode.LIVE,
     val playing: Boolean = false, val displayVersion: String)
 
@@ -118,6 +120,15 @@ class HistoryPlayback(initial: HistoryTree,
     val resumeHeld get() = resumeHold && position.mode == HistoryMode.PLAYBACK && position.cursorId == tree.sharedHeadId
     /** Only the running rewind to the common point is locked; a paused pending branch is not. */
     val transportLocked get() = position.playing && rollbackPlan != null && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
+    /** A pending branch locks the strip too: the player must watch the rewind, only choosing when it starts. */
+    val stripLocked get() = branched || transportLocked
+    val status get() = when {
+        transportLocked -> TimelinePlaybackStatus.REWINDING
+        position.playing -> TimelinePlaybackStatus.PLAYING
+        else -> TimelinePlaybackStatus.PAUSED
+    }
+    /** A manual start takes its first step at once; later steps (and auto-continuation) keep the pause. */
+    private var immediateStepCursor: String? = null
 
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root.
      * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. */
@@ -145,6 +156,9 @@ class HistoryPlayback(initial: HistoryTree,
     /** Forward groups wait [normal]; rolling back toward a branch point waits the separate [rewind]. */
     fun stepPauseMillis(normal: Long, rewind: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS): Long =
         if (!tree.isAncestor(position.cursorId, tree.sharedHeadId)) rewind.coerceAtLeast(1) else normal
+    /** The wait before the next automatic step: none right after a manual start, else [stepPauseMillis]. */
+    fun nextStepDelayMillis(normal: Long, rewind: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS): Long =
+        if (position.playing && immediateStepCursor == position.cursorId) 0 else stepPauseMillis(normal, rewind)
 
     fun receive(next: HistoryTree, viewer: String? = null) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
@@ -235,6 +249,9 @@ class HistoryPlayback(initial: HistoryTree,
         return cursor
     }
     fun scrub(id: String) = scrubTo(id, true)
+    /** Strip drag, chip tap and accessibility scroll: ignored while a branch is pending or rewinding. */
+    fun scrubFromStrip(id: String) { if (!stripLocked) scrub(id) }
+    fun pauseFromStrip() { if (!stripLocked) pause() }
     private fun scrubTo(id: String, jump: Boolean) {
         if (jump) onJump()
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
@@ -248,13 +265,14 @@ class HistoryPlayback(initial: HistoryTree,
     }
     fun pause() {
         if (transportLocked) return
-        autoPauseCursor = null; position = position.copy(playing = false)
+        autoPauseCursor = null; immediateStepCursor = null; position = position.copy(playing = false)
     }
     fun play() {
         if (position.mode != HistoryMode.PLAYBACK) return
         if (transportLocked) return
         if (position.cursorId == tree.sharedHeadId) { continuationApplied(); return }
         resumeHold = false; livePanelReveal = false; position = position.copy(playing = true); planRollback()
+        immediateStepCursor = position.cursorId
     }
 
     fun previous() {
@@ -275,8 +293,10 @@ class HistoryPlayback(initial: HistoryTree,
         if (!automatic && position.cursorId != common) {
             // Next from a displaced paused cursor starts the same rewind-then-play as Auto.
             position = position.copy(playing = true)
+            immediateStepCursor = position.cursorId
             return
         }
+        immediateStepCursor = null
         val target: String
         if (position.cursorId != common) {
             val previous = tree.previousGroup(position.cursorId)

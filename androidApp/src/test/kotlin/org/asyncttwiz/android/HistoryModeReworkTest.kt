@@ -107,16 +107,22 @@ class HistoryModeReworkTest {
         compose.mainClock.autoAdvance = true
     }
 
-    @Test fun tableCentreTextNamesAPendingBranch() {
+    @Test fun tableCentreTextNamesAPendingBranchAndThePlaybackStatus() {
         var branched by mutableStateOf(true)
+        var status by mutableStateOf(TimelinePlaybackStatus.PAUSED)
         compose.setContent { MaterialTheme {
             TableSurface(TableFixture.game, TableFixture.play(board = 1), "a", false, androidx.compose.ui.Modifier.fillMaxSize(),
-                runtime = TableRuntimeHooks(reviewing = true, opponentBranched = branched))
+                runtime = TableRuntimeHooks(reviewing = true, opponentBranched = branched, timelinePlayback = status))
         } }
         compose.onNodeWithText("Opponent branched").assertIsDisplayed()
         compose.onNodeWithText("Timeline mode").assertDoesNotExist()
-        compose.runOnIdle { branched = false }
+        compose.onNodeWithText("Paused").assertIsDisplayed()
+        compose.runOnIdle { status = TimelinePlaybackStatus.REWINDING }
+        compose.onNodeWithText("Rewinding").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Rewinding").assertIsDisplayed() // The corner holds the rewind icon.
+        compose.runOnIdle { branched = false; status = TimelinePlaybackStatus.PLAYING }
         compose.onNodeWithText("Timeline mode").assertIsDisplayed()
+        compose.onNodeWithText("Playing").assertIsDisplayed()
         compose.onNodeWithText("Opponent branched").assertDoesNotExist()
     }
 
@@ -143,9 +149,10 @@ class HistoryModeReworkTest {
     @Test fun runningAutoButtonHoldPausesAndBranchesAtOriginalCursorWithoutToggling() {
         val tree = TableStatesFixture.history()
         val player = TableStatesFixture.playback(tree)
-        val cursor = tree.initial.root.id
-        player.scrub(cursor)
+        player.scrub(tree.initial.root.id)
         player.play()
+        player.next(automatic = true) // The immediate first step: now mid-playback, waiting the pause.
+        val cursor = player.position.cursorId
         val continued = mutableListOf<String>()
         compose.setContent { MaterialTheme {
             HistoryPlaybackPanel(player, tree.currentNodeId, TableStatesFixture.a, true, 60_000, { continued += it })
@@ -159,7 +166,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
     }
 
-    @Test fun playbackWaitsForAnimationThenFullPauseAndReadsSettingChangesLive() {
+    @Test fun manualStartStepsAtOnceThenWaitsForAnimationAndFullPauseAndReadsSettingChangesLive() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val settings = HistoryPlaybackPreferences(context, "timing")
         settings.pauseMillis = 1_500
@@ -180,21 +187,13 @@ class HistoryModeReworkTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()
         compose.mainClock.advanceTimeBy(3_000)
+        // Even the immediate first step waits for the shown point's animation.
         compose.runOnIdle { assertEquals(tree.initial.root.id, player.position.cursorId); animatedCursor = player.position.cursorId }
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(700)
-        // A live change must not shorten/restart the 1.5s pause already underway.
-        compose.runOnIdle { settings.pauseMillis = 100 }
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeByFrame()
-        compose.runOnIdle { assertEquals(100L, observedPause) }
-        compose.mainClock.advanceTimeBy(700)
-        compose.runOnIdle { assertEquals(tree.initial.root.id, player.position.cursorId) }
-        compose.mainClock.advanceTimeBy(150)
         val first = compose.runOnIdle { player.position.cursorId }
-        assertNotEquals(tree.initial.root.id, first)
+        assertNotEquals(tree.initial.root.id, first) // No pause before the first step of a manual start.
         // The next group cannot start until its own animation finishes, even after a long delay.
         compose.mainClock.advanceTimeBy(3_000)
         compose.runOnIdle {
@@ -205,10 +204,25 @@ class HistoryModeReworkTest {
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(64)
+        compose.mainClock.advanceTimeBy(700)
+        // A live change must not shorten/restart the 1.5s pause already underway.
+        compose.runOnIdle { settings.pauseMillis = 100 }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.runOnIdle { assertEquals(100L, observedPause) }
+        compose.mainClock.advanceTimeBy(700)
         compose.runOnIdle { assertEquals(first, player.position.cursorId) }
+        compose.mainClock.advanceTimeBy(150)
+        val second = compose.runOnIdle { player.position.cursorId }
+        assertNotEquals(first, second)
+        compose.runOnIdle { animatedCursor = second }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(64)
+        compose.runOnIdle { assertEquals(second, player.position.cursorId) }
         compose.mainClock.advanceTimeBy(80)
-        compose.runOnIdle { assertNotEquals(first, player.position.cursorId); player.pause() }
+        compose.runOnIdle { assertNotEquals(second, player.position.cursorId); player.pause() }
     }
 
     @Test fun pausePreferencePersistsPerAccountAndClampsReadsAndWrites() {

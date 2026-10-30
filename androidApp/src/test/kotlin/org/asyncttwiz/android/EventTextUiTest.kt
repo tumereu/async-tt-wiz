@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -51,6 +53,24 @@ class EventTextUiTest {
         assertNull(feed.chip)
         compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithTag("event-text").assertDoesNotExist()
+    }
+
+    @Test fun textAppearsAndIsReplacedAtOnceAndOnlyItsDisappearanceFades() {
+        var value by androidx.compose.runtime.mutableStateOf<String?>(null)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { InstantShowFadeOut(value) { androidx.compose.material3.Text(it, Modifier.testTag("shown")) } }
+        compose.runOnIdle { value = "one"; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("shown").assertTextEquals("one")
+        compose.runOnIdle { value = "two"; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.onAllNodesWithTag("shown").assertCountEquals(1) // No cross-fade of old and new.
+        compose.onNodeWithTag("shown").assertTextEquals("two")
+        compose.runOnIdle { value = null; androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications() }
+        compose.mainClock.advanceTimeBy(EVENT_TEXT_FADE_OUT_MILLIS / 2L)
+        compose.onNodeWithTag("shown").assertTextEquals("two") // Still fading out.
+        compose.mainClock.advanceTimeBy(EVENT_TEXT_FADE_OUT_MILLIS.toLong())
+        compose.onNodeWithTag("shown").assertDoesNotExist()
     }
 
     @Test fun settingsOffersEventTextOnByDefault() {

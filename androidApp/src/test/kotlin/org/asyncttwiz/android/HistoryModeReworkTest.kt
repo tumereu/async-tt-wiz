@@ -136,7 +136,8 @@ class HistoryModeReworkTest {
         compose.onNodeWithContentDescription("Next").assertIsNotEnabled() // The old branch's tip.
         compose.onNodeWithContentDescription("Previous").performClick()
         compose.onNodeWithContentDescription("Previous").performClick()
-        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.offLiveLine) }
+        compose.runOnIdle { assertEquals(common.currentNodeId, player.position.cursorId); assertFalse(player.offLiveLine)
+            assertTrue(player.oldBranch) } // The label follows the strip, not the cursor.
         assertEquals(3f, stripEnd()) // Still the chosen line on the shared part.
         compose.onNodeWithContentDescription("Auto advance").assert(SemanticsMatcher.expectValue(
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))

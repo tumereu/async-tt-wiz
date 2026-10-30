@@ -353,7 +353,8 @@ class HistoryPlaybackTest {
         // Back over the split onto the shared part: the chosen line stays, so Next returns along it.
         player.previous(); player.previous(); player.previous()
         assertEquals(id(1), player.position.cursorId)
-        assertFalse(player.oldBranch)
+        assertFalse(player.offLiveLine) // Auto just plays on from here...
+        assertTrue(player.oldBranch) // ...but the strip still shows the old branch, and so does the label.
         assertEquals(id(9), player.visibleTip)
         player.next(); assertEquals(id(2), player.position.cursorId)
         assertFalse(player.position.playing)
@@ -365,6 +366,7 @@ class HistoryPlaybackTest {
         player.scrub(id(8)); assertEquals(id(8), player.visibleTip)
         player.scrub(id(4)); assertEquals(id(5), player.visibleTip)
         player.scrub(id(1)); assertEquals(id(5), player.visibleTip) // A pick on the shared part shows the live line.
+        assertFalse(player.oldBranch)
     }
 
     @Test fun autoOnAnOldBranchRewindsToTheSplitThenPlaysTheLiveLine() {
@@ -383,6 +385,7 @@ class HistoryPlaybackTest {
         player.pause(); player.previous()
         assertEquals(id(1), player.position.cursorId)
         assertEquals(id(5), player.visibleTip) // Auto went live: the old line no longer holds.
+        assertFalse(player.oldBranch)
         player.next(); assertEquals(id(4), player.position.cursorId)
     }
 

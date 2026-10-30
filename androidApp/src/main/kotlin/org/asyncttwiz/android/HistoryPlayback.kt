@@ -147,8 +147,10 @@ class HistoryPlayback(initial: HistoryTree,
     val stripLocked get() = branched || transportLocked
     /** The shown point is not on the live line (an old branch). Auto then means rewind, then play on. */
     val offLiveLine get() = position.mode == HistoryMode.PLAYBACK && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
-    /** An old branch the player went to themselves: not locked, unlike [branched]. */
-    val oldBranch get() = offLiveLine && !branched
+    /** The visible line is an old branch the player went to themselves (also while the cursor is on the part
+     * it shares with the live line), so the label always matches the strip. Not locked, unlike [branched]. */
+    val oldBranch get() = position.mode == HistoryMode.PLAYBACK && !branched &&
+        !tree.isAncestor(visibleTip, tree.sharedHeadId)
     /** The tip of the line Previous/Next and the strip move along: the live line, or the old branch the
      * cursor is on (from the root to that branch's own tip, see [HistoryTree.branchTip]). */
     val visibleTip: String get() {

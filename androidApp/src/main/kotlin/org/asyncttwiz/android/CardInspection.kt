@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -50,11 +51,9 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                          maxLines = 2, overflow = TextOverflow.Clip)
                     ManualActionSquare("Close card inspection", "", bordered = false, onClick = controller::close)
                 }
-                if (!peek && card.definition.faces.size > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    MenuButton("Previous face", Modifier.weight(1f), enabled = state.face > 0) { controller.face(state.face - 1) }
-                    Text("${state.face + 1} / ${card.definition.faces.size}", Modifier.padding(horizontal = 8.dp))
-                    MenuButton("Next face", Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { controller.face(state.face + 1) }
-                }
+                if (!peek && card.definition.faces.size > 1) InspectionFaceSwitcher(state.face, card.definition.faces.size, { previous, enabled, click ->
+                    ManualActionSquare(if (previous) "Previous face" else "Next face", "", enabled, onClick = click)
+                }, controller::face)
                 key(card, state.face) {
                     val orientation = card.orientation(state.face)
                     val sideways = state.degrees % 180 != 0
@@ -84,7 +83,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                                     }
                                 }
                             }
-                            if (!peek) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!peek) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", Modifier.weight(1f), onClick = controller::zoom)
                                 // Aftermath and flip halves: a personal turn to read the other half.
                                 if (orientation.alternate != null)
@@ -155,6 +154,22 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
     }
 }
 
+/**
+ * Face switcher between an inspection's title and its artwork: two square chevron buttons drawn by [button]
+ * (true = previous) around a centred "n / m", spaced off the title above and the artwork below.
+ */
+@Composable
+internal fun InspectionFaceSwitcher(face: Int, count: Int,
+    button: @Composable (previous: Boolean, enabled: Boolean, click: () -> Unit) -> Unit, select: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+        button(true, face > 0) { select(face - 1) }
+        Text("${face + 1} / $count", Modifier.widthIn(min = 56.dp), textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleMedium)
+        button(false, face < count - 1) { select(face + 1) }
+    }
+}
+
 /** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
 @Composable
 internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
@@ -183,18 +198,21 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                     card.note.takeIf(String::isNotBlank)) else emptyArray())).joinToString("\n")) },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
-        val filtered = definition!!.copy(name = faces.first().name, faces = faces)
+        // The full name only when every face is permitted: a partial view never names a face it hides.
+        val filtered = definition!!.copy(name = if (faces.size == definition.faces.size) definition.name else faces.first().name, faces = faces)
         val full = remember(card.definition, definition) { InspectedCard.retained(card.definition, definition) }
         val permitted = remember(full, filtered) { InspectedCard(filtered,
             faces.map { face -> full.artwork[definition.faces.indexOf(face)] }) }
         val marks = inspection.stackEntryId?.let { entry -> state.board.stackTextMarks[entry].orEmpty().sorted().mapNotNull { index ->
             StackText.options(state, entry).getOrNull(index)?.takeIf { it.faceId in allowed }?.let { index to it }
         } }.orEmpty()
+        // Open on the face the card currently shows (a transformed card shows its back), among the permitted faces only.
+        val shown = faces.indexOfFirst { it.faceId == card.faceId }
         val controller = remember(inspection) { CardInspectionController().apply {
-            open(permitted)
+            open(permitted, shown)
             marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
-        LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted) }
+        LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown) }
         if (controller.state != null) CardInspection(controller,
             listOfNotNull(
                 "Provisional inspection · awaiting shared result".takeIf { inspection.provisional },

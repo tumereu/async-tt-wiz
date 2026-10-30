@@ -104,7 +104,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Inspect").performClick()
         compose.onNodeWithText("Keep").assertDoesNotExist()
         compose.onNodeWithText("Day Side").assertIsDisplayed()
-        compose.onNodeWithText("Next face").performClick()
+        compose.onNodeWithContentDescription("Next face").performClick()
         compose.onNodeWithText("Night Side").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close card inspection").performClick()
         compose.onNodeWithText("Night Side").assertDoesNotExist()
@@ -113,7 +113,7 @@ class PodPickViewTest {
         val action = card("2").fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Inspect" }
         compose.runOnIdle { action.action() }
         compose.onNode(hasText("Card 2") and hasAnyAncestor(hasContentDescription("Card inspection content"))).assertIsDisplayed()
-        compose.onNodeWithText("Next face").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next face").assertDoesNotExist()
     }
 
     private fun assertHoldPreview(target: SemanticsNodeInteraction) {

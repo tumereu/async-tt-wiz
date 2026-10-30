@@ -173,7 +173,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     val permitted = TablePresentation.inspection(state, accountId, intent.cardId)
                     if (card != null && permitted != null) {
                         inspectedCard = card
-                        inspector.open(InspectedCard.retained(card.definition, permitted))
+                        inspector.open(InspectedCard.retained(card.definition, permitted),
+                            permitted.faces.indexOfFirst { it.faceId == card.faceId })
                     }
                 }
                 is TableIntent.Ping -> {
@@ -503,7 +504,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                          if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                             if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                         }
-                          selected = item.cardId in (rendered.value.scene.rectangleSelection(preview) ?: selection.ids) ||
+                          selected = item.cardId in rendered.value.scene.highlightedSelection(preview, selection) ||
                               toolkit?.panel?.startsWith("panelCard/") == true && item.cardId == toolkit.popupItem?.cardId
                          if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
                              stateDescription = "Related source and projections share this source identity; selection is independent"
@@ -1255,7 +1256,7 @@ private fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: S
             }
         }
     }
-    val highlighted = scene.rectangleSelection(preview) ?: selection.ids
+    val highlighted = scene.highlightedSelection(preview, selection)
     val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {

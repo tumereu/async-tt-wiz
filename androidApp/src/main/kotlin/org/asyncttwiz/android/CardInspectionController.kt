@@ -24,7 +24,10 @@ data class CardInspectionState(val card: InspectedCard, val face: Int = 0, val e
 class CardInspectionController {
     var state by mutableStateOf<CardInspectionState?>(null)
         private set
-    fun open(card: InspectedCard) { state = CardInspectionState(card) }
+    /** Opens on [face] (e.g. the face a game card currently shows); an index outside the card opens its first face. */
+    fun open(card: InspectedCard, face: Int = 0) {
+        state = CardInspectionState(card, face.takeIf { it in card.definition.faces.indices } ?: 0)
+    }
     fun face(index: Int) { state?.let { if (index in it.card.definition.faces.indices) state = it.copy(face = index, enlarged = false, turned = false) } }
     fun zoom() { state = state?.let { it.copy(enlarged = !it.enlarged) } }
     fun turn() { state = state?.let { it.copy(turned = !it.turned) } }

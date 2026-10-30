@@ -299,7 +299,7 @@ class TableGestureCoordinator(
                     }
                 }
             }
-            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.copy(ids = if (c.panRegion.isCardPanel)
+            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.withRectangle(if (c.panRegion.isCardPanel)
                 scene.panelRectangle(c.panRegion!!, rectangle(c.start, point)) else scene.rectangle(rectangle(c.start, point)))))
             Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
             else -> Unit
@@ -489,6 +489,10 @@ internal fun TableScene.panelRectangle(viewport: String, bounds: TableBounds): S
 internal fun TableScene.rectangleSelection(preview: TableGesturePreview): Set<String>? = preview.rectangle?.let { b ->
     preview.panel?.let { panelRectangle(it, b) } ?: rectangle(b)
 }
+
+/** The cards shown selected: while a rectangle is drawn, the selection it would leave on release. */
+internal fun TableScene.highlightedSelection(preview: TableGesturePreview, selection: TableSelection): Set<String> =
+    rectangleSelection(preview)?.let { selection.withRectangle(it).ids } ?: selection.ids
 
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */
 internal fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {

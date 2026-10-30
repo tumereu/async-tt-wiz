@@ -35,7 +35,7 @@ class PodArtPreviewTest {
         compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
         compose.onNodeWithText("Back").assertDoesNotExist()
         compose.runOnIdle { assertEquals(0, scroll.maxValue) }
-        compose.onNodeWithText("Previous face").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Previous face").assertDoesNotExist()
     }
 
     @Test fun splitCardKeepsOneFittedImageAndNoScrolling() {

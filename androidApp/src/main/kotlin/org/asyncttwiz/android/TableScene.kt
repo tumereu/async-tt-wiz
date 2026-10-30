@@ -566,13 +566,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
             Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
                 .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    CompositionLocalProvider(LocalContentColor provides Color(0xff253d44).copy(alpha = .38f)) {
-                        TableChromeIcon("history")
-                        Text(if (runtime.opponentBranched) "Opponent branched" else "Timeline mode", style = MaterialTheme.typography.titleMedium, color = LocalContentColor.current)
-                    }
-                }
+                TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED)
             }
+        }
+        // Outside the review condition: the end of playback (back to live) still flashes the pause.
+        scene.world?.visibleViewport?.let { board ->
+            PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
         }
         TableChangeOverlay(runtime.changes, accountId, scene.appearance,
             item = { id -> rendered.value.items[id] })

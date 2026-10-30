@@ -246,15 +246,14 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
             if (!position.playing) return@LaunchedEffect
             if (playback.pauseAfterAnimation()) return@LaunchedEffect
             // Sample once per completed animation: a setting change affects the next pause,
-            // not a pause already in progress.
-            delay(playback.stepPauseMillis(latestPauseMillis, latestRewindPauseMillis))
+            // not a pause already in progress. A manual start steps at once.
+            delay(playback.nextStepDelayMillis(latestPauseMillis, latestRewindPauseMillis))
             playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard, definitions = latestDefinitions)
         }
     }
     val timeline: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-            HistoryTimeline(events, stripCursor, viewer, { if (!playback.transportLocked) playback.pause() },
-                { if (!playback.transportLocked) playback.scrub(it) },
+            HistoryTimeline(events, stripCursor, viewer, playback::pauseFromStrip, playback::scrubFromStrip,
                 Modifier.fillMaxWidth(), readOnly = readOnly)
             Row(Modifier.align(Alignment.CenterEnd).background(background)) {
                 if (readOnly) IconButton(onClick = onEnter,
@@ -401,10 +400,9 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                 }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (branchPending) Box(Modifier.size(32.dp, 20.dp).semantics { testTag = "Rewind and play" }) {
-                            Icon(Icons.Outlined.FastRewind, null, Modifier.size(20.dp).align(Alignment.CenterStart), tint = Color(0xffa84f58))
-                            Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp).align(Alignment.CenterEnd), tint = Color(0xff5b896c))
-                        } else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                        if (branchPending) Icon(Icons.Outlined.FastRewind, null,
+                            Modifier.size(20.dp).semantics { testTag = "Rewind and play" }, tint = Color(0xffa84f58))
+                        else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
                         // A pending branch can only be rewound; the player just chooses when it starts.
                         Text(if (branchPending && !position.playing) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",

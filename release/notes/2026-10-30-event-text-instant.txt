@@ -1,0 +1,1 @@
+mod: Event text now appears and changes at once instead of sliding, and only fades when it goes away

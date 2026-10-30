@@ -59,7 +59,8 @@ class CatchupPlaybackTest {
         assertEquals(old2.currentNodeId, player.position.cursorId)
         assertFalse(player.position.playing)
         assertTrue(player.branched)
-        assertFalse(player.transportLocked) // Paused: scrubbing and settings stay available.
+        assertFalse(player.transportLocked) // Paused: settings stay available, the strip does not.
+        assertTrue(player.stripLocked)
         player.next(true)
         assertEquals(old2.currentNodeId, player.position.cursorId)
         player.play()
@@ -79,6 +80,62 @@ class CatchupPlaybackTest {
         player.next(true)
         player.finishAnimation(head.currentNodeId)
         assertEquals(HistoryMode.LIVE, player.position.mode)
+    }
+
+    @Test fun pendingBranchLocksTheStripUntilTheRewindHasPassedTheBranchPoint() {
+        val common = append(GameplayTree(F.root()), 100)
+        val old1 = append(common, 101, F.b)
+        val old2 = append(old1, 102)
+        val branch = F.change(old2, F.command(old2, GameAction.Play(PlayAction.AdjustLife(F.b, "2")), 103)
+            .copy(continuation = Continuation(common.currentNodeId, true)), F.b)
+        val head = append(branch, 104)
+        val player = HistoryPlayback(index(head))
+        player.openFrom(old2.currentNodeId)
+        assertTrue(player.branched); assertTrue(player.stripLocked)
+        assertEquals(TimelinePlaybackStatus.PAUSED, player.status)
+        // Drag, chip tap and accessibility scroll neither move the cursor nor drop the pending branch.
+        player.pauseFromStrip(); player.scrubFromStrip(common.currentNodeId); player.scrubFromStrip(head.currentNodeId)
+        assertEquals(old2.currentNodeId, player.position.cursorId)
+        assertTrue(player.branched)
+        player.play()
+        assertEquals(TimelinePlaybackStatus.REWINDING, player.status)
+        player.scrubFromStrip(head.currentNodeId); player.pauseFromStrip()
+        assertEquals(old2.currentNodeId, player.position.cursorId); assertTrue(player.position.playing)
+        player.next(true); player.next(true)
+        assertEquals(common.currentNodeId, player.position.cursorId)
+        assertFalse(player.stripLocked)
+        assertEquals(TimelinePlaybackStatus.PLAYING, player.status)
+        player.scrubFromStrip(old1.currentNodeId)
+        assertEquals(old1.currentNodeId, player.position.cursorId)
+        assertEquals(TimelinePlaybackStatus.PAUSED, player.status)
+    }
+
+    @Test fun manualStartStepsAtOnceThenEveryLaterStepKeepsItsPause() {
+        val common = append(GameplayTree(F.root()), 100)
+        val old1 = append(common, 101, F.b)
+        val branch = F.change(old1, F.command(old1, GameAction.Play(PlayAction.AdjustLife(F.b, "2")), 103)
+            .copy(continuation = Continuation(common.currentNodeId, true)), F.b)
+        val head = append(append(branch, 104), 105, F.b)
+        val player = HistoryPlayback(index(head))
+        player.openFrom(old1.currentNodeId)
+        assertEquals(350L, player.nextStepDelayMillis(1_500, 350)) // Paused: nothing is about to start.
+        player.play() // Rewind
+        assertEquals(0L, player.nextStepDelayMillis(1_500, 350))
+        player.next(true)
+        assertEquals(common.currentNodeId, player.position.cursorId)
+        assertEquals(1_500L, player.nextStepDelayMillis(1_500, 350))
+        player.next(true)
+        assertEquals(1_500L, player.nextStepDelayMillis(1_500, 350))
+        // Auto-pause or a manual pause, then Auto again: the first step is immediate once more.
+        player.pause(); player.play()
+        assertEquals(0L, player.nextStepDelayMillis(1_500, 350))
+        player.next(true)
+        assertEquals(1_500L, player.nextStepDelayMillis(1_500, 350))
+        // Next from a displaced paused point starts the same rewind: immediately too.
+        player.scrub(old1.currentNodeId)
+        player.next()
+        assertTrue(player.position.playing)
+        assertEquals(0L, player.nextStepDelayMillis(1_500, 350))
     }
 
     @Test fun unknownLastSeenStartsAtInitialWithoutMovingTheSharedHead() {

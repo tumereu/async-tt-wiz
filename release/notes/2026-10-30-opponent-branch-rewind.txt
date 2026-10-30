@@ -1,0 +1,1 @@
+mod: When your opponent has branched, "Opponent branched" stands out in orange, the timeline stays put until you start the rewind, and the rewind button shows only the rewind sign

@@ -25,6 +25,14 @@ enum class HistoryIcon(val wire: String) {
     SWAP_HORIZ("swap_horiz"),
     /** Rules v32 move icons by target: Battlefield, Graveyard, Exile, Library. */
     SPACE_DASHBOARD("space_dashboard"), DELETE_SWEEP("delete_sweep"), BLOCK("block"), LIBRARY_BOOKS("library_books"),
+    /** Rules v34 direction icons (see [HistoryGrouping.directionIcon]): life loss, card counter removed/cleared,
+     * player counter up/down, P/T up/down, damage dealt/removed, step/turn change, view closed, combat closed,
+     * attack target chosen. Life gain and card counter added keep [FAVORITE] and [EXPOSURE_PLUS_1]. */
+    HEART_BROKEN("heart_broken"), EXPOSURE_NEG_1("exposure_neg_1"), EXPOSURE_ZERO("exposure_zero"),
+    ARROW_CIRCLE_UP("arrow_circle_up"), ARROW_CIRCLE_DOWN("arrow_circle_down"), TRENDING_UP("trending_up"),
+    TRENDING_DOWN("trending_down"), LOCAL_FIRE_DEPARTMENT("local_fire_department"), HEALING("healing"),
+    ARROW_FORWARD("arrow_forward"), SKIP_NEXT("skip_next"), VISIBILITY_OFF("visibility_off"), CHECK("check"),
+    GPS_FIXED("gps_fixed"),
     /** Older clients' result glyph; no current event records it, retained data may. */
     EMOJI_EVENTS("emoji_events"),
     /** Decoded from a name this build does not know. */

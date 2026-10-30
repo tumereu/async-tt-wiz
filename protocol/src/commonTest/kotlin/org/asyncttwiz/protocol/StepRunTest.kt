@@ -85,14 +85,15 @@ class StepRunTest {
         assertTrue("\"through\":true" in json, json)
         assertEquals(passed, GameWire.json.decodeFromString(PlayAction.serializer(), json))
         assertEquals(33, StepRun.RULES_VERSION)
-        assertEquals(StepRun.RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(StepRun.RULES_VERSION <= CURRENT_GAMEPLAY_RULES_VERSION)
         assertEquals(StepRun.RULES_VERSION, HistoryGrouping.STEP_RUN_RULES_VERSION)
     }
 
     @Test fun rulesVersionsGateMoveIconsThenPassedSteps() {
-        // v32 brought move target icons, v33 passed steps: each history event is read under its own rules.
+        // v32 brought move target icons, v33 passed steps, v34 direction icons: each history event is read under its own rules.
         assertTrue(HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION < HistoryGrouping.STEP_RUN_RULES_VERSION)
-        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, HistoryGrouping.STEP_RUN_RULES_VERSION)
+        assertTrue(HistoryGrouping.STEP_RUN_RULES_VERSION < HistoryGrouping.DIRECTION_ICONS_RULES_VERSION)
+        assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, HistoryGrouping.DIRECTION_ICONS_RULES_VERSION)
         val hand = PlayContainer(f.id(60), PlayZone.HAND, f.a); val graveyard = PlayContainer(f.id(61), PlayZone.GRAVEYARD, f.a)
         val discard = PlayAction.MoveCard(f.id(62), MoveSource(hand.id), MoveDestination(graveyard.id, MoveInsertion.TOP))
         val passed = PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS, through = true)
@@ -105,6 +106,7 @@ class StepRunTest {
             assertEquals(if (rules >= 33) HistorySignificance.STEP_PASSED else HistorySignificance.PHASE_STEP_TRACKING,
                 step.significance, "v$rules")
             assertEquals(rules < 33, step.endsGroup, "v$rules: only an ordinary step into Declare blockers ends a group")
+            assertEquals(if (rules >= 34) HistoryIcon.ARROW_FORWARD else HistoryIcon.OUTLINED_FLAG, step.icon, "v$rules")
         }
     }
 

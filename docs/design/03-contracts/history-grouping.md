@@ -57,6 +57,23 @@ events ("Drew 2 cards", "Discarded Shock", "Put Opt onto the battlefield from
 graveyard", "bob gains control of X"): they never name the acting player nor claim
 why a card moved, and a group of moves merges each kind into one sentence.
 
+## Direction icons (rules v34)
+
+From rules v34 an edit's icon shows the direction of the change: life gain
+`favorite` / loss `heart_broken`; card counter added `exposure_plus_1` / removed
+`exposure_neg_1` / cleared `exposure_zero`; player counter `arrow_circle_up` /
+`arrow_circle_down`; P/T and until-end-of-turn P/T `trending_up` /
+`trending_down`; damage dealt `local_fire_department` / removed `healing`.
+Adjustments read their delta's sign; absolute edits compare the recorded old and
+new value (empty is 0, P/T is power + toughness, so a change on both sides reads
+by its sum). An unchanged or non-numeric value reads as the increase icon. A step
+change is `arrow_forward`, a turn change (End turn, or Next step that changes the
+turn player) `skip_next`; passing the move keeps `outlined_flag`. Closing a view
+is `visibility_off` (declined/withdrawn results keep `close`), closing combat
+`check` (Stack removal keeps `layers_clear`), choosing an attack target
+`gps_fixed`. Only the icon changes; events recorded under rules ≤ v33 keep their
+recorded icons.
+
 ## R1 representative group icons — D-299
 
 **Superseded by owner playtest r6b:** use the group's LAST event's icon and author

@@ -1,0 +1,1 @@
+mod: Game history icons now show which way things changed: a heart for life gained and a broken heart for life lost, +1/-1/0 for card counters, up and down arrows for player counters and power/toughness, a flame for damage and a bandage for removed damage, plus own icons for a new step, a new turn, closing a view, closing combat and choosing what to attack

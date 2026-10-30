@@ -567,7 +567,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
             Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
                 .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED)
+                TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED, runtime.oldBranch)
             }
         }
         // Outside the review condition: the end of playback (back to live) still flashes the pause.

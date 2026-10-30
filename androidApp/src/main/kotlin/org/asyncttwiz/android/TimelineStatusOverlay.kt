@@ -25,6 +25,8 @@ import kotlinx.coroutines.delay
 
 internal val TimelineFaintInk = Color(0xff253d44).copy(alpha = .38f)
 internal val OpponentBranchedColor = Color(0xffee8a2e)
+/** Neutral: an old branch the player went to themselves. */
+internal val OldBranchColor = Color(0xffc9d0d2)
 internal const val PLAYBACK_FLASH_HOLD_MILLIS = 300L
 
 internal fun TimelinePlaybackStatus.icon(): ImageVector = when (this) {
@@ -38,16 +40,26 @@ internal fun TimelinePlaybackStatus.label() = when (this) {
     TimelinePlaybackStatus.REWINDING -> "Rewinding"
 }
 
-/** The board centre while in timeline mode. Purely visual: no pointer handlers. */
+/** Line 1 of the centre text as a chip: label, background and ink; null shows the plain "Timeline mode". */
+internal data class TimelineBranchChip(val label: String, val background: Color, val ink: Color)
+internal fun timelineBranchChip(opponentBranched: Boolean, oldBranch: Boolean): TimelineBranchChip? = when {
+    opponentBranched -> TimelineBranchChip("Opponent branched", OpponentBranchedColor, Color(0xff2b1700))
+    oldBranch -> TimelineBranchChip("Old branch", OldBranchColor, Color(0xff253d44))
+    else -> null
+}
+
+/** The board centre while in timeline mode. Purely visual: no pointer handlers. Line 1 names a pending
+ * opponent branch (orange) or an old branch the player is viewing (grey), else timeline mode. */
 @Composable
-internal fun TimelineCentreText(opponentBranched: Boolean, status: TimelinePlaybackStatus) {
+internal fun TimelineCentreText(opponentBranched: Boolean, status: TimelinePlaybackStatus, oldBranch: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (opponentBranched) Row(Modifier.background(OpponentBranchedColor, RoundedCornerShape(8.dp))
+        val chip = timelineBranchChip(opponentBranched, oldBranch)
+        if (chip != null) Row(Modifier.testTag("timeline-branch-chip").background(chip.background, RoundedCornerShape(8.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            CompositionLocalProvider(LocalContentColor provides Color(0xff2b1700)) {
+            CompositionLocalProvider(LocalContentColor provides chip.ink) {
                 TableChromeIcon("history")
-                Text("Opponent branched", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
+                Text(chip.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
                     color = LocalContentColor.current)
             }
         } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

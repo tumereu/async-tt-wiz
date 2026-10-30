@@ -77,8 +77,9 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
         }
         return left
     }
-    internal fun forwardGroup(cursor: String): String {
-        val path = path(sharedHeadId)
+    /** One group forward from [cursor] along the line ending at [endpoint] (the live line by default). */
+    internal fun forwardGroup(cursor: String, endpoint: String = sharedHeadId): String {
+        val path = path(endpoint)
         var offset = depth(cursor) + 1
         if (offset >= path.size) return sharedHeadId
         val group = group(path[offset])?.id
@@ -86,6 +87,23 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
         return path[offset]
     }
     fun version(id: String) = if (id == sharedHeadId) liveVersion else versions[id] ?: id
+    private fun children(id: String): Collection<String> =
+        if (source != null) source.endpointIndex().children[id].orEmpty() else index.children[id].orEmpty()
+    private fun branchOf(id: String): String? = nodes[id]?.branchId ?: index.layout.chips[rootId]?.branch
+    /** The tip of the line through [id]: at each move it keeps to the move's own branch (the lane the game
+     * tree draws it on); where that branch ends but new branches start, it takes the most recent of them
+     * (the newest lane). Walks forward over IDs only, never a board. */
+    internal fun branchTip(id: String): String {
+        var cursor = id
+        while (true) {
+            val next = children(cursor)
+            if (next.isEmpty()) return cursor
+            navigationReads++
+            val branch = branchOf(cursor)
+            cursor = next.firstOrNull { nodes[it]?.branchId == branch } ?: next.maxWith(
+                compareBy({ index.layout.branches[nodes[it]?.branchId]?.lane ?: -1 }, { it }))
+        }
+    }
 
     companion object {
         /** Owned by the downloaded generation, not by the lifetime of a table screen. */
@@ -112,8 +130,13 @@ class HistoryPlayback(initial: HistoryTree,
     private var finalAnimationCursor: String? = null
     /** The shown point is off the current head's path because the line was continued differently
      * (detected on open, resume and receipt while paused). Persists until the rewind passes the
-     * common point or the player scrubs; the Auto button then offers rewind-and-play, not hold-to-branch. */
+     * common point or the player scrubs; Previous/Next and the strip stay locked and the Auto button
+     * only offers the rewind (no hold-to-branch). */
     var branched by mutableStateOf(false); private set
+    /** A point the player chose explicitly (tree, review): its line stays the visible line while the
+     * cursor stays on it, also on the part shared with the live line. Null: the cursor's own line. */
+    private var lineAnchor by mutableStateOf<String?>(null)
+    private var tipCache: Pair<HistoryTree, String>? = null
     /** Leaving the app paused live mode at the shown point; resolved once the return has caught up. */
     var resumeHold by mutableStateOf(false); private set
     /** Held at the head with nothing unseen yet: keep presenting it as live (no timeline flash). */
@@ -122,6 +145,30 @@ class HistoryPlayback(initial: HistoryTree,
     val transportLocked get() = position.playing && rollbackPlan != null && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
     /** A pending branch locks the strip too: the player must watch the rewind, only choosing when it starts. */
     val stripLocked get() = branched || transportLocked
+    /** The shown point is not on the live line (an old branch). Auto then means rewind, then play on. */
+    val offLiveLine get() = position.mode == HistoryMode.PLAYBACK && !tree.isAncestor(position.cursorId, tree.sharedHeadId)
+    /** An old branch the player went to themselves: not locked, unlike [branched]. */
+    val oldBranch get() = offLiveLine && !branched
+    /** The tip of the line Previous/Next and the strip move along: the live line, or the old branch the
+     * cursor is on (from the root to that branch's own tip, see [HistoryTree.branchTip]). */
+    val visibleTip: String get() {
+        if (position.mode == HistoryMode.LIVE) return tree.sharedHeadId
+        val cursor = position.cursorId
+        lineAnchor?.takeIf(tree::contains)?.let(::lineTip)?.takeIf { tree.isAncestor(cursor, it) }?.let { return it }
+        return lineTip(cursor)
+    }
+    private fun lineTip(id: String): String {
+        if (tree.isAncestor(id, tree.sharedHeadId)) return tree.sharedHeadId
+        // The per-move rule does not depend on where the walk starts: any point of a known line has its tip.
+        tipCache?.takeIf { it.first === tree && tree.isAncestor(id, it.second) }?.let { return it.second }
+        return tree.branchTip(id).also { tipCache = tree to it }
+    }
+    /** Automatic steps head for the live game: an explicit line no longer holds once left or once live. */
+    private fun dropStaleAnchor(live: Boolean) {
+        val anchor = lineAnchor ?: return
+        if (!tree.contains(anchor) || (live && tree.isAncestor(position.cursorId, tree.sharedHeadId)) ||
+            !tree.isAncestor(position.cursorId, lineTip(anchor))) lineAnchor = null
+    }
     val status get() = when {
         transportLocked -> TimelinePlaybackStatus.REWINDING
         position.playing -> TimelinePlaybackStatus.PLAYING
@@ -138,6 +185,7 @@ class HistoryPlayback(initial: HistoryTree,
         val cursor = tree.source?.resolveCursor(lastSeen) ?: lastSeen.takeIf(tree::contains) ?: tree.rootId
         if (cursor == tree.sharedHeadId) return
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
+        lineAnchor = null
         detectBranch()
     }
     /** Cheap (common-ancestor walk over the divergent part only): never a replay from the root. */
@@ -191,6 +239,7 @@ class HistoryPlayback(initial: HistoryTree,
         }
         if (position.playing) planRollback()
         else if (position.mode == HistoryMode.PLAYBACK && (branched || onHeadPath)) detectBranch()
+        dropStaleAnchor(live = false)
     }
 
     private fun nextPanelReveal(after: String): String? {
@@ -248,9 +297,13 @@ class HistoryPlayback(initial: HistoryTree,
         }
         return cursor
     }
-    fun scrub(id: String) = scrubTo(id, true)
-    /** Strip drag, chip tap and accessibility scroll: ignored while a branch is pending or rewinding. */
-    fun scrubFromStrip(id: String) { if (!stripLocked) scrub(id) }
+    /** An explicit pick (tree, review): its line becomes the visible line. */
+    fun scrub(id: String) { scrubTo(id, true); lineAnchor = position.cursorId }
+    /** Strip drag, chip tap and accessibility scroll: ignored while a branch is pending or rewinding.
+     * The strip shows the visible line, so the visible line stays. */
+    fun scrubFromStrip(id: String) { if (!stripLocked) { keepVisibleLine(); scrubTo(id, true) } }
+    /** Steps and strip moves stay on the line shown, also onto the part it shares with the live line. */
+    private fun keepVisibleLine() { lineAnchor = visibleTip }
     fun pauseFromStrip() { if (!stripLocked) pause() }
     private fun scrubTo(id: String, jump: Boolean) {
         if (jump) onJump()
@@ -275,27 +328,35 @@ class HistoryPlayback(initial: HistoryTree,
         immediateStepCursor = position.cursorId
     }
 
+    /** One group back along the visible line, like a one-group strip swipe. Never starts playback. */
     fun previous() {
-        if (transportLocked) return
+        if (stripLocked) return
+        keepVisibleLine()
         val from = position.cursorId
         scrubTo(tree.previousGroup(position.cursorId), false)
         onStep(from, position.cursorId, tree)
     }
 
-    /** One concrete group endpoint, including rollback groups on a displaced retained path. */
+    /** Manual: one group forward along the visible line (live line or the old branch shown), like a
+     * one-group strip swipe; never a rewind or playback. Automatic: one concrete group endpoint toward
+     * the live game, including rollback groups on a displaced retained path. */
     fun next(automatic: Boolean = false, viewer: String? = null,
         autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults, board: BoardState? = null,
         definitions: List<SubmittedDefinition> = emptyList()) {
-        if (automatic && (!foreground || !position.playing)) return
-        if (!automatic && transportLocked) return
-        livePanelReveal = false; resumeHold = false
-        val common = planRollback()
-        if (!automatic && position.cursorId != common) {
-            // Next from a displaced paused cursor starts the same rewind-then-play as Auto.
-            position = position.copy(playing = true)
-            immediateStepCursor = position.cursorId
+        if (!automatic) {
+            if (stripLocked) return
+            val from = position.cursorId
+            val tip = visibleTip
+            if (from == tip) return
+            lineAnchor = tip
+            val target = tree.forwardGroup(from, tip)
+            scrubTo(target, false)
+            onStep(from, position.cursorId, tree)
             return
         }
+        if (!foreground || !position.playing) return
+        livePanelReveal = false; resumeHold = false
+        val common = planRollback()
         immediateStepCursor = null
         val target: String
         if (position.cursorId != common) {
@@ -304,14 +365,15 @@ class HistoryPlayback(initial: HistoryTree,
         } else {
             target = tree.forwardGroup(position.cursorId)
         }
-        autoPauseCursor = target.takeIf { automatic && viewer != null && position.cursorId == common &&
+        autoPauseCursor = target.takeIf { viewer != null && position.cursorId == common &&
             target != tree.sharedHeadId && tree.autoPauseBetween(position.cursorId, target, viewer, autoPause, board, definitions) }
         // Keep the historical scene mounted until its final movement has actually settled.
-        finalAnimationCursor = target.takeIf { automatic && it == tree.sharedHeadId }
+        finalAnimationCursor = target.takeIf { it == tree.sharedHeadId }
         val from = position.cursorId
-        position = HistoryPosition(target, HistoryMode.PLAYBACK, automatic, tree.version(target))
+        position = HistoryPosition(target, HistoryMode.PLAYBACK, true, tree.version(target))
         onStep(from, target, tree)
         if (target == common) { branched = false; rollbackPlan = null }
+        dropStaleAnchor(live = true)
     }
 
     /** Idempotent, cursor-fenced handoff: a stale animation callback cannot skip newer events. */
@@ -336,7 +398,7 @@ class HistoryPlayback(initial: HistoryTree,
     fun continuationApplied() {
         if (position.cursorId != tree.sharedHeadId) onJump()
         livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
-        rollbackPlan = null; branched = false; resumeHold = false
+        rollbackPlan = null; branched = false; resumeHold = false; lineAnchor = null
         position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
     }
 }

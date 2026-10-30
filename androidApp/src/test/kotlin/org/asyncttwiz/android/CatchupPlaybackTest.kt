@@ -131,10 +131,12 @@ class CatchupPlaybackTest {
         assertEquals(0L, player.nextStepDelayMillis(1_500, 350))
         player.next(true)
         assertEquals(1_500L, player.nextStepDelayMillis(1_500, 350))
-        // Next from a displaced paused point starts the same rewind: immediately too.
+        // Next on an old branch only steps along it; Auto (Rewind) still starts at once.
         player.scrub(old1.currentNodeId)
         player.next()
-        assertTrue(player.position.playing)
+        assertFalse(player.position.playing)
+        assertEquals(old1.currentNodeId, player.position.cursorId) // Already the old branch's tip.
+        player.play()
         assertEquals(0L, player.nextStepDelayMillis(1_500, 350))
     }
 

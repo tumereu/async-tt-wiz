@@ -17,6 +17,8 @@ data class TableSelection(val ids: Set<String> = emptySet(), val mode: TableMode
     fun scope(id: String, visualOrder: List<String> = ids.toList()): TableScope = TableScope(id,
         if (id in ids) (visualOrder.filter { it in ids } + ids.filter { it !in visualOrder }).distinct() else listOf(id))
     fun toggle(id: String) = copy(ids = if (id in ids) ids - id else ids + id)
+    /** A drawn rectangle adds its cards to a multi-select selection; otherwise it replaces the selection. */
+    fun withRectangle(boxed: Set<String>) = copy(ids = if (mode == TableMode.SELECT) ids + boxed else boxed)
     fun orientation(id: String) = if (id in ids) this else copy(ids = emptySet())
     fun afterDoubleTap(id: String) = if (mode != TableMode.SELECT) orientation(id)
         else if (id in ids) copy(ids = emptySet(), mode = TableMode.NORMAL, attackSelection = false) else this

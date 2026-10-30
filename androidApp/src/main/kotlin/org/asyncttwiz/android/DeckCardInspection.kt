@@ -24,10 +24,9 @@ internal fun DeckCardInspection(controller: CardInspectionController) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             ScreenIconButton("Close card inspection", "close", controller::close)
         }
-        if (card.definition.faces.size > 1) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ScreenOutlinedButton(onClick = { controller.face(state.face - 1) }, Modifier.weight(1f), enabled = state.face > 0) { Text("Previous face") }
-            ScreenOutlinedButton(onClick = { controller.face(state.face + 1) }, Modifier.weight(1f), enabled = state.face < card.definition.faces.lastIndex) { Text("Next face") }
-        }
+        if (card.definition.faces.size > 1) InspectionFaceSwitcher(state.face, card.definition.faces.size, { previous, enabled, click ->
+            ScreenIconButton(if (previous) "Previous face" else "Next face", if (previous) "chevron-left" else "chevron", click, enabled = enabled)
+        }, controller::face)
         key(card, state.face) {
             val density = LocalDensity.current
             val scale = if (state.enlarged) 2 else 1

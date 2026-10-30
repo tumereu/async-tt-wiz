@@ -130,9 +130,32 @@ class TableGesturesTest {
         gestures.move(TablePoint(150f, 150f), 20)
         assertEquals(panelPort.id, gestures.preview.panel)
         assertEquals(setOf("p1", "p2"), panelScene().rectangleSelection(gestures.preview))
+        assertEquals(setOf("f", "p1", "p2"), panelScene().highlightedSelection(gestures.preview,
+            TableSelection(mode = TableMode.SELECT, ids = setOf("f"))))
         gestures.up(TablePoint(150f, 150f), 30)
-        assertEquals(setOf("p1", "p2"), events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
+        // Multi-select: the rectangle adds its cards to the existing selection.
+        assertEquals(setOf("f", "p1", "p2"), events.filterIsInstance<TableIntent.Selection>().single().selection.ids)
         assertTrue(events.none { it is TableIntent.Scroll })
+    }
+
+    @Test fun multiSelectRectangleAddsToTheSelectionWhileOutsideMultiSelectItReplacesIt() {
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        var time = 0L
+        fun drag(selection: TableSelection): Set<String> {
+            events.clear(); time += 1000
+            gestures.update(panelScene(), selection, true)
+            gestures.down(TablePoint(5f, 5f), time)
+            gestures.move(TablePoint(150f, 40f), time + 20)
+            gestures.up(TablePoint(150f, 40f), time + 30)
+            return events.filterIsInstance<TableIntent.Selection>().single().selection.ids
+        }
+        // The rectangle encloses only p1; already selected cards stay selected, also inside it.
+        assertEquals(setOf("f", "p2", "p1"), drag(TableSelection(mode = TableMode.SELECT, ids = setOf("f", "p2"))))
+        assertEquals(setOf("p1"), drag(TableSelection(mode = TableMode.SELECT, ids = setOf("p1"))))
+        assertEquals(setOf("p1"), drag(TableSelection(ids = setOf("f", "p2"))))
+        assertEquals(setOf("f", "p1"), TableSelection(mode = TableMode.SELECT, ids = setOf("f")).withRectangle(setOf("p1")).ids)
+        assertEquals(setOf("p1"), TableSelection(ids = setOf("f")).withRectangle(setOf("p1")).ids)
     }
 
     @Test fun panelDoubleTapDragAndTwoFingersScrollOverCardsWhileOneFingerDragsTheCard() {

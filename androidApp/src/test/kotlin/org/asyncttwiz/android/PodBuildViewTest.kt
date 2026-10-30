@@ -166,7 +166,7 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-card-first").performClick()
         compose.onNodeWithText("Inspect").performClick()
         compose.onNodeWithText("Day Side").assertIsDisplayed()
-        compose.onNodeWithText("Next face").performClick()
+        compose.onNodeWithContentDescription("Next face").performClick()
         compose.onNodeWithText("Night Side").assertIsDisplayed()
     }
 

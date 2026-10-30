@@ -66,7 +66,7 @@ class InspectionRenderingTest {
                 compose.onNodeWithContentDescription("Card artwork viewport").assertExists()
                 compose.onNodeWithText("{T}: Add {G}.").assertExists()
                 if (!peek && index == 1) {
-                    compose.onNodeWithText("Next face").performClick()
+                    compose.onNodeWithContentDescription("Next face").performClick()
                     compose.onNodeWithText("Back face").assertExists()
                 }
             }

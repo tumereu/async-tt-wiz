@@ -264,6 +264,34 @@ class DeckHttpTest {
         }
     }
 
+    @Test fun `draft deck listing and Save as deck copy routes`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val owner = account(settings, "copier"); val other = account(settings, "stranger")
+                val good = submitted(card())
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(good)), owner.token).statusCode())
+                val source = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Source", listOf(
+                    SavedDeckEntry(SavedDeckSection.MAINBOARD, good.digest, 40))), owner.token).body())
+                // Ordinary decks never carry the draft marker on the wire.
+                assertFalse(request(settings, "GET", "/v1/decks", token = owner.token).body().contains("draft"))
+                assertEquals(DeckList(emptyList()), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks?drafts=true", token = owner.token).body()))
+                assertEquals(400, request(settings, "GET", "/v1/decks?drafts=true&after=${source.deck.id}", token = owner.token).statusCode())
+                val copied = post(settings, "/v1/decks/${source.deck.id}/copy", CopyDeck(id()), owner.token)
+                assertEquals(201, copied.statusCode(), copied.body())
+                val copy = json.decodeFromString<SavedDeck>(copied.body())
+                assertNotEquals(source.deck.id, copy.deck.id); assertEquals(source.entries, copy.entries); assertEquals("Source", copy.deck.name)
+                assertEquals(setOf(source.deck.id, copy.deck.id), json.decodeFromString<DeckList>(
+                    request(settings, "GET", "/v1/decks", token = owner.token).body()).decks.map { it.id }.toSet())
+                assertEquals(404, post(settings, "/v1/decks/${source.deck.id}/copy", CopyDeck(id()), other.token).statusCode())
+                assertEquals(405, request(settings, "GET", "/v1/decks/${source.deck.id}/copy", token = owner.token).statusCode())
+                assertEquals(404, post(settings, "/v1/decks/${source.deck.id}/clone", CopyDeck(id()), owner.token).statusCode())
+            }
+        }
+    }
+
     @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

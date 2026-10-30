@@ -380,7 +380,12 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                     if (!picker.loading) Text("No saved decks yet.")
                 }
             }
-            items(picker.decks, key = { it.id }) { deck ->
+            for ((heading, decks) in deckPickerSections(picker.decks)) {
+            if (heading != null) item(key = "heading-$heading") {
+                Text(heading.uppercase(), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            items(decks, key = { it.id }) { deck ->
                 val chosen = picker.draft?.id == deck.id
                 Surface(selected = chosen, onClick = { controller.highlightDeck(deck) }, enabled = !picker.confirming,
                     modifier = Modifier.fillMaxWidth(),
@@ -391,9 +396,10 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                         deck.cover?.let { cover -> CardArtwork(ArtworkReference(cover.scryfallId, 0, cover.definition, "small", cover.imageUri),
                             cover.name, 48, 68, Modifier.size(48.dp, 68.dp)) } ?: EntryIcon(null, "decks")
                          Column(Modifier.weight(1f)) { Text(deck.name, fontWeight = FontWeight.SemiBold)
-                             Text("${deck.mainboard} main / ${deck.sideboard} side", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                             Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
+            }
             }
         }
         }

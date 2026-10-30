@@ -66,6 +66,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } },
         librarianDefinition = { podLibrarianDefinition(catalog.repository) },
+        basicLandDefinitions = { podBasicDefinitions(catalog.repository) },
         marksScheduler = Executors.newSingleThreadScheduledExecutor { Thread(it, "pod-marks").apply { isDaemon = true } }.let { marks ->
             PodMarksScheduler { delay, task ->
                 val scheduled = marks.schedule(Runnable(task), delay, java.util.concurrent.TimeUnit.MILLISECONDS)

@@ -43,8 +43,12 @@ data class CardDefinition(
 @Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
 @Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
+/** Present only on a draft deck: saved automatically from a pod deck submission, read-only until copied. */
+@Serializable data class DraftDeckOrigin(val podId: String, val podName: String)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class DeckSummary(val id: String, val name: String, val revision: String, val createdAt: String,
-    val mainboard: Long = 0, val sideboard: Long = 0, val cover: DeckCover? = null)
+    val mainboard: Long = 0, val sideboard: Long = 0, val cover: DeckCover? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val draft: DraftDeckOrigin? = null)
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
 /** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL. */
@@ -53,6 +57,13 @@ data class CardDefinition(
 @Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
     val contents: DeckContentsImport? = null)
 @Serializable data class DeleteDeck(val requestId: String)
+/** POST /v1/decks/{id}/copy: "Save as deck". An independent ordinary saved deck with the same contents and cover. */
+@Serializable data class CopyDeck(val requestId: String)
+/** Draft decks: GET /v1/decks?drafts=true lists them newest first; GET /v1/decks lists only ordinary decks.
+ * Saving a new one beyond [LIMIT] deletes the account's oldest draft deck. */
+object DraftDecks {
+    const val LIMIT = 20
+}
 @Serializable data class DeckDeleted(val id: String)
 @Serializable data class DeckError(val code: String, val field: String? = null)
 

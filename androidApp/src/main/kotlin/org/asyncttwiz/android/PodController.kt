@@ -59,6 +59,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val wait: (suspend (Long) -> Unit)? = null,
     setRepository: PodSetRepository? = null,
     private val librarianDefinition: () -> SubmittedDefinition = { throw PodFailure("librarian_definition_unavailable") },
+    /** The five basics for the draft deck the server keeps from a submitted deck; none when the catalog lacks them. */
+    private val basicLandDefinitions: () -> List<SubmittedDefinition> = { emptyList() },
     clock: () -> Long = ::monotonicMillis,
     /** Saves head-pack marks on the server, outside the serialized queue so a pick never waits for them. */
     private val marksScheduler: PodMarksScheduler? = null) : AutoCloseable {
@@ -516,6 +518,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if ((state.pending > 0 && action != PodConfirmation.SUBMIT) || state.uncertain) return
         val input = PodRequest(requestId())
         val submit = detail.draftAttemptId?.let { PodDraftRequest(input.requestId, it) }
+        // Resolved once off the main thread; every retry resends the identical request.
+        var submission: SubmitPodDeck? = null
         if (action in listOf(PodConfirmation.SUBMIT, PodConfirmation.CANCEL) && submit == null) return
         if (action == PodConfirmation.START && (state.setup != null || state.sourcePreview != null || !podCanStart(detail))) return
         enqueue(Write(detail.id, attempt = detail.draftAttemptId, submit = action == PodConfirmation.SUBMIT,
@@ -524,7 +528,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 PodConfirmation.DESTROY -> { api.destroy(token, detail.id, input); null }
                 PodConfirmation.LEAVE -> { api.leave(token, detail.id, input); null }
                 PodConfirmation.CANCEL -> api.cancel(token, detail.id, submit!!)
-                PodConfirmation.SUBMIT -> api.submit(token, detail.id, submit!!)
+                PodConfirmation.SUBMIT -> api.submit(token, detail.id, submission ?: SubmitPodDeck(submit!!.requestId, submit.draftAttemptId,
+                    runCatching(basicLandDefinitions).getOrDefault(emptyList())).also { submission = it })
                 PodConfirmation.START -> api.start(token, detail.id, input)
             }
         }))

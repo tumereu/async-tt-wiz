@@ -12,6 +12,8 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
     private val rewindKey = "rewind-pause/$accountId"
     private val seenPrefix = "last-seen/$accountId/"
     private val triggerPrefix = "auto-pause/$accountId/"
+    private val autoRewindLiveKey = "auto-rewind-live/$accountId"
+    private val autoRewindOpenKey = "auto-rewind-open/$accountId"
 
     init {
         // Older releases stored no distinction between the original default and an explicit 1.5s.
@@ -57,9 +59,19 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         preferences.edit().putBoolean(triggerPrefix + trigger.name, enabled).apply()
     }
 
+    /** An opponent's branch found while playing live starts the rewind by itself (default: wait for Rewind). */
+    var autoRewindLive: Boolean
+        get() = preferences.getBoolean(autoRewindLiveKey, false)
+        set(value) { preferences.edit().putBoolean(autoRewindLiveKey, value).apply() }
+    /** The same when opening (or returning to) a game. */
+    var autoRewindOpen: Boolean
+        get() = preferences.getBoolean(autoRewindOpenKey, false)
+        set(value) { preferences.edit().putBoolean(autoRewindOpenKey, value).apply() }
+
     fun observe(onChange: () -> Unit): () -> Unit {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
-            if (changed == null || changed == key || changed == rewindKey || changed.startsWith(triggerPrefix)) onChange()
+            if (changed == null || changed == key || changed == rewindKey || changed.startsWith(triggerPrefix) ||
+                changed == autoRewindLiveKey || changed == autoRewindOpenKey) onChange()
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -109,6 +121,23 @@ internal fun HistoryPlaybackPreferences.autoPauseState(): State<Set<PlaybackAuto
     DisposableEffect(this) {
         val stop = observe { state.value = autoPause }
         state.value = autoPause
+        onDispose { stop() }
+    }
+    return state
+}
+
+@Composable
+internal fun HistoryPlaybackPreferences.autoRewindLiveState(): State<Boolean> = observedState { autoRewindLive }
+
+@Composable
+internal fun HistoryPlaybackPreferences.autoRewindOpenState(): State<Boolean> = observedState { autoRewindOpen }
+
+@Composable
+private fun <T> HistoryPlaybackPreferences.observedState(read: HistoryPlaybackPreferences.() -> T): State<T> {
+    val state = remember(this) { mutableStateOf(read()) }
+    DisposableEffect(this) {
+        val stop = observe { state.value = read() }
+        state.value = read()
         onDispose { stop() }
     }
     return state

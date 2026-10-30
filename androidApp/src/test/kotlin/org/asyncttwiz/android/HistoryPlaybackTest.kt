@@ -105,9 +105,9 @@ class HistoryPlaybackTest {
 
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a",
-        branch: Int = 50): GameplayMutation {
+        branch: Int = 50, author: Int = 70): GameplayMutation {
         val semantic = HistorySemantic(kind, HistoryIcon.FLAG, if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
-        return GameplayMutation(id(n), id(parent), id(branch), id(n + 100), id(70), null,
+        return GameplayMutation(id(n), id(parent), id(branch), id(n + 100), id(author), null,
             PlayAction.SetLife(id(70), n.toString()), GameplayTransition(), grouping = semantic)
     }
     private fun tree(nodes: List<GameplayMutation>, head: Int = nodes.lastOrNull()?.id?.takeLast(12)?.toInt() ?: 0,
@@ -411,5 +411,99 @@ class HistoryPlaybackTest {
         assertEquals(id(9), player.visibleTip)
         assertFalse(player.branched)
         player.scrub(id(4)); assertEquals(id(10), player.visibleTip)
+    }
+
+    // Opponent = id(70) (the default author), me = id(71).
+    private fun liveAt3(): HistoryPlayback {
+        fun n(n: Int, parent: Int) = node(n, parent, key = "k$n")
+        return HistoryPlayback(tree(listOf(n(1, 0), n(2, 1), n(3, 2))))
+    }
+
+    @Test fun liveContinuationStaysLive() {
+        val player = liveAt3()
+        val base = player.tree.nodes.values.toList()
+        player.receive(tree(base + node(4, 3, key = "k4"), head = 4), id(71), id(4))
+        assertEquals(HistoryPosition(id(4), HistoryMode.LIVE, false, "v4"), player.position)
+        assertFalse(player.branched)
+    }
+
+    @Test fun liveOpponentBranchPausesTimelineAtTheShownPointLikeOpeningThere() {
+        val player = liveAt3()
+        player.receive(forked(), id(71), id(5))
+        assertEquals(HistoryPosition(id(3), HistoryMode.PLAYBACK, false, id(3)), player.position)
+        assertTrue(player.branched); assertTrue(player.stripLocked); assertTrue(player.offLiveLine)
+        assertEquals(TimelinePlaybackStatus.PAUSED, player.status)
+        player.next(); player.previous(); player.next(true)
+        assertEquals(id(3), player.position.cursorId, "Waits for Rewind")
+        // Rewind: back to the split point, then the new line forward and live again.
+        player.play(); assertEquals(TimelinePlaybackStatus.REWINDING, player.status)
+        player.next(true); assertEquals(id(2), player.position.cursorId)
+        player.next(true); assertEquals(id(1), player.position.cursorId)
+        assertFalse(player.branched)
+        player.next(true); player.next(true); assertEquals(id(5), player.position.cursorId)
+        assertTrue(player.finishAnimation(id(5)))
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+    }
+
+    @Test fun ownBranchWhileLiveStaysLive() {
+        val player = liveAt3()
+        val own = forked().nodes.values.map { if (it.id in setOf(id(4), id(5))) it.copy(author = id(71)) else it }
+        player.receive(tree(own, head = 5), id(71), id(5))
+        assertEquals(HistoryPosition(id(5), HistoryMode.LIVE, false, "v5"), player.position)
+        assertFalse(player.branched)
+    }
+
+    @Test fun ownPendingPredictionRebasedOntoAnOpponentBranchStillPausesAtTheAcceptedPoint() {
+        val player = liveAt3()
+        val accepted = player.tree.nodes.values.toList()
+        // My predicted 10 on the accepted head 3.
+        player.receive(tree(accepted + node(10, 3, key = "k10", author = 71), head = 10), id(71), id(3))
+        assertEquals(HistoryPosition(id(10), HistoryMode.LIVE, false, "v10"), player.position)
+        // The opponent's 4-5 from 1 is accepted; the session rebases my pending 10 (same ID) onto 5.
+        val rebased = forked().nodes.values.toList() + node(10, 5, key = "k10", author = 71, branch = 51)
+        player.receive(tree(rebased, head = 10), id(71), id(5))
+        assertEquals(HistoryPosition(id(3), HistoryMode.PLAYBACK, false, id(3)), player.position)
+        assertTrue(player.branched)
+        // The server refuses the prediction: the head drops back to 5, the pause and notice stay.
+        player.receive(forked(), id(71), id(5))
+        assertEquals(id(3), player.position.cursorId); assertTrue(player.branched)
+        assertEquals(HistoryMode.PLAYBACK, player.position.mode)
+    }
+
+    @Test fun autoRewindDuringLivePlayStartsTheRewindByItself() {
+        val player = liveAt3()
+        player.autoRewindOpen = true // The other setting does not apply to live play.
+        player.receive(forked(), id(71), id(5))
+        assertFalse(player.position.playing)
+        val auto = liveAt3()
+        auto.autoRewindLive = true
+        auto.receive(forked(), id(71), id(5))
+        assertEquals(id(3), auto.position.cursorId)
+        assertTrue(auto.position.playing); assertTrue(auto.branched)
+        assertEquals(TimelinePlaybackStatus.REWINDING, auto.status)
+        assertEquals(0, auto.nextStepDelayMillis(1_000, 100), "Like pressing Rewind: the first step is immediate")
+        auto.next(true); assertEquals(id(2), auto.position.cursorId)
+    }
+
+    @Test fun autoRewindWhenOpeningAndReturningToABranchedGame() {
+        val live = HistoryPlayback(forked()).apply { autoRewindLive = true; openFrom(id(3)) }
+        assertTrue(live.branched); assertFalse(live.position.playing, "The live setting does not apply to opening")
+        val open = HistoryPlayback(forked()).apply { autoRewindOpen = true; openFrom(id(3)) }
+        assertTrue(open.branched); assertTrue(open.position.playing)
+        assertEquals(TimelinePlaybackStatus.REWINDING, open.status)
+        HistoryPlayback(forked()).apply { autoRewindOpen = true; openFrom(id(1)) }.let {
+            assertFalse(it.branched); assertFalse(it.position.playing, "No branch: nothing plays by itself")
+        }
+        // Returning from the background works like opening.
+        for (auto in listOf(false, true)) {
+            val player = liveAt3()
+            player.autoRewindOpen = auto
+            player.background()
+            player.receive(forked(), id(71), id(5))
+            player.foreground(); player.caughtUp()
+            assertEquals(id(3), player.position.cursorId)
+            assertTrue(player.branched)
+            assertEquals(auto, player.position.playing)
+        }
     }
 }

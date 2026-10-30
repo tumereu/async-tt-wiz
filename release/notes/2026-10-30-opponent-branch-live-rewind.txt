@@ -1,0 +1,1 @@
+add: If your opponent goes back and plays differently while you watch, the game now stops and lets you rewind to see it; new settings can rewind automatically during play or when opening a game

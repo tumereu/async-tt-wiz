@@ -141,6 +141,17 @@ class ResultLockContinuationScenarioTest {
             settle { history.view?.cursor == node }
             assertEquals(HistoryMode.PLAYBACK, history.playback?.position?.mode)
         }
+        /** Press Rewind and let Auto run (rewind to the split point, then the new line) until live. */
+        fun rewind() {
+            history.current()
+            val playback = assertNotNull(history.playback)
+            repeat(1_000) {
+                if (playback.position.mode == HistoryMode.LIVE) return@repeat
+                playback.next(automatic = true); playback.finishAnimation(playback.position.cursorId)
+            }
+            assertEquals(HistoryMode.LIVE, playback.position.mode)
+            history.displayPosition(); settle()
+        }
         fun draw(advance: Boolean): Boolean {
             val play = play
             val targets = assertNotNull(toolkit.table.targets(play, account))
@@ -212,6 +223,13 @@ class ResultLockContinuationScenarioTest {
         assertNotNull(server.board(suggestion).resultSuggestion)
         assertFalse(generateSequence(server.tree.nodes[server.tree.currentNodeId]) { server.tree.nodes[it.parentId] }
             .any { it.id == suggestion }, "the new branch does not contain the suggestion")
+        // Bob's own branch keeps him live; Alice, live at the suggestion, is stopped there to rewind.
+        assertEquals(HistoryMode.LIVE, bob.history.playback?.position?.mode)
+        val alicePlayback = assertNotNull(alice.history.playback)
+        assertEquals(HistoryPosition(suggestion, HistoryMode.PLAYBACK, false, suggestion), alicePlayback.position)
+        assertTrue(alicePlayback.branched)
+        assertFalse(alice.toolkit.enabled(), "read-only until the rewind reaches the live game")
+        alice.rewind()
         for (client in listOf(alice, bob)) {
             assertNull(client.history.armed)
             assertEquals(server.tree.currentNodeId, client.lobby.state.acceptedPlay?.currentNodeId)

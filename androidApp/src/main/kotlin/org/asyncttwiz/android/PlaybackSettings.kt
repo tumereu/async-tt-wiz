@@ -18,6 +18,8 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
     val pause by preferences.pauseState()
     val rewind by preferences.rewindPauseState()
     val enabled by preferences.autoPauseState()
+    val autoRewindLive by preferences.autoRewindLiveState()
+    val autoRewindOpen by preferences.autoRewindOpenState()
     Column(Modifier.fillMaxWidth().testTag("playback-settings")) {
         if (heading) Text("Playback", style = MaterialTheme.typography.titleMedium)
         Text("Stop Auto after an opponent’s matching action", Modifier.padding(vertical = 4.dp),
@@ -40,7 +42,22 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
         Slider(value = rewind.toFloat(), onValueChange = { preferences.rewindPauseMillis = (it / 10).roundToInt() * 10L },
             valueRange = HistoryPlaybackPreferences.MIN_REWIND_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_REWIND_PAUSE_MILLIS.toFloat(),
             modifier = Modifier.testTag("history-rewind-pause"))
+        Spacer(Modifier.height(8.dp))
+        Text("Rewind automatically when the opponent branched", Modifier.padding(vertical = 4.dp),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsSwitchRow("During live play", autoRewindLive, "auto-rewind-live") { preferences.autoRewindLive = it }
+        SettingsSwitchRow("When opening a game", autoRewindOpen, "auto-rewind-open") { preferences.autoRewindOpen = it }
         if (moveSpeed) CardMoveSpeedSetting(accountId)
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(label: String, checked: Boolean, tag: String, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag)
+        .toggleable(checked, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

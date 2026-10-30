@@ -178,6 +178,12 @@ class HistoryPlayback(initial: HistoryTree,
     }
     /** A manual start takes its first step at once; later steps (and auto-continuation) keep the pause. */
     private var immediateStepCursor: String? = null
+    /** Player settings: an opponent's branch found while playing live / on opening (or returning to) the
+     * game starts the rewind by itself, exactly like pressing Rewind. Off: it waits for the press. */
+    var autoRewindLive = false
+    var autoRewindOpen = false
+    /** The newest accepted point; anything after it on the live line is the player's own pending prediction. */
+    private var acceptedHead: String? = null
 
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root.
      * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. */
@@ -189,6 +195,7 @@ class HistoryPlayback(initial: HistoryTree,
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         lineAnchor = null
         detectBranch()
+        if (branched && autoRewindOpen) play()
     }
     /** Cheap (common-ancestor walk over the divergent part only): never a replay from the root. */
     private fun planRollback(): String {
@@ -210,7 +217,8 @@ class HistoryPlayback(initial: HistoryTree,
     fun nextStepDelayMillis(normal: Long, rewind: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS): Long =
         if (position.playing && immediateStepCursor == position.cursorId) 0 else stepPauseMillis(normal, rewind)
 
-    fun receive(next: HistoryTree, viewer: String? = null) {
+    /** [acceptedHead]: the newest accepted point of [next] (its head without own pending predictions). */
+    fun receive(next: HistoryTree, viewer: String? = null, acceptedHead: String? = null) {
         require(next.rootId == tree.rootId) { "Create fresh playback for a new play incarnation" }
         removedParents = if (next.source != null) next.removedParents else {
             var parents = removedParents.toPersistentMap()
@@ -220,8 +228,15 @@ class HistoryPlayback(initial: HistoryTree,
         // Only a head that moved away from the shown point is a new branch; a point the player
         // scrubbed to on an old line stays a plain scrub.
         val onHeadPath = position.mode == HistoryMode.PLAYBACK && tree.isAncestor(position.cursorId, tree.sharedHeadId)
+        // Live: own pending predictions are rebased onto whatever head arrives (same IDs), so the
+        // shown point that can be left behind is the accepted point under them.
+        val shownLive = if (foreground && position.mode == HistoryMode.LIVE) position.cursorId.let { shown ->
+            this.acceptedHead?.takeIf { it != shown && tree.contains(it) && tree.isAncestor(it, shown) } ?: shown
+        } else null
         tree = next
         panelViewer = viewer
+        this.acceptedHead = acceptedHead
+        shownLive?.let(::resolveCursor)?.takeIf { opponentBranchedFrom(it, viewer) }?.let { pauseForBranch(it); return }
         val cursor = resolveCursor(position.cursorId)
         if (cursor != position.cursorId) onJump()
         val held = livePanelReveal && tree.contains(position.cursorId) && tree.isAncestor(position.cursorId, tree.sharedHeadId)
@@ -242,6 +257,27 @@ class HistoryPlayback(initial: HistoryTree,
         if (position.playing) planRollback()
         else if (position.mode == HistoryMode.PLAYBACK && (branched || onHeadPath)) detectBranch()
         dropStaleAnchor(live = false)
+    }
+
+    /** The head left [shown] behind and its line went on from an earlier point with someone else's move
+     * (not a plain continuation, an undo cut-back or the player's own branch). One common-ancestor walk
+     * over the divergent part only, never a replay. */
+    private fun opponentBranchedFrom(shown: String, viewer: String?): Boolean {
+        val head = tree.sharedHeadId
+        if (tree.isAncestor(shown, head)) return false
+        val common = tree.commonAncestor(shown, head)
+        val first = tree.path(head).getOrNull(tree.depth(common) + 1)?.let(tree.nodes::get) ?: return false
+        return viewer == null || first.author != viewer
+    }
+    /** Live play left behind by an opponent's branch: timeline mode paused at the point shown, exactly as
+     * when opening the game there (orange notice, Rewind, locked strip). */
+    private fun pauseForBranch(shown: String) {
+        onJump() // Queued live effects belong to the line being left.
+        livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
+        immediateStepCursor = null; lineAnchor = null; resumeHold = false
+        position = HistoryPosition(shown, HistoryMode.PLAYBACK, false, tree.version(shown))
+        detectBranch()
+        if (branched && autoRewindLive) play()
     }
 
     private fun nextPanelReveal(after: String): String? {
@@ -288,7 +324,11 @@ class HistoryPlayback(initial: HistoryTree,
         if (!foreground || !resumeHold) return
         resumeHold = false
         if (position.mode == HistoryMode.PLAYBACK && !position.playing && position.cursorId == tree.sharedHeadId) continuationApplied()
-        else if (position.mode == HistoryMode.PLAYBACK && !position.playing) detectBranch()
+        else if (position.mode == HistoryMode.PLAYBACK && !position.playing) {
+            detectBranch()
+            // Returning to the app counts as opening the game again.
+            if (branched && autoRewindOpen) play()
+        }
     }
     private fun resolveCursor(id: String): String {
         var cursor = id

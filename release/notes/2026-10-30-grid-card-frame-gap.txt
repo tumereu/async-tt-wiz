@@ -1,0 +1,1 @@
+fix: Grid draft: card frames now fit the cards without a gap at the top and bottom

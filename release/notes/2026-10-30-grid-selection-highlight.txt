@@ -1,0 +1,1 @@
+mod: Grid draft: the chosen row or column is now tinted and the other cards dim slightly, so your choice stands out

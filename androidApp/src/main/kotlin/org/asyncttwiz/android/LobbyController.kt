@@ -484,6 +484,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
                     val page = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.list(token, next) }; page.decks.forEach { decks[it.id] = it }; next = page.next
                     check(next == null || seen.add(next!!))
                 } while (next != null)
+                // Draft decks are playable too; the picker lists them under their own heading.
+                if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
+                serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.drafts(token) }.decks.forEach { decks[it.id] = it }
                 decks.values.toList()
             } }
             post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let {

@@ -61,7 +61,7 @@ class PodChallengeTest {
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[1].copyId, PodDeckCategory.SIDE)).status)
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.TRASH)).status)
             assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, counts)).status)
-            assertEquals(200, pods.submit(who, pod, PodDraftRequest(id(), attempt)).status)
+            assertEquals(200, pods.submit(who, pod, SubmitPodDeck(id(), attempt)).status)
         }
         fun challenge(pod: String, who: AccountService.Principal = a, opponent: AccountService.Principal = b): GameSummary {
             val result = pods.challenge(who, pod, ChallengeFromPod(id(), opponent.account.accountId, "Parallel game", basics))
@@ -187,7 +187,7 @@ class PodChallengeTest {
         assertEquals(f.c.account.accountId, ready(f.b).single().authorId)
         assertTrue(ready(f.c).isEmpty())
         val detail = f.detail(f.c, pod)
-        assertEquals(409, f.pods.submit(f.c, pod, PodDraftRequest(id(), detail.draftAttemptId!!)).status)
+        assertEquals(409, f.pods.submit(f.c, pod, SubmitPodDeck(id(), detail.draftAttemptId!!)).status)
         assertEquals(1, ready(f.a).size); assertEquals(1, ready(f.b).size)
     }
 

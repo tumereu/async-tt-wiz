@@ -37,7 +37,7 @@ class LobbyPreparationTest {
     }
     private inner class Fixture : AutoCloseable {
         val worker = Worker(); val authWorker = Worker(); val posts = ArrayDeque<() -> Unit>(); val wire = Wire()
-        var identity = owner; var decks = listOf(source, alternate); var readFailure: String? = null
+        var identity = owner; var decks = listOf(source, alternate); var draftDecks = emptyList<SavedDeck>(); var readFailure: String? = null
         var base = PreparationRules.empty(game).copy(players = PreparationRules.empty(game).players.map { it.copy(ready = true) })
         lateinit var lobby: LobbyController
         val auth = AuthController(object : Accounts {
@@ -62,9 +62,10 @@ class LobbyPreparationTest {
         }
         private val deckApi = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(decks.map { it.deck })
+            override suspend fun drafts(token: String) = DeckList(draftDecks.map { it.deck })
             override suspend fun read(token: String, id: String): SavedDeck {
                 readFailure?.let { if (it == "authentication_required") auth.authenticationRequired(token); throw DeckFailure(it) }
-                return decks.find { it.deck.id == id } ?: throw DeckFailure("not_found")
+                return (decks + draftDecks).find { it.deck.id == id } ?: throw DeckFailure("not_found")
             }
             override suspend fun definition(token: String, id: String, digest: String) = submitted
             override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("Not a selection endpoint")
@@ -157,6 +158,16 @@ class LobbyPreparationTest {
             }
             assertEquals(f.base, f.lobby.state.acceptedPreparation); assertEquals(f.base, f.lobby.state.preparation)
         }
+    }
+
+    @Test fun draftDecksArePlayableAndListedAfterOrdinaryDecksUnderTheirOwnHeading() = Fixture().use { f ->
+        val draft = source.copy(deck = source.deck.copy(id = id(), name = "Friday pod draft", draft = DraftDeckOrigin(id(), "Friday pod")))
+        f.decks = listOf(source); f.draftDecks = listOf(draft)
+        f.lobby.chooseDeck(); f.drain()
+        assertEquals(listOf(source.deck, draft.deck), f.lobby.state.picker!!.decks)
+        assertEquals(listOf(null to listOf(source.deck), "Draft decks" to listOf(draft.deck)), deckPickerSections(f.lobby.state.picker!!.decks))
+        f.lobby.highlightDeck(draft.deck); f.lobby.confirmDeck(); f.drain()
+        assertEquals(GameAction.SelectDeck(draft.deck.id, "1"), f.wire.frames.filterIsInstance<GameCommand>().last().action)
     }
 
     @Test fun emptyCollectionAndContextualImportReturnDoNotAutoSelectOrSend() = Fixture().use { f ->

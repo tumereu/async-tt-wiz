@@ -75,7 +75,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                      action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))
                     action == "draft/marks" -> pods.saveMarks(principal, id, json.decodeFromString<SetPodDraftMarks>(text))
                     action == "build/notes" -> pods.saveNotes(principal, id, json.decodeFromString<SetPodDeckNotes>(text))
-                     action == "submit" -> pods.submit(principal, id, json.decodeFromString<PodDraftRequest>(text))
+                     action == "submit" -> pods.submit(principal, id, json.decodeFromString<SubmitPodDeck>(text))
                      action == "challenge" -> pods.challenge(principal, id, json.decodeFromString<ChallengeFromPod>(text))
                     action == "leave" -> pods.leave(principal, id, json.decodeFromString<PodRequest>(text))
                     else -> pods.cancel(principal, id, json.decodeFromString<PodDraftRequest>(text))

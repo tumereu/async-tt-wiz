@@ -40,11 +40,20 @@ class DeckManagementTest {
         val updates = mutableListOf<UpdateDeck>(); val deletes = mutableListOf<DeleteDeck>()
         var fail = false; var missing = false; var reads = 0
         var readFailure = false
+        var draft: SavedDeck? = null
+        val copies = mutableListOf<CopyDeck>()
+        override suspend fun drafts(token: String) = DeckList(listOfNotNull(draft?.deck))
+        override suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck {
+            copies += value; if (fail) throw DeckFailure("network")
+            val source = draft!!.takeIf { it.deck.id == id }!!
+            return SavedDeck(source.deck.copy(id = UUID.nameUUIDFromBytes(value.requestId.encodeToByteArray()).toString(), draft = null),
+                source.entries).also { saved = it }
+        }
         override suspend fun list(token: String, after: String?): DeckList {
             listReads++; afterList?.invoke()
             return DeckList(if (missing) emptyList() else listOf(saved.deck), next = if (afterList != null) "next" else null)
         }
-        override suspend fun read(token: String, id: String): SavedDeck { reads++; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
+        override suspend fun read(token: String, id: String): SavedDeck { reads++; draft?.takeIf { it.deck.id == id }?.let { return it }; if (missing) throw DeckFailure("not_found"); if (readFailure) throw DeckFailure("network"); afterRead(); return saved }
         override suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition {
             definitionReads++; return SubmittedDefinition(digest, card)
         }
@@ -70,6 +79,41 @@ class DeckManagementTest {
         override fun isTerminated() = false
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = false
         fun drain() { while (queue.isNotEmpty()) queue.removeAt(0).run() }
+    }
+    @Test fun draftDecksListSeparatelyAndSaveAsDeckOpensAnIndependentCopyKeepingOneRequestIdentity() {
+        val api = Api(); val worker = Worker()
+        val draft = SavedDeck(summary.copy(id = UUID.randomUUID().toString(), name = "Friday pod draft",
+            draft = DraftDeckOrigin(UUID.randomUUID().toString(), "Friday pod")), entries)
+        api.draft = draft
+        val controller = DeckLibraryController(api, { "token" }, worker) { it() }
+        try {
+            controller.refresh(); worker.drain()
+            assertEquals(listOf(summary), controller.state.decks); assertEquals(listOf(draft.deck), controller.state.draftDecks)
+            controller.open(summary.id); worker.drain(); controller.saveAsDeck()
+            assertTrue(api.copies.isEmpty()) // only draft decks offer Save as deck
+            controller.open(draft.deck.id); worker.drain()
+            api.fail = true; controller.saveAsDeck(); worker.drain()
+            assertNotNull(controller.state.error); assertEquals(draft.deck.id, controller.state.selected)
+            api.fail = false; controller.saveAsDeck(); worker.drain()
+            assertEquals(1, api.copies.distinct().size)
+            val copy = api.saved.deck
+            assertNull(copy.draft); assertEquals(copy.id, controller.state.selected)
+            assertEquals(copy, controller.state.detail!!.saved.deck)
+            assertTrue(copy in controller.state.decks); assertEquals(listOf(draft.deck), controller.state.draftDecks)
+            controller.back(); worker.drain()
+            assertEquals(listOf(draft.deck), controller.state.draftDecks)
+        } finally { controller.close(); worker.drain() }
+    }
+    @Test fun draftDeckPresentationNamesTheLimitAndShowsThePodOnlyWhenTheNameHidesIt() {
+        assertEquals("DRAFT DECKS (7 / 20)", draftDecksHeading(7))
+        assertTrue(DRAFT_DECKS_EXPLANATION.contains("newest 20"))
+        val origin = DraftDeckOrigin(UUID.randomUUID().toString(), "Friday pod")
+        assertEquals("4 main / 2 side", deckRowDetail(summary))
+        assertEquals("4 main / 2 side", deckRowDetail(summary.copy(name = "Friday pod draft", draft = origin)))
+        assertEquals("4 main / 2 side · Friday pod", deckRowDetail(summary.copy(name = "Azorius fliers", draft = origin)))
+        assertEquals("draft deck", deckKind(summary.copy(draft = origin))); assertEquals("saved deck", deckKind(summary))
+        assertEquals(emptyList(), deckPickerSections(emptyList()))
+        assertEquals(listOf("Draft decks" to listOf(summary.copy(draft = origin))), deckPickerSections(listOf(summary.copy(draft = origin))))
     }
     @Test fun explicitReloadPreservesPersonalDraftSectionThenReflectsOtherDeviceDeletion() {
         val api = Api(); val worker = Worker()

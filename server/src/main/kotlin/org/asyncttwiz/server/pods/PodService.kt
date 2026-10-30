@@ -9,6 +9,7 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.activity.ActivityService
 import org.asyncttwiz.server.decks.DeckService.Result
+import org.asyncttwiz.server.decks.DraftDeckStore
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.CubeEntry.CUBE_ENTRY
@@ -109,8 +110,9 @@ class PodService(private val runtime: ServiceRuntime) {
         return null
     }
 
-    private fun storeSet(sql: DSLContext, input: PodSetSource) {
-        for (submitted in input.definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
+    private fun storeSet(sql: DSLContext, input: PodSetSource) = storeDefinitions(sql, input.definitions)
+    private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
+        for (submitted in definitions) sql.insertInto(DEFINITION).set(DEFINITION.DIGEST, submitted.digest)
             .set(DEFINITION.SCHEMA_VERSION, submitted.definition.schemaVersion)
             .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
     }
@@ -402,6 +404,9 @@ class PodService(private val runtime: ServiceRuntime) {
             if (!validName(input.name)) return@mutate error(400, "invalid_name")
             sql.update(MEMBER).set(MEMBER.DECK_NAME, input.name).where(MEMBER.POD_ID.eq(row.id))
                 .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            // The draft deck kept from this membership's submitted deck follows the private name.
+            if (members(sql, row.id!!).first { it.accountId == owner }.submittedDeck != null)
+                DraftDeckStore.rename(sql, owner, row.id!!, input.name)
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -417,17 +422,23 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row); detail(sql, row, owner)
     }
 
-    fun submit(principal: AccountService.Principal, id: String, input: PodDraftRequest): Result =
+    fun submit(principal: AccountService.Principal, id: String, input: SubmitPodDeck): Result =
         mutate(principal, id, input.requestId, "submitPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.phase != "DRAFTED") return@mutate error(409, "draft_not_complete")
             val member = members(sql, row.id!!).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
+            val basics = if (input.basicDefinitions.isEmpty()) null
+                else PodGamePreparation.basicDefinitions(input.basicDefinitions) ?: return@mutate error(400, "invalid_basic_definitions")
             val build = json.decodeFromString<PodDeckBuild>(member.build!!.data())
-            val issues = PodDeckRules.validate(build, pools(row).getValue(owner.toString()), settings(row).sideboardLimit)
+            val pool = pools(row).getValue(owner.toString())
+            val issues = PodDeckRules.validate(build, pool, settings(row).sideboardLimit)
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
             val deck = build.copy(copies = build.copies.filter { it.category != PodDeckCategory.TRASH })
             sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(deck)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            if (basics != null) storeDefinitions(sql, input.basicDefinitions)
+            DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft",
+                DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics))
             releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 for (recipient in members(sql, row.id!!)) ActivityService.record(sql, recipient.accountId!!,

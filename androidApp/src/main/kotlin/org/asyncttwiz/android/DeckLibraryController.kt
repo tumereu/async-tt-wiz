@@ -8,7 +8,8 @@ import java.util.concurrent.ExecutorService
 
 data class DeckDetail(val saved: SavedDeck, val definitions: Map<String, CardDefinition>)
 enum class DeckDialog { EDIT, RENAME, COVER, DELETE }
-data class DeckLibraryState(val decks: List<DeckSummary> = emptyList(), val selected: String? = null,
+/** [draftDecks]: kept automatically from submitted pod decks, newest first, read-only until saved as an ordinary deck. */
+data class DeckLibraryState(val decks: List<DeckSummary> = emptyList(), val draftDecks: List<DeckSummary> = emptyList(), val selected: String? = null,
     val detail: DeckDetail? = null, val busy: Boolean = false, val error: String? = null, val loaded: Boolean = false,
     val dialog: DeckDialog? = null, val draftName: String = "", val draftCover: String? = null,
     val section: SavedDeckSection = SavedDeckSection.MAINBOARD, val mutating: Boolean = false)
@@ -20,7 +21,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         private set
     @Volatile private var epoch = 0L
     private var closed = false
-    private data class Pending(val id: String, val update: UpdateDeck? = null, val delete: DeleteDeck? = null)
+    private data class Pending(val id: String, val update: UpdateDeck? = null, val delete: DeleteDeck? = null, val copy: CopyDeck? = null)
     private var pending: Pending? = null
     val inspection = CardInspectionController()
     fun inspect(identity: String) {
@@ -68,22 +69,41 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
                 val result = runBlocking { serviceRetry(current = { generation == epoch }) { if (id == null) null else detail(token, id, known, generation) } }
                 if (id != null && result == null) return@execute
                 val decks = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { collection(token, generation) } } ?: return@execute else null
+                val drafts = if (id == null) runBlocking { serviceRetry(current = { generation == epoch }) { api.drafts(token).decks } } else null
+                if (generation != epoch) return@execute
                 post { if (!closed && generation == epoch) state = state.copy(detail = result,
-                    decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it }, busy = false, loaded = state.loaded || id == null) }
+                    decks = decks ?: state.decks.map { if (it.id == id) result!!.saved.deck else it },
+                    draftDecks = drafts ?: state.draftDecks.map { if (it.id == id) result!!.saved.deck else it },
+                    busy = false, loaded = state.loaded || id == null) }
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) {
                     if (id != null && (failure as? DeckFailure)?.code == "not_found") {
                         inspection.close(); pending = null
                         state = state.copy(selected = null, detail = null, dialog = null, busy = false,
-                            decks = state.decks.filterNot { it.id == id }, error = "This saved deck was deleted on another device.")
+                            decks = state.decks.filterNot { it.id == id }, draftDecks = state.draftDecks.filterNot { it.id == id },
+                            error = "This saved deck was deleted on another device.")
                     } else state = state.copy(busy = false, error = deckError(failure))
                 } }
             }
         }
     }
 
+    /** Copies the open draft deck into the ordinary decks, then opens the copy. */
+    fun saveAsDeck() {
+        if (closed || state.mutating || state.dialog != null) return
+        val id = state.selected ?: return
+        if (state.detail?.saved?.deck?.takeIf { it.id == id }?.draft == null) return
+        if (pending?.copy == null || pending?.id != id) pending = Pending(id, copy = CopyDeck(UUID.randomUUID().toString()))
+        mutate()
+    }
+
     fun confirm() {
         if (closed || state.mutating) return
+        if (state.selected == null) return
+        mutate()
+    }
+
+    private fun mutate() {
         val id = state.selected ?: return
         val token = credential() ?: return
         val operation = pending ?: when (state.dialog) {
@@ -103,16 +123,20 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
         worker.execute {
             if (generation != epoch) return@execute
             try {
-                runBlocking { serviceRetry(current = { generation == epoch }) {
-                    if (operation.delete != null) api.delete(token, operation.id, operation.delete)
-                    else api.update(token, operation.id, operation.update!!)
+                val copy = runBlocking { serviceRetry(current = { generation == epoch }) {
+                    if (operation.delete != null) { api.delete(token, operation.id, operation.delete); null }
+                    else if (operation.copy != null) api.copy(token, operation.id, operation.copy)
+                    else { api.update(token, operation.id, operation.update!!); null }
                 } }
                 // The original retry outcome may precede another device's newer edit. Read current state,
                 // never install an old outcome over that state or reapply the mutation locally.
                 post { if (!closed && generation == epoch) {
                     pending = null
                     state = state.copy(mutating = false, dialog = null)
-                    if (operation.delete != null) back() else retry()
+                    if (copy != null) {
+                        state = state.copy(decks = state.decks.filterNot { it.id == copy.deck.id } + copy.deck)
+                        open(copy.deck.id)
+                    } else if (operation.delete != null) back() else retry()
                 } }
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) state = state.copy(mutating = false, error = deckError(failure)) }

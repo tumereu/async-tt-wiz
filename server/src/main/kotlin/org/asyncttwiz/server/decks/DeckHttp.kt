@@ -44,6 +44,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                 parts.size == 2 -> "GET, PUT, DELETE"
                 cube && parts.size == 3 && parts[2] == "definitions" -> "POST"
                 parts.size == 4 && parts[2] == "definitions" -> "GET"
+                !cube && parts.size == 3 && parts[2] == "copy" -> "POST"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
@@ -60,12 +61,13 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                     }
                     else if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
                     else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))
+                    else if (parts.size == 3) decks.copy(principal, parts[1], json.decodeFromString<CopyDeck>(text))
                     else if (path == "/v1/definitions") decks.submit(principal, json.decodeFromString<SubmitDefinitions>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))
                 }
                 path == "/v1/cubes" -> cubes.list(principal, request.getParameter("after"))
                 cube -> cubes.read(principal, parts[1], parts.getOrNull(3))
-                path == "/v1/decks" -> decks.list(principal, request.getParameter("after"))
+                path == "/v1/decks" -> decks.list(principal, request.getParameter("after"), request.getParameter("drafts") == "true")
                 else -> decks.read(principal, parts[1], parts.getOrNull(3))
             }
             reply(response, result)

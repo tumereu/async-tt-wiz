@@ -77,6 +77,8 @@ class DeckService(private val runtime: ServiceRuntime) {
         val canonical = if (input.contents == null) JsonObject(encoded.filterKeys { it != "contents" }) else encoded
         return business(principal, input.requestId, "updateDeck", intent(id, canonical)) { sql, owner ->
             val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
+            // Draft decks follow their pod submission; "Save as deck" makes an editable copy.
+            if (row.draftPodId != null) return@business error(409, "draft_deck")
             val requestedName = input.name
             val requestedCover = input.cover
             val contents = input.contents
@@ -134,6 +136,24 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /** "Save as deck": an independent ordinary saved deck with the same name, contents and cover. */
+    fun copy(principal: AccountService.Principal, id: String, input: CopyDeck): Result {
+        if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
+        return business(principal, input.requestId, "copyDeck", intent(id, json.encodeToJsonElement(CopyDeck.serializer(), input))) { sql, owner ->
+            val source = owned(sql, owner, id) ?: return@business error(404, "not_found")
+            val entries = entries(sql, source.id!!)
+            val copy = UUID.randomUUID()
+            val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, copy).set(SAVED_DECK.ACCOUNT_ID, owner)
+                .set(SAVED_DECK.NAME, source.name).set(SAVED_DECK.COVER_DIGEST, source.coverDigest).returning().fetchSingle()
+            entries.forEachIndexed { index, entry ->
+                sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, copy).set(DECK_ENTRY.ACCOUNT_ID, owner)
+                    .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
+                    .set(DECK_ENTRY.DEFINITION_DIGEST, entry.definition).set(DECK_ENTRY.QUANTITY, entry.quantity).execute()
+            }
+            Result(201, json.encodeToString(SavedDeck(summary(sql, row, entries), entries)))
+        }
+    }
+
     private fun intent(id: String, input: kotlinx.serialization.json.JsonElement) = DeckJson.canonicalElement(
         kotlinx.serialization.json.buildJsonObject { put("deckId", kotlinx.serialization.json.JsonPrimitive(id)); put("input", input) })
 
@@ -165,7 +185,8 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
         return DeckSummary(row.id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString(),
             entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },
-            entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover)
+            entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover,
+            row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) })
     }
 
     /** INSERT uniqueness waits for concurrent identical IDs, then reads the committed original result.
@@ -196,11 +217,18 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
     }
 
-    fun list(principal: AccountService.Principal, after: String?): Result {
-        if (after != null && !DeckValidation.uuid(after)) return error(400, "invalid_request", "after")
+    /** Ordinary decks, paged by id; or, with [drafts], the draft decks newest first (bounded by [DraftDecks.LIMIT]). */
+    fun list(principal: AccountService.Principal, after: String?, drafts: Boolean = false): Result {
+        if (after != null && (drafts || !DeckValidation.uuid(after))) return error(400, "invalid_request", "after")
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
-            val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId)))
+            val owner = UUID.fromString(principal.account.accountId)
+            if (drafts) {
+                val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.isNotNull)
+                    .orderBy(SAVED_DECK.CREATED_AT.desc(), SAVED_DECK.ID.desc()).limit(100).forShare().fetch()
+                return@transaction Result(200, json.encodeToString(DeckList(rows.map { summary(sql, it) })))
+            }
+            val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.isNull)
                 .and(if (after == null) DSL.trueCondition() else SAVED_DECK.ID.gt(UUID.fromString(after)))
                 .orderBy(SAVED_DECK.ID).limit(101).forShare().fetch()
             val decks = rows.take(100).map { summary(sql, it) }

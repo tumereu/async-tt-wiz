@@ -115,7 +115,7 @@ class PodControllerTest {
             if (failName) throw PodFailure("invalid_name")
             saved = saved.copy(deckName = input.name); return saved
         }
-        override suspend fun submit(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "submit" to input; saved = saved.copy(submitted = true); return saved }
+        override suspend fun submit(token: String, id: String, input: SubmitPodDeck): PodDetail { calls += "submit" to input; saved = saved.copy(submitted = true); return saved }
         override suspend fun cancel(token: String, id: String, input: PodDraftRequest): PodDetail { calls += "cancel" to input; saved = detail(PodPhase.SETUP); return saved }
         override suspend fun leave(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "leave" to input; missing = true; return PodAcknowledged(id) }
         override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "destroy" to input; missing = true; return PodAcknowledged(id) }
@@ -234,6 +234,21 @@ class PodControllerTest {
         assertEquals(listOf("basics", "submit"), f.api.calls.map { it.first })
         f.controller.open(id); f.deliver()
         assertEquals(PodTab.GAMES, f.controller.state.tab)
+    }
+
+    @Test fun submissionCarriesBasicsForTheDraftDeckResolvedOnceAndWithoutThemWhenUnavailable() {
+        var resolutions = 0
+        Fixture(PodPhase.DRAFTED, basics = { resolutions++; listOf(definition) }).use { f ->
+            f.open(); f.controller.submit()
+            assertEquals(0, resolutions) // resolved off the main thread, with the request
+            f.deliver()
+            val input = f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck
+            assertEquals(listOf(definition), input.basicDefinitions); assertEquals(1, resolutions)
+        }
+        Fixture(PodPhase.DRAFTED, basics = { throw LobbyFailure("basic_definitions_unavailable") }).use { f ->
+            f.open(); f.controller.submit(); f.deliver()
+            assertEquals(emptyList(), (f.api.calls.single { it.first == "submit" }.second as SubmitPodDeck).basicDefinitions)
+        }
     }
 
     @Test fun marksSurviveTabSwitchesAndSaveDebouncedLatestWinsOffThePickQueue(): Unit = Fixture().use { f ->
@@ -441,7 +456,8 @@ class PodControllerTest {
         override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
         override fun close() = Unit
     }
-    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING, librarian: () -> SubmittedDefinition = { definition }) : AutoCloseable {
+    private inner class Fixture(phase: PodPhase = PodPhase.DRAFTING, librarian: () -> SubmittedDefinition = { definition },
+        basics: () -> List<SubmittedDefinition> = { emptyList() }) : AutoCloseable {
         val api = Api().also { it.saved = detail(phase) }
         val worker = Worker()
         val posts = ArrayDeque<() -> Unit>()
@@ -453,7 +469,7 @@ class PodControllerTest {
         /** Pending marks timers by delay; cancelling removes them. */
         val timers = mutableListOf<Pair<Long, () -> Unit>>()
         val controller = PodController(api, cubes { sources }, { token }, worker, { posts.add(it) }, { "Fantasy name" }, { waits.add(it) }, sets,
-            librarianDefinition = librarian, clock = { now }, marksScheduler = { delay, task ->
+            librarianDefinition = librarian, basicLandDefinitions = basics, clock = { now }, marksScheduler = { delay, task ->
                 val timer = delay to task; timers += timer; { timers.remove(timer); Unit }
             })
         fun fire() { while (timers.isNotEmpty()) timers.removeAt(0).second() }
@@ -1043,6 +1059,7 @@ class PodControllerTest {
             assertEquals(expected, f.api.calls.single().first)
             val input = f.api.calls.single().second
             if (input is PodDraftRequest) { assertEquals(attempt, input.draftAttemptId); assertTrue(DeckValidation.uuid(input.requestId)) }
+            else if (input is SubmitPodDeck) { assertEquals(attempt, input.draftAttemptId); assertTrue(DeckValidation.uuid(input.requestId)) }
             else assertTrue(DeckValidation.uuid((input as PodRequest).requestId))
             assertNull(f.controller.state.confirmation)
             if (action in listOf(PodConfirmation.DESTROY, PodConfirmation.LEAVE)) assertNull(f.controller.state.selected)

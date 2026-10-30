@@ -1,0 +1,1 @@
+add: Every pod deck you submit is saved as a draft deck under Decks: play it in any game, or Save as deck to keep and edit it (the newest 20 are kept)

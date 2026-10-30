@@ -35,12 +35,12 @@ class HistoryTimelineTest {
         assertEquals(events[1].groupId, events[2].groupId)
         assertNotEquals(events[2].groupId, events[3].groupId)
         assertEquals(listOf(null,id(70),id(70),id(71)), events.map { it.author })
-        assertEquals("flag", events.first().icon)
-        assertEquals(listOf("rotate_90_degrees_cw"), events.drop(1).map { it.icon }.distinct())
+        assertEquals(HistoryIcon.FLAG, events.first().icon)
+        assertEquals(listOf(HistoryIcon.ROTATE_90_DEGREES_CW), events.drop(1).map { it.icon }.distinct())
         assertEquals("A card untapped", events[2].description)
         assertTrue(events.none { it.description.contains("00000000-") })
-        assertNotEquals(historyIconGlyph("favorite"), historyIconGlyph("ads_click"))
-        assertFails { historyIconGlyph("invented-cast") }
+        assertNotEquals(historyIconGlyph(HistoryIcon.FAVORITE), historyIconGlyph(HistoryIcon.ADS_CLICK))
+        assertEquals("•", historyIconGlyph(HistoryIcon.fromWire("invented-cast")))
     }
 
     @Test fun mergedManualAndOccurrenceIconsRenderWithoutGenericFallback() {
@@ -51,8 +51,8 @@ class HistoryTimelineTest {
             PlayAction.InspectFace(id(1), id(2), id(3)), PlayAction.CloneToken(id(1)),
             PlayAction.Stack(StackAction.RemoveEffect(id(1))))
         for (action in actions) assertTrue(historyIconGlyph(HistoryGrouping.classify(action).icon).isNotBlank(), "$action")
-        assertNotEquals(historyIconGlyph("link"), historyIconGlyph("link_off"))
-        assertFails { historyIconGlyph("unknown-manual-action") }
+        assertNotEquals(historyIconGlyph(HistoryIcon.LINK), historyIconGlyph(HistoryIcon.LINK_OFF))
+        assertEquals(HistoryIcon.UNKNOWN, HistoryIcon.fromWire("unknown-manual-action"))
     }
 
     @Test fun oldEventCommentsStillProjectAsReadableTimelineEvents() {

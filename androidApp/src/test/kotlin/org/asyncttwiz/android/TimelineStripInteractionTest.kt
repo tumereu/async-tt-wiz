@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Rule
+import org.asyncttwiz.protocol.HistoryIcon
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -15,7 +16,7 @@ import kotlin.test.*
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class TimelineStripInteractionTest {
     @get:Rule val compose = createComposeRule()
-    private fun event(n: Int, author: String = "me") = HistoryTimelineEvent("$n", "flag", "Event $n", author, null)
+    private fun event(n: Int, author: String = "me") = HistoryTimelineEvent("$n", HistoryIcon.FLAG, "Event $n", author, null)
     private fun advance(millis: Long) {
         compose.waitForIdle()
         compose.mainClock.advanceTimeByFrame()

@@ -198,10 +198,10 @@ class HistoryExplorerTest {
         for (range in graph.ranges.drop(1)) {
             val last = tree.nodes.getValue(range.targetId)
             assertEquals(last.author, range.author)
-            assertEquals(last.grouping!!.icon, range.glyph.icon)
+            assertEquals(last.grouping!!.icon, range.icon)
         }
         val reveal = graph.ranges.single { tree.nodes[it.targetId]?.action is PlayAction.EventComment }
-        assertEquals(HistoryGlyph.COMMENT, reveal.glyph)
+        assertEquals(HistoryIcon.CHAT_BUBBLE, reveal.icon)
         assertEquals(PlayAction.EventComment::class, tree.nodes.getValue(reveal.targetId).action::class)
         assertTrue(tree.stateAt(reveal.targetId)!!.board.contentsDisplays.isNotEmpty())
     }
@@ -211,14 +211,14 @@ class HistoryExplorerTest {
         val life = play(tap, 101)
         val graph = HistoryGraphLayout.build(life)
         assertEquals(2, graph.ranges.size)
-        assertEquals(HistoryGlyph.LIFE, graph.ranges.last().glyph)
+        assertEquals(HistoryIcon.FAVORITE, graph.ranges.last().icon)
         assertEquals(life.currentNodeId, graph.ranges.last().representativeId)
         val more = play(life, 102)
         val updated = HistoryGraphLayout.build(more)
         assertEquals(more.currentNodeId, updated.ranges.last().representativeId)
         assertEquals(more.currentNodeId, updated.ranges.last().targetId)
         assertEquals(a, updated.ranges.last().author)
-        assertEquals(HistoryGlyph.ROOT, updated.ranges.first().glyph)
+        assertEquals(HistoryIcon.FLAG, updated.ranges.first().icon)
         assertNull(updated.ranges.first().representativeId)
     }
 
@@ -234,7 +234,7 @@ class HistoryExplorerTest {
         controller.update(grown); queue.drain()
         assertEquals(tap.currentNodeId, controller.state.selectedNodeId)
         assertEquals(tap.currentNodeId, controller.state.reviewed!!.currentNodeId)
-        assertEquals(HistoryGlyph.LIFE, controller.state.graph!!.ranges.last().glyph)
+        assertEquals(HistoryIcon.FAVORITE, controller.state.graph!!.ranges.last().icon)
         controller.update(grown, openingNodeId = root().root.id); queue.drain()
         assertEquals(root().root.id, controller.state.selectedNodeId)
         val graph = controller.state.graph!!

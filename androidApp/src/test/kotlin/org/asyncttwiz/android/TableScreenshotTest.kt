@@ -489,7 +489,7 @@ internal object LiveTableFixture {
         val nodes = (1..12).map { n -> GameplayMutation(id(n), id(n - 1),
             id(100), id(200 + n), if (n % 3 == 0) "b" else "a", null,
             PlayAction.SetLife("a", (20 - n).toString()), GameplayTransition(),
-            grouping = HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "favorite", null)) }
+            grouping = HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.FAVORITE, null)) }
         return HistoryPlayback(HistoryTree(id(0), nodes, id(12), "fixture")).apply { scrub(id(6)) }
     }
 }

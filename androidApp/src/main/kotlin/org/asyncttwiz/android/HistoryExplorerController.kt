@@ -28,28 +28,24 @@ internal data class HistoryTreeViewport(val pan: HistoryPoint = HistoryPoint(0f,
     fun screen(point: HistoryPoint) = HistoryPoint(point.x * zoom + pan.x, point.y * zoom + pan.y)
     fun visible(graph: HistoryGraph, width: Float, height: Float) = graph.visible(-pan.x / zoom, -pan.y / zoom, width / zoom, height / zoom)
 }
-enum class HistoryGlyph(val label: String, val icon: String) {
-    ROOT("Initial state", "flag"), TAP("Tap / untap", "rotate_90_degrees_cw"), MOVE("Move", "open_with"), LIFE("Life", "favorite"),
-    COUNTER("Counter", "exposure_plus_1"), TURN("Turn / step", "outlined_flag"), DIE("Die", "casino"),
-    COIN("Coin", "monetization_on"), SHUFFLE("Shuffle", "shuffle"), VIEW("View", "pageview"),
-    INSPECT("Inspect / reveal", "visibility"), DISMISS("Dismiss contents", "close"), COMMENT("Comment", "chat_bubble"),
-    PING("Ping / unping", "ads_click"), RESET("Reset corner", "settings_backup_restore"), NOTE("Note", "sticky_note_2"),
-    OWNER("Owner", "switch_account"), FACE("Face", "flip_camera_android"), COVER("Cover", "flip"),
-    UNCOVER("Uncover", "flip_to_front"), TOKEN("Token", "add_box"), CLONE("Clone", "control_point_duplicate"),
-    REMOVE("Remove token", "delete"), LINK("Link", "link"), UNLINK("Remove link", "link_off"),
-    COMBAT("Combat", "swords"), CLOSE("Close / remove Stack effect", "layers_clear"),
-    OCCURRENCE_REMOVE("Remove occurrence", "remove_circle_outline"), STACK("Stack entry / removal", "layers"), DRAW("Draw", "download"),
-    TEXT_MARK("Mark Stack text", "format_ink_highlighter"), RESULT("Result suggestion", "emoji_events"),
-    PILE("Temporary pile", "inbox"), CONTROLLER("Stack controller", "swap_horiz");
-
-    val symbol: String get() = historyIconGlyph(icon)
-    companion object {
-        fun fromIcon(icon: String) = entries.singleOrNull { it.icon == icon }
-            ?: error("Unsupported history icon: $icon")
-    }
+/** The history tree's name for each icon. */
+internal fun historyIconLabel(icon: HistoryIcon): String = when (icon) {
+    HistoryIcon.FLAG -> "Initial state"; HistoryIcon.ROTATE_90_DEGREES_CW -> "Tap / untap"; HistoryIcon.OPEN_WITH -> "Move"
+    HistoryIcon.FAVORITE -> "Life"; HistoryIcon.EXPOSURE_PLUS_1 -> "Counter"; HistoryIcon.OUTLINED_FLAG -> "Turn / step"
+    HistoryIcon.CASINO -> "Die"; HistoryIcon.MONETIZATION_ON -> "Coin"; HistoryIcon.SHUFFLE -> "Shuffle"; HistoryIcon.PAGEVIEW -> "View"
+    HistoryIcon.VISIBILITY -> "Inspect / reveal"; HistoryIcon.CLOSE -> "Dismiss contents"; HistoryIcon.CHAT_BUBBLE -> "Comment"
+    HistoryIcon.ADS_CLICK -> "Ping / unping"; HistoryIcon.SETTINGS_BACKUP_RESTORE -> "Reset corner"; HistoryIcon.STICKY_NOTE_2 -> "Note"
+    HistoryIcon.SWITCH_ACCOUNT -> "Owner"; HistoryIcon.FLIP_CAMERA_ANDROID -> "Face"; HistoryIcon.FLIP -> "Cover"
+    HistoryIcon.FLIP_TO_FRONT -> "Uncover"; HistoryIcon.ADD_BOX -> "Token"; HistoryIcon.CONTROL_POINT_DUPLICATE -> "Clone"
+    HistoryIcon.DELETE -> "Remove token"; HistoryIcon.LINK -> "Link"; HistoryIcon.LINK_OFF -> "Remove link"
+    HistoryIcon.SWORDS -> "Combat"; HistoryIcon.LAYERS_CLEAR -> "Close / remove Stack effect"
+    HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "Remove occurrence"; HistoryIcon.LAYERS -> "Stack entry / removal"; HistoryIcon.DOWNLOAD -> "Draw"
+    HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "Mark Stack text"; HistoryIcon.EMOJI_EVENTS -> "Result suggestion"
+    HistoryIcon.INBOX -> "Temporary pile"; HistoryIcon.SWAP_HORIZ -> "Stack controller"; HistoryIcon.UNKNOWN -> "Change"
 }
+
 data class HistoryRange(val id: String, val groupId: String, val nodeIds: List<String>,
-    val representativeId: String?, val glyph: HistoryGlyph, val author: String?,
+    val representativeId: String?, val icon: HistoryIcon, val author: String?,
     val parentRangeId: String?, val position: HistoryPoint, val turnStart: HistoryTurnStart? = null) {
     val targetId: String get() = nodeIds.last()
 }

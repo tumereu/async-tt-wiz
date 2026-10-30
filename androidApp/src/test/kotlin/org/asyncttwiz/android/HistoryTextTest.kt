@@ -297,7 +297,7 @@ class HistoryTextTest {
         assertEquals("A card: Library → Hand", single.description)
         assertEquals("Draw", single.label)
         val texts = (1..7).associate { id(100 + it) to format(action, author = f.b) }
-        val range = HistoryRange(id(100), id(100), texts.keys.toList(), texts.keys.first(), HistoryGlyph.DRAW,
+        val range = HistoryRange(id(100), id(100), texts.keys.toList(), texts.keys.first(), HistoryIcon.DOWNLOAD,
             f.b, null, HistoryPoint(0f, 0f))
         assertEquals(HistoryText("7 cards: Library → Hand", "Draw ×7"), historyRangeText(range, texts))
         // Your own draws list every name; unseen cards collapse into a count after them.
@@ -521,7 +521,7 @@ class HistoryTextTest {
 
     @Test fun groupTextIsCappedWithAnEllipsis() {
         val texts = (1..40).associate { n -> id(800 + n) to HistoryText("", "Draw", HistoryMove("Card number $n with a long name", "Library → Hand")) }
-        val range = HistoryRange(id(800), id(800), texts.keys.toList(), texts.keys.last(), HistoryGlyph.DRAW, f.b, null, HistoryPoint(0f, 0f))
+        val range = HistoryRange(id(800), id(800), texts.keys.toList(), texts.keys.last(), HistoryIcon.DOWNLOAD, f.b, null, HistoryPoint(0f, 0f))
         val text = historyRangeText(range, texts)
         assertTrue(text.description.length in HISTORY_RANGE_TEXT_MAX - 2..HISTORY_RANGE_TEXT_MAX, text.description)
         assertTrue(text.description.startsWith("Card number 1 with a long name, Card number 2"))

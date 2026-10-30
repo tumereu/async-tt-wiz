@@ -39,7 +39,7 @@ class LibraryTurnHistoryIntegrationTest {
             mutations += mutation
             groups += group
             assertEquals(mutations[representative - 1].id, group.representative!!.nodeId)
-            assertEquals(icon, group.representative.semantic.icon)
+            assertEquals(icon, group.representative.semantic.icon.wire)
             assertEquals(mutation.id, group.lastNodeId)
             assertEquals(result, GameplayHistory.replay(before, mutation))
             val replay = GameplayHistory.replay(unrelated(before), mutation)
@@ -72,7 +72,7 @@ class LibraryTurnHistoryIntegrationTest {
         val die = accept(PlayAction.RollDie(6, 4), true, "random", 10, "casino")
         assertEquals(GameplayRandomResult(RandomTool.DIE, "4", "6"), die.transition.random)
         val coin = accept(PlayAction.FlipCoin(CoinFace.TAILS), false, "random", 10, "casino")
-        assertEquals("monetization_on", coin.grouping!!.icon)
+        assertEquals("monetization_on", coin.grouping!!.icon.wire)
         assertEquals(GameplayRandomResult(RandomTool.COIN, "TAILS"), coin.transition.random)
         accept(PlayAction.SetPlayerCounter(id(7), CounterColor.BLUE, "3"), false, "edit", 12, "exposure_plus_1")
         val draw = accept(LibraryActions.draw(current.board, id(10), id(11), 1).single(), true, "move", 13, "download")
@@ -82,7 +82,7 @@ class LibraryTurnHistoryIntegrationTest {
         accept(PlayAction.ShuffleLibrary(id(10), seed), true, "shuffle", 15, "shuffle", id(8))
         assertEquals(listOf("1", "2", "3", "4", "1", "1", "1", "1", "1", "1", "2", "3", "1", "2", "1"), groups.map { it.count })
         assertEquals(mutations[0].id, groups[3].firstNodeId) // Earlier prefix boundaries did not migrate.
-        val corrupted = shuffle.copy(grouping = shuffle.grouping.copy(icon = "casino"))
+        val corrupted = shuffle.copy(grouping = shuffle.grouping.copy(icon = HistoryIcon.CASINO))
         val tapped = GameplayRules.change(initial(), id(7), command(mutations[0].action, 1)).state!!
         assertNotNull(GameplayHistory.replay(tapped, corrupted).state) // Presentation metadata is not concerned state.
     }
@@ -93,7 +93,7 @@ class LibraryTurnHistoryIntegrationTest {
         val result = GameplayRules.change(cleanup, id(7), command(PlayAction.NextStep, 1))
         assertEquals("accepted", result.outcome)
         assertEquals(HistorySignificance.TURN_TRANSITION, result.mutation!!.grouping!!.significance)
-        assertEquals("outlined_flag", result.mutation.grouping.icon)
+        assertEquals("outlined_flag", result.mutation.grouping.icon.wire)
         assertEquals(result, GameplayHistory.replay(cleanup, result.mutation))
         val reference = EventReference(initial.id, initial.currentNodeId)
         for (action in listOf(PlayAction.EventComment(reference, "comment"),

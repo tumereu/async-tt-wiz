@@ -75,7 +75,7 @@ class CompleteManualHistoryIntegrationTest {
         // Rules v29: the Search close (with its shuffle) is its own history step.
         step(PlayAction.DismissContents(display), 120, false, HistoryCategory.F, 120)
         step(PlayAction.ShuffleLibrary(id(11), RandomV1.encodeSeed(ByteArray(32))), 121, false, HistoryCategory.H, 121)
-        assertEquals("layers", HistoryGrouping.classify(PlayAction.Stack(StackAction.AddEffect(id(9), CombatStackRules.stackDigest(state)))).icon)
+        assertEquals("layers", HistoryGrouping.classify(PlayAction.Stack(StackAction.AddEffect(id(9), CombatStackRules.stackDigest(state)))).icon.wire)
     }
 
     @Test fun actualTokenDisappearanceCleansBothLinkFamiliesAndFreezesLastLiveManualEdits() {

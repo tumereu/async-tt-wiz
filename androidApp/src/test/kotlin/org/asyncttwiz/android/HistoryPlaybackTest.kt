@@ -105,7 +105,7 @@ class HistoryPlaybackTest {
 
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private fun node(n: Int, parent: Int, kind: HistorySignificance = HistorySignificance.CROSS_ZONE_MOVE, key: String = "a"): GameplayMutation {
-        val semantic = HistorySemantic(kind, "icon-$kind", if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
+        val semantic = HistorySemantic(kind, HistoryIcon.FLAG, if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
         return GameplayMutation(id(n), id(parent), id(50), id(n + 100), id(70), null,
             PlayAction.SetLife(id(70), n.toString()), GameplayTransition(), grouping = semantic)
     }

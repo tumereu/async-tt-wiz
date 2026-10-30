@@ -58,10 +58,10 @@ class CompleteManualFixVerificationTest {
             Triple(PlayAction.CloneToken(id(1)), "control_point_duplicate", "⊕"),
             Triple(PlayAction.Stack(StackAction.RemoveEffect(id(1))), "layers_clear", "⊠"))
         for ((action, icon, glyph) in cases) {
-            assertEquals(icon, HistoryGrouping.classify(action).icon)
-            assertEquals(glyph, historyIconGlyph(icon))
+            assertEquals(icon, HistoryGrouping.classify(action).icon.wire)
+            assertEquals(glyph, historyIconGlyph(HistoryIcon.fromWire(icon)))
         }
-        assertFailsWith<IllegalStateException> { historyIconGlyph("unmapped-manual-type") }
+        assertEquals("•", historyIconGlyph(HistoryIcon.fromWire("unmapped-manual-type")))
     }
 
     @Test fun nativeTimelineKeepsTapViewAndEditBoundariesWithLiteralIcons() {
@@ -76,7 +76,7 @@ class CompleteManualFixVerificationTest {
         assertEquals(listOf(id(0), tap.id, view.id, edit.id), events.map { it.id })
         assertEquals(events[1].groupId, events[2].groupId)
         assertNotEquals(events[2].groupId, events[3].groupId)
-        assertEquals(listOf("flag", "rotate_90_degrees_cw", "visibility", "sticky_note_2"), events.map { it.icon })
+        assertEquals(listOf("flag", "rotate_90_degrees_cw", "visibility", "sticky_note_2"), events.map { it.icon.wire })
         assertEquals(listOf("⚑", "↻", "◉", "▧"), events.map { historyIconGlyph(it.icon) })
     }
 }

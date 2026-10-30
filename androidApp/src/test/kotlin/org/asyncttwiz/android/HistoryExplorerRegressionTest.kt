@@ -109,7 +109,7 @@ class HistoryExplorerRegressionTest {
         try {
             history.update(legacy, "legacy")
             val events = HistoryTimelineLayout.events(history.playback!!.tree, legacy.currentNodeId)
-            assertEquals("download", events.last().icon)
+            assertEquals(HistoryIcon.DOWNLOAD, events.last().icon)
         } finally { history.close() }
     }
 

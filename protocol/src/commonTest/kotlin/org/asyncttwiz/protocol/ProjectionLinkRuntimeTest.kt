@@ -73,7 +73,7 @@ class ProjectionLinkRuntimeTest {
         assertEquals(setOf(connection.id, a.id, b.id), GameplayHistory.projectionLinkReferences(mutation.transition))
         assertEquals(listOf(ProjectionLinkChange(null, connection)), GameplayHistory.projectionLinkChanges(mutation.transition))
         assertEquals(HistorySignificance.LINK_EDIT, mutation.grouping!!.significance)
-        assertEquals("link", mutation.grouping.icon)
+        assertEquals("link", mutation.grouping.icon.wire)
         for (n in listOf(110, 111)) {
             val repeated = change(created.state, link(b.id, a.id), n)
             assertEquals("noOp", repeated.outcome); assertEquals(created.state, repeated.state)
@@ -83,7 +83,7 @@ class ProjectionLinkRuntimeTest {
         assertEquals(2, sibling.board.projectionLinks.size) // same source does not deduplicate occurrences
         val removed = change(sibling, PlayAction.RemoveProjectionLink(connection.id), 113)
         assertEquals(listOf(connection), removed.mutation!!.transition.combatStack!!.removedLinks)
-        assertEquals("link_off", removed.mutation.grouping!!.icon)
+        assertEquals("link_off", removed.mutation.grouping!!.icon.wire)
         assertEquals(sibling.board, GameplayHistory.inverseProjectionLinks(removed.state!!.board, removed.mutation.transition))
         assertEquals("noOp", change(removed.state, PlayAction.RemoveProjectionLink(connection.id), 114).outcome)
         assertEquals("missingReference", change(initial, link(id(20), b.id), 115).reason)

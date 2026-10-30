@@ -26,21 +26,20 @@ class CompleteCoreIntegrationTest {
             val icon = last.grouping!!.icon
             assertEquals(last.id, range.representativeId)
             assertEquals(last.id, range.targetId)
-            assertEquals(icon, range.glyph.icon)
-            assertEquals(historyIconGlyph(icon), range.glyph.symbol)
+            assertEquals(icon, range.icon)
             return range
         }
         val tap = step(PlayAction.SetTapped(id(9), true))
         val view = step(PlayAction.InspectFace(id(9), root.board.cards.single().faceId, id(10)))
         assertEquals(tap.id, view.id)
-        assertEquals(HistoryGlyph.INSPECT, view.glyph)
+        assertEquals(HistoryIcon.VISIBILITY, view.icon)
         val creation = step(PlayAction.CloneToken(id(9)))
         val edit = step(PlayAction.SetNote(id(9), "customization"))
         assertEquals(creation.id, edit.id)
         assertNotEquals(creation.representativeId, edit.representativeId)
-        assertEquals(HistoryGlyph.NOTE, edit.glyph)
+        assertEquals(HistoryIcon.STICKY_NOTE_2, edit.icon)
         val stack = step(PlayAction.Stack(StackAction.AddEffect(id(9), GameplayRules.stackDigest(tree.stateAt(tree.currentNodeId)!!))))
-        assertEquals(HistoryGlyph.STACK, stack.glyph)
+        assertEquals(HistoryIcon.LAYERS, stack.icon)
         assertNotEquals(edit.id, stack.id)
         assertEquals(tree.nodes.size + 1, HistoryGraphLayout.build(tree).ranges.sumOf { it.nodeIds.size })
     }

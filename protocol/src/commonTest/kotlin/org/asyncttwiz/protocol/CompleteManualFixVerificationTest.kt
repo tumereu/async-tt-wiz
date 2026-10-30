@@ -47,7 +47,7 @@ class CompleteManualFixVerificationTest {
         }
         assertEquals(tap.state.currentGroup!!.id, view.state.currentGroup!!.id)
         assertEquals(view.mutation!!.id, view.state.currentGroup.representative!!.nodeId)
-        assertEquals("visibility", view.state.currentGroup.representative.semantic.icon)
+        assertEquals("visibility", view.state.currentGroup.representative.semantic.icon.wire)
         assertEquals(tracking.state.board, view.state.board)
         assertEquals(listOf(GameplayDisclosure(id(9), id(12), id(10), listOf(id(7)))), view.mutation.transition.disclosures)
         assertNotEquals(view.state.currentGroup.id, edit.state!!.currentGroup!!.id)

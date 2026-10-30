@@ -19,7 +19,7 @@ class StackLayoutGroupingRepairTest {
             val untap = action is PlayAction.SetTapped && !action.tapped
             val entryId = if (significance == HistorySignificance.STACK_ENTRY)
                 (action as? PlayAction.MoveCard)?.cardId ?: mutation.transition.combatStack?.effects?.single()?.id else null
-            assertEquals(HistorySemantic(significance, icon, untap = untap, rulesVersion = 3, stackEntryId = entryId), mutation.grouping)
+            assertEquals(HistorySemantic(significance, HistoryIcon.fromWire(icon), untap = untap, rulesVersion = 3, stackEntryId = entryId), mutation.grouping)
             assertEquals(result, GameplayHistory.replay(before, mutation))
             assertEquals(before.currentNodeId, mutation.parentId)
             state = assertNotNull(result.state)

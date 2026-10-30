@@ -198,7 +198,7 @@ class R13RulesTest {
         // The same seed gives the same cards (new layer IDs come from the request).
         assertEquals(result.state.board.copy(containers = result.state.board.containers.map { it.copy(layers = emptyList()) }),
             change(s, action).state!!.board.let { b -> b.copy(containers = b.containers.map { it.copy(layers = emptyList()) }) })
-        assertEquals("shuffle", result.state.currentGroup!!.representative!!.semantic.icon)
+        assertEquals("shuffle", result.state.currentGroup!!.representative!!.semantic.icon.wire)
         assertEquals("movementConflict", change(s, action.copy(displayedHand = emptyList())).reason)
         assertEquals("invalidInput", change(s, action.copy(displayedHand = hand.cards + hand.cards)).reason)
         assertEquals("invalidInput", change(s, action.copy(drawCount = -1)).reason)

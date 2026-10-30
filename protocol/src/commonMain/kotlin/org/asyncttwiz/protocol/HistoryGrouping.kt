@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
 }
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-@Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: String, val key: String? = null,
+@Serializable data class HistorySemantic(val significance: HistorySignificance, val icon: HistoryIcon, val key: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val panelSession: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isolated: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val untap: Boolean = false,
@@ -37,7 +37,6 @@ import kotlinx.serialization.Serializable
     /** Rules v29 step into Declare blockers: joins only the author's attacker declaration and closes the group. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val endsGroup: Boolean = false) {
     init {
-        require(icon.isNotBlank())
         require((significance.category in setOf(HistoryCategory.M, HistoryCategory.H)) == (key != null))
     }
     val category: HistoryCategory get() = if (untap) HistoryCategory.U else significance.category
@@ -62,75 +61,75 @@ object HistoryGrouping {
     fun classify(action: PlayAction, containers: List<PlayContainer> = emptyList(),
         transition: GameplayTransition? = null): HistorySemantic {
         val semantic = when (action) {
-        is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "flag")
-        is PlayAction.DeclineResult, is PlayAction.WithdrawResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, "close")
-        PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, "outlined_flag")
-        is PlayAction.SetTapped -> HistorySemantic(HistorySignificance.ORIENTATION, "rotate_90_degrees_cw")
-        is PlayAction.SetLife, is PlayAction.AdjustLife -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "favorite")
+        is PlayAction.SuggestResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.FLAG)
+        is PlayAction.DeclineResult, is PlayAction.WithdrawResult -> HistorySemantic(HistorySignificance.ENDING_SUGGESTION, HistoryIcon.CLOSE)
+        PlayAction.PassAttention -> HistorySemantic(HistorySignificance.ATTENTION_PASS, HistoryIcon.OUTLINED_FLAG)
+        is PlayAction.SetTapped -> HistorySemantic(HistorySignificance.ORIENTATION, HistoryIcon.ROTATE_90_DEGREES_CW)
+        is PlayAction.SetLife, is PlayAction.AdjustLife -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.FAVORITE)
         is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter ->
-            HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "exposure_plus_1")
-        PlayAction.EndTurn -> HistorySemantic(HistorySignificance.TURN_TRANSITION, "outlined_flag")
+            HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
+        PlayAction.EndTurn -> HistorySemantic(HistorySignificance.TURN_TRANSITION, HistoryIcon.OUTLINED_FLAG)
         PlayAction.NextStep -> HistorySemantic(if (transition?.fields?.any { it.field == GameplayField.TURN_PLAYER } == true)
-            HistorySignificance.TURN_TRANSITION else HistorySignificance.PHASE_STEP_TRACKING, "outlined_flag")
-        is PlayAction.ChooseStep -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, "outlined_flag")
-        is PlayAction.RollDie -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "casino")
-        is PlayAction.FlipCoin -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, "monetization_on")
-        is PlayAction.ShuffleLibrary -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.containerId)
+            HistorySignificance.TURN_TRANSITION else HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
+        is PlayAction.ChooseStep -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
+        is PlayAction.RollDie -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.CASINO)
+        is PlayAction.FlipCoin -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.MONETIZATION_ON)
+        is PlayAction.ShuffleLibrary -> HistorySemantic(HistorySignificance.SHUFFLE, HistoryIcon.SHUFFLE, action.containerId)
         is PlayAction.SetKeepTopRevealed -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
-            "visibility", isolated = true)
-        is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", action.libraryId)
+            HistoryIcon.VISIBILITY, isolated = true)
+        is PlayAction.Mulligan -> HistorySemantic(HistorySignificance.SHUFFLE, HistoryIcon.SHUFFLE, action.libraryId)
         // Grouped like any cross-zone move into that Library.
-        is PlayAction.MoveToLibraryRandom -> HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, "open_with", "random/${action.libraryId}")
+        is PlayAction.MoveToLibraryRandom -> HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, HistoryIcon.OPEN_WITH, "random/${action.libraryId}")
         is PlayAction.ShowContents -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE,
-            if (action.reveal) "visibility" else "pageview")
-        is PlayAction.RevealHand -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
+            if (action.reveal) HistoryIcon.VISIBILITY else HistoryIcon.PAGEVIEW)
+        is PlayAction.RevealHand -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY, isolated = true)
         is PlayAction.RandomHand -> HistorySemantic(if (action.result == HandRandomResult.REVEAL)
             HistorySignificance.EXPLICIT_DISCLOSURE else HistorySignificance.CROSS_ZONE_MOVE,
-            if (action.result == HandRandomResult.REVEAL) "visibility" else "open_with",
+            if (action.result == HandRandomResult.REVEAL) HistoryIcon.VISIBILITY else HistoryIcon.OPEN_WITH,
             if (action.result == HandRandomResult.REVEAL) null else "${action.handId}/${action.result}", isolated = true)
-        is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, "close")
-        is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility", isolated = true)
-        is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "open_with", action.displayId)
-        is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
+        is PlayAction.DismissContents -> HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, HistoryIcon.CLOSE)
+        is PlayAction.RevealContentsCard -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY, isolated = true)
+        is PlayAction.ReorderContents -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.OPEN_WITH, action.displayId)
+        is PlayAction.EventComment -> HistorySemantic(HistorySignificance.EVENT_COMMENT, HistoryIcon.CHAT_BUBBLE)
         // A status is a message to the other player, not a board edit: it joins the author's group, never leads it.
-        is PlayAction.SetStatus -> HistorySemantic(HistorySignificance.EVENT_COMMENT, "chat_bubble")
-        is PlayAction.SetTempPile -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, "inbox", "temp/${action.accountId}/${action.number}")
-        is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, "ads_click")
+        is PlayAction.SetStatus -> HistorySemantic(HistorySignificance.EVENT_COMMENT, HistoryIcon.CHAT_BUBBLE)
+        is PlayAction.SetTempPile -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.INBOX, "temp/${action.accountId}/${action.number}")
+        is PlayAction.Ping, is PlayAction.Unping -> HistorySemantic(HistorySignificance.PING, HistoryIcon.ADS_CLICK)
         is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
         is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.ClearCardCounter ->
-            HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
-        is PlayAction.ResetCorner -> HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, "settings_backup_restore")
+            HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
+        is PlayAction.ResetCorner -> HistorySemantic(HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.SETTINGS_BACKUP_RESTORE)
         is PlayAction.SetCounter -> HistorySemantic(if (action.target == CounterTarget.PLAYER)
-            HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
+            HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
         is PlayAction.AdjustCounter -> HistorySemantic(if (action.target == CounterTarget.PLAYER)
-            HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1")
-        is PlayAction.SetNote, is PlayAction.SetEotNote, is PlayAction.SetProjectionNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "sticky_note_2")
-        is PlayAction.SetOwner -> HistorySemantic(HistorySignificance.OWNER_EDIT, "switch_account")
-        is PlayAction.SetFace -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT, "flip_camera_android")
+            HistorySignificance.LIFE_PLAYER_COUNTER_EDIT else HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
+        is PlayAction.SetNote, is PlayAction.SetEotNote, is PlayAction.SetProjectionNote -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
+        is PlayAction.SetOwner -> HistorySemantic(HistorySignificance.OWNER_EDIT, HistoryIcon.SWITCH_ACCOUNT)
+        is PlayAction.SetFace -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT, HistoryIcon.FLIP_CAMERA_ANDROID)
         is PlayAction.SetCovered -> HistorySemantic(HistorySignificance.FACE_COVER_EDIT,
-            if (action.covered) "flip" else "flip_to_front")
-        is PlayAction.InspectFace -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility")
-        is PlayAction.CreateToken -> HistorySemantic(HistorySignificance.TOKEN_CLONE_CREATION, "add_box")
-        is PlayAction.CloneToken -> HistorySemantic(HistorySignificance.TOKEN_CLONE_CREATION, "control_point_duplicate")
-        is PlayAction.RemoveToken -> HistorySemantic(HistorySignificance.TOKEN_REMOVAL, "delete")
-        is PlayAction.Link, is PlayAction.LinkProjections -> HistorySemantic(HistorySignificance.LINK_EDIT, "link")
-        is PlayAction.RemoveLink, is PlayAction.RemoveProjectionLink -> HistorySemantic(HistorySignificance.LINK_EDIT, "link_off")
+            if (action.covered) HistoryIcon.FLIP else HistoryIcon.FLIP_TO_FRONT)
+        is PlayAction.InspectFace -> HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY)
+        is PlayAction.CreateToken -> HistorySemantic(HistorySignificance.TOKEN_CLONE_CREATION, HistoryIcon.ADD_BOX)
+        is PlayAction.CloneToken -> HistorySemantic(HistorySignificance.TOKEN_CLONE_CREATION, HistoryIcon.CONTROL_POINT_DUPLICATE)
+        is PlayAction.RemoveToken -> HistorySemantic(HistorySignificance.TOKEN_REMOVAL, HistoryIcon.DELETE)
+        is PlayAction.Link, is PlayAction.LinkProjections -> HistorySemantic(HistorySignificance.LINK_EDIT, HistoryIcon.LINK)
+        is PlayAction.RemoveLink, is PlayAction.RemoveProjectionLink -> HistorySemantic(HistorySignificance.LINK_EDIT, HistoryIcon.LINK_OFF)
         is PlayAction.Combat -> when (val combat = action.action) {
-            CombatAction.Open -> HistorySemantic(HistorySignificance.COMBAT_AREA_CREATION, "swords")
-            is CombatAction.Close -> HistorySemantic(HistorySignificance.COMBAT_CLOSURE, "layers_clear")
-            is CombatAction.Declare -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "swords")
-            is CombatAction.Remove -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "remove_circle_outline")
-            is CombatAction.SetAttackTarget -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, "swords")
+            CombatAction.Open -> HistorySemantic(HistorySignificance.COMBAT_AREA_CREATION, HistoryIcon.SWORDS)
+            is CombatAction.Close -> HistorySemantic(HistorySignificance.COMBAT_CLOSURE, HistoryIcon.LAYERS_CLEAR)
+            is CombatAction.Declare -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.SWORDS)
+            is CombatAction.Remove -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.REMOVE_CIRCLE_OUTLINE)
+            is CombatAction.SetAttackTarget -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.SWORDS)
             is CombatAction.Place -> HistorySemantic(if (combat.expectedOccurrence == null ||
                 combat.expectedOccurrence.role != combat.destination.role) HistorySignificance.COMBAT_MEMBERSHIP
-                else HistorySignificance.COMBAT_LAYOUT, "open_with")
+                else HistorySignificance.COMBAT_LAYOUT, HistoryIcon.OPEN_WITH)
         }
         is PlayAction.Stack -> when (action.action) {
-            is StackAction.MarkText, is StackAction.ToggleTextMark -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, "format_ink_highlighter")
-            is StackAction.AddEffect, is StackAction.CopyEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
-            is StackAction.SetController -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "swap_horiz")
-            is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
-            is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
+            is StackAction.MarkText, is StackAction.ToggleTextMark -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.FORMAT_INK_HIGHLIGHTER)
+            is StackAction.AddEffect, is StackAction.CopyEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, HistoryIcon.LAYERS)
+            is StackAction.SetController -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.SWAP_HORIZ)
+            is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
+            is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
         }
         is PlayAction.MoveCard -> {
             val fromContainer = containers.single { it.id == action.source.containerId }
@@ -141,14 +140,14 @@ object HistoryGrouping {
             // Each numbered Temp pile is its own zone (rules v29).
             val sameZone = from == to && fromContainer.temp == toContainer.temp && (!fromContainer.temp || fromContainer.id == toContainer.id)
             when {
-                action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers_clear")
+                action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
                 from == PlayZone.STACK && to == PlayZone.STACK ->
-                    HistorySemantic(HistorySignificance.STACK_LAYOUT, "open_with")
-                from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL, "layers")
-                to == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_ENTRY, "layers")
+                    HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
+                from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS)
+                to == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_ENTRY, HistoryIcon.LAYERS)
                 else -> HistorySemantic(if (sameZone) HistorySignificance.SAME_ZONE_PLACEMENT else HistorySignificance.CROSS_ZONE_MOVE,
                     if (from == PlayZone.LIBRARY && !fromContainer.temp && to == PlayZone.HAND && action.source.edge == MoveSourceEdge.TOP)
-                        "download" else "open_with", "${action.source.containerId}/${action.destination.containerId}")
+                        HistoryIcon.DOWNLOAD else HistoryIcon.OPEN_WITH, "${action.source.containerId}/${action.destination.containerId}")
             }
         }
         }

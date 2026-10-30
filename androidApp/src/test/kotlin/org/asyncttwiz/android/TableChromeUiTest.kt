@@ -173,7 +173,7 @@ class TableChromeUiTest {
     }
 
     @Test fun holdingTimelineEventShowsDescriptionWithoutSelectingOrEntering() {
-        val events = listOf(HistoryTimelineEvent("root", "flag", "The game started", "a", null))
+        val events = listOf(HistoryTimelineEvent("root", HistoryIcon.FLAG, "The game started", "a", null))
         var selected = 0
         compose.setContent { MaterialTheme {
             HistoryTimeline(events, "root", "a", {}, { selected++ }, readOnly = true)

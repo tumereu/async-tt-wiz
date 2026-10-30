@@ -86,7 +86,7 @@ class BlockersBoundaryGroupingTest {
             // Nothing joins it: not the author's next step, a status, a ping, a tap, nor the defender's pass.
             val damage = classify(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), TurnPosition.DECLARE_BLOCKERS,
                 TurnPosition.COMBAT_DAMAGE, 29)
-            for (later in listOf(damage, HistorySemantic(HistorySignificance.PING, "ads_click", rulesVersion = 3),
+            for (later in listOf(damage, HistorySemantic(HistorySignificance.PING, HistoryIcon.ADS_CLICK, rulesVersion = 3),
                 tap, declared))
                 assertNotEquals(ended.id, append(ended, later, 104).id, "$later")
             assertNotEquals(ended.id, append(ended, HistoryGrouping.classify(PlayAction.PassAttention), 104, b).id)

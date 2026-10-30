@@ -40,7 +40,7 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         val text = historyText(node)
         val icon = node?.grouping?.icon ?: node?.let {
             HistoryGrouping.classify(it.action, tree.initial.board.containers, it.transition).icon
-        } ?: "flag"
+        } ?: HistoryIcon.FLAG
         return HistoryTimelineEvent(id, icon, text.description, node?.author,
             layout.boundaries[id]?.let { layout.chips.getValue(it.chip).group }, label = text.label)
     }
@@ -49,7 +49,7 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         val last = chip.nodes.last()
         val event = event(last)
         val range = HistoryRange(chip.id, chip.group, chip.nodes, last.takeIf { chip.parent != null },
-            HistoryGlyph.fromIcon(event.icon), event.author, chip.parent, chip.position, chip.turnStart)
+            event.icon, event.author, chip.parent, chip.position, chip.turnStart)
         chip.presentation = range to event
         return range
     }

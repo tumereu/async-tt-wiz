@@ -36,8 +36,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.asyncttwiz.protocol.HistoryIcon
 
-data class HistoryTimelineEvent(val id: String, val icon: String, val description: String,
+data class HistoryTimelineEvent(val id: String, val icon: HistoryIcon, val description: String,
     val author: String?, val groupId: String?, val alternatives: Int = 0, val label: String = "Change")
 
 object HistoryTimelineLayout {
@@ -54,7 +55,7 @@ object HistoryTimelineLayout {
             val id = path[index]
             val mutation = tree.nodes[id]
             val text = tree.texts[id] ?: historyText(mutation)
-            return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) "flag" else
+            return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) HistoryIcon.FLAG else
                 org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
                 text.description,
                 mutation?.author, tree.group(id)?.id, tree.alternatives(id), text.label)
@@ -81,7 +82,7 @@ object HistoryTimelineLayout {
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
     readOnly: Boolean = false,
-    eventIcon: @Composable (String) -> Unit = { HistoryEventIcon(it) }) {
+    eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { if (events is HistoryTimelineLayout.IndexedHistoryEvents) null else events.withIndex().associate { it.value.id to it.index } }
     val selected = (events as? HistoryTimelineLayout.IndexedHistoryEvents)?.positionOf(selectedId) ?: positions?.get(selectedId) ?: -1
     require(selected >= 0)
@@ -156,7 +157,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
 @Composable
 private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier,
-    eventIcon: @Composable (String) -> Unit, describeOnTap: Boolean, onClick: () -> Unit) {
+    eventIcon: @Composable (HistoryIcon) -> Unit, describeOnTap: Boolean, onClick: () -> Unit) {
     var held by remember(event.id) { mutableStateOf(false) }
     var tapped by remember(event.id) { mutableStateOf(false) }
     var tapSerial by remember(event.id) { mutableIntStateOf(0) }
@@ -191,7 +192,7 @@ internal fun historyAuthorColor(author: String?, viewer: String) = when (author)
 /** Same 20dp glyph and 24dp pitch vocabulary in the path and full-tree views. */
 @Composable
 internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier = Modifier,
-    eventIcon: @Composable (String) -> Unit = { HistoryEventIcon(it) }) {
+    eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     Box(modifier.size(20.dp).semantics { contentDescription = event.description; this.selected = selected },
         contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides color) { eventIcon(event.icon) }
@@ -304,63 +305,64 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     else Box(modifier) { panel() }
 }
 
-/** Literal glyph vocabulary, also replaceable with the host's existing event icon renderer. Unknown
- * known-type data must take compatibility/recovery handling, not silently become a generic dot. */
+/** Literal glyph vocabulary, also replaceable with the host's existing event icon renderer. Every table below is an
+ * exhaustive `when` over [HistoryIcon]: a new icon does not compile until each draws it. [HistoryIcon.UNKNOWN]
+ * (a name from a newer server) draws as a neutral dot. */
 @Composable
-fun HistoryEventIcon(icon: String) {
-    if (icon == "swords") {
-        Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp)); return
-    }
-    Icon(historyIconVector(icon), null, Modifier.size(20.dp))
+fun HistoryEventIcon(icon: HistoryIcon) {
+    val vector = historyIconVector(icon)
+    if (vector == null) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp))
+    else Icon(vector, null, Modifier.size(20.dp))
 }
 
-internal fun historyIconVector(icon: String): androidx.compose.ui.graphics.vector.ImageVector = when (icon) {
-    "flag" -> Icons.Outlined.Flag
-    "rotate_90_degrees_cw" -> Icons.Outlined.Rotate90DegreesCw
-    "favorite" -> Icons.Outlined.FavoriteBorder
-    "open_with" -> Icons.Outlined.OpenWith
-    "chat_bubble" -> Icons.AutoMirrored.Outlined.Chat
-    "ads_click" -> Icons.Outlined.AdsClick
-    "download" -> Icons.Outlined.Download
-    "layers" -> Icons.Outlined.Layers
-    "visibility" -> Icons.Outlined.Visibility
-    "add_box" -> Icons.Outlined.AddBox
-    "control_point_duplicate" -> Icons.Outlined.ControlPointDuplicate
-    "exposure_plus_1" -> Icons.Outlined.ExposurePlus1
-    "switch_account" -> Icons.Outlined.SwitchAccount
-    "layers_clear" -> Icons.Outlined.LayersClear
-    "casino" -> Icons.Outlined.Casino
-    "outlined_flag" -> Icons.Outlined.OutlinedFlag
-    "emoji_events" -> Icons.Outlined.EmojiEvents
-    "sticky_note_2" -> Icons.AutoMirrored.Outlined.StickyNote2
-    "delete" -> Icons.Outlined.DeleteOutline
-    "shuffle" -> Icons.Outlined.Shuffle
-    "pageview" -> Icons.Outlined.Pageview
-    "close" -> Icons.Outlined.Close
-    "monetization_on" -> Icons.Outlined.MonetizationOn
-    "settings_backup_restore" -> Icons.Outlined.SettingsBackupRestore
-    "flip_camera_android" -> Icons.Outlined.FlipCameraAndroid
-    "flip" -> Icons.Outlined.Flip
-    "flip_to_front" -> Icons.Outlined.FlipToFront
-    "link" -> Icons.Outlined.Link
-    "link_off" -> Icons.Outlined.LinkOff
-    "remove_circle_outline" -> Icons.Outlined.RemoveCircleOutline
-    "format_ink_highlighter" -> Icons.Outlined.BorderColor
-    "inbox" -> Icons.Outlined.Inbox
-    "swap_horiz" -> Icons.Outlined.SwapHoriz
-    else -> error("Unsupported history icon: $icon")
+/** Null only for [HistoryIcon.SWORDS], drawn from the swords_outlined drawable. */
+internal fun historyIconVector(icon: HistoryIcon): androidx.compose.ui.graphics.vector.ImageVector? = when (icon) {
+    HistoryIcon.FLAG -> Icons.Outlined.Flag
+    HistoryIcon.ROTATE_90_DEGREES_CW -> Icons.Outlined.Rotate90DegreesCw
+    HistoryIcon.FAVORITE -> Icons.Outlined.FavoriteBorder
+    HistoryIcon.OPEN_WITH -> Icons.Outlined.OpenWith
+    HistoryIcon.CHAT_BUBBLE -> Icons.AutoMirrored.Outlined.Chat
+    HistoryIcon.ADS_CLICK -> Icons.Outlined.AdsClick
+    HistoryIcon.DOWNLOAD -> Icons.Outlined.Download
+    HistoryIcon.LAYERS -> Icons.Outlined.Layers
+    HistoryIcon.VISIBILITY -> Icons.Outlined.Visibility
+    HistoryIcon.ADD_BOX -> Icons.Outlined.AddBox
+    HistoryIcon.CONTROL_POINT_DUPLICATE -> Icons.Outlined.ControlPointDuplicate
+    HistoryIcon.EXPOSURE_PLUS_1 -> Icons.Outlined.ExposurePlus1
+    HistoryIcon.SWITCH_ACCOUNT -> Icons.Outlined.SwitchAccount
+    HistoryIcon.LAYERS_CLEAR -> Icons.Outlined.LayersClear
+    HistoryIcon.CASINO -> Icons.Outlined.Casino
+    HistoryIcon.OUTLINED_FLAG -> Icons.Outlined.OutlinedFlag
+    HistoryIcon.EMOJI_EVENTS -> Icons.Outlined.EmojiEvents
+    HistoryIcon.STICKY_NOTE_2 -> Icons.AutoMirrored.Outlined.StickyNote2
+    HistoryIcon.DELETE -> Icons.Outlined.DeleteOutline
+    HistoryIcon.SHUFFLE -> Icons.Outlined.Shuffle
+    HistoryIcon.PAGEVIEW -> Icons.Outlined.Pageview
+    HistoryIcon.CLOSE -> Icons.Outlined.Close
+    HistoryIcon.MONETIZATION_ON -> Icons.Outlined.MonetizationOn
+    HistoryIcon.SETTINGS_BACKUP_RESTORE -> Icons.Outlined.SettingsBackupRestore
+    HistoryIcon.FLIP_CAMERA_ANDROID -> Icons.Outlined.FlipCameraAndroid
+    HistoryIcon.FLIP -> Icons.Outlined.Flip
+    HistoryIcon.FLIP_TO_FRONT -> Icons.Outlined.FlipToFront
+    HistoryIcon.LINK -> Icons.Outlined.Link
+    HistoryIcon.LINK_OFF -> Icons.Outlined.LinkOff
+    HistoryIcon.REMOVE_CIRCLE_OUTLINE -> Icons.Outlined.RemoveCircleOutline
+    HistoryIcon.FORMAT_INK_HIGHLIGHTER -> Icons.Outlined.BorderColor
+    HistoryIcon.INBOX -> Icons.Outlined.Inbox
+    HistoryIcon.SWAP_HORIZ -> Icons.Outlined.SwapHoriz
+    HistoryIcon.SWORDS -> null
+    HistoryIcon.UNKNOWN -> Icons.Outlined.FiberManualRecord
 }
-internal fun historyIconGlyph(icon: String): String = when (icon) {
-    "flag" -> "⚑"; "rotate_90_degrees_cw" -> "↻"; "favorite" -> "♥"; "open_with" -> "↔";
-    "chat_bubble" -> "▤"; "ads_click" -> "◎"; "download" -> "⇩"; "layers" -> "▱";
-    "visibility" -> "◉"; "add_box" -> "⊞"; "control_point_duplicate" -> "⊕"; "swords" -> "⚔";
-    "exposure_plus_1" -> "+1"; "switch_account" -> "⇄"; "layers_clear" -> "⊠"; "casino" -> "⚄";
-    "outlined_flag" -> "⚐"; "emoji_events" -> "♜"; "sticky_note_2" -> "▧"; "delete" -> "×";
-    "shuffle" -> "⤨"; "pageview" -> "▣"; "close" -> "✕"; "monetization_on" -> "◉";
-    "settings_backup_restore" -> "↺"; "flip_camera_android" -> "▣"; "flip" -> "▧"; "flip_to_front" -> "▤";
-    "link" -> "∞"; "link_off" -> "∦"; "remove_circle_outline" -> "⊖"; "format_ink_highlighter" -> "▰";
-    "inbox" -> "⊔"; "swap_horiz" -> "⇄";
-    else -> error("Unsupported history icon: $icon")
+internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
+    HistoryIcon.FLAG -> "⚑"; HistoryIcon.ROTATE_90_DEGREES_CW -> "↻"; HistoryIcon.FAVORITE -> "♥"; HistoryIcon.OPEN_WITH -> "↔"
+    HistoryIcon.CHAT_BUBBLE -> "▤"; HistoryIcon.ADS_CLICK -> "◎"; HistoryIcon.DOWNLOAD -> "⇩"; HistoryIcon.LAYERS -> "▱"
+    HistoryIcon.VISIBILITY -> "◉"; HistoryIcon.ADD_BOX -> "⊞"; HistoryIcon.CONTROL_POINT_DUPLICATE -> "⊕"; HistoryIcon.SWORDS -> "⚔"
+    HistoryIcon.EXPOSURE_PLUS_1 -> "+1"; HistoryIcon.SWITCH_ACCOUNT -> "⇄"; HistoryIcon.LAYERS_CLEAR -> "⊠"; HistoryIcon.CASINO -> "⚄"
+    HistoryIcon.OUTLINED_FLAG -> "⚐"; HistoryIcon.EMOJI_EVENTS -> "♜"; HistoryIcon.STICKY_NOTE_2 -> "▧"; HistoryIcon.DELETE -> "×"
+    HistoryIcon.SHUFFLE -> "⤨"; HistoryIcon.PAGEVIEW -> "▣"; HistoryIcon.CLOSE -> "✕"; HistoryIcon.MONETIZATION_ON -> "◉"
+    HistoryIcon.SETTINGS_BACKUP_RESTORE -> "↺"; HistoryIcon.FLIP_CAMERA_ANDROID -> "▣"; HistoryIcon.FLIP -> "▧"
+    HistoryIcon.FLIP_TO_FRONT -> "▤"; HistoryIcon.LINK -> "∞"; HistoryIcon.LINK_OFF -> "∦"; HistoryIcon.REMOVE_CIRCLE_OUTLINE -> "⊖"
+    HistoryIcon.FORMAT_INK_HIGHLIGHTER -> "▰"; HistoryIcon.INBOX -> "⊔"; HistoryIcon.SWAP_HORIZ -> "⇄"; HistoryIcon.UNKNOWN -> "•"
 }
 
 @Composable

@@ -12,7 +12,7 @@ class HistoryGroupingTest {
         HistoryCategory.H -> HistorySignificance.SHUFFLE; HistoryCategory.F -> HistorySignificance.COMBAT_CLOSURE
         HistoryCategory.R -> HistorySignificance.DIE_COIN_RUN; HistoryCategory.P -> HistorySignificance.PING
         HistoryCategory.B, HistoryCategory.O -> HistorySignificance.EVENT_COMMENT; HistoryCategory.S -> HistorySignificance.ENDING_SUGGESTION
-    }, "literal-$category", if (category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
+    }, HistoryIcon.FLAG, if (category in setOf(HistoryCategory.M, HistoryCategory.H)) key else null)
     private fun append(group: GameplayGroup?, category: HistoryCategory, n: Int, author: String = id(1000), key: String = "a") =
         HistoryGrouping.append(group, id(n), id(n + 100), author, semantic(category, key))
 
@@ -81,11 +81,11 @@ class HistoryGroupingTest {
         fun check(kinds: List<HistorySignificance>, icons: List<String>, expected: List<Int>) {
             var representative: HistoryRepresentative? = null
             kinds.forEachIndexed { index, kind ->
-                val event = HistoryRepresentative(id(index + 1), HistorySemantic(kind, icons[index],
+                val event = HistoryRepresentative(id(index + 1), HistorySemantic(kind, HistoryIcon.fromWire(icons[index]),
                     if (kind.category in setOf(HistoryCategory.M, HistoryCategory.H)) "a" else null))
                 representative = HistoryGrouping.choose(representative, event)
                 assertEquals(id(expected[index]), representative!!.nodeId)
-                assertEquals(icons[expected[index] - 1], representative!!.semantic.icon)
+                assertEquals(icons[expected[index] - 1], representative!!.semantic.icon.wire)
             }
         }
         check(listOf(HistorySignificance.ORIENTATION, HistorySignificance.ORIENTATION, HistorySignificance.STACK_ENTRY,
@@ -111,7 +111,7 @@ class HistoryGroupingTest {
 
     @Test fun mergedManualTokenCombatAndStackCatalogMapping() {
         fun expect(kind: HistorySignificance, icon: String, vararg actions: PlayAction) {
-            for (action in actions) assertEquals(HistorySemantic(kind, icon), HistoryGrouping.classify(action), "$action")
+            for (action in actions) assertEquals(HistorySemantic(kind, HistoryIcon.fromWire(icon)), HistoryGrouping.classify(action), "$action")
         }
         expect(HistorySignificance.CARD_CORNER_COUNTER_EDIT, "exposure_plus_1",
             PlayAction.SetCorner(id(1), "3/4"), PlayAction.AdjustCorner(id(1), CornerPart.LEFT, 1),
@@ -165,7 +165,7 @@ class HistoryGroupingTest {
             }
             assertEquals(significance.category, semantic.category, "$from -> $to")
             assertEquals(significance, semantic.significance, "$from -> $to")
-            assertEquals(if (significance.category == HistoryCategory.I) "layers" else "open_with", semantic.icon, "$from -> $to")
+            assertEquals(if (significance.category == HistoryCategory.I) "layers" else "open_with", semantic.icon.wire, "$from -> $to")
             assertEquals(if (significance.category == HistoryCategory.M)
                 "${containers.single { it.zone == from }.id}/${containers.single { it.zone == to }.id}" else null,
                 semantic.key, "$from -> $to")
@@ -176,17 +176,17 @@ class HistoryGroupingTest {
         assertEquals(listOf(HistoryCategory.T, HistoryCategory.E, HistoryCategory.E, HistoryCategory.B, HistoryCategory.P, HistoryCategory.P),
             actions.map { HistoryGrouping.classify(it).category })
         val merged = listOf(
-            PlayAction.SetPlayerCounter(id(10), CounterColor.RED, "1") to HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "exposure_plus_1"),
-            PlayAction.AdjustPlayerCounter(id(10), CounterColor.RED, "1") to HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, "exposure_plus_1"),
-            PlayAction.NextStep to HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, "outlined_flag"),
-            PlayAction.EndTurn to HistorySemantic(HistorySignificance.TURN_TRANSITION, "outlined_flag"),
-            PlayAction.ChooseStep(TurnPosition.DRAW) to HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, "outlined_flag"),
-            PlayAction.RollDie(6, 3) to HistorySemantic(HistorySignificance.DIE_COIN_RUN, "casino"),
-            PlayAction.FlipCoin(CoinFace.HEADS) to HistorySemantic(HistorySignificance.DIE_COIN_RUN, "monetization_on"),
-            PlayAction.ShuffleLibrary(id(10), RandomV1.encodeSeed(ByteArray(32))) to HistorySemantic(HistorySignificance.SHUFFLE, "shuffle", id(10)),
-            PlayAction.ShowContents(id(10), ContentsSelection.TOP) to HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "pageview"),
-            PlayAction.ShowContents(id(10), ContentsSelection.BOTTOM, reveal = true) to HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, "visibility"),
-            PlayAction.DismissContents(id(10)) to HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, "close"))
+            PlayAction.SetPlayerCounter(id(10), CounterColor.RED, "1") to HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1),
+            PlayAction.AdjustPlayerCounter(id(10), CounterColor.RED, "1") to HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1),
+            PlayAction.NextStep to HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG),
+            PlayAction.EndTurn to HistorySemantic(HistorySignificance.TURN_TRANSITION, HistoryIcon.OUTLINED_FLAG),
+            PlayAction.ChooseStep(TurnPosition.DRAW) to HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG),
+            PlayAction.RollDie(6, 3) to HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.CASINO),
+            PlayAction.FlipCoin(CoinFace.HEADS) to HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.MONETIZATION_ON),
+            PlayAction.ShuffleLibrary(id(10), RandomV1.encodeSeed(ByteArray(32))) to HistorySemantic(HistorySignificance.SHUFFLE, HistoryIcon.SHUFFLE, id(10)),
+            PlayAction.ShowContents(id(10), ContentsSelection.TOP) to HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.PAGEVIEW),
+            PlayAction.ShowContents(id(10), ContentsSelection.BOTTOM, reveal = true) to HistorySemantic(HistorySignificance.EXPLICIT_DISCLOSURE, HistoryIcon.VISIBILITY),
+            PlayAction.DismissContents(id(10)) to HistorySemantic(HistorySignificance.VIEW_REVEAL_DISMISSAL, HistoryIcon.CLOSE))
         for ((action, expected) in merged) assertEquals(expected, HistoryGrouping.classify(action))
         val mutation = GameplayMutation(id(1), id(2), id(3), id(4), id(5), null, actions.first(), GameplayTransition())
         assertEquals(CommandIds.uuidV5(id(4), "group/0"), GameplayHistory.append(null, mutation).id)

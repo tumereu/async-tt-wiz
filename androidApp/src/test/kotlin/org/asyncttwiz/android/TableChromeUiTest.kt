@@ -65,7 +65,7 @@ class TableChromeUiTest {
             }
             if (who != turn && who == move) compose.onNodeWithContentDescription("No blocks + next").assertIsDisplayed()
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
-            val output = File("build/outputs/roborazzi/$prefix.png").also { it.parentFile!!.mkdirs() }
+            val output = File("$SCREENSHOTS/$prefix.png").also { it.parentFile!!.mkdirs() }
             compose.onRoot().captureRoboImage(output.path)
             val pixels = ImageIO.read(output)
             val tint = tableBarColor(play.board, who).toArgb()
@@ -100,7 +100,7 @@ class TableChromeUiTest {
                 .assertIsSelected().fetchSemanticsNode().boundsInRoot, "The strip must not jump on mode change")
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
             if (visible) assertEquals(pixels.height - 4f, transport.bottom)
-            val reviewOutput = "build/outputs/roborazzi/$prefix-review.png"
+            val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
             compose.onRoot().captureRoboImage(reviewOutput)
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
@@ -200,12 +200,12 @@ class TableChromeUiTest {
         compose.onNodeWithContentDescription("Open game tree").assertDoesNotExist()
         compose.onNodeWithContentDescription("History options").assertDoesNotExist()
         val output = File("build/outputs/roborazzi/timeline-strip-pressed.png").also { it.parentFile!!.mkdirs() }
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
         val before = ImageIO.read(output)
         compose.mainClock.autoAdvance = false
         compose.onRoot().performTouchInput { down(androidx.compose.ui.geometry.Offset(350f, 24f)) }
         compose.mainClock.advanceTimeBy(300)
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
         val pressed = ImageIO.read(output)
         assertEquals(before.getRGB(350, 24), pressed.getRGB(350, 24))
         assertEquals(before.getRGB(50, 24), pressed.getRGB(50, 24), "Empty strip space has no press feedback")

@@ -197,7 +197,7 @@ class TableStatesScreenshotTest {
         }
         compose.waitForIdle()
         assertTrue(sent.isEmpty())
-        val file = File("build/outputs/roborazzi/gameplay-$kind-${if (landscape) "landscape" else "portrait"}.png")
+        val file = File("$SCREENSHOTS/states-$kind-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)
         if (kind == "stack-preview") {
@@ -287,7 +287,7 @@ class TableStatesScreenshotTest {
         val popup = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
         assertEquals(dialog.windowToken, (popup.layoutParams as android.view.WindowManager.LayoutParams).token,
             "The inspection popup must belong to the manage dialog, not the activity underneath it")
-        val file = File("build/outputs/roborazzi/manage-stack-inspection-portrait.png")
+        val file = File("$SCREENSHOTS/manage-stack-inspection-portrait.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)
         row.performTouchInput { up() }
@@ -324,7 +324,7 @@ class TableStatesScreenshotTest {
         val inspect = compose.onAllNodesWithContentDescription("Your Stack entry").onFirst().fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single { it.label == "Inspect" }
         compose.runOnIdle { assertTrue(inspect.action()) }
-        captureScreenRoboImage("build/outputs/roborazzi/ring-stack-inspection.png")
+        captureScreenRoboImage("$SCREENSHOTS/ring-stack-inspection.png")
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
         compose.onNode(hasText("Return target permanent to its owner's hand.") and
             hasAnyAncestor(hasContentDescription("Card inspection content"))).performScrollTo().assertIsDisplayed()

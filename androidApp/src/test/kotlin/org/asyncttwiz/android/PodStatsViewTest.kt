@@ -92,7 +92,7 @@ class PodStatsViewTest {
         val mana = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
         assertTrue(legend.bottom <= types.top && types.bottom <= mana.top)
         assertTrue(types.bottom - types.top < 80.dp, "Nine types wrap into at most a few rows: ${types.bottom - types.top}")
-        val output = java.io.File("build/outputs/roborazzi/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
+        val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
         compose.onRoot().captureRoboImage(output.path)
     }
 

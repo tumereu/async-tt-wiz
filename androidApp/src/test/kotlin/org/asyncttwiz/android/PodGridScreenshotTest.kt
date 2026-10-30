@@ -103,9 +103,9 @@ class PodGridScreenshotTest {
     @Test fun selectedRowAndColumnWithPickedAndDiscardedCards() {
         var generation by mutableIntStateOf(0)
         installArtwork(service)
-        compose.setContent { ScreenTheme {
+        compose.setContent { ScreenTheme { NoRipples {
             key(generation) { PodGridView(view(), 18, definitions, listOf(alice, bob, carol), false, { _, _, _ -> }) }
-        } }
+        } } }
         // Seed decoded artwork at each slot's exact decode box, then remount so every card loads it at once.
         val boards = mapOf("grid-0-stage0" to cards, "grid-0" to refills + cards.drop(3), "done" to cards)
         for ((grid, copies) in boards) copies.forEachIndexed { index, copy ->
@@ -120,7 +120,7 @@ class PodGridScreenshotTest {
             compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Image)).fetchSemanticsNodes().size == 27
         }
         compose.mainClock.advanceTimeBy(500)
-        val directory = File("build/outputs/roborazzi").also { it.mkdirs() }
+        val directory = File("$SCREENSHOTS").also { it.mkdirs() }
         compose.waitForIdle()
         val rootFile = File(directory, "pod-grid-none.png")
         compose.onRoot().captureRoboImage(rootFile.path)

@@ -57,7 +57,7 @@ class MoveIconsScreenshotTest {
                 }
             }
         }
-        val output = File("build/outputs/roborazzi/history/move-icons.png")
+        val output = File("$SCREENSHOTS/history/move-icons.png")
         output.parentFile!!.mkdirs()
         compose.onNodeWithTag("capture").captureRoboImage(output.path)
         val image = ImageIO.read(output)

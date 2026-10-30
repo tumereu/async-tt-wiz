@@ -130,7 +130,7 @@ class LogoScreenshotTest {
     }
 
     private fun capture(name: String, side: Int? = null) {
-        val output = File("build/outputs/roborazzi/logo/$name.png")
+        val output = File("$SCREENSHOTS/logo/$name.png")
         output.parentFile!!.mkdirs()
         compose.onNodeWithTag("capture").captureRoboImage(output.path)
         val image = ImageIO.read(output)

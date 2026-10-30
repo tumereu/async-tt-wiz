@@ -261,7 +261,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             }
         }
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
-        val output = File("build/outputs/roborazzi/non-gameplay/$screen-${if (landscape) "landscape" else "portrait"}.png")
+        val output = File("$SCREENSHOTS/non-gameplay/$screen-${if (landscape) "landscape" else "portrait"}.png")
         output.parentFile!!.mkdirs()
         captureScreenRoboImage(output.path)
         val image = ImageIO.read(output)

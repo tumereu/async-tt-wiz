@@ -49,7 +49,7 @@ class AttentionHeaderTest {
                 .assert(hasText("Your turn")).assert(hasText(" · 1"))
             val pill = compose.onNodeWithContentDescription("Your move")
             pill.assertIsDisplayed().assertIsEnabled()
-            val liveImage = File("build/outputs/roborazzi/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }
+            val liveImage = File("$SCREENSHOTS/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }
             compose.onRoot().captureRoboImage(liveImage.path)
             val livePixels = ImageIO.read(liveImage)
             assertNotEquals(OwnTableColor.toArgb(), livePixels.getRGB(3, livePixels.height / 2), "No move frame in play")
@@ -65,7 +65,7 @@ class AttentionHeaderTest {
             pill.performTouchInput { click() }
             compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent); sent.clear() }
             compose.runOnIdle { reviewing.value = true }
-            val reviewImage = File("build/outputs/roborazzi/move-frame-review-$wide.png")
+            val reviewImage = File("$SCREENSHOTS/move-frame-review-$wide.png")
             compose.onRoot().captureRoboImage(reviewImage.path)
             val reviewPixels = ImageIO.read(reviewImage)
             assertNotEquals(OwnTableColor.toArgb(), reviewPixels.getRGB(3, reviewPixels.height / 2), "No move frame in review")

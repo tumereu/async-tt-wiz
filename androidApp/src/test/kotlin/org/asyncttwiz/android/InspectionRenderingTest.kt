@@ -60,7 +60,7 @@ class InspectionRenderingTest {
             compose.runOnIdle { selected.value = index }
             compose.waitForIdle()
             val image = java.io.File.createTempFile("inspection-", ".png")
-            try { captureScreenRoboImage(image.absolutePath) } finally { image.delete() }
+            try { captureScreenRoboImage(image.absolutePath, ScratchCapture) } finally { image.delete() }
             if (index == 3) compose.onNodeWithText("Covered card").assertIsDisplayed()
             else {
                 compose.onNodeWithContentDescription("Card artwork viewport").assertExists()

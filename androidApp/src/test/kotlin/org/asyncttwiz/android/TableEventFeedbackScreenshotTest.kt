@@ -51,7 +51,7 @@ class TableEventFeedbackScreenshotTest {
         compose.onNodeWithText("d20 → 14").assertIsDisplayed()
         compose.onNodeWithText("d6 → 2").assertIsDisplayed()
         compose.onNodeWithText("Heads / win").assertIsDisplayed()
-        val file = File("build/outputs/roborazzi/table-rolls-both-players.png")
+        val file = File("$SCREENSHOTS/table-rolls-both-players.png")
         requireNotNull(file.parentFile).mkdirs()
         compose.onRoot().captureRoboImage(file.path)
         val image = ImageIO.read(file)
@@ -77,7 +77,7 @@ class TableEventFeedbackScreenshotTest {
         }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.mainClock.advanceTimeBy(10_000); compose.waitForIdle()
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/table-roll-stopped.png")
+        compose.onRoot().captureRoboImage("$SCREENSHOTS/table-roll-stopped.png")
         compose.onNodeWithText("d20 → 14").assertIsDisplayed()
         compose.runOnIdle { feedback.present(play, true, emptyMap()) }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
@@ -102,7 +102,7 @@ class TableEventFeedbackScreenshotTest {
         } }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         fun capture(name: String): java.awt.image.BufferedImage {
-            val file = File("build/outputs/roborazzi/$name.png")
+            val file = File("$SCREENSHOTS/$name.png")
             requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
             return ImageIO.read(file)
         }

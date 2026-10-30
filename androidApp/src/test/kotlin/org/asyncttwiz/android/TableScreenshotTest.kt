@@ -75,7 +75,7 @@ class TableScreenshotTest {
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
         }
-        val output = File("build/outputs/roborazzi/$name.png")
+        val output = File("$SCREENSHOTS/$name.png")
         requireNotNull(output.parentFile).mkdirs()
         if (controls) {
             compose.onNodeWithContentDescription("Table actions").performClick()
@@ -117,7 +117,7 @@ class TableScreenshotTest {
         }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Dismiss message").assertIsDisplayed()
-        val output = File("build/outputs/roborazzi/table-floating-error.png")
+        val output = File("$SCREENSHOTS/table-floating-error.png")
         requireNotNull(output.parentFile).mkdirs()
         compose.onRoot().captureRoboImage(output.path)
         val image = ImageIO.read(output)
@@ -249,7 +249,7 @@ class TableScreenshotTest {
             compose.mainClock.advanceTimeByFrame()
         }
         compose.waitForIdle()
-        val output = File("build/outputs/roborazzi/gameplay-$kind-${if (landscape) "landscape" else "portrait"}.png")
+        val output = File("$SCREENSHOTS/gameplay-$kind${if (turn != null) "-custom-turn" else ""}-${if (landscape) "landscape" else "portrait"}.png")
         requireNotNull(output.parentFile).mkdirs()
         captureScreenRoboImage(output.path)
         val image = ImageIO.read(output)

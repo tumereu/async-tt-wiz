@@ -85,7 +85,7 @@ class SettingsScreenTest {
         val source = FakeSettings()
         compose.setContent { ScreenTheme { SettingsContent(catalog, "shots", {}, fixtures.auth, source) } }
         compose.waitForIdle()
-        val directory = File("build/outputs/roborazzi/settings").also { it.mkdirs() }
+        val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
         captureScreenRoboImage(File(directory, "$name-top.png").path)
         for (tag in listOf("cards-settings", "playback-settings", "catalog-controls", "logout")) {
             compose.onNodeWithTag(tag).performScrollTo()

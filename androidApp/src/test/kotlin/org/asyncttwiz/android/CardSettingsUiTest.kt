@@ -79,7 +79,7 @@ class CardSettingsUiTest {
             compose.mainClock.advanceTimeBy(1000)
             compose.waitForIdle()
             val name = if (annotations) "card-annotations" else "card-sizes"
-            val file = File("build/outputs/roborazzi/$name-${if (landscape) "landscape" else "portrait"}-$scale-$zoom.png")
+            val file = File("$SCREENSHOTS/$name-${if (landscape) "landscape" else "portrait"}-$scale-$zoom.png")
             file.parentFile!!.mkdirs()
             captureScreenRoboImage(file.path)
             if (!annotations && scale == 3f && zoom == 1f) {

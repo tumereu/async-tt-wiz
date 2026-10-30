@@ -43,7 +43,7 @@ class CardRingScreenshotTest {
         var actualAnchor: TableBounds? = null
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, font)) {
-                MaterialTheme {
+                MaterialTheme { NoRipples {
                     BoxWithConstraints(Modifier.fillMaxSize()) {
                         TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize())
                         val card = if (position == 2) f.source(f.b, "2/3") else f.source(f.a, "1/3")
@@ -58,7 +58,7 @@ class CardRingScreenshotTest {
                             TableToolkitScreen(toolkit, play, f.game, landscape, TableSelection(), {})
                         }
                     }
-                }
+                } }
             }
         }
         for (at in 0..2) {
@@ -100,7 +100,7 @@ class CardRingScreenshotTest {
                     assertTrue(b.width >= (if (edge) 23.9f else 47.9f) && b.height >= 47.9f, "Widget target: ${button.config} $b")
                     assertNull(TableBounds(b.left, b.top, b.width, b.height).intersection(card), "Cell covers card: $b $card")
                 }
-                val file = File("build/outputs/roborazzi/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")
+                val file = File("$SCREENSHOTS/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")
                 file.parentFile!!.mkdirs()
                 captureScreenRoboImage(file.path)
                 if (page < 2) compose.ringPage(page + 2)
@@ -140,7 +140,7 @@ class CardRingScreenshotTest {
             val bounds = compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertEquals(inspect.left + index % 5 * (inspect.width + 2f), bounds.left, .1f)
         }
-        val file = File("build/outputs/roborazzi/ring-hand-${if (landscape) "landscape" else "portrait"}.png")
+        val file = File("$SCREENSHOTS/ring-hand-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)
     }

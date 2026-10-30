@@ -34,7 +34,7 @@ class PanelRevisionUiTest {
         compose.setContent { MaterialTheme { TableSurface(f.game, f.play, f.actor, landscape,
             connected = true, toolkit = ui, onIntent = ui::handle) } }
         compose.waitForIdle()
-        val file = File("build/outputs/roborazzi/r13-panels-${if (landscape) "landscape" else "portrait"}-${if (reveal) "reveal" else selection.name}.png")
+        val file = File("$SCREENSHOTS/r13-panels-${if (landscape) "landscape" else "portrait"}-${if (reveal) "reveal" else selection.name}${if (zone == PlayZone.GRAVEYARD) "" else "-${zone.name}"}.png")
         file.parentFile!!.mkdirs()
         compose.onRoot().captureRoboImage(file.path)
         val count = f.commands().size
@@ -65,13 +65,13 @@ class PanelRevisionUiTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Put to exile").assertIsDisplayed()
         val orientation = if (landscape) "landscape" else "portrait"
-        val output = File("build/outputs/roborazzi/r13-stack-$orientation.png")
+        val output = File("$SCREENSHOTS/r13-stack-$orientation.png")
         output.parentFile!!.mkdirs()
         compose.onRoot().captureRoboImage(output.path)
         compose.runOnIdle { ui.showStackBubbles(null); ui.manual.player(f.play, f.actor) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/r13-values-$orientation.png")
+        compose.onRoot().captureRoboImage("$SCREENSHOTS/r13-values-$orientation.png")
     }
 
     @Test fun stackAndValuesPortrait() = stackAndValues(false)

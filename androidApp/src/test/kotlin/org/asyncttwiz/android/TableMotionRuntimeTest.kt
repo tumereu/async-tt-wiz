@@ -197,7 +197,7 @@ class TableMotionRuntimeTest {
             val node = compose.onNodeWithContentDescription(item.label)
             val during = node.fetchSemanticsNode().boundsInRoot
             assertTrue(during.width > 40f, "Mid-rotation AABB must include the whole diagonal face: $during")
-            val image = File("build/outputs/roborazzi/selection-rotation-$tapped.png").also { it.parentFile!!.mkdirs() }
+            val image = File("$SCREENSHOTS/selection-rotation-$tapped.png").also { it.parentFile!!.mkdirs() }
             compose.onRoot().captureRoboImage(image.path)
             val pixels = ImageIO.read(image)
             val blue = 0xff397ccc.toInt()

@@ -51,7 +51,7 @@ class TableLayoutScreenshotTest {
         }
         compose.waitForIdle()
         val counterSuffix = counterOwners.singleOrNull()?.let { "-counters-$it" }.orEmpty()
-        val output = File("build/outputs/roborazzi/layout-${if (populated) "populated" else "empty"}-${if (landscape) "landscape" else "portrait"}$counterSuffix.png")
+        val output = File("$SCREENSHOTS/layout-${if (populated) "populated" else "empty"}-${if (landscape) "landscape" else "portrait"}$counterSuffix.png")
         output.parentFile!!.mkdirs()
         compose.onRoot().captureRoboImage(output.path)
         val image = ImageIO.read(output)

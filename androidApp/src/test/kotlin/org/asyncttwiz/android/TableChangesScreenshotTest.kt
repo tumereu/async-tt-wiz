@@ -38,7 +38,7 @@ class TableChangesScreenshotTest {
     @get:Rule val compose = createComposeRule()
 
     private fun capture(name: String): java.awt.image.BufferedImage {
-        val file = File("build/outputs/roborazzi/$name.png")
+        val file = File("$SCREENSHOTS/$name.png")
         requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
         return ImageIO.read(file)
     }
@@ -252,7 +252,7 @@ class TableChangesScreenshotTest {
         } }
         compose.waitForIdle()
         fun capture(name: String): java.awt.image.BufferedImage {
-            val file = File("build/outputs/roborazzi/$name.png")
+            val file = File("$SCREENSHOTS/$name.png")
             requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
             return ImageIO.read(file)
         }

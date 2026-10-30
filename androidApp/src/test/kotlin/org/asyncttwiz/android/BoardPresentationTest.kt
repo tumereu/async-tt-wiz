@@ -60,7 +60,7 @@ class BoardPresentationTest {
         assertEquals("Shield until end of turn", graveyard.note)
         assertEquals("Forest", graveyard.faceTitle)
 
-        val output = File("build/outputs/roborazzi/board-notes-stack-${zoom.toInt()}x.png")
+        val output = File("$SCREENSHOTS/board-notes-stack-${zoom.toInt()}x.png")
         output.parentFile.mkdirs()
         compose.onRoot().captureRoboImage(output.path)
         val image = ImageIO.read(output)

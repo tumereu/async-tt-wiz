@@ -63,7 +63,7 @@ class TableControlsInteractionTest {
         fun pixel(): Int {
             val output = File("build/outputs/roborazzi/undo-press.png")
             requireNotNull(output.parentFile).mkdirs()
-            button.captureRoboImage(output.path)
+            button.captureRoboImage(output.path, ScratchCapture)
             return ImageIO.read(output).getRGB(2, 2) and 0xff
         }
         val idle = pixel()

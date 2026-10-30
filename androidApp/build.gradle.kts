@@ -310,6 +310,10 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
-    systemProperty("roborazzi.test.record", "true")
+    // Screenshots compare against the committed images in src/test/screenshots; -Pscreenshots=record rewrites them.
+    val recordScreenshots = providers.gradleProperty("screenshots").orNull == "record"
+    systemProperty(if (recordScreenshots) "roborazzi.test.record" else "roborazzi.test.verify", "true")
+    inputs.property("screenshotMode", recordScreenshots)
+    inputs.dir("src/test/screenshots").withPathSensitivity(PathSensitivity.RELATIVE).optional()
     systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
 }

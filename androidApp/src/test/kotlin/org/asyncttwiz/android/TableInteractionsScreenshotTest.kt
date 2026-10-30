@@ -43,7 +43,7 @@ class TableInteractionsScreenshotTest {
 
     @OptIn(ExperimentalRoborazziApi::class)
     private fun capture(name: String) {
-        val file = File("build/outputs/roborazzi/interactions-$name.png")
+        val file = File("$SCREENSHOTS/interactions-$name.png")
         file.parentFile!!.mkdirs()
         captureScreenRoboImage(file.path)
     }

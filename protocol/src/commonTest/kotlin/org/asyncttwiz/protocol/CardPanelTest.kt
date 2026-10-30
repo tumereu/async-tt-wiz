@@ -43,6 +43,28 @@ class CardPanelTest {
         assertNull(undo.tree)
         assertEquals("replayBlocked", undo.reason)
     }
+    @Test fun graveyardAndExileSearchesShowFaceUpCardsToTheOpponentButLibrarySearchesStayHidden() {
+        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
+            val pile = if (zone == PlayZone.GRAVEYARD) id(12) else id(13)
+            val initial = root()
+            // Two library cards into the pile (one of them face down there), then the owner searches it.
+            val moved = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
+                when (it.id) { id(20) -> it.copy(containerId = pile, covered = false)
+                    id(21) -> it.copy(containerId = pile, covered = true, explicitlyCovered = true); else -> it }
+            }, containers = initial.board.containers.map { when (it.id) {
+                id(10) -> it.copy(cards = it.cards - id(20) - id(21)); pile -> it.copy(cards = listOf(id(20), id(21))); else -> it } }))
+            val opened = step(moved, PlayAction.ShowContents(pile, ContentsSelection.ALL, 2))
+            val display = opened.board.contentsDisplays.single()
+            assertFalse(display.faceVisibleTo(id(20), b)) // No extra grant: nothing new is disclosed.
+            assertTrue(display.faceShownTo(opened.board, id(20), b), "$zone")
+            assertFalse(display.faceShownTo(opened.board, id(21), b), "$zone face down")
+            assertTrue(display.faceShownTo(opened.board, id(21), a))
+        }
+        val library = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.ALL, 5))
+        val search = library.board.contentsDisplays.single()
+        assertTrue(search.cardIds.none { search.faceShownTo(library.board, it, b) })
+        assertTrue(search.cardIds.all { search.faceShownTo(library.board, it, a) })
+    }
     @Test fun privatePanelRevealsOneCardThenMovesInASeparateGroupAndKnowledgeExpires() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()

@@ -165,7 +165,8 @@ internal class LibraryQuantityStore(context: Context, account: String) {
 }
 
 internal fun libraryDestinations(board: BoardState, names: Map<String, String> = emptyMap(),
-    sourceIds: List<String> = emptyList(), sourceContainerId: String? = null): List<Pair<String, MoveDestination>> {
+    sourceIds: List<String> = emptyList(), sourceContainerId: String? = null,
+    definitions: List<SubmittedDefinition> = emptyList()): List<Pair<String, MoveDestination>> {
     val owner = sourceIds.firstOrNull()?.let { CombatStackRules.liveSource(board, it)?.owner }
         ?: board.containers.singleOrNull { it.id == sourceContainerId }?.accountId ?: return emptyList()
     return board.containers.filter { (it.accountId == owner || it.zone == PlayZone.STACK) && !it.temp }.flatMap { container ->
@@ -177,8 +178,10 @@ internal fun libraryDestinations(board: BoardState, names: Map<String, String> =
             PlayZone.STACK -> if (sourceIds.isNotEmpty() && sourceIds.all { id -> board.cards.singleOrNull { it.id == id }?.let {
                     CombatStackRules.canProject(board, it) } == true }) listOf(label to MoveDestination(container.id, MoveInsertion.TOP)) else emptyList()
             PlayZone.BATTLEFIELD -> {
-                val column = board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position?.x }.maxOrNull()?.plus(1) ?: 0
-                listOf(label to MoveDestination(container.id, MoveInsertion.EMPTY, BoardPosition(column, 0)))
+                // The first source card's normal row (unknown: the main row); batches re-plan each card's own cell.
+                val row = sourceIds.firstOrNull()?.let { id -> board.cards.singleOrNull { it.id == id } }
+                    ?.let { BattlefieldPlacement.row(definitions, it) } ?: 1
+                listOf(label to MoveDestination(container.id, MoveInsertion.EMPTY, BattlefieldPlacement.firstFree(board, container.id, row)))
             }
         }
     }

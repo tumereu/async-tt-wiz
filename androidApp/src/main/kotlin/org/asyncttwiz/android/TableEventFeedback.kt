@@ -21,10 +21,15 @@ internal fun tablePlaybackChanges(from: String, to: String, index: HistoryTree):
     return TableChangeBatch(jump = true)
 }
 
+/** The coin result everywhere it is shown: which face, and what it means for the flipper. */
+internal fun coinResultText(face: CoinFace) = when (face) {
+    CoinFace.HEADS -> "Heads / win"
+    CoinFace.TAILS -> "Tails / loss"
+}
+
 internal fun tableRandomResult(node: GameplayMutation): TableRandomResult? = when (val action = node.action) {
     is PlayAction.RollDie -> TableRandomResult(node.id, node.author, RandomTool.DIE, "d${action.sides} → ${action.value}")
-    is PlayAction.FlipCoin -> TableRandomResult(node.id, node.author, RandomTool.COIN,
-        action.value.name.lowercase().replaceFirstChar { it.uppercase() })
+    is PlayAction.FlipCoin -> TableRandomResult(node.id, node.author, RandomTool.COIN, coinResultText(action.value))
     else -> null
 }
 

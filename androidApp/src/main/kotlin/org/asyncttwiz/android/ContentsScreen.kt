@@ -51,7 +51,7 @@ fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search
 /** Permission-aware presentation: backs contain no definition-derived names, types or search matches. */
 fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, search: String = ""): List<ContentsEntry> {
     val entries = display.cardIds.mapIndexed { index, id ->
-        val visible = display.faceVisibleTo(id, viewer)
+        val visible = display.faceShownTo(state.board, id, viewer)
         val card = state.board.cards.singleOrNull { it.id == id }
         val face = if (visible) state.definitions.singleOrNull { it.digest == card?.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card?.faceId } else null

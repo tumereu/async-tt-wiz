@@ -20,14 +20,16 @@ internal object CardRingPages {
     /** Battlefield, Stack, token and face-down cards. */
     val card = listOf(
         CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
-            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand") + libraryMoves + listOf("damage", "eotCorner", "Battlefield")),
+            "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand") + libraryMoves + listOf("eotCorner", "Battlefield")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.chunked(2).flatMapIndexed { row, colors ->
             colors.map { "counter/${it.name}" } + listOf("note", "eotNote", "resetCounters")[row]
         }),
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1",
-            "keywords", "eotKeywords") + tempPiles + listOf("Deal to target", "Deal to target or creatures")))
+            "keywords", "eotKeywords") + tempPiles + listOf("Deal to target", "Deal to target or creatures",
+            // Round 34: rarely needed, so last on More rather than on Everyday.
+            "damage")))
     /** Attacker/blocker copies in the combat area: combat-only, nothing that modifies the real card. */
     val combat = listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat",
         "Graveyard", "Exile", "Hand", "Deal to target", "Deal to target or creatures", "Link", "Links")))

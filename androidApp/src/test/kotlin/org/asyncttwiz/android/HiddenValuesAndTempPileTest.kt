@@ -95,9 +95,11 @@ class HiddenValuesAndTempPileTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Inspect").assertIsEnabled()
         // Every action stays available (rules v30 policy); the values themselves stay hidden.
+        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
+        compose.ringPage(3) // Damage is on More (round 34).
         compose.onNodeWithContentDescription("Set damage").assertIsEnabled()
         compose.onNodeWithContentDescription("Increase damage").assertIsEnabled()
-        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
+        compose.ringPage(1)
         // The note editor starts empty: a blind edit never shows the stored note.
         toolkit.manual.edit(ManualValue(ManualValueKind.NOTE), play, "a")
         assertEquals("", assertNotNull(toolkit.manual.editor).text)

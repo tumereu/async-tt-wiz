@@ -77,6 +77,19 @@ class LibraryActionsTest {
         assertTrue(contentsEntries(current, display(reveal = true), id(7)).any { it.name == "Zulu" })
     }
 
+    @Test fun opponentSeesAnExileSearchFaceUpButALibrarySearchStaysHidden() {
+        val current = state()
+        val moved = current.copy(board = current.board.copy(
+            cards = current.board.cards.map { if (it.id == id(20)) it.copy(containerId = id(13), covered = false) else it },
+            containers = current.board.containers.map { when (it.id) {
+                id(10) -> it.copy(cards = listOf(id(21))); id(13) -> it.copy(cards = listOf(id(20))); else -> it } }))
+        val exile = ContentsDisplay(id(31), id(7), id(13), ContentsSelection.ALL, 1, false, listOf(id(20)))
+        assertEquals(listOf("Zulu"), contentsEntries(moved, exile, id(8)).map { it.name })
+        assertTrue(contentsEntries(moved, exile, id(8)).single().faceVisible)
+        val library = ContentsDisplay(id(32), id(7), id(10), ContentsSelection.ALL, 1, false, listOf(id(21)))
+        assertEquals(listOf("Card back"), contentsEntries(moved, library, id(8)).map { it.name })
+    }
+
     @Test fun sliceRetainsAcceptedOrderBottomMarkerAndUpdatedLocationWithoutRefill() {
         val current = state()
         val entries = contentsEntries(current, display(ContentsSelection.BOTTOM, reveal = true), id(7))
@@ -87,11 +100,12 @@ class LibraryActionsTest {
     }
 
     @Test fun destinationInventoryHasLibraryOrderBattlefieldAndStackButNoSideboard() {
-        val choices = libraryDestinations(state().board, sourceIds = listOf(id(20))).map { it.second }
+        val choices = libraryDestinations(state().board, sourceIds = listOf(id(20)), definitions = state().definitions).map { it.second }
         assertEquals(listOf(MoveInsertion.TOP, MoveInsertion.BOTTOM, MoveInsertion.UNORDERED,
             MoveInsertion.UNORDERED, MoveInsertion.EMPTY, MoveInsertion.TOP), choices.map { it.insertion })
         assertEquals(setOf(id(10), id(11), id(13), id(14), id(15)), choices.map { it.containerId }.toSet())
-        assertEquals(BoardPosition(0, 0), choices.single { it.containerId == id(14) }.position)
+        // Round 34: a creature's normal row is the main row (1); lands alone go to row 0.
+        assertEquals(BoardPosition(0, 1), choices.single { it.containerId == id(14) }.position)
     }
 
     @Test fun destinationsAreOwnerOnlyAndLabelsNeverNamePlayers() {

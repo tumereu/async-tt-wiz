@@ -515,7 +515,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                                 }
                                 for ((label, destination) in libraryDestinations(play.board, sourceIds = listOf(item.cardId))) {
                                     val zone = play.board.containers.single { it.id == destination.containerId }.zone
-                                    val bound = destination.position?.let { TableDestination.Grid(destination.containerId, it.x, it.y, ownerOnly = true) }
+                                    val bound = destination.position?.let { TableDestination.Grid.auto(destination.containerId) }
                                         ?: TableDestination.Container(destination.containerId, zone, destination.insertion == MoveInsertion.BOTTOM)
                                     commands += CustomAccessibilityAction(label) { coordinator.accessibleMove(item, bound); true }
                                 }

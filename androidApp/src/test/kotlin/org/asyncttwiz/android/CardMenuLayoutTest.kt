@@ -21,14 +21,16 @@ class CardMenuLayoutTest {
         val (everyday, counters, more) = ids(CardMenuLayout.CARD)
         assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
-            "damage", "eotCorner", "Battlefield"), everyday)
-        assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20), CardRingPages.layout(everyday).map { it.cell })
+            "eotCorner", "Battlefield"), everyday)
+        // Row 4: Shuffle into library, the until-end-of-turn corner widget, Battlefield.
+        assertEquals(listOf(0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18), CardRingPages.layout(everyday).map { it.cell })
         assertEquals(listOf("counter/RED", "counter/BLUE", "note", "counter/GREEN", "counter/YELLOW", "eotNote",
             "counter/PURPLE", "counter/GRAY", "resetCounters"), counters)
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "keywords", "eotKeywords",
-            "Temp 1", "Temp 2", "Temp 3", "Temp 4", "Deal to target", "Deal to target or creatures"), more)
+            "Temp 1", "Temp 2", "Temp 3", "Temp 4", "Deal to target", "Deal to target or creatures", "damage"), more)
+        assertEquals(21, CardRingPages.layout(more).last().cell)
         assertEquals(listOf("Counters"), CardRingPages.pages(CardMenuLayout.CARD).filter { "eotNote" in it.actions }.map { it.name })
         val twins = ids(CardMenuLayout.CARD, token = true, attacker = true)[0]
         assertEquals(everyday.map { when (it) { "Declare without tapping" -> "Attack →"; "Hand" -> "Remove token"; else -> it } }, twins)

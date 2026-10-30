@@ -25,7 +25,7 @@ class TableEventFeedbackTest {
         time = 400
         feedback.apply(TableChangeBatch(listOf(TableAppliedEvent(roll("second", author = f.other)),
             TableAppliedEvent(roll("coin", action = PlayAction.FlipCoin(CoinFace.HEADS))))))
-        assertEquals(listOf("d20 → 14", "d20 → 14", "Heads"), feedback.rolls.values.sortedBy { it.serial }.map { it.result.label })
+        assertEquals(listOf("d20 → 14", "d20 → 14", "Heads / win"), feedback.rolls.values.sortedBy { it.serial }.map { it.result.label })
         assertEquals(setOf(f.actor, f.other), feedback.rolls.values.map { it.result.author }.toSet())
         assertEquals(1f, TableEventFeedback.alpha(2_500f))
         assertEquals(.5f, TableEventFeedback.alpha(2_750f))
@@ -47,7 +47,7 @@ class TableEventFeedbackTest {
         val play = state(group(first.id, first.id, second.id))
         feedback.apply(TableChangeBatch(listOf(TableAppliedEvent(first), TableAppliedEvent(second))))
         feedback.present(play, true, nodes)
-        assertEquals(listOf("d20 → 14", "Tails"), feedback.stoppedRolls.map { it.label })
+        assertEquals(listOf("d20 → 14", "Tails / loss"), feedback.stoppedRolls.map { it.label })
         time = 100_000
         feedback.present(play, true, nodes)
         assertTrue(feedback.rolls.isEmpty())

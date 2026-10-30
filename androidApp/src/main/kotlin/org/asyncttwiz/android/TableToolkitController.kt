@@ -493,13 +493,17 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** One ordinary move per card, in [ids] order, into each card's OWNER's [zone], inside the current batch. */
     internal fun moveEachToOwnerZone(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false): Boolean = batchResult {
         var sent = false
+        // Battlefield cells planned earlier in this batch, in case a later read does not show them yet.
+        val taken = mutableSetOf<BoardPosition>()
         for (id in ids.distinct()) {
             val play = current()?.takeIf { enabled() } ?: return@batchResult false
             val card = play.board.cards.singleOrNull { it.id == id } ?: return@batchResult false
             val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
                 play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
                     (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
-            } ?: return@batchResult false
+            }?.let { d -> if (zone != PlayZone.BATTLEFIELD) d
+                else d.copy(position = BattlefieldPlacement.cell(play, d.containerId, card, taken).also { taken += it }) }
+                ?: return@batchResult false
             if (!submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination))) return@batchResult false
             if (tapped && !submit(PlayAction.SetTapped(id, true))) return@batchResult false
             sent = true
@@ -749,12 +753,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         else {
             openCard(TableScope(intent.target.id, listOf(intent.target.id)))
             val play = current() ?: return
-            val owner = CombatStackRules.liveSource(play.board, intent.target.id)?.owner ?: return
+            val card = CombatStackRules.liveSource(play.board, intent.target.id) ?: return
+            val owner = card.owner
             val zone = if (intent.target.kind == StackTargetKind.PERMANENT) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD
             stackChoices = listOfNotNull(play.board.zoneContainer(owner, zone)).map { container ->
-                val occupied = play.board.cards.filter { it.containerId == container.id }.mapNotNull { it.placement?.position }.toSet()
-                val destination = if (zone == PlayZone.BATTLEFIELD) MoveDestination(container.id, MoveInsertion.EMPTY,
-                    BoardPosition(generateSequence(0) { it + 1 }.first { BoardPosition(it, 0) !in occupied }, 0))
+                val destination = if (zone == PlayZone.BATTLEFIELD)
+                    MoveDestination(container.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(play, container.id, card))
                     else MoveDestination(container.id, MoveInsertion.UNORDERED)
                 StackMoveChoice(moveZoneLabel(zone), zone, destination)
             }

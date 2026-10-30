@@ -135,7 +135,9 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         val pileRight = pileTarget?.let { p -> target.cards.firstOrNull { id ->
             id !in ids && state.board.cards.single { it.id == id }.placement == p } }
         val grid = intent.destination as? TableDestination.Grid
-        val positions = if (grid != null) {
+        val positions = if (grid?.auto == true) {
+            BattlefieldPlacement.cells(state, target.id, ids.map { id -> state.board.cards.single { it.id == id } })
+        } else if (grid != null) {
             val context = sources[intent.scope.contextId]?.placement?.position
             ids.mapIndexed { index, id ->
                 val old = sources.getValue(id).placement?.position

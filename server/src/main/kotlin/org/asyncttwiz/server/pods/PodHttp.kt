@@ -16,12 +16,14 @@ import org.asyncttwiz.server.decks.DeckService.Result
 class PodHttp(private val runtime: ServiceRuntime) {
     private val accounts = AccountService(runtime)
     private val pods = PodService(runtime)
+    private val presets = PodPresetService(runtime)
     private val limits = AccountRateLimits()
     private val json = DeckJson.format
 
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
-        if (path != "/v1/pods" && !path.startsWith("/v1/pods/")) return false
+        val preset = path == "/v1/pod-presets" || path.startsWith("/v1/pod-presets/")
+        if (!preset && path != "/v1/pods" && !path.startsWith("/v1/pods/")) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         try {
@@ -33,6 +35,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
             if (!limits.allow("pod-http", principal.account.accountId, 600, 60)) {
                 response.setHeader("Retry-After", "60"); error(response, 429, "try_later"); return true
             }
+            if (preset) { reply(response, presets(principal, request, response) ?: return true); return true }
             val parts = path.removePrefix("/v1/pods").removePrefix("/").split('/')
             val id = parts[0]
             val action = parts.drop(1).joinToString("/")
@@ -90,6 +93,37 @@ class PodHttp(private val runtime: ServiceRuntime) {
         return true
     }
 
+    /** GET/POST /v1/pod-presets, PUT/DELETE /v1/pod-presets/{id}. Null when a response was already written. */
+    private fun presets(principal: AccountService.Principal, request: HttpServletRequest, response: HttpServletResponse): Result? {
+        val id = request.requestURI.removePrefix("/v1/pod-presets").removePrefix("/")
+        val allowed = when {
+            id.isEmpty() && !request.requestURI.endsWith("/") -> "GET, POST"
+            id.isNotEmpty() && '/' !in id -> "PUT, DELETE"
+            else -> { error(response, 404, "not_found"); return null }
+        }
+        if (request.method !in allowed.split(", ")) {
+            response.setHeader("Allow", allowed); error(response, 405, "method_not_allowed"); return null
+        }
+        return when (request.method) {
+            "GET" -> presets.list(principal)
+            "DELETE" -> presets.delete(principal, id)
+            else -> {
+                val text = body(request, response, 65536) ?: return null
+                if (request.method == "POST") presets.save(principal, json.decodeFromString<SavePodPreset>(text))
+                else presets.rename(principal, id, json.decodeFromString<RenamePodPreset>(text))
+            }
+        }
+    }
+    private fun body(request: HttpServletRequest, response: HttpServletResponse, maxBytes: Int): String? {
+        val media = request.contentType.orEmpty().split(';').map(String::trim)
+        if (!media.first().equals("application/json", true) || media.drop(1).any {
+            !it.equals("charset=UTF-8", true) && !it.equals("charset=\"UTF-8\"", true)
+        }) { error(response, 415, "json_required"); return null }
+        val bytes = request.inputStream.readNBytes(maxBytes + 1)
+        if (bytes.size > maxBytes) { error(response, 413, "request_too_large"); return null }
+        return Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
+    }
     private fun error(response: HttpServletResponse, status: Int, code: String) = reply(response, Result(status, json.encodeToString(PodError(code))))
     private fun reply(response: HttpServletResponse, result: Result) {
         response.status = result.status

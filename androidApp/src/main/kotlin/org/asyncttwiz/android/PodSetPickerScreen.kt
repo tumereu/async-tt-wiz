@@ -22,6 +22,7 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
             ScreenIconButton("Manage cubes", "decks", { picker.dismiss(); manageCubes() })
             ScreenIconButton("Close sources", "close", picker::dismiss)
         }
+        controller.state.sourceHint?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         TabRow(tab) {
             listOf("Cubes", "Sets").forEachIndexed { index, title -> Tab(tab == index, { tab = index }, text = { Text(title) }) }
         }

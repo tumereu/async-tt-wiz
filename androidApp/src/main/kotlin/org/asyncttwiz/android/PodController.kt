@@ -29,6 +29,8 @@ data class PodState(
     val pending: Int = 0, val picking: Boolean = false, val uncertain: Boolean = false,
     val error: String? = null, val notice: String? = null,
     val sourcePreview: PodSource? = null,
+    /** Shown in the source picker: why the player is asked to choose a source (a preset's cube is gone). */
+    val sourceHint: String? = null,
     /** Automatic refreshes have kept failing for a while; the shown pod data may be stale. */
     val unreachable: Boolean = false,
 )
@@ -103,17 +105,20 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
         failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
         val source = PodSetSource(upload.snapshot, upload.definitions.definitions)
-        state = state.copy(sourcePreview = null)
+        state = state.copy(sourcePreview = null, sourceHint = null)
         if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, setSource = source))
         else editSetup(setSource = source)
         state = state.copy(notice = upload.warnings.takeIf { it.isNotEmpty() }?.joinToString("\n"))
     }
+    /** Draft table presets for the New pod form and the creator's setup form. */
+    internal val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
 
     fun clear() {
         epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
         quietFailures.succeeded()
         inspection.close()
         setPicker.clear()
+        presets.clear()
         lastCredential = credential()
         writes.clear(); notices.clear(); accepted = null; state = PodState()
         pickMarks.clear(); marksCancel?.invoke(); marksCancel = null
@@ -125,6 +130,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.uncertain) return
         flushSetup()
         setPicker.dismiss()
+        presets.dismiss()
         inspection.close()
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
@@ -142,6 +148,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun showList() {
         flushSetup()
         setPicker.dismiss()
+        presets.dismiss()
         inspection.close()
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
@@ -175,12 +182,57 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     fun reroll() = newName(suggest())
     fun newCube(id: String) {
         setPicker.dismiss()
-        state = state.copy(sourcePreview = null, creating = state.creating?.copy(cubeId = id, setSource = null))
+        state = state.copy(sourcePreview = null, sourceHint = null, creating = state.creating?.copy(cubeId = id, setSource = null))
     }
     fun chooseSet() {
         if (state.creating != null || state.detail?.phase == PodPhase.SETUP) {
-            state = state.copy(sourcePreview = null)
+            state = state.copy(sourcePreview = null, sourceHint = null)
             loadCubes(); setPicker.open()
+        }
+    }
+    /** The open form's preset contents: the New pod form, or the setup form of a pod still in setup. */
+    private fun presetForm(): PodPresetForm? {
+        fun cubeName(id: String?) = state.cubes.firstOrNull { it.id == id }?.name
+        state.creating?.let { draft ->
+            val set = draft.setSource?.snapshot
+            return PodPresetForm(draft.settings, draft.cubeId, set?.setCode, set?.setName, set?.setName ?: cubeName(draft.cubeId))
+        }
+        val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return null
+        val edit = state.setup
+        val settings = edit?.settings ?: detail.settings
+        edit?.setSource?.snapshot?.let { return PodPresetForm(settings, setCode = it.setCode, setName = it.setName, sourceName = it.setName) }
+        edit?.cubeId?.let { return PodPresetForm(settings, cubeId = it, sourceName = cubeName(it)) }
+        val source = detail.source
+        if (source.kind == PodSourceKind.SET) return PodPresetForm(settings, setCode = source.setCode,
+            setName = source.setName ?: source.setCode, sourceName = source.setName ?: source.setCode)
+        // A pod keeps a copy of its cube, not a link: find the player's cube by its name, if exactly one matches.
+        val cube = state.cubes.singleOrNull { it.name == source.cubeName }
+        return PodPresetForm(settings, cubeId = cube?.id, sourceName = cube?.name)
+    }
+    /** Fills the form from [preset]. A set is loaded from the catalog; a deleted cube leaves the source to choose. */
+    internal fun applyPreset(preset: PodPreset) {
+        val settings = preset.settings.copy(librarianDefinition = null)
+        val cube = preset.cubeId?.takeUnless { preset.cubeMissing }
+        val draft = state.creating
+        if (draft != null) {
+            setPicker.dismiss()
+            // A preset saved without a source keeps the source already chosen.
+            val keep = preset.cubeId == null && preset.setCode == null
+            state = state.copy(sourcePreview = null, sourceHint = null, error = null, notice = null,
+                creating = draft.copy(settings = settings, mode = settings.mode, cubeId = if (keep) draft.cubeId else cube,
+                    setSource = if (keep) draft.setSource else null))
+        } else {
+            if (state.detail?.phase != PodPhase.SETUP || state.uncertain) return
+            setPicker.dismiss()
+            state = state.copy(sourcePreview = null, sourceHint = null)
+            editSetup(settings = settings, cubeId = cube)
+        }
+        when {
+            preset.setCode != null -> setPicker.load(preset.setCode!!, preset.setName ?: preset.setCode!!)
+            preset.cubeMissing -> {
+                chooseSet()
+                state = state.copy(sourceHint = "The cube of “${preset.name}” no longer exists. Choose a set or cube.")
+            }
         }
     }
     fun newMode(mode: DraftMode) = newSettings { podModeSettings(mode, it) }
@@ -190,7 +242,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun chooseCube(id: String) {
         if (state.creating != null) newCube(id) else {
-            setPicker.dismiss(); state = state.copy(sourcePreview = null); editSetup(cubeId = id)
+            setPicker.dismiss(); state = state.copy(sourcePreview = null, sourceHint = null); editSetup(cubeId = id)
         }
     }
     fun loadCubes() { cubesPending = true; pump() }

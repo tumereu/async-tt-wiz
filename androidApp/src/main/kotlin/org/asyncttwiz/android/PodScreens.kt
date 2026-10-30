@@ -62,9 +62,15 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
             if (!playScreen) ScreenHeader(if (state.creating != null) "New pod" else state.detail?.name ?: "Pods", navigation) {
                 if (state.selected == null && state.creating == null) {
                     ScreenCreateAction("New pod", "add", { controller.newPod() }, Modifier.testTag("new-pod"))
+                } else if (state.creating != null) {
+                    PodPresetsButton(controller.presets)
                 } else {
-                    state.detail?.let { PodOverflow(controller, it.creator.accountId == accountId, it.phase,
-                        startNow = it.pendingInvitations.isNotEmpty() && podCanStart(it)) }
+                    state.detail?.let {
+                        if (it.phase == PodPhase.SETUP && it.creator.accountId == accountId && !state.choosingMember)
+                            PodPresetsButton(controller.presets, enabled = !state.uncertain)
+                        PodOverflow(controller, it.creator.accountId == accountId, it.phase,
+                            startNow = it.pendingInvitations.isNotEmpty() && podCanStart(it))
+                    }
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -93,6 +99,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         }
         if (pickTab) SnackbarHost(pickMessages, Modifier.align(Alignment.BottomCenter))
     }
+    if (controller.presets.state.open) PodPresetsDialog(controller.presets)
     if (controller.setPicker.state.open) PodSourcePickerDialog(controller, manageCubes)
     if (state.confirmation != null && state.detail != null) {
         val action = state.confirmation

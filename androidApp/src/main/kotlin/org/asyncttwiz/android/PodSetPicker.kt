@@ -78,6 +78,23 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         if (!force) { state = state.copy(open = false); choosing(set) }
     }
 
+    /** Loads [code] straight from the catalog without showing the list (a preset's set); reported like a picked set. */
+    fun load(code: String, name: String) {
+        if (state.busy && state.open) return
+        val current = ++generation
+        retryAction = null
+        state = state.copy(open = false, busy = false, status = null, error = null, warnings = emptyList())
+        choosing(DraftableSet(code, name, "", 0))
+        worker.execute {
+            try {
+                val upload = checkNotNull(repository).load(code)
+                post { if (current == generation) selected(upload) }
+            } catch (_: Exception) {
+                post { if (current == generation) failed() }
+            }
+        }
+    }
+
     private fun <T> work(status: String, retry: () -> Unit, detached: Boolean = false, action: () -> T, apply: (T) -> Unit) {
         if (!state.open || state.busy) return
         val current = generation

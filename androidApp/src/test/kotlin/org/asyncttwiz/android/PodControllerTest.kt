@@ -130,6 +130,34 @@ class PodControllerTest {
             notesFailure?.let { throw PodFailure(it) }
             return PodAcknowledged(id)
         }
+        val presets = mutableListOf<PodPreset>()
+        /** Thrown once by the next preset change. */
+        var presetFailure: String? = null
+        override suspend fun presets(token: String) = PodPresetList(presets.sortedBy { PodPresetValidation.key(it.name) })
+        override suspend fun savePreset(token: String, input: SavePodPreset): PodPreset {
+            calls += "savePreset" to input
+            presetFailure?.let { presetFailure = null; throw PodFailure(it) }
+            val existing = presets.firstOrNull { PodPresetValidation.key(it.name) == PodPresetValidation.key(input.name) }
+            if (existing != null && !input.overwrite) throw PodFailure("preset_exists")
+            val preset = PodPreset(existing?.id ?: UUID.randomUUID().toString(), input.name, input.settings, input.cubeId,
+                if (input.cubeId == cube.id) cube.name else null, input.cubeId != null && input.cubeId != cube.id,
+                input.setCode, input.setName, "2026-10-30T00:00:00Z")
+            presets.removeAll { it.id == preset.id }; presets += preset
+            return preset
+        }
+        override suspend fun renamePreset(token: String, id: String, input: RenamePodPreset): PodPreset {
+            calls += "renamePreset" to input
+            presetFailure?.let { presetFailure = null; throw PodFailure(it) }
+            val preset = presets.firstOrNull { it.id == id }?.copy(name = input.name) ?: throw PodFailure("not_found")
+            presets.replaceAll { if (it.id == id) preset else it }
+            return preset
+        }
+        override suspend fun deletePreset(token: String, id: String): PodPresetDeleted {
+            calls += "deletePreset" to id
+            presetFailure?.let { presetFailure = null; throw PodFailure(it) }
+            if (!presets.removeAll { it.id == id }) throw PodFailure("not_found")
+            return PodPresetDeleted(id)
+        }
         override fun close() = Unit
     }
     @Test fun automaticRefreshFailuresStayQuietForThirtySeconds(): Unit = Fixture().use { f ->
@@ -1156,5 +1184,144 @@ class PodControllerTest {
         f.open()
         assertEquals("Draft cancelled", f.controller.state.notice)
         assertNull(f.controller.state.detail!!.draft)
+    }
+
+    private fun preset(name: String, settings: DraftSettings = DraftSettings(), cubeId: String? = null, missing: Boolean = false,
+        setCode: String? = null) = PodPreset(UUID.randomUUID().toString(), name, settings, cubeId,
+        if (cubeId != null && !missing) cube.name else null, missing, setCode, setCode?.let { "Test set" }, "2026-10-30T00:00:00Z")
+
+    @Test fun savingAPresetStoresTheNewPodFormWithoutNameOrLibrarianSnapshot() = Fixture().use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.newMode(DraftMode.GLIMPSE)
+        f.controller.newSettings { it.copy(librarians = 2, librarianDefinition = definition, sideboardLimit = 7) }
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        assertTrue(presets.state.loaded); assertTrue(presets.state.presets.isEmpty())
+        assertEquals("Glimpse · Cube · 9×15", presets.formSummary)
+        presets.startSave()
+        assertEquals(PodPresetPrompt.Name(), presets.state.prompt)
+        presets.submitName("   ")
+        assertNotNull(presets.state.error); assertTrue(f.api.calls.isEmpty())
+        presets.submitName("  Cube glimpse ")
+        assertEquals("Saving…", presets.state.busy)
+        f.deliver()
+        val input = f.api.calls.single().second as SavePodPreset
+        assertEquals(SavePodPreset("Cube glimpse", DraftSettings.glimpse().copy(librarians = 2, sideboardLimit = 7), cube.id), input)
+        assertNull(presets.state.prompt); assertNull(presets.state.busy)
+        assertEquals(listOf("Cube glimpse"), presets.state.presets.map { it.name })
+        assertEquals("Glimpse · Cube · 9×15", podPresetSummary(presets.state.presets.single()))
+        // The list stays open; the form itself is untouched.
+        assertTrue(presets.state.open)
+        assertEquals(DraftMode.GLIMPSE, f.controller.state.creating!!.mode)
+    }
+
+    @Test fun savingUnderAnExistingNameAsksBeforeReplacingIt() = Fixture().use { f ->
+        val old = preset("Weekly cube", cubeId = cube.id)
+        f.api.presets += old
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.newSettings { it.copy(packsPerPlayer = 4) }
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        presets.startSave(); presets.submitName("WEEKLY CUBE")
+        assertEquals(PodPresetPrompt.Overwrite("WEEKLY CUBE", "Weekly cube"), presets.state.prompt)
+        assertTrue(f.api.calls.isEmpty())
+        presets.cancelPrompt()
+        assertNull(presets.state.prompt)
+        presets.startSave(); presets.submitName("Weekly cube"); presets.confirmOverwrite(); f.deliver()
+        assertTrue((f.api.calls.single().second as SavePodPreset).overwrite)
+        assertEquals(4, presets.state.presets.single().settings.packsPerPlayer)
+        assertEquals(old.id, presets.state.presets.single().id)
+        // Another device took the name between listing and saving: the server's refusal leads to the same question.
+        f.api.calls.clear(); f.api.presetFailure = "preset_exists"
+        presets.startSave(); presets.submitName("Fresh name"); f.deliver()
+        assertEquals(PodPresetPrompt.Overwrite("Fresh name"), presets.state.prompt)
+        assertFalse((f.api.calls.single().second as SavePodPreset).overwrite)
+    }
+
+    @Test fun presetsAreRenamedAndDeletedAfterConfirmation() = Fixture().use { f ->
+        val first = preset("Alpha"); val second = preset("Beta")
+        f.api.presets += listOf(first, second)
+        f.controller.newPod(); f.deliver()
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        presets.startRename(first)
+        presets.submitName("beta")
+        assertEquals("Another preset is already called “Beta”.", presets.state.error)
+        assertTrue(f.api.calls.isEmpty())
+        presets.submitName("Gamma"); f.deliver()
+        assertEquals(RenamePodPreset("Gamma"), f.api.calls.single().second)
+        assertEquals(listOf("Beta", "Gamma"), presets.state.presets.map { it.name })
+        presets.startDelete(second)
+        assertEquals(PodPresetPrompt.Delete(second), presets.state.prompt)
+        presets.confirmDelete(); f.deliver()
+        assertEquals(listOf("Gamma"), presets.state.presets.map { it.name })
+        assertNull(presets.state.prompt)
+        // A preset deleted elsewhere: say so and show the current list.
+        f.api.presets.clear()
+        presets.startDelete(presets.state.presets.single()); presets.confirmDelete(); f.deliver()
+        assertEquals("That preset no longer exists.", presets.state.error)
+        assertTrue(presets.state.presets.isEmpty())
+    }
+
+    @Test fun loadingACubePresetFillsTheNewPodFormButKeepsTheName() = Fixture().use { f ->
+        f.controller.newPod(); f.deliver()
+        f.controller.newName("Friday")
+        val settings = DraftSettings.grid().copy(grids = 12, twoPicks = true)
+        f.api.presets += preset("Grid night", settings, cube.id)
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        presets.choose(presets.state.presets.single())
+        assertFalse(presets.state.open)
+        assertEquals(NewPodDraft("Friday", cube.id, DraftMode.GRID, null, settings), f.controller.state.creating)
+        f.controller.create(); f.deliver()
+        val created = f.api.calls.last().second as CreatePod
+        assertEquals(listOf("Friday", cube.id, settings), listOf(created.name, created.cubeId, created.settings))
+    }
+
+    @Test fun loadingASetPresetLoadsTheSetFromTheCatalog() = Fixture().use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.presets.open(); f.deliver()
+        f.controller.applyPreset(preset("Set booster", DraftSettings().copy(packsPerPlayer = 4), setCode = "TST"))
+        assertNull(f.controller.state.creating!!.cubeId)
+        assertEquals("Test set", f.controller.state.sourcePreview?.setName)
+        f.deliver()
+        assertEquals(listOf("load:TST"), f.sets.calls)
+        assertEquals("TST", f.controller.state.creating!!.setSource?.snapshot?.setCode)
+        assertEquals(4, f.controller.state.creating!!.settings.packsPerPlayer)
+        assertNull(f.controller.state.sourcePreview)
+        // Saving again remembers the set by its code.
+        val presets = f.controller.presets
+        presets.startSave(); presets.submitName("Again"); f.deliver()
+        val input = f.api.calls.last().second as SavePodPreset
+        assertEquals(listOf<Any?>("TST", "Test set", null), listOf(input.setCode, input.setName, input.cubeId))
+    }
+
+    @Test fun loadingAPresetWhoseCubeIsGoneAsksForAnotherSource() = Fixture().use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        val settings = DraftSettings.glimpse()
+        f.controller.applyPreset(preset("Old cube", settings, UUID.randomUUID().toString(), missing = true))
+        val draft = f.controller.state.creating!!
+        assertEquals(listOf(null, null, settings), listOf(draft.cubeId, draft.setSource, draft.settings))
+        assertTrue(f.controller.setPicker.state.open)
+        assertEquals("The cube of “Old cube” no longer exists. Choose a set or cube.", f.controller.state.sourceHint)
+        f.deliver()
+        f.controller.chooseCube(cube.id)
+        assertNull(f.controller.state.sourceHint)
+        assertEquals(cube.id, f.controller.state.creating!!.cubeId)
+    }
+
+    @Test fun setupPresetsSaveThePodSourceAndLoadIntoPendingSetupEdits() = Fixture(PodPhase.SETUP).use { f ->
+        f.open(); f.controller.loadCubes(); f.deliver()
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        // The pod keeps a copy of its cube; the player's cube of the same name is the one remembered.
+        presets.startSave(); presets.submitName("From setup"); f.deliver()
+        assertEquals(SavePodPreset("From setup", DraftSettings(), cube.id), f.api.calls.single().second)
+        f.api.calls.clear()
+        presets.choose(preset("Glimpse", DraftSettings.glimpse()))
+        assertEquals(DraftSettings.glimpse(), f.controller.state.detail!!.settings)
+        f.controller.flushSetup(); f.deliver()
+        val update = f.api.calls.single().second as UpdatePod
+        assertEquals(listOf(DraftSettings.glimpse(), null, null), listOf(update.settings, update.cubeId, update.setSource))
     }
 }

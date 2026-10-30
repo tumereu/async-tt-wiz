@@ -1,0 +1,1 @@
+add: Draft presets: a Presets button on the New pod and pod setup screens saves the draft settings and source under a name and loads them again later, on any of your devices

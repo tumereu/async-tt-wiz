@@ -138,7 +138,9 @@ object LibraryRules {
                 // Older clients omitted a seed on dismiss. The request still binds one reproducible result.
                 val seed = action.seed ?: RandomV1.encodeSeed(DeckJson.intent("contents-rest", command.requestId)
                     .chunked(2).map { it.toInt(16).toByte() }.toByteArray())
-                val resolution = if (display.search) ContentsRest.SHUFFLE else action.rest
+                // Rules v31: a Temp pile Search closes without touching the pile (null: keep its order).
+                val resolution = if (TempPiles.searchKeepsOrder(source, display, rulesVersion)) null
+                    else if (display.search) ContentsRest.SHUFFLE else action.rest
                 val restZone = when (resolution) {
                     ContentsRest.GRAVEYARD -> PlayZone.GRAVEYARD
                     ContentsRest.EXILE -> PlayZone.EXILE
@@ -146,6 +148,7 @@ object LibraryRules {
                 }
                 val restDestination = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == restZone }
                 val order = when (resolution) {
+                    null -> source.cards
                     ContentsRest.TOP -> ids + rest
                     ContentsRest.BOTTOM -> rest + ids
                     ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)

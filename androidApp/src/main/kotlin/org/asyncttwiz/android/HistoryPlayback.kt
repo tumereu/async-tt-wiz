@@ -345,16 +345,18 @@ internal fun TableItem.faceTransform(bounds: TableBounds = this.bounds) = cardTr
     if (tapped) bounds.height else bounds.width, if (tapped) bounds.width else bounds.height,
     if (tapped) 90f else 0f)
 
-/** Receipts, count labels, ownership and disclosure metadata are not motion targets. */
+/** Receipts, count labels, ownership and disclosure metadata are not motion targets. A Temp pile's members are:
+ * its cards have no drawing of their own, so a move into or out of one changes nothing else in the scene. */
 internal val TableItem.animationId get() = if (kind == TableItemKind.CARD) "card/$cardId" else id
 internal val TableScene.animationTargets get() = (items + stackProjections).associate { it.animationId to
-    listOf(it.bounds, it.tapped, it.covered, it.faceId) }
+    listOf(it.bounds, it.tapped, it.covered, it.faceId, it.cards.takeIf { _ -> it.temp }) }
 
 internal const val CARD_ROTATION_DURATION_MILLIS = 90
 internal const val CARD_FLIP_DURATION_MILLIS = 350
 internal const val CARD_FADE_DURATION_MILLIS = 350
 internal const val LIBRARY_SHUFFLE_DURATION_MILLIS = 280
 internal const val HAND_REFLOW_DURATION_MILLIS = 220
+private val DOCK_PILE_ZONES = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)
 
 /** The scene consumer samples these bounds for drawing AND hit testing/accessibility. No mutation waypoint queue. */
 class HistorySceneAnimation(initial: TableScene) {
@@ -533,6 +535,19 @@ class HistorySceneAnimation(initial: TableScene) {
                         viewport = pile?.viewport ?: departure.item.viewport)))
             }
         }
+        // Temp piles hide their cards like a Library, so a card moving between a Temp pile and another hidden or
+        // public pile has no individual drawing on either side. It flies face down from pile to pile instead.
+        val formerPiles = destination.pileMembers()
+        for ((cardId, to) in target.pileMembers()) {
+            val from = formerPiles[cardId] ?: continue
+            val key = "card/$cardId"
+            if (from.id == to.id || !from.temp && !to.temp || key in start || key in end) continue
+            val card = TableItem(key, from.bounds, "Covered card", "", to.owner, to.zone, kind = TableItemKind.CARD,
+                viewport = from.viewport, cardId = cardId, covered = true, footprint = from.bounds)
+            start = start + (key to HistoryAnimatedItem(card, from.bounds, 1f))
+            end = end + (key to HistoryAnimatedItem(card.copy(bounds = to.bounds, footprint = to.bounds, viewport = to.viewport),
+                to.bounds, 0f))
+        }
         val flights = stackRemovalFlights(destination, target)
         stackFlightIds = flights.map { it.entry.animationId }.toSet()
         for (flight in flights) {
@@ -570,6 +585,10 @@ class HistorySceneAnimation(initial: TableScene) {
             y >= it.bounds.y && y <= it.bounds.y + it.bounds.height
     }?.item
 
+    /** Card ID -> the dock pile (Library, Graveyard, Exile or Temp pile) holding it. */
+    private fun TableScene.pileMembers(): Map<String, TableItem> = buildMap {
+        for (item in items) if (item.kind == TableItemKind.PILE && item.zone in DOCK_PILE_ZONES) for (id in item.cards) put(id, item)
+    }
     private fun TableScene.stackContains(id: String?) = items.any {
         it.zone == org.asyncttwiz.protocol.PlayZone.STACK && it.kind == TableItemKind.PILE && id in it.cards
     }

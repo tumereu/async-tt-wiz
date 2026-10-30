@@ -443,4 +443,42 @@ class TableAnimationTest {
         assertEquals(source.items.single { it.cardId == id }.bounds, cards.single().bounds)
         assertEquals(1f, cards.single().alpha)
     }
+
+    @Test fun cardsFlyFaceDownBetweenTempPilesAndIntoAndOutOfThem() {
+        // a's Temp piles 1 and 2 exist; pile 1 holds one card. Moves: Temp 1 -> Temp 2 (and back, as an undo),
+        // Temp 2 -> Library, Graveyard -> Temp 1.
+        val base = TableFixture.play(library = 2)
+        val one = "a/TEMP/1"; val two = "a/TEMP/2"
+        val id = "a/LIBRARY/0"
+        val start = moved(base.copy(board = base.board.copy(containers = base.board.containers +
+            PlayContainer(one, PlayZone.LIBRARY, "a", temp = true) +
+            PlayContainer(two, PlayZone.LIBRARY, "a", temp = true, tempNumber = 2))), listOf(id), one)
+        val inTwo = moved(start, listOf(id), two)
+        val inLibrary = moved(inTwo, listOf(id), "a/LIBRARY")
+        val inGraveyard = moved(start, listOf(id), "a/GRAVEYARD")
+        for (landscape in listOf(false, true)) for ((from, to) in listOf(start to inTwo, inTwo to start, inTwo to inLibrary,
+                inLibrary to inTwo, inGraveyard to start)) {
+            val before = TableFixture.scene(from, landscape); val after = TableFixture.scene(to, landscape)
+            val source = before.items.single { it.kind == TableItemKind.PILE && id in it.cards }
+            val target = after.items.single { it.kind == TableItemKind.PILE && id in it.cards }
+            assertTrue(before.items.none { it.kind == TableItemKind.CARD && it.cardId == id }, "no own drawing in a pile")
+            val animation = HistorySceneAnimation(before)
+            assertTrue(animation.retarget(after, 1f))
+            val departing = animation.frame(0f).single { it.item.cardId == id }
+            assertEquals(source.bounds, departing.bounds)
+            // Neighbouring piles are close: sample a few milliseconds into the (speed-bound) flight.
+            val flying = animation.frame(5f / animation.durationMillis).single { it.item.cardId == id }
+            assertTrue(flying.item.inTransit, "$landscape ${source.id} -> ${target.id}")
+            assertTrue(flying.item.covered)
+            assertNotEquals(source.bounds, flying.bounds)
+            assertTrue(animation.durationMillis > 1)
+            // Landed: nothing is left drawn over the pile.
+            assertTrue(animation.frame(1f).none { it.item.cardId == id && it.alpha > 0f })
+        }
+        // A move within one pile, or between two non-Temp piles, adds no flight.
+        val milled = moved(base, listOf(id), "a/GRAVEYARD")
+        val animation = HistorySceneAnimation(TableFixture.scene(base))
+        animation.retarget(TableFixture.scene(milled), 1f)
+        assertTrue(animation.frame(.1f).none { it.item.cardId == id })
+    }
 }

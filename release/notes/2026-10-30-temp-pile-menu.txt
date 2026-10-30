@@ -1,0 +1,1 @@
+mod: Temp pile menu: new All → Graveyard, All → Exile, Shuffle into library, Top → other pile and Close; piles are made by moving cards there

@@ -161,16 +161,17 @@ internal object LibraryKnowledge {
 
     /** The layers of every Library-zone container after [action] turned [before] into [board]. New layers get
      * request-derived IDs; untouched layers keep theirs. Cards that left are dropped from their layers. */
-    fun after(before: BoardState, board: BoardState, action: PlayAction, requestId: String): BoardState =
+    fun after(before: BoardState, board: BoardState, action: PlayAction, requestId: String,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): BoardState =
         board.copy(containers = board.containers.map { library ->
             if (library.zone != PlayZone.LIBRARY) return@map library
             // A Temp pile turned on by this very action starts empty.
             val old = before.containers.singleOrNull { it.id == library.id } ?: return@map library
-            library.copy(layers = layers(before, old, library, action, requestId))
+            library.copy(layers = layers(before, old, library, action, requestId, rulesVersion))
         })
 
     private fun layers(before: BoardState, old: PlayContainer, library: PlayContainer, action: PlayAction,
-        requestId: String): List<LibraryLayer> {
+        requestId: String, rulesVersion: Int): List<LibraryLayer> {
         var created = 0
         fun newId() = CommandIds.uuidV5(requestId, "layer/${library.id}/${created++}")
         val members = library.cards.toSet()
@@ -206,7 +207,8 @@ internal object LibraryKnowledge {
             is PlayAction.DismissContents -> before.contentsDisplays.singleOrNull {
                 it.id == action.displayId && it.containerId == library.id }?.let { display ->
                 val ids = display.cardIds.filter { it in members }
-                when (if (display.search) ContentsRest.SHUFFLE else action.rest) {
+                // Rules v31: closing a Temp pile Search leaves the pile (and what is known of it) as it is.
+                if (!TempPiles.searchKeepsOrder(old, display, rulesVersion)) when (if (display.search) ContentsRest.SHUFFLE else action.rest) {
                     ContentsRest.SHUFFLE -> { shuffled = true; closing = SearchQueue.closeLayers(display, library.cards, ::newId) }
                     ContentsRest.TOP -> edge(ids, top = true, ordered = true)
                     ContentsRest.BOTTOM -> edge(ids, top = false, ordered = true)

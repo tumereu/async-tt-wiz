@@ -85,6 +85,61 @@ class TableToolkitWiringTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    @Test fun tempPileMenuMovesAreSingleInvocationsAndItsLookClosesWithoutRestChoicesOrShuffle() {
+        val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
+        var server = GameplayTree(f.root)
+        var processed = 0
+        fun verifyServer() {
+            for (command in f.commands().drop(processed)) {
+                server = assertNotNull(HistoryContinuation.change(server, f.actor, command).tree)
+                processed++
+            }
+            assertEquals(server.stateAt(server.currentNodeId)!!.board, f.play.board)
+        }
+        fun pile(n: Int) = TempPiles.container(f.play.board, f.actor, n)
+        try {
+            val library = f.container(PlayZone.LIBRARY)
+            val one = TempPiles.containerId(f.play.id, f.actor, 1)
+            // A Library card goes face down onto Temp 1; then the rest of the Library.
+            assertTrue(ui.toTemp(listOf(f.id(40)), 1))
+            assertTrue(ui.toTemp((41..43).map(f::id), 1))
+            verifyServer()
+            val order = pile(1)!!.cards
+            assertEquals(4, order.size)
+            ui.openLibrary(one)
+            assertEquals("temp", ui.panel)
+            ui.showLibraryContents(ContentsSelection.TOP, order.size, false)
+            val look = f.play.board.contentsDisplays.single()
+            ui.closeCardPanel(look)
+            assertNotEquals("panelRest/${look.id}", ui.panel)
+            assertTrue(f.play.board.contentsDisplays.isEmpty())
+            assertEquals(order, pile(1)!!.cards, "closing a Temp pile Look keeps its order")
+            verifyServer()
+
+            val before = f.commands().size
+            assertTrue(ui.tempTopToPile(one, 2))
+            assertEquals(listOf(order.first()), pile(2)!!.cards)
+            assertTrue(ui.tempToPile(one, 3))
+            assertEquals(order.drop(1), pile(3)!!.cards)
+            assertTrue(pile(1)!!.cards.isEmpty())
+            val three = pile(3)!!.id
+            assertTrue(ui.tempShuffleIntoLibrary(three))
+            assertNull(pile(3)?.cards?.takeIf { it.isNotEmpty() })
+            assertEquals(3, f.play.board.containers.single { it.id == library }.cards.size)
+            assertEquals(before + 3, f.commands().size, "each menu action is one invocation")
+            verifyServer()
+            // Shuffle into library undoes as one step.
+            assertTrue(f.lobby.historyControl(GameAction.Undo))
+            assertEquals(order.drop(1), pile(3)!!.cards)
+            assertTrue(ui.tempToZone(three, PlayZone.EXILE))
+            assertEquals(order.drop(1).toSet(), f.play.board.containers.single { it.id == f.container(PlayZone.EXILE) }.cards.toSet())
+            // The emptied pile 3 closes; pile 2 still holds its card.
+            assertTrue(ui.closeTempPile(f.actor, 3))
+            assertNull(pile(3))
+            assertNotNull(pile(2))
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     @Test fun opponentsLibraryOpensTheSameToolsAndActionsKeepOwnerZonesAndActingPanelAuthor() {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(

@@ -42,7 +42,10 @@ class R30AnyPlayerTest {
     private fun seenBy(state: PlayState, viewer: String) =
         state.board.cards.filter { CardVisibility.isVisibleFaceUp(state.board, it, viewer) }.map { it.id }.toSet()
 
-    @Test fun currentRulesAreVersionThirty() = assertEquals(AnyPlayer.RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+    @Test fun anyPlayerRulesAreVersionThirty() {
+        assertEquals(30, AnyPlayer.RULES_VERSION)
+        assertTrue(AnyPlayer.RULES_VERSION <= CURRENT_GAMEPLAY_RULES_VERSION)
+    }
 
     @Test fun theOtherPlayerMovesAPrivateLookCardIntoTheOwnersHandBlind() {
         val look = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3), a).state!!

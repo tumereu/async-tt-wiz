@@ -73,13 +73,17 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
         } }
         "temp" -> toolkit.library?.let { library -> TempPiles.refs(play)[library.controller.libraryId]?.let { ref ->
-            InlinePopupPanel(toolkit::dismiss, "Temp ${ref.number}", width = 264.dp, height = 232.dp,
+            InlinePopupPanel(toolkit::dismiss, "Temp ${ref.number}", width = 264.dp, height = 288.dp,
                 key = "temp/${library.controller.libraryId}") {
+                val tempId = library.controller.libraryId
                 TempPileActions(library.controller, play.board, ref, onShow = toolkit::showLibraryContents,
-                    toLibrary = { bottom -> toolkit.tempToLibrary(library.controller.libraryId, bottom) },
-                    toPile = { number -> toolkit.tempToPile(library.controller.libraryId, number) },
+                    toLibrary = { bottom -> toolkit.tempToLibrary(tempId, bottom) },
+                    toZone = { zone -> toolkit.tempToZone(tempId, zone) },
+                    shuffleIntoLibrary = { toolkit.tempShuffleIntoLibrary(tempId) },
+                    toPile = { number -> toolkit.tempToPile(tempId, number) },
+                    topToPile = { number -> toolkit.tempTopToPile(tempId, number) },
                     // Turning this very pile off removes it from the table, so its menu closes too.
-                    setOn = { number, on -> if (toolkit.setTempPile(ref.accountId, number, on) && !on && number == ref.number) toolkit.dismiss() },
+                    close = { toolkit.closeTempPile(ref.accountId, ref.number) },
                     onComplete = toolkit::dismiss)
             }
         } }

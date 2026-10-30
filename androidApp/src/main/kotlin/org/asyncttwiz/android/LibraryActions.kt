@@ -102,38 +102,53 @@ fun LibraryActions(controller: LibraryController, board: BoardState, displayedHa
     }
 }
 
-/** A player's Temp pile [ref]: hidden like a Library, resolved back into the Library or another Temp pile
- * in one step. Piles 2..4 are turned on/off here (off only while empty). Every button is always shown. */
+/** What a Temp pile menu offers; every action is always shown and disabled when it does not apply. */
+internal data class TempPileMenuState(val size: Int, val available: Boolean, val mayLook: Boolean,
+    val hasLibrary: Boolean, val mayClose: Boolean) {
+    val moves get() = available && size > 0
+}
+
+internal fun tempPileMenuState(board: BoardState, ref: TempPiles.Ref, available: Boolean): TempPileMenuState {
+    val pile = TempPiles.container(board, ref.accountId, ref.number)
+    val size = pile?.cards?.size ?: 0
+    return TempPileMenuState(size, available, available && size > 0 && board.contentsDisplays.isEmpty(),
+        board.zoneContainer(ref.accountId, PlayZone.LIBRARY) != null,
+        // Pile 1 is always there; another pile closes only while empty and nothing is shown from it.
+        available && ref.number != 1 && pile != null && pile.cards.isEmpty() && board.contentsDisplays.none { it.containerId == pile.id })
+}
+
+/** A player's Temp pile [ref]: hidden like a Library, resolved into another zone or Temp pile in one step.
+ * Piles are created by moving cards there; Close turns an empty pile 2..4 off again. */
 @Composable
 internal fun TempPileActions(controller: LibraryController, board: BoardState, ref: TempPiles.Ref,
-    onShow: (ContentsSelection, Int, Boolean) -> Unit, toLibrary: (Boolean) -> Unit, toPile: (Int) -> Unit,
-    setOn: (Int, Boolean) -> Unit, onComplete: () -> Unit) {
-    val size = board.containers.singleOrNull { it.id == controller.libraryId }?.cards?.size ?: 0
-    val available = controller.available()
-    val enabled = available && size > 0
+    onShow: (ContentsSelection, Int, Boolean) -> Unit, toLibrary: (Boolean) -> Unit, toZone: (PlayZone) -> Unit,
+    shuffleIntoLibrary: () -> Unit, toPile: (Int) -> Unit, topToPile: (Int) -> Unit, close: () -> Unit,
+    onComplete: () -> Unit) {
+    val state = tempPileMenuState(board, ref, controller.available())
+    val enabled = state.moves
+    val others = TempPiles.NUMBERS.filter { it != ref.number }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             InlinePopupCell(MenuControl("Shuffle", enabled) {
                 if (controller.shuffle().let { it.refused == 0 && it.submitted > 0 }) onComplete()
             })
-            InlinePopupCell(MenuControl("Look", enabled && board.contentsDisplays.isEmpty()) { onShow(ContentsSelection.TOP, size, false) })
-            InlinePopupCell(MenuControl("All to library top", enabled) { toLibrary(false) }, label = "All top")
-            InlinePopupCell(MenuControl("All to library bottom", enabled) { toLibrary(true) }, label = "All bottom")
+            InlinePopupCell(MenuControl("Look", state.mayLook) { onShow(ContentsSelection.TOP, state.size, false) })
+            InlinePopupCell(MenuControl("Shuffle into library", enabled && state.hasLibrary) { shuffleIntoLibrary() })
+            InlinePopupCell(MenuControl("Close pile", state.mayClose) { close() }, label = "Close")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            for (number in TempPiles.NUMBERS.filter { it != ref.number })
+            InlinePopupCell(MenuControl("All to library top", enabled && state.hasLibrary) { toLibrary(false) }, label = "All top")
+            InlinePopupCell(MenuControl("All to library bottom", enabled && state.hasLibrary) { toLibrary(true) }, label = "All bottom")
+            InlinePopupCell(MenuControl("All to graveyard", enabled) { toZone(PlayZone.GRAVEYARD) }, label = "All →\nGraveyard")
+            InlinePopupCell(MenuControl("All to exile", enabled) { toZone(PlayZone.EXILE) }, label = "All →\nExile")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (number in others)
                 InlinePopupCell(MenuControl("All to Temp $number", enabled) { toPile(number) }, label = "All → $number")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            for (number in TempPiles.NUMBERS.drop(1)) {
-                val pile = TempPiles.container(board, ref.accountId, number)
-                val on = pile != null
-                // Turning a pile off is only possible while it is empty and nothing is shown from it.
-                val mayToggle = available && (!on || pile!!.cards.isEmpty() && board.contentsDisplays.none { it.containerId == pile.id })
-                InlinePopupCell(MenuControl("Temp $number on/off", mayToggle, selected = on) {
-                    setOn(number, !on)
-                }, label = "Temp $number")
-            }
+            for (number in others)
+                InlinePopupCell(MenuControl("Top to Temp $number", enabled) { topToPile(number) }, label = "Top → $number")
         }
     }
 }

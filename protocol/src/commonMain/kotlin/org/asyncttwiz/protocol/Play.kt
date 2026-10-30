@@ -58,10 +58,13 @@ object PlayerStatus {
 
 /** A player's Temp piles, numbered 1..[COUNT]. Pile 1 (rules v23) is always shown and can never be
  * turned off; piles 2..4 (rules v29) exist only while turned on. Every pile is created lazily, by the
- * first move into its deterministic ID or (2..4) by an explicit [PlayAction.SetTempPile], so old games
+ * first move into its deterministic ID or (2..4) by an explicit [PlayAction.SetTempPile] (clients now
+ * only create piles by moving cards there and only send it to close an empty pile), so old games
  * gain them without any board migration and retained events keep replaying unchanged. */
 object TempPiles {
     const val RULES_VERSION = 29
+    /** Rules v31: closing a Search of a Temp pile no longer shuffles it; the pile keeps its order. */
+    const val SEARCH_RULES_VERSION = 31
     const val COUNT = 4
     val NUMBERS = 1..COUNT
     /** A deterministic Temp pile identity, whether created yet or not. */
@@ -105,12 +108,44 @@ object TempPiles {
         return state.copy(board = ensure(state.board, state.id, ref.accountId, ref.number))
     }
 
+    /** Whether closing [display], shown from [source], leaves [source] exactly as it is (rules v31 Temp Search). */
+    fun searchKeepsOrder(source: PlayContainer, display: ContentsDisplay, rulesVersion: Int): Boolean =
+        display.search && source.temp && display.containerId == source.id && rulesVersion >= SEARCH_RULES_VERSION
+
     /** ONE batch moving the whole pile, in its current order, onto the owner's Library top or bottom. */
     fun allToLibrary(board: BoardState, tempId: String, bottom: Boolean): List<PlayAction.MoveCard> {
         val temp = board.containers.single { it.id == tempId && it.temp }
         val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
         return LibraryActions.moveCaptured(board, temp.cards,
             MoveDestination(library.id, if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP))
+    }
+
+    /** ONE batch moving the whole pile into the owner's Graveyard or Exile. Empty when nothing would move. */
+    fun allToZone(board: BoardState, tempId: String, zone: PlayZone): List<PlayAction.MoveCard> {
+        require(zone == PlayZone.GRAVEYARD || zone == PlayZone.EXILE)
+        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
+        val target = board.zoneContainer(temp.accountId, zone) ?: return emptyList()
+        if (temp.cards.isEmpty()) return emptyList()
+        return LibraryActions.moveCaptured(board, temp.cards, MoveDestination(target.id, MoveInsertion.UNORDERED))
+    }
+
+    /** The whole pile into the owner's Library, then that Library shuffled: the members of ONE invocation
+     * (one Undo). The fresh [seed] is a literal input. Empty when nothing would move. */
+    fun shuffleIntoLibrary(board: BoardState, tempId: String, seed: String): List<PlayAction> {
+        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
+        val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
+        val moves = allToLibrary(board, tempId, bottom = false)
+        return if (moves.isEmpty()) emptyList() else moves + PlayAction.ShuffleLibrary(library.id, seed)
+    }
+
+    /** The pile's top card onto the top of the same owner's pile [number], creating that pile if needed. */
+    fun topToPile(board: BoardState, playId: String, tempId: String, number: Int): List<PlayAction.MoveCard> {
+        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
+        val owner = temp.accountId ?: return emptyList()
+        if (number !in NUMBERS || number == temp.tempNumber || temp.cards.isEmpty()) return emptyList()
+        val planned = ensure(board, playId, owner, number)
+        return LibraryActions.moveSlice(planned, temp.id, ContentsSelection.TOP, 1,
+            MoveDestination(container(planned, owner, number)!!.id, MoveInsertion.TOP))
     }
 
     /** ONE batch moving the whole pile, in its current order, onto the top of the same owner's pile

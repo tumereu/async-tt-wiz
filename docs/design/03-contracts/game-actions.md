@@ -513,6 +513,19 @@ off. Either player may toggle either player's piles. The pile menu adds All to
 Temp N (the whole pile in order onto that pile's top, one batch, creating it if
 needed) and on/off buttons for piles 2–4.
 
+**Temp pile menu and Search (rules v31).** The pile menu is Shuffle, Look, All →
+Library top/bottom, All → Graveyard, All → Exile, Shuffle into library (the whole
+pile onto the owner's Library, then that Library shuffled: one invocation, one
+Undo), All → Temp N and Top → Temp N (the top card onto pile N's top) for each
+other pile, and Close. Piles are created only by moving cards there (clients no
+longer send `setTempPile(on = true)`); Close sends `setTempPile(on = false)` and is
+disabled for pile 1, while the pile holds cards and while something is shown from
+it. Card panels on a Temp pile offer the ordinary destinations plus Temp N (top of
+that pile, face down) and never queue. Closing a Search of a Temp pile no longer
+shuffles it: the pile and its layers stay exactly as they were (events recorded
+under rules ≤ v30 keep their recorded shuffle). The client closes a Temp pile Look
+with rest Top (its shown order) and offers no rest choices.
+
 **Token stacks (rules v30).** A newly created token (Create token or Clone) goes on
 top of a pile on its battlefield that holds fewer than three cards when every card
 in that pile is a token of the same definition, face and corner, and the new token

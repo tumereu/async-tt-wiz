@@ -14,6 +14,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /** Peek and Inspect open on the face a card currently shows; hidden faces stay hidden. */
 @RunWith(RobolectricTestRunner::class)
@@ -88,6 +91,32 @@ class CardFaceInspectionTest {
         compose.onNodeWithText("Front rules text.").assertExists()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Previous face").assertIsNotEnabled()
+    }
+
+    @Test fun aFlippedFlipCardOpensTurnedOnItsFlippedHalf() {
+        val (transformedPlay, card) = transformed()
+        val play = transformedPlay.copy(definitions = transformedPlay.definitions.map {
+            if (it.digest == card.definition) it.copy(definition = it.definition.copy(layout = "flip")) else it })
+        val definition = play.definitions.single { it.digest == card.definition }.definition
+        assertTrue(flippedOnTable(definition, card.faceId))
+        assertFalse(flippedOnTable(definition, front.faceId))
+        assertFalse(flippedOnTable(definition.copy(layout = "transform"), card.faceId))
+        // Owner (both halves permitted) and opponent (only the shown half) alike.
+        for (viewer in listOf(f.a, f.b)) {
+            show(play, card, viewer, peek = false)
+            compose.onNodeWithText("Back rules text.").assertExists()
+            compose.onNodeWithContentDescription("Rotate back").assertExists().performClick()
+            compose.onNodeWithContentDescription("Rotate card").assertExists()
+        }
+        // The controller: opening turned shows 180°; switching faces resets the personal turn.
+        val controller = CardInspectionController()
+        controller.open(InspectedCard(definition, listOf(null, null)), 1, turned = true)
+        assertEquals(180, controller.state!!.degrees)
+        controller.face(0)
+        assertEquals(0, controller.state!!.degrees)
+        // Cards without a rotate button never open turned.
+        controller.open(InspectedCard(definition.copy(layout = "transform"), listOf(null, null)), 1, turned = true)
+        assertEquals(0, controller.state!!.degrees)
     }
 
     @Test fun opponentStillSeesOnlyTheShownFaceAndNothingOfAHiddenCard() {

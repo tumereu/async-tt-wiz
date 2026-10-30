@@ -186,6 +186,16 @@ class PodGridViewTest {
         assertHoldPreview(slot(3))
     }
 
+    @Test fun selectionDimsOtherLiveCardsButNeverPickedOrDiscardedOnes() {
+        val plain = PodGridCell(cards[0], null, false, false)
+        assertEquals(1f, podGridArtAlpha(plain, live = true, highlighted = false, selecting = false))
+        assertEquals(1f, podGridArtAlpha(plain, live = true, highlighted = true, selecting = true))
+        val dimmed = podGridArtAlpha(plain, live = true, highlighted = false, selecting = true)
+        val discarded = podGridArtAlpha(plain.copy(discarded = true), live = false, highlighted = false, selecting = true)
+        assertTrue(dimmed < 1f && discarded < dimmed)
+        assertEquals(1f, podGridArtAlpha(plain.copy(pickedBy = "bob"), live = false, highlighted = false, selecting = true))
+    }
+
     @Test fun pickerColoursUseYourTableColourAndDistinctOthers() {
         val colors = podGridColors(listOf("bob", "alice", "carol"), "alice")
         assertEquals(OwnTableColor, colors["alice"])

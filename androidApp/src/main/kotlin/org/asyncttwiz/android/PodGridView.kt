@@ -10,15 +10,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
+import kotlin.math.roundToInt
 import org.asyncttwiz.protocol.PodGridView as GridViewData
 
 /** Selection is personal UI state; neither the board nor the pool predicts a pick. */
@@ -122,6 +125,19 @@ fun PodGridView(
     DeckCardInspection(inspection)
 }
 
+/** Opacity of the primary tint laid over the selected row's or column's cards. */
+internal const val PodGridHighlightTint = .28f
+
+/** The picker badge sits this far down the card: just below a printed card's name bar, at the top-left of its art. */
+internal const val PodGridPickerBadgeTop = .115f
+
+/** Discarded cards fade most; while a line is selected the other live cards dim slightly so the selection stands out. */
+internal fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean) = when {
+    cell.discarded -> .35f
+    selecting && live && !highlighted -> .7f
+    else -> 1f
+}
+
 /** Arrows only when [rules] is given (the grid you are picking from now). */
 @Composable
 private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
@@ -145,39 +161,52 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
                     val copy = cell.copy
                     val live = board.positions.getOrNull(position) != null
                     val highlighted = rules?.highlighted(position, selected) == true
+                    val selecting = selected != null && rules?.canSelect(selected) == true
                     val picker = cell.pickedBy?.let { colors[it] ?: OpponentTableColor }
                     val name = copy?.let { definitions[it.definition]?.name ?: "Card data unavailable" }
                     val pickerName = cell.pickedBy?.let { id -> members.find { it.accountId == id }?.username ?: "another player" }
+                    // Like the pick screen's card face: the art is cropped to fill the clipped slot and the
+                    // border is drawn over its edge, so the frame hugs the card on all four sides.
+                    val shape = MaterialTheme.shapes.extraSmall
                     Box(Modifier.weight(1f).aspectRatio(1f / 1.4f)
                         .testTag("pod-grid-${board.id}-slot-$position").semantics {
                             contentDescription = name?.let { listOfNotNull(it, pickerName?.let { "picked by $it" },
                                 "discarded".takeIf { cell.discarded }, "new".takeIf { cell.refill }).joinToString(", ") } ?: "Empty slot"
                             stateDescription = if (highlighted) "Highlighted" else "Unselected"
                         }
-                        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.extraSmall)
-                        .border(when { highlighted && live -> 3.dp; picker != null -> 3.dp; else -> 1.dp },
-                            when { highlighted && live -> MaterialTheme.colorScheme.primary; picker != null -> picker
-                                else -> MaterialTheme.colorScheme.outlineVariant },
-                            MaterialTheme.shapes.extraSmall).padding(3.dp)) {
+                        .clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)) {
                         if (copy != null) {
                             val currentInspect by rememberUpdatedState(inspect)
                             val currentInspectScroll by rememberUpdatedState(inspectScroll)
                             val currentOpen by rememberUpdatedState(open)
                             PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize()
-                                .alpha(if (cell.discarded) 0.35f else 1f)
+                                .alpha(podGridArtAlpha(cell, live, highlighted, selecting))
                                 .semantics { onClick("Inspect") { currentOpen(copy); true } }
                                 .pointerInput(copy) {
                                     podPickGestures(onTap = { currentOpen(copy) }, onInspect = { currentInspect(copy, it) },
                                         onInspectScroll = { currentInspectScroll(it) })
                                 })
-                            if (cell.refill) Text("New", Modifier.align(Alignment.BottomStart)
+                        }
+                        if (highlighted && live) Box(Modifier.matchParentSize()
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = PodGridHighlightTint)))
+                        Box(Modifier.matchParentSize().border(when { highlighted && live -> 3.dp; picker != null -> 3.dp; else -> 1.dp },
+                            when { highlighted && live -> MaterialTheme.colorScheme.primary; picker != null -> picker
+                                else -> MaterialTheme.colorScheme.outlineVariant }, shape))
+                        if (copy != null) {
+                            if (cell.refill) Text("New", Modifier.align(Alignment.BottomStart).padding(3.dp)
                                 .background(MaterialTheme.colorScheme.tertiary, MaterialTheme.shapes.extraSmall)
                                 .padding(horizontal = 3.dp), color = MaterialTheme.colorScheme.onTertiary, fontSize = 9.sp,
                                 lineHeight = 10.sp)
                             if (cell.pickedBy != null) {
                                 val account = members.find { it.accountId == cell.pickedBy }
-                                Box(Modifier.align(Alignment.TopEnd).size(18.dp).clearAndSetSemantics {}
-                                    .background(picker ?: OpponentTableColor, CircleShape).padding(2.dp)) {
+                                // Top-left of the art: clear of the mana cost and the name bar above it, and of New below.
+                                Box(Modifier.layout { measurable, constraints ->
+                                    val badge = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                                    layout(badge.width, badge.height) {
+                                        badge.place(3.dp.roundToPx(), (constraints.maxHeight * PodGridPickerBadgeTop).roundToInt())
+                                    }
+                                }.testTag("pod-grid-${board.id}-picker-$position").clearAndSetSemantics {}
+                                    .size(18.dp).background(picker ?: OpponentTableColor, CircleShape).padding(2.dp)) {
                                     if (account != null) Avatar(account, size = 14.dp)
                                 }
                             }
@@ -211,6 +240,6 @@ private fun PodGridCard(copy: DraftCopy, definition: CardDefinition?, modifier: 
             definition?.name ?: "Card data unavailable",
             with(density) { maxWidth.roundToPx() }.coerceIn(1, 4096),
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
-            placeholder = { PodCardPlaceholder(definition?.name ?: "Card data unavailable") })
+            crop = true, placeholder = { PodCardPlaceholder(definition?.name ?: "Card data unavailable") })
     }
 }

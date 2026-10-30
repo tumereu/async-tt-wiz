@@ -1,0 +1,1 @@
+mod: Grid draft: the picker's picture now sits at the top left of the card art, so it no longer hides the mana cost

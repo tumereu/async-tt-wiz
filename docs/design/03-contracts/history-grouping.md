@@ -106,6 +106,11 @@ If there is **no anchor**, use this companion ranking:
 | 50 | Turn transition B |
 | 60 | Phase/step tracking B |
 | 80 | Ping/Unping P |
+| 95 | Step passed inside a multi-step advance B (rules v32; never ends a group) |
+
+From rules v32 a group holding nothing but passed steps is pending, like a
+closure run: the same author's next anchor (for example the draw made in the Draw
+step it passed into) joins it and leads it.
 
 Thus taps → Stack entry → ping → Next step shows the **Stack entry** icon;
 token creation → corner/counter/owner edits shows **creation**; card-counter →

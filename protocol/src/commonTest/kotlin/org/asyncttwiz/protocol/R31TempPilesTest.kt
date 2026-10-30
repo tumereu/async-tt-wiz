@@ -57,9 +57,9 @@ class R31TempPilesTest {
     private fun board(tree: GameplayTree) = assertNotNull(tree.stateAt(tree.currentNodeId)).board
     private fun cards(board: BoardState, id: String) = board.containers.single { it.id == id }.cards
 
-    @Test fun currentRulesAreVersionThirtyOne() {
+    @Test fun rulesVersionThirtyOneIsSupported() {
         assertEquals(31, TempPiles.SEARCH_RULES_VERSION)
-        assertEquals(TempPiles.SEARCH_RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= TempPiles.SEARCH_RULES_VERSION)
     }
 
     @Test fun closingATempPileSearchKeepsItsOrderAndKnowledge() {

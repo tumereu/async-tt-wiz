@@ -207,6 +207,27 @@ number. The table draws such a face-up card's name in blue. For Undo, an enterin
 event concerns the stored value and the current turn number (so undoing an earlier
 turn change beneath it is refused). Events recorded under older rules store nothing.
 
+**Multi-step advances record every step (rules v32).** An action that moves the
+turn on by more than one step records each step it passes (CR 500.1) as its own
+`chooseStep(position, through = true)` event, then the same final event as before
+(`endTurn`, or `chooseStep(target)`), all in one invocation: one Undo, one history
+group. This covers End turn (step button hold, quick action, phase dialog), a
+later step chosen in the phase dialog, Go to main, Untap/Draw → main, Select
+attackers, Skip combat, No attack and Damage, close & next. The starting player's
+first turn (turn 1) has no Draw step (CR 103.8a); with no attackers declared,
+Declare blockers and Combat damage are not passed (CR 508.8). Combined actions do
+their work in the step it belongs to: Untap in Untap, the draw in the Draw step
+(Draw is passed first); No attack / Damage, close & next close the combat area
+first and then pass End of combat, so the whole action stays one history group (a
+close after a step change would start a new group). A passed step only moves forward within the turn, never
+changes who has the move, never ends a history group (not even Declare blockers)
+and never represents its group (significance `STEP_PASSED`, ranked after every
+other companion), so the end state, the move holder, notifications and the group's
+text are exactly those of the single event used before. Passed steps exist so a
+player can go back to, say, the turn player's End step and continue from there.
+Choosing an earlier step is still one event; single-step actions (Next step,
+Untap/Draw + next, Advance + close combat, Assume no blocks) are unchanged.
+
 D-121 applies across the action catalog: targeted combined shortcuts and their
 constituent actions must also be reachable through a full action path. Quick
 visibility by phase/step or selection mode is not exclusive action access;

@@ -31,6 +31,8 @@ enum class HistorySignificance(val category: HistoryCategory, val rank: Int, val
     TURN_TRANSITION(HistoryCategory.B, 50, false), PHASE_STEP_TRACKING(HistoryCategory.B, 60, false),
     EVENT_COMMENT(HistoryCategory.B, 70, false), PING(HistoryCategory.P, 80, false),
     ATTENTION_PASS(HistoryCategory.B, 90, false),
+    /** Rules v32: a step passed inside a multi-step advance ([StepRun]); the run's own final event represents it. */
+    STEP_PASSED(HistoryCategory.B, 95, false),
     /** Decoded from a name this build does not know: it never anchors or represents a group and joins like a comment. */
     UNKNOWN(HistoryCategory.B, 100, false)
 }
@@ -69,6 +71,10 @@ object HistoryGrouping {
     const val BLOCKERS_BOUNDARY_RULES_VERSION = 29
     /** From this gameplay rules version closing a card panel (with its rest moves and shuffle) is its own history step. */
     const val PANEL_CLOSE_STEP_RULES_VERSION = 29
+    /** From this gameplay rules version a multi-step advance records the steps it passes ([StepRun]): each is
+     * [HistorySignificance.STEP_PASSED], joins like any step change and never ends a group (not even Declare
+     * blockers), so the whole advance stays one group. */
+    const val STEP_RUN_RULES_VERSION = StepRun.RULES_VERSION
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
@@ -91,7 +97,8 @@ object HistoryGrouping {
         PlayAction.EndTurn -> HistorySemantic(HistorySignificance.TURN_TRANSITION, HistoryIcon.OUTLINED_FLAG)
         PlayAction.NextStep -> HistorySemantic(if (transition?.fields?.any { it.field == GameplayField.TURN_PLAYER } == true)
             HistorySignificance.TURN_TRANSITION else HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
-        is PlayAction.ChooseStep -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
+        is PlayAction.ChooseStep -> HistorySemantic(if (action.through) HistorySignificance.STEP_PASSED
+            else HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
         is PlayAction.RollDie -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.CASINO)
         is PlayAction.FlipCoin -> HistorySemantic(HistorySignificance.DIE_COIN_RUN, HistoryIcon.MONETIZATION_ON)
         is PlayAction.ShuffleLibrary -> HistorySemantic(HistorySignificance.SHUFFLE, HistoryIcon.SHUFFLE, action.containerId)
@@ -194,7 +201,7 @@ object HistoryGrouping {
             }) else versioned
         // Rules v29: reaching Declare blockers ends a group, a timeline endpoint the defender can continue from.
         val blockers = if (transition != null && transition.rulesVersion >= BLOCKERS_BOUNDARY_RULES_VERSION &&
-            (action is PlayAction.ChooseStep || action == PlayAction.NextStep) &&
+            (action is PlayAction.ChooseStep && !action.through || action == PlayAction.NextStep) &&
             transition.fields.any { it.field == GameplayField.STEP && it.to == TurnPosition.DECLARE_BLOCKERS.step } &&
             transition.fields.none { it.field == GameplayField.PHASE && it.to != TurnPosition.DECLARE_BLOCKERS.phase })
             casting.copy(endsGroup = true) else casting
@@ -211,7 +218,10 @@ object HistoryGrouping {
         val incoming = semantic.category
         // A category key this build does not know (a newer server) continues like a group led by a comment or ping.
         val context = previous?.let { group -> HistoryCategory.entries.firstOrNull { it.key == group.category } ?: HistoryCategory.O }
-        val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R)
+        // Rules v32: a group of nothing but passed steps waits, like a closure run, for what the same action does
+        // next inside the step it reached (the draw in the Draw step), which then leads the group.
+        val passing = previous?.representative?.semantic?.significance == HistorySignificance.STEP_PASSED
+        val pending = context in setOf(HistoryCategory.T, HistoryCategory.F, HistoryCategory.R) || passing
         val pass = semantic.significance == HistorySignificance.ATTENTION_PASS
         val casting = semantic.rulesVersion >= 3 && previous?.stackEntryId != null
         val joins = previous != null && !previous.closed && previous.representative?.semantic?.isolated != true &&

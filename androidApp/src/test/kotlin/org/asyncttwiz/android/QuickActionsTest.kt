@@ -234,7 +234,10 @@ class QuickActionsTest {
             val actions = QuickActions.contextual(play, QuickContext(viewer = play.board.turn.accountId), controller)
             assertTrue(actions.none { "raw" in it.name }, position.name)
             assertTrue(controller.perform(actions.single { it.name == "Go to main" }.intent))
-            assertEquals(listOf<PlayAction>(PlayAction.ChooseStep(TurnPosition.PRECOMBAT_MAIN)), sent)
+            // Rules v32: Upkeep is recorded on the way from Untap; turn 1 has no Draw step to pass.
+            assertEquals<List<PlayAction>>(StepRun.between(play.board, TurnPosition.PRECOMBAT_MAIN).map { PlayAction.ChooseStep(it, through = true) } +
+                PlayAction.ChooseStep(TurnPosition.PRECOMBAT_MAIN), sent)
+            assertTrue(sent.none { (it as? PlayAction.ChooseStep)?.position == TurnPosition.DRAW })
         }
         // The other player's first turn is turn 2 and draws as usual.
         assertTrue(catalog(TurnPosition.DRAW, "2").none { it.name == "Go to main" })

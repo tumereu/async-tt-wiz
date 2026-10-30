@@ -33,7 +33,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             allQueued
         }
     })
-    val table = TableActionController(::current, ::enabled, { submit(it) }, this)
+    val table = TableActionController(::current, ::enabled, { submit(it) }, this, batch = { block -> batchResult(block = block) })
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
     private var lastInvocation: String? = null
@@ -620,7 +620,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         current()?.let { selectionState.value = selectionState.value.atStep(TurnPosition.of(it.board.turn)) }
     }
     override fun selectAttackers(intent: TableActionIntent.SelectAttackers) {
-        if (intent.advance && !submit(PlayAction.ChooseStep(TurnPosition.DECLARE_ATTACKERS))) return
+        if (intent.advance && !table.perform(TableActionIntent.Choose(intent.scope, TurnPosition.DECLARE_ATTACKERS))) return
         selectionState.value = selectionState.value.selectAttackers()
     }
 
@@ -645,7 +645,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 val combat = current()?.board?.combat
                 if (combat != null && combat.id == intent.areaId && CombatStackRules.occurrences(combat).isEmpty())
                     submit(PlayAction.Combat(CombatAction.Close(combat.id)))
-                submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN))
+                // Rules v32: End of combat is recorded on the way. The close stays first so it all reads as one group.
+                current()?.let { play -> StepRun.choose(play.board, TurnPosition.POSTCOMBAT_MAIN).forEach { submit(it) } }
             }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
@@ -671,9 +672,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         CombatTool.REGULAR_DAMAGE, CombatTool.DAMAGE_CLOSE_AND_NEXT)
     private fun performCombatDamage(intent: TableActionIntent.Combat): Boolean {
         val play = current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
+        // Rules v32: End of combat is recorded on the way. The close comes first: a close after a step change would
+        // start a second history group.
         if (intent.tool == CombatTool.DAMAGE_CLOSE_AND_NEXT) return batchResult {
-            submit(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN)) &&
-                (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId))))
+            (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId)))) &&
+                StepRun.choose(current()!!.board, TurnPosition.POSTCOMBAT_MAIN).all { submit(it) }
         }
         val step = when (intent.tool) {
             CombatTool.FIRST_STRIKE_DAMAGE -> CombatDamageStep.FIRST_STRIKE

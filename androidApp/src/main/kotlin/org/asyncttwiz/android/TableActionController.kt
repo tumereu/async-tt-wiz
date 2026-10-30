@@ -30,7 +30,9 @@ sealed interface TableActionIntent {
     val scope: TableActionScope
     data class Next(override val scope: TableActionScope) : TableActionIntent
     data class End(override val scope: TableActionScope) : TableActionIntent
-    data class Choose(override val scope: TableActionScope, val position: TurnPosition) : TableActionIntent
+    /** A later step records every step passed on the way (rules v32). [pass]: go on into [position] itself as a
+     * passed step, for a combined action that acts inside it before its own final step change. */
+    data class Choose(override val scope: TableActionScope, val position: TurnPosition, val pass: Boolean = false) : TableActionIntent
     data class Bundle(override val scope: TableActionScope, val actions: List<TableActionIntent>) : TableActionIntent
     data class SelectAttackers(override val scope: TableActionScope, val advance: Boolean) : TableActionIntent
     data class Orient(override val scope: TableActionScope, val cardIds: List<String>, val tapped: Boolean) : TableActionIntent
@@ -62,7 +64,9 @@ private fun secureTableSample(): (Int) -> Int {
 
 class TableActionController(private val state: () -> PlayState?, private val canAct: () -> Boolean,
     private val submit: (PlayAction) -> Boolean, private val routes: TableActionRoutes,
-    private val sample: (Int) -> Int = secureTableSample()) {
+    private val sample: (Int) -> Int = secureTableSample(),
+    /** Sends what [block] submits as one invocation (one Undo, one history group); the toolkit's batch. */
+    private val batch: (() -> Boolean) -> Boolean = { it() }) {
 
     private fun current(scope: TableActionScope): PlayState? = state()?.takeIf {
         canAct() && it.gameId == scope.gameId && it.id == scope.playId
@@ -94,6 +98,13 @@ class TableActionController(private val state: () -> PlayState?, private val can
             if (tool == LibraryTool.MULLIGAN_MINUS_ONE) (hand.cards.size - 1).coerceAtLeast(0) else 7)
     }
 
+    /** A single event goes as before; a run goes in the toolkit's batch, where one refused member sends none. */
+    private fun run(actions: List<PlayAction>): Boolean = when (actions.size) {
+        0 -> false
+        1 -> submit(actions.single())
+        else -> batch { actions.all(submit) }
+    }
+
     fun perform(intent: TableActionIntent): Boolean {
         val play = current(intent.scope) ?: return false
         fun send(actions: List<PlayAction>): Boolean {
@@ -110,8 +121,10 @@ class TableActionController(private val state: () -> PlayState?, private val can
             }
             is TableActionIntent.SelectAttackers -> routes.selectAttackers(intent)
             is TableActionIntent.Next -> return submit(PlayAction.NextStep)
-            is TableActionIntent.End -> return submit(PlayAction.EndTurn)
-            is TableActionIntent.Choose -> return submit(PlayAction.ChooseStep(intent.position))
+            // Every step passed on the way is its own event, all sent together (rules v32).
+            is TableActionIntent.End -> return run(StepRun.endTurn(play.board))
+            is TableActionIntent.Choose -> return run(if (intent.pass) StepRun.passTo(play.board, intent.position)
+                else StepRun.choose(play.board, intent.position))
             is TableActionIntent.Status -> return submit(PlayAction.SetStatus(intent.text))
             is TableActionIntent.Orient -> return send(intent.cardIds.distinct().filter { id ->
                 play.board.cards.any { card -> card.id == id && play.board.containers.any {

@@ -64,8 +64,12 @@ class CombatDamageActionsTest {
 
         assertTrue(toolkit.perform(offerings(current()).single { it.name == "Close + next" }.intent))
         assertEquals(2, commands.size)
-        assertEquals(listOf(PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN), PlayAction.Combat(CombatAction.Close(f.id(90)))),
+        // Rules v32: End of combat is recorded on the way; the close comes first so it all reads as one group.
+        assertEquals(listOf(PlayAction.Combat(CombatAction.Close(f.id(90))),
+            PlayAction.ChooseStep(TurnPosition.END_COMBAT, through = true), PlayAction.ChooseStep(TurnPosition.POSTCOMBAT_MAIN)),
             commands.last().playActions())
+        assertEquals(1, tree.nodes.values.filter { it.invocationId == commands.last().requestId }
+            .map { tree.stateAt(it.id)!!.currentGroup!!.id }.toSet().size)
         assertNull(current().board.combat)
         assertEquals(TurnPosition.POSTCOMBAT_MAIN, TurnPosition.of(current().board.turn))
         val undoClose = SelectiveUndo.change(tree, f.actor, commands.last().copy(requestId = f.id(501), action = GameAction.Undo))

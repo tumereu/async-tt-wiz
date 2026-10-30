@@ -116,6 +116,26 @@ class PlaybackSettingsTest {
         compose.onNodeWithText("0.1 s after each rewound group").assertExists()
     }
 
+    @Test fun autoRewindSettingsDefaultOffAreSeparateAndAccountScoped() {
+        val settings = HistoryPlaybackPreferences(context, "rewind")
+        assertFalse(settings.autoRewindLive); assertFalse(settings.autoRewindOpen)
+        var changes = 0
+        val stop = settings.observe { changes++ }
+        compose.setContent { MaterialTheme { SettingsContent(null, "rewind") {} } }
+        compose.onNodeWithText("Rewind automatically when the opponent branched").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auto-rewind-live").performScrollTo().assertIsOff().performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(settings.autoRewindLive); assertFalse(settings.autoRewindOpen) }
+        compose.onNodeWithTag("auto-rewind-open").performScrollTo().assertIsOff().performClick().assertIsOn()
+        compose.runOnIdle {
+            assertTrue(HistoryPlaybackPreferences(context, "rewind").autoRewindOpen)
+            assertEquals(2, changes)
+            assertFalse(HistoryPlaybackPreferences(context, "rewind-other").autoRewindLive)
+        }
+        compose.onNodeWithTag("auto-rewind-live").performScrollTo().performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(settings.autoRewindLive); assertTrue(settings.autoRewindOpen) }
+        stop()
+    }
+
     @Test fun terminalMatchingGroupKeepsAutoOnDuringAnimationThenGoesLiveWithoutAnotherDelay() {
         val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
             PlayAction.RollDie(6, 4), GameplayTransition())

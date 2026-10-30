@@ -20,6 +20,11 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var foreground by mutableStateOf(true); private set
     var usernames by mutableStateOf<Map<String, String>>(emptyMap()); private set
     internal var explorerHistory by mutableStateOf<HistoryTree?>(null); private set
+    /** Player settings, see [HistoryPlayback.autoRewindLive]/[HistoryPlayback.autoRewindOpen]. */
+    var autoRewindLive = false
+        set(value) { field = value; playback?.autoRewindLive = value }
+    var autoRewindOpen = false
+        set(value) { field = value; playback?.autoRewindOpen = value }
     private var tree: GameplayTree? = null
     private var firstRequest: String? = null
     private var precedingPresented: String? = null
@@ -104,9 +109,10 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                     val old = playback
                     if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index, ::playbackChanges,
                         { clearChanges() }).also {
+                        it.autoRewindLive = autoRewindLive; it.autoRewindOpen = autoRewindOpen
                         if (opening) it.openFrom(lastSeen)
                     }
-                    else old.receive(index, viewer)
+                    else old.receive(index, viewer, accepted.currentNodeId)
                     if (!foreground) playback?.background()
                     val result = value.nodes[value.currentNodeId]?.takeIf { it.action is PlayAction.SuggestResult }
                     if (result != null && playback?.position?.mode == HistoryMode.LIVE &&

@@ -105,6 +105,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val playbackPause by playbackPreferences.pauseState()
     val playbackRewindPause by playbackPreferences.rewindPauseState()
     val playbackAutoPause by playbackPreferences.autoPauseState()
+    val autoRewindLive by playbackPreferences.autoRewindLiveState()
+    val autoRewindOpen by playbackPreferences.autoRewindOpenState()
+    SideEffect { history.autoRewindLive = autoRewindLive; history.autoRewindOpen = autoRewindOpen }
     val eventTextEnabled by rememberEventTextEnabled(accountId).first
     SideEffect { history.eventText.enabled = eventTextEnabled }
     var playbackSettingsOpen by remember(history) { mutableStateOf(false) }

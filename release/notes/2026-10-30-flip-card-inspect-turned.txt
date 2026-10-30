@@ -1,0 +1,1 @@
+mod: Holding or inspecting a flipped flip card now turns its picture so the flipped half reads the right way up.

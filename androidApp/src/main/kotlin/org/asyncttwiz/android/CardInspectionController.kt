@@ -24,12 +24,18 @@ data class CardInspectionState(val card: InspectedCard, val face: Int = 0, val e
 class CardInspectionController {
     var state by mutableStateOf<CardInspectionState?>(null)
         private set
-    /** Opens on [face] (e.g. the face a game card currently shows); an index outside the card opens its first face. */
-    fun open(card: InspectedCard, face: Int = 0) {
-        state = CardInspectionState(card, face.takeIf { it in card.definition.faces.indices } ?: 0)
+    /** Opens on [face] (e.g. the face a game card currently shows); an index outside the card opens its first face.
+     * [turned] opens with the rotate button already pressed (a flipped flip card shows its picture upside down). */
+    fun open(card: InspectedCard, face: Int = 0, turned: Boolean = false) {
+        val index = face.takeIf { it in card.definition.faces.indices } ?: 0
+        state = CardInspectionState(card, index, turned = turned && index == face && card.orientation(index).alternate != null)
     }
     fun face(index: Int) { state?.let { if (index in it.card.definition.faces.indices) state = it.copy(face = index, enlarged = false, turned = false) } }
     fun zoom() { state = state?.let { it.copy(enlarged = !it.enlarged) } }
     fun turn() { state = state?.let { it.copy(turned = !it.turned) } }
     fun close() { state = null }
 }
+
+/** A flip card currently on its flipped half: inspection opens turned 180° so that half reads upright. */
+internal fun flippedOnTable(definition: CardDefinition, faceId: String): Boolean =
+    definition.layout == "flip" && definition.faces.indexOfFirst { it.faceId == faceId } > 0

@@ -208,11 +208,12 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         } }.orEmpty()
         // Open on the face the card currently shows (a transformed card shows its back), among the permitted faces only.
         val shown = faces.indexOfFirst { it.faceId == card.faceId }
+        val flipped = flippedOnTable(definition, card.faceId)
         val controller = remember(inspection) { CardInspectionController().apply {
-            open(permitted, shown)
+            open(permitted, shown, flipped)
             marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
-        LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown) }
+        LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
         if (controller.state != null) CardInspection(controller,
             listOfNotNull(
                 "Provisional inspection · awaiting shared result".takeIf { inspection.provisional },

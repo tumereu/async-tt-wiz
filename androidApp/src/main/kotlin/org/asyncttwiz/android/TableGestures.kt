@@ -465,9 +465,10 @@ class TableGestureCoordinator(
         }
         if (!scene.worldInput(p)) return null
         val f = scene.fields.firstOrNull { it.bounds.contains(p) } ?: return null
-        val x = p.x - f.gridBounds.x
+        val x = p.x - f.originX
         val y = if (f == scene.fields.last()) f.gridBounds.bottom - p.y else p.y - f.gridBounds.y
-        return TableDestination.Grid(f.containerId, floor(x / scene.columnPitch).toInt().coerceAtLeast(0), floor(y / f.rowHeight).toInt().coerceAtLeast(0))
+        // The battlefield feels infinite: drags may land left of column 0. Rows stay non-negative.
+        return TableDestination.Grid(f.containerId, floor(x / scene.columnPitch).toInt(), floor(y / f.rowHeight).toInt().coerceAtLeast(0))
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
     private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))

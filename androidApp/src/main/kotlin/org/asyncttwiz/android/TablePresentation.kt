@@ -146,9 +146,10 @@ internal const val FACE_DOWN_TITLE = "?"
 
 /** Clearly blue, distinct from the own (teal) / opponent (red) table colours and the until-end-of-turn teal. */
 internal const val EnteredThisTurnTitleColor = 0xff1a56db.toInt()
+/** [gridBounds] spans the whole pannable width (the battlefield feels infinite); [originX] is the screen x of column 0. */
 data class TableField(val bounds: TableBounds, val owner: String, val containerId: String = "",
     val gridBounds: TableBounds = bounds, val rowHeight: Float = TablePresentation.GRID,
-    val holdsAttention: Boolean = false) {
+    val holdsAttention: Boolean = false, val originX: Float = gridBounds.x) {
     @Suppress("UNUSED_PARAMETER")
     fun landsBounds(atBottom: Boolean, camera: TableCamera = TableCamera()) = gridBounds.copy(
         y = if (atBottom) gridBounds.bottom - rowHeight else gridBounds.y, height = rowHeight)
@@ -360,11 +361,19 @@ object TablePresentation {
         val zoom = camera.zoom
         val fieldScale = battlefieldScale * zoom
         val cw = hudWidth * fieldScale; val ch = hudHeight * fieldScale; val envelope = GRID * fieldScale
+        // The battlefield feels infinite; panning is limited only by distance from placed cards. Each field
+        // spans the whole pan area (and the viewport, covering overscroll and zoomed-out views) on both sides,
+        // so no field edge, drop gap or tint edge is ever visible. Column 0 stays the world origin.
+        val pan = world.screen(world.panBounds, camera)
+        val fieldLeft = minOf(pan.x, worldViewport.x)
+        val fieldRight = maxOf(pan.right, worldViewport.right)
         val fields = players.mapIndexed { index, player ->
-            val grid = world.screen(logicalFields[index].copy(width = world.bounds.right), camera)
+            val logical = world.screen(logicalFields[index], camera)
+            val grid = TableBounds(fieldLeft, logical.y, fieldRight - fieldLeft, logical.height)
             val bounds = grid.intersection(worldViewport) ?: grid.copy(width = 0f, height = 0f)
             TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
-                gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.effectiveAttentionHolder)
+                gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.effectiveAttentionHolder,
+                originX = logical.x)
         }
         val sidebarBounds = TableBounds(0f, boardTop, sidebar, (height - controlsHeight - boardTop).coerceAtLeast(0f))
         val sidebarRow = dockRow + counterHeight
@@ -442,7 +451,7 @@ object TablePresentation {
             battlefield.cards.withIndex().sortedByDescending { positions[it.value]?.pileIndex ?: 0 }
                 .forEach { (order, id) -> byId[id]?.let { c ->
                     val p = positions[id] ?: TablePlacement(order, 0)
-                    val x = field.gridBounds.x + p.column * columnPitch * zoom + 16f * fieldScale
+                    val x = field.originX + p.column * columnPitch * zoom + 16f * fieldScale
                     val rowHeight = field.rowHeight
                     val dy = p.row * rowHeight
                     val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy

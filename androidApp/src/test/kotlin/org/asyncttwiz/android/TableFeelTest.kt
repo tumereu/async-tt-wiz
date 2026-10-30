@@ -21,42 +21,54 @@ class TableFeelTest {
         assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", org.asyncttwiz.protocol.CounterColor.BLUE, 2)), events)
     }
 
-    @Test fun dominantAxisCompleteFortyEightDpStepsAndSigns() {
-        for ((x, y, expected) in listOf(Triple(144f, 20f, 3L), Triple(-144f, -20f, -3L),
-            Triple(20f, -144f, -3L), Triple(-20f, 144f, 3L), Triple(48f, 0f, 1L),
-            Triple(0f, 48f, 1L), Triple(47.99f, 0f, 0L), Triple(-47.99f, 0f, 0L),
-            Triple(48f, 48f, 1L), Triple(100f, -99f, 2L), Triple(99f, 100f, 2L))) {
+    @Test fun dominantAxisCompleteUnitStepsAndSigns() {
+        // Every value drag (life, player and card counters, P/T, menu widgets) shares one 33.6dp unit: 70% of 48dp.
+        assertEquals(48f * .7f, VALUE_DRAG_STEP_DP, .0001f)
+        val u = VALUE_DRAG_STEP_DP
+        val e = .01f
+        for ((x, y, expected) in listOf(Triple(3 * u + e, 20f, 3L), Triple(-3 * u - e, -20f, -3L),
+            Triple(20f, -3 * u - e, -3L), Triple(-20f, 3 * u + e, 3L), Triple(u, 0f, 1L),
+            Triple(0f, u, 1L), Triple(u - e, 0f, 0L), Triple(-u + e, 0f, 0L),
+            Triple(u, u, 1L), Triple(70f, -69f, 2L), Triple(69f, 70f, 2L))) {
             assertEquals(expected, valueDragDelta(x, y), "displacement $x, $y")
         }
-        assertEquals(2L, valueDragDelta(200f, 20f, 96f)) // Same 100dp at density 2.
+        assertEquals(2L, valueDragDelta(140f, 20f, 2 * u)) // Same 70dp at density 2.
         assertEquals(0L, valueDragDelta(Float.NaN, 20f))
         assertEquals("+3 → 23", valueDragLabel("20", 3))
         assertEquals("−3 → 17", valueDragLabel("20", -3))
         assertEquals("+3 → 3", valueDragLabel(null, 3))
-        assertEquals(-3L, valueDragDelta(10f, 144f, side = ValueDragSide.TOP))
-        assertEquals(3L, valueDragDelta(-10f, -144f, side = ValueDragSide.TOP))
-        assertEquals(3L, valueDragDelta(144f, -10f, side = ValueDragSide.TOP))
-        assertEquals(-3L, valueDragDelta(-144f, 10f, side = ValueDragSide.TOP))
+        assertEquals(-3L, valueDragDelta(10f, 3 * u + e, side = ValueDragSide.TOP))
+        assertEquals(3L, valueDragDelta(-10f, -3 * u - e, side = ValueDragSide.TOP))
+        assertEquals(3L, valueDragDelta(3 * u + e, -10f, side = ValueDragSide.TOP))
+        assertEquals(-3L, valueDragDelta(-3 * u - e, 10f, side = ValueDragSide.TOP))
+        // Player value drags use the same shared unit by default.
+        val drag = PlayerDeltaDrag(PlayerValueTarget(TableActionScope(TableToolFixture.id(1), TableToolFixture.id(2)),
+            TableToolFixture.id(7), org.asyncttwiz.protocol.CounterColor.BLUE))
+        drag.move(3 * u + e, 0f)
+        assertEquals(3L, drag.delta)
     }
 
     @Test fun dragCurveIsMonotonicSymmetricDensityIndependentAndAcceleratesAfterThreeUnits() {
+        val u = VALUE_DRAG_STEP_DP
         for (unit in 1..3) {
-            assertEquals((unit - 1).toLong(), valueDragDelta(unit * 48f - .01f, 0f))
-            assertEquals(unit.toLong(), valueDragDelta(unit * 48f, 0f))
+            assertEquals((unit - 1).toLong(), valueDragDelta(unit * u - .01f, 0f))
+            assertEquals(unit.toLong(), valueDragDelta(unit * u + .001f, 0f))
         }
         var previous = 0L
         for (dp in 0..1000) {
             val delta = valueDragDelta(dp.toFloat(), 0f)
             assertTrue(delta >= previous)
             assertEquals(-delta, valueDragDelta(-dp.toFloat(), 0f))
-            assertEquals(delta, valueDragDelta(dp * 2.625f, 0f, 48f * 2.625f))
+            assertEquals(delta, valueDragDelta(dp * 2f, 0f, u * 2f))
             previous = delta
         }
-        for ((dp, expected) in listOf(48f to 1L, 144f to 3L, 200f to 5L, 250f to 8L,
+        // Same curve shape as the former 48dp unit, every distance 30% shorter (412dp → 288.4dp for ~30).
+        for ((formerDp, expected) in listOf(48f to 1L, 144f to 3L, 200f to 5L, 250f to 8L,
             300f to 13L, 350f to 19L, 412f to 30L)) {
-            assertEquals(expected, valueDragDelta(dp, 0f), "$dp dp")
+            assertEquals(expected, valueDragDelta(formerDp * .7f + .001f, 0f), "${formerDp * .7f} dp")
+            assertEquals(expected, valueDragDelta(formerDp + .001f, 0f, 48f), "$formerDp dp at the old unit")
         }
-        assertTrue(valueDragDelta(250f, 0f) - valueDragDelta(200f, 0f) > valueDragDelta(100f, 0f) - valueDragDelta(50f, 0f))
+        assertTrue(valueDragDelta(175f, 0f) - valueDragDelta(140f, 0f) > valueDragDelta(70f, 0f) - valueDragDelta(35f, 0f))
     }
 
     @Test fun lifeAndPlayerCountersSubtractTowardOtherPlayerInBothOrientations() {
@@ -65,9 +77,10 @@ class TableFeelTest {
             val scene = TablePresentation.scene(f.game, f.combat(), f.a,
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape)
             for (item in scene.items.filter { it.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) }) {
-                for ((dx, dy, expected) in listOf(Triple(144f, 1f, 3), Triple(-144f, 1f, -3),
-                    Triple(1f, if (item.owner == f.a) -144f else 144f, -3),
-                    Triple(1f, if (item.owner == f.a) 144f else -144f, 3))) {
+                val d = 3 * VALUE_DRAG_STEP_DP + .1f
+                for ((dx, dy, expected) in listOf(Triple(d, 1f, 3), Triple(-d, 1f, -3),
+                    Triple(1f, if (item.owner == f.a) -d else d, -3),
+                    Triple(1f, if (item.owner == f.a) d else -d, 3))) {
                     val sent = mutableListOf<TableIntent>()
                     val gestures = TableGestureCoordinator(sent::add)
                     gestures.update(scene, TableSelection(), true)

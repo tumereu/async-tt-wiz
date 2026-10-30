@@ -149,7 +149,7 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
 data class PlayerDeltaRelease(val target: PlayerValueTarget, val delta: Long)
 
 /** Local preview only. One immutable target and at most one nonzero release; movement sends nothing. */
-class PlayerDeltaDrag(val target: PlayerValueTarget, private val pixelsPerStep: Float,
+class PlayerDeltaDrag(val target: PlayerValueTarget, private val pixelsPerStep: Float = VALUE_DRAG_STEP_DP,
     private val side: ValueDragSide = ValueDragSide.BOTTOM) {
     init { require(pixelsPerStep.isFinite() && pixelsPerStep > 0) }
     private var x = 0f

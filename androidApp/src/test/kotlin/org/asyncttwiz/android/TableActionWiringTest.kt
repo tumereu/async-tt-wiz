@@ -81,9 +81,9 @@ class TableActionWiringTest {
         fun scene() = TablePresentation.scene(f.game, f.play, f.actor, 412f, 900f, false)
         gestures.update(scene(), TableSelection(), true)
         val life = scene().items.single { it.id == "life/${f.actor}" }.visible.first().center
-        gestures.down(life, 0); gestures.move(TablePoint(life.x, life.y - 72), 100)
+        gestures.down(life, 0); gestures.move(TablePoint(life.x, life.y - 50), 100)
         assertTrue(f.commands().isEmpty()); assertEquals("20", f.play.board.players.first().life)
-        gestures.up(TablePoint(life.x, life.y - 72), 150)
+        gestures.up(TablePoint(life.x, life.y - 50), 150)
         assertEquals(PlayAction.AdjustLife(f.actor, "-1"), (f.commands().single().action as GameAction.Play).action)
         assertEquals("19", f.play.board.players.first().life)
         gestures.down(life, 200); gestures.move(TablePoint(life.x, life.y - 48), 250); gestures.cancel()

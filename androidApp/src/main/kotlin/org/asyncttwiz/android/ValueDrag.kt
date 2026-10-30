@@ -20,10 +20,14 @@ internal fun cardValueDragSide(board: org.asyncttwiz.protocol.BoardState, card: 
     return if (controller == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP
 }
 
-/** First three units cost 48dp each, then a smooth quadratic accelerates to ~30 at 412dp.
+/** The initial unit distance (dp) of every life/counter/value drag: 70% of the former 48dp. */
+internal const val VALUE_DRAG_STEP_DP = 33.6f
+
+/** First three units cost [VALUE_DRAG_STEP_DP] (33.6dp) each, then a smooth quadratic accelerates to ~30
+ * at 288.4dp; the curve is defined in units, so its shape is independent of the step.
  * Magnitudes truncate to whole units. [step] is the initial unit distance in the caller's
  * coordinates. Ties use the vertical axis. */
-internal fun valueDragDelta(dx: Float, dy: Float, step: Float = 48f, side: ValueDragSide = ValueDragSide.BOTTOM): Long {
+internal fun valueDragDelta(dx: Float, dy: Float, step: Float = VALUE_DRAG_STEP_DP, side: ValueDragSide = ValueDragSide.BOTTOM): Long {
     require(step.isFinite() && step > 0f)
     if (!dx.isFinite() || !dy.isFinite()) return 0
     val distance = if (abs(dx) > abs(dy)) dx else if (side == ValueDragSide.BOTTOM) dy else -dy
@@ -76,7 +80,7 @@ internal fun Modifier.valueDragGestures(enabled: Boolean, preview: (Long?) -> Un
                     }
                     if (dragging) {
                         change.consume()
-                        val delta = valueDragDelta(distance.x, distance.y, 48.dp.toPx(), dragSide)
+                        val delta = valueDragDelta(distance.x, distance.y, VALUE_DRAG_STEP_DP.dp.toPx(), dragSide)
                         currentPreview(delta)
                         if (!change.pressed && delta != 0L) release(delta)
                     }

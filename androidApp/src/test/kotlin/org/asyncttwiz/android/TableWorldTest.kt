@@ -49,7 +49,8 @@ class TableWorldTest {
     @Test fun backgroundBandsCoverViewportWidthEvenWhenAllocatedWorldIsOffscreen() {
         val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(800f, 0f, .65f)))
         val world = scene.world!!
-        assertTrue(scene.fields.all { it.bounds.width == 0f })
+        // The battlefield feels infinite: even overscrolled past the pan bounds, the fields fill the viewport width.
+        assertTrue(scene.fields.all { it.bounds.x == world.viewport.x && it.bounds.width == world.viewport.width })
         val bands = scene.fields.map { it.gridBounds } + TableBounds(0f, scene.fields.first().gridBounds.bottom,
             0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)
         for (band in bands) {
@@ -78,7 +79,8 @@ class TableWorldTest {
                 for (field in home.fields) {
                     val other = next.fields.single { it.owner == field.owner }
                     val expected = transformed(field.gridBounds)
-                    assertEquals(expected.x, other.gridBounds.x, .001f)
+                    // Fields span the whole pan area; their column-0 origin carries the world transform.
+                    assertEquals(transformed(TableBounds(field.originX, 0f, 0f, 0f)).x, other.originX, .001f)
                     assertEquals(expected.y, other.gridBounds.y, .001f)
                     assertEquals(expected.height, other.gridBounds.height, .001f)
                     assertEquals(field.rowHeight * zoom, other.rowHeight, .001f)

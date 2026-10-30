@@ -133,7 +133,10 @@ one zoom/pan surface. Hands, piles, life and counters are fixed-size HUD, with
 piles below your hand and above the opponent's. Portrait Stack is fixed-size at
 the right edge, vertically centered; landscape keeps its sidebar. Battlefield
 backgrounds extend indefinitely sideways. Camera bounds allow three card slots
-beyond the outermost cards; overscroll rubber-bands and springs back. Clamp each
+beyond the outermost cards; overscroll rubber-bands and springs back. The
+battlefield feels infinite: panning is limited only by distance from placed cards,
+no field edge is visible inside the pan area, and drags may place cards anywhere in
+it, including negative columns (automatic placement still starts at column 0). Clamp each
 axis independently: wide content cannot expose space beyond its ends, and narrow
 content cannot be pushed partly off-screen. Empty-space double tap fits the table;
 double tap then drag pans one-handed; plain empty drag rectangle-selects, showing

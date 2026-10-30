@@ -43,7 +43,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
                     old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
             val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->
-                val x = field.gridBounds.x + p.x * scene.columnPitch + 16 * fieldScale
+                val x = field.originX + p.x * scene.columnPitch + 16 * fieldScale
                 val dy = p.y * field.rowHeight
                 val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight - dy else field.gridBounds.y + dy
                 val baseY = rowY + (field.rowHeight - scene.footprint) / 2

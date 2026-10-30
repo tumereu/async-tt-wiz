@@ -25,7 +25,7 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
     fun location(point: TablePoint): PingTarget? {
         val field = scene.fields.firstOrNull { it.bounds.contains(point) } ?: return null
         if (!scene.worldInput(point)) return null
-        val x = cell(point.x - field.gridBounds.x)
+        val x = cell(point.x - field.originX)
         val y = floor((if (field == scene.fields.last()) field.gridBounds.bottom - point.y else point.y - field.gridBounds.y) / rowHeight(field)).toInt()
         return PingTarget(PingTargetKind.LOCATION, position = BoardPosition(x, y * 2 + if (field.owner == firstPlayer) 0 else 1))
     }
@@ -40,17 +40,17 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
         val position = target.position ?: return null
         val side = Math.floorMod(position.y, 2)
         val field = scene.fields.singleOrNull { (if (it.owner == firstPlayer) 0 else 1) == side } ?: return null
-        val x = field.gridBounds.x + (position.x + .5f) * scene.footprint
+        val x = field.originX + (position.x + .5f) * scene.footprint
         val y = (Math.floorDiv(position.y, 2) + .5f) * rowHeight(field)
         val point = TablePoint(x, if (field == scene.fields.last()) field.gridBounds.bottom - y else field.gridBounds.y + y)
         return point.takeIf { field.bounds.contains(it) && scene.worldInput(it) }
     }
 
     fun locations(field: TableField): List<Pair<PingTarget, TablePoint>> {
-        val left = cell(field.bounds.x - field.gridBounds.x)
+        val left = cell(field.bounds.x - field.originX)
         val rowHeight = rowHeight(field)
         val top = floor((if (field == scene.fields.last()) field.gridBounds.bottom - field.bounds.bottom else field.bounds.y - field.gridBounds.y) / rowHeight).toInt()
-        val right = cell(field.bounds.right - field.gridBounds.x)
+        val right = cell(field.bounds.right - field.originX)
         val bottom = top + kotlin.math.ceil(field.bounds.height / rowHeight).toInt()
         return (top..bottom).flatMap { row -> (left..right).mapNotNull { column ->
             val target = PingTarget(PingTargetKind.LOCATION,

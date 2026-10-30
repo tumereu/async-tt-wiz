@@ -20,6 +20,10 @@ object HistoryContinuation {
         if (command.scope.gameId != tree.initial.gameId || command.scope.playId != tree.initial.id)
             return GameplayTreeChange(reason = "inapplicable")
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
+        // Owner rule 2026-10-30: only a deliberate branch changes the active line. An ordinary action made on a
+        // line that a continuation has since replaced is refused as a whole (batches too), never moved over.
+        if (command.expectedSelection != null && command.expectedSelection != tree.selectionKey)
+            return GameplayTreeChange(reason = "branched")
         val change = when (command.action) {
             is GameAction.Play -> tree.play(actor, command)
             is GameAction.PlayBatch -> PlayBatches.change(tree, actor, command)

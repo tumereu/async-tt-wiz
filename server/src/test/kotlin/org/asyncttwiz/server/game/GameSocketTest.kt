@@ -138,7 +138,7 @@ class GameSocketTest {
                 val (_, game) = create(settings, a, b)
                 val modern = GameHello(id(), id(), maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
                 Socket(settings, a.token, modern).use { owner -> Socket(settings, b.token).use { old ->
-                    owner.send(owner.hello); assertEquals(1, owner.next<GameWelcome>().minor)
+                    owner.send(owner.hello); assertEquals(GAME_PROTOCOL_MINOR, owner.next<GameWelcome>().minor)
                     old.send(old.hello); assertEquals(0, old.next<GameWelcome>().minor)
                     owner.send(SubscribeGame(game.id))
                     assertEquals(OpponentPresence(PresenceState.OFFLINE), owner.next<GameHead>().opponentPresence)

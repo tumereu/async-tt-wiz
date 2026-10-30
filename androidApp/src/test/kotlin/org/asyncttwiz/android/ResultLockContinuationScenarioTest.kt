@@ -50,10 +50,11 @@ class ResultLockContinuationScenarioTest {
         private val handled = mutableSetOf<String>()
         fun summary() = game.copy(revision = revision.toString())
         fun join(account: String) = Client(this, account).also { clients += it; it.connect() }
-        /** Process every command the clients have sent, in send order, until none is left. */
-        fun flush() {
+        /** Process every command the clients have sent, in send order, until none is left ([first]'s commands arrive first). */
+        fun flush(first: Client? = null) {
             while (true) {
-                val next = clients.firstNotNullOfOrNull { client -> client.commands().firstOrNull { it.requestId !in handled }?.let { client to it } }
+                val next = (listOfNotNull(first) + clients.filter { it !== first }).firstNotNullOfOrNull { client ->
+                    client.commands().firstOrNull { it.requestId !in handled }?.let { client to it } }
                     ?: break
                 val (author, command) = next
                 handled += command.requestId
@@ -115,7 +116,7 @@ class ResultLockContinuationScenarioTest {
         fun connect() {
             lobby.open(game.id); settle { wire.listener != null }
             requireNotNull(wire.listener).opened(); settle()
-            message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            message(GameWelcome(minor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             settle { wire.frames.any { it is OpenGameStream } }
             val stream = wire.frames.filterIsInstance<OpenGameStream>().last().streamId
             message(GameStreamReady(game.id, stream, "1"))
@@ -260,4 +261,57 @@ class ResultLockContinuationScenarioTest {
         assertFalse(bob.lobby.gameplay(PlayAction.AdjustLife(b, "-1"), continuation = Continuation(suggestion, true)))
         assertEquals(sent, bob.commands().size)
     }
+
+    /** Owner rule 2026-10-30: only a deliberate branch changes the active line; a move that raced with one is refused. */
+    @Test fun aMoveMadeJustAsTheOpponentContinuesFromAnEarlierPointIsRefusedNotMovedToTheirNewLine() = Server().use { server ->
+        val alice = server.join(a)
+        val bob = server.join(b)
+        fun life(board: BoardState) = board.players.single { it.accountId == a }.life
+        assertTrue(alice.menu(PlayAction.AdjustLife(a, "-1"))); server.flush()
+        val split = server.tree.currentNodeId
+        assertTrue(bob.menu(PlayAction.SetLife(a, "30"))); server.flush()
+        val oldHead = server.tree.currentNodeId
+
+        // Bob deliberately continues from the split point; before Alice hears of it she acts on what she sees.
+        bob.review(split)
+        assertTrue(bob.history.requestContinuation(split))
+        assertTrue(bob.menu(PlayAction.AdjustLife(b, "-1")))
+        assertTrue(bob.menu(PlayAction.AdjustLife(b, "-1")), "his next action on his still-unconfirmed branch")
+        assertTrue(alice.menu(PlayAction.AdjustLife(a, "-1")))
+        val move = alice.commands().last()
+        assertEquals(server.tree.selectionKey, move.expectedSelection)
+        alice.sync()
+        assertEquals("29", life(alice.play.board), "her prediction on the line she sees")
+        server.flush(first = bob)
+
+        // Bob's branch is the live game; Alice's move was refused, not played there or anywhere else.
+        assertEquals("branched", server.outcomes[move.requestId])
+        assertEquals(listOf("accepted"), bob.commands().takeLast(2).map { server.outcomes[it.requestId] }.distinct())
+        assertTrue(server.tree.nodes.values.none { it.requestId == move.requestId })
+        val branchHead = server.tree.currentNodeId
+        assertNotEquals(oldHead, branchHead)
+        assertEquals("19", life(server.board()))
+        // Her prediction is gone from the live board, she gets a calm note, and she is paused where she was.
+        assertEquals(branchHead, alice.lobby.state.acceptedPlay?.currentNodeId)
+        assertEquals("19", life(assertNotNull(alice.lobby.state.play).board))
+        assertEquals("30", life(alice.play.board), "the table shows the paused point, without her refused move")
+        assertEquals("Your opponent went back to an earlier point — your last action wasn't applied.", alice.lobby.state.connectionMessage)
+        val alicePlayback = assertNotNull(alice.history.playback)
+        assertEquals(HistoryPosition(oldHead, HistoryMode.PLAYBACK, false, oldHead), alicePlayback.position)
+        assertTrue(alicePlayback.branched)
+        assertEquals(HistoryMode.LIVE, bob.history.playback?.position?.mode)
+        assertEquals("19", life(bob.play.board))
+        alice.rewind()
+        assertEquals(branchHead, alice.history.playback?.position?.cursorId)
+
+        // Both keep playing on the live line.
+        assertTrue(alice.menu(PlayAction.AdjustLife(a, "-2")))
+        assertEquals(server.tree.selectionKey, alice.commands().last().expectedSelection)
+        server.flush()
+        assertEquals("accepted", server.outcomes[alice.commands().last().requestId])
+        assertEquals(branchHead, server.tree.nodes.getValue(server.tree.currentNodeId).parentId)
+        assertEquals("17", life(server.board()))
+        for (client in listOf(alice, bob)) assertEquals("17", life(client.play.board))
+    }
+
 }

@@ -687,6 +687,14 @@ Library reseed input. When unsure, refuse Undo; manual reversal remains possible
   continuation still requires an explicit flag/boundary and makes its new branch
    current. D-232 Undo/Redo edit the existing tree rather than supply interruption
    intent or create branches.
+- **Active line changes only by deliberate branching (owner, 2026-10-30):** "The
+  active branch is only switched by conscious, deliberate branch-change actions,
+  never silently by normal actions." An ordinary action names the active line its
+  player saw (the selection made by the last deliberate continuation, including
+  their own pending one). If the opponent's explicit continuation became active
+  before it arrived, the action is refused with a short calm note, never moved
+  onto the new line or the old one. Same-line concurrency (D-187), Undo/Redo and
+  older clients that do not name a line are unchanged.
 - **Authoritative Undo/Redo revision (owner, 2026-10-25):** selective deletion/reinsertion
   is allowed if and only if **every later game-tree event can apply with identical
   concerned-field `(before, after)` tuples** in both trees, using game state and

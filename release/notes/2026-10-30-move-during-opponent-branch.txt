@@ -1,0 +1,1 @@
+fix: A move you make just as your opponent goes back to an earlier point is no longer put into their new line; it is not applied and you see a short note instead.

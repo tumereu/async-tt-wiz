@@ -6,6 +6,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.unit.dp
+import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -53,6 +56,47 @@ class PodStatsViewTest {
     }
 
     @Test
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
+        fun card(name: String, type: String, cost: String) = CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
+        val definitions = mapOf(
+            "bear" to card("Bear", "Creature — Bear", "{1}{G}"), "golem" to card("Golem", "Artifact Creature — Golem", "{4}"),
+            "hero" to card("Hero", "Legendary Creature — Human Knight", "{1}{W}{W}"), "bolt" to card("Bolt", "Instant", "{R}"),
+            "growth" to card("Growth", "Instant", "{G}"), "rampant" to card("Rampant", "Sorcery", "{2}{G}"),
+            "aura" to card("Aura", "Enchantment — Aura", "{1}{W}"), "ring" to card("Ring", "Artifact", "{2}"),
+            "walker" to card("Walker", "Legendary Planeswalker — Ajani", "{2}{G}{W}"),
+            "giant" to card("Giant", "Creature — Giant // Sorcery — Adventure", "{4}{R}"),
+            "gate" to card("Gate", "Land — Gate", ""),
+        )
+        val counts = mapOf("bear" to 5, "golem" to 2, "hero" to 3, "bolt" to 2, "growth" to 2, "rampant" to 1, "aura" to 2,
+            "ring" to 1, "walker" to 1, "giant" to 2, "gate" to 2)
+        val copies = counts.flatMap { (digest, n) -> List(n) { DraftCopy("$digest-$it", digest) } }.associateBy { it.id }
+        compose.setContent { MaterialTheme {
+            PodStatsView(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 7, forest = 8)), copies, definitions)
+        } }
+        compose.onNodeWithTag("pod-stats-type-Creature").assertTextEquals("Creature 12").assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-type-Land").assertTextEquals("Land 17")
+        compose.onNodeWithTag("pod-stats-type-Basic").assertTextEquals("Basic 15")
+        compose.onNodeWithTag("pod-stats-type-Legendary").assertTextEquals("Legendary 4")
+        compose.onNodeWithTag("pod-stats-type-Artifact").assertTextEquals("Artifact 3")
+        compose.onNodeWithTag("pod-stats-type-Sorcery").assertTextEquals("Sorcery 1")
+        compose.onNodeWithTag("pod-stats-type-Golem").assertDoesNotExist()
+        compose.onNodeWithTag("pod-stats-type-Tribal").assertDoesNotExist()
+        val chips = compose.onAllNodes(SemanticsMatcher("type chip") { node ->
+            node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("pod-stats-type-") == true
+        }).fetchSemanticsNodes()
+        assertEquals(listOf("Land", "Basic", "Creature", "Instant", "Legendary", "Artifact", "Enchantment", "Planeswalker", "Sorcery"),
+            chips.map { it.config[androidx.compose.ui.semantics.SemanticsProperties.TestTag].removePrefix("pod-stats-type-") })
+        val legend = compose.onNodeWithText("Creature: 12").getUnclippedBoundsInRoot()
+        val types = compose.onNodeWithTag("pod-stats-types").getUnclippedBoundsInRoot()
+        val mana = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
+        assertTrue(legend.bottom <= types.top && types.bottom <= mana.top)
+        assertTrue(types.bottom - types.top < 80.dp, "Nine types wrap into at most a few rows: ${types.bottom - types.top}")
+        val output = java.io.File("build/outputs/roborazzi/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
+        compose.onRoot().captureRoboImage(output.path)
+    }
+
+    @Test
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun emptyStatsRenderZeroValuesInLandscape() {
         compose.setContent { MaterialTheme { PodStatsView(PodDeckBuild(), emptyMap(), emptyMap()) } }
@@ -68,11 +112,13 @@ class PodStatsViewTest {
         compose.onNodeWithTag("pod-stats-pattern-0").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-no-pips").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-notes").assertDoesNotExist()
+        compose.onNodeWithTag("pod-stats-types").assertDoesNotExist()
     }
 
     @Test fun chartBoundsStayStableWhenValuesRefreshInLightAndDarkThemes() {
         val dark = mutableStateOf(false)
-        val build = mutableStateOf(PodDeckBuild())
+        // Starts non-empty: the type counts row only appears once the Main deck has a card.
+        val build = mutableStateOf(PodDeckBuild(basics = PodDeckBasics(forest = 1)))
         compose.setContent { MaterialTheme(colorScheme = if (dark.value) darkColorScheme() else lightColorScheme()) {
             PodStatsView(build.value, emptyMap(), emptyMap())
         } }

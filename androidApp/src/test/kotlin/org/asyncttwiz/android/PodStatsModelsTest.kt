@@ -66,6 +66,31 @@ class PodStatsModelsTest {
         assertEquals(0L, stats.sources[DraftColor.R]) // Nonland costs never count as sources.
     }
 
+    @Test fun typeCountsComeFromFrontTypeLineWordsOfMainCardsAndBasicsMostCommonFirst() {
+        val definitions = mapOf(
+            "golem" to card("Golem", "Legendary Artifact Creature — Golem"),
+            "elf" to card("Elf", "Creature — Elf"),
+            "adventure" to card("Giant", "Creature — Giant // Sorcery — Adventure"),
+            "hyphen" to card("Dual", "Land - Island Swamp"),
+            "ench" to card("Aura", "Enchantment — Aura"),
+            "side" to card("Side", "Instant"),
+        )
+        val copies = listOf("g" to "golem", "e1" to "elf", "e2" to "elf", "a" to "adventure", "h" to "hyphen", "n" to "ench",
+            "s" to "side", "t" to "side", "m" to "missing").associate { (id, digest) -> id to DraftCopy(id, digest) }
+        val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it, when (it) {
+            "s" -> PodDeckCategory.SIDE
+            "t" -> PodDeckCategory.TRASH
+            else -> PodDeckCategory.MAIN
+        }) }, PodDeckBasics(plains = 2, forest = 1), sideBasics = PodDeckBasics(island = 5))
+        val stats = podStats(build, copies, definitions)
+        assertEquals(listOf("Creature" to 4L, "Land" to 4L, "Basic" to 3L, "Artifact" to 1L, "Enchantment" to 1L, "Legendary" to 1L), stats.types)
+        assertEquals(1, stats.missingDefinitions)
+        assertTrue(stats.types.none { it.first in setOf("Instant", "Sorcery", "Golem", "Island", "-", "—") })
+        assertEquals(listOf("Basic", "Snow", "Land"), podStatsTypeWords("Basic  Snow Land — Forest"))
+        assertEquals(emptyList(), podStatsTypeWords(""))
+        assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).types.isEmpty())
+    }
+
     @Test fun notesSanitizeAndCountersStayWithinTheirRange() {
         val notes = PodDeckNotes("a\r\nb\tc\u0000", listOf(1, 2, 3)).podNotesSanitized()
         assertEquals("a\nbc", notes.text)

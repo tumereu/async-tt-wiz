@@ -24,7 +24,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
@@ -61,6 +65,7 @@ fun PodStatsView(
                     }
                 }
             }
+            if (stats.types.isNotEmpty()) item { PodStatsTypes(stats.types) }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     PodStatsMana(stats, Modifier.weight(1f))
@@ -73,6 +78,23 @@ fun PodStatsView(
                 }
             }
             if (notes != null) item("notes") { PodStatsNotes(notes, onNotes) }
+        }
+    }
+}
+
+/** Main copies per type-line word, as wrapping "Creature 15" labels, most common first. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PodStatsTypes(types: List<Pair<String, Long>>) {
+    FlowRow(Modifier.fillMaxWidth().testTag("pod-stats-types"),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for ((name, count) in types) Surface(Modifier.testTag("pod-stats-type-$name")
+            .semantics(mergeDescendants = true) {},
+            shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Text(buildAnnotatedString {
+                append("$name ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$count") }
+            }, Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }

@@ -96,4 +96,50 @@ class TempPileRuntimeTest {
             }
         }
     }
+    @Test fun `rules v31 Temp pile search closes unshuffled and pile menu batches are single undoable invocations`() {
+        OwnedPostgres().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime)
+                val owner = f.a.account.accountId
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                fun batch(actions: List<PlayAction>) {
+                    val result = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(actions)))
+                    assertEquals("accepted", result.outcome, result.reason)
+                }
+                fun accept(action: PlayAction) {
+                    val input = f.owner.command(action)
+                    val expected = GameplayRules.change(state(), owner, input)
+                    val result = f.owner.execute(input)
+                    assertEquals("accepted", result.outcome, result.reason)
+                    assertEquals(expected.mutation, result.mutation)
+                    assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, result.mutation!!.transition.rulesVersion)
+                    assertEquals(expected.state, state())
+                }
+                val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
+                val tempId = TempPiles.containerId(state().id, owner)
+                batch(LibraryActions.moveCaptured(TempPiles.ensure(state().board, state().id, owner), library.cards.take(3),
+                    MoveDestination(tempId, MoveInsertion.TOP)))
+                val order = TempPiles.container(state().board, owner)!!.cards
+                // The other player searches the pile; closing it leaves the order as it was.
+                val search = f.recipient.command(PlayAction.ShowContents(tempId, ContentsSelection.ALL))
+                assertEquals("accepted", f.recipient.execute(search).outcome)
+                val display = state().board.contentsDisplays.single()
+                accept(PlayAction.DismissContents(display.id, ContentsRest.SHUFFLE, RandomV1.encodeSeed(ByteArray(32) { 3 })))
+                assertEquals(order, TempPiles.container(state().board, owner)!!.cards)
+                // Top -> Temp 2 creates pile 2; Shuffle into library empties pile 1 as one Undo.
+                batch(TempPiles.topToPile(state().board, state().id, tempId, 2))
+                assertEquals(listOf(order.first()), TempPiles.container(state().board, owner, 2)!!.cards)
+                val before = state()
+                batch(TempPiles.shuffleIntoLibrary(before.board, tempId, RandomV1.encodeSeed(ByteArray(32) { 9 })))
+                assertTrue(TempPiles.container(state().board, owner)!!.cards.isEmpty())
+                var replay = f.root
+                f.games.history(f.b, f.game.id, f.root.id, "0").mutations.forEach { replay = GameplayHistory.replay(replay, it).state!! }
+                assertEquals(state(), replay)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Undo)).outcome)
+                assertEquals(before.board, state().board)
+            }
+        }
+    }
 }

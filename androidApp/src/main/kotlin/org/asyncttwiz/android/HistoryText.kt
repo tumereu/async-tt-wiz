@@ -272,7 +272,11 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 if (action.reveal) "Reveal" else if (action.selection == ContentsSelection.ALL) "Search" else "Look")
         }
         is PlayAction.DismissContents -> text(if (transition.contents?.from?.let { container(it.containerId)?.zone == PlayZone.HAND && it.reveal } == true) "Hand reveal done"
-            else transition.contents?.from?.takeIf { it.search }?.let { search -> "Search closed → Library shuffled" +
+            else transition.contents?.from?.takeIf { it.search && temp(it.containerId) }?.let { search ->
+                // Rules v31: a Temp pile Search closes without shuffling it.
+                if (transition.rulesVersion >= TempPiles.SEARCH_RULES_VERSION) "Search closed → ${zone(search.containerId)} unchanged"
+                else "Search closed → ${zone(search.containerId)} shuffled" }
+            ?: transition.contents?.from?.takeIf { it.search }?.let { search -> "Search closed → Library shuffled" +
                 listOfNotNull(searchQueueCount(SearchQueue.topCount(search), "top"),
                     searchQueueCount(SearchQueue.bottomCount(search), "bottom")).joinToString("") { " · $it" } }
             ?: "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")

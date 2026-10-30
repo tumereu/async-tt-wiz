@@ -354,10 +354,33 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (actions.isEmpty()) return false
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
     }
-    /** Turns a player's Temp pile 2..4 on or off (off only while empty); a shared, undoable event. */
-    fun setTempPile(owner: String, number: Int, on: Boolean): Boolean {
+    /** The Temp pile's top card onto the top of its owner's pile [number] (created by the move if needed). */
+    fun tempTopToPile(tempId: String, number: Int): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val actions = TempPiles.topToPile(play.board, play.id, tempId, number)
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** The whole Temp pile into its owner's Graveyard or Exile as ONE invocation. */
+    fun tempToZone(tempId: String, zone: PlayZone): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val actions = TempPiles.allToZone(play.board, tempId, zone)
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** The whole Temp pile into its owner's Library, then that Library shuffled, as ONE invocation (one Undo). */
+    fun tempShuffleIntoLibrary(tempId: String): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        val seed = RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
+        val actions = TempPiles.shuffleIntoLibrary(play.board, tempId, seed)
+        if (actions.isEmpty()) return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
+    }
+    /** Turns a player's Temp pile 2..4 off (only while empty); a shared, undoable event. Piles are only
+     * created by moving cards there. */
+    fun closeTempPile(owner: String, number: Int): Boolean {
         if (current() == null || !enabled()) return false
-        return submit(PlayAction.SetTempPile(owner, number, on))
+        return submit(PlayAction.SetTempPile(owner, number, false)).also { if (it) dismiss() }
     }
     /** Shared panels render directly from the board, including after reconnect and during review. */
     fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {
@@ -374,7 +397,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             if (submit(PlayAction.DismissContents(display.id))) dismiss()
             return
         }
-        if (!display.search && display.cardIds.isNotEmpty()) { dismiss(); panel = "panelRest/${display.id}" }
+        // A Temp pile panel just closes, leaving the pile in its shown order: no rest choices, no shuffle.
+        val temp = current()?.board?.containers?.any { it.id == display.containerId && it.temp } == true
+        if (!temp && !display.search && display.cardIds.isNotEmpty()) { dismiss(); panel = "panelRest/${display.id}" }
         else resolveCardPanel(display)
     }
     fun resolveCardPanel(display: ContentsDisplay, rest: ContentsRest = ContentsRest.TOP) {

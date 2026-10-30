@@ -5,8 +5,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -157,32 +155,63 @@ class HiddenValuesAndTempPileTest {
         }
     }
 
+    private val tempMenuMoves = listOf("Shuffle", "Look", "Shuffle into library", "All to library top", "All to library bottom",
+        "All to graveyard", "All to exile")
+
     @Test fun tempPileMenuShowsEveryButtonAndDisablesOnlyWhatCannotApply() {
-        // a's Temp 2 holds a card; Temp 3 is off; Temp 4 is on and empty.
+        // a's Temp 2 holds a card; Temp 3 does not exist yet; Temp 4 exists and is empty.
         val base = withTemp(play(), emptyList())
         val two = TempPiles.containerId(playId, "a", 2)
+        val four = TempPiles.containerId(playId, "a", 4)
         val play = base.copy(board = base.board.copy(
             cards = base.board.cards.map { if (it.id == "a/GRAVEYARD/0") it.copy(containerId = two, covered = true) else it },
             containers = base.board.containers.map { if (it.id == "a/GRAVEYARD") it.copy(cards = it.cards - "a/GRAVEYARD/0") else it } +
                 PlayContainer(two, PlayZone.LIBRARY, "a", listOf("a/GRAVEYARD/0"), temp = true, tempNumber = 2) +
-                PlayContainer(TempPiles.containerId(playId, "a", 4), PlayZone.LIBRARY, "a", temp = true, tempNumber = 4)))
-        val controller = LibraryController(playId, two, "a/HAND", { play }, { true }, { true })
-        val piles = mutableListOf<Int>(); val toggles = mutableListOf<Pair<Int, Boolean>>()
+                PlayContainer(four, PlayZone.LIBRARY, "a", temp = true, tempNumber = 4)))
+        val ref = androidx.compose.runtime.mutableStateOf(TempPiles.Ref("a", 2))
+        val calls = mutableListOf<String>()
         compose.setContent { MaterialTheme {
-            TempPileActions(controller, play.board, TempPiles.Ref("a", 2), onShow = { _, _, _ -> }, toLibrary = {},
-                toPile = { piles += it }, setOn = { n, on -> toggles += n to on }, onComplete = {})
+            val controller = LibraryController(playId, TempPiles.containerId(playId, "a", ref.value.number), "a/HAND", { play }, { true }, { true })
+            TempPileActions(controller, play.board, ref.value, onShow = { _, _, _ -> calls += "look" }, toLibrary = { calls += "library $it" },
+                toZone = { calls += "zone $it" }, shuffleIntoLibrary = { calls += "shuffle in" },
+                toPile = { calls += "all $it" }, topToPile = { calls += "top $it" }, close = { calls += "close" }, onComplete = {})
         } }
         compose.waitForIdle()
-        for (name in listOf("Shuffle", "Look", "All to library top", "All to library bottom", "All to Temp 1", "All to Temp 3", "All to Temp 4"))
+        for (name in tempMenuMoves + listOf("All to Temp 1", "All to Temp 3", "All to Temp 4", "Top to Temp 1", "Top to Temp 3", "Top to Temp 4"))
             compose.onNodeWithContentDescription(name).assertIsEnabled()
-        compose.onNodeWithContentDescription("Temp 2 on/off").assertIsNotEnabled().assertIsSelected()
-        compose.onNodeWithContentDescription("Temp 3 on/off").assertIsEnabled().assertIsNotSelected()
-        compose.onNodeWithContentDescription("Temp 4 on/off").assertIsEnabled().assertIsSelected()
-        compose.onNodeWithContentDescription("All to Temp 3").performClick()
-        compose.onNodeWithContentDescription("Temp 3 on/off").performClick()
-        compose.onNodeWithContentDescription("Temp 4 on/off").performClick()
-        assertEquals(listOf(3), piles)
-        assertEquals(listOf(3 to true, 4 to false), toggles)
+        // No create toggles; a pile holding cards cannot be closed.
+        compose.onNodeWithContentDescription("Temp 3 on/off").assertDoesNotExist()
+        compose.onNodeWithContentDescription("All to Temp 2").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close pile").assertIsNotEnabled()
+        for (name in listOf("All to Temp 3", "Top to Temp 3", "Shuffle into library", "All to graveyard", "All to exile", "All to library bottom"))
+            compose.onNodeWithContentDescription(name).performClick()
+        assertEquals(listOf("all 3", "top 3", "shuffle in", "zone GRAVEYARD", "zone EXILE", "library true"), calls)
+
+        // The empty pile 4: every move is shown but disabled; it can be closed.
+        ref.value = TempPiles.Ref("a", 4); compose.waitForIdle()
+        for (name in tempMenuMoves + listOf("All to Temp 1", "Top to Temp 2"))
+            compose.onNodeWithContentDescription(name).assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Close pile").assertIsEnabled().performClick()
+        assertEquals("close", calls.last())
+        // Pile 1 is never closed, even when empty.
+        ref.value = TempPiles.Ref("a", 1); compose.waitForIdle()
+        compose.onNodeWithContentDescription("Close pile").assertIsNotEnabled()
+    }
+
+    @Test fun tempPileMenuStateFollowsPanelsAndAvailability() {
+        val base = withTemp(play(), listOf("a/GRAVEYARD/0"))
+        val one = TempPiles.Ref("a", 1)
+        assertTrue(tempPileMenuState(base.board, one, true).moves)
+        assertFalse(tempPileMenuState(base.board, one, false).moves)
+        val three = TempPiles.containerId(playId, "a", 3)
+        val empty = base.copy(board = base.board.copy(containers = base.board.containers +
+            PlayContainer(three, PlayZone.LIBRARY, "a", temp = true, tempNumber = 3)))
+        assertTrue(tempPileMenuState(empty.board, TempPiles.Ref("a", 3), true).mayClose)
+        assertFalse(tempPileMenuState(empty.board, TempPiles.Ref("a", 3), false).mayClose)
+        val shown = empty.copy(board = empty.board.copy(contentsDisplays = listOf(ContentsDisplay("panel", "a", three,
+            ContentsSelection.ALL, 1, false, emptyList()))))
+        assertFalse(tempPileMenuState(shown.board, TempPiles.Ref("a", 3), true).mayClose, "something is shown from it")
+        assertFalse(tempPileMenuState(shown.board, one, true).mayLook, "another panel is open")
     }
 
     @Test fun ownerRedirectKeepsTempAndLibraryApart() {

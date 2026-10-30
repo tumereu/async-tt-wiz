@@ -57,7 +57,7 @@ internal fun menuIcon(name: String): ImageVector {
         n == "no attack" -> Icons.Outlined.Block
         n == "no blocks + next" -> Icons.Outlined.Shield
         n == "assume no blocks" -> Icons.Outlined.RemoveModerator
-        n.startsWith("close player") || n == "close" || n.startsWith("close card") -> Icons.Outlined.Close
+        n.startsWith("close player") || n == "close" || n.startsWith("close card") || n == "close pile" -> Icons.Outlined.Close
         n == "cancel" -> Icons.Outlined.Close
         n == "dismiss" -> Icons.Outlined.VisibilityOff
         n.startsWith("card actions") -> Icons.Outlined.MoreHoriz
@@ -73,8 +73,7 @@ internal fun menuIcon(name: String): ImageVector {
         "keywords" in n -> Icons.Outlined.LocalOffer
         "note" in n -> Icons.AutoMirrored.Outlined.StickyNote2
         n.startsWith("owner") -> Icons.Outlined.PersonOutline
-        n.startsWith("temp ") && n.endsWith(" on/off") -> Icons.Outlined.ToggleOn
-        n == "temp pile" || tempPileName.matches(n) || n.startsWith("all to temp") -> Icons.Outlined.MoveToInbox
+        n == "temp pile" || tempPileName.matches(n) || n.startsWith("all to temp") || n.startsWith("top to temp") -> Icons.Outlined.MoveToInbox
         n.startsWith("deal to target") -> Icons.Outlined.LocalFireDepartment
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
         "top" in n -> Icons.Outlined.VerticalAlignTop

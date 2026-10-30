@@ -6,7 +6,8 @@ package org.asyncttwiz.protocol
  * waiting cards at its top and bottom, exactly as if they had been put there one by one after the shuffle.
  * The display's queues name the waiting cards; their order is the Library's own (each put already placed its
  * card where it belongs relative to the others). A random-order put is one entry, kept as its own hidden layer.
- * Temp piles keep the plain close shuffle. */
+ * Temp piles never queue; their Search close shuffles them until rules v31 and keeps their order from then on
+ * ([TempPiles.searchKeepsOrder]). */
 object SearchQueue {
     const val RULES_VERSION = 30
 

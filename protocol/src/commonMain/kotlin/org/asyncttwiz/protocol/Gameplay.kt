@@ -364,7 +364,7 @@ object GameplayRules {
                     revealedIds = it.revealedIds - removedFromPanel)
                 updated.takeUnless { contentsRulesVersion >= 2 && it.cardIds.isEmpty() }
             }
-        }), action, command.requestId)
+        }), action, command.requestId, rulesVersion)
             .let { if (rulesVersion >= SearchQueue.RULES_VERSION) SearchQueue.update(it, action) else it }
         val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
             .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }

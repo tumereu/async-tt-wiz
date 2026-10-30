@@ -188,7 +188,9 @@ class TableControlsInteractionTest {
         assertEquals(listOf<PlayAction>(PlayAction.NextStep), sent)
         assertTrue(ticks.isEmpty())
         next.performTouchInput { longClick() }
-        assertEquals(listOf<PlayAction>(PlayAction.NextStep, PlayAction.EndTurn), sent)
+        // The hold ends the turn through every remaining step (rules v33).
+        assertEquals(listOf<PlayAction>(PlayAction.NextStep) + StepRun.endTurn(play.board), sent)
+        assertEquals(PlayAction.EndTurn, sent.last())
         assertEquals(listOf(HapticFeedbackType.SegmentFrequentTick), ticks)
         compose.onNodeWithContentDescription("Tooltip only").performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Disabled hold").performTouchInput { longClick() }

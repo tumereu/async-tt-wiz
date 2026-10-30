@@ -91,6 +91,8 @@ object TableActions {
                 is PlayAction.ChooseStep -> action.position
                 else -> return reject("invalidInput")
             }
+            // A passed step only moves forward inside this turn.
+            if ((action as? PlayAction.ChooseStep)?.through == true && chosen.ordinal < position.ordinal) return reject("inapplicable")
             from.copy(phase = chosen.phase, step = chosen.step)
         }
         if (from == to) return GameplayChange(state)
@@ -102,9 +104,53 @@ object TableActions {
             fields += GameplayFieldChange(state.id, GameplayField.TURN_PLAYER, from.accountId, to.accountId)
             fields += GameplayFieldChange(state.id, GameplayField.TURN_NUMBER, from.number, to.number)
         }
+        // Rules v33: a step passed inside a multi-step advance leaves the move where it is.
+        if ((action as? PlayAction.ChooseStep)?.through == true)
+            return GameplayRules.record(state, actor, command, board.copy(turn = to), GameplayTransition(fields))
         val holder = if (TurnPosition.of(to) == TurnPosition.DECLARE_BLOCKERS)
             board.players.single { it.accountId != to.accountId }.accountId else to.accountId
         return GameplayRules.record(state, actor, command, board.copy(turn = to, attentionHolder = holder),
             GameplayTransition(fields, attention = AttentionChange(board.attentionHolder, holder)))
+    }
+}
+
+/** Rules v33: an action that moves the turn on by more than one step records every step it passes (CR 500.1)
+ * as its own [PlayAction.ChooseStep] with `through = true`, sent with the final step change as one invocation
+ * (one Undo, one history group). The final event is exactly the single event used before, so the end state
+ * (step, turn, move holder) is unchanged; passed steps are only points a player can go back to. */
+object StepRun {
+    const val RULES_VERSION = 33
+
+    /** The positions strictly after the board's position and before [target] (null: the end of the turn, through
+     * Cleanup) that the turn passes, in order. Empty when [target] is not later in this turn.
+     * CR 103.8a: the starting player skips the Draw step of their first turn (turn "1", as turns count both players').
+     * CR 508.8: with no attackers declared, Declare blockers and Combat damage are skipped. */
+    fun between(board: BoardState, target: TurnPosition?): List<TurnPosition> {
+        val from = TurnPosition.of(board.turn) ?: return emptyList()
+        val end = target?.ordinal ?: TurnPosition.entries.size
+        if (end <= from.ordinal) return emptyList()
+        val attackers = board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
+        return TurnPosition.entries.subList(from.ordinal + 1, end).filterNot { position ->
+            position == TurnPosition.DRAW && board.turn.number == "1" ||
+                !attackers && (position == TurnPosition.DECLARE_BLOCKERS || position == TurnPosition.COMBAT_DAMAGE)
+        }
+    }
+
+    private fun passed(positions: List<TurnPosition>) = positions.map { PlayAction.ChooseStep(it, through = true) }
+
+    /** End turn: each remaining step of this turn, then the turn change. */
+    fun endTurn(board: BoardState): List<PlayAction> = passed(between(board, null)) + PlayAction.EndTurn
+
+    /** Go to [target]: the steps passed on the way when it is later in this turn, then the ordinary step change.
+     * An earlier (or the same) step is a correction: one event, as before. */
+    fun choose(board: BoardState, target: TurnPosition): List<PlayAction> =
+        passed(between(board, target)) + PlayAction.ChooseStep(target)
+
+    /** Pass on to [target] itself as a passed step, for a combined action that does something inside it (for example
+     * the draw in the Draw step) before its own final step change. Nothing when [target] is not later in this turn. */
+    fun passTo(board: BoardState, target: TurnPosition): List<PlayAction> {
+        val from = TurnPosition.of(board.turn) ?: return emptyList()
+        if (target.ordinal <= from.ordinal) return emptyList()
+        return passed(between(board, target) + target)
     }
 }

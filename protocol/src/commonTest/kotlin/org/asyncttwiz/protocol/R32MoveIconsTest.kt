@@ -18,7 +18,7 @@ class R32MoveIconsTest {
 
     @Test fun currentRulesRecordTargetIcons() {
         assertEquals(32, HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION)
-        assertEquals(HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION)
     }
 
     @Test fun everyCrossZoneMoveTakesItsTargetIcon() {

@@ -50,7 +50,10 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("nextStep") data object NextStep : PlayAction
     @Serializable @SerialName("passAttention") data object PassAttention : PlayAction
     @Serializable @SerialName("endTurn") data object EndTurn : PlayAction
-    @Serializable @SerialName("chooseStep") data class ChooseStep(val position: TurnPosition) : PlayAction
+    /** [through] (rules v33, [StepRun]): a later step of this turn passed on the way inside one multi-step
+     * advance. It never changes attention and never ends a history group; it only records that step. */
+    @Serializable @SerialName("chooseStep") data class ChooseStep(val position: TurnPosition,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val through: Boolean = false) : PlayAction
     /** Original client samples are literal inputs, not instructions for a server-side reroll. */
     @Serializable @SerialName("rollDie") data class RollDie(val sides: String, val value: Int) : PlayAction {
         constructor(sides: Int, value: Int) : this(sides.toString(), value)

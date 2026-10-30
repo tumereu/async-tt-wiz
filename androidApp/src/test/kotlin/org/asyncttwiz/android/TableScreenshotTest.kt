@@ -165,8 +165,10 @@ class TableScreenshotTest {
 
     /** All panels run through the production toolkit host, not look-alike test composables. */
     @OptIn(ExperimentalRoborazziApi::class)
-    private fun menu(kind: String, landscape: Boolean, submitOk: Boolean = true): Pair<TableToolkitController, List<PlayAction>> {
-        val initial = LiveTableFixture.menuPlay(kind == "token-ping-reveal")
+    private fun menu(kind: String, landscape: Boolean, submitOk: Boolean = true,
+        turn: TurnState? = null): Pair<TableToolkitController, List<PlayAction>> {
+        val initial = LiveTableFixture.menuPlay(kind == "token-ping-reveal").let { play ->
+            if (turn == null) play else play.copy(board = play.board.copy(turn = turn)) }
         val sentinel = initial.board.cards.first { it.containerId == "a/BATTLEFIELD" && it.corner == "1/3" }
         val occurrenceId = "00000000-0000-4000-8000-000000000777"
         val staged = when (kind) {
@@ -335,10 +337,13 @@ class TableScreenshotTest {
     }
 
     @Test fun progressionHoldOnlyEndsTurn() {
-        val (_, sent) = menu("token-ping-reveal", false)
-        compose.onNodeWithContentDescription(nextStepLabel(LiveTableFixture.menuPlay(true).board.turn)).performTouchInput { down(center) }
+        // From Cleanup ending the turn is the single End turn event. Longer runs (rules v33) are batched against the
+        // real reducer, which this fixture's non-wire IDs cannot pass; StepRunActionsTest covers them.
+        val cleanup = LiveTableFixture.menuPlay(true).board.turn.copy(phase = TurnPosition.CLEANUP.phase, step = TurnPosition.CLEANUP.step)
+        val (_, sent) = menu("token-ping-reveal", false, turn = cleanup)
+        compose.onNodeWithContentDescription(nextStepLabel(cleanup)).performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(700)
-        compose.onNodeWithContentDescription(nextStepLabel(LiveTableFixture.menuPlay(true).board.turn)).performTouchInput { up() }
+        compose.onNodeWithContentDescription(nextStepLabel(cleanup)).performTouchInput { up() }
         compose.runOnIdle { assertEquals(listOf(PlayAction.EndTurn), sent) }
     }
 

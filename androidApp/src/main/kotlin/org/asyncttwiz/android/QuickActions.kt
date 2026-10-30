@@ -56,6 +56,8 @@ object QuickActions {
         fun bundle(vararg actions: TableActionIntent?) = if (actions.any { it == null }) null
             else TableActionIntent.Bundle(scope, actions.filterNotNull())
         fun choose(position: TurnPosition) = TableActionIntent.Choose(scope, position)
+        // Rules v33: the steps on the way are recorded, and the draw happens in the Draw step itself.
+        val toDraw = TableActionIntent.Choose(scope, TurnPosition.DRAW, pass = true)
         val turnPlayer = context.viewer == play.board.turn.accountId
         // Turn numbers count both players' turns, so "1" is only the starting player's first turn: no draw.
         val firstTurn = play.board.turn.number == "1"
@@ -65,11 +67,11 @@ object QuickActions {
                 add("Untap all", "↶", controller.untap(play, false))
                 add("Untap all + next", "↶", controller.untap(play, true), "↦")
                 if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN))
-                else add("Untap, draw → main", "", bundle(controller.untap(play, false), controller.draw(play, false),
+                else add("Untap, draw → main", "", bundle(controller.untap(play, false), toDraw, controller.draw(play, false),
                     choose(TurnPosition.PRECOMBAT_MAIN)))
             }
             TurnPosition.UPKEEP -> if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN))
-                else add("Draw + go to main", "", bundle(controller.draw(play, false), choose(TurnPosition.PRECOMBAT_MAIN)))
+                else add("Draw + go to main", "", bundle(toDraw, controller.draw(play, false), choose(TurnPosition.PRECOMBAT_MAIN)))
             TurnPosition.DRAW -> if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN)) else {
                 add("Draw one", "↓", controller.draw(play, false))
                 add("Draw one + next", "↓", controller.draw(play, true), "↦")

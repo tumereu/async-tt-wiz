@@ -326,7 +326,9 @@ internal object GameplayConcerns {
             is PlayAction.RevealContentsCard -> { entity("contents", a.displayId); entity("card", a.cardId, "faceId") }
             is PlayAction.ReorderContents -> entity("contents", a.displayId)
             PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep -> {
-                fields += ConcernField.Attention; entity("turn", "")
+                // A passed step (rules v33) leaves the move where it is.
+                if ((a as? PlayAction.ChooseStep)?.through != true) fields += ConcernField.Attention
+                entity("turn", "")
                 if (mutation.transition.rulesVersion >= 17 && TurnMarks.passed(from.board, to.board))
                     fields += ConcernField.TemporaryMarks
             }

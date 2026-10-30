@@ -52,6 +52,8 @@ internal fun menuIcon(name: String): ImageVector {
         // Single-value P/T steps ("P/T +1/+0", "EOT P/T +0/−1", ...): generated "+/·"-style glyphs.
         powerToughnessStep(name) != null -> powerToughnessStepIcon(powerToughnessStep(name)!!)
         n == "draw + go to main" -> Icons.Outlined.Download
+        // Same crosshair as the "Choose attack target" history event (rules v34).
+        n == "attack →" -> Icons.Outlined.GpsFixed
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward
         n == "no attack" -> Icons.Outlined.Block

@@ -49,6 +49,8 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         preferences.getString("binding", null)?.let { ActivityOwner(account, it) }
     }
     private var ownerFingerprint = preferences.getString("credentialFingerprint", null)
+    /** The app is open: the waiting-game checks are off until it goes to the background again. */
+    @Volatile private var opened = false
     private val delivery = ActivityDelivery(object : ActivityWindowStore {
         override fun cursor() = preferences.getString("cursor", null)
         override fun watermark(key: String): ActivityWatermark? {
@@ -102,7 +104,49 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         delivery.display(screen, foreground)
         if (foreground) owner?.let { notifications.cancelShown(it, screen) }
     }
-    fun foreground() = synchronized(lock) { owner?.let { enqueue(it.binding) } }
+    fun foreground() = synchronized(lock) {
+        opened = true; jobs.cancelAllWorkByTag(WAITING_TAG) // Opening the app resets the waiting-check backoff.
+        owner?.let { enqueue(it.binding) }
+    }
+    /** The app went to the background or closed: check for games waiting for this account on [WaitingChecks]' schedule. */
+    fun background(): Unit = synchronized(lock) {
+        opened = false
+        val binding = owner?.binding ?: return
+        val input = workDataOf("binding" to binding)
+        // Unique, persisted (survive reboot), network-constrained and inexact; opening cancels them all.
+        WaitingChecks.OFFSETS_MINUTES.forEachIndexed { index, minutes ->
+            jobs.enqueueUniqueWork("activity-waiting:$index", ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<WaitingCheckWorker>().setConstraints(constraints()).addTag(TAG).addTag(WAITING_TAG)
+                    .setInitialDelay(minutes, TimeUnit.MINUTES).setInputData(input).build())
+        }
+        jobs.enqueueUniquePeriodicWork("activity-waiting-daily", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+            PeriodicWorkRequestBuilder<WaitingCheckWorker>(WaitingChecks.DAILY_MINUTES, TimeUnit.MINUTES)
+                .setConstraints(constraints()).addTag(TAG).addTag(WAITING_TAG).setInputData(input)
+                .setInitialDelay(WaitingChecks.offsetMinutes(WaitingChecks.OFFSETS_MINUTES.size), TimeUnit.MINUTES).build())
+    }
+    /** Posts the shared game notification for each game now waiting for the account, unless one is showing
+     * or the player swiped it away while the game still waits on the same latest event. */
+    suspend fun checkWaiting(binding: String) {
+        val expected = synchronized(lock) { owner?.takeIf { it.binding == binding && !opened } } ?: return
+        if (!notifications.allowed(ActivityKind.GAME)) return
+        val stored = ProtectedSessionStore(context, BuildConfig.ACCOUNT_ORIGIN).load()
+        val token = (stored as? StoredSession.Present)?.token ?: run { clear(binding); return }
+        if (synchronized(lock) { owner != expected || ownerFingerprint != fingerprint(token) }) return
+        val waiting = try { ActivityApi(BuildConfig.ACCOUNT_ORIGIN).use { it.waiting(token) } } catch (failure: ActivityFetchFailure) {
+            if (failure.status == 401) { clear(binding); authenticationRequired?.invoke(token) }
+            return
+        } catch (failure: Exception) { AppLog.warn("activity", "Waiting-game check failed", failure); return }
+        synchronized(lock) {
+            if (owner != expected || opened) return
+            WaitingChecks.select(waiting.games, notifications.showingGames(expected)) {
+                WaitingDismissal.decode(preferences.getString("dismissed:$it", null))
+            }.forEach { notifications.post(expected, ActivityNotice(it.notificationKey(), it, silent = false)) }
+        }
+    }
+    fun dismissed(binding: String, game: String, mark: WaitingDismissal): Unit = synchronized(lock) {
+        if (owner?.binding != binding || !DeckValidation.uuid(game)) return
+        preferences.edit().putString("dismissed:$game", mark.encode()).apply()
+    }
     fun accepts(account: String?, binding: String?) = synchronized(lock) { account != null && binding != null && owner == ActivityOwner(account, binding) }
     fun rejected(token: String) = synchronized(lock) { if (ownerFingerprint == fingerprint(token)) clear() }
     fun push(hint: ActivityPushHint): Unit = synchronized(lock) {
@@ -184,6 +228,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
     }
     companion object {
         const val TAG = "account-activity"
+        const val WAITING_TAG = "waiting-games"
         private val INSTALLATION_LOCK = Any()
         @Volatile private var instance: AndroidActivityDelivery? = null
         fun get(context: Context): AndroidActivityDelivery = instance ?: synchronized(this) {

@@ -19,6 +19,10 @@ import kotlinx.serialization.json.Json
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
     val readyNotices: List<ActivityHint>? = null)
+/** Games now waiting for the account (GET /activity/waiting): in play, the opponent made the latest event and
+ * left the move with the account, and the opponent is idle by the push rule. Each [ActivityHint] carries the
+ * latest event's activity and identity and a waiting-reminder [GameNoticeContent]. */
+@Serializable data class WaitingGames(val games: List<ActivityHint>)
 @Serializable data class GamePresence(val gameId: String, val presenceId: String,
     val didSomething: Boolean = false, val left: Boolean = false)
 @Serializable data class RegisterInstallation(val installationId: String, val binding: String, val pushToken: String? = null)

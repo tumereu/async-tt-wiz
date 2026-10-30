@@ -25,6 +25,8 @@ class ActivityApi(private val origin: String, private val client: HttpClient = A
         call(token, HttpMethod.Get, "/activity" + (cursor?.let { "?after=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: "")))
     suspend fun target(token: String, route: ActivityRoute): ActivityTarget = ActivityWire.json.decodeFromString(
         call(token, HttpMethod.Get, "/activity/target?kind=${route.kind.name}&game=${route.gameId}&identity=${route.identity}"))
+    suspend fun waiting(token: String): WaitingGames =
+        ActivityWire.json.decodeFromString(call(token, HttpMethod.Get, "/activity/waiting"))
     suspend fun heartbeat(token: String, presence: GamePresence) {
         call(token, HttpMethod.Put, "/activity/presence", ActivityWire.json.encodeToString(presence))
     }

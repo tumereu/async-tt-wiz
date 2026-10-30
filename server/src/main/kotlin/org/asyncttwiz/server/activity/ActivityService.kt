@@ -231,6 +231,30 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
     }
 
+    /** The app's own fallback when push and the feed poll missed a game: games in play where the opponent made
+     * the latest event (the other player's row holds the account's own latest event), the move is the account's,
+     * and the opponent is idle by the rule that makes a push due ([ActivityTiming.due]). Read only. */
+    fun waiting(principal: AccountService.Principal): WaitingGames = transaction { sql ->
+        val owner = account(principal); val time = now()
+        val own = SUMMARY.`as`("own")
+        val rows = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
+            .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            .join(ACCOUNT).on(ACCOUNT.ID.eq(SUMMARY.AUTHOR_ID))
+            .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.YOUR_MOVE.isTrue)
+            .and(GAME.LIFECYCLE.eq("ACTIVE")).and(visible(owner, SUMMARY.KIND, SUMMARY.IDENTITY))
+            .andNotExists(DSL.selectOne().from(own).where(own.GAME_ID.eq(SUMMARY.GAME_ID)).and(own.KIND.eq("GAME"))
+                .and(own.ACCOUNT_ID.ne(owner)).and(own.LAST_EVENT_AT.gt(SUMMARY.LAST_EVENT_AT)))
+            .orderBy(SUMMARY.LAST_EVENT_AT.desc()).limit(50).fetch()
+        WaitingGames(rows.filter { row ->
+            ActivityTiming.due(ActivityTiming.leases(sql, row[SUMMARY.GAME_ID]!!, row[SUMMARY.AUTHOR_ID]!!),
+                ActivityTiming.leases(sql, row[SUMMARY.GAME_ID]!!, owner), row[SUMMARY.LAST_EVENT_AT]!!, true, time)
+        }.map { row ->
+            ActivityHint(row[SUMMARY.ACTIVITY_ID].toString(), ActivityKind.GAME, row[SUMMARY.GAME_ID].toString(),
+                row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
+                    row[ACCOUNT.USERNAME]!!, row[SUMMARY.LAST_EVENT_AT].toString(), true, row[SUMMARY.NEW_MESSAGE]!!, reminder = true))
+        })
+    }
+
     companion object {
         internal fun tokenHash(token: String) = java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray())
             .joinToString("") { "%02x".format(it) }

@@ -196,6 +196,20 @@ class PodGridViewTest {
         assertEquals(1f, podGridArtAlpha(plain.copy(pickedBy = "bob"), live = false, highlighted = false, selecting = true))
     }
 
+    @Test fun everyPickedCardIsTintedInItsPickersColourOnLiveAndFinishedGrids() {
+        val live = board.copy(positions = cards.mapIndexed { index, copy -> copy.takeIf { index >= 3 } },
+            slots = cards.mapIndexed { index, copy -> GridPublicSlot(copy, "bob".takeIf { index < 3 }) })
+        val done = GridPublicBoard("done", 2, List(9) { null }, null, finished = true, slots = cards.mapIndexed { index, copy ->
+            GridPublicSlot(copy, when (index) { 1, 4 -> "bob"; 7 -> "alice"; else -> null })
+        })
+        show({ GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(live), emptyList(), finishedGrids = listOf(done)), mine) })
+        fun tint(grid: String, index: Int) = compose.onNodeWithTag("pod-grid-$grid-pick-tint-$index", useUnmergedTree = true)
+        (0..2).forEach { tint("grid-0", it).assertExists() }
+        (3..8).forEach { tint("grid-0", it).assertDoesNotExist() }
+        listOf(1, 4, 7).forEach { tint("done", it).assertExists() }
+        listOf(0, 2, 3, 5, 6, 8).forEach { tint("done", it).assertDoesNotExist() }
+    }
+
     @Test fun pickerColoursUseYourTableColourAndDistinctOthers() {
         val colors = podGridColors(listOf("bob", "alice", "carol"), "alice")
         assertEquals(OwnTableColor, colors["alice"])

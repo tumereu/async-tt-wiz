@@ -1,0 +1,1 @@
+add: In grid drafts every picked card is tinted in the colour of the player who took it, also in finished grids

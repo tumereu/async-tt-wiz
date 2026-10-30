@@ -125,7 +125,7 @@ fun PodGridView(
     DeckCardInspection(inspection)
 }
 
-/** Opacity of the primary tint laid over the selected row's or column's cards. */
+/** Opacity of the tint over the selected row's or column's cards (primary) and over picked cards (picker colour). */
 internal const val PodGridHighlightTint = .28f
 
 /** The picker badge sits this far down the card: just below a printed card's name bar, at the top-left of its art. */
@@ -189,6 +189,10 @@ private fun PodGridBoard(board: GridPublicBoard, rules: PodGridRules?, selected:
                         }
                         if (highlighted && live) Box(Modifier.matchParentSize()
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = PodGridHighlightTint)))
+                        // Every made pick, yours included, carries its picker's colour, so finished grids read at a glance.
+                        if (picker != null && copy != null) Box(Modifier.matchParentSize()
+                            .testTag("pod-grid-${board.id}-pick-tint-$position").clearAndSetSemantics {}
+                            .background(picker.copy(alpha = PodGridHighlightTint)))
                         Box(Modifier.matchParentSize().border(when { highlighted && live -> 3.dp; picker != null -> 3.dp; else -> 1.dp },
                             when { highlighted && live -> MaterialTheme.colorScheme.primary; picker != null -> picker
                                 else -> MaterialTheme.colorScheme.outlineVariant }, shape))

@@ -135,4 +135,25 @@ class CombatRetargetDragTest {
         assertRetargets("occupied other lane", state(1, listOf(null, walker(0)), "Ajani, Long-Named Walker"),
             f.id("attacker1"), walker(0), f.id("pair1"))
     }
+
+    // CMB-010
+    @Test fun draggingACombatCopyOntoItsOwnersGraveyardMovesTheRealCardThere() {
+        val initial = f.combat()
+        for ((occurrence, owner) in listOf(f.id("attacker2") to f.a, f.id("blocker") to f.b))
+            for (landscape in listOf(true, false)) {
+                val label = "$occurrence, ${if (landscape) "landscape" else "portrait"}"
+                val session = Session(initial, f.a, landscape)
+                val real = CombatStackRules.liveSource(initial.board, occurrence)!!
+                val graveyard = initial.board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == owner }
+                val destination = session.drag(occurrence) { scene ->
+                    scene.items.single { it.kind == TableItemKind.PILE && it.zone == PlayZone.GRAVEYARD && it.owner == owner }.bounds.center
+                }
+                assertEquals(TableDestination.Container(graveyard.id, PlayZone.GRAVEYARD), destination, label)
+                val move = assertIs<PlayAction.MoveCard>(session.recorded.single(), label)
+                assertEquals(real.id, move.cardId, label)
+                assertEquals(graveyard.id, move.destination.containerId, label)
+                assertEquals(graveyard.id, session.play.board.cards.single { it.id == real.id }.containerId, label)
+                assertTrue(CombatStackRules.occurrences(session.play.board.combat).none { it.id == occurrence || it.sourceId == real.id }, label)
+            }
+    }
 }

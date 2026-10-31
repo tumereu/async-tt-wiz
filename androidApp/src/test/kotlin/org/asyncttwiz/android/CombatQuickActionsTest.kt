@@ -109,6 +109,54 @@ class CombatQuickActionsTest {
         assertEquals(f.defender, h.tree.stateAt(blockers.id)!!.board.attentionHolder)
     }
 
+    /** Offerings with the table's own quick context (combat area id and selection), as the strip builds it. */
+    private fun tableContext(h: Harness) = toolkitQuickContext(h.current(), TableSelection(), null, h.actor)
+    private fun tableOfferings(h: Harness) = offerings(h.current(), tableContext(h))
+    private fun tableMenu(h: Harness, name: String) = TableActionMenus.table(h.current(), tableContext(h),
+        TableActionController({ h.current() }, { true }, { true }, RecordingRoutes())).single { it.name == name }
+
+    // CMB-001
+    @Test fun declaringTheFirstAttackerOpensTheAreaWhichStaysOpenThroughStepsUntilClosedOnPurpose() {
+        val f = CombatDamageFixture()
+        val start = at(f.play, TurnPosition.DECLARE_ATTACKERS).let { it.copy(board = it.board.copy(combat = null)) }
+        val h = Harness(start, f.actor)
+        val scope = TableActionScope(start.gameId, start.id)
+        assertTrue(h.toolkit.perform(offerings(h.current(), QuickContext(viewer = f.actor, selectedSourceIds = f.attackerIds))
+            .single { it.name == "Declare without tapping" }.intent))
+        val area = assertNotNull(h.current().board.combat, "declaring the first attacker creates the combat area")
+        assertEquals(f.attackerIds, CombatStackRules.occurrences(area).map { it.sourceId })
+        // Every step change keeps the same area open, past End of combat into Main 2 and the End step.
+        for (expected in listOf(TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT,
+            TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP)) {
+            assertTrue(h.toolkit.perform(TableActionIntent.Next(scope)))
+            assertEquals(expected, TurnPosition.of(h.current().board.turn))
+            assertEquals(area, h.current().board.combat, "combat area at $expected")
+        }
+        // Closing is on purpose: the Table actions entry.
+        assertTrue(h.toolkit.perform(tableMenu(h, "Close combat area").intent))
+        assertNull(h.current().board.combat)
+        assertEquals(TurnPosition.END_STEP, TurnPosition.of(h.current().board.turn))
+        // Table actions also creates one without any attacker.
+        assertTrue(h.toolkit.perform(tableMenu(h, "Create combat area").intent))
+        assertTrue(CombatStackRules.occurrences(assertNotNull(h.current().board.combat)).isEmpty())
+    }
+
+    // CMB-001, CMB-021
+    @Test fun endOfCombatCloseAndNextClosesTheAreaGoesToMainTwoAndIsOneUndo() {
+        val f = CombatDamageFixture()
+        val h = Harness(at(f.play, TurnPosition.END_COMBAT), f.actor)
+        val area = assertNotNull(h.current().board.combat)
+        val action = tableOfferings(h).single()
+        assertEquals("Close + next", quickActionLabel(action.name))
+        assertTrue(h.toolkit.perform(action.intent))
+        assertNull(h.current().board.combat)
+        assertEquals(TurnPosition.POSTCOMBAT_MAIN, TurnPosition.of(h.current().board.turn))
+        assertEquals(1, h.commands.size, "one press is one batch")
+        h.undo()
+        assertEquals(area, h.current().board.combat)
+        assertEquals(TurnPosition.END_COMBAT, TurnPosition.of(h.current().board.turn))
+    }
+
     // CMB-023
     @Test fun singleDamageButtonLocksAfterItsDamageAndUndoUnlocksIt() {
         val f = CombatDamageFixture(blockers = listOf("2/2"), note = "Trample Lifelink")

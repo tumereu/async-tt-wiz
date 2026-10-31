@@ -102,6 +102,46 @@ class CardInspectionUiTest {
         assertTrue(sent.isEmpty())
     }
 
+    // TBL-105
+    @Test fun holdingAFaceUpCardInTimelineModePeeksAndPausesPlaybackWhichReleaseDoesNotResume() {
+        val f = TableStatesFixture
+        val play = f.combat()
+        val playback = LiveTableFixture.playback()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme {
+            // The table screen's own hook: an inspection pauses the timeline.
+            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = false, toolkit = toolkit,
+                onIntent = toolkit::handle, runtime = TableRuntimeHooks(reviewing = true, pauseForInspection = { playback.pause() }))
+        } }
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD &&
+            !it.covered && it.visible.isNotEmpty() }
+        val point = card.visible.first().center
+        val table = compose.onNodeWithContentDescription("Shared table")
+        compose.runOnIdle { playback.play() }
+        val cursor = playback.position.cursorId
+        assertEquals(HistoryMode.PLAYBACK, playback.position.mode)
+        assertTrue(playback.position.playing)
+        // Playing, then already paused: the hold preview works either way and leaves the timeline paused.
+        repeat(2) { round ->
+            compose.mainClock.autoAdvance = false
+            table.performTouchInput { down(Offset(point.x, point.y)) }
+            compose.waitForIdle(); compose.mainClock.advanceTimeBy(CardPeekHoldMillis + 250)
+            compose.runOnIdle {
+                assertEquals(card.cardId, toolkit.peek?.cardId, "round $round")
+                assertFalse(playback.position.playing, "round $round")
+            }
+            table.performTouchInput { up() }
+            compose.mainClock.autoAdvance = true
+            compose.runOnIdle {
+                assertNull(toolkit.peek)
+                assertFalse(playback.position.playing, "release does not resume, round $round")
+                assertEquals(HistoryMode.PLAYBACK, playback.position.mode)
+                assertEquals(cursor, playback.position.cursorId)
+            }
+        }
+    }
+
     @Test fun explicitInspectionRetainsTitleAndArtworkControls() {
         val controller = CardInspectionController().apply {
             open(InspectedCard(CardDefinition("Inspector header", listOf(DefinitionFace("face", "Face name",

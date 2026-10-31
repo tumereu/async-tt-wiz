@@ -104,6 +104,29 @@ class OwnerMoveDestinationsTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // TBL-097
+    @Test fun aRealCardOnTheOtherBattlefieldKeepsItsOwnerShowsUnderItsControllerAndLeavesToItsOwnersGraveyard() {
+        val f = BasicTableFixture(); f.connect(mixed(f))
+        try {
+            val other = f.container(PlayZone.BATTLEFIELD, f.other)
+            assertEquals(f.actor, f.card(40).owner)
+            assertTrue(f.move(40, TableDestination.Grid(other, 5, 1)))
+            // The controller is whichever battlefield it is on; the owner stays whose deck it came from.
+            assertEquals(other, f.card(40).containerId)
+            assertEquals(f.actor, f.card(40).owner)
+            val scene = TablePresentation.scene(f.game, f.play, f.actor, 900f, 600f, true)
+            val center = scene.items.single { it.cardId == f.id(40) }.bounds.center
+            assertEquals(f.other, scene.fields.single { it.bounds.contains(center) }.owner)
+            // Leaving the battlefield goes to the owner's zone, not the controller's.
+            val scope = TableScope(f.id(40), listOf(f.id(40)))
+            basicMoveTools(f.play, emptyMap(), true, scope, BasicTableController.sources(f.play, scope.cardIds), f.basic::handle, {})
+                .single { it.name == "Graveyard" }.click()
+            assertEquals(f.container(PlayZone.GRAVEYARD, f.actor), f.card(40).containerId)
+            assertEquals(f.actor, f.card(40).owner)
+            assertTrue(f.commands().none { (it.action as? GameAction.Play)?.action is PlayAction.SetOwner })
+        } finally { f.lobby.close(); f.worker.drain() }
+    }
+
     // TBL-055, ZON-070
     @Test fun mixedOwnerHandDragHighlightsBothHandsAndDiscardsForeignGap() {
         val f = BasicTableFixture(); f.connect(mixed(f))

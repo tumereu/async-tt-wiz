@@ -15,7 +15,7 @@ import org.asyncttwiz.protocol.*
 /** One opponent's picks, newest first; a card the viewer never saw is null (a card back). */
 internal data class PodOpponentPicks(val account: AccountIdentity, val cards: List<DraftCopy?>)
 
-/** Engines with a Picks view (DRF-151): Winston, Winchester and Grid. */
+/** Engines with a Picks view (DRF-160): Winston, Winchester and Grid. */
 internal fun podHasPicksView(mode: DraftMode) = mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER || mode == DraftMode.GRID
 
 /** Every other member's picks, in seat order, each newest first (a take's own cards keep their order). */
@@ -41,7 +41,7 @@ internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: M
     if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions, inspection) { open = false }
 }
 
-/** Each opponent's picks (DRF-151): a chip per opponent, then their cards newest first, unseen ones as backs. */
+/** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>,

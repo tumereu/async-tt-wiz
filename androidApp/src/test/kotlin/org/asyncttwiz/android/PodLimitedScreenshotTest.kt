@@ -105,7 +105,7 @@ class PodLimitedScreenshotTest {
         compose.onRoot().captureShot(File(SCREENSHOTS, "$name.png").path, caption)
     }
 
-    // DRF-144
+    // DRF-153
     @Test fun rotisseriePoolWithPicksAndASelection() {
         val board = copies.take(12).mapIndexed { index, copy ->
             LimitedSlot(copy, when (index) { 0 -> "bob"; 4 -> "carol"; 7 -> "alice"; else -> null })
@@ -126,7 +126,7 @@ class PodLimitedScreenshotTest {
             "\"Pick Serra Angel\".")
     }
 
-    // DRF-146
+    // DRF-155
     @Test fun rochesterOpenPacksWithHeadersAndPicks() {
         fun pack(index: Int, opener: String, current: String?, picked: Map<Int, String>): LimitedPackView {
             val cards = copies.drop(index * 6).take(6)
@@ -148,7 +148,7 @@ class PodLimitedScreenshotTest {
             "waiting for Bob last; taken cards are greyed with their picker's avatar and Alice has framed one card.")
     }
 
-    // DRF-148
+    // DRF-157
     @Test fun winstonPilesWithSeenCardsAndBacks() {
         val piles = listOf(listOf(copies[0], null), listOf(copies[1], copies[2]), listOf(null))
         val view = LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
@@ -161,7 +161,7 @@ class PodLimitedScreenshotTest {
             "cards added since are backs, with Pass and Take pile 2 below.")
     }
 
-    // DRF-150
+    // DRF-159
     @Test fun winchesterFaceUpPilesWithAChosenPile() {
         val piles = listOf(listOf(copies[0], copies[1]), listOf(copies[2]), listOf(copies[3], copies[4], copies[5]), listOf(copies[6]))
         val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
@@ -178,7 +178,7 @@ class PodLimitedScreenshotTest {
             "pile 3 framed, and \"Take pile 3 (3 cards)\" below.")
     }
 
-    // DRF-151
+    // DRF-160
     @Test fun picksDialogShowsSeenCardsAndBacksNewestFirst() {
         val picks = listOf(PodOpponentPicks(bob, listOf(null, copies[0], copies[1], null, copies[2])), PodOpponentPicks(carol, emptyList()))
         show({ "pod-picks-${it.id}" }, copies.take(3)) {

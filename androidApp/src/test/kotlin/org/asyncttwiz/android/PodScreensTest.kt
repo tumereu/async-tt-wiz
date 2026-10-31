@@ -307,7 +307,7 @@ class PodScreensTest {
         compose.onNodeWithText("Pack size").assertExists()
     }
 
-    // DRF-020, DRF-022, DRF-142
+    // DRF-020, DRF-022, DRF-151
     @Test fun engineChipsLoadTheirDefaultsAndKeepTheSideboardLimit() {
         var settings by mutableStateOf(DraftSettings(sideboardLimit = 7, librarians = 2))
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }

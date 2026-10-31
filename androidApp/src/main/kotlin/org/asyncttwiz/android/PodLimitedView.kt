@@ -182,7 +182,7 @@ internal fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<Stri
 }
 
 /**
- * Rotisserie (DRF-143): the whole pool in one scrolling panel with a catalog search field; taken cards are greyed with
+ * Rotisserie (DRF-152): the whole pool in one scrolling panel with a catalog search field; taken cards are greyed with
  * the picker's avatar. On your turn tap a card, then Confirm.
  */
 @Composable
@@ -235,7 +235,7 @@ internal fun podRochesterHeader(pack: LimitedPackView, view: LimitedView, member
     "${podTurnText(pack.currentPlayer, view.player, members)} · Pack ${pack.number}"
 
 /**
- * Rochester (DRF-146): every open pack face up in one scrolling view, packs apart under a divider and their header;
+ * Rochester (DRF-155): every open pack face up in one scrolling view, packs apart under a divider and their header;
  * taken cards stay in place, greyed, with the picker's avatar. Tap a card of a pack where it is your pick, then Confirm.
  */
 @Composable
@@ -341,7 +341,7 @@ private fun PodPiles(view: LimitedView, members: List<AccountIdentity>, definiti
 }
 
 /**
- * Winston (DRF-148): the piles, cards you have seen face up and the rest as backs, and the stack's count. On your turn
+ * Winston (DRF-157): the piles, cards you have seen face up and the rest as backs, and the stack's count. On your turn
  * you look at one pile at a time: take it, or pass (it gets one more card) and look at the next; passing the last pile
  * takes the top card of the stack.
  */
@@ -365,7 +365,7 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
 }
 
 /**
- * Winchester (DRF-150): every pile face up with the stack's count. On your turn tap a card of a pile to choose that
+ * Winchester (DRF-159): every pile face up with the stack's count. On your turn tap a card of a pile to choose that
  * pile, then "Take pile N".
  */
 @Composable

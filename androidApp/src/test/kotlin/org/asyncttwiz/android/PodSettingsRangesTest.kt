@@ -69,7 +69,7 @@ class PodSettingsRangesTest {
         assertEquals("1 each", PodSetting.TABLE_OPEN.emptyText)
     }
 
-    // DRF-030, DRF-141
+    // DRF-030, DRF-150
     @Test fun playerLimitTextsNameTheEngineAndCount() {
         fun account(n: Int) = AccountIdentity("id-$n", "P$n")
         fun detail(settings: DraftSettings, members: Int, invited: Int = 0, armed: Boolean = false) = PodDetail("pod", "Pod",

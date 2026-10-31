@@ -8,7 +8,7 @@ class LimitedEngineTest {
     private val otherSeed = RandomV1.encodeSeed(ByteArray(32) { (it * 7 + 1).toByte() })
     private fun cube(size: Int) = List(size) { DraftCubeEntry("card-" + it.toString().padStart(3, '0'), 1) }
 
-    // DRF-021, DRF-023, DRF-141: every engine's defaults, ranges and player limits.
+    // DRF-021, DRF-023, DRF-150: every engine's defaults, ranges and player limits.
     @Test fun defaultsRangesAndPlayerLimits() {
         assertEquals(DraftSettings(DraftMode.ROCHESTER, packsPerPlayer = 3, cardsPerPack = 15), DraftSettings.rochester())
         assertNull(DraftSettings.rochester().tablePacksOpen)
@@ -48,7 +48,7 @@ class LimitedEngineTest {
             listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index % 3])
     })
 
-    // DRF-142: Sealed deals every pool at the start, with no draft phase.
+    // DRF-151: Sealed deals every pool at the start, with no draft phase.
     @Test fun sealedDealsPrivatePoolsFromACubeOrBoosters() {
         val settings = DraftSettings.sealed().copy(cardsPerPlayer = 20)
         val state = LimitedEngine.startFromCube(players, cube(100), settings, seed)
@@ -74,7 +74,7 @@ class LimitedEngineTest {
         pile: Int? = null, turn: Int = state.turn): LimitedResult = LimitedEngine.act(state, LimitedMove(player, action, turn, card, packId, pile))
     private fun ok(result: LimitedResult): LimitedDraftState = assertNotNull(result.state, "rejected: ${result.reason}")
 
-    // DRF-143: snake order one card at a time until everyone has their cards; the whole pool is public.
+    // DRF-152: snake order one card at a time until everyone has their cards; the whole pool is public.
     @Test fun rotisserieSnakesThroughTheWholePoolUntilEveryoneHasTheirCards() {
         val three = players.take(3)
         var state = LimitedEngine.startFromCube(three, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
@@ -129,7 +129,7 @@ class LimitedEngineTest {
         return state to pickers
     }
 
-    // DRF-145: packs face up, each picked in snake order from its rotating opener; the next round opens when all are empty.
+    // DRF-154: packs face up, each picked in snake order from its rotating opener; the next round opens when all are empty.
     @Test fun rochesterPicksEachOpenPackInSnakeOrderAndOpensRoundsTogether() {
         val three = players.take(3)
         val settings = DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6)
@@ -170,7 +170,7 @@ class LimitedEngineTest {
         assertEquals(seating + seating, singleEnd.packs.map { it.opener })
     }
 
-    // DRF-147, DRF-148: piles stay hidden until looked at, and what you have seen stays face up for you.
+    // DRF-156, DRF-157: piles stay hidden until looked at, and what you have seen stays face up for you.
     @Test fun winstonPilesHiddenUntilLookedAtAndTurnsRunToTheEnd() {
         val two = players.take(2)
         var state = LimitedEngine.startFromCube(two, cube(20), DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10), seed)
@@ -228,7 +228,7 @@ class LimitedEngineTest {
         assertTrue(state.queues.values.all { it.isEmpty() })
     }
 
-    // DRF-149: every pile gets a card from the stack each turn, then the player takes one whole pile.
+    // DRF-158: every pile gets a card from the stack each turn, then the player takes one whole pile.
     @Test fun winchesterDealsToEveryPileEachTurnAndTakesWholePiles() {
         val three = players.take(3)
         var state = LimitedEngine.startFromCube(three, cube(30), DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 5), seed)

@@ -12,7 +12,7 @@ class PodLimitedModelsTest {
     private val definitions = cards.mapIndexed { index, card -> "d$index" to card }.toMap()
     private val board = cards.indices.map { LimitedSlot(DraftCopy("c$it", "d$it"), "bob".takeIf { _ -> it == 1 }) }
 
-    // DRF-144: the pool sorts like Build columns and filters with the catalog search syntax.
+    // DRF-153: the pool sorts like Build columns and filters with the catalog search syntax.
     @Test fun rotisseriePoolSortsByColourAndFiltersWithCardSearch() {
         assertEquals(listOf("Opt", "Shock", "Grizzly Bears", "Boros Charm", "Sol Ring"),
             podRotisserieOrder(board, definitions).map { definitions.getValue(it.copy.definition).name })
@@ -25,7 +25,7 @@ class PodLimitedModelsTest {
         assertEquals(cards.map { it.name }, names("t:(")) // an unreadable query filters nothing
     }
 
-    // DRF-071, DRF-144
+    // DRF-071, DRF-153
     @Test fun turnTextsNameWhoseTurnItIs() {
         val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
         assertEquals("Your pick", podTurnText("a", "a", members))
@@ -43,7 +43,7 @@ class PodLimitedModelsTest {
         assertEquals("Your pick · 2 packs", podStatus(summary(DraftMode.BOOSTER)))
     }
 
-    // DRF-146: your packs first, then the rest by number, each with whose pick it is.
+    // DRF-155: your packs first, then the rest by number, each with whose pick it is.
     @Test fun rochesterPacksPutYourPicksFirst() {
         val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
         fun pack(number: Int, current: String?) = LimitedPackView("p$number", number, "a", emptyList(), current, 0)
@@ -54,7 +54,7 @@ class PodLimitedModelsTest {
             view.packs.take(3).map { podRochesterHeader(it, view, members) })
     }
 
-    // DRF-147, DRF-148
+    // DRF-156, DRF-157
     @Test fun winstonPassAndPileHeaders() {
         val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
         val card = DraftCopy("c", "d")
@@ -69,7 +69,7 @@ class PodLimitedModelsTest {
         assertEquals("Your pick · Stack: 0 cards", podPileTurnText(view, members))
     }
 
-    // DRF-151: each opponent's picks newest first, unseen cards as backs; Grid from its public log.
+    // DRF-160: each opponent's picks newest first, unseen cards as backs; Grid from its public log.
     @Test fun opponentPicksNewestFirstWithUnseenCardsHidden() {
         val members = listOf("a", "b", "c").map { PodMember(AccountIdentity(it, it.uppercase())) }
         val c = (0..5).map { DraftCopy("c$it", "d$it") }

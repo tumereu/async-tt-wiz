@@ -44,7 +44,6 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val controlsConnected: Boolean? = null,
     val ping: ((EventPingIntent) -> Boolean)? = null, val tokenCatalog: TableTokenCatalog? = null,
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
-    val continueHere: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val reviewPanel: (@Composable () -> Unit)? = null, val liveTimeline: (@Composable () -> Unit)? = null,
     val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
@@ -281,8 +280,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         navigation = hamburger, chatUnread = state.chatUnread,
                          history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
                           onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
-                          continueHere = if (!resultLocked && reviewing && history.armed == null && interactive &&
-                            history.foreground && history.canRequestContinuation(position.cursorId)) ({ history.requestContinuation(position.cursorId) }) else null,
                           returnCurrent = if (reviewing || history.armed != null) history::current else null,
                          cancelContinuation = history::cancelContinuation,
                            bottomPanel = if (playback != null) ({ playControls ->

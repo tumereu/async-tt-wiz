@@ -61,7 +61,7 @@ class HistoryModeReworkTest {
         } finally { controller.close() }
     }
 
-    // HIS-014, HIS-039
+    // HIS-013, HIS-014, HIS-039
     @Test fun pendingBranchOffersRewindAndPlayWithoutHoldToBranchThenFastRollbackLocksTransportUntilCommonAncestor() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -86,6 +86,7 @@ class HistoryModeReworkTest {
         auto.assert(SemanticsMatcher.keyNotDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
         compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Rewind", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertDoesNotExist() // HIS-013
         // The rewind is the only way on: the steppers wait until it has passed the branch point.
         for (description in listOf("Previous", "Next")) compose.onNodeWithContentDescription(description).assertIsNotEnabled()
         compose.onNodeWithText("Opponent branched").assertDoesNotExist() // The table centre text carries it.
@@ -109,7 +110,7 @@ class HistoryModeReworkTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // HIS-012, HIS-014, HIS-040
+    // HIS-012, HIS-013, HIS-014, HIS-040
     @Test fun anOldBranchPickedByThePlayerStepsAlongItsOwnLineAndOffersRewind() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -131,6 +132,7 @@ class HistoryModeReworkTest {
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Rewind to the branch point, then play"))
         compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Rewind", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertDoesNotExist()
         // Not locked: hold-to-branch from here stays offered.
         auto.assert(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
         assertEquals(3f, stripEnd()) // root, common, old1, old2: the whole old branch.
@@ -145,6 +147,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithContentDescription("Auto advance").assert(SemanticsMatcher.expectValue(
             androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))
         compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertExists() // HIS-013
     }
 
     // HIS-008, HIS-038
@@ -178,11 +181,12 @@ class HistoryModeReworkTest {
         val auto = compose.onNodeWithContentDescription("Auto advance")
         auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: off"))
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
-        compose.onNodeWithText("Tap: toggle · Hold: branch").assertDoesNotExist()
+        compose.onNodeWithText("Hold to branch").assertIsDisplayed()
         auto.performClick()
         compose.runOnIdle { assertTrue(player.position.playing) }
         auto.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Auto: on"))
         compose.onNodeWithText("Auto: on").assertIsDisplayed()
+        compose.onNodeWithText("Hold to branch").assertIsDisplayed()
         auto.performTouchInput { click() }
         compose.runOnIdle { assertFalse(player.position.playing) }
         compose.onNodeWithText("Auto: off").assertIsDisplayed()

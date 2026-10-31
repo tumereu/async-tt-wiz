@@ -438,8 +438,13 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                         else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
                             Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
                         // A pending branch can only be rewound; the player just chooses when it starts.
-                        Text(if (rewind && !position.playing) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
-                            fontSize = 16.sp, lineHeight = 20.sp)
+                        val showsRewind = rewind && !position.playing
+                        Column {
+                            Text(if (showsRewind) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
+                                fontSize = 16.sp, lineHeight = 20.sp)
+                            // HIS-013: holding Auto is the only way to branch, so the button says so.
+                            if (!showsRewind) Text("Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
+                        }
                     }
                 }
             }

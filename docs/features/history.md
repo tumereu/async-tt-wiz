@@ -19,7 +19,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-010** The timeline panel has the strip with a playback settings gear and a game tree button at its end, and below it Previous, the Auto button and Next. Previous/Next are plain borderless arrows. (r21)
 - **HIS-011** Swiping the strip or tapping an event moves the review cursor to that exact event (also mid-group); holding an event shows its text without moving the cursor. (r33)
 - **HIS-012** Previous and Next step one event group along the visible line: the live line, or the old branch being viewed from its start to its own tip. The strip shows that whole visible line. (r31)
-- **HIS-013** The Auto button reads "Auto: off" (green play icon) or "Auto: on" (orange pause icon); tapping toggles automatic playback. There is no hint line under it. (r6)
+- **HIS-013** The Auto button reads "Auto: off" (green play icon) or "Auto: on" (orange pause icon); tapping toggles automatic playback. Whenever it does not read "Rewind", a small "Hold to branch" line shows under the label. (r35)
 - **HIS-014** Auto always heads for the live game. On an old branch, or when the opponent branched, the button shows the rewind sign and "Rewind": it first rewinds to where the lines split, then plays on. (r31)
 - **HIS-015** Navigating to the last event by hand stays in timeline mode; only automatic playback reaching the end returns to play mode, even if the last event would auto-pause, and its animation still plays. (r14)
 - **HIS-016** In timeline mode double tap does nothing (no error), multi-select is off, a one-finger drag on empty table pans, and card menus and bubbles do not act on the game. (r13)
@@ -51,7 +51,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Branches and rewind
 
-- **HIS-036** In timeline mode at a past point, holding Auto, or tapping "Continue playing from here" (fork icon) in the top bar, arms a continuation at once, with no dialog. (r6)
+- **HIS-036** In timeline mode at a past point, holding Auto arms a continuation at once, with no dialog; it is the only way to branch (the top bar has no branch button). (r35)
 - **HIS-037** While a continuation is armed, a fork icon shows in the top bar; tapping it cancels. The next action starts a new branch from that point and the old future is kept. No continuation is offered at the newest event. (r6)
 - **HIS-038** If the opponent continued from an earlier point (on opening, on returning, or live while you watch), the table switches to timeline mode paused where you were, with an orange "Opponent branched" chip and the Auto button showing Rewind. (r33)
 - **HIS-039** While "Opponent branched" is pending, Previous/Next and the strip are locked and holding Auto does not branch: you choose when the rewind starts and must watch it. During the rewind the settings and tree buttons are disabled too. (r31)

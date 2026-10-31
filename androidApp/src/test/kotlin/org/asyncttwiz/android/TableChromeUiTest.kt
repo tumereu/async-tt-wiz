@@ -38,7 +38,7 @@ class TableChromeUiTest {
             TableSurface(TableFixture.game, play, viewer, landscape, Modifier.fillMaxSize(),
                 connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = review,
-                    history = { playback.scrub(playback.tree.sharedHeadId); review = true }, returnCurrent = { review = false }, continueHere = {},
+                    history = { playback.scrub(playback.tree.sharedHeadId); review = true }, returnCurrent = { review = false },
                     bottomPanel = { playControls -> HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, viewer, true, 60_000, {},
                         overlay = true, landscape = landscape, background = tableBarColor(play.board, viewer, review),
                         readOnly = !review, onEnter = { playback.scrub(playback.tree.sharedHeadId); review = true }, playControls = playControls,

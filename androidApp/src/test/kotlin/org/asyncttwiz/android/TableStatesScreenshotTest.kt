@@ -110,7 +110,6 @@ class TableStatesScreenshotTest {
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
                                 undo = { true }, redo = { true },
                                 controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
-                                continueHere = if (reviewing) ({ history.requestContinuation(playback.position.cursorId) }) else null,
                                  returnCurrent = if (review) history::current else null,
                                  cancelContinuation = history::cancelContinuation,
                                 reviewPanel = if (reviewing) ({ HistoryPlaybackPanel(playback, tree.currentNodeId, f.a, true, 60_000L,
@@ -145,7 +144,9 @@ class TableStatesScreenshotTest {
                 toolkit.openCard(TableScope(id, listOf(id)))
             }
             "continue" -> {
-                compose.onNodeWithContentDescription("Continue playing from here").performClick()
+                // HIS-036: holding Auto is the only way to branch.
+                compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
+                compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
                 compose.onNodeWithContentDescription("Interaction mode").assertExists()
                 compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
@@ -180,7 +181,7 @@ class TableStatesScreenshotTest {
         if (kind.startsWith("history")) {
             compose.onNodeWithText("Timeline mode").assertIsDisplayed()
             compose.onNodeWithText(if (kind == "history-playing") "Auto: on" else "Auto: off").assertIsDisplayed()
-            compose.onNodeWithText("Tap: toggle · Hold: branch").assertDoesNotExist()
+            compose.onNodeWithText("Hold to branch").assertIsDisplayed() // HIS-013
         }
         if (kind == "tree-viewer") {
             compose.onNodeWithText("Make current").assertDoesNotExist()

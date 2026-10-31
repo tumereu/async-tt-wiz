@@ -73,8 +73,6 @@ internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: 
                 Modifier.size(48.dp).border(2.dp, OwnTableColor), fill = Color(0xffedf3ef), ink = OwnTableColor,
                 icon = { TableChromeIcon("fork") }, onClick = { runtime.cancelContinuation?.invoke() })
         } else if (runtime.reviewing) {
-            ActionSquare("Continue playing from here", "", runtime.continueHere != null, Modifier.width(buttonWidth.dp),
-                icon = { TableChromeIcon("fork") }, onClick = { runtime.continueHere?.invoke() })
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         }
         Box {

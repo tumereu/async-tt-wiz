@@ -23,6 +23,10 @@ android {
             it.systemProperty("atw.realCatalog", realCatalog.get())
             it.maxHeapSize = "256m"
             it.testLogging.showStandardStreams = true
+        } else {
+            // Test classes run in parallel JVMs (also capped by org.gradle.workers.max); -PatwTestForks=<n> overrides.
+            it.maxParallelForks = providers.gradleProperty("atwTestForks").map(String::toInt)
+                .getOrElse((Runtime.getRuntime().availableProcessors() / 3).coerceIn(1, 4))
         }
     }
 }

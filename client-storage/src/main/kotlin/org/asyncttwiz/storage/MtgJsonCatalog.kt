@@ -9,6 +9,8 @@ import java.nio.charset.CodingErrorAction
 import java.time.LocalDate
 import java.util.UUID
 import java.util.logging.Logger
+import org.asyncttwiz.protocol.CardColors
+import org.asyncttwiz.protocol.CardSearchRules
 
 /** Bounded streaming traversal: only a single record is materialized, never a set or full catalog. */
 class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fieldBytes: Int = 64 * 1024) {
@@ -60,6 +62,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         val languages = sortedMapOf<String, Long>()
         val reasons = sortedMapOf<String, Long>()
         val batch = ArrayList<CatalogPrinting>(100)
+        val traits = ArrayList<CatalogPrintingTraits?>(100)
         reader(input).use { reader ->
             fun readSet(set: String) {
                 check(set.length in 1..32)
@@ -97,19 +100,20 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                             }
                             if (record == null) { skipped++; continue }
                             batch += record
+                            traits += searchTraits(element.asJsonObject)
                             count++
                             if (record.token) tokens++
                             if (record.name.startsWith("A-")) alchemy++
                             if (element.asJsonObject.get("isOnlineOnly")?.let { it.isJsonPrimitive && it.asBoolean } == true) onlineOnly++
                             languages.merge(record.language.ifEmpty { "unspecified" }, 1L, Long::plus)
-                            if (batch.size == 100) { index.addBatch(batch); batch.clear(); progress(count) }
+                            if (batch.size == 100) { index.addBatch(batch, traits); batch.clear(); traits.clear(); progress(count) }
                         }
                         reader.endArray()
                     }
                     else -> skip(reader, 3)
                 } }
                 check(sawCards && (setCode == null || sawCode))
-                index.addBatch(batch); batch.clear()
+                index.addBatch(batch, traits); batch.clear(); traits.clear()
                 index.addSet(set, releaseDate, expected.checksum)
                 index.setName(set, setName)
                 setType?.let { index.setType(set, it) }
@@ -125,7 +129,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             check(reader.peek() == JsonToken.END_DOCUMENT)
         }
         check(sawData && meta != null && meta.version == expected.version && (setCode != null || meta.date == expected.date))
-        index.addBatch(batch)
+        index.addBatch(batch, traits)
         progress(count)
         Logger.getLogger(MtgJsonCatalog::class.java.name).info(
             "MTGJSON records: imported=$count skipped=$skipped reasons=$reasons tokens=$tokens alchemy=$alchemy onlineOnly=$onlineOnly languages=$languages")
@@ -168,6 +172,19 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
         return CatalogPrinting(id, string(json, "name", true), set, string(json, "number", true),
             string(json, "language"), side, scryfall, token, other, raw)
     }
+
+    /** Search-only provider data kept beside the record, never in it (the record becomes deck data). Lenient:
+     * malformed optional fields mean "unknown", never a rejected card. */
+    private fun searchTraits(json: JsonObject): CatalogPrintingTraits = CatalogPrintingTraits(
+        rarity = json.get("rarity")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+            ?.lowercase()?.takeIf { it.length <= 32 }.orEmpty(),
+        identity = json.get("colorIdentity")?.takeIf { it.isJsonArray }?.asJsonArray
+            ?.filter { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.map { it.asString }?.let(CardColors::mask),
+        legal = json.get("legalities")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.fold(0L) { mask, (format, status) ->
+            val bit = CardSearchRules.FORMATS.indexOf(format.lowercase())
+            val allowed = status.isJsonPrimitive && status.asJsonPrimitive.isString && status.asString.lowercase() in setOf("legal", "restricted")
+            if (bit >= 0 && allowed) mask or (1L shl bit) else mask
+        } ?: 0L)
 
     companion object {
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,

@@ -114,6 +114,27 @@ class RealCatalogTest {
             assertEquals(2, combined.entries.single().faces.size)
         }
 
+        // Card search: rows the matcher evaluated per first page (work, not time) on the full catalog.
+        DriverManager.getConnection("jdbc:sqlite:${indexFile.absolutePath}").use { connection ->
+            connection.createStatement().executeQuery("SELECT count(*), sum(length(data)) FROM search_data").use { rows ->
+                assertTrue(rows.next())
+                println("REAL search: ${rows.getLong(1)} cards, ${rows.getLong(2)} data characters")
+                assertTrue(rows.getLong(1) in 20_000..200_000)
+            }
+        }
+        for (query in listOf("l", "light", "bolt", "t:goblin", "o:\"draw a card\" c:u mv<=2", "c=rg t:creature", "id:esper f:commander",
+            "f:pauper r:common t:instant", "s:neo", "is:mdfc", "pow>=5 tou<=2", "-t:land mv=0", "")) {
+            repository.searchCards(query) // warm-up: JIT and connection caches
+            val started = System.nanoTime()
+            val page = repository.searchCards(query) as CatalogCardSearch.Page
+            println("REAL search \"$query\": ${page.cards.size} cards, examined ${page.examined}, more=${page.next != null}, ${elapsedMs(started)} ms")
+        }
+        val bolts = (repository.searchCards("!\"lightning bolt\"") as CatalogCardSearch.Page).cards
+        println("REAL exact Lightning Bolt: ${bolts.map { "${it.name} ${it.key} ${it.printing.set}" }}")
+        val bolt = bolts.first { it.name == "Lightning Bolt" }
+        assertEquals(DeckImportResolver(repository).resolve("1 Lightning Bolt").entries.single().printing, bolt.printing)
+        assertTrue("Fire // Ice" in (repository.searchCards("!fire is:split") as CatalogCardSearch.Page).cards.map { it.name })
+
         // Exercise the app's actual URL derivation with a fake transport, never DNS or HTTP.
         // Scryfall GET /cards/:id: https://scryfall.com/docs/api/cards/id
         val requests = mutableListOf<String>()

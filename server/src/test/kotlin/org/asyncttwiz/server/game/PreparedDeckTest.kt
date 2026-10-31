@@ -7,7 +7,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.flywaydb.core.Flyway
@@ -17,8 +18,8 @@ import org.junit.jupiter.api.Test
 class PreparedDeckTest {
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun number(db: OwnedPostgres, statement: String): Long = db.connection().use { c ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
     private fun ready(runtime: ServiceRuntime) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
@@ -67,7 +68,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `old saved adventure definitions become durable single face game definitions without modifying saved decks`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -92,7 +93,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `per copy transfers retain identities source isolation independent partial outcomes and own Ready on ordered path`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -149,7 +150,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `transfer guards and transactional rollback preserve retained V8 copies and restart recovers pending original once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: AccountService.Principal; lateinit var summary: GameSummary; lateinit var original: GameCommand
             lateinit var hello: GameHello; lateinit var before: GameHead; lateinit var expected: LobbyPreparation
@@ -214,7 +215,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `exact snapshots pure equivalence own Ready clearing and invitation changes share one ordered path`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -259,7 +260,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `source mutation deletion privacy and stale lifecycle guards never substitute or rewrite chosen copies`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -303,7 +304,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `pending selection rollback restart and renewed stream recover exact original without duplicate attachment`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: AccountService.Principal; lateinit var summary: GameSummary; lateinit var original: GameCommand
             lateinit var expected: LobbyPreparation; lateinit var hello: GameHello
@@ -354,7 +355,7 @@ class PreparedDeckTest {
     }
 
     @Test fun `explicit V7 forward migration retains source definitions game streams and pending original outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("7").load().migrate()
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val a = id(); val b = id(); val game = id(); val invite = id(); val round = id(); val source = id(); val request = id()

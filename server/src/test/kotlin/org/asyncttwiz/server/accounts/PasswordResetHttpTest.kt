@@ -14,7 +14,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -23,7 +24,7 @@ class PasswordResetHttpTest {
     @TempDir lateinit var directory: Path
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private val json = AccountJson.format
-    private fun settings(db: OwnedPostgres, mail: ResetMailSettings) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
+    private fun settings(db: TestPostgres, mail: ResetMailSettings) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
         InetAddress.getByName("127.0.0.1"), SyntheticMailbox.freePort(), InetAddress.getByName("127.0.0.1"), SyntheticMailbox.freePort(), mail)
     private fun request(settings: ServiceSettings, method: String, path: String, body: String? = null,
                         headers: Map<String, String> = emptyMap()): HttpResponse<String> {
@@ -58,7 +59,7 @@ class PasswordResetHttpTest {
     }
 
     @Test fun `actual HTTP JSON and HTTPS link fallback form use explicit CSRF confirmation not GET`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             SyntheticMailbox(directory.resolve("mail")).use { box ->
                 val settings = settings(db, box.settings())
@@ -134,7 +135,7 @@ class PasswordResetHttpTest {
     }
 
     @Test fun `actual Spring worker recovers encrypted pending mail and wrong key blocks readiness until corrected restart`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             SyntheticMailbox(directory.resolve("mail")).use { box ->
                 val settings = settings(db, box.settings())

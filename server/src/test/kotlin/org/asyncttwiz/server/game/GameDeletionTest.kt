@@ -19,7 +19,8 @@ import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -28,8 +29,8 @@ import org.junit.jupiter.api.Test
 class GameDeletionTest {
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun number(db: OwnedPostgres, statement: String): Long = db.connection().use { c ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
     private fun ready(runtime: ServiceRuntime) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
@@ -75,7 +76,7 @@ class GameDeletionTest {
     private fun denied(action: () -> Unit) = assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java, action).code)
 
     @Test fun `either participant deletes unilaterally with absent opponent and ordered originals stay private`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -143,7 +144,7 @@ class GameDeletionTest {
     }
 
     @Test fun `stale confirmation cannot turn into setup cancellation or target a new play`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -165,7 +166,7 @@ class GameDeletionTest {
     }
 
     @Test fun `deletion rollback leaves accepted state intact and restart executes retained original exactly once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: AccountService.Principal; lateinit var before: GameHead; lateinit var original: GameCommand; lateinit var hello: GameHello
             ServiceRuntime(db.settings).use { runtime ->
@@ -206,7 +207,7 @@ class GameDeletionTest {
 
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     @Test fun `combined cancellation chat deletion SQL order and socket HTTP recovery expose no removed content`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var setup: GameSummary; lateinit var active: GameHead
             lateinit var setupStream: Stream; lateinit var playStream: Stream
@@ -326,7 +327,7 @@ class GameDeletionTest {
     }
 
     @Test fun `production socket deletes with absent opponent and tombstone reconnect recovers only private original outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var active: GameHead; lateinit var aToken: String; lateinit var bToken: String; lateinit var outsider: String
             ServiceRuntime(db.settings).use { runtime ->

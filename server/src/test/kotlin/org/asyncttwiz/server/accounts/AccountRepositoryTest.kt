@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -19,7 +19,7 @@ class AccountRepositoryTest {
     }
 
     @Test fun `V1 to V2 forward upgrade retains writer data and registration uniqueness is atomic`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             val v1 = Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("1").load()
             assertEquals(1, v1.migrate().migrationsExecuted)
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
@@ -58,7 +58,7 @@ class AccountRepositoryTest {
     }
 
     @Test fun `only token hashes persist epochs revoke and successful legacy login rehashes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 ready(runtime)

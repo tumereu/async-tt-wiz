@@ -12,7 +12,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.flywaydb.core.Flyway
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -34,13 +35,13 @@ class PasswordResetTest {
         while (!runtime.ready() && System.nanoTime() < until) Thread.sleep(20)
         assertTrue(runtime.ready())
     }
-    private fun sql(db: OwnedPostgres, query: String): String = db.connection().use {
+    private fun sql(db: TestPostgres, query: String): String = db.connection().use {
         DSL.using(it, SQLDialect.POSTGRES).fetchValue(query).toString()
     }
     private fun token(link: String) = URI(link).query.substringAfter("token=")
 
     @Test fun `retained V2 upgrade and real mail reset preserve sessions until explicit atomic confirmation`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("2").load().migrate()
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             lateinit var first: String
@@ -111,7 +112,7 @@ class PasswordResetTest {
     }
 
     @Test fun `durable encrypted mail survives runtime restart and actual SMTP follows bounded backoff and expiry`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val time = Time()
             SyntheticMailbox(directory.resolve("mail")).use { box ->

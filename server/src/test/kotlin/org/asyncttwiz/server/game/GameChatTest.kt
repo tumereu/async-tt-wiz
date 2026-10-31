@@ -17,7 +17,8 @@ import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -34,8 +35,8 @@ class GameChatTest {
         val accounts = AccountService(runtime); accounts.register(name, "$name@example.invalid", "synthetic password")
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
-    private fun sql(db: OwnedPostgres, text: String) { db.connection().use { it.createStatement().execute(text) } }
-    private fun count(db: OwnedPostgres, table: String) = db.connection().use { c ->
+    private fun sql(db: TestPostgres, text: String) { db.connection().use { it.createStatement().execute(text) } }
+    private fun count(db: TestPostgres, table: String) = db.connection().use { c ->
         c.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getLong(1) } }
     private class Stream(val games: GameService, val actor: AccountService.Principal, val game: GameSummary) {
         val hello = GameHello(UUID.randomUUID().toString(), UUID.randomUUID().toString())
@@ -78,7 +79,7 @@ class GameChatTest {
         }
     }
     @Test fun `private read cursor is monotonic durable and counts only incoming messages including beyond page window`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var actor: AccountService.Principal; lateinit var game: String; lateinit var expected: ChatReadState
             ServiceRuntime(db.settings).use { runtime ->
@@ -125,7 +126,7 @@ class GameChatTest {
         }
     }
     @Test fun `chat shares durable FIFO and original outcome identity without mutating board or leaking private results`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 ready(runtime); val f = Fixture(runtime); val before = f.games.head(f.a, f.game.id)
@@ -166,7 +167,7 @@ class GameChatTest {
         }
     }
     @Test fun `atomic rollback keeps admitted chat pending and worker restart recovers once with original binding`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var original: GameCommand; lateinit var actor: AccountService.Principal; lateinit var before: GameHead
             lateinit var hello: GameHello
@@ -202,7 +203,7 @@ class GameChatTest {
         }
     }
     @Test fun `real chat board and result share one writer while baseline separates immutable chat from tree records`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 ready(runtime); val f = Fixture(runtime); val before = f.games.head(f.a, f.game.id)
@@ -262,7 +263,7 @@ class GameChatTest {
         }
     }
     @Test fun `stale play and ended lifecycle refuse first delivery but committed retries retain original result`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 ready(runtime); val f = Fixture(runtime)
@@ -321,7 +322,7 @@ class GameChatTest {
         override fun close() { socket.abort() }
     }
     @Test fun `actual authenticated two socket chat publishes both directions and denies private reads and revoked writes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var game: GameSummary; lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var other: SessionCreated
             ServiceRuntime(db.settings).use { runtime ->

@@ -15,7 +15,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -23,7 +24,7 @@ class PodHttpTest {
     private val json = DeckJson.format
     private fun id() = UUID.randomUUID().toString()
 
-    private inner class Fixture(val db: OwnedPostgres) : AutoCloseable {
+    private inner class Fixture(val db: TestPostgres) : AutoCloseable {
         private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
         val service = SpringService(settings)
@@ -122,7 +123,7 @@ class PodHttpTest {
         override fun close() = service.close()
     }
 
-    private fun fixture(test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
+    private fun fixture(test: (Fixture) -> Unit) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         Fixture(db).use(test)
     }

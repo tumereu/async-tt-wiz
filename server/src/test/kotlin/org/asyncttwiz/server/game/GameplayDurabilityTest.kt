@@ -7,7 +7,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.flywaydb.core.Flyway
@@ -69,12 +70,12 @@ internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, r
 }
 
 class GameplayDurabilityTest {
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun number(db: OwnedPostgres, statement: String): Long = db.connection().use { c ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
 
     @Test fun `ordered durable gameplay applies compatible edits actual tuples and individual guarded moves`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -133,7 +134,7 @@ class GameplayDurabilityTest {
     }
 
     @Test fun `late transaction failure rolls mutations grouping materialization result revision and outbox back then worker resumes once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var pending: GameCommand; lateinit var actor: AccountService.Principal; lateinit var before: GameHead
             lateinit var hello: GameHello
@@ -193,7 +194,7 @@ class GameplayDurabilityTest {
 
     /** Rules v29 (library layers): V41 deletes every game that started a play; lobby-only games and accounts stay. */
     @Test fun `V41 wipes a retained V9 play with its game and keeps games that never started`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("9").load().migrate()
             // A current executable correctly refuses readiness on an unmigrated schema. Seed a retained V9
             // serialization fixture via JDBC instead of bypassing that validation to run a V11 service on V9.
@@ -240,7 +241,7 @@ class GameplayDurabilityTest {
     }
 
     @Test fun `history paging retains ordered records and references only this play and authorized game`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)

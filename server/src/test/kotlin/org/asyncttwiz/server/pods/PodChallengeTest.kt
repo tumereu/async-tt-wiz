@@ -8,7 +8,7 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.cubes.CubeService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
 import org.asyncttwiz.server.lobby.LobbyService
@@ -86,7 +86,7 @@ class PodChallengeTest {
             return games.results(who, game.id, listOf(command.requestId)).statuses.single().result!!
         }
     }
-    private fun fixture(uniqueCards: Boolean = false, test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
+    private fun fixture(uniqueCards: Boolean = false, test: (Fixture) -> Unit) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
             runtime.start()

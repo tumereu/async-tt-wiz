@@ -5,20 +5,21 @@ import java.util.UUID
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.game.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ActivityRuntimeIntegrationTest {
     private fun id() = UUID.randomUUID().toString()
-    private fun number(db: OwnedPostgres, query: String): Long = db.connection().use { c ->
+    private fun number(db: TestPostgres, query: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(query).use { it.next(); it.getLong(1) }
     }
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
 
     @Test fun `real FIFO commits opponent group extensions next groups and no op original retry distinctions atomically`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -84,7 +85,7 @@ class ActivityRuntimeIntegrationTest {
     }
 
     @Test fun `post hint SQL failure rolls back board group result revision and hints then restart recovers original once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val runtime = ServiceRuntime(db.settings)
             runtime.start(); gameplayAwait(runtime::ready)

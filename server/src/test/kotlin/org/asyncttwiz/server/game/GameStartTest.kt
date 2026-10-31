@@ -7,7 +7,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.flywaydb.core.Flyway
@@ -16,7 +17,7 @@ import org.junit.jupiter.api.Test
 
 class GameStartTest {
     @Test fun `oversized create and merged contents are terminal validation errors`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -34,7 +35,7 @@ class GameStartTest {
     }
 
     @Test fun `legacy oversized prepared deck rejects Ready without allocating a play`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -59,7 +60,7 @@ class GameStartTest {
     }
 
     @Test fun `request Error rolls back partial work records a terminal rejection and allows the next request`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -88,7 +89,7 @@ class GameStartTest {
     }
 
     @Test fun `the Ready that starts the game notifies only the player who readied earlier`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -127,8 +128,8 @@ class GameStartTest {
 
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun number(db: OwnedPostgres, statement: String): Long = db.connection().use { c ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
     private fun ready(runtime: ServiceRuntime) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
@@ -192,7 +193,7 @@ class GameStartTest {
     }
 
     @Test fun `inviter readies before acceptance edits clear only own and second accepted Ready starts exactly once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -263,7 +264,7 @@ class GameStartTest {
     }
 
     @Test fun `arrival order applies preparation change before second Ready and fresh starts use independent random inputs`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -307,7 +308,7 @@ class GameStartTest {
     }
 
     @Test fun `failed start transaction rolls back all initialization and admitted request survives worker restart once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: AccountService.Principal; lateinit var b: AccountService.Principal; lateinit var game: GameSummary
             lateinit var pending: GameCommand; lateinit var hello: GameHello; lateinit var before: GameHead
@@ -364,7 +365,7 @@ class GameStartTest {
     }
 
     @Test fun `explicit V8 migration retains original prepared snapshots ready flags definitions streams and outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("8").load().migrate()
             val a = id(); val b = id(); val game = id(); val invite = id(); val round = id(); val select = id(); val stream = id(); val request = id()
             val def = CardDefinition("Old retained", listOf(DefinitionFace(id(), "Old face", corner = "1/2")))

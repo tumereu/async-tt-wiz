@@ -3,13 +3,13 @@ package org.asyncttwiz.server.game
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PilePrefixInsertionTest {
     @Test fun `real PostgreSQL FIFO keeps individual prefix success source and anchor conflicts partial outcomes and exact accepted records`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)

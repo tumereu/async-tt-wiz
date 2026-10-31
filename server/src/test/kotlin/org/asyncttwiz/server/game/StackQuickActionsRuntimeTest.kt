@@ -3,13 +3,13 @@ package org.asyncttwiz.server.game
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class StackQuickActionsRuntimeTest {
     @Test fun `Stack copies and controllers are validated persisted and exactly undoable without changing the source`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -61,7 +61,7 @@ class StackQuickActionsRuntimeTest {
     }
 
     @Test fun `hand projections reveal and hide in opponent views and all source destinations replay with Undo Redo`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -148,7 +148,7 @@ class StackQuickActionsRuntimeTest {
     }
 
     @Test fun `marker and literal graveyard bubble travel through real FIFO requests history replay and Undo`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)

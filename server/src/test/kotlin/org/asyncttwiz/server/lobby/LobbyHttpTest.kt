@@ -18,7 +18,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -28,7 +29,7 @@ class LobbyHttpTest {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun id() = UUID.randomUUID().toString()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: OwnedPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
+    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
         InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
@@ -56,10 +57,10 @@ class LobbyHttpTest {
         val response = request(settings, "POST", "/sessions", json.encodeToString(CreateSession(email, "password😀")))
         assertEquals(201, response.statusCode()); return json.decodeFromString(response.body())
     }
-    private fun count(db: OwnedPostgres, table: String) = db.connection().use { c -> c.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getInt(1) } }
+    private fun count(db: TestPostgres, table: String) = db.connection().use { c -> c.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getInt(1) } }
 
     @Test fun `username search unilateral synchronized contacts atomic duplicate creation privacy and restart`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             lateinit var owner: SessionCreated; lateinit var recipient: SessionCreated; lateinit var stranger: SessionCreated
             lateinit var create: CreateInvitation; lateinit var game: GameSummary; lateinit var original: String
@@ -124,7 +125,7 @@ class LobbyHttpTest {
     }
 
     @Test fun `removing a contact is authenticated unilateral idempotent and preserves invitations`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -155,7 +156,7 @@ class LobbyHttpTest {
     }
 
     @Test fun `invalid inputs and failed invitation or outcome roll back all creation effects`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -193,7 +194,7 @@ class LobbyHttpTest {
     }
 
     @Test fun `search is bounded and literal while contact list pages preserve all identities`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -221,7 +222,7 @@ class LobbyHttpTest {
     }
 
     @Test fun `explicit V5 forward migration retains account deck definition and original outcome`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("5").load().migrate()
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val account = id(); val deck = id(); val request = id()

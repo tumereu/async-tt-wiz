@@ -17,7 +17,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -28,7 +29,7 @@ class DeckHttpTest {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun id() = UUID.randomUUID().toString()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: OwnedPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
+    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
         InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
@@ -62,12 +63,12 @@ class DeckHttpTest {
         CardDefinition(name, listOf(DefinitionFace(faceId, name, rulesText = "<b>Not HTML</b>\n", corner = "")),
             provider = "arbitrary", sourceVersion = "retained v1", printingId = "same-external-id")
     private fun submitted(card: CardDefinition) = SubmittedDefinition(DeckJson.digest(card), card)
-    private fun count(db: OwnedPostgres, table: String): Int = db.connection().use { connection ->
+    private fun count(db: TestPostgres, table: String): Int = db.connection().use { connection ->
         connection.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getInt(1) }
     }
 
     @Test fun `HTTP complete definitions exact deck concurrent original outcome restart and private readback`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             val first = submitted(card())
@@ -145,7 +146,7 @@ class DeckHttpTest {
     }
 
     @Test fun `whole set validation strict HTTP and interrupted body retain no partial definitions or deck`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -196,7 +197,7 @@ class DeckHttpTest {
     }
 
     @Test fun `database failure rolls back effects identity and outcome and same request can recover`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -238,7 +239,7 @@ class DeckHttpTest {
     }
 
     @Test fun `owned list keyset pages preserve equal names and maximum quantity without deck legality rules`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -265,7 +266,7 @@ class DeckHttpTest {
     }
 
     @Test fun `draft deck listing and Save as deck copy routes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -293,7 +294,7 @@ class DeckHttpTest {
     }
 
     @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -350,7 +351,7 @@ class DeckHttpTest {
     }
 
     @Test fun `metadata and deletion effects roll back with outcome failure and retain exact retries`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -386,7 +387,7 @@ class DeckHttpTest {
     }
 
     @Test fun `contextual imports serialize additive sections preserve immutable content and recover original outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             lateinit var owner: SessionCreated
@@ -470,7 +471,7 @@ class DeckHttpTest {
     }
 
     @Test fun `invalid overflowing and interrupted contextual imports preserve the entire accepted deck`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -509,7 +510,7 @@ class DeckHttpTest {
     }
 
     @Test fun `explicit V4 cover upgrade retains existing named deck entries definitions and original outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("4").load().migrate()
             val pendingForwards = FoundationMigrations.flyway(db.settings).info().pending().size
             val account = id(); val deck = id(); val request = id(); val definition = submitted(card())
@@ -534,7 +535,7 @@ class DeckHttpTest {
     }
 
     @Test fun `explicit V3 to current upgrade preserves account data and routes never self migrate`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start()

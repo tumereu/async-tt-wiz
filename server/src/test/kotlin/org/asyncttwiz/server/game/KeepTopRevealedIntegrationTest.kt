@@ -3,13 +3,13 @@ package org.asyncttwiz.server.game
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class KeepTopRevealedIntegrationTest {
     @Test fun `forks after draws preserve the revealed top and explicit branch shuffles replace it for both players`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -67,7 +67,7 @@ class KeepTopRevealedIntegrationTest {
     }
 
     @Test fun `either player controls a durable undoable continuous reveal shared with the opponent`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)

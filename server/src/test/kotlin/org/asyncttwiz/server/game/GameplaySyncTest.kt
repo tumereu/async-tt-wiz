@@ -19,7 +19,7 @@ import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.SQLDialect
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test
 
 class GameplaySyncTest {
     @Test fun `unchanged baselines reuse the same pinned export and compressed arrays`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start()
@@ -65,7 +65,7 @@ class GameplaySyncTest {
     }
 
     @Test fun `account and global byte budgets evict whole exports and expiry needs no incoming request`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
@@ -218,7 +218,7 @@ class GameplaySyncTest {
         } finally { socket.sendClose(WebSocket.NORMAL_CLOSURE, "done").get(15, TimeUnit.SECONDS) }
     }
     @Test fun `authorized route exports coherent retained current records with pinned chunks while deltas advance`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var other: SessionCreated; lateinit var started: Started
             ServiceRuntime(db.settings).use { runtime ->
@@ -265,7 +265,7 @@ class GameplaySyncTest {
         }
     }
     @Test fun `expired export retains no usable partial transfer`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)

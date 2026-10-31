@@ -7,7 +7,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.flywaydb.core.Flyway
@@ -16,8 +17,8 @@ import org.junit.jupiter.api.Test
 
 class GameResultLifecycleTest {
     private fun id() = UUID.randomUUID().toString()
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun count(db: OwnedPostgres, statement: String): Long = db.connection().use { connection ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun count(db: TestPostgres, statement: String): Long = db.connection().use { connection ->
         connection.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
     private fun account(runtime: ServiceRuntime, name: String): AccountService.Principal {
         val accounts = AccountService(runtime)
@@ -47,7 +48,7 @@ class GameResultLifecycleTest {
         fun execute(command: GameCommand): GameResult { assertTrue(admit(command) is GameReceipt); assertTrue(games.executeOne()); return result(command) }
         fun execute(action: GameAction) = execute(command(action))
     }
-    private inner class Fixture(val db: OwnedPostgres) : AutoCloseable {
+    private inner class Fixture(val db: TestPostgres) : AutoCloseable {
         val runtime = ServiceRuntime(db.settings)
         val a: AccountService.Principal; val b: AccountService.Principal
         val game: GameSummary; val games: GameService; val owner: Stream; val other: Stream
@@ -77,7 +78,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `first applicable suggestion wins both arrival orders and return fences old round and play while fresh start records new inputs`() {
-        for (reverse in listOf(false, true)) OwnedPostgres().start().use { db ->
+        for (reverse in listOf(false, true)) FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 val author = if (reverse) f.other else f.owner; val accepter = if (reverse) f.owner else f.other
@@ -150,7 +151,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `alternate starter hands the next play to whoever did not start the last one and can be switched off`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 fun end(): LobbyPreparation {
@@ -180,7 +181,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `show deck is a per game per player lobby flag kept across plays and hidden again in a new game`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 val bId = f.b.account.accountId
@@ -227,7 +228,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 assertEquals("accepted", f.owner.execute(f.suggestion()).outcome)
@@ -248,7 +249,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `continuing from before a pending suggestion branches away and both players keep playing`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.SetLife(f.a.account.accountId, "18"))).outcome)
@@ -279,7 +280,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `suggester withdraws restored decline after life edit as an ordinary undoable event`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.DRAW)).outcome)
@@ -315,7 +316,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `failed return rolls back atomically and admitted acceptance recovers after restart without duplicate effect`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var accept: GameCommand; lateinit var before: GameHead; lateinit var actor: AccountService.Principal
             lateinit var author: AccountService.Principal; lateinit var hello: GameHello; lateinit var gameId: String
@@ -357,7 +358,7 @@ class GameResultLifecycleTest {
     }
 
     @Test fun `V14 to V40 migrations preserve a preexisting play and V41 wipes its started game`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("9").load().migrate()
             val a = id(); val b = id(); val gameId = id(); val round = id(); val invitation = id(); val request = id(); val stream = id()
             val definition = CardDefinition("V9 retained", listOf(DefinitionFace(id(), "V9 face")))

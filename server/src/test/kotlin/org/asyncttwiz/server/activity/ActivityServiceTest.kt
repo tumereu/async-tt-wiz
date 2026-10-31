@@ -7,7 +7,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 internal class ActivityFixture : AutoCloseable {
-    val db = OwnedPostgres().start()
+    val db = FreshDatabase().start()
     val runtime: ServiceRuntime
     val accounts: AccountService
     val a: AccountService.Principal

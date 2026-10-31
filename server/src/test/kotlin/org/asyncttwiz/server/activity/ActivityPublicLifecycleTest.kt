@@ -17,7 +17,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -51,7 +51,7 @@ class ActivityPublicLifecycleTest {
     private fun workers() = Thread.getAllStackTraces().keys.filter { it.name == "activity-hints" && it.isAlive }.toSet()
 
     @Test fun `public authenticated activity and provider independent scheduled maintenance stop with real service`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
                 InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())

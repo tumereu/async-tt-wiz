@@ -87,6 +87,9 @@ tasks.register<JavaExec>("migrate") {
 
 tasks.test {
     exclude("**/ComposeIsolationTest.class")
+    // Each fork is its own JVM with its own owned PostgreSQL container (FreshDatabase), so
+    // classes in different forks never share a database. Gradle caps this at max-workers.
+    maxParallelForks = 4
 }
 
 // Image-dependent host qualification is explicit, not a hidden prerequisite for
@@ -103,6 +106,8 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     systemProperty("asyncttwiz.postgresImage", postgresImage)
     systemProperty("asyncttwiz.root", rootDir.absolutePath)
+    // One lock file for every fork of every test task: container lifecycles never overlap.
+    systemProperty("asyncttwiz.containerLock", layout.buildDirectory.file("tmp/owned-postgres-lifecycle.lock").get().asFile.absolutePath)
     // Launch the real installed executable, not a second test-only migration CLI.
     dependsOn(tasks.installDist)
     systemProperty("asyncttwiz.migrationExecutable", layout.buildDirectory.file("install/server/bin/server").get().asFile.absolutePath)

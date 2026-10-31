@@ -5,7 +5,8 @@ import java.util.zip.GZIPInputStream
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.junit.jupiter.api.Assertions.*
@@ -13,10 +14,10 @@ import org.junit.jupiter.api.Test
 
 class HistoryRuntimeIntegrationTest {
     private fun control(stream: GameplayFixture.Stream, action: GameAction) = stream.command(PlayAction.NextStep).copy(action = action)
-    private fun tree(db: OwnedPostgres, f: GameplayFixture) = db.connection().use {
+    private fun tree(db: TestPostgres, f: GameplayFixture) = db.connection().use {
         GameplayStore().readFull(DSL.using(it, SQLDialect.POSTGRES), f.games.head(f.a, f.game.id).play!!) }
-    private fun sql(db: OwnedPostgres, text: String) = db.connection().use { it.createStatement().execute(text) }
-    private fun assertNoCheckpointAnnotations(db: OwnedPostgres, f: GameplayFixture) = db.connection().use { connection ->
+    private fun sql(db: TestPostgres, text: String) = db.connection().use { it.createStatement().execute(text) }
+    private fun assertNoCheckpointAnnotations(db: TestPostgres, f: GameplayFixture) = db.connection().use { connection ->
         connection.prepareStatement("SELECT count(*) FROM gameplay_endpoint_record WHERE play_id = ? AND kind IN ('comment', 'ping', 'ping-ordinal')").use {
             it.setObject(1, UUID.fromString(f.root.id))
             it.executeQuery().use { rows ->
@@ -42,7 +43,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `real decks retain undo for Stack quick actions and text after deliberate branch switch`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -123,7 +124,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `historical failure and noop preserve both account queues first effective fork clears both atomically`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
@@ -155,7 +156,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `opponent suffix preserves relevant tuples and dependent retained reference blocks latest own without skipping`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
@@ -208,7 +209,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `real FIFO selects successive own candidates across devices and original controls never execute twice`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var f: GameplayFixture
             lateinit var original: GameCommand
@@ -261,7 +262,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `all merged families use real relational tree replay selective tuples and retained continuations`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
@@ -327,7 +328,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `stored legacy archive controls load as normal branches and allow continuation`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)
@@ -355,7 +356,7 @@ class HistoryRuntimeIntegrationTest {
     }
 
     @Test fun `late fault rolls tree topology stacks checkpoint revision result and outbox back together`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready); val f = GameplayFixture(runtime)

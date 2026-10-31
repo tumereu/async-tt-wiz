@@ -3,7 +3,7 @@ package org.asyncttwiz.server.game
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.junit.jupiter.api.Assertions.*
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class LibraryOrderIntegrationTest {
     @Test fun `non owner can draw mill mulligan shuffle and author panels on opponents library`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
@@ -63,7 +63,7 @@ class LibraryOrderIntegrationTest {
     }
 
     @Test fun `server secret persisted forks and own library undo match independent client prediction and sync`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var final: GameplayTree
             lateinit var f: GameplayFixture

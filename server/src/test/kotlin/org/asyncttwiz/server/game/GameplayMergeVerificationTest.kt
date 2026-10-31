@@ -16,7 +16,7 @@ import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.flywaydb.core.api.exception.FlywayValidateException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -39,7 +39,7 @@ class GameplayMergeVerificationTest {
     }
 
     @Test fun `pending export stays immutable while FIFO rejects earlier draw and commits later original with relational HTTP coherence`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var head: GameHead
             lateinit var results: List<GameResult>

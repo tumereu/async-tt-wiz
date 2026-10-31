@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -68,7 +68,7 @@ class GameplayTest {
     }
 
     @Test fun `real decks mulligan move tap undo undo redo through authenticated sockets and durable Postgres`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
                 InetAddress.getByName("127.0.0.1"), port())
@@ -229,7 +229,7 @@ class GameplayTest {
     }
 
     @Test fun `authenticated two socket gameplay predicts same reducer and HTTP retains concrete mutations and guarded Stack outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
                 InetAddress.getByName("127.0.0.1"), port())
@@ -357,7 +357,7 @@ class GameplayTest {
     }
 
     @Test fun `two sockets refuse a move that raced with the opponent's continuation and leave same line play and undo as before`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
                 InetAddress.getByName("127.0.0.1"), port())

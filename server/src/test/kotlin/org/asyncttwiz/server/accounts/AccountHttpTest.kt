@@ -13,14 +13,15 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 /** Actual HTTP through normal Spring/Tomcat/Security handlers, real PostgreSQL and shared JSON. */
 class AccountHttpTest {
     @Test fun `profile updates validate names and avatars and project current identities everywhere`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -72,7 +73,7 @@ class AccountHttpTest {
         }
     }
     @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             val path = "/account/token-favorites"
@@ -116,7 +117,7 @@ class AccountHttpTest {
         }
     }
     @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             val path = "/account/settings"
@@ -148,7 +149,7 @@ class AccountHttpTest {
     private val json = AccountJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: OwnedPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
+    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
         InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
     private fun request(settings: ServiceSettings, method: String, path: String, body: ByteArray? = null,
                         token: String? = null, contentType: String = "application/json", xff: String? = null): HttpResponse<String> {
@@ -175,7 +176,7 @@ class AccountHttpTest {
     }
 
     @Test fun `real entry privacy exact credentials independent sessions restart and idempotent logout`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             val exact = " \tPäSS e\u0301😀\n"
@@ -231,7 +232,7 @@ class AccountHttpTest {
     }
 
     @Test fun `strict malformed and bounded JSON failures never reflect secrets or create accounts`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -261,7 +262,7 @@ class AccountHttpTest {
     }
 
     @Test fun `HTTP rate limits use actual peer and normalized email and keep responses generic`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val settings = settings(db)
             SpringService(settings).use { service ->
@@ -285,7 +286,7 @@ class AccountHttpTest {
     }
 
     @Test fun `account routes never migrate or bypass writer admission`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase(migrated = false).start().use { db ->
             val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start()

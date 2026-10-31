@@ -14,7 +14,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -23,7 +24,7 @@ class GameSocketTest {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun id() = UUID.randomUUID().toString()
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: OwnedPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
+    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
         InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
@@ -97,7 +98,7 @@ class GameSocketTest {
         GameCommand(id(), GameScope(game.id, game.preparationRound, game.invitationId), action, stream.streamId, stream.generation)
 
     @Test fun `gameplay rules negotiation rejects old and missing versions before opening streams`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -130,7 +131,7 @@ class GameSocketTest {
     }
 
     @Test fun `presence flips reach the opponent's minor 1 socket only and heads carry presence`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -162,7 +163,7 @@ class GameSocketTest {
     }
 
     @Test fun `real authenticated sockets decline reinvite stale decision accept and recover private original outcomes`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var game: GameSummary
             lateinit var accepted: GameCommand
@@ -251,7 +252,7 @@ class GameSocketTest {
     }
 
     @Test fun `actual socket resume replaces old connection without fencing other installations and revoked credentials stop new requests`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -296,7 +297,7 @@ class GameSocketTest {
     }
 
     @Test fun `actual socket prepared selection publishes coherent private copies and accepted recipient receives retained definitions`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)
@@ -383,7 +384,7 @@ class GameSocketTest {
     }
 
     @Test fun `authenticated Ready sockets publish one actual initial board and restart resume retains root orders and original result`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var game: GameSummary
             lateinit var start: GameCommand; lateinit var hello: GameHello; lateinit var accepted: GameHead; lateinit var original: GameResult
@@ -464,7 +465,7 @@ class GameSocketTest {
     }
 
     @Test fun `cancelled sockets lose ordinary access but private original recovery and authenticated lifecycle notification survive`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
             SpringService(settings).use { service ->
                 service.start(); ready(settings)

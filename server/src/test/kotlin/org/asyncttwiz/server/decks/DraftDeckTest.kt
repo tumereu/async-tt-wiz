@@ -7,7 +7,8 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.cubes.CubeService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.game.GameService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodService
@@ -27,7 +28,7 @@ class DraftDeckTest {
     }
     private val lands = basics.associate { submitted -> BasicLand.entries.single { it.cardName == submitted.definition.name } to submitted.digest }
 
-    private inner class Fixture(val db: OwnedPostgres, val runtime: ServiceRuntime) {
+    private inner class Fixture(val db: TestPostgres, val runtime: ServiceRuntime) {
         private val accounts = AccountService(runtime)
         fun account(name: String): AccountService.Principal {
             accounts.register(name, "$name@example.invalid", "fixture password")
@@ -69,7 +70,7 @@ class DraftDeckTest {
         fun execute(statement: String) = db.connection().use { it.createStatement().execute(statement) }
     }
 
-    private fun fixture(test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
+    private fun fixture(test: (Fixture) -> Unit) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
             runtime.start()

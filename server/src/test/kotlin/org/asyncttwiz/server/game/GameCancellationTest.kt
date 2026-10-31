@@ -6,7 +6,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -19,8 +20,8 @@ class GameCancellationTest {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
         while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
     }
-    private fun sql(db: OwnedPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
-    private fun number(db: OwnedPostgres, statement: String): Long = db.connection().use { c ->
+    private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
+    private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
     private fun account(runtime: ServiceRuntime, name: String): AccountService.Principal {
         val accounts = AccountService(runtime); accounts.register(name, "$name@example.invalid", "synthetic password")
@@ -51,7 +52,7 @@ class GameCancellationTest {
     }
 
     @Test fun `both orders of cancellation acceptance reinvitation preparation and start preserve accepted lifecycle`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -119,7 +120,7 @@ class GameCancellationTest {
     }
 
     @Test fun `pending recipient and stale round cannot cancel and cancelled originals remain account intent and stream scoped`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); ready(runtime)
@@ -147,7 +148,7 @@ class GameCancellationTest {
     }
 
     @Test fun `SQL rollback and production worker restart recover admitted cancellation and following original once`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var a: AccountService.Principal; lateinit var b: AccountService.Principal; lateinit var game: GameSummary
             lateinit var cancel: GameCommand; lateinit var after: GameCommand; lateinit var hello: GameHello

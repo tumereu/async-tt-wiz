@@ -6,7 +6,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.fixtures.ScaleGames as F
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.jooq.ExecuteContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -85,7 +85,7 @@ class IndexedEndpointScaleTest {
     @Test fun coldWarmAnnotationsChatRecoveryAndPagesStayBoundedAtTenThousandActions() {
         val results = linkedMapOf<Int, Map<String, Double>>()
         val endpointBytes = linkedMapOf<Int, Int>()
-        for (size in listOf(1000, 10000)) OwnedPostgres().start().use { db ->
+        for (size in listOf(1000, 10000)) FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val fixture = F.build(size)
             db.connection().use { connection ->

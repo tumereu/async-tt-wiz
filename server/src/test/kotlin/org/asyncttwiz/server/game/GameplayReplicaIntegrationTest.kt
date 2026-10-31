@@ -15,7 +15,7 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -24,7 +24,7 @@ class GameplayReplicaIntegrationTest {
     private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
 
     @Test fun `one FIFO retains guarded later move manual tuples relational rows and coherent HTTP baseline`() {
-        OwnedPostgres().start().use { db ->
+        FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var accepted: GameHead
             lateinit var root: PlayState

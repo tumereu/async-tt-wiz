@@ -7,7 +7,8 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.accounts.AccountSettingsService
 import org.asyncttwiz.server.database.FoundationMigrations
-import org.asyncttwiz.server.database.OwnedPostgres
+import org.asyncttwiz.server.database.FreshDatabase
+import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
@@ -30,7 +31,7 @@ class DeckVisibilityTest {
         }
     }
 
-    private class Fixture(val runtime: ServiceRuntime, val db: OwnedPostgres) {
+    private class Fixture(val runtime: ServiceRuntime, val db: TestPostgres) {
         private val accounts = AccountService(runtime)
         fun account(name: String): AccountService.Principal {
             accounts.register(name, "$name@example.invalid", "synthetic password")
@@ -68,7 +69,7 @@ class DeckVisibilityTest {
         }
     }
 
-    private fun fixture(test: (Fixture) -> Unit) = OwnedPostgres().start().use { db ->
+    private fun fixture(test: (Fixture) -> Unit) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
             runtime.start()

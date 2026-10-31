@@ -13,7 +13,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /** Never attaches to Compose/developer databases and never enables container reuse. */
-class OwnedPostgres : AutoCloseable {
+class OwnedPostgres : TestPostgres {
     // Reserve on the actual eventual bind address, including non-restart tests.
     // Docker's random wildcard publisher does not consult this host's loopback
     // socket allocation. WSL can reset that path even after PostgreSQL is ready.
@@ -27,7 +27,21 @@ class OwnedPostgres : AutoCloseable {
         .withReuse(false)
         .apply { setPortBindings(listOf("127.0.0.1:${portReservation.localPort}:5432")) }
 
-    fun start(): OwnedPostgres {
+    private var holdsLifecycleLock = false
+
+    /** [shared] containers hold the cross-fork lifecycle lock only while starting and stopping. */
+    fun start(shared: Boolean = false): OwnedPostgres {
+        ContainerLifecycleLock.acquire()
+        holdsLifecycleLock = true
+        var started = false
+        try { startContainer(); started = true } finally {
+            // A failed start is not closed by `start().use`; never keep other forks waiting on it.
+            if (shared || !started) { holdsLifecycleLock = false; ContainerLifecycleLock.release() }
+        }
+        return this
+    }
+
+    private fun startContainer() {
         portReservation.close()
         container.start()
         println("OWNED integration PostgreSQL container=${container.containerId} image=${container.dockerImageName}")
@@ -51,12 +65,11 @@ class OwnedPostgres : AutoCloseable {
                 }
             }
         }
-        return this
     }
 
-    val settings: DatabaseSettings get() = DatabaseSettings(container.jdbcUrl, container.username, container.password)
+    override val settings: DatabaseSettings get() = DatabaseSettings(container.jdbcUrl, container.username, container.password)
 
-    fun connection() = DriverManager.getConnection(container.jdbcUrl, container.username, container.password)
+    override fun connection(): Connection = DriverManager.getConnection(container.jdbcUrl, container.username, container.password)
 
     companion object {
         internal fun awaitStartupConnection(timeoutMillis: Long = 10_000, connect: () -> Connection): Connection {
@@ -77,6 +90,12 @@ class OwnedPostgres : AutoCloseable {
     }
 
     override fun close() {
+        if (!holdsLifecycleLock) ContainerLifecycleLock.acquire()
+        holdsLifecycleLock = false
+        try { closeContainer() } finally { ContainerLifecycleLock.release() }
+    }
+
+    private fun closeContainer() {
         portReservation.close()
         val id = container.containerId ?: return
         val client = container.dockerClient

@@ -268,7 +268,7 @@ class TableStatesScreenshotTest {
     @Test fun manageStackPeekAttachesAboveTheManageDialogAndReleasesBackToIt() {
         val state = f.combat()
         compose.setContent { MaterialTheme {
-            ManageStackDialog(state, f.a, true, {}, { error("Inspection must stay local") }, {})
+            ManageStackDialog(state, f.a, true, {}, { error("Inspection must stay local") })
         } }
         compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
         val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()

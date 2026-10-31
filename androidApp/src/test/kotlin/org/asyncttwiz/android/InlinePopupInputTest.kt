@@ -47,59 +47,12 @@ class InlinePopupInputTest {
         val id = CombatStackRules.stack(state.board).cards.first()
         val intents = mutableListOf<TableIntent>()
         val downs = renderPopup { dismiss ->
-            ManageStackDialog(state, TableStatesFixture.a, true, dismiss, intents::add, {})
+            ManageStackDialog(state, TableStatesFixture.a, true, dismiss, intents::add)
         }
         compose.onAllNodesWithContentDescription("Copy")[0].performTouchInput { click() }
         compose.onNodeWithContentDescription("Context action grid").assertExists()
         compose.runOnIdle {
             assertEquals(listOf<TableIntent>(TableIntent.Submit(StackMenuActions.copy(state, id), null)), intents)
-            assertTrue(downs.isEmpty())
-        }
-    }
-
-    @Test fun contentsRowOpensActionsAndSearchTakesFocusWithoutRelaying() {
-        val state = TableStatesFixture.initial
-        val viewer = TableStatesFixture.a
-        val container = state.board.containers.single { it.accountId == viewer && it.zone == PlayZone.GRAVEYARD }
-        val pile = PileContents(container.id, "Graveyard", container.cards)
-        val entry = contentsEntries(state, pile, viewer).first()
-        val actions = mutableListOf<String>()
-        val downs = renderPopup { dismiss ->
-            InlinePopupPanel(dismiss, "Contents", height = 560.dp, sheet = true) {
-                ContentsScreen(state, pile, viewer, actions::add, {}, Modifier.height(480.dp))
-            }
-        }
-        compose.onNode(hasText(entry.location) and hasText(entry.name)).performTouchInput { click() }
-        compose.mainClock.advanceTimeBy(400)
-        compose.runOnIdle { assertEquals(listOf(entry.cardId), actions) }
-        compose.onNode(hasSetTextAction()).performTouchInput { click() }
-        compose.onNode(hasSetTextAction()).assertIsFocused().performTextInput("not a card name")
-        compose.onNodeWithText("No cards").assertExists()
-        compose.onNodeWithContentDescription("Context action grid").assertExists()
-        compose.runOnIdle { assertTrue(downs.isEmpty()) }
-    }
-
-    @Test fun contentsScrollCanStartBetweenRowsWithoutDismissing() {
-        val state = TableStatesFixture.initial
-        val viewer = TableStatesFixture.a
-        val container = state.board.containers.single { it.accountId == viewer && it.zone == PlayZone.BATTLEFIELD }
-        val pile = PileContents(container.id, "Battlefield", container.cards, ordered = true)
-        val downs = renderPopup { dismiss ->
-            InlinePopupPanel(dismiss, "Contents", height = 260.dp, sheet = true) {
-                ContentsScreen(state, pile, viewer, {}, {}, Modifier.height(180.dp))
-            }
-        }
-        // Start in the list's padding, not on a card row. The whole scroll viewport is inside.
-        val scrolls = compose.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
-        val vertical = scrolls.last { it.config.contains(SemanticsProperties.VerticalScrollAxisRange) &&
-            it.config[SemanticsProperties.VerticalScrollAxisRange].maxValue() > 0f }
-        val bounds = vertical.boundsInRoot
-        compose.onRoot().performTouchInput {
-            swipe(Offset(bounds.left + 2f, bounds.bottom - 8f), Offset(bounds.left + 2f, bounds.top + 8f), 300)
-        }
-        compose.onNodeWithContentDescription("Context action grid").assertExists()
-        compose.runOnIdle {
-            assertTrue(vertical.config[SemanticsProperties.VerticalScrollAxisRange].value() > 0f)
             assertTrue(downs.isEmpty())
         }
     }

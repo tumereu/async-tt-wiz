@@ -54,7 +54,7 @@ internal object StackMenuActions {
 /** Exceptional Stack edits stay in one compact, live shared-state view. */
 @Composable
 internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
-    perform: (TableIntent) -> Unit, cardActions: (String) -> Unit) {
+    perform: (TableIntent) -> Unit) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }

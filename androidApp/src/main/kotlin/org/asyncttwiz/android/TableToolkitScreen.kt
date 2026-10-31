@@ -56,7 +56,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             } }
         }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
-            perform = { toolkit.handle(it) }, cardActions = { id -> toolkit.openCard(TableScope(id, listOf(id))) })
+            perform = { toolkit.handle(it) })
         "table" -> {
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
@@ -115,25 +115,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, moveZoneLabel(pile.zone), width = 152.dp, height = 104.dp, key = panel) {
                 PublicPileActions(toolkit, play, pile)
-            }
-        } else if (panel?.startsWith("contents/") == true) {
-            val pile = toolkit.publicContents()
-            if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
-            else InlinePopupPanel(toolkit::dismiss, title = "${pile.title} · ${pile.cardIds.size}${if (pile.ordered) " entries" else ""}",
-                height = if (landscape) 288.dp else 560.dp, key = panel, sheet = true) {
-                ContentsScreen(play, pile, toolkit.viewer, modifier = Modifier.height(if (landscape) 220.dp else 480.dp),
-                    onActions = { if (selection.mode == TableMode.SELECT) select(it) else toolkit.openCard(selection.scope(it, pile.cardIds)) },
-                    onInspect = toolkit::inspect,
-                    onStackIntent = if (pile.ordered && selection.mode == TableMode.NORMAL) toolkit::handle else null,
-                    stackWritable = enabled,
-                    onRotate = if (selection.mode != TableMode.NORMAL || play.board.containers.none {
-                        it.id == pile.containerId && it.zone == PlayZone.BATTLEFIELD }) null else { id ->
-                        val card = CombatStackRules.liveSource(play.board, id)
-                        if (card != null) {
-                            toolkit.selectionState.value = selection.orientation(id)
-                            toolkit.handle(TableIntent.Rotate(selection.scope(id, pile.cardIds), !card.tapped))
-                        }
-                    })
             }
         } else if (scene != null) CardPanelPopup(toolkit, play, scene)
     }

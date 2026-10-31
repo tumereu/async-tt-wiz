@@ -42,15 +42,16 @@ class PodHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
-                action in listOf("invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
-                action in listOf("build/move", "build/basics", "build/name", "build/notes", "draft/marks") -> "PUT"
+                action == "cube" -> "GET"
+                action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/notes", "draft/marks") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
                 response.setHeader("Allow", allowed); error(response, 405, "method_not_allowed"); return true
             }
             val result = if (request.method == "GET") {
-                if (path == "/v1/pods") pods.list(principal) else pods.read(principal, id)
+                if (path == "/v1/pods") pods.list(principal) else if (action == "cube") pods.cube(principal, id) else pods.read(principal, id)
             } else {
                 val media = request.contentType.orEmpty().split(';').map(String::trim)
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
@@ -67,6 +68,8 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     path == "/v1/pods" -> pods.create(principal, json.decodeFromString<CreatePod>(text))
                     request.method == "DELETE" -> pods.destroy(principal, id, json.decodeFromString<PodRequest>(text))
                     action == "" -> pods.update(principal, id, json.decodeFromString<UpdatePod>(text))
+                    action == "cube/definitions" -> pods.cubeDefinitions(principal, id, json.decodeFromString<ReadCubeDefinitions>(text))
+                    action == "cube/move" -> pods.moveCube(principal, id, json.decodeFromString<MovePodCubeCards>(text))
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")
                     action == "start" -> pods.start(principal, id, json.decodeFromString<PodRequest>(text))

@@ -65,6 +65,8 @@ class PodService(private val runtime: ServiceRuntime) {
     }
     private fun source(row: PodRecord) = if (!isSetSource(row))
         stored(row) { json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data()) } else emptyList()
+    /** The prepared cube's Maybe: cards of the cube not drafted in this pod. */
+    private fun maybe(row: PodRecord) = row.sourceMaybe?.let { stored(row) { json.decodeFromString<List<DraftCubeEntry>>(it.data()) } }.orEmpty()
     private fun supply(row: PodRecord, players: Int): DraftSupply {
         val finite = settings(row).supply(players, source(row))
         return if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
@@ -134,14 +136,16 @@ class PodService(private val runtime: ServiceRuntime) {
             .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
     }
 
-    private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): Pair<String, List<DraftCubeEntry>>? {
+    private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>)
+
+    /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. */
+    private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): CubeSnapshot? {
         if (!DeckValidation.uuid(cubeId)) return null
         val cube = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(cubeId)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
-        val entries = sql.select(CUBE_ENTRY.DEFINITION_DIGEST, CUBE_ENTRY.QUANTITY, DEFINITION.PAYLOAD)
+        val entries = sql.select(CUBE_ENTRY.DEFINITION_DIGEST, CUBE_ENTRY.QUANTITY, CUBE_ENTRY.SECTION, DEFINITION.PAYLOAD)
             .from(CUBE_ENTRY).join(DEFINITION).on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
-            // Only Main is drafted; Maybe never reaches a pod (DRF-050).
-            .where(CUBE_ENTRY.CUBE_ID.eq(cube.id)).and(CUBE_ENTRY.SECTION.eq(SavedDeckSection.MAINBOARD.name))
+            .where(CUBE_ENTRY.CUBE_ID.eq(cube.id))
             .orderBy(CUBE_ENTRY.POSITION).fetch().map {
                 val definition = json.decodeFromString<CardDefinition>(it[DEFINITION.PAYLOAD]!!)
                 val explicit = definition.faces.firstOrNull()?.sourceData?.let { data -> runCatching {
@@ -149,11 +153,15 @@ class PodService(private val runtime: ServiceRuntime) {
                         DraftColor.entries.firstOrNull { it.name == color.jsonPrimitive.content }
                     }?.toSet()
                 }.getOrNull() }
-                DraftCubeEntry(it[CUBE_ENTRY.DEFINITION_DIGEST]!!, it[CUBE_ENTRY.QUANTITY]!!,
+                it[CUBE_ENTRY.SECTION] to DraftCubeEntry(it[CUBE_ENTRY.DEFINITION_DIGEST]!!, it[CUBE_ENTRY.QUANTITY]!!,
                     explicit ?: PodDeckManaCost.front(definition).colors)
             }
-        return cube.name!! to entries
+        // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
+        return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
+            entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second })
     }
+
+    private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)
 
     fun create(principal: AccountService.Principal, input: CreatePod): Result =
         business(principal, input.requestId, "createPod", DeckJson.canonicalElement(sourceIntent(json.encodeToJsonElement(input), input.setSource))) { sql, owner, _ ->
@@ -172,8 +180,9 @@ class PodService(private val runtime: ServiceRuntime) {
             storeLibrarian(sql, settings)
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
-                .set(POD.SOURCE_NAME, snapshot?.first ?: input.setSource!!.snapshot.setName)
-                .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.second) } ?: encodedSet(input.setSource!!.snapshot)).returning().fetchSingle()
+                .set(POD.SOURCE_NAME, snapshot?.name ?: input.setSource!!.snapshot.setName)
+                .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.main) } ?: encodedSet(input.setSource!!.snapshot))
+                .set(POD.SOURCE_MAYBE, snapshot?.let { encodedMaybe(it.maybe) }).returning().fetchSingle()
             sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
             detail(sql, row, owner, 201)
         }
@@ -193,10 +202,67 @@ class PodService(private val runtime: ServiceRuntime) {
             input.settings?.let { row.settings = encoded(it) }
             validateLibrarian(settings(row))?.let { return@mutate it }
             storeLibrarian(sql, settings(row))
-            snapshot?.let { row.sourceName = it.first; row.sourceSnapshot = encoded(it.second) }
-            input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot) }
+            // A newly chosen source starts unprepared: the cube's own Main and Maybe.
+            snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe) }
+            input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot); row.sourceMaybe = null }
             save(sql, row)
             detail(sql, row, owner)
+        }
+
+    private fun cubeView(row: PodRecord) = PodCube(row.sourceName!!,
+        source(row).map { SavedCubeEntry(it.definition, it.quantity) } +
+            maybe(row).map { SavedCubeEntry(it.definition, it.quantity, SavedDeckSection.MAYBEBOARD) })
+
+    /** The creator's view of the pod's prepared cube (Prepare cube); a set source has none. */
+    fun cube(principal: AccountService.Principal, id: String): Result = creatorRead(principal, id) { _, row ->
+        if (isSetSource(row)) error(409, "not_cube") else Result(200, json.encodeToString(cubeView(row)))
+    }
+
+    /** Definitions of the prepared cube's cards, in batches like a saved cube's. */
+    fun cubeDefinitions(principal: AccountService.Principal, id: String, input: ReadCubeDefinitions): Result {
+        if (!CubeValidation.definitionRead(input.digests)) return error(400, "invalid_request")
+        return creatorRead(principal, id) { sql, row ->
+            if (isSetSource(row)) return@creatorRead error(409, "not_cube")
+            val known = (source(row) + maybe(row)).map { it.definition }.toSet()
+            if (!known.containsAll(input.digests)) return@creatorRead error(404, "not_found")
+            val definitions = StoredDefinitions.read(sql, input.digests.toSet()).associateBy { it.digest }
+            if (definitions.keys != input.digests.toSet()) return@creatorRead error(404, "not_found")
+            Result(200, json.encodeToString(SubmittedDefinitions(input.digests.distinct().map(definitions::getValue))))
+        }
+    }
+
+    private fun creatorRead(principal: AccountService.Principal, id: String, read: (DSLContext, PodRecord) -> Result): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            if (members(sql, row.id!!).none { it.accountId == owner }) return@transaction error(404, "not_found")
+            creator(row, owner) ?: read(sql, row)
+        }
+    }
+
+    /** Prepare cube: moves copies between the pod's Main and Maybe. Only this pod changes, never the saved cube. */
+    fun moveCube(principal: AccountService.Principal, id: String, input: MovePodCubeCards): Result =
+        mutate(principal, id, input.requestId, "movePodCube", json.encodeToJsonElement(input)) { sql, owner, row ->
+            creator(row, owner)?.let { return@mutate it }
+            if (row.phase != "SETUP") return@mutate error(409, "not_setup")
+            if (isSetSource(row)) return@mutate error(409, "not_cube")
+            if (input.from !in SavedDeckSection.CUBE || input.quantity !in 1..CubeValidation.MAX_CARDS ||
+                !DeckValidation.digest(input.definition)) return@mutate error(400, "invalid_request")
+            val main = source(row).toMutableList(); val maybe = maybe(row).toMutableList()
+            val (from, to) = if (input.from == SavedDeckSection.MAINBOARD) main to maybe else maybe to main
+            val index = from.indexOfFirst { it.definition == input.definition }
+            if (index < 0 || from[index].quantity < input.quantity) return@mutate error(409, "not_enough_copies")
+            val moved = from[index]
+            if (moved.quantity == input.quantity) from.removeAt(index) else from[index] = moved.copy(quantity = moved.quantity - input.quantity)
+            val existing = to.indexOfFirst { it.definition == input.definition }
+            if (existing < 0) to += moved.copy(quantity = input.quantity)
+            else to[existing] = to[existing].copy(quantity = to[existing].quantity + input.quantity)
+            row.sourceSnapshot = encoded(main); row.sourceMaybe = encodedMaybe(maybe)
+            save(sql, row)
+            Result(200, json.encodeToString(cubeView(row)))
         }
 
     fun invite(principal: AccountService.Principal, id: String, input: InviteToPod): Result =
@@ -682,7 +748,7 @@ class PodService(private val runtime: ServiceRuntime) {
     }
     private fun save(sql: DSLContext, row: PodRecord) {
         row.updatedAt = sql.update(POD).set(POD.NAME, row.name).set(POD.PHASE, row.phase).set(POD.SETTINGS, row.settings)
-            .set(POD.SOURCE_NAME, row.sourceName).set(POD.SOURCE_SNAPSHOT, row.sourceSnapshot)
+            .set(POD.SOURCE_NAME, row.sourceName).set(POD.SOURCE_SNAPSHOT, row.sourceSnapshot).set(POD.SOURCE_MAYBE, row.sourceMaybe)
             .set(POD.DRAFT_ATTEMPT_ID, row.draftAttemptId).set(POD.DRAFT_STATE, row.draftState)
             .set(POD.AUTO_START, row.autoStart).set(POD.AUTO_START_OFF_REASON, row.autoStartOffReason)
             .set(POD.AUTO_START_OFF_ACCOUNT, row.autoStartOffAccount)
@@ -769,7 +835,8 @@ class PodService(private val runtime: ServiceRuntime) {
         val cards = StoredDefinitions.read(sql, visible.map { it.definition }.toSet())
         val set = setSource(row)
         val cube = source(row)
-        val sourceView = if (set == null) PodSource(row.sourceName!!, cube.sumOf { it.quantity.toLong() }) else
+        val sourceView = if (set == null) PodSource(row.sourceName!!, cube.sumOf { it.quantity.toLong() },
+            maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
             PodSource(kind = PodSourceKind.SET, setCode = set.setCode, setName = set.setName,
                 boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
                 boosterName = set.recipe?.name)

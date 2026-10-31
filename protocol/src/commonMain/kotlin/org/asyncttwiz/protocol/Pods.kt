@@ -14,11 +14,14 @@ import kotlinx.serialization.Serializable
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
 @Serializable enum class PodSourceKind { CUBE, SET }
+/** A cube source's [totalCopies] counts the pod's prepared Main (what gets drafted); [maybeCopies] its Maybe. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PodSource(
     val cubeName: String = "", val totalCopies: Long = 0,
     val kind: PodSourceKind = PodSourceKind.CUBE,
     val setCode: String? = null, val setName: String? = null, val boosterKind: SetBoosterKind? = null,
     val boosterName: String? = null,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeCopies: Long = 0,
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
@@ -104,5 +107,12 @@ import kotlinx.serialization.Serializable
     val side: Boolean = false)
 /** PUT /v1/pods/{id}/build/name. Changes only the caller's private deck name. */
 @Serializable data class SetPodDeckName(val requestId: String, val draftAttemptId: String, val name: String)
+/** GET /v1/pods/{id}/cube (creator): the pod's prepared cube, Main (drafted) and Maybe (not drafted). The saved cube
+ * is never changed by preparing. Definitions are read in batches with POST /v1/pods/{id}/cube/definitions
+ * ([ReadCubeDefinitions], answered with [SubmittedDefinitions]). */
+@Serializable data class PodCube(val cubeName: String, val entries: List<SavedCubeEntry>)
+/** PUT /v1/pods/{id}/cube/move (creator, setup, cube source): moves [quantity] copies of [definition] from [from] to the
+ * other section (Main ↔ Maybe) of this pod's prepared cube. Answers the updated [PodCube]. */
+@Serializable data class MovePodCubeCards(val requestId: String, val definition: String, val from: SavedDeckSection, val quantity: Int = 1)
 @Serializable data class PodAcknowledged(val podId: String)
 @Serializable data class PodError(val code: String)

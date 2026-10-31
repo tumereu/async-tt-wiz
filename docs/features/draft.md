@@ -40,6 +40,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-028** Grid has a "Two picks each" option, only for 2 players. (r16)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. (r17)
 - **DRF-030** Setup lists members and pending invitations with "Members (N/8)" (Grid: N/4); the creator invites through the shared player picker. (r17)
+- **DRF-141** Before drafting starts, pod setup offers "Prepare cube": the same picture-and-swipe screen as deck preparation (LOB-047, LOB-048), moving cards between the cube's Main and Maybe for this pod only; the saved cube does not change (DRF-002). Main is what gets drafted. Whoever can edit the pod's settings can prepare it. (r35)
 
 ### Presets
 

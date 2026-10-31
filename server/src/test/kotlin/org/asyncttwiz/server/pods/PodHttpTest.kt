@@ -686,6 +686,62 @@ class PodHttpTest {
         assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
     }
 
+    // DRF-050, DRF-141: Prepare cube moves cards between the pod's Main and Maybe; the saved cube never changes, the
+    // supply check and the draft use the prepared Main, and only the creator in setup can prepare.
+    @Test fun `prepare cube moves cards between main and maybe for this pod only`() = fixture { f ->
+        val main = f.cube.entries.take(30)
+        val maybe = f.cube.entries.drop(30).take(4).map { it.copy(section = SavedDeckSection.MAYBEBOARD) }
+        val saved = json.decodeFromString<SavedCube>(f.send(f.a, "POST", "/v1/cubes", CreateCube(id(), "Prepared cube", main + maybe), 201))
+        val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Prepared pod", saved.cube.id,
+            settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 16)), 201)).id
+        assertEquals(PodSource("Prepared cube", 30, maybeCopies = 4), f.get(f.a, pod).source)
+        fun cube(): PodCube = json.decodeFromString(f.request(f.a, "GET", "/v1/pods/$pod/cube").body())
+        assertEquals(main.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAINBOARD }.toSet())
+        assertEquals(maybe.toSet(), cube().entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.toSet())
+        f.join(pod)
+        // 2 players × 16 cards: 30 in Main is too few until Maybe cards move in.
+        assertFalse(f.get(f.a, pod).supply.sufficient)
+        f.send(f.b, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD), 403)
+        assertEquals(403, f.request(f.b, "GET", "/v1/pods/$pod/cube").statusCode())
+        assertEquals(404, f.request(f.c, "GET", "/v1/pods/$pod/cube").statusCode())
+        val move = MovePodCubeCards(id(), maybe[0].definition, SavedDeckSection.MAYBEBOARD)
+        val moved = f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move)
+        assertEquals(moved, f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", move))
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD))
+        assertEquals("not_enough_copies", json.decodeFromString<PodError>(f.send(f.a, "PUT", "/v1/pods/$pod/cube/move",
+            MovePodCubeCards(id(), maybe[1].definition, SavedDeckSection.MAYBEBOARD), 409)).code)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD, 2), 409)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.SIDEBOARD), 400)
+        assertEquals(PodSource("Prepared cube", 32, maybeCopies = 2), f.get(f.a, pod).source)
+        assertTrue(f.get(f.a, pod).supply.sufficient)
+        // Moving one back and forth again: the card returns to the same section entry.
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAINBOARD))
+        assertEquals(1, cube().entries.single { it.definition == main[0].definition }.quantity)
+        assertEquals(SavedDeckSection.MAYBEBOARD, cube().entries.single { it.definition == main[0].definition }.section)
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), main[0].definition, SavedDeckSection.MAYBEBOARD))
+        // Definitions are read for the prepared cube's cards only.
+        val digests = cube().entries.map { it.definition }
+        val definitions = json.decodeFromString<SubmittedDefinitions>(f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions",
+            ReadCubeDefinitions(digests))).definitions
+        assertEquals(digests.toSet(), definitions.map { it.digest }.toSet())
+        f.send(f.a, "POST", "/v1/pods/$pod/cube/definitions", ReadCubeDefinitions(listOf(f.cube.entries.last().definition)), 404)
+        // The saved cube is unchanged.
+        val unchanged = json.decodeFromString<SavedCube>(f.request(f.a, "GET", "/v1/cubes/${saved.cube.id}").body())
+        assertEquals((main + maybe).toSet(), unchanged.entries.toSet())
+        val started = f.start(pod)
+        assertEquals(PodPhase.DRAFTING, started.phase)
+        val drafted = (f.get(f.a, pod).draft!!.head!!.cards + f.get(f.b, pod).draft!!.head!!.cards).map { it.definition }.toSet()
+        assertTrue(maybe[0].definition in drafted && maybe[1].definition in drafted, "moved Maybe cards are drafted")
+        assertFalse(maybe[2].definition in drafted || maybe[3].definition in drafted, "Maybe cards are not drafted")
+        f.send(f.a, "PUT", "/v1/pods/$pod/cube/move", MovePodCubeCards(id(), maybe[2].definition, SavedDeckSection.MAYBEBOARD), 409)
+        // Choosing the cube again starts from the saved cube's own sections.
+        val other = f.create().id
+        f.send(f.a, "PUT", "/v1/pods/$other/cube/move", MovePodCubeCards(id(), f.cube.entries[0].definition, SavedDeckSection.MAINBOARD))
+        assertEquals(PodSource("Snapshot cube", 89, maybeCopies = 1), f.get(f.a, other).source)
+        f.send(f.a, "PUT", "/v1/pods/$other", UpdatePod(id(), cubeId = f.cube.cube.id))
+        assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, other).source)
+    }
+
     // DRF-029, DRF-035, DRF-050, DRF-140
     @Test fun `setup authorization supply snapshots invitation lifecycle and limits`() = fixture { f ->
         val pod = f.create().id

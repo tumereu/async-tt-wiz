@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.decks.DeckService.Result
 import org.asyncttwiz.server.generated.tables.PodPreset.POD_PRESET
@@ -93,11 +94,13 @@ class PodPresetService(private val runtime: ServiceRuntime) {
         return sql.select(POD_PRESET.ID, POD_PRESET.NAME, POD_PRESET.SETTINGS, POD_PRESET.CUBE_ID, POD_PRESET.SET_CODE,
             POD_PRESET.SET_NAME, POD_PRESET.UPDATED_AT, cubeName).from(POD_PRESET)
             .leftJoin(SAVED_CUBE).on(SAVED_CUBE.ID.eq(POD_PRESET.CUBE_ID)).and(SAVED_CUBE.ACCOUNT_ID.eq(owner))
-            .where(POD_PRESET.ACCOUNT_ID.eq(owner)).orderBy(POD_PRESET.NAME_KEY, POD_PRESET.ID).fetch().map { row ->
+            .where(POD_PRESET.ACCOUNT_ID.eq(owner)).orderBy(POD_PRESET.NAME_KEY, POD_PRESET.ID).fetch().mapNotNull { row ->
+                // A preset whose stored settings can't be read is left out (SYS-052).
+                val settings = StoredData.orSkip("pod preset", row.get(POD_PRESET.ID)) {
+                    json.decodeFromString<DraftSettings>(row.get(POD_PRESET.SETTINGS)!!) } ?: return@mapNotNull null
                 val cube = row.get(POD_PRESET.CUBE_ID)
                 val name = row.get(cubeName)
-                PodPreset(row.get(POD_PRESET.ID).toString(), row.get(POD_PRESET.NAME)!!,
-                    json.decodeFromString<DraftSettings>(row.get(POD_PRESET.SETTINGS)!!),
+                PodPreset(row.get(POD_PRESET.ID).toString(), row.get(POD_PRESET.NAME)!!, settings,
                     cube?.toString(), name, cube != null && name == null,
                     row.get(POD_PRESET.SET_CODE), row.get(POD_PRESET.SET_NAME), row.get(POD_PRESET.UPDATED_AT)!!.toInstant().toString())
             }

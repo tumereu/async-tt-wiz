@@ -7,5 +7,9 @@
     <logger name="org.asyncttwiz.server.game.GameService" level="INFO" additivity="false">
         <appender-ref ref="COMMAND_LATENCY"/>
     </logger>
+    <!-- Which stored row (kind and id) the current code could not read; never its content. -->
+    <logger name="org.asyncttwiz.server.StoredData" level="WARN" additivity="false">
+        <appender-ref ref="COMMAND_LATENCY"/>
+    </logger>
     <root level="OFF"/>
 </configuration>

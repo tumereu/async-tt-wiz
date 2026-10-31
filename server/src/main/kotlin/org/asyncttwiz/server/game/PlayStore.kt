@@ -4,6 +4,7 @@ import java.security.SecureRandom
 import java.util.UUID
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.jooq.DSLContext
@@ -14,7 +15,8 @@ internal object PlayStore {
     private fun seed() = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
     fun read(sql: DSLContext, game: UUID): PlayState? = sql.select(GAME_PLAY.PAYLOAD).from(GAME)
         .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
-        .where(GAME.ID.eq(game)).fetchOne(GAME_PLAY.PAYLOAD)?.let { GameWire.json.decodeFromString(it) }
+        .where(GAME.ID.eq(game)).fetchOne(GAME_PLAY.PAYLOAD)?.let {
+            StoredData.decode("game play", game) { GameWire.json.decodeFromString<PlayState>(it) } }
 
     fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, summary: (UUID) -> GameSummary): String? {
         val id = UUID.fromString(game.id)

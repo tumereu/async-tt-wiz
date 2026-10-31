@@ -12,8 +12,10 @@ import java.util.concurrent.TimeUnit
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceRuntime.UnavailabilityBoundary
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
+import org.asyncttwiz.server.database.UnreadableStoredData
 
 /** Running admission, execution and publication workers, all included in readiness/recovery. */
 class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
@@ -181,11 +183,14 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
             try {
                 val principal = principal() // A revoked socket is not a permanent authorization subscription.
                 if (publication.revision != null && publication.gameId in subscriptions) {
-                    val revision = GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
-                    send(games.publicationState(principal, revision))
+                    // An unreadable stored revision is skipped (the game's own reads report it); publication carries on (SYS-052).
+                    StoredData.orSkip("game revision", publication.gameId) {
+                        GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
+                    }?.let { send(games.publicationState(principal, it)) }
                 }
                 if (publication.accountId == accountId) sendText(publication.result)
             } catch (failure: GameProtocolFailure) { if (failure.code == "unauthorized") stop() }
+            catch (_: UnreadableStoredData) { /* Already logged; only this game's delivery is skipped. */ }
         }
         fun heartbeat() {
             if (System.nanoTime() - lastTraffic > TimeUnit.SECONDS.toNanos(90)) { stop(); return }

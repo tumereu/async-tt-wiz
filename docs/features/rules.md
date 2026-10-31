@@ -51,6 +51,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-033** Only one compatible set of apps and server is kept working: a server change may require the newest app, and older apps then only show the update screen (SYS-032). (r35)
 - **SYS-034** Unknown event kinds or icons from a newer version never crash the app; they show a fallback. (r31)
 - **SYS-035** If local data was written by a newer app, the app says "Local data needs a newer app. Update the app without uninstalling." It never erases local data when storage fails to open. (r1)
+- **SYS-052** If the server can no longer read one saved game, pod, pod preset or card (for example after an update changed its format), only that item is affected: it is left out of the games, pods and presets lists (a deck whose cover card can't be read just shows no cover), opening it fails with a server error, and a pending action that can't be read is refused. The server still starts, other games and players carry on, and nothing is deleted or rewritten; the server logs which item it was. (?) (r35)
 
 ### Player access policy
 

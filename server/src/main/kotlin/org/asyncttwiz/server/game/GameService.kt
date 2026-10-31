@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.activity.OpponentPresences
 import org.asyncttwiz.server.decks.DeckService
@@ -261,7 +262,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             .orderBy(GAME.ID).limit(1).forUpdate().skipLocked().fetchOne() ?: return@transaction false
         val inbox = sql.selectFrom(GAME_INBOX).where(GAME_INBOX.GAME_ID.eq(game.id)).and(GAME_INBOX.RESULT.isNull)
             .orderBy(GAME_INBOX.INGRESS_ORDINAL).limit(1).fetchSingle()
-        val command = GameWire.decodeClient(inbox.command!!) as GameCommand
+        // A pending request the current code can't read is refused like any other failing request (SYS-052).
+        val command = StoredData.orSkip("game request", inbox.requestId) { GameWire.decodeClient(inbox.command!!) as GameCommand }
+            ?: return@transaction reject(context, game.id!!, inbox, GameResult(inbox.requestId.toString(), GameScope(game.id.toString()),
+                "rejected", "internalError", inbox.ingressOrdinal.toString()))
         val requestSavepoint = context.connectionResult { it.setSavepoint() }
         val processingStarted = System.nanoTime()
         var historyLoaded = processingStarted
@@ -397,12 +401,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // A poison request must not terminate a scheduled worker or retain tentative writes.
             context.connection { it.rollback(requestSavepoint) }
             committedTree = null
-            val result = GameResult(command.requestId, command.scope, "rejected",
-                (failure as? GameProtocolFailure)?.code ?: "internalError", inbox.ingressOrdinal.toString())
-            context.update(GAME_INBOX).set(GAME_INBOX.RESULT, json.encodeToString(result))
-                .where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
-            context.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game.id).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
-                .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()
+            reject(context, game.id!!, inbox, GameResult(command.requestId, command.scope, "rejected",
+                (failure as? GameProtocolFailure)?.code ?: "internalError", inbox.ingressOrdinal.toString()))
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).error(
                 "Gameplay request rejected game={} request={} failureType={}", game.id, command.requestId, failure.javaClass.simpleName)
             true
@@ -416,6 +416,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     }
         committedTree?.let { (revision, tree) -> gameplayStore.committed(revision, tree) }
         return executed
+    }
+
+    /** The request's final outcome without any game change: original result plus the sender's outbox notice. */
+    private fun reject(sql: DSLContext, game: UUID, inbox: org.asyncttwiz.server.generated.tables.records.GameInboxRecord,
+        result: GameResult): Boolean {
+        sql.update(GAME_INBOX).set(GAME_INBOX.RESULT, json.encodeToString(result))
+            .where(GAME_INBOX.REQUEST_ID.eq(inbox.requestId)).execute()
+        sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
+            .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()
+        return true
     }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {
@@ -520,11 +530,14 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     /** Recovery validates the newly implemented durable worker inputs, not forgotten client queues. */
     fun validatePending() = transaction { sql ->
+        // A game or pending request the current code can't decode is logged and left to fail on its own; the service still
+        // starts (SYS-052). Integrity failures still stop readiness until explicit maintenance repairs them.
         for (game in sql.selectFrom(GAME).where(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(GAME.ID).forUpdate().fetch()) {
-            PlayStore.read(sql, game.id!!)?.let { gameplayStore.recover(sql, it) }
+            StoredData.orSkip("game", game.id) { PlayStore.read(sql, game.id!!)?.let { gameplayStore.recover(sql, it) } }
         }
-        sql.select(GAME_INBOX.COMMAND).from(GAME_INBOX).where(GAME_INBOX.RESULT.isNull).fetchLazy().use { cursor ->
-            for (row in cursor) check(GameWire.valid(GameWire.decodeClient(row.value1()!!) as GameCommand))
+        sql.select(GAME_INBOX.REQUEST_ID, GAME_INBOX.COMMAND).from(GAME_INBOX).where(GAME_INBOX.RESULT.isNull).fetchLazy().use { cursor ->
+            for (row in cursor) StoredData.orSkip("game request", row.value1()) { GameWire.decodeClient(row.value2()!!) as GameCommand }
+                ?.let { check(GameWire.valid(it)) }
         }
         sql.selectCount().from(GAME_OUTBOX).where(GAME_OUTBOX.PUBLISHED.eq(false)).fetchSingle()
         Unit

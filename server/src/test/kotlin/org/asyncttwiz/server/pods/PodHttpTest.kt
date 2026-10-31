@@ -1015,7 +1015,8 @@ class PodHttpTest {
             f.get(f.a, pod).grid!!.publicView.log.sumOf { it.discarded.size })
     }
 
-    @Test fun `three player Grid HTTP refills rotates starters and completes parallel rounds`() = fixture { f ->
+    // DRF-079
+    @Test fun `three player Grid HTTP refills follows Draftmancer's turn order and completes parallel rounds`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
         f.configure(pod, DraftSettings.grid().copy(grids = 5, gridsOpenAtOnce = 2))
         val started = f.start(pod)
@@ -1024,9 +1025,10 @@ class PodHttpTest {
         finishGrid(f, pod, listOf(f.a, f.b, f.c))
         val view = f.get(f.a, pod).grid!!.publicView
         assertEquals(15, view.log.size)
+        val orders = listOf(listOf(0, 1, 2), listOf(1, 2, 0), listOf(2, 0, 1), listOf(0, 2, 1), listOf(2, 1, 0))
         for (number in 0..4) {
             val log = view.log.filter { it.gridId == "grid-$number" }
-            assertEquals(List(3) { view.seating[(number + it) % 3] }, log.map { it.player })
+            assertEquals(orders[number].map { view.seating[it] }, log.map { it.player })
         }
         assertEquals(45, listOf(f.a, f.b, f.c).sumOf { f.get(it, pod).grid!!.mine.pool.size })
     }

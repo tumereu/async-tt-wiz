@@ -109,7 +109,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Grid draft
 
-- **DRF-079** Grid is Draftmancer's: 2–4 players, 3×3 grids; on your turn take every card of one row or column; the starter rotates each grid; with 3–4 players the first pick's line is refilled. (r16)
+- **DRF-079** Grid is Draftmancer's: 2–4 players, 3×3 grids; on your turn take every card of one row or column; with 3–4 players only the first pick's line is refilled. The turn order is Draftmancer's: 2 players alternate who starts; 3 players go through all six orders, one per grid; 4 players through the four rotations and then the four reversed ones. Pods started before this change keep plain rotation. (r35)
 - **DRF-080** All grids are dealt at the start with their own refill cards; you open your next grids as soon as none of your open grids can come back to you; grids of unopened rounds stay hidden. (r30)
 - **DRF-081** Every grid you have seen shows as dealt with cards in place: your current pick first, then other open grids, then finished grids (latest first). (r30)
 - **DRF-082** Each grid has a header: "Your pick · Grid 4/18", "Your pick next · Grid 6/18", "Waiting for <name> · Grid 5/18" or "Finished · Grid 3/18". (r30)

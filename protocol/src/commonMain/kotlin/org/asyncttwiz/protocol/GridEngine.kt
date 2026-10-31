@@ -232,17 +232,36 @@ object GridEngine {
     /** [supply] is drawn from its end. Every grid is dealt now, so its cards never depend on pick timing. */
     private fun initial(settings: DraftSettings, seating: List<String>, copies: List<DraftCopy>, supply: List<String>): GridState {
         val remaining = supply.toMutableList()
-        val grids = deal(settings, seating, remaining, 0)
+        val grids = deal(settings, seating, remaining, 0, legacyTurns = false)
         return Working(GridState(settings, seating, copies, remaining.toList(), grids, -1,
             seating.associateWith { emptyList() }, queues = seating.associateWith { emptyList() },
             opened = seating.associateWith { -1 })).settle()
     }
 
+    /**
+     * Draftmancer's turn orders, as seat indices, one per grid in turn: three players go through all six orders, four
+     * players through the four rotations and then the four reversed ones, so nobody always picks right after the same
+     * member. Two players (also with two picks) just alternate the starter, as in Draftmancer.
+     */
+    private val turnOrders = mapOf(
+        3 to listOf(listOf(0, 1, 2), listOf(1, 2, 0), listOf(2, 0, 1), listOf(0, 2, 1), listOf(2, 1, 0), listOf(1, 0, 2)),
+        4 to listOf(listOf(0, 1, 2, 3), listOf(1, 2, 3, 0), listOf(2, 3, 0, 1), listOf(3, 0, 1, 2),
+            listOf(0, 3, 2, 1), listOf(3, 2, 1, 0), listOf(2, 1, 0, 3), listOf(1, 0, 3, 2)))
+
+    /** Turns of the grid at zero-based [index]. [legacy]: plain rotation, for grids of snapshots dealt before Draftmancer's order. */
+    private fun turns(settings: DraftSettings, seating: List<String>, index: Int, legacy: Boolean): List<String> {
+        val orders = turnOrders[seating.size]
+        if (legacy || settings.twoPicks || orders == null)
+            return List(if (settings.twoPicks) 4 else seating.size) { turn -> seating[(index + turn) % seating.size] }
+        return orders[index % orders.size].map { seating[it] }
+    }
+
     /** Grids from index [from] on, each with nine cards and then its refill cards, drawn from the end of [supply]. */
-    private fun deal(settings: DraftSettings, seating: List<String>, supply: MutableList<String>, from: Int): List<GridBoard> =
+    private fun deal(settings: DraftSettings, seating: List<String>, supply: MutableList<String>, from: Int,
+                     legacyTurns: Boolean): List<GridBoard> =
         (from until settings.grids).map { number ->
             fun draw() = supply.removeAt(supply.lastIndex)
-            val turns = List(if (settings.twoPicks) 4 else seating.size) { turn -> seating[(number + turn) % seating.size] }
+            val turns = turns(settings, seating, number, legacyTurns)
             val positions = List(9) { draw() }
             val reserve = if (settings.gridRefills(seating.size)) List(3) { draw() } else emptyList()
             GridBoard("grid-$number", number + 1, turns, positions, reserve = reserve)
@@ -262,7 +281,8 @@ object GridEngine {
             if (refills && !grid.finished && grid.selection == 0 && grid.reserve.isEmpty())
                 grid.copy(reserve = List(3) { supply.removeAt(supply.lastIndex) }) else grid
         }
-        val grids = existing + deal(state.settings, state.seating, supply, existing.size)
+        // Old pods keep the turn order they started with.
+        val grids = existing + deal(state.settings, state.seating, supply, existing.size, legacyTurns = true)
         return Working(state.copy(supply = supply.toList(), grids = grids,
             queues = state.seating.associateWith { player -> existing.filter { !it.finished && it.currentPlayer == player }.map { it.id } },
             held = emptyMap(), opened = state.seating.associateWith { state.round })).settle()

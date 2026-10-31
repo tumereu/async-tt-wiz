@@ -236,17 +236,26 @@ class GridEngineTest {
         }
     }
 
-    @Test fun normalTurnsFollowSeatingAndStarterRotatesAcrossRounds() {
+    // DRF-079
+    @Test fun normalTurnsFollowDraftmancersOrders() {
+        // Seat indices per grid: two players alternate the starter; three go through all six orders; four through the
+        // four rotations and then the four reversed ones.
+        val orders = mapOf(
+            2 to listOf(listOf(0, 1), listOf(1, 0)),
+            3 to listOf(listOf(0, 1, 2), listOf(1, 2, 0), listOf(2, 0, 1), listOf(0, 2, 1), listOf(2, 1, 0), listOf(1, 0, 2)),
+            4 to listOf(listOf(0, 1, 2, 3), listOf(1, 2, 3, 0), listOf(2, 3, 0, 1), listOf(3, 0, 1, 2),
+                listOf(0, 3, 2, 1), listOf(3, 2, 1, 0), listOf(2, 1, 0, 3), listOf(1, 0, 3, 2)))
         for (players in 2..4) {
             for (open in listOf(1, 3)) {
-                val initial = start(players, settings(grids = 7, open = open))
+                val initial = start(players, settings(grids = 9, open = open))
                 val final = finish(initial)
                 for ((index, grid) in final.grids.withIndex()) {
-                    val expected = List(players) { initial.seating[(index + it) % players] }
+                    val order = orders.getValue(players)
+                    val expected = order[index % order.size].map { initial.seating[it] }
                     assertEquals(expected, grid.turns)
                     assertEquals(expected, final.log.filter { it.gridId == grid.id }.map { it.player })
                 }
-                assertEquals(List(players) { 7 }, final.seating.map { player -> final.log.count { it.player == player } })
+                assertEquals(List(players) { 9 }, final.seating.map { player -> final.log.count { it.player == player } })
             }
         }
     }
@@ -638,6 +647,8 @@ class GridEngineTest {
         val continued = GridEngine.resume(legacy)
         assertEquals(4, continued.grids.size)
         assertTrue(continued.grids.all { it.reserve.size == 3 })
+        // Grids dealt for an old pod keep its plain rotation; a new pod's fourth grid would go A, C, B.
+        assertEquals(List(3) { three.seating[(3 + it) % 3] }, continued.grids[3].turns)
         assertTrue(continued.supply.isEmpty())
         assertConserved(finish(continued, ::assertConserved))
         // Finished old snapshots need nothing.

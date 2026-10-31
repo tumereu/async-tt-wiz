@@ -97,7 +97,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-067** Confirm is enabled only when the counts are exactly right; after it the next queued pack shows at once while the pick sends in the background. (r16)
 - **DRF-068** A refused pick restores that pack and its marks with a short message; an unconfirmed one offers Retry. (r16)
 - **DRF-069** Your keep, burn and Librarian marks are kept when you switch tabs or close the app (saved on the server about half a second after the last change). (r22)
-- **DRF-070** Card pictures for the whole shown pack and the next queued pack start downloading at once; missing pictures keep a named placeholder and retry forever. (r19)
+- **DRF-070** Card pictures for every card a draft screen shows (the shown pack and the next queued pack; the open Rochester packs, the Rotisserie pool, seen Winston piles, the Winchester piles and the Picks view) start downloading at once; missing pictures keep a named placeholder and retry forever. (?) (r35)
 - **DRF-071** With no pack to pick, a faded centred text shows, each part on its own line: "Waiting for <names>" then "N packs will come back to you", or "All your picks are done" then "<names> is finishing" ("Other players are finishing" when unknown); then "Round x of y" (Grid: "Waiting for <names> · Round x of y"). In Rochester, Rotisserie, Winston and Winchester the board stays on screen and its header line names whose pick it is ("Waiting for <name>"). (?) (r35)
 - **DRF-072** Under the waiting text a borderless "Main menu" link leaves the pod; there is no Build button there. (r20)
 

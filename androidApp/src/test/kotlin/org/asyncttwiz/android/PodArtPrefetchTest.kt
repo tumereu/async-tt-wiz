@@ -76,6 +76,54 @@ class PodArtPrefetchTest {
         settle { cancelled.size == started.size }
     }
 
+    private fun copy(id: String) = DraftCopy(id, "$id-definition")
+    private fun printed(vararg ids: String) = ids.associate {
+        "$it-definition" to CardDefinition("Card $it", listOf(DefinitionFace("face", "Card $it", typeLine = "Artifact",
+            scryfallId = UUID.nameUUIDFromBytes(it.toByteArray()).toString())))
+    }
+
+    // DRF-070: the whole Rotisserie pool, taken cards and cards outside a search included, in board order.
+    @Test fun rotisserieHandsOverTheWholePoolInBoardOrder() {
+        val board = listOf(LimitedSlot(copy("b")), LimitedSlot(copy("a"), pickedBy = "bob"), LimitedSlot(copy("c")))
+        val view = LimitedView(DraftMode.ROTISSERIE, "ann", listOf("ann", "bob"), emptyList(), false, board = board)
+        val definitions = printed("a", "b", "c")
+        val cards = podLimitedPrefetchCards(view, definitions)
+        assertEquals(podRotisserieOrder(board, definitions).map { it.copy }, cards)
+        assertEquals(3, podCardPrefetchArtwork(cards, definitions).size)
+    }
+
+    // DRF-070: every open Rochester pack, your packs first as the screen shows them.
+    @Test fun rochesterHandsOverEveryOpenPackInScreenOrder() {
+        fun pack(number: Int, current: String?, vararg ids: String) =
+            LimitedPackView("p$number", number, "ann", ids.map { LimitedSlot(copy(it), pickedBy = "bob".takeIf { _ -> it == "x" }) }, current, 0)
+        val view = LimitedView(DraftMode.ROCHESTER, "ann", listOf("ann", "bob"), emptyList(), false,
+            packs = listOf(pack(1, "bob", "a", "x"), pack(2, "ann", "b", "c"), pack(3, null, "d")))
+        assertEquals(listOf("b", "c", "a", "x", "d"), podLimitedPrefetchCards(view, emptyMap()).map { it.id })
+    }
+
+    // DRF-070: Winston hands over only the pile cards you have seen; face-down cards never reach the prefetcher.
+    @Test fun winstonHandsOverSeenPileCardsButNeverFaceDownOnes() {
+        val view = LimitedView(DraftMode.WINSTON, "ann", listOf("ann", "bob"), emptyList(), false, currentPlayer = "ann",
+            stack = 20, piles = listOf(listOf(copy("a"), null), listOf(null), listOf(copy("b"), copy("c"), null)))
+        val cards = podLimitedPrefetchCards(view, emptyMap())
+        assertEquals(listOf("a", "b", "c"), cards.map { it.id })
+        assertEquals(3, podCardPrefetchArtwork(cards, printed("a", "b", "c")).size)
+    }
+
+    // DRF-070: every Winchester pile, bottom pile first.
+    @Test fun winchesterHandsOverEveryPile() {
+        val view = LimitedView(DraftMode.WINCHESTER, "ann", listOf("ann", "bob"), emptyList(), false,
+            piles = listOf(listOf(copy("a")), emptyList(), listOf(copy("b"), copy("c"))))
+        assertEquals(listOf("a", "b", "c"), podLimitedPrefetchCards(view, emptyMap()).map { it.id })
+    }
+
+    // DRF-070: the Picks view hands over each opponent's seen picks in chip order, never a card back.
+    @Test fun picksViewHandsOverSeenPicksOnly() {
+        val picks = listOf(PodOpponentPicks(AccountIdentity("bob", "Bob"), listOf(copy("a"), null, copy("b"))),
+            PodOpponentPicks(AccountIdentity("cid", "Cid"), listOf(null, copy("c"))))
+        assertEquals(listOf("a", "b", "c"), podPicksPrefetchCards(picks).map { it.id })
+    }
+
     @Test fun cardsWithoutRetainedPrintingsAreSkipped() {
         val bare = pack("bare", 3)
         val missing = mapOf(bare.cards[0].definition to CardDefinition("No printing", listOf(DefinitionFace("face", "No printing"))))

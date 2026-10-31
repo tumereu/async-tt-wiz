@@ -30,6 +30,9 @@ internal fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpp
     }
 }
 
+/** DRF-070: the Picks view's face-up cards, opponent by opponent as the chips list them; never a card back. */
+internal fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
+
 /** The "Picks" button above a Winston, Winchester or Grid board; it opens [PodPicksDialog]. */
 @Composable
 internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
@@ -48,6 +51,7 @@ internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<Stri
     inspection: CardInspectionController, dismiss: () -> Unit) {
     var chosen by remember { mutableStateOf(picks.firstOrNull()?.account?.accountId) }
     val preview = remember { PodLimitedPreview() }
+    PodArtPrefetch(remember(picks) { podPicksPrefetchCards(picks) }, definitions, preview.tileSize)
     ScreenDialog(dismiss, title = "Picks", close = "Close picks") {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             picks.forEach { entry -> FilterChip(chosen == entry.account.accountId, { chosen = entry.account.accountId },
@@ -60,7 +64,7 @@ internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<Stri
             else LazyVerticalGrid(GridCells.Fixed(4), Modifier.fillMaxWidth().testTag("pod-picks-cards"),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 itemsIndexed(cards, key = { index, _ -> index }) { index, copy ->
-                    if (copy == null) PodCardBack("pod-picks-back-$index")
+                    if (copy == null) PodCardBack("pod-picks-back-$index", preview)
                     else PodLimitedCard(copy, definitions[copy.definition], null, emptyList(), emptyMap(), false,
                         "pod-picks-${copy.id}", preview) { inspection.openPodCard(copy.definition, definitions[copy.definition]) }
                 }

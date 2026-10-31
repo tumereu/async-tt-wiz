@@ -92,7 +92,7 @@ internal fun PodPickView(
     var menuFor by remember(pack?.id) { mutableStateOf<String?>(null) }
     var tileSize by remember { mutableStateOf(IntSize.Zero) }
     val previewScroll = rememberScrollState()
-    PodArtPrefetch(listOfNotNull(pack, nextPack), definitions, tileSize)
+    PodArtPrefetch(remember(pack, nextPack) { listOfNotNull(pack, nextPack).flatMap { it.cards } }, definitions, tileSize)
     DeckCardInspection(inspection)
     if (pack == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }

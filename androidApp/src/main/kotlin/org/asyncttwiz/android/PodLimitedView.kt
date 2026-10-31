@@ -21,10 +21,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 import kotlin.math.roundToInt
@@ -78,6 +80,8 @@ internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitio
 internal class PodLimitedPreview {
     var held by mutableStateOf<DraftCopy?>(null)
     val scroll = androidx.compose.foundation.ScrollState(0)
+    /** One board tile's size: prefetched pictures decode at it (DRF-070). */
+    var tileSize by mutableStateOf(IntSize.Zero)
     fun hold(copy: DraftCopy, open: Boolean) {
         // Several fingers may hold cards: the latest hold shows, and only its release closes.
         if (open) { scroll.dispatchRawDelta(-scroll.value.toFloat()); held = copy } else if (held == copy) held = null
@@ -102,7 +106,7 @@ internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, picked
     val name = definition?.name ?: "Card data unavailable"
     val picker = pickedBy?.let { id -> members.firstOrNull { it.accountId == id } }
     val currentTap by rememberUpdatedState(onTap)
-    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).testTag(tag).semantics {
+    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview.tileSize = it }.testTag(tag).semantics {
         contentDescription = listOfNotNull(name, pickedBy?.let { "picked by ${picker?.username ?: "another player"}" }).joinToString(", ")
         this.selected = selected
         onClick("Select") { currentTap(); true }
@@ -126,10 +130,10 @@ internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, picked
     }
 }
 
-/** A card the viewer has not seen: its back. */
+/** A card the viewer has not seen: its back. It reports its size to [preview], as face-up tiles do. */
 @Composable
-internal fun PodCardBack(tag: String) {
-    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).testTag(tag).semantics { contentDescription = "Face-down card" }
+internal fun PodCardBack(tag: String, preview: PodLimitedPreview? = null) {
+    Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview?.tileSize = it }.testTag(tag).semantics { contentDescription = "Face-down card" }
         .clip(MaterialTheme.shapes.extraSmall).background(Color(0xff3b2a1e))
         .border(1.dp, Color(0xff1d140e), MaterialTheme.shapes.extraSmall).padding(5.dp)) {
         Box(Modifier.fillMaxSize().clip(MaterialTheme.shapes.extraSmall).background(Color(0xff6b4a2f)).padding(4.dp)) {
@@ -151,6 +155,25 @@ internal fun PodLimitedArt(copy: DraftCopy, definition: CardDefinition?, modifie
             with(density) { maxHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(),
             crop = true, placeholder = { PodCardPlaceholder(definition?.name ?: "Card data unavailable") })
     }
+}
+
+/**
+ * DRF-070: every face-up card of a limited board, in the order the screen shows them: the whole Rotisserie pool (search
+ * filter or not), every open Rochester pack, and the pile cards of Winston and Winchester. Face-down cards (null) are
+ * never included: the app does not know them.
+ */
+internal fun podLimitedPrefetchCards(view: LimitedView, definitions: Map<String, CardDefinition>): List<DraftCopy> = when (view.mode) {
+    DraftMode.ROTISSERIE -> podRotisserieOrder(view.board, definitions).map { it.copy }
+    DraftMode.ROCHESTER -> podRochesterOrder(view).flatMap { pack -> pack.slots.map { it.copy } }
+    DraftMode.WINSTON, DraftMode.WINCHESTER -> view.piles.flatten().filterNotNull()
+    else -> emptyList()
+}
+
+/** Starts the pictures of [view]'s whole board at once, at the board's tile size (DRF-070). */
+@Composable
+private fun PodLimitedBoardPrefetch(view: LimitedView, definitions: Map<String, CardDefinition>, preview: PodLimitedPreview) {
+    val cards = remember(view, definitions) { podLimitedPrefetchCards(view, definitions) }
+    PodArtPrefetch(cards, definitions, preview.tileSize)
 }
 
 /** Full-width Confirm under a pick screen, enabled with a choice and while nothing is being sent. */
@@ -192,6 +215,7 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
     var selected by remember(view.turn) { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     val preview = remember { PodLimitedPreview() }
+    PodLimitedBoardPrefetch(view, definitions, preview)
     val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
     val ordered = remember(view.board, definitions) { podRotisserieOrder(view.board, definitions) }
     val shown = remember(ordered, query, definitions) { podRotisserieFilter(ordered, definitions, query) }
@@ -244,6 +268,7 @@ internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>,
     val packs = remember(view) { podRochesterOrder(view) }
     var selected by remember(view.packs.map { it.picks }) { mutableStateOf<Pair<String, String>?>(null) }
     val preview = remember { PodLimitedPreview() }
+    PodLimitedBoardPrefetch(view, definitions, preview)
     val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
     val count = columns.columns(Int.MAX_VALUE)
     Column(modifier.padding(horizontal = 8.dp)) {
@@ -332,7 +357,7 @@ private fun PodPiles(view: LimitedView, members: List<AccountIdentity>, definiti
                 Text("Empty", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             itemsIndexed(pile, key = { position, _ -> "pile-$index-$position" }) { position, copy ->
-                if (copy == null) PodCardBack("pod-$tag-back-$index-$position")
+                if (copy == null) PodCardBack("pod-$tag-back-$index-$position", preview)
                 else PodLimitedCard(copy, definitions[copy.definition], null, members, colors, framed(index),
                     "pod-$tag-${copy.id}", preview) { onTap(index, copy) }
             }
@@ -350,6 +375,7 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
     val mine = view.currentPlayer == view.player && !view.finished
     val preview = remember { PodLimitedPreview() }
+    PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
         PodPiles(view, members, definitions, columns, preview, { mine && it == view.pile }, "winston", Modifier.weight(1f).fillMaxWidth(),
             onTap = { _, copy -> inspection.openPodCard(copy.definition, definitions[copy.definition]) })
@@ -374,6 +400,7 @@ internal fun PodWinchesterView(view: LimitedView, members: List<AccountIdentity>
     val mine = view.currentPlayer == view.player && !view.finished
     var chosen by remember(view.turn) { mutableStateOf<Int?>(null) }
     val preview = remember { PodLimitedPreview() }
+    PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
         PodPiles(view, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
             onTap = { pile, copy ->

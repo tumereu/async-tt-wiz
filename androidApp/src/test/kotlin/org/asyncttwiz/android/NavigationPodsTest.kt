@@ -86,7 +86,7 @@ class NavigationPodsTest {
 
     // LOB-019, LOB-024
     @Test fun sideMenuGameRowsShowLastActivityLikeOtherGameListsNotTheCreationDate() {
-        val now = java.time.Instant.now()
+        val now = AppClock.clock().instant()
         val created = "2025-03-04T12:00:00Z"
         val today = fixtures.lobby.state.games.first().copy(id = "today", gameName = "Played today", createdAt = created,
             updatedAt = now.toString())

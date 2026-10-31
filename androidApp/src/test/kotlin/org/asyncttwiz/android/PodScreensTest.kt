@@ -73,8 +73,8 @@ class PodScreensTest {
             PodSetRow(DraftableSet("OLD", "Older set", "2000-01-01", 100, "core"), false),
             PodSetRow(DraftableSet("NEW", "Newer set", "2026-10-01", 200, "expansion"), true),
             PodSetRow(DraftableSet("CMD", "Commander set", "2027-10-01", 200, "commander"), false),
-            PodSetRow(DraftableSet("FUT", "Future set", java.time.LocalDate.now().plusDays(1).toString(), 200, "expansion"), false),
-            PodSetRow(DraftableSet("TOD", "Today's set", java.time.LocalDate.now().toString(), 200, "expansion"), false))))
+            PodSetRow(DraftableSet("FUT", "Future set", java.time.LocalDate.now(AppClock.clock()).plusDays(1).toString(), 200, "expansion"), false),
+            PodSetRow(DraftableSet("TOD", "Today's set", java.time.LocalDate.now(AppClock.clock()).toString(), 200, "expansion"), false))))
         var chosen: String? = null
         var redownload: String? = null
         compose.setContent { ScreenTheme { Column {

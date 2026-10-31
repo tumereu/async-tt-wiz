@@ -67,7 +67,6 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-046** Tapping a group moves the review cursor to that group's last event and closes the tree; holding a group selects it and shows its text without closing. (r6)
 - **HIS-047** The tree pans and pinch-zooms (also over chips). The first event of each turn has a "T5"-style label in that player's colour. (r13)
 - **HIS-048** Each branch keeps the lane it got when it was created; the current path is drawn highlighted in green, branch ends get a dot and the current event a ring. (r13)
-- **HIS-049** The "Game tree ▾" menu toggles between "Show hidden branches" and "Hide simple alternatives". (r4) (?)
 
 ### Event groups
 

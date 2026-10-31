@@ -1,0 +1,1 @@
+mod: The game tree always shows every branch; its menu is gone.

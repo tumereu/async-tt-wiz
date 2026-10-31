@@ -115,7 +115,7 @@ class TableStatesScreenshotTest {
                                     { history.requestContinuation(it) }, overlay = true, landscape = landscape) }) else null))
                     }
                     if (kind == "tree-viewer") HistoryExplorer(explorer, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
-                        false, {}, {}, { playback.scrub(it.currentNodeId) }, texts = playback.tree.texts)
+                        {}, { playback.scrub(it.currentNodeId) }, texts = playback.tree.texts)
                 }
             }
         }
@@ -539,7 +539,7 @@ class TableStatesScreenshotTest {
         var cursor = tree.currentNodeId
         compose.setContent { MaterialTheme {
             if (open) HistoryExplorer(explorer, mapOf(f.a to OwnTableColor, f.b to OpponentTableColor),
-                false, {}, { open = false }, { cursor = it.currentNodeId }, texts = texts)
+                { open = false }, { cursor = it.currentNodeId }, texts = texts)
         } }
         val group = compose.onNodeWithContentDescription(texts.getValue(range.targetId).description)
         val viewport = compose.onNodeWithContentDescription("Game history group tree").fetchSemanticsNode().boundsInRoot
@@ -568,7 +568,7 @@ class TableStatesScreenshotTest {
             assertFalse(open)
             assertEquals(tree.currentNodeId, explorer.state.graph!!.currentNodeId)
         }
-        compose.onNodeWithText("Game tree ▾").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Close game tree").assertDoesNotExist()
         explorer.close()
     }
 }

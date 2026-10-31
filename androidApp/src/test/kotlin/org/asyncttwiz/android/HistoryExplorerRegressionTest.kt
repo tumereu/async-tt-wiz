@@ -20,21 +20,19 @@ class HistoryExplorerRegressionTest {
         change(tree, GameAction.Play(action), continuation)
 
     private fun openEveryBoundary(tree: GameplayTree) {
-        for (hidden in listOf(false, true)) {
-            val failures = mutableListOf<Throwable>()
-            val explorer = HistoryExplorerController(Executor { it.run() }, { it() },
-                { _, failure -> failures.add(failure) })
-            try {
-                explorer.update(tree.copy(), showHidden = hidden)
-                assertNull(explorer.state.error, "Opening ${tree.currentNodeId}: ${failures.lastOrNull()}")
-                for (id in tree.nodes.keys + tree.initial.root.id) {
-                    explorer.select(id)
-                    assertNull(explorer.state.error, "Selecting $id: ${tree.nodes[id]?.action}")
-                    assertEquals(tree.stateAt(id), explorer.state.reviewed)
-                    assertTrue(id in explorer.state.graph!!.positions)
-                }
-            } finally { explorer.close() }
-        }
+        val failures = mutableListOf<Throwable>()
+        val explorer = HistoryExplorerController(Executor { it.run() }, { it() },
+            { _, failure -> failures.add(failure) })
+        try {
+            explorer.update(tree.copy())
+            assertNull(explorer.state.error, "Opening ${tree.currentNodeId}: ${failures.lastOrNull()}")
+            for (id in tree.nodes.keys + tree.initial.root.id) {
+                explorer.select(id)
+                assertNull(explorer.state.error, "Selecting $id: ${tree.nodes[id]?.action}")
+                assertEquals(tree.stateAt(id), explorer.state.reviewed)
+                assertTrue(id in explorer.state.graph!!.positions)
+            }
+        } finally { explorer.close() }
     }
 
     @Test fun firstTurnIncludingEmptyHistoryAndDrawsReordersRevealsAndTurnTracking() {
@@ -134,7 +132,7 @@ class HistoryExplorerRegressionTest {
         }
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
         try {
-            explorer.update(tree.copy(), showHidden = false)
+            explorer.update(tree.copy())
             assertNull(explorer.state.error)
             assertEquals(tree.stateAt(tree.currentNodeId), explorer.state.reviewed)
             assertEquals(2101, explorer.state.graph!!.positions.size)

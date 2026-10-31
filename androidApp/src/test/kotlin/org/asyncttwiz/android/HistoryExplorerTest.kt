@@ -120,43 +120,6 @@ class HistoryExplorerTest {
         fun drain() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
     }
 
-    // HIS-049
-    @Test fun simpleAlternativeFilteringStillPreservesRevealsCommentsMixedAuthorsAndExactReview() {
-        val prefix = play(GameplayTree(root()), 300)
-        val future = play(prefix, 304)
-        val alternative = assertNotNull(future.play(b, command(301).copy(
-            continuation = Continuation(prefix.currentNodeId, true))).tree)
-        fun inactive(tree: GameplayTree) = assertNotNull(tree.play(a, command(305).copy(
-            continuation = Continuation(prefix.currentNodeId, true))).tree)
-        val controller = HistoryExplorerController(Executor { it.run() }, { it() })
-        try {
-            val tree = inactive(alternative)
-            controller.update(tree, showHidden = false)
-            assertFalse(alternative.currentNodeId in controller.state.graph!!.positions)
-            assertTrue(tree.currentNodeId in controller.state.graph!!.positions)
-            assertTrue(prefix.currentNodeId in controller.state.graph!!.positions)
-            controller.select(alternative.currentNodeId)
-            assertEquals(alternative.stateAt(alternative.currentNodeId), controller.state.reviewed)
-            assertTrue(alternative.currentNodeId in controller.state.graph!!.positions)
-            controller.update(tree, openingNodeId = tree.currentNodeId, showHidden = true)
-            assertTrue(alternative.currentNodeId in controller.state.graph!!.positions)
-            val prefixNode = tree.nodes.getValue(prefix.currentNodeId)
-            controller.update(tree.copy(nodes = tree.nodes + (prefixNode.id to prefixNode.copy(revealsInformation = true))), showHidden = false)
-            assertFalse(alternative.currentNodeId in controller.state.graph!!.positions, "Prefix exposure does not expose the suffix")
-            val node = alternative.nodes.getValue(alternative.currentNodeId)
-            val exposed = alternative.copy(nodes = alternative.nodes + (node.id to node.copy(revealsInformation = true)))
-            val commented = play(alternative, 302, b, PlayAction.EventComment(EventReference(root().id, prefix.currentNodeId), "keep visible"))
-            val mixed = play(alternative, 303, a)
-            for (retained in listOf(exposed, commented, mixed)) {
-                val current = inactive(retained)
-                controller.update(current, openingNodeId = current.currentNodeId, showHidden = false)
-                assertNull(controller.state.error)
-                assertTrue(retained.currentNodeId in controller.state.graph!!.positions)
-                assertEquals(retained.nodes.size + 1, current.nodes.size, "Filtering never removes retained data")
-            }
-        } finally { controller.close() }
-    }
-
     @Test fun compactGroupsWithRealForkJunctionAndInternalCurrent() {
         val first = play(GameplayTree(root()), 100)
         val second = play(first, 101)

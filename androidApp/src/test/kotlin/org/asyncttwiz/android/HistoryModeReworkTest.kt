@@ -25,11 +25,11 @@ class HistoryModeReworkTest {
     @Test fun treePinchAndPanKeepTurnTagsAttachedWithoutSelectingOrClosing() {
         val tree = F.play(GameplayTree(F.root()), PlayAction.EndTurn, 401)
         val controller = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
-        controller.update(tree, openingNodeId = tree.initial.root.id, showHidden = true)
+        controller.update(tree, openingNodeId = tree.initial.root.id)
         var dismissed = 0
         try {
             compose.setContent { MaterialTheme {
-                HistoryExplorer(controller, mapOf(F.a to OwnTableColor, F.b to OpponentTableColor), true, {}, { dismissed++ }, {})
+                HistoryExplorer(controller, mapOf(F.a to OwnTableColor, F.b to OpponentTableColor), { dismissed++ }, {})
             } }
             compose.onNodeWithText("T1").assertIsDisplayed()
             compose.onNodeWithText("T2").assertIsDisplayed()

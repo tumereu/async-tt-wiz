@@ -9,7 +9,7 @@ data class HistoryChipGeometry(val id: String, val targetId: String, val parentR
 
 /** A lightweight view of an already-ingested index. Only viewport queries materialize chips/text. */
 class HistoryGraph internal constructor(private val tree: GameplayTree, private val layout: HistoryLayoutIndex,
-    private val showHidden: Boolean = true, selected: String = tree.currentNodeId,
+    selected: String = tree.currentNodeId,
     val width: Float = (layout.maxColumn + 2) * 24f, val height: Float = layout.nextLane * 36f + 48f) {
     val currentNodeId = tree.currentNodeId
     private val active = layout.path(currentNodeId)
@@ -24,9 +24,7 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         val end = path[chip.branch] ?: return false
         return chip.column <= layout.chips.getValue(end.chip).column
     }
-    private fun included(chip: HistoryLayoutChip) = showHidden || chip.branch in layout.keptAncestry ||
-        onPath(chip, active) || onPath(chip, selectedPath)
-    private fun chipOf(id: String): HistoryLayoutChip? = layout.boundaries[id]?.let { layout.chips[it.chip] }?.takeIf(::included)
+    private fun chipOf(id: String): HistoryLayoutChip? = layout.boundaries[id]?.let { layout.chips[it.chip] }
     private fun nodeOnPath(id: String): Boolean {
         val boundary = layout.boundaries[id] ?: return false
         val chip = layout.chips.getValue(boundary.chip)
@@ -96,14 +94,14 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
             }
         }
         for (column in left..right) layout.forks.query(column, top, bottom, { spatialVisits++ }, found::add)
-        return found.mapNotNull { id -> layout.chips[id]?.takeIf(::included)?.geometry }
+        return found.mapNotNull { id -> layout.chips[id]?.geometry }
     }
 
     // Compatibility/read-only accessors are lazy maps/sets: individual lookups never enumerate history.
     // Full enumeration is useful to tests, but deliberately not used by the dialog.
     val positions: Map<String, HistoryPoint> = HistoryLookup({ layout.boundaries.keys }, { id -> chipOf(id)?.position })
     val rangeOf: Map<String, String> = HistoryLookup({ layout.boundaries.keys }, { id -> chipOf(id)?.id })
-    val rangesById: Map<String, HistoryRange> = HistoryLookup({ layout.chips.keys }, { id -> layout.chips[id]?.takeIf(::included)?.let(::range) })
+    val rangesById: Map<String, HistoryRange> = HistoryLookup({ layout.chips.keys }, { id -> layout.chips[id]?.let(::range) })
     val eventsById: Map<String, HistoryTimelineEvent> = HistoryLookup({ layout.boundaries.keys }, { id ->
         chipOf(id)?.let { chip ->
             if (id == chip.nodes.last()) { range(chip); chip.presentation!!.second }
@@ -116,7 +114,7 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
     val activeRanges: Set<String> = HistoryLookup({ layout.chips.keys }, { id -> Unit.takeIf { isActive(id) } }).keys
     val headRanges: Set<String> = HistoryLookup({ layout.chips.keys }, { id -> Unit.takeIf { isHead(id) } }).keys
     val branchHeadIds get() = tree.branchHeads.values.toSet()
-    fun copy(width: Float = this.width, height: Float = this.height) = HistoryGraph(tree, layout, showHidden, width = width, height = height)
+    fun copy(width: Float = this.width, height: Float = this.height) = HistoryGraph(tree, layout, width = width, height = height)
     fun pan(current: HistoryPoint, dx: Float, dy: Float, viewportWidth: Float, viewportHeight: Float) =
         HistoryPoint((current.x + dx).coerceIn(-width, viewportWidth), (current.y + dy).coerceIn(-height, viewportHeight))
     fun centeredOn(nodeId: String, viewportWidth: Float, viewportHeight: Float): HistoryPoint {

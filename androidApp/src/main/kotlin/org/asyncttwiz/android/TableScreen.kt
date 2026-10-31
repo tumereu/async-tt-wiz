@@ -100,7 +100,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val editable = !reviewing || history.armed != null
     var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
     var explorerOpeningCursor by remember(game.id, live?.id) { mutableStateOf<String?>(null) }
-    var showHidden by remember(game.id, live?.id) { mutableStateOf(true) }
     val playbackPause by playbackPreferences.pauseState()
     val playbackRewindPause by playbackPreferences.rewindPauseState()
     val playbackAutoPause by playbackPreferences.autoPauseState()
@@ -114,11 +113,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
     val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
     DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
-    LaunchedEffect(IdentityKey(tree), history.explorerHistory, explorerOpen, showHidden) {
+    LaunchedEffect(IdentityKey(tree), history.explorerHistory, explorerOpen) {
         // The live timeline includes provisional nodes; the explorer's review targets
         // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
         if (explorerOpen && tree != null && history.explorerHistory?.nodes === tree.nodes) {
-            explorer.update(tree, openingNodeId = explorerOpeningCursor, showHidden = showHidden, indexed = history.explorerHistory)
+            explorer.update(tree, openingNodeId = explorerOpeningCursor, indexed = history.explorerHistory)
             explorerOpeningCursor = null
         }
     }
@@ -326,7 +325,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     if (explorerOpen && tree != null) HistoryExplorer(explorer,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
-        showHidden, { showHidden = it }, { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
+        { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
         texts = playback?.tree?.texts.orEmpty())
     if (state.chatOpen) {
         // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.

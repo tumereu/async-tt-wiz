@@ -187,7 +187,7 @@ class TableToolkitWiringTest {
     private fun quick(ui: TableToolkitController, name: String): Boolean {
         val play = ui.current()!!
         return ui.perform(QuickActions.contextual(play,
-            toolkitQuickContext(play, ui.selectionState.value, null, ui.viewer), ui.table).single { it.name == name }.intent)
+            toolkitQuickContext(play, ui.selectionState.value, ui.viewer), ui.table).single { it.name == name }.intent)
     }
 
     // HIS-085, TRN-023

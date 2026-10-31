@@ -73,7 +73,7 @@ class TableToolkitGeometryTest {
         assertFalse(effect.id in scene.sources)
         val selected = TableSelection(setOf(effect.id))
         assertEquals(setOf(effect.id), selected.ids)
-        assertTrue(toolkitQuickContext(frozen, selected, ExplicitStackTarget(effect.id, StackTargetKind.EFFECT)).selectedSourceIds.isEmpty())
+        assertTrue(toolkitQuickContext(frozen, selected).selectedSourceIds.isEmpty())
         assertEquals(1, scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }.cards.size)
     }
 }

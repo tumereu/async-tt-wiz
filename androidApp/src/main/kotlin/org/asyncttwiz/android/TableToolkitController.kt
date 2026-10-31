@@ -53,8 +53,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
-    var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
-    var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
     fun dismissTapUi() { dismiss(); showStackBubbles(null) }
     private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String)
@@ -246,15 +244,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
-        explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
-            val context = StackContexts.context(play, scope.contextId)
-            when (context.kind) {
-                StackContextKind.EFFECT -> ExplicitStackTarget(scope.contextId, StackTargetKind.EFFECT)
-                StackContextKind.SPELL -> ExplicitStackTarget(scope.contextId, StackTargetKind.INSTANT_OR_SORCERY)
-                StackContextKind.PERMANENT -> ExplicitStackTarget(scope.contextId, StackTargetKind.PERMANENT)
-                else -> null
-            }
-        } else null
         val source = CombatStackRules.liveSource(play.board, scope.contextId)?.id
         if (source != null) {
             manual.cards(play, source, bound.sourceIds, scope.contextId.takeIf {
@@ -727,23 +716,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         for (pair in CombatStackController.attackerPairs(board, bound.viewIds))
             sent = submit(PlayAction.Combat(CombatAction.SetAttackTarget(bound.areaId!!, pair.id, cardId))) || sent
         sent
-    }
-    override fun stack(intent: TableActionIntent.Stack) {
-        if (intent.target.kind == StackTargetKind.EFFECT) submit(PlayAction.Stack(StackAction.RemoveEffect(intent.target.id)))
-        else {
-            openCard(TableScope(intent.target.id, listOf(intent.target.id)))
-            val play = current() ?: return
-            val card = CombatStackRules.liveSource(play.board, intent.target.id) ?: return
-            val owner = card.owner
-            val zone = if (intent.target.kind == StackTargetKind.PERMANENT) PlayZone.BATTLEFIELD else PlayZone.GRAVEYARD
-            stackChoices = listOfNotNull(play.board.zoneContainer(owner, zone)).map { container ->
-                val destination = if (zone == PlayZone.BATTLEFIELD)
-                    MoveDestination(container.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(play, container.id, card))
-                    else MoveDestination(container.id, MoveInsertion.UNORDERED)
-                StackMoveChoice(moveZoneLabel(zone), zone, destination)
-            }
-            manual.close(); panel = "stackDestination"
-        }
     }
 
     /** Whole-drop structural preflight uses the existing shared helper; only real-session callbacks send.

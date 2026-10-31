@@ -110,7 +110,7 @@ class CombatQuickActionsTest {
     }
 
     /** Offerings with the table's own quick context (combat area id and selection), as the strip builds it. */
-    private fun tableContext(h: Harness) = toolkitQuickContext(h.current(), TableSelection(), null, h.actor)
+    private fun tableContext(h: Harness) = toolkitQuickContext(h.current(), TableSelection(), h.actor)
     private fun tableOfferings(h: Harness) = offerings(h.current(), tableContext(h))
     private fun tableMenu(h: Harness, name: String) = TableActionMenus.table(h.current(), tableContext(h),
         TableActionController({ h.current() }, { true }, { true }, RecordingRoutes())).single { it.name == name }
@@ -166,7 +166,7 @@ class CombatQuickActionsTest {
         assertTrue(h.toolkit.perform(offerings(h.current()).single { it.name == "Deal combat damage" }.intent))
         assertEquals(1, h.toolkit.combatDamageEdits(h.current()))
         assertEquals(mapOf("Deal combat damage" to false, "Close + next" to true), buttons())
-        val context = toolkitQuickContext(h.current(), TableSelection(), null, f.actor)
+        val context = toolkitQuickContext(h.current(), TableSelection(), f.actor)
             .copy(combatDamageEdits = h.toolkit.combatDamageEdits(h.current()))
         assertFalse(offerings(h.current(), context).single { it.name == "Deal combat damage" }.enabled)
         h.undo()

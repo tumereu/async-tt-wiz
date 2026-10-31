@@ -10,8 +10,6 @@ enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLO
     // Experimental combat-damage shortcuts.
     DEAL_DAMAGE, FIRST_STRIKE_DAMAGE, REGULAR_DAMAGE, DAMAGE_CLOSE_AND_NEXT }
 enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT }
-enum class StackTargetKind { INSTANT_OR_SORCERY, PERMANENT, EFFECT }
-data class ExplicitStackTarget(val id: String, val kind: StackTargetKind)
 
 /** Required semantic routes into the corresponding capability, never dummy menu buttons.
  * The table host supplies the real I18/I19/I21/I27 action components and ordinary sender.
@@ -21,7 +19,6 @@ interface TableActionRoutes {
     fun combat(intent: TableActionIntent.Combat)
     fun token(intent: TableActionIntent.Token)
     fun ending(intent: TableActionIntent.Ending)
-    fun stack(intent: TableActionIntent.Stack)
     fun player(intent: TableActionIntent.Player)
     fun selectAttackers(intent: TableActionIntent.SelectAttackers) {}
 }
@@ -47,7 +44,6 @@ sealed interface TableActionIntent {
     data class Token(override val scope: TableActionScope) : TableActionIntent
     data class Ending(override val scope: TableActionScope, val tool: EndingTool,
         val suggestionId: String? = null, val note: String = "") : TableActionIntent
-    data class Stack(override val scope: TableActionScope, val target: ExplicitStackTarget) : TableActionIntent
     data class Player(override val scope: TableActionScope, val accountId: String) : TableActionIntent
     /** The viewer's own status; empty clears it (Ready). */
     data class Status(override val scope: TableActionScope, val text: String) : TableActionIntent
@@ -151,7 +147,6 @@ class TableActionController(private val state: () -> PlayState?, private val can
             is TableActionIntent.Combat -> routes.combat(intent)
             is TableActionIntent.Token -> routes.token(intent)
             is TableActionIntent.Ending -> routes.ending(intent)
-            is TableActionIntent.Stack -> routes.stack(intent)
             is TableActionIntent.Player -> routes.player(intent)
         }
         return true

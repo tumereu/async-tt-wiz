@@ -6,10 +6,6 @@ import org.asyncttwiz.protocol.*
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 
-data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
-    val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,
-    val importing: Boolean = false, val error: String? = null, val loaded: Boolean = false)
-
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
@@ -33,7 +29,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var shownTrees: List<Any?> = emptyList()
     @Volatile private var epoch = 0L
     private var closed = false
-    private var pickerVersion = 0L
     private val latest = mutableMapOf<String, GameSummary>()
     private var routeVersion = 0L
     private var historyOwner: TableHistoryController? = null
@@ -76,7 +71,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val contactBook: LobbyContacts = LobbyContacts(scope, api, credential, worker, post, refresher::fence, ::begin)
     private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
         suggest, basicLandDefinitions)
-    fun clear() { queue.clear(); historyOwner?.close(); historyOwner = null; epoch++; contactBook.clear(); pickerVersion++; routeVersion++; refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
+    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue, inspection)
+    fun clear() { queue.clear(); historyOwner?.close(); historyOwner = null; epoch++; contactBook.clear(); deckPicker.clear(); routeVersion++; refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -206,10 +203,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             current.preparationRound != game.preparationRound) return false
         return session.submit(game, GameAction.CancelSetup)
     }
-    fun starter(choice: StarterChoice) = readiness(GameAction.SetStarter(choice))
-    fun alternateStarter(enabled: Boolean) = readiness(GameAction.SetAlternateStarter(enabled))
-    /** Show (or hide again) the own deck's name and cover to the opponent in this game. */
-    fun showDeck(shown: Boolean) = readiness(GameAction.ShowDeck(shown))
     /** The result lock for the table right now, the one gate every table entry point consults (see
      * [ResultActions.blocksAt]). Reviewing: the shown point. Continuing: the armed point, then its predicted
      * new branch. Otherwise: the live endpoint. Branching away from a suggestion leaves it on the old branch. */
@@ -239,43 +232,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         return !closed && session?.rejectResult(game, actor, target) == true
-    }
-    fun ready() = readiness(GameAction.Ready)
-    fun withdrawReady() = readiness(GameAction.WithdrawReady)
-    fun changePodBasic(land: BasicLand, delta: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD): Boolean {
-        val actor = accountId() ?: return false
-        val preparation = state.preparation ?: return false
-        val deck = preparation.players.find { it.accountId == actor }?.deck ?: return false
-        if (delta !in listOf(-1, 1)) return false
-        val counts = PodGamePreparation.basics(deck, section)
-        val count = land.count(counts).toLong() + delta
-        if (count !in 0..DeckValidation.MAX_CARDS.toLong() || !setPodBasics(land.withCount(counts, count.toInt()), section)) return false
-        preparationUndo = preparationUndo.push(preparation.gameId, preparation.roundId, deck.id, PreparationStep.Basics(section, counts))
-        return true
-    }
-    private fun setPodBasics(basics: PodDeckBasics, section: SavedDeckSection): Boolean {
-        val game = state.detail ?: return false
-        val actor = accountId() ?: return false
-        val preparation = state.preparation ?: return false
-        val deck = preparation.players.find { it.accountId == actor }?.deck ?: return false
-        if (closed || preparation.podRules == null) return false
-        val definitions = BasicLand.entries.map { basic -> preparation.definitions.find { it.digest == deck.basicDefinitions[basic] } ?: return false }
-        return session?.readiness(game, actor, GameAction.SetPodGameBasics(deck.id, basics, definitions, section)) == true
-    }
-    /** Personal, last 50 transfers and basic taps of the shown preparation round; each undo is an ordinary request. */
-    internal var preparationUndo by mutableStateOf(PreparationUndo())
-        private set
-    internal fun preparationUndoStep(): PreparationStep? = preparationUndo.last(state.preparation, accountId())
-    fun undoPreparation(): Boolean {
-        val game = state.detail ?: return false
-        val actor = accountId() ?: return false
-        if (closed || game.lifecycle != GameLifecycle.LOBBY) return false
-        val done = when (val step = preparationUndoStep() ?: return false) {
-            is PreparationStep.Moved -> session?.transfer(game, actor, step.transfer.inverse()) == true
-            is PreparationStep.Basics -> setPodBasics(step.previous, step.section)
-        }
-        if (done) preparationUndo = preparationUndo.pop()
-        return done
     }
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean {
         val game = state.detail ?: return false
@@ -350,135 +306,32 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         }, complete = complete) == true
     }
     fun leaveActivityReview() { state = state.copy(activityTarget = null, error = null); historyOwner?.current() }
-    private fun readiness(action: GameAction) {
-        val game = state.detail ?: return
-        val actor = accountId() ?: return
-        if (closed) return
-        if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action); return }
-        // Ready/Withdraw toggle one control; the latest waiting tap of each control wins.
-        queue.whenReady(game.id, when (action) { is GameAction.SetStarter -> "starter"; is GameAction.SetAlternateStarter -> "alternate"; is GameAction.ShowDeck -> "showDeck"; else -> "ready" }) {
-            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action) }
-        }
-    }
-    /** The picker is personal and lists saved decks over HTTP, so it opens without the game connection. */
-    fun chooseDeck() {
-        val game = state.detail ?: return
-        if (closed || deckApi == null || game.podId != null || state.preparation?.podRules != null || game.lifecycle != GameLifecycle.LOBBY ||
-            (game.inviter.accountId != accountId() && game.invitationState != InvitationState.ACCEPTED)) return
-        state = state.copy(picker = DeckPickerState(game))
-        refreshPicker()
-    }
-    fun closePicker() { pickerVersion++; queue.dropQueued("deck"); state = state.copy(picker = null) }
-    fun dismissPickerError() { state = state.copy(picker = state.picker?.copy(error = null)) }
-    fun highlightDeck(deck: DeckSummary) {
-        val picker = state.picker ?: return
-        if (!picker.confirming && deck in picker.decks) state = state.copy(picker = picker.copy(draft = deck, error = null))
-    }
-    fun importForPicker() { state.picker?.takeIf { !it.confirming }?.let { state = state.copy(picker = it.copy(importing = true)) } }
-    /** Back from an import started in the picker; a just-saved [saved] deck comes back highlighted, not confirmed. */
-    fun importedForPicker(saved: DeckSummary? = null): Boolean {
-        val picker = state.picker?.takeIf { it.importing } ?: return false
-        state = state.copy(picker = picker.copy(importing = false, draft = saved ?: picker.draft,
-            decks = if (saved == null) picker.decks else listOf(saved) + picker.decks.filter { it.id != saved.id }))
-        refreshPicker(); return true
-    }
-    fun refreshPicker() {
-        val picker = state.picker ?: return
-        val api = deckApi ?: return
-        val token = credential() ?: return
-        if (picker.confirming) return
-        val generation = epoch; val version = ++pickerVersion
-        state = state.copy(picker = picker.copy(loading = true, error = null))
-        worker.execute {
-            val result = runCatching { runBlocking {
-                val decks = linkedMapOf<String, DeckSummary>(); val seen = mutableSetOf<String>(); var next: String? = null
-                do {
-                    if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
-                    val page = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.list(token, next) }; page.decks.forEach { decks[it.id] = it }; next = page.next
-                    check(next == null || seen.add(next!!))
-                } while (next != null)
-                // Draft decks are playable too; the picker lists them under their own heading.
-                if (generation != epoch || version != pickerVersion) return@runBlocking emptyList()
-                serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.drafts(token) }.decks.forEach { decks[it.id] = it }
-                decks.values.toList()
-            } }
-            post { if (!closed && generation == epoch && version == pickerVersion) state.picker?.let {
-                // A background collection read never silently substitutes or updates the captured draft.
-                state = state.copy(picker = it.copy(decks = result.getOrDefault(it.decks), loading = false, loaded = it.loaded || result.isSuccess,
-                    error = result.exceptionOrNull()?.let { deckError(it as? Exception ?: DeckFailure("network")) }))
-            } }
-        }
-    }
-    fun confirmDeck() {
-        val picker = state.picker ?: return
-        val source = picker.draft ?: return
-        val api = deckApi ?: return
-        val token = credential() ?: return
-        val actor = accountId() ?: return
-        if (closed || picker.confirming || picker.loading) return
-        val generation = epoch; val version = ++pickerVersion
-        state = state.copy(picker = picker.copy(confirming = true, error = null))
-        worker.execute {
-            val result = runCatching { runBlocking {
-                if (generation != epoch || version != pickerVersion) return@runBlocking null
-                val saved = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.read(token, source.id) }
-                if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
-                val definitions = saved.entries.map { it.definition }.distinct().map { digest ->
-                    if (generation != epoch || version != pickerVersion) return@runBlocking null
-                    serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.definition(token, source.id, digest) }
-                }
-                saved to definitions
-            } }
-            fun current() = !closed && generation == epoch && version == pickerVersion && state.picker != null
-            fun failed(failure: Throwable?) = state.picker?.let { current ->
-                state = state.copy(picker = current.copy(confirming = false, error = when ((failure as? DeckFailure)?.code) {
-                    "source_changed" -> "This saved deck changed. Refresh and choose it again."
-                    "not_found" -> "This saved deck was deleted. Refresh and choose another deck."
-                    null -> "This game changed or is disconnected. Reconnect and choose again."
-                    else -> deckError(failure as? Exception ?: DeckFailure("network"))
-                }))
-            }
-            post { if (current()) {
-                val data = result.getOrNull()
-                // The deck read needs no game connection; only the selection waits for it (still "Loading deck…").
-                if (data == null) failed(result.exceptionOrNull())
-                else queue.whenReady(picker.game.id, "deck") {
-                    if (current()) {
-                        if (state.detail?.preparationRound == picker.game.preparationRound &&
-                            session?.selectDeck(picker.game, actor, data.first, data.second) == true) closePicker()
-                        else failed(null)
-                    }
-                }
-            } }
-        }
-    }
+    fun starter(choice: StarterChoice) = preparationActions.starter(choice)
+    fun alternateStarter(enabled: Boolean) = preparationActions.alternateStarter(enabled)
+    fun showDeck(shown: Boolean) = preparationActions.showDeck(shown)
+    fun ready() = preparationActions.ready()
+    fun withdrawReady() = preparationActions.withdrawReady()
+    fun changePodBasic(land: BasicLand, delta: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD): Boolean =
+        preparationActions.changePodBasic(land, delta, section)
+    internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo
+    internal fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
+    fun undoPreparation(): Boolean = preparationActions.undoPreparation()
+    fun prepareDeck() = preparationActions.prepareDeck()
+    fun inspectPrepared(definition: String) = preparationActions.inspectPrepared(definition)
+    fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? =
+        preparationActions.captureTransfer(definition, source, all)
+    fun transfer(captured: PreparedTransfer): Boolean = preparationActions.transfer(captured)
+    fun chooseDeck() = deckPicker.chooseDeck()
+    fun closePicker() = deckPicker.closePicker()
+    fun dismissPickerError() = deckPicker.dismissPickerError()
+    fun highlightDeck(deck: DeckSummary) = deckPicker.highlightDeck(deck)
+    fun importForPicker() = deckPicker.importForPicker()
+    fun importedForPicker(saved: DeckSummary? = null): Boolean = deckPicker.importedForPicker(saved)
+    fun refreshPicker() = deckPicker.refreshPicker()
+    fun confirmDeck() = deckPicker.confirmDeck()
     fun reconnect() { session?.tick(); refresh() }
     fun background() = refresher.background()
     fun foreground() = refresher.foreground()
-    fun prepareDeck() {
-        if (state.detail?.lifecycle == GameLifecycle.LOBBY && state.preparation?.players?.any { it.accountId == accountId() && it.deck != null } == true)
-            state = state.copy(preparing = true, transferFeedback = null)
-    }
-    fun inspectPrepared(definition: String) {
-        if (state.preparing) state.preparation?.definitions?.find { it.digest == definition }?.let {
-            inspection.open(InspectedCard.retained(it.digest, it.definition))
-        }
-    }
-    /** Capture on pointer/accessibility start; release must use this exact object, not a fresh row count. */
-    fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? {
-        val game = state.detail ?: return null
-        val actor = accountId() ?: return null
-        if (closed || game.lifecycle != GameLifecycle.LOBBY || game.id !in state.connectedGames) return null
-        val preparation = state.preparation ?: return null
-        return PreparationRules.capture(preparation, actor, definition, source, all)
-    }
-    fun transfer(captured: PreparedTransfer): Boolean {
-        val game = state.detail ?: return false
-        val actor = accountId() ?: return false
-        if (closed || session?.transfer(game, actor, captured) != true) return false
-        preparationUndo = preparationUndo.push(captured.gameId, captured.roundId, captured.deckId, PreparationStep.Moved(captured))
-        return true
-    }
     fun respond(game: GameSummary, accept: Boolean) = invitations.respond(game, accept)
     fun reinvite(game: GameSummary) = invitations.reinvite(game)
     fun query(value: String) = contactBook.query(value)

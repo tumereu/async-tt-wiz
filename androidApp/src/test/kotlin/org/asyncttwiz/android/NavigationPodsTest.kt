@@ -107,6 +107,47 @@ class NavigationPodsTest {
         compose.onNodeWithText("Pods").assertIsSelected()
     }
 
+    // DRF-010
+    @Test fun draftThisCubeOpensNewPodWithThatCubeChosen() {
+        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 3), listOf(SavedCubeEntry(DeckJson.digest(card), 3)))
+        val immediate = object : AbstractExecutorService() {
+            override fun execute(command: Runnable) = command.run()
+            override fun shutdown() = Unit
+            override fun shutdownNow() = mutableListOf<Runnable>()
+            override fun isShutdown() = false
+            override fun isTerminated() = false
+            override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
+        }
+        val api = object : Cubes {
+            override suspend fun listCubes(token: String, after: String?) = CubeList(listOf(saved.cube))
+            override suspend fun readCube(token: String, id: String) = saved
+            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
+                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, card) })
+            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
+            override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
+            override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
+            override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube = error("unused")
+            override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
+            override fun close() = Unit
+        }
+        val cubes = CubeController(api, { "token" }, { _, _ -> error("unused") }, { error("unused") }, immediate, { it() })
+        try {
+            cubes.open(saved.cube.id)
+            fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.DECKS))
+            compose.setContent { ScreenTheme { AuthenticatedShell(fixtures.auth, false, cubes = cubes, pods = pods) } }
+            compose.onNodeWithText("Cubes").performClick()
+            compose.onNodeWithText("Saved cube").assertIsDisplayed()
+            compose.onNodeWithText("Draft this cube").performClick()
+            assertEquals(ShellDestination.PODS, fixtures.auth.state.destination)
+            assertEquals(saved.cube.id, pods.state.creating?.cubeId)
+            // Once the cube list arrives, the form names the chosen cube as the source.
+            compose.runOnIdle { pods.seed(pods.state.copy(cubes = listOf(saved.cube))) }
+            compose.onNodeWithText("Runes", substring = true).assertIsDisplayed()
+            compose.onNodeWithText("Create").assertIsDisplayed()
+        } finally { cubes.close() }
+    }
+
     @Test fun emptyPodsHeaderOpensListAndClosesDrawer() {
         pods.seed(PodState(loaded = true, selected = "previous"))
         showNavigation()

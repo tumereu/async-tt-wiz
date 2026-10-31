@@ -155,6 +155,34 @@ class GameConnectionLifecycleTest {
             compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
         } finally { compose.runOnIdle { owner.close() } }
     }
+    // SYS-016
+    @Test fun actionWaitingThreeSecondsShowsDismissibleReconnectDialogAndActionsStayRefusedAfterDismissing() {
+        val owner = Owner()
+        compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
+        fun commands() = owner.wire.frames.filterIsInstance<GameCommand>()
+        fun act() = owner.lobby.gameplay(PlayAction.AdjustLife(owner.data.actor, "1"))
+        try {
+            compose.setContent { MaterialTheme { WaitingLobby(owner.lobby, owner.data.actor, null) } }
+            compose.runOnIdle { owner.wire.listener.disconnected() }
+            compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
+            compose.runOnIdle { assertTrue(act(), "A short outage queues the action") }
+            // The session reads the real monotonic clock, so the 3 s wait for the server is a real one.
+            Thread.sleep(3_100)
+            compose.runOnIdle { owner.lobby.tick(); assertTrue(owner.data.game.id in owner.lobby.state.reconnectingGames) }
+            compose.onNodeWithText("Reconnecting…").assertExists()
+            compose.onNodeWithText("Game actions unavailable.").assertExists()
+            compose.onNodeWithText("Back to games list").assertExists()
+            compose.runOnIdle { assertFalse(act(), "Actions are refused once the dialog shows") }
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
+            compose.runOnIdle {
+                assertEquals(owner.data.game.id, owner.lobby.state.selected, "Dismissing stays on the table")
+                assertTrue(owner.data.game.id in owner.lobby.state.reconnectingGames)
+                assertFalse(act(), "Dismissing the dialog does not unblock actions")
+                assertTrue(commands().isEmpty())
+            }
+        } finally { compose.runOnIdle { owner.close() } }
+    }
     // SYS-032
     @Test fun rulesUpgradeMessageStaysVisibleAfterTransientErrorTimeoutAndDismissal() {
         val owner = Owner()

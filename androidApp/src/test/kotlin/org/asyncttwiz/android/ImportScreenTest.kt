@@ -270,4 +270,91 @@ class ImportScreenTest {
             compose.onNodeWithTag("save-cube").assertIsNotEnabled()
         } finally { controller.close(); worker.drain() }
     }
+
+    // DRF-004
+    @Test fun pastedCubeListIsCheckedOnceShortlyAfterTypingStopsWithoutAnImportListButton() {
+        val worker = Worker(); val lookups = mutableListOf<String>()
+        val controller = CubeController(DeckApi("https://invalid.example"), { "token" },
+            { text, _ -> lookups += text; resolved(text) }, { error("No Cube Cobra resolution expected") }, worker, { it() },
+            { error("No Cube Cobra fetch expected") })
+        controller.newCube()
+        try {
+            compose.setContent { ScreenTheme { CubeScreen(controller, null) } }
+            compose.onNodeWithText("Import list").assertDoesNotExist()
+            compose.onNodeWithText("Import list", substring = true, ignoreCase = true).assertDoesNotExist()
+            compose.mainClock.autoAdvance = false
+            compose.onNodeWithTag("cube-list").performTextInput("2 Rune Bear")
+            compose.mainClock.advanceTimeBy(200)
+            compose.onNodeWithTag("cube-list").performTextInput("\n1 Rune Bear")
+            compose.mainClock.advanceTimeBy(200)
+            compose.runOnIdle { worker.drain() }
+            assertTrue(lookups.isEmpty(), "Still typing: nothing is checked yet")
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.runOnIdle { worker.drain() }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.runOnIdle { worker.drain() }
+            assertEquals(listOf("2 Rune Bear\n1 Rune Bear"), lookups, "Checked once, with the whole list")
+            assertEquals(resolved("2 Rune Bear\n1 Rune Bear"), controller.state.result)
+        } finally { compose.mainClock.autoAdvance = true; controller.close(); worker.drain() }
+    }
+
+    // DRF-010
+    @Test fun savedCubeShowsListUnderEditWithRenameConfirmedDeleteAndDraftThisCube() {
+        val worker = Worker()
+        val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
+        val digest = DeckJson.digest(card)
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "2026-10-26T00:00:00Z", "2026-10-26T00:00:00Z", 3), listOf(SavedCubeEntry(digest, 3)))
+        val renames = mutableListOf<UpdateCube>(); val deletes = mutableListOf<DeleteCube>()
+        var current = saved
+        val api = object : Cubes {
+            override suspend fun listCubes(token: String, after: String?) = CubeList(if (deletes.isEmpty()) listOf(current.cube) else emptyList())
+            override suspend fun readCube(token: String, id: String) = current
+            override suspend fun cubeDefinitions(token: String, id: String, value: ReadCubeDefinitions) =
+                SubmittedDefinitions(value.digests.map { SubmittedDefinition(it, card) })
+            override suspend fun update(token: String, id: String, value: UpdateCube): SavedCube {
+                renames += value; current = saved.copy(cube = saved.cube.copy(name = value.name!!, revision = "2")); return current
+            }
+            override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted { deletes += value; return CubeDeleted(id) }
+            override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted = error("unused")
+            override suspend fun create(token: String, value: CreateCube): SavedCube = error("unused")
+            override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
+            override fun close() = Unit
+        }
+        val controller = CubeController(api, { "token" }, { _, _ -> error("No lookup expected") }, { error("unused") }, worker, { it() })
+        val drafted = mutableListOf<String>()
+        controller.open(saved.cube.id); worker.drain()
+        try {
+            compose.setContent { ScreenTheme { CubeScreen(controller, null, draftCube = { drafted += it }) } }
+            compose.onNodeWithText("Saved cube").assertIsDisplayed()
+            compose.onNodeWithText("3 Rune Bear").assertIsDisplayed()
+            val edit = compose.onNodeWithText("Edit").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val list = compose.onNodeWithText("3 Rune Bear").fetchSemanticsNode().boundsInRoot
+            val rename = compose.onNodeWithText("Rename").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue(edit.bottom <= rename.top && edit.bottom <= list.top, "Edit sits in the top bar above the list")
+
+            compose.onNodeWithText("Draft this cube").assertIsDisplayed().performClick()
+            assertEquals(listOf(saved.cube.id), drafted)
+
+            compose.onNodeWithText("Rename").performClick()
+            compose.onNodeWithText("Rename cube").assertIsDisplayed()
+            compose.onNode(hasText("Cube name") and hasSetTextAction()).performTextReplacement("Runes II")
+            compose.onNodeWithText("Save name").performClick()
+            compose.runOnIdle { worker.drain() }
+            assertEquals("Runes II", renames.single().name); assertNull(renames.single().entries)
+            compose.onNodeWithText("Rename cube").assertDoesNotExist()
+            compose.onNodeWithText("Runes II").assertIsDisplayed()
+
+            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNodeWithText("Delete cube?").assertIsDisplayed()
+            compose.onNodeWithText("Keep cube").performClick()
+            compose.runOnIdle { worker.drain() }
+            assertTrue(deletes.isEmpty(), "Delete needs confirmation")
+            compose.onNodeWithText("Delete cube?").assertDoesNotExist()
+            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNode(hasText("Delete cube") and hasAnyAncestor(isDialog())).performClick()
+            compose.runOnIdle { worker.drain() }
+            assertEquals(1, deletes.size)
+            compose.runOnIdle { assertNull(controller.state.selected) }
+        } finally { controller.close(); worker.drain() }
+    }
 }

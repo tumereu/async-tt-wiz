@@ -279,6 +279,49 @@ class PodHttpTest {
         assertEquals(PodAttention.NONE, f.list(f.a).pods.single().attention)
     }
 
+    // DRF-002
+    @Test fun `two pods share one cube and a finished draft leaves it unchanged on every session`() = fixture { f ->
+        // Each pod needs 48 of the cube's 90 copies, so two running pods only fit if neither consumes the cube.
+        val settings = DraftSettings.glimpse().copy(packsPerPlayer = 2, cardsPerPack = 12, sideboardLimit = 0)
+        val pods = List(2) { f.create(DraftMode.GLIMPSE).id }
+        for (pod in pods) { f.join(pod); f.configure(pod, settings); f.start(pod) }
+        assertTrue(pods.all { f.get(f.a, it).phase == PodPhase.DRAFTING })
+        f.finish(pods.first(), listOf(f.a, f.b))
+        assertEquals(PodPhase.DRAFTED, f.get(f.a, pods.first()).phase)
+        assertEquals(PodPhase.DRAFTING, f.get(f.a, pods.last()).phase)
+        val other = json.decodeFromString<SessionCreated>(f.send(null, "POST", "/sessions", CreateSession("pod-a@example.invalid", "password😀"), 201))
+        assertNotEquals(f.a.token, other.token)
+        for (session in listOf(f.a, other)) {
+            val read = f.request(session, "GET", "/v1/cubes/${f.cube.cube.id}")
+            assertEquals(200, read.statusCode(), read.body())
+            assertEquals(f.cube, json.decodeFromString<SavedCube>(read.body()))
+            assertEquals(listOf(f.cube.cube), json.decodeFromString<CubeList>(f.request(session, "GET", "/v1/cubes").body()).cubes)
+        }
+        assertEquals(90L, f.cube.cube.totalCopies)
+        // A third pod can still start from the same cube.
+        val third = f.create(DraftMode.GLIMPSE).id
+        f.join(third); f.configure(third, settings)
+        assertEquals(PodPhase.DRAFTING, f.start(third).phase)
+    }
+
+    // DRF-013
+    @Test fun `pod list puts pods needing you first ahead of newer ones`() = fixture { f ->
+        val settings = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
+        fun pod(): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
+        val build = pod(); f.start(build); f.finish(build, listOf(f.a, f.b))
+        val pick = pod(); f.start(pick)
+        val waiting = pod(); f.start(waiting); f.pick(f.a, waiting) // A has picked; only B holds a pack.
+        val setup = pod()
+        val listed = f.list(f.a).pods
+        assertEquals(listOf(pick, build, setup, waiting).toSet(), listed.map { it.id }.toSet())
+        assertEquals(listOf(PodAttention.YOUR_PICK, PodAttention.BUILD), listed.take(2).map { it.attention })
+        assertEquals(listOf(pick, build), listed.take(2).map { it.id })
+        assertEquals(1, listed.first().packsWaiting)
+        // Pods not needing A follow, newest change first.
+        assertEquals(listOf(setup, waiting), listed.drop(2).map { it.id })
+        assertTrue(listed.drop(2).all { it.attention == PodAttention.NONE })
+    }
+
     // DRF-105
     @Test fun `deck name endpoint is owner scoped validated idempotent and attempt fenced`() = fixture { f ->
         val pod = f.create().id

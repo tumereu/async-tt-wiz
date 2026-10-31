@@ -74,6 +74,16 @@ internal enum class PodSetting(val label: String) {
     }
 }
 
+/** Mode chips (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
+internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID)
+/** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
+internal fun podModeName(mode: DraftMode): String = when (mode) {
+    DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
+    DraftMode.GRID -> "Grid"
+}
+/** The chip a mode shows as selected. */
+internal fun podModeChip(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
+
 internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = when (mode) {
     DraftMode.BOOSTER -> DraftSettings.booster()
     DraftMode.GLIMPSE -> DraftSettings.glimpse()
@@ -103,9 +113,9 @@ internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodS
 internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
     source: PodSource = PodSource(), change: ((DraftSettings) -> DraftSettings) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        DraftMode.entries.forEach { mode -> FilterChip(settings.mode == mode,
+        PodModeChips.forEach { mode -> FilterChip(podModeChip(settings.mode) == mode,
             { change { podModeSettings(mode, it) } }, enabled = enabled,
-            label = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
+            label = { Text(podModeName(mode)) }) }
     }
     val fields = if (settings.mode == DraftMode.GRID) listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
         else buildList {

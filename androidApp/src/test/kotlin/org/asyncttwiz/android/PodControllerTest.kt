@@ -1031,8 +1031,8 @@ class PodControllerTest {
         f.controller.newPod(cube.id); f.deliver()
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
         assertEquals(listOf(cube), f.controller.state.cubes)
-        f.controller.newMode(DraftMode.GLIMPSE); f.controller.create(); f.deliver()
-        assertEquals(CreatePod((f.api.calls.single().second as CreatePod).requestId, "Fantasy name", cube.id, DraftMode.GLIMPSE,
+        f.controller.applyPreset(PodBuiltInPresets.single { it.name == "Glimpse" }); f.controller.create(); f.deliver()
+        assertEquals(CreatePod((f.api.calls.single().second as CreatePod).requestId, "Fantasy name", cube.id, DraftMode.BOOSTER,
             settings = DraftSettings.glimpse()), f.api.calls.single().second)
         assertEquals(id, f.controller.state.selected)
         f.controller.back(); f.deliver()
@@ -1238,12 +1238,12 @@ class PodControllerTest {
     // DRF-032
     @Test fun savingAPresetStoresTheNewPodFormWithoutNameOrLibrarianSnapshot() = Fixture().use { f ->
         f.controller.newPod(cube.id); f.deliver()
-        f.controller.newMode(DraftMode.GLIMPSE)
+        f.controller.applyPreset(PodBuiltInPresets.single { it.name == "Glimpse" })
         f.controller.newSettings { it.copy(librarians = 2, librarianDefinition = definition, sideboardLimit = 7) }
         val presets = f.controller.presets
         presets.open(); f.deliver()
         assertTrue(presets.state.loaded); assertTrue(presets.state.presets.isEmpty())
-        assertEquals("Glimpse · Cube · 9×15", presets.formSummary)
+        assertEquals("Booster · Cube · 9×15", presets.formSummary)
         presets.startSave()
         assertEquals(PodPresetPrompt.Name(), presets.state.prompt)
         presets.submitName("   ")
@@ -1255,10 +1255,32 @@ class PodControllerTest {
         assertEquals(SavePodPreset("Cube glimpse", DraftSettings.glimpse().copy(librarians = 2, sideboardLimit = 7), cube.id), input)
         assertNull(presets.state.prompt); assertNull(presets.state.busy)
         assertEquals(listOf("Cube glimpse"), presets.state.presets.map { it.name })
-        assertEquals("Glimpse · Cube · 9×15", podPresetSummary(presets.state.presets.single()))
+        assertEquals("Booster · Cube · 9×15", podPresetSummary(presets.state.presets.single()))
         // The list stays open; the form itself is untouched.
         assertTrue(presets.state.open)
-        assertEquals(DraftMode.GLIMPSE, f.controller.state.creating!!.mode)
+        assertEquals(DraftMode.BOOSTER, f.controller.state.creating!!.mode)
+    }
+
+    // DRF-031, DRF-032, DRF-033: built-ins hold settings only and keep the source, sideboard limit and Librarians.
+    @Test fun builtInPresetsKeepTheSourceAndCannotBeReplacedRenamedOrDeleted() = Fixture().use { f ->
+        f.controller.newPod(cube.id); f.deliver()
+        f.controller.newSettings { it.copy(packsPerPlayer = 5, librarians = 2, sideboardLimit = 7) }
+        val presets = f.controller.presets
+        presets.open(); f.deliver()
+        assertEquals(listOf("Booster", "Glimpse"), presets.state.filtered.map { it.name })
+        presets.choose(presets.state.filtered.single { it.name == "Glimpse" })
+        val draft = f.controller.state.creating!!
+        assertEquals(cube.id, draft.cubeId)
+        assertEquals(DraftSettings.glimpse().copy(librarians = 2, sideboardLimit = 7), draft.settings)
+        presets.open(); f.deliver()
+        val calls = f.api.calls.size
+        presets.startSave(); presets.submitName("glimpse")
+        assertEquals("“glimpse” is a built-in preset. Choose another name.", presets.state.error)
+        assertEquals(calls, f.api.calls.size)
+        presets.cancelPrompt()
+        val builtIn = presets.state.filtered.first()
+        presets.startRename(builtIn); assertNull(presets.state.prompt)
+        presets.startDelete(builtIn); assertNull(presets.state.prompt)
     }
 
     // DRF-033

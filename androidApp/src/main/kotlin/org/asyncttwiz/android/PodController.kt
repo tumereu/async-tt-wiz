@@ -213,7 +213,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     /** Fills the form from [preset]. A set is loaded from the catalog; a deleted cube leaves the source to choose. */
     internal fun applyPreset(preset: PodPreset) {
-        val settings = preset.settings.copy(librarianDefinition = null)
+        val current = state.creating?.settings ?: state.setup?.settings ?: state.detail?.settings ?: DraftSettings()
+        // A built-in preset is its mode's settings: like a mode chip it keeps the sideboard limit and Librarians (DRF-032).
+        val settings = if (preset.builtIn) preset.settings.copy(sideboardLimit = current.sideboardLimit,
+            freshBoosters = current.freshBoosters, librarians = if (current.mode == DraftMode.GRID) 0 else current.librarians)
+            else preset.settings.copy(librarianDefinition = null)
         val cube = preset.cubeId?.takeUnless { preset.cubeMissing }
         val draft = state.creating
         if (draft != null) {

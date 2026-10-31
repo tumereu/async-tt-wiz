@@ -29,7 +29,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-017** The pod name field has a shuffle button that suggests another random fantasy name. (r16)
 - **DRF-018** The source shows as its name (or "No source") with an edit button opening a Source dialog with searchable Cubes | Sets tabs and a Manage cubes button. (r17)
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
-- **DRF-020** Mode chips Booster, Glimpse and Grid load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r16)
+- **DRF-020** Mode chips Booster and Grid load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (r35)
 - **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once. (r16)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. (r29)
 - **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60. (r16)
@@ -43,9 +43,9 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Presets
 
-- **DRF-031** A Presets button on New pod and on the creator's pod setup opens a dialog listing saved presets, with search; there are no preset chips. (r31)
-- **DRF-032** A preset stores the draft settings and source under a name; rows read like "Booster · My cube · 3×15", and a deleted cube shows "Cube missing". (r31)
-- **DRF-033** "Save current settings as preset…" asks a name (up to 60 characters); an existing name asks "Replace preset"; rows can be renamed and deleted (confirmed). (r31)
+- **DRF-031** A Presets button on New pod and on the creator's pod setup opens a dialog listing the built-in presets Booster and Glimpse first, then your saved presets, with search; there are no preset chips. (r35)
+- **DRF-032** A preset stores the draft settings and source under a name; rows read like "Booster · My cube · 3×15", and a deleted cube shows "Cube missing". Built-in presets hold settings only and read "Glimpse · Built-in · 9×15"; choosing one keeps the pod's current source. (?) (r35)
+- **DRF-033** "Save current settings as preset…" asks a name (up to 60 characters); an existing name asks "Replace preset"; rows can be renamed and deleted (confirmed). Built-in rows can't be renamed, replaced or deleted. (?) (r35)
 - **DRF-034** Presets are saved on the server, so they appear on all your devices; up to 200 presets. (r31)
 
 ### Starting, leaving and cancelling

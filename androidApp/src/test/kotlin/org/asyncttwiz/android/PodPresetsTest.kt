@@ -17,12 +17,24 @@ class PodPresetsTest {
         preset("Bare"),
     )
 
-    // DRF-032
+    // DRF-020, DRF-032: Glimpse is a preset of Booster; a preset saved as Glimpse also reads "Booster".
     @Test fun summariesShowModeSourceAndSize() {
-        assertEquals(listOf("Booster · Vintage cube · 3×15", "Glimpse · Dominaria United · 9 packs",
+        assertEquals(listOf("Booster · Vintage cube · 3×15", "Booster · Dominaria United · 9 packs",
             "Grid · March of the Machine · 12 grids", "Booster · Cube missing · 3×15", "Booster · No source · 3×15"),
             presets.map(::podPresetSummary))
         assertEquals("Booster · DMU · 1 pack", podPresetSummary(preset("x", DraftSettings(packsPerPlayer = 1, packsOpenAtOnce = 1), setCode = "DMU")))
+        assertEquals("Booster · Old cube · 3×15", podPresetSummary(preset("old", DraftSettings(mode = DraftMode.GLIMPSE), cubeName = "Old cube")))
+        assertEquals(listOf("Booster · Built-in · 3×15", "Glimpse · Built-in · 9×15"), PodBuiltInPresets.map(::podPresetSummary))
+    }
+
+    // DRF-031, DRF-033
+    @Test fun builtInsComeFirstAndTheirNamesAreReserved() {
+        assertEquals(listOf("Booster", "Glimpse") + presets.map { it.name }, PodPresetState(presets = presets).filtered.map { it.name })
+        assertEquals(listOf("Glimpse", "Glimpse night"), PodPresetState(presets = presets, query = "glimpse").filtered.map { it.name })
+        assertTrue(PodBuiltInPresets.all { it.builtIn })
+        assertFalse(presets.any { it.builtIn })
+        assertTrue(podBuiltInName("glimpse") && podBuiltInName("BOOSTER"))
+        assertFalse(podBuiltInName("Glimpse night"))
     }
 
     // DRF-031

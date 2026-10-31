@@ -24,7 +24,8 @@ internal data class PodPresetState(
     val open: Boolean = false, val presets: List<PodPreset> = emptyList(), val loaded: Boolean = false,
     val query: String = "", val busy: String? = null, val error: String? = null, val prompt: PodPresetPrompt? = null,
 ) {
-    val filtered: List<PodPreset> get() = podPresetFilter(presets, query)
+    /** Built-ins first, then the account's presets (DRF-031). */
+    val filtered: List<PodPreset> get() = podPresetFilter(PodBuiltInPresets + presets, query)
     /** Few presets fit on screen without searching. */
     val searchable: Boolean get() = presets.size > PodPresetSearchThreshold || query.isNotEmpty()
 }
@@ -40,8 +41,21 @@ internal fun podPresetFilter(presets: List<PodPreset>, query: String): List<PodP
     }
 }
 
-/** "Booster · My cube · 3×15", "Grid · Dominaria United · 18 grids". */
+/**
+ * Built-in presets (DRF-031): listed before the account's own, settings only (choosing one keeps the current source),
+ * never renamed, replaced or deleted. Only on the device; the server never stores them.
+ */
+internal val PodBuiltInPresets = listOf(
+    PodPreset("builtin-booster", "Booster", DraftSettings.booster(), updatedAt = ""),
+    PodPreset("builtin-glimpse", "Glimpse", DraftSettings.glimpse(), updatedAt = ""),
+)
+internal val PodPreset.builtIn: Boolean get() = PodBuiltInPresets.any { it.id == id }
+/** A saved preset may not take a built-in's name (DRF-033): built-ins can't be replaced. */
+internal fun podBuiltInName(name: String) = PodBuiltInPresets.any { PodPresetValidation.key(it.name) == PodPresetValidation.key(name) }
+
+/** "Booster · My cube · 3×15", "Grid · Dominaria United · 18 grids"; built-ins "Glimpse · Built-in · 9×15". */
 internal fun podPresetSummary(preset: PodPreset): String {
+    if (preset.builtIn) return listOf(preset.name, "Built-in", "${preset.settings.packsPerPlayer}×${preset.settings.cardsPerPack}").joinToString(" · ")
     val source = when {
         preset.cubeMissing -> "Cube missing"
         preset.cubeName != null -> preset.cubeName!!
@@ -56,7 +70,7 @@ internal fun podPresetSummary(settings: DraftSettings, source: String, set: Bool
         set -> podPackCount(settings.packsPerPlayer)
         else -> "${settings.packsPerPlayer}×${settings.cardsPerPack}"
     }
-    return listOf(settings.mode.name.lowercase().replaceFirstChar(Char::uppercase), source, size).joinToString(" · ")
+    return listOf(podModeName(settings.mode), source, size).joinToString(" · ")
 }
 
 /**
@@ -92,8 +106,8 @@ internal class PodPresetController(private val api: Pods, private val credential
         dismiss(); apply(preset)
     }
     fun startSave() { if (state.busy == null && canSave) state = state.copy(prompt = PodPresetPrompt.Name(), error = null) }
-    fun startRename(preset: PodPreset) { if (state.busy == null) state = state.copy(prompt = PodPresetPrompt.Name(preset), error = null) }
-    fun startDelete(preset: PodPreset) { if (state.busy == null) state = state.copy(prompt = PodPresetPrompt.Delete(preset), error = null) }
+    fun startRename(preset: PodPreset) { if (state.busy == null && !preset.builtIn) state = state.copy(prompt = PodPresetPrompt.Name(preset), error = null) }
+    fun startDelete(preset: PodPreset) { if (state.busy == null && !preset.builtIn) state = state.copy(prompt = PodPresetPrompt.Delete(preset), error = null) }
     fun cancelPrompt() { if (state.busy == null) state = state.copy(prompt = null, error = null) }
 
     /** Saves under [text], asking first when another preset already has that name; or renames. */
@@ -106,6 +120,7 @@ internal class PodPresetController(private val api: Pods, private val credential
         val renaming = prompt.renaming
         val taken = state.presets.firstOrNull { PodPresetValidation.key(it.name) == key && it.id != renaming?.id }
         when {
+            podBuiltInName(name) -> state = state.copy(error = "“$name” is a built-in preset. Choose another name.")
             renaming == null && taken != null -> state = state.copy(prompt = PodPresetPrompt.Overwrite(name, taken.name), error = null)
             renaming == null -> save(name, false)
             taken != null -> state = state.copy(error = "Another preset is already called “${taken.name}”.")

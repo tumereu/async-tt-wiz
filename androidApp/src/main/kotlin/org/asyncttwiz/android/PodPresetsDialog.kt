@@ -41,17 +41,18 @@ internal fun PodPresetsDialog(controller: PodPresetController) {
         // A long list keeps its height while searching, so the dialog does not jump as rows filter out.
         Box(Modifier.fillMaxWidth().then(if (state.searchable) Modifier.height(400.dp) else Modifier.heightIn(min = 72.dp, max = 400.dp)),
             contentAlignment = Alignment.TopCenter) {
-            when {
-                !state.loaded && state.busy != null -> CircularProgressIndicator()
-                !state.loaded -> ScreenOutlinedButton(controller::reload) { Text("Retry") }
-                state.presets.isEmpty() -> Text("No presets yet. Save the current settings to make one.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                rows.isEmpty() -> Text("No presets match", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> LazyColumn(Modifier.fillMaxWidth().testTag("pod-preset-list")) {
-                    items(rows, key = { it.id }) { preset ->
-                        PodPresetRow(preset, state.busy == null, { controller.choose(preset) },
-                            { controller.startRename(preset) }, { controller.startDelete(preset) })
-                        HorizontalDivider()
+            // Built-in presets show at once; the account's own follow once loaded.
+            if (rows.isEmpty() && state.loaded) Text("No presets match", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else LazyColumn(Modifier.fillMaxWidth().testTag("pod-preset-list")) {
+                items(rows, key = { it.id }) { preset ->
+                    PodPresetRow(preset, state.busy == null, { controller.choose(preset) },
+                        { controller.startRename(preset) }, { controller.startDelete(preset) })
+                    HorizontalDivider()
+                }
+                if (!state.loaded) item(key = "loading") {
+                    Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                        if (state.busy != null) CircularProgressIndicator()
+                        else ScreenOutlinedButton(controller::reload) { Text("Retry") }
                     }
                 }
             }
@@ -86,8 +87,11 @@ private fun PodPresetRow(preset: PodPreset, enabled: Boolean, load: () -> Unit, 
             Text(podPresetSummary(preset), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 color = if (preset.cubeMissing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") }
-        IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") }
+        // Built-in presets can't be renamed or deleted (DRF-033).
+        if (!preset.builtIn) {
+            IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") }
+            IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") }
+        }
     }
 }
 

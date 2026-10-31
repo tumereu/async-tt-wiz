@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
+/** GLIMPSE is only read from pods and presets saved before Glimpse became a built-in preset of BOOSTER (DRF-020). */
 @Serializable enum class DraftMode { BOOSTER, GLIMPSE, GRID }
 @Serializable enum class DraftColor { W, U, B, R, G }
 
@@ -55,7 +56,8 @@ data class DraftSettings(
 
     companion object {
         fun booster() = DraftSettings()
-        fun glimpse() = DraftSettings(mode = DraftMode.GLIMPSE, packsPerPlayer = 9, burn = 2)
+        /** The built-in Glimpse preset of Booster (DRF-020). */
+        fun glimpse() = DraftSettings(packsPerPlayer = 9, burn = 2)
         fun grid() = DraftSettings(mode = DraftMode.GRID)
     }
 }

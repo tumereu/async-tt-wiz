@@ -168,10 +168,17 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
 @Composable
 internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String, Boolean) -> Unit, refresh: () -> Unit) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = refresh, loading = state.loading) {
+        // DRF-012: one list in the shared pod order (DRF-013), invitations answered in place.
+        val entries = orderedPods(state.pods, state.invitations)
         LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (state.invitations.isNotEmpty()) item { Text("Invitations", style = MaterialTheme.typography.titleMedium) }
-            items(state.invitations, key = { "invitation:${it.podId}" }) { invitation ->
-                OutlinedCard(Modifier.fillMaxWidth()) {
+            item {
+                Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
+                if (entries.isEmpty()) Text("No pods yet")
+            }
+            items(entries, key = { if (it.invitation != null) "invitation:${it.id}" else it.id }) { entry ->
+                val invitation = entry.invitation
+                if (invitation == null) PodRow(requireNotNull(entry.pod), { open(entry.id) })
+                else OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(invitation.name, fontWeight = FontWeight.Bold)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,11 +191,6 @@ internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String,
                     }
                 }
             }
-            item {
-                Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
-                if (state.pods.isEmpty()) Text("No pods yet")
-            }
-            items(state.pods, key = { it.id }) { pod -> PodRow(pod, { open(pod.id) }) }
         }
     }
 }

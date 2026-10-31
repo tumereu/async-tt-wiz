@@ -1,0 +1,1 @@
+mod: Pods are listed in the same order everywhere, like games: pods waiting for your pick or deck first, then pod invitations, then the rest.

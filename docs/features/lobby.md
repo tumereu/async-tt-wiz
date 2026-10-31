@@ -26,7 +26,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-015** The main menu has big buttons for Games, Pods, Manage decks, Contacts and Settings; in portrait the ATW logo sits small at the top right of the menu-button row. (r17)
 - **LOB-016** Under the Games button a panel lists up to 3 games in the shared game order (LOB-022), opening straight into the game; incoming invitations there have Accept and Decline buttons. The panel is hidden when empty. (r30)
-- **LOB-017** Under the Pods button a panel lists up to 3 pods: your pick or deck building first, then other pods, pod invitations last (with Accept/Decline). Hidden when empty. (r17)
+- **LOB-017** Under the Pods button a panel lists up to 3 pods and pod invitations in the shared pod order (DRF-013), invitations with Accept/Decline. Hidden when empty. (r35)
 - **LOB-018** The side menu lists Menu, Manage decks, Contacts, Settings, then Games with every game and incoming invitation as rows, then Pods with each pod's other members as a compact avatar stack. Landscape shows it as a permanent side area; portrait opens it from the hamburger. (r23)
 - **LOB-019** A side-menu game row shows the opponent's avatar, the game name, an "Invitation" label on its own line for invitations, and "opponent · status · date" on two lines. (?) code differs from r5: the side menu shows the creation date, while other game rows show last activity. (r30)
 - **LOB-020** Back from any section opened from the menu or side menu returns to the main menu, and Back again leaves the app; steps inside a section (Games → Choose opponent) go back one step. (r30)
@@ -34,7 +34,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Game list and rows
 
-- **LOB-022** One game order everywhere (Games screen, menu panel, side menu): games where it is your move (longest waiting first), then invitations to you (newest first), then games waiting for your opponent and invitations you sent (newest first), then the rest. (r30)
+- **LOB-022** One game order everywhere (Games screen, menu panel, side menu): games where it is your move (longest waiting first), then invitations to you (newest first), then games waiting for your opponent and invitations you sent (newest first), then the rest. Pods follow the same shape (DRF-013). (r35)
 - **LOB-023** The Games screen shows one "GAMES" card with a count and all games and invitations in one list; "No games yet." when empty. A "New game" button sits at the top right. (r30)
 - **LOB-024** A game row: opponent avatar, bold game name, a move chip ("Your move" filled, "<name>'s move" plain, or "Invitation"/"Setup"), the pod name line for pod games, then "vs <opponent> · <status> · <last activity>" with the time if today, else the date. (r15)
 - **LOB-025** Row status texts: "In play", "Invitation pending", "Invitation declined", "Preparing"; a held pod challenge reads "Challenged you · submit your deck to accept" (Accept greyed) for you and "Waiting for <name>'s deck" for the challenger. (r30)

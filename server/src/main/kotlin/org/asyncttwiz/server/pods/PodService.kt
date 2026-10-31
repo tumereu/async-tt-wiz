@@ -689,6 +689,17 @@ class PodService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /** The app's shared pod order (DRF-013): your pick or build longest waiting first, then the rest newest first. */
+    private val podListOrder = Comparator<PodSummary> { a, b ->
+        val waiting = (a.attention == PodAttention.NONE).compareTo(b.attention == PodAttention.NONE)
+        val age = java.time.Instant.parse(a.updatedAt).compareTo(java.time.Instant.parse(b.updatedAt))
+        when {
+            waiting != 0 -> waiting
+            age != 0 -> if (a.attention == PodAttention.NONE) -age else age
+            else -> a.id.compareTo(b.id)
+        }
+    }
+
     fun list(principal: AccountService.Principal): Result = runtime.transaction { connection ->
         val sql = DSL.using(connection, SQLDialect.POSTGRES)
         val owner = UUID.fromString(principal.account.accountId)
@@ -707,7 +718,7 @@ class PodService(private val runtime: ServiceRuntime) {
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),
                 members.map { identity(sql, it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString())
-        } }.sortedWith(compareBy<PodSummary> { it.attention.ordinal }.thenByDescending { it.updatedAt }.thenBy { it.id })
+        } }.sortedWith(podListOrder)
         val invitations = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
             .where(INVITE.ACCOUNT_ID.eq(owner)).and(INVITE.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
             .orderBy(INVITE.INVITED_AT.desc(), INVITE.POD_ID).fetch().map {

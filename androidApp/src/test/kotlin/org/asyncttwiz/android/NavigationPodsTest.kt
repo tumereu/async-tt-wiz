@@ -94,6 +94,18 @@ class NavigationPodsTest {
         compose.onNodeWithText("Invitation only").assertDoesNotExist()
     }
 
+    // DRF-015, DRF-013
+    @Test fun drawerPodsFollowTheSharedPodOrder() {
+        fun at(pod: PodSummary, hour: Int, attention: PodAttention) = pod.copy(attention = attention, updatedAt = "2026-10-27T0$hour:00:00Z")
+        val entries = listOf(at(pod("old-other"), 1, PodAttention.NONE), at(pod("new-pick"), 4, PodAttention.YOUR_PICK),
+            at(pod("new-other"), 5, PodAttention.NONE), at(pod("old-build", PodPhase.DRAFTED), 2, PodAttention.BUILD))
+        pods.seed(PodState(loaded = true, pods = entries))
+        showNavigation(close = false)
+        val tops = listOf("old-build", "new-pick", "new-other", "old-other")
+            .map { compose.onNodeWithTag("navigation-pod-$it").getUnclippedBoundsInRoot().top }
+        assertEquals(tops.sortedBy { it.value }, tops)
+    }
+
     @Test fun podRowImmediatelyOpensPodDestinationClosesDrawerAndMarksSelection() {
         val pod = pod()
         pods.seed(PodState(loaded = true, pods = listOf(pod)))

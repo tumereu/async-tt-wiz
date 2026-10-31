@@ -305,7 +305,7 @@ class PodHttpTest {
     }
 
     // DRF-013
-    @Test fun `pod list puts pods needing you first ahead of newer ones`() = fixture { f ->
+    @Test fun `pod list puts pods needing you first longest waiting first then the rest newest first`() = fixture { f ->
         val settings = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
         fun pod(): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
         val build = pod(); f.start(build); f.finish(build, listOf(f.a, f.b))
@@ -314,9 +314,10 @@ class PodHttpTest {
         val setup = pod()
         val listed = f.list(f.a).pods
         assertEquals(listOf(pick, build, setup, waiting).toSet(), listed.map { it.id }.toSet())
-        assertEquals(listOf(PodAttention.YOUR_PICK, PodAttention.BUILD), listed.take(2).map { it.attention })
-        assertEquals(listOf(pick, build), listed.take(2).map { it.id })
-        assertEquals(1, listed.first().packsWaiting)
+        // Your pick and your build are one group, the longest waiting (the older build) first.
+        assertEquals(listOf(PodAttention.BUILD, PodAttention.YOUR_PICK), listed.take(2).map { it.attention })
+        assertEquals(listOf(build, pick), listed.take(2).map { it.id })
+        assertEquals(1, listed[1].packsWaiting)
         // Pods not needing A follow, newest change first.
         assertEquals(listOf(setup, waiting), listed.drop(2).map { it.id })
         assertTrue(listed.drop(2).all { it.attention == PodAttention.NONE })

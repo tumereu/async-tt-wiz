@@ -9,7 +9,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Under the Auto button, show a "Hold to branch" hint whenever it does not show Rewind. (HIS-013)
+- Under the Auto button, show a "Hold to branch" hint whenever it does not show Rewind, and remove the top bar's "Continue playing from here" button, so holding Auto is the only way to branch. The top bar's cancel button while a continuation is armed stays. (HIS-013, HIS-036)
 - Pods and games use one list order everywhere (screens, menu panels, side menu): yours to act on first (your move; for pods your pick or build), then invitations to you, then the rest. (LOB-022, DRF-012, DRF-013, DRF-014, DRF-015)
 - Pods get the same app-side reminders as games while a pick or build waits for you. (LOB-076, DRF-136)
 - Every place that groups cards by type uses the shared type order, starting with library search. (SYS-051, ZON-051)

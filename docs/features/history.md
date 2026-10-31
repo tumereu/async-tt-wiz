@@ -38,7 +38,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-026** A hand-to-battlefield move never counts as a Reveal. (r13)
 - **HIS-027** "Move passes to you" pauses only if the next event is not your own. Status changes never auto-pause; opening a graveyard/exile panel is not a reveal. (r17) (?)
 - **HIS-028** Playback settings live in Settings under "Timeline playback" and in a dialog from the timeline's gear: the auto-pause switches ("Stop Auto after an opponent's matching action"), "History playback pause", "Rewind pause", the auto-rewind switches and Card move speed. (r31)
-- **HIS-029** Live play: when the opponent reveals cards in a panel, the table holds the face-up panel for one playback pause before moving on, without entering timeline mode. The board just before an opponent's result suggestion is likewise shown before the suggestion. (r8) (?)
+- **HIS-029** Live play: when the opponent reveals cards in a panel, the table holds the face-up panel for one playback pause before moving on, without entering timeline mode. The board just before an opponent's result suggestion is likewise shown before the suggestion. (r8)
 - **HIS-030** Playback and live opponent actions animate each change (cards fly, rotate, flip, fade; moves between piles fly too). Rewinds animate backwards. A jump (tree pick) shows no effects. (r31)
 - **HIS-031** Changes show a delta tag and a number flash (about 1.5 s fade; changes in that window add up) for life, player counters, card P/T and counters, and a highlight for note, owner, face, link, text mark and step changes; for your own and the opponent's changes, live and in playback, not on jumps. (r13)
 

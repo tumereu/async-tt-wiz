@@ -1,0 +1,1 @@
+Change highlight layer alone on white for a face-down card on the Stack, before any change plays.

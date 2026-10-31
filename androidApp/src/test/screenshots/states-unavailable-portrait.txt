@@ -1,0 +1,1 @@
+Portrait table placeholder showing Table unavailable with a Reconnect button.

@@ -1,0 +1,1 @@
+Change highlight layer alone on white for a card cast onto the Stack: text mark added played forward, mid-animation.

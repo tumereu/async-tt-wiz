@@ -1,0 +1,1 @@
+Landscape game table with the chat panel open on three messages between you and your opponent.

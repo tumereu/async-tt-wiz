@@ -1,0 +1,1 @@
+Portrait table seen by player A: player B's turn, player A to move, declare blockers step, live play.

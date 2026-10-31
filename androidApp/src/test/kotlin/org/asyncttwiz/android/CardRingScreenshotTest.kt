@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -102,7 +101,10 @@ class CardRingScreenshotTest {
                 }
                 val file = File("$SCREENSHOTS/ring-$name-${listOf("middle", "hand", "opponent")[at]}-page${page + 1}.png")
                 file.parentFile!!.mkdirs()
-                captureScreenRoboImage(file.path)
+                val where = listOf("your card in the screen's middle", "your card in the bottom-right corner",
+                    "the opponent's card in the top-left corner")[at]
+                captureShot(file.path, "${name.substringBefore("-")} ${if (landscape) "landscape" else "portrait"} screen, text size ${font}x: " +
+                    "card menu for $where, on its ${listOf("Everyday", "Counters", "More")[page]} page.")
                 if (page < 2) compose.ringPage(page + 2)
             }
             compose.runOnIdle { toolkit.dismiss() }
@@ -143,7 +145,8 @@ class CardRingScreenshotTest {
         }
         val file = File("$SCREENSHOTS/ring-hand-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
-        captureScreenRoboImage(file.path)
+        captureShot(file.path, "${if (landscape) "Landscape" else "Portrait"} table: card menu for the first card in your hand, " +
+            "a single page with no page header.")
     }
 
     @Test fun handPageHasNoHeaderAndFixedCellsPortrait() { handPage(false) }

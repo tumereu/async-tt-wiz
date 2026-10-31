@@ -1,0 +1,1 @@
+Reference sheet of every card-move history icon, one per row with its name and a sample history text.

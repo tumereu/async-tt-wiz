@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -88,7 +87,8 @@ class CardFaceInspectionTest {
         compose.onNodeWithText("Daylight healer // Nightfall horror").assertIsDisplayed()
         compose.onNodeWithContentDescription("Next face").assertIsNotEnabled()
         File("$SCREENSHOTS/inspection").mkdirs()
-        captureScreenRoboImage("$SCREENSHOTS/inspection/table-inspect-back.png")
+        captureShot("$SCREENSHOTS/inspection/table-inspect-back.png",
+            "Owner inspects their transformed double-faced battlefield card in a game: the Inspect view opens on its back face, 2 of 2.")
         compose.onNodeWithContentDescription("Previous face").assertIsEnabled().performClick()
         compose.onNodeWithText("Front rules text.").assertExists()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
@@ -151,7 +151,8 @@ class CardFaceInspectionTest {
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Previous face").assertIsNotEnabled()
         File("$SCREENSHOTS/inspection").mkdirs()
-        captureScreenRoboImage("$SCREENSHOTS/inspection/deck-inspect-front.png")
+        captureShot("$SCREENSHOTS/inspection/deck-inspect-front.png",
+            "Inspecting a double-faced card from a deck outside a game: opens on the front face, 1 of 2, with face switch arrows.")
         compose.onNodeWithContentDescription("Next face").performClick()
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithText("Back rules text.").assertExists()

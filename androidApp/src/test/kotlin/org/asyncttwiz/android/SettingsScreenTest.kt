@@ -4,7 +4,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import kotlinx.coroutines.CompletableDeferred
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogMetadata
@@ -77,7 +76,7 @@ class SettingsScreenTest {
         assertEquals(order.sorted(), order)
     }
 
-    private fun capture(name: String) {
+    private fun capture(name: String, view: String) {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
         val catalog = CatalogViewModel(ApplicationProvider.getApplicationContext()).also {
@@ -90,19 +89,22 @@ class SettingsScreenTest {
             versionText = appVersionText("0.0.0", 0, "debug", "0000000")) } }
         compose.waitForIdle()
         val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
-        captureScreenRoboImage(File(directory, "$name-top.png").path)
-        for (tag in listOf("cards-settings", "playback-settings", "catalog-controls", "logout")) {
+        captureShot(File(directory, "$name-top.png").path,
+            "Settings screen $view for a signed-in player with the card catalog installed, at the top of the page.")
+        for ((tag, part) in listOf("cards-settings" to "card size settings", "playback-settings" to "timeline playback settings",
+                "catalog-controls" to "card catalog controls", "logout" to "Log out button")) {
             compose.onNodeWithTag(tag).performScrollTo()
             compose.waitForIdle()
-            captureScreenRoboImage(File(directory, "$name-$tag.png").path)
+            captureShot(File(directory, "$name-$tag.png").path,
+                "Settings screen $view for a signed-in player, scrolled to bring the $part into view.")
         }
     }
 
     // LOB-079
     @Test @Config(qualifiers = "w412dp-h2600dp-port-xhdpi")
-    fun fullPagePortraitScreenshot() = capture("settings-portrait-full")
+    fun fullPagePortraitScreenshot() = capture("settings-portrait-full", "on a very tall portrait screen")
 
     // LOB-079
     @Test @Config(qualifiers = "w892dp-h412dp-land-xhdpi")
-    fun landscapeScreenshots() = capture("settings-landscape")
+    fun landscapeScreenshots() = capture("settings-landscape", "in landscape")
 }

@@ -1,0 +1,1 @@
+Face-down Stack card after hidden note, P/T, counter and text mark changes: nothing is highlighted.

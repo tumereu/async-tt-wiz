@@ -1,0 +1,1 @@
+Portrait deck import screen with the import-from-link dialog holding an Archidekt deck address.

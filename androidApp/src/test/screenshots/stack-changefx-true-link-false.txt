@@ -1,0 +1,1 @@
+Change highlight layer alone on white for an attacking card's ability effect on the Stack: link added played forward, mid-animation.

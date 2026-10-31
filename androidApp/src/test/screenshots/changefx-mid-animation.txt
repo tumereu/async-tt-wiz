@@ -1,0 +1,1 @@
+Portrait table at the smallest card size, mid-animation: player A -3 life, player B +2, a card's P/T, red counter and note change, step to Draw.

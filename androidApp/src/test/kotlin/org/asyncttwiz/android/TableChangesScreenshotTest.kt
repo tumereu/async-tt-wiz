@@ -19,7 +19,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.test.core.app.ApplicationProvider
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -37,9 +36,9 @@ import kotlin.test.*
 class TableChangesScreenshotTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun capture(name: String): java.awt.image.BufferedImage {
+    private fun capture(name: String, caption: String): java.awt.image.BufferedImage {
         val file = File("$SCREENSHOTS/$name.png")
-        requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
+        requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureShot(file.path, caption)
         return ImageIO.read(file)
     }
 
@@ -136,7 +135,8 @@ class TableChangesScreenshotTest {
             GameplayFieldChange("edge", GameplayField.CORNER, "1/1", "3/3"),
             GameplayFieldChange("left", GameplayField.COUNTER, "0", "1", CounterColor.RED))))
         compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
-        val image = capture("changefx-smallest-card-300ms")
+        val image = capture("changefx-smallest-card-300ms", "Change tags on two smallest-size cards over stripes, 0.3 seconds in: " +
+            "+2/+2 on both, red +1 counter on one, the other in the screen corner.")
         val flashLeft = image.getRGB((left.bounds.x + 3).toInt(), (left.bounds.bottom - 3).toInt())
         val flashRight = image.getRGB((left.bounds.right - 3).toInt(), (left.bounds.bottom - 3).toInt())
         assertNotEquals(Color.White.toArgb(), flashLeft, "Value flash must remain visible at 300 ms")
@@ -149,10 +149,12 @@ class TableChangesScreenshotTest {
         compose.onRoot().performTouchInput { click(Offset(pt.center.x, pt.center.y)) }
         compose.runOnIdle { assertEquals(1, taps, "Tags must not intercept touches") }
         compose.mainClock.advanceTimeBy(550); compose.waitForIdle()
-        val held = capture("changefx-smallest-card-held")
+        val held = capture("changefx-smallest-card-held",
+            "Change tags on two smallest-size cards over stripes, 0.85 seconds in: still fully opaque during the hold.")
         assertEquals(0, changedPixels(image, held, pt), "Pill stays fully opaque throughout the hold")
         compose.mainClock.advanceTimeBy(350); compose.waitForIdle()
-        val fading = capture("changefx-smallest-card-fading")
+        val fading = capture("changefx-smallest-card-fading",
+            "Change tags on two smallest-size cards over stripes, 1.2 seconds in: fading out after the hold.")
         assertTrue(changedPixels(held, fading, pt) > 40, "Pill fades only after the hold")
     }
 
@@ -169,7 +171,9 @@ class TableChangesScreenshotTest {
         val drawing = scene.items.single { it.cardId == id }
         val changes = TableChanges { 0L }
         overlay(scene, changes)
-        val before = capture("stack-changefx-$projection-before")
+        val entry = if (projection) "an attacking card's ability effect on the Stack" else "a card cast onto the Stack"
+        val before = capture("stack-changefx-$projection-before",
+            "Change highlight layer alone on white for $entry, before any change plays.")
         val owner = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b")))
             else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
                 play.board.stackEffects.single().copy(controller = "a"), play.board.stackEffects.single()))))
@@ -187,7 +191,15 @@ class TableChangesScreenshotTest {
                 else GameplayTransition(combatStack = CombatStackTransition(removedLinks = link.combatStack!!.addedLinks))
                 else transition
             animate(changes, recorded, reverse)
-            val during = capture("stack-changefx-$projection-$name-$reverse")
+            val change = when (name) {
+                "owner" -> "controller change"
+                "note" -> "note change"
+                "text" -> "text mark added"
+                else -> if (reverse) "link removal" else "link added"
+            }
+            val played = if (reverse && name == "link") "played backwards, so a link appears" else "played ${if (reverse) "backwards" else "forward"}"
+            val during = capture("stack-changefx-$projection-$name-$reverse", "Change highlight layer alone on white for $entry: " +
+                "$change $played, mid-animation.")
             assertTrue(changedPixels(before, during, drawing.bounds) > 10, "$name must draw on the exact Stack entry (reverse=$reverse)")
             if (name == "link") {
                 val (a, b) = assertNotNull(tableChangeLinkAnchors(changes.active.values.single().change, scene.items.associateBy { it.id }::get))
@@ -204,16 +216,19 @@ class TableChangesScreenshotTest {
         val drawing = scene.items.single { it.cardId == id }
         val changes = TableChanges { 0L }
         overlay(scene, changes)
-        val before = capture("covered-changefx-before")
+        val before = capture("covered-changefx-before",
+            "Change highlight layer alone on white for a face-down card on the Stack, before any change plays.")
         animate(changes, GameplayTransition(fields = listOf(
             GameplayFieldChange(id, GameplayField.NOTE, "old", "new"),
             GameplayFieldChange(id, GameplayField.CORNER, "1/1", "2/2"),
             GameplayFieldChange(id, GameplayField.COUNTER, "0", "1", CounterColor.BLUE)),
             combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(id, emptySet(), setOf(0))))))
-        assertEquals(0, changedPixels(before, capture("covered-changefx-hidden"), TableBounds(0f, 0f, 412f, 892f)))
+        assertEquals(0, changedPixels(before, capture("covered-changefx-hidden",
+            "Face-down Stack card after hidden note, P/T, counter and text mark changes: nothing is highlighted."), TableBounds(0f, 0f, 412f, 892f)))
         compose.runOnIdle { changes.clear() }
         animate(changes, GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b"))))
-        val during = capture("covered-changefx-owner")
+        val during = capture("covered-changefx-owner",
+            "Face-down Stack card after its controller changes: only the card's border pulses.")
         assertTrue(changedPixels(before, during, drawing.bounds) > 20)
         assertEquals(0, changedPixels(before, during, drawing.bounds.let { TableBounds(it.x + 4, it.y + 4, it.width - 8, it.height - 8) }),
             "Public owner feedback must only pulse the border")
@@ -227,17 +242,21 @@ class TableChangesScreenshotTest {
         assertEquals("", hud.value)
         val changes = TableChanges { 0L }
         overlay(scene, changes)
-        val before = capture("zero-counter-changefx-before")
+        val before = capture("zero-counter-changefx-before",
+            "Change highlight layer alone on white, before player A's blue counter drops from 1 to 0.")
         animate(changes, GameplayTransition(fields = listOf(GameplayFieldChange("a", GameplayField.PLAYER_COUNTER, "1", "0", CounterColor.BLUE))))
         compose.runOnIdle { assertEquals("-1", changes.active.values.single().tag) }
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-flash"), hud.bounds) > 20)
+        assertTrue(changedPixels(before, capture("zero-counter-changefx-flash",
+            "Just after player A's blue counter drops from 1 to 0: the now empty counter slot flashes."), hud.bounds) > 20)
         compose.mainClock.advanceTimeBy(650); compose.waitForIdle()
         val tagArea = TableBounds(hud.bounds.x, hud.bounds.y - 20, hud.bounds.width + 24, 40f)
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-tag"), tagArea) > 20,
+        assertTrue(changedPixels(before, capture("zero-counter-changefx-tag",
+            "0.65 seconds after player A's blue counter drops from 1 to 0: the flash is over, a -1 tag stays beside the empty slot."), tagArea) > 20,
             "The tag must outlive the flash on the empty counter slot")
         compose.mainClock.advanceTimeBy(900); compose.waitForIdle()
         compose.runOnIdle { assertTrue(changes.active.isEmpty()) }
-        assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired"), TableBounds(0f, 0f, 412f, 892f)))
+        assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired",
+            "Change highlight layer alone on white after player A's blue counter change has expired: nothing is drawn."), TableBounds(0f, 0f, 412f, 892f)))
     }
 
     // HIS-031, TBL-033
@@ -253,12 +272,7 @@ class TableChangesScreenshotTest {
             TableSurface(LiveTableFixture.game, play, "a", false, runtime = TableRuntimeHooks(changes = changes))
         } }
         compose.waitForIdle()
-        fun capture(name: String): java.awt.image.BufferedImage {
-            val file = File("$SCREENSHOTS/$name.png")
-            requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
-            return ImageIO.read(file)
-        }
-        val before = capture("changefx-before")
+        val before = capture("changefx-before", "Portrait table at the smallest card size, before any change plays.")
         compose.mainClock.autoAdvance = false
         compose.runOnIdle {
             fun apply(vararg fields: GameplayFieldChange) = changes.apply(TableChangeBatch(listOf(TableAppliedEvent(
@@ -274,7 +288,8 @@ class TableChangesScreenshotTest {
         }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.mainClock.advanceTimeBy(300); compose.waitForIdle()
-        val during = capture("changefx-mid-animation")
+        val during = capture("changefx-mid-animation", "Portrait table at the smallest card size, mid-animation: player A -3 life, player B +2, " +
+            "a card's P/T, red counter and note change, step to Draw.")
         fun changedPixels(bounds: TableBounds): Int {
             var count = 0
             for (x in bounds.x.toInt().coerceAtLeast(0) until bounds.right.toInt().coerceAtMost(before.width))

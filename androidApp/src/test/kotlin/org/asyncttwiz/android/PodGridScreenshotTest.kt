@@ -11,7 +11,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import coil3.asImage
 import coil3.memory.MemoryCache
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.PodGridView as GridViewData
 import org.asyncttwiz.storage.ArtworkReference
@@ -124,7 +123,8 @@ class PodGridScreenshotTest {
         val directory = File("$SCREENSHOTS").also { it.mkdirs() }
         compose.waitForIdle()
         val rootFile = File(directory, "pod-grid-none.png")
-        compose.onRoot().captureRoboImage(rootFile.path)
+        compose.onRoot().captureShot(rootFile.path, "Grid draft for three, Alice to pick, nothing selected: live grid (refilled row, " +
+            "Carol's column taken) above a finished grid with crossing pick bands.")
         // Bands frame each picked line: just left of a card is its band colour. Where Bob's column 2 crosses Alice's
         // later row 3, Bob's earlier band lies on top.
         val root = ImageIO.read(rootFile)
@@ -141,7 +141,8 @@ class PodGridScreenshotTest {
         assertTrue(leftOf("pod-grid-grid-0-slot-0") != colors.getValue("bob").toArgb()) // the refilled row has no band
         // The frame hugs the art: right inside the 1dp border at the top and bottom edge is card, not slot background.
         val slotFile = File(directory, "pod-grid-slot.png")
-        compose.onNodeWithTag("pod-grid-grid-0-slot-4").captureRoboImage(slotFile.path)
+        compose.onNodeWithTag("pod-grid-grid-0-slot-4").captureShot(slotFile.path,
+            "Close-up of one live Grid draft card Carol took, framed tightly by her pick band colour.")
         val image = ImageIO.read(slotFile)
         val border = (1 * RuntimeEnvironment.getApplication().resources.displayMetrics.density).toInt()
         listOf(border + 1, image.height - border - 2).forEach { y ->
@@ -155,10 +156,12 @@ class PodGridScreenshotTest {
         compose.onNodeWithContentDescription("Select row 3").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage(File(directory, "pod-grid-row.png").path)
+        compose.onRoot().captureShot(File(directory, "pod-grid-row.png").path,
+            "Three-player Grid draft after Alice taps to select row 3 of the live grid.")
         compose.onNodeWithContentDescription("Select column 3").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage(File(directory, "pod-grid-column.png").path)
+        compose.onRoot().captureShot(File(directory, "pod-grid-column.png").path,
+            "Three-player Grid draft after Alice selects row 3 of the live grid, then taps to select column 3.")
     }
 }

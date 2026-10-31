@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -192,7 +191,32 @@ class TableStatesScreenshotTest {
         assertTrue(sent.isEmpty())
         val file = File("$SCREENSHOTS/states-$kind-${if (landscape) "landscape" else "portrait"}.png")
         file.parentFile!!.mkdirs()
-        captureScreenRoboImage(file.path)
+        val combat = "in combat at declare attackers"
+        val shown = when (kind) {
+            "combat" -> "$combat, both your attackers selected, one blocked; the Stack holds an effect and a card"
+            "combat-targets" -> "$combat, the first attack aimed at the opponent's Jace Beleren planeswalker, in its own lane"
+            "stack-bubbles" -> "$combat, action bubbles open on the top Stack effect, its second rules paragraph marked"
+            "stack-preview" -> "$combat, holding the Stack effect's Mark text bubble and dragging down: paragraph preview shows"
+            "tokens" -> "$combat, where your attacker, the opponent's blocker and one hand card are tokens"
+            "tokens-small" -> "$combat with several tokens, zoomed out as far as possible"
+            "tokens-contents" -> "$combat with several tokens, after tapping the two-entry Stack"
+            "tokens-menu" -> "$combat with several tokens, card menu open on your token attacker"
+            "tokens-inspector" -> "$combat with several tokens, Inspect view open for your token attacker"
+            "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
+            "stack-menu-card" -> "$combat in Select mode, card menu open on the card on the Stack"
+            "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
+            "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
+            "history-start" -> "reviewing history at the game's start, auto-advance off"
+            "history-playing" -> "reviewing history from the third event with auto-advance playing"
+            "history-paused" -> "reviewing history paused at the third event"
+            "history-end" -> "reviewing history at the latest event, auto-advance off"
+            "continue" -> "reviewing history at the third event, after holding Auto to continue playing from there"
+            "tree-viewer" -> "reviewing history at the third event with the history tree viewer open"
+            "placeholder" -> "placeholder showing Loading table… with a spinner"
+            "unavailable" -> "placeholder showing Table unavailable with a Reconnect button"
+            else -> error("No caption for $kind")
+        }
+        captureShot(file.path, "${if (landscape) "Landscape" else "Portrait"} table $shown.")
         if (kind == "stack-preview") {
             compose.onNodeWithContentDescription("Stack text drag preview").assertIsDisplayed()
             compose.onNodeWithText("A literal third paragraph.").assertIsDisplayed()
@@ -284,7 +308,8 @@ class TableStatesScreenshotTest {
             "The inspection popup must belong to the manage dialog, not the activity underneath it")
         val file = File("$SCREENSHOTS/manage-stack-inspection-portrait.png")
         file.parentFile!!.mkdirs()
-        captureScreenRoboImage(file.path)
+        captureShot(file.path, "Manage Stack dialog in combat with two entries, holding the top row: " +
+            "its card peek opens above the dialog.")
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
@@ -320,7 +345,8 @@ class TableStatesScreenshotTest {
         val inspect = compose.onAllNodesWithContentDescription("Your Stack entry").onFirst().fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single { it.label == "Inspect" }
         compose.runOnIdle { assertTrue(inspect.action()) }
-        captureScreenRoboImage("$SCREENSHOTS/ring-stack-inspection.png")
+        captureShot("$SCREENSHOTS/ring-stack-inspection.png", "Portrait table in combat: after double-tapping the top Stack effect " +
+            "into Manage Stack, its Inspect view open with the marked paragraph.")
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
         compose.onNode(hasText("Return target permanent to its owner's hand.") and
             hasAnyAncestor(hasContentDescription("Card inspection content"))).performScrollTo().assertIsDisplayed()

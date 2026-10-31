@@ -1,0 +1,1 @@
+Change highlight layer alone on white for a card cast onto the Stack: link removal played backwards, so a link appears, mid-animation.

@@ -1,0 +1,1 @@
+Portrait table placeholder showing Loading table… with a spinner.

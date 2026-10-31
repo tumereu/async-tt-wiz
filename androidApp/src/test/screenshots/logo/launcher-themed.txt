@@ -1,0 +1,1 @@
+Home-screen app icon drawn large with a themed (single-colour, round) launcher mask.

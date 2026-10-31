@@ -10,7 +10,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -42,10 +41,10 @@ class TableInteractionsScreenshotTest {
     }
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private fun capture(name: String) {
+    private fun capture(name: String, caption: String) {
         val file = File("$SCREENSHOTS/interactions-$name.png")
         file.parentFile!!.mkdirs()
-        captureScreenRoboImage(file.path)
+        captureShot(file.path, caption)
     }
 
     private fun menu(width: Float, height: Float, font: Float) {
@@ -55,14 +54,16 @@ class TableInteractionsScreenshotTest {
             toolkit.openCard(TableScope(id, listOf(id)))
         }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font")
+        val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table in combat, " +
+            "text size ${font}x: card menu on your attacking Meadow Sentinel"
+        capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen, opened on its Everyday page.")
         for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Temp 1")) {
             compose.ringPage(page)
             compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed()
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= (if (label.startsWith("Decrease")) 24f else 48f) && bounds.height >= 48f, "$label retains its widget target")
         }
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font-move")
+        capture("menu-${width.toInt()}x${height.toInt()}-font$font-move", "$screen, after paging through to its More page.")
         assertTrue(sent.isEmpty())
     }
 
@@ -100,7 +101,9 @@ class TableInteractionsScreenshotTest {
         }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.mainClock.advanceTimeByFrame()
         try {
-            capture(if (hand) "hand-insertion" else "landing-lands")
+            capture(if (hand) "hand-insertion" else "landing-lands", "Portrait table in combat, dragging a hand card " +
+                (if (hand) "to the right end of your hand: an insertion line shows where it would go."
+                else "onto your battlefield's lands row: landing placeholders show where it would go."))
             assertTrue(sent.isEmpty(), "A preview never submits a move")
         } finally {
             compose.onNodeWithContentDescription("Shared table").performTouchInput { cancel() }

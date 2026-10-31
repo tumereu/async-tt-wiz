@@ -5,7 +5,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -63,7 +62,8 @@ class BoardPresentationTest {
 
         val output = File("$SCREENSHOTS/board-notes-stack-${zoom.toInt()}x.png")
         output.parentFile.mkdirs()
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureShot(output.path, "Portrait table at ${if (zoom > 1f) "2x zoom, panned" else "normal zoom"}: " +
+            "three-effect Stack; note chips and blue counters on a battlefield card, a looked-at library card and the graveyard's top card.")
         val image = ImageIO.read(output)
         for (item in listOf(panel, scene.items.single { it.cardId == source })) {
             val b = item.bounds

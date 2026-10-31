@@ -89,7 +89,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
         decode(call(HttpMethod.Put, "/account/settings", AccountJson.format.encodeToString(settings), token))
 
     internal suspend fun uploadCrashReport(token: String, report: org.asyncttwiz.protocol.CrashReport): Boolean {
-        if (!BuildConfig.DIAGNOSTICS) return false
+        if (!Diagnostics.enabled) return false
         // Keep the complete trace locally, but don't send bodies the server would discard anyway.
         val bytes = report.body.toByteArray(Charsets.UTF_8)
         val body = Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.IGNORE)

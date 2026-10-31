@@ -23,8 +23,9 @@ import org.asyncttwiz.server.database.OwnershipFailure
 
 /** Public: works before login (update gate). A valid session only attaches the account. No read route. */
 class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRuntime, private val clock: Clock = Clock.systemUTC(),
-    private val retained: Int = System.getenv("PROBLEM_REPORT_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 200,
-    private val limits: AccountRateLimits = AccountRateLimits()) {
+    private val retained: Int = ProblemReportLimits.fromEnvironment().total,
+    private val limits: AccountRateLimits = AccountRateLimits(),
+    private val retainedPerAccount: Int = ProblemReportLimits.fromEnvironment().perAccount) {
     private val accounts = AccountService(runtime)
     private val random = SecureRandom()
 
@@ -100,6 +101,11 @@ class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRu
                 it.executeUpdate()
             }
         } while (inserted == 0)
+        if (account != null) connection.prepareStatement("""
+            DELETE FROM problem_report WHERE id IN (
+                SELECT id FROM problem_report WHERE account_id = ? ORDER BY id DESC OFFSET ?
+            )
+        """.trimIndent()).use { it.setObject(1, account); it.setInt(2, retainedPerAccount); it.executeUpdate() }
         connection.prepareStatement("""
             DELETE FROM problem_report WHERE id IN (
                 SELECT id FROM problem_report ORDER BY id DESC OFFSET ?

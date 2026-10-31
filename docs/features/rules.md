@@ -42,7 +42,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-027** Every event stores exactly how to apply and revert it, checked against the current values. Timeline stepping, undo and opponent animations move step by step from the current position. (r6)
 - **SYS-028** Background lobby refreshes never redraw the open game table. (r30)
 - **SYS-029** Every single-tap menu opens immediately, without waiting out the double-tap window. (r8)
-- **SYS-030** Test and debug builds record every action that took over 20 ms or had to wait for the server, plus stutters and reconnects, and upload them as reports. Production builds do not. (r30)
+- **SYS-030** Test and debug builds record every action that took over 20 ms or had to wait for the server, plus stutters and reconnects, and upload them as reports. Production builds do the same only after the player turned reports on (LOB-104). (r35)
 
 ### Versions and compatibility
 

@@ -22,7 +22,7 @@ internal class SessionHistoryReview(private val scope: SessionScope, reviewWorke
     /** Personal read-only review, including offline. Cold replay and cursor persistence are worker
      * work; account/incarnation/clear fences are checked before disk and again before UI delivery. */
     fun review(gameId: String, nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean {
-        val timing = if (BuildConfig.DIAGNOSTICS) DebugLatency.begin(gameId, "HistoryReview",
+        val timing = if (Diagnostics.enabled) DebugLatency.begin(gameId, "HistoryReview",
             (replicaOf(gameId)?.tree?.tree?.nodes?.size ?: 0) + 1) else null
         checkAccount()
         val retained = replicaOf(gameId)?.tree?.tree ?: return false

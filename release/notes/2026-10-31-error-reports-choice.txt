@@ -1,0 +1,1 @@
+add: The app asks once whether to send automatic error reports when it crashes, runs slowly or loses its connection; you can change this any time in Settings.

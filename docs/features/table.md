@@ -131,7 +131,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1–4, Discard random, Reveal random, Exile random, Random to library bottom. (r28)
 - **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" puts it on the Stack face down and it resolves straight onto the battlefield as a face-down 2/2. (r21)
 - **TBL-091** The combat copy menu has Inspect, Note, Ping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link and Links, and nothing that changes the real card (tap the real card for that). (r28)
-- **TBL-092** The Stack effect marker menu has Inspect, Note, Ping, Remove Stack effect, Link and Links. (r28)
+- **TBL-092** The Stack effect marker menu has Inspect, Note, Ping, Remove Stack effect, Link and Links. (r28) (?) the app has no way to open it; to be replaced (see backlog)
 
 ### Card state rules
 

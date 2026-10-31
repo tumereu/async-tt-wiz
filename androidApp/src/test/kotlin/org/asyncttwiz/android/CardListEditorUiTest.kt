@@ -283,6 +283,7 @@ class PodCubePreparationTest {
     private var cube = PodCube("Runes", listOf(SavedCubeEntry(bearDigest, 3), SavedCubeEntry(boltDigest, 1, SavedDeckSection.MAYBEBOARD)))
     private val moves = mutableListOf<MovePodCubeCards>()
     private var refused = false
+    private var offline = false
     private val api = Proxy.newProxyInstance(Pods::class.java.classLoader, arrayOf(Pods::class.java)) { _, method, args ->
         when (method.name) {
             "cube" -> cube
@@ -330,6 +331,61 @@ class PodCubePreparationTest {
         compose.onNodeWithText("The move was not saved. The cube was reloaded.").assertIsDisplayed()
         compose.onNodeWithTag("prepare-cube-done").performClick()
         compose.runOnIdle { assertFalse(preparation.state.open); assertEquals(1, refreshed) }
+    }
+
+    /** Runs queued pod work only when the test says so. */
+    private class Queued : AbstractExecutorService() {
+        val tasks = ArrayDeque<Runnable>()
+        override fun execute(command: Runnable) { tasks.addLast(command) }
+        fun runAll() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
+        fun runOne() { tasks.removeFirst().run() }
+        override fun shutdown() = Unit
+        override fun shutdownNow() = mutableListOf<Runnable>()
+        override fun isShutdown() = false
+        override fun isTerminated() = false
+        override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
+    }
+
+    /** [api] that can't reach the server while [offline] (a proxy would wrap the checked failure). */
+    private val unreachable = object : Pods by api {
+        override suspend fun cube(token: String, id: String): PodCube =
+            if (offline) throw PodFailure("network") else api.cube(token, id)
+        override suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube =
+            if (offline) throw PodFailure("network") else api.moveCube(token, id, input)
+    }
+
+    // DRF-142, LOB-049, LOB-050: a move that can't reach the server makes Prepare cube read-only until the cube reloads.
+    @Test fun anUnreachableServerMakesPrepareCubeReadOnlyUntilItsCubeReloads() {
+        val worker = Queued()
+        val preparation = PodCubePreparation(unreachable, { "token" }, worker, { it() }, wait = {}) {}
+        preparation.open("00000000-0000-4000-8000-000000000001")
+        worker.runAll()
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { if (preparation.state.open) PodCubePreparationScreen(preparation) } } }
+        compose.onNodeWithText("Disconnected · preparation is read-only").assertDoesNotExist()
+        compose.onNodeWithTag("prepare-cube-card-MAINBOARD/$bearDigest").performTouchInput { swipeLeft() }
+        compose.runOnIdle { worker.runAll() }
+        compose.onNodeWithTag("prepare-cube-undo").assertIsEnabled()
+        offline = true
+        compose.onNodeWithTag("prepare-cube-card-MAINBOARD/$bearDigest").performTouchInput { swipeLeft() }
+        compose.runOnIdle { worker.runOne(); assertEquals(1L, preparation.state.count(SavedDeckSection.MAINBOARD)) }
+        compose.onNodeWithText("Disconnected · preparation is read-only").assertIsDisplayed()
+        // Read-only: nothing moves, the menu's moves are disabled and there is nothing left to undo.
+        compose.onNodeWithTag("prepare-cube-undo").assertDoesNotExist()
+        compose.runOnIdle { assertFalse(preparation.move(bearDigest, SavedDeckSection.MAINBOARD, false)) }
+        compose.onNodeWithTag("prepare-cube-card-MAINBOARD/$bearDigest").performTouchInput { click() }
+        compose.onNodeWithText("Move to Maybeboard").assertIsNotEnabled()
+        compose.onNodeWithText("Inspect").assertIsEnabled()
+        // Still unreachable: it keeps trying, one attempt per task.
+        compose.runOnIdle { worker.runOne(); assertEquals(1, worker.tasks.size); assertFalse(preparation.state.connected) }
+        offline = false
+        compose.runOnIdle { worker.runAll() }
+        compose.onNodeWithText("Disconnected · preparation is read-only").assertDoesNotExist()
+        compose.runOnIdle {
+            assertTrue(preparation.state.connected)
+            // The server's cube is shown: the failed move never happened.
+            assertEquals(2L, preparation.state.count(SavedDeckSection.MAINBOARD))
+            assertEquals(1, moves.size)
+        }
     }
 
     private object Dropping : AbstractExecutorService() {

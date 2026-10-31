@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.UUID
 import java.util.concurrent.ExecutorService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.protocol.*
 
@@ -16,7 +17,9 @@ data class PodCubeMove(val definition: String, val from: SavedDeckSection, val q
 
 data class PodCubePreparationState(val pod: String? = null, val cube: PodCube? = null,
     val definitions: Map<String, CardDefinition> = emptyMap(), val loading: Boolean = false, val error: String? = null,
-    val feedback: TransferFeedback? = null, val undo: List<PodCubeMove> = emptyList()) {
+    val feedback: TransferFeedback? = null, val undo: List<PodCubeMove> = emptyList(),
+    /** False while the server can't be reached after a move: the screen is read-only (LOB-050). */
+    val connected: Boolean = true) {
     val open get() = pod != null
     fun count(section: SavedDeckSection) = cube?.entries.orEmpty().filter { it.section == section }.sumOf { it.quantity.toLong() }
 }
@@ -37,16 +40,21 @@ internal fun PodCube.moved(move: PodCubeMove): PodCube? {
 /**
  * Prepare cube (DRF-141): the pod creator moves cards between the pod's Main and Maybe before drafting. The server's
  * prepared cube is the truth; moves show at once and are sent in order, and the accepted cube is adopted when none is
- * left in flight. Undo sends the inverse move. [changed] refreshes the pod (its source counts and supply).
+ * left in flight. Undo sends the inverse move. [changed] refreshes the pod (its source counts and supply). A move that
+ * can't reach the server makes the screen read-only ("Disconnected", LOB-050) until the cube reloads; it is tried
+ * again every [RECONNECT_MILLIS], each attempt [wait]ing first.
  */
 class PodCubePreparation(private val api: Pods, private val credential: () -> String?,
-    private val worker: ExecutorService, private val post: (() -> Unit) -> Unit, private val changed: () -> Unit) {
+    private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
+    private val wait: suspend (Long) -> Unit = { delay(it) }, private val changed: () -> Unit) {
+    companion object { const val RECONNECT_MILLIS = 5_000L }
     var state by mutableStateOf(PodCubePreparationState())
         private set
     val inspection = CardInspectionController()
     @Volatile private var epoch = 0L
     private var inFlight = 0
     private var serial = 0L
+    private var reconnecting = false
 
     fun open(pod: String) {
         val token = credential() ?: return
@@ -77,7 +85,7 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     }
 
     /** Forgets the screen without refreshing the pod (sign-out, pod change). */
-    fun reset() { epoch++; inspection.close(); inFlight = 0; state = PodCubePreparationState() }
+    fun reset() { epoch++; inspection.close(); inFlight = 0; reconnecting = false; state = PodCubePreparationState() }
 
     fun dismissError() { state = state.copy(error = null) }
 
@@ -93,6 +101,7 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
 
     private fun send(move: PodCubeMove, undoable: Boolean): Boolean {
         val pod = state.pod ?: return false
+        if (!state.connected) return false
         val token = credential() ?: return false
         val cube = state.cube?.moved(move) ?: return false
         val generation = epoch
@@ -103,19 +112,44 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
         val request = MovePodCubeCards(UUID.randomUUID().toString(), move.definition, move.from, move.quantity)
         worker.execute {
             if (generation != epoch) return@execute
-            val outcome = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.moveCube(token, pod, request) } } }
+            val outcome = runCatching { runBlocking { serviceRetry(wait, current = { generation == epoch }) { api.moveCube(token, pod, request) } } }
             post {
                 if (generation != epoch) return@post
                 inFlight--
                 outcome.onSuccess { accepted -> if (inFlight == 0) state = state.copy(cube = accepted) }
-                outcome.onFailure {
-                    // The shown cube no longer matches the server's: start again from the accepted one.
-                    state = state.copy(undo = emptyList(), error = "The move was not saved. The cube was reloaded.")
-                    reload(pod, token, generation)
+                outcome.onFailure { failure ->
+                    if (transientServiceFailure(failure)) {
+                        // Unreachable: read-only until the server's cube can be read again, then that one is shown.
+                        state = state.copy(undo = emptyList(), connected = false)
+                        reconnect(pod, token, generation)
+                    } else {
+                        // The shown cube no longer matches the server's: start again from the accepted one.
+                        state = state.copy(undo = emptyList(), error = "The move was not saved. The cube was reloaded.")
+                        reload(pod, token, generation)
+                    }
                 }
             }
         }
         return true
+    }
+
+    /** One reload attempt per worker task, so other pod work runs between attempts. */
+    private fun reconnect(pod: String, token: String, generation: Long) {
+        if (reconnecting) return
+        reconnecting = true
+        worker.execute {
+            if (generation != epoch) return@execute
+            val outcome = runCatching { runBlocking { wait(RECONNECT_MILLIS); api.cube(token, pod) } }
+            post {
+                if (generation != epoch) return@post
+                reconnecting = false
+                outcome.onSuccess { if (inFlight == 0) state = state.copy(cube = it, connected = true) else reconnect(pod, token, generation) }
+                outcome.onFailure { failure ->
+                    if (transientServiceFailure(failure)) reconnect(pod, token, generation)
+                    else state = state.copy(connected = true, error = "The cube could not be loaded. Go back and try again.")
+                }
+            }
+        }
     }
 
     private fun reload(pod: String, token: String, generation: Long) {

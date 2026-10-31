@@ -23,17 +23,35 @@ decks keep their read-only view and "Save as deck" (LOB-055, LOB-057).
 
 ## Editor (decks and cubes)
 
-One screen with two tabs.
+One screen with two tabs, **Cards** and **Text**, and one full-width **Save** at the bottom.
 
-- **Cards**: a search bar over the local card catalog with results as card pictures, and the list
-  being edited. A section selector (Main / Side / Maybe) says where tapped results go: tapping a result
-  adds one copy there; holding previews. In the list, swiping a card sideways moves one copy to the next
-  section (as in preparation, LOB-048); tapping gives −/+, "Move to…" and Inspect.
-- **Text**: the raw decklist, editable as today (LOB-059–LOB-062), with Main/Sideboard/Maybeboard headers.
-  Import from a link (Archidekt for decks, Cube Cobra for cubes) replaces the list. **Merge import is
-  removed** (LOB-065).
-- Changes are kept only by an explicit **Save** (both tabs). Leaving with unsaved changes asks
-  "Discard unsaved changes?" (Keep editing / Discard), as LOB-064 does today.
+**Cards tab (the list)**
+- The list as pictures by section (decks Main / Side / Maybe, cubes Main / Maybe), grouped in the shared
+  type order (SYS-051) with ×N badges.
+- Swipe a card sideways: move one copy to the next section (as in preparation, LOB-048).
+- Tap a card: a small menu with +1, −1, Remove all, Move to…, Inspect. Hold: preview (SYS-049).
+- A round **Add cards** button at the bottom left opens search.
+
+**Search page** (full screen, from Add cards)
+- Top: the search field and quick filter chips (colours, card types, mana value). Middle: results as
+  pictures. Bottom, within thumb reach: a **Main | Side | Maybe** button group (cubes: Main | Maybe)
+  choosing where added cards go, then **Done · +N cards**.
+- Each result shows an **×N chip** with its copies in the chosen section, plus small counts for other
+  sections that have copies (e.g. "S2").
+- Tap a result: add one copy to the chosen section (its chip counts up with a short pulse). Tap the ×N
+  chip: remove one copy from that section. Hold: preview.
+- Search as often as you like and switch the destination at any time; the destination is remembered for
+  the rest of the edit session and starts at Main each time the editor opens. Done or Back returns to the
+  list with every change kept.
+
+**Text tab**
+- The raw decklist, editable as today (LOB-059–LOB-062), with Main/Sideboard/Maybeboard headers. Import
+  from a link (Archidekt for decks, Cube Cobra for cubes) replaces the list. **Merge import is removed**
+  (LOB-065).
+
+**Saving**
+- Changes in either tab are kept only by **Save**. Leaving with unsaved changes asks "Discard unsaved
+  changes?" (Keep editing / Discard), as LOB-064 does today.
 - Importing keeps maybeboards instead of skipping them: text-list Maybeboard sections, Archidekt's
   maybeboard and Cube Cobra's maybeboard go to **Maybe** (LOB-062, DRF-005, DRF-009 change). Cube Cobra
   basics are ignored. The cube editor's "Include sideboard" checkbox goes: a pasted cube list's

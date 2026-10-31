@@ -15,7 +15,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 - The saved cube screen shows the cards in the same picture view as saved decks, with more columns by default (number to decide). (DRF-010, LOB-056)
 - Pod rows everywhere (main menu Pods panel, Pods screen, side menu) show the side menu's compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone). (DRF-012, DRF-014, DRF-015)
 - Notifications use a proper single-colour app icon (the logo's silhouette) as their status-bar icon instead of Android's generic info icon. (LOB-072)
-- Switching a card's face (either direction) also sets its corner to the new face's printed value: P/T, loyalty for planeswalkers, defense for battles, 1 for sagas, empty when the face has none; one Undo takes back both. New rules version; recorded events keep their old behaviour. (TBL-076, SYS-031)
 
 ## Specified, not started
 

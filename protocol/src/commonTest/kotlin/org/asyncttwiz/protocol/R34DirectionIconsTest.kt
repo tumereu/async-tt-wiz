@@ -15,7 +15,7 @@ class R34DirectionIconsTest {
 
     @Test fun directionIconsAreRulesVersion34() {
         assertEquals(34, HistoryGrouping.DIRECTION_ICONS_RULES_VERSION)
-        assertEquals(HistoryGrouping.DIRECTION_ICONS_RULES_VERSION, CURRENT_GAMEPLAY_RULES_VERSION)
+        assertTrue(HistoryGrouping.DIRECTION_ICONS_RULES_VERSION <= CURRENT_GAMEPLAY_RULES_VERSION)
         assertTrue(HistoryGrouping.STEP_RUN_RULES_VERSION < HistoryGrouping.DIRECTION_ICONS_RULES_VERSION)
     }
 

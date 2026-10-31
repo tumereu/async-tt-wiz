@@ -106,7 +106,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Face down/up, Switch face, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r34)
 - **TBL-074** "Stack" puts the card on the Stack; "Declare" declares it in combat without tapping it, and becomes "Attack →" once the card is a declared attacker. (r28)
 - **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
-- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. (r13)
+- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
 
 ### Counters page

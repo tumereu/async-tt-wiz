@@ -202,8 +202,8 @@ class StackProjectionJourneyTest {
                 }
     }
 
-    // STK-003
-    @Test fun oldClientRealStackRequestIsRefusedAndChangesNothing() = Journey().use { j ->
+    // STK-003, SYS-053
+    @Test fun oldClientRealStackRequestIsRefusedWithItsMessageAndChangesNothing() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
         val card = j.f.card(40)
         val before = j.f.play
@@ -211,6 +211,7 @@ class StackProjectionJourneyTest {
         // Deliberate old-client wire request: the production UI no longer constructs this path.
         assertFalse(j.f.lobby.gameplay(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
             MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP), GameplayRules.stackDigest(j.f.play))))
+        assertEquals(refusalText(RuleRefusals.REAL_CARD_ON_STACK), j.f.lobby.state.connectionMessage)
         assertEquals(sent, j.f.commands().size)
         assertEquals(before, j.f.play)
     }

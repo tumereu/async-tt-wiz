@@ -137,10 +137,13 @@ data class GameplayChange(val state: PlayState? = null, val mutation: GameplayMu
     val outcome: String get() = if (reason != null) "rejected" else if (mutation == null) "noOp" else "accepted"
 }
 
-/** Refusal reasons for actions the rules don't allow. */
+/** SYS-053: refusal reasons for actions the rules don't allow; the app shows each with a message saying why. */
 object RuleRefusals {
     /** Anything that would put a real card into the Stack (STK-003); only entries pointing at it go there. */
     const val REAL_CARD_ON_STACK = "realCardOnStack"
+    /** Damage or an until-end-of-turn mark (or a note) on a card that isn't on the Battlefield. */
+    const val OFF_BATTLEFIELD = "offBattlefield"
+    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD)
 }
 
 /** The sole gameplay processor, used for volatile prediction and authoritative execution alike. */

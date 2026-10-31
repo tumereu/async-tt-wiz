@@ -29,7 +29,7 @@ class TurnMarksTest {
     })) }
 
     @Test fun literalAndRelativeEditsReplayWithIndependentPermanentValues() {
-        // Battlefield only: a real card is never in the Stack (STK-003, see R13RulesTest).
+        // Battlefield only: off the Battlefield these are refused (SYS-053, see R13RulesTest).
         run {
             val zone = PlayZone.BATTLEFIELD
             var current = state(zone)

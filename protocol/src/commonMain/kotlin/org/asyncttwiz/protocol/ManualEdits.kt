@@ -104,10 +104,28 @@ object ManualEditRules {
                     blockers = pair.blockers.map { if (it.id == id) it.copy(note = value) else it }) }) })
             return GameplayRules.record(state, actor, command, next, GameplayTransition(), rulesVersion = rulesVersion)
         }
+        offBattlefield(state.board, action)?.let { return GameplayChange(reason = it) }
         val transition = transition(state, actor, action, rulesVersion) ?: return GameplayChange(reason = "inapplicable")
         if (transition.fields.isEmpty() && transition.disclosures.isEmpty()) return GameplayChange(state)
         return GameplayRules.record(state, actor, command, apply(state.board, transition.fields), transition,
             rulesVersion = rulesVersion)
+    }
+
+    /** SYS-053: damage, the until-end-of-turn marks (EOT P/T, EOT note and EOT keywords) and notes (keywords) go
+     * only on a card on the Battlefield; on any other card they are refused with a reason, never ignored. */
+    private fun offBattlefield(board: BoardState, action: PlayAction.Manual): String? {
+        val id = when (action) {
+            is PlayAction.SetDamage -> action.cardId
+            is PlayAction.AdjustDamage -> action.cardId
+            is PlayAction.SetEotCorner -> action.cardId
+            is PlayAction.AdjustEotCorner -> action.cardId
+            is PlayAction.SetEotNote -> action.cardId
+            is PlayAction.SetNote -> action.cardId
+            else -> return null
+        }
+        val card = board.cards.singleOrNull { it.id == id } ?: return null
+        val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return null
+        return RuleRefusals.OFF_BATTLEFIELD.takeIf { zone != PlayZone.BATTLEFIELD }
     }
 
     private fun transition(state: PlayState, actor: String, action: PlayAction.Manual, rulesVersion: Int): GameplayTransition? {
@@ -150,10 +168,6 @@ object ManualEditRules {
         }
         val card = board.cards.singleOrNull { it.id == id } ?: return null
         val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return null
-        // Notes, damage and the EOT marks go only on Battlefield cards: a real card is never in the Stack (STK-003).
-        if ((action is PlayAction.SetDamage || action is PlayAction.AdjustDamage || action is PlayAction.SetEotCorner ||
-                action is PlayAction.AdjustEotCorner || action is PlayAction.SetEotNote || action is PlayAction.SetNote) &&
-            zone != PlayZone.BATTLEFIELD) return null
         if ((action is PlayAction.SetCorner || action is PlayAction.AdjustCorner || action is PlayAction.ResetCorner ||
                 action is PlayAction.SetOwner) && zone != PlayZone.BATTLEFIELD) return null
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()

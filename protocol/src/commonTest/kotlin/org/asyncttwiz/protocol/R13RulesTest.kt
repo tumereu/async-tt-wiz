@@ -86,8 +86,8 @@ class R13RulesTest {
         assertEquals("", s.board.cards.single { it.id == id(20) }.note)
     }
 
-    // TBL-094
-    @Test fun manualEditsAreZoneRestrictedToTheBattlefield() {
+    // TBL-094, SYS-053
+    @Test fun manualEditsAreZoneRestrictedAndOffBattlefieldNotesAndMarksAreRefusedWithAReason() {
         for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD && it != PlayZone.STACK }) {
             val s = exact(root(), move(root(), zone)).state!!
             for (edit in listOf(PlayAction.SetCorner(id(20), "4/4"), PlayAction.AdjustCorner(id(20), CornerPart.BOTH, 1),
@@ -98,7 +98,7 @@ class R13RulesTest {
             for (edit in listOf(PlayAction.SetNote(id(20), "target"), PlayAction.SetDamage(id(20), "2"),
                 PlayAction.AdjustDamage(id(20), "1"), PlayAction.SetEotCorner(id(20), "+1/+1"),
                 PlayAction.AdjustEotCorner(id(20), CornerPart.LEFT, 1), PlayAction.SetEotNote(id(20), "flying")))
-                assertEquals("inapplicable", change(s, edit).reason, "$zone $edit")
+                assertEquals(RuleRefusals.OFF_BATTLEFIELD, change(s, edit).reason, "$zone $edit")
         }
     }
 

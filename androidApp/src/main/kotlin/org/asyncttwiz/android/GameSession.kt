@@ -64,10 +64,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val summaries = mutableMapOf<String, GameSummary>()
     private val unavailableGames = mutableSetOf<String>()
     private val pending = linkedMapOf<String, GameCommand>()
-    private data class PreparationReplica(val revision: String, val state: LobbyPreparation)
-    private data class Selection(val command: GameCommand, val actor: String, val source: SavedDeck,
-        val definitions: List<SubmittedDefinition>, var commitRevision: String? = null)
-    private val preparations = mutableMapOf<String, PreparationReplica>()
+    private val preparations = PreparationIntents()
     private val ownPodDeckNames = mutableMapOf<String, String>()
     fun ownPodDeckName(gameId: String): String? = ownPodDeckNames[gameId]
     /** The opponent's presence per game while this connection is up; dropped on disconnect so it never goes stale. */
@@ -121,23 +118,6 @@ class GameSession(private val connection: GameConnection, private val credential
         error = null; flush(); statusChanged(); return true
     }
     private val acceptedRevisions = mutableMapOf<String, String>()
-    private data class Readiness(val command: GameCommand, val actor: String, var commitRevision: String? = null)
-    private val readiness = linkedMapOf<String, Readiness>()
-    private val selections = linkedMapOf<String, Selection>()
-    private data class Transfer(val command: GameCommand, val actor: String,
-        var commitRevision: String? = null, var withdrawn: Boolean = false)
-    private data class Captured(val intent: PreparedTransfer, val actor: String, var entry: Int = 0, var offset: Int = 0) {
-        fun remaining() = intent.copy(entries = intent.entries.drop(entry).mapIndexed { index, range ->
-            if (index == 0) range.copy(firstIndex = (GameWire.ordinal(range.firstIndex) + offset).toString(), quantity = range.quantity - offset) else range })
-        fun next(): GameAction.TransferPreparedCard {
-            val range = intent.entries[entry]; val action = intent.action(range, offset++)
-            if (offset == range.quantity) { entry++; offset = 0 }
-            return action
-        }
-        val finished get() = entry == intent.entries.size
-    }
-    private val transfers = linkedMapOf<String, Transfer>()
-    private val captured = ArrayDeque<Captured>()
     private val sent = mutableSetOf<String>()
     @Volatile private var token: String? = null
     @Volatile private var epoch = 0L
@@ -206,18 +186,13 @@ class GameSession(private val connection: GameConnection, private val credential
         recoveries.remove(gameId); supersededPlays.remove(gameId)
         headGaps.remove(gameId)
         chats.remove(gameId)
-        selections.entries.removeAll { it.value.command.scope.gameId == gameId }
-        transfers.entries.removeAll { it.value.command.scope.gameId == gameId }
-        readiness.entries.removeAll { it.value.command.scope.gameId == gameId }
         resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
-        captured.removeAll { it.intent.gameId == gameId }
         streams[gameId]?.head = false
     }
-    fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || selections.values.any { it.command.scope.gameId == gameId } ||
-        transfers.values.any { it.command.scope.gameId == gameId } || readiness.values.any { it.command.scope.gameId == gameId } || captured.any { it.intent.gameId == gameId } ||
+    fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || preparations.pending(gameId) ||
         plays[gameId]?.pendingIds?.isNotEmpty() == true || resultIntents.values.any { it.command.scope.gameId == gameId }
-    fun queuedTransfers(gameId: String) = captured.filter { it.intent.gameId == gameId }.sumOf { it.remaining().count }
-    fun acceptedPreparation(gameId: String) = preparations[gameId]?.state
+    fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
+    fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
     fun acceptedPlay(game: GameSummary) = plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
     fun play(game: GameSummary) = plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
@@ -232,29 +207,7 @@ class GameSession(private val connection: GameConnection, private val credential
         complete: (CapturedHistoryReview) -> Unit): Boolean = reviews.reviewTarget(target, isCurrent, complete)
 
     fun withdrawGameplayPrediction(gameId: String, requestId: String) { plays[gameId]?.withdraw(requestId); statusChanged() }
-    fun preparation(game: GameSummary): LobbyPreparation? {
-        val current = summary(game)
-        if (current.lifecycle != GameLifecycle.LOBBY) return null
-        var display = preparations[game.id]?.state?.takeIf { it.roundId == current.preparationRound } ?: return null
-        for (selection in selections.values.filter { it.command.scope.gameId == game.id }) {
-            display = PreparationRules.select(current, display, selection.actor, selection.command.requestId,
-                selection.command.scope, selection.command.action as GameAction.SelectDeck, selection.source,
-                selection.definitions).state ?: display
-        }
-        // Ready is submitted only after earlier predictions settle. Later per-card edits follow it.
-        for (intent in readiness.values.filter { it.command.scope.gameId == game.id }) {
-            display = preparationIntent(current, display, intent.actor, intent.command.scope, intent.command.action).state ?: display
-        }
-        for (transfer in transfers.values.filter { it.command.scope.gameId == game.id && !it.withdrawn }) {
-            val next = PreparationRules.transfer(current, display, transfer.actor, transfer.command.scope,
-                transfer.command.action as GameAction.TransferPreparedCard).state
-            if (next == null) transfer.withdrawn = true else display = next
-        }
-        if (current.lifecycle == GameLifecycle.LOBBY) for (capture in captured.filter { it.intent.gameId == game.id }) {
-            display = PreparationRules.previewTransfer(display, capture.actor, capture.remaining())
-        }
-        return display
-    }
+    fun preparation(game: GameSummary): LobbyPreparation? = preparations.preparation(summary(game), game.id)
     fun summary(game: GameSummary): GameSummary = summaries[game.id]?.takeIf {
         ended(it) || newerOrEqual(it.revision, game.revision) } ?: game
     fun watch(games: List<GameSummary>) {
@@ -456,18 +409,14 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId != game.playId) return false
         return enqueue(game, GameAction.DeleteGame) != null
     }
-    private fun preparationIntent(game: GameSummary, base: LobbyPreparation, actor: String, scope: GameScope, action: GameAction) =
-        if (action is GameAction.SetPodGameBasics) PodGamePreparation.setBasics(game, base, actor, scope, action)
-        else StartRules.change(game, base, actor, scope, action)
-
     fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
         if (action !is GameAction.SetStarter && action !is GameAction.SetAlternateStarter && action !is GameAction.SetPodGameBasics && action !is GameAction.ShowDeck &&
             action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false
         val command = command(current, action) ?: return false
-        if (preparationIntent(current, base, actor, command.scope, action).state == null) return false
-        readiness[command.requestId] = Readiness(command, actor)
+        if (preparations.preparationIntent(current, base, actor, command.scope, action).state == null) return false
+        preparations.readied(command, actor)
         pending[command.requestId] = command
         latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
@@ -479,7 +428,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val action = GameAction.SelectDeck(source.deck.id, source.deck.revision)
         val command = command(current, action) ?: return false
         if (PreparationRules.select(current, base, actor, command.requestId, command.scope, action, source, definitions).state == null) return false
-        selections[command.requestId] = Selection(command, actor, source, definitions)
+        preparations.selected(command, actor, source, definitions)
         pending[command.requestId] = command
         latencySubmitted(command, true)
         error = null; flush(); statusChanged(); return true
@@ -495,13 +444,13 @@ class GameSession(private val connection: GameConnection, private val credential
             intent.selectionRequestId != deck.selectionRequestId || intent.entries.isEmpty() ||
             intent.entries.any { it.quantity <= 0 || it.section != intent.source } ||
             (actor != current.inviter.accountId && (actor != current.recipient.accountId || current.invitationState != InvitationState.ACCEPTED))) return false
-        captured.add(Captured(intent, actor))
+        preparations.capture(intent, actor)
         timing?.submitted(null, true)
         error = null; flush(); statusChanged(); return true
         } finally { timing?.finish() }
     }
     /** Withdraw display only. Already sent originals still recover and can be accepted normally. */
-    fun withdrawTransferPrediction(requestId: String) { transfers[requestId]?.withdrawn = true; statusChanged() }
+    fun withdrawTransferPrediction(requestId: String) { preparations.withdrawTransfer(requestId); statusChanged() }
     private fun command(game: GameSummary, action: GameAction): GameCommand? {
         if (action is GameAction.SendChat) { if (!activeRequest(game)) return null }
         else if (!ready(game.id) || credential() != token) return null
@@ -671,7 +620,7 @@ class GameSession(private val connection: GameConnection, private val credential
                         InspectionEvent.NotAccepted(request, admissionError = message) } }
                     message.requestId?.let { id ->
                         chats.failed(id, "Not sent. This request could not be used.")
-                        pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; selections.remove(id); transfers.remove(id); readiness.remove(id); resultIntents.remove(id); sent.remove(id)
+                        pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; preparations.forget(id); resultIntents.remove(id); sent.remove(id)
                     }
                     if (original != null) error = historyControlFailure(original.action, message.code)
                         ?: "This game changed or the request could not be used. Refresh and try again."
@@ -703,20 +652,9 @@ class GameSession(private val connection: GameConnection, private val credential
             require(game.lifecycle == GameLifecycle.ACTIVE && play.gameId == game.id && play.id == game.playId &&
                 play.preparationRound == game.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
         }
-        if (game.lifecycle != GameLifecycle.LOBBY) {
-            preparations.remove(game.id)
-            captured.removeAll { it.intent.gameId == game.id }
-        }
+        if (game.lifecycle != GameLifecycle.LOBBY) preparations.leftLobby(game.id)
         if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
-        if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) {
-            require(preparation.gameId == game.id && preparation.roundId == game.preparationRound)
-            val old = preparations[game.id]
-            if (old == null || newerOrEqual(revision, old.revision)) {
-                preparations[game.id] = PreparationReplica(revision, preparation)
-                val applied = preparation.players.mapNotNull { it.deck?.selectionRequestId }.toSet()
-                selections.entries.removeAll { it.key in applied }
-            }
-        }
+        if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) preparations.accept(game, revision, preparation)
         if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || play != null || ended(game)) acceptedRevisions[game.id] = revision
         if (play != null && treeHead[game.id]?.let { newerOrEqual(revision, it) } == true)
             streams[game.id]?.head = true
@@ -733,21 +671,7 @@ class GameSession(private val connection: GameConnection, private val credential
         pending.remove(result.requestId); sent.remove(result.requestId)
         if (result.outcome != "accepted") chats.failed(result.requestId,
             "Not sent. The original play is no longer available or this request was refused.")
-        selections[result.requestId]?.let { selection ->
-            if (result.outcome == "accepted") selection.commitRevision = requireNotNull(result.commitRevision)
-            else selections.remove(result.requestId)
-            retireSelections(original.scope.gameId)
-        }
-        transfers[result.requestId]?.let { transfer ->
-            if (result.outcome == "accepted") transfer.commitRevision = requireNotNull(result.commitRevision)
-            else transfers.remove(result.requestId)
-            retireSelections(original.scope.gameId)
-        }
-        readiness[result.requestId]?.let { intent ->
-            if (result.outcome == "accepted") intent.commitRevision = requireNotNull(result.commitRevision)
-            else readiness.remove(result.requestId)
-            retireSelections(original.scope.gameId)
-        }
+        preparations.settle(result) { retireSelections(original.scope.gameId) }
         resultIntents[result.requestId]?.let { intent ->
             if (result.outcome == "accepted") intent.commitRevision = requireNotNull(result.commitRevision)
             else resultIntents.remove(result.requestId)
@@ -769,17 +693,10 @@ class GameSession(private val connection: GameConnection, private val credential
         val revision = acceptedRevisions[gameId] ?: return
         resultIntents.entries.removeAll { (_, intent) -> intent.command.scope.gameId == gameId &&
             intent.commitRevision?.let { newerOrEqual(revision, it) } == true }
-        readiness.entries.removeAll { (_, intent) -> intent.command.scope.gameId == gameId &&
-            intent.commitRevision?.let { newerOrEqual(revision, it) } == true }
-        selections.entries.removeAll { (_, selection) -> selection.command.scope.gameId == gameId &&
-            selection.commitRevision?.let { newerOrEqual(revision, it) } == true }
-        transfers.entries.removeAll { (_, transfer) -> transfer.command.scope.gameId == gameId &&
-            transfer.commitRevision?.let { newerOrEqual(revision, it) } == true }
+        preparations.retire(gameId, revision)
     }
     private fun correlateSelections(message: GameRevision) {
-        selections[message.requestId]?.commitRevision = message.resultRevision
-        transfers[message.requestId]?.commitRevision = message.resultRevision
-        readiness[message.requestId]?.commitRevision = message.resultRevision
+        preparations.correlate(message.requestId, message.resultRevision)
         resultIntents[message.requestId]?.commitRevision = message.resultRevision
         retireSelections(message.gameId)
     }
@@ -788,15 +705,13 @@ class GameSession(private val connection: GameConnection, private val credential
         // Keep the original protocol's 256-ID recovery window. Retain the entire captured tail
         // compactly in memory, preview it immediately and drain it as capacity becomes available.
         // No card is silently dropped and an acknowledgement is not a per-card sending barrier.
-        while (ready && credential() == token && pending.size < 256 && transfers.size + selections.size < 256 && captured.isNotEmpty()) {
-            val next = captured.first()
-            val stream = streams[next.intent.gameId] ?: break
-            if (stream.generation == null || !stream.head) break
-            val command = GameCommand(UUID.randomUUID().toString(), GameScope(next.intent.gameId, next.intent.roundId),
-                next.next(), stream.id, stream.generation!!)
+        preparations.drainCaptured({ ready && credential() == token && pending.size < 256 }) { gameId, roundId, next ->
+            val stream = streams[gameId] ?: return@drainCaptured null
+            if (stream.generation == null || !stream.head) return@drainCaptured null
+            val command = GameCommand(UUID.randomUUID().toString(), GameScope(gameId, roundId),
+                next(), stream.id, stream.generation!!)
             pending[command.requestId] = command
-            transfers[command.requestId] = Transfer(command, next.actor)
-            if (next.finished) captured.removeFirst()
+            command
         }
         for ((id, command) in pending) {
             val stream = streams.getValue(command.scope.gameId)
@@ -1099,7 +1014,7 @@ class GameSession(private val connection: GameConnection, private val credential
         recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear(); presences.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
-    fun clear() { inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); selections.clear(); transfers.clear(); captured.clear(); readiness.clear(); preparations.clear(); plays.clear();
+    fun clear() { inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); preparations.clear(); plays.clear();
         ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); supersededPlays.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {

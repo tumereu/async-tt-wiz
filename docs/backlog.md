@@ -20,11 +20,12 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Specified, not started
 
+- Limited engines: Rochester (simultaneous packs), Rotisserie, Winston, Winchester and Sealed, a Picks view of opponents' picks, per-engine player limits. Spec: `docs/specs/limited-engines.md`. (DRF-016–DRF-032, DRF-071, DRF-079–DRF-087, DRF-136)
 - Card lists: decks and cubes share one model (Main/Side/Maybe; cubes Main/Maybe), one saved view, one editor with catalog search, and pods get "Prepare cube". Spec: `docs/specs/card-lists.md`. (LOB-047, LOB-054–LOB-065, DRF-001–DRF-010, DRF-050)
 
 ## Needs discussion
 
-- More limited engines (Draftmancer's modes plus Sealed) and player limits per engine: in discussion.
+(nothing right now)
 
 ## Later (nice to have)
 

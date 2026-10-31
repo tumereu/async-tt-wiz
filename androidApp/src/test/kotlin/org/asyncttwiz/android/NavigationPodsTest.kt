@@ -131,7 +131,7 @@ class NavigationPodsTest {
             override suspend fun delete(token: String, id: String, value: DeleteCube): CubeDeleted = error("unused")
             override fun close() = Unit
         }
-        val cubes = CubeController(api, { "token" }, { _, _ -> error("unused") }, { error("unused") }, immediate, { it() })
+        val cubes = CubeController(api, { "token" }, { error("unused") }, { error("unused") }, immediate, { it() })
         try {
             cubes.open(saved.cube.id)
             fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.DECKS))

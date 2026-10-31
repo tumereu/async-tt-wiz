@@ -87,6 +87,16 @@ class DeckEditorTest {
         assertEquals("New title", saved!!.deck.name)
         assertEquals(DeckJson.digest(second), saved!!.deck.cover!!.definition)
     }
+    // LOB-062: editing a deck lists its Maybe under "Maybeboard" and saving keeps it there.
+    @Test fun maybeCardsRoundTripThroughTheEditorText() {
+        val maybe = detail.copy(saved = detail.saved.copy(entries = detail.saved.entries +
+            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, DeckJson.digest(second), 1)))
+        val source = DeckEditorSource(maybe)
+        assertEquals("Deck\n4 Front // Back (TST) 007\n2 Front // Back (TST) 8\nSideboard\n3 Front // Back (TST) 007\nMaybeboard\n1 Front // Back (TST) 8",
+            source.text)
+        val resolved = source.resolve(source.text) { error("Existing snapshots require no new lookup") }
+        assertEquals(maybe.saved.entries, DeckSavePlan.from(resolved, "Unchanged", retained = source.definitions).deck.entries)
+    }
     @Test fun retainedVersionsOfTheSamePrintingAreNotCollapsedDuringRoundTrip() {
         val newer = first.copy(sourceVersion = "newer-catalog")
         val newerDigest = DeckJson.digest(newer)

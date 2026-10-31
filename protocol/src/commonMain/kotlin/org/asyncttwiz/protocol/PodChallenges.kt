@@ -64,6 +64,7 @@ object PodGamePreparation {
         if (current.podRules == null) return reject("notPodGame")
         val deck = current.players.find { it.accountId == actor }?.deck ?: return reject("preparedDeckChanged")
         if (deck.id != action.deckId) return reject("preparedDeckChanged")
+        if (action.section !in SavedDeckSection.PREPARED) return reject("invalidBasics")
         if (basicDefinitions(action.basicDefinitions) != deck.basicDefinitions) return reject("invalidBasicDefinitions")
         val fixed = deck.entries.filter { it.suppliedBasic == null || it.section != action.section }
         if (!action.basics.valid || fixed.sumOf { it.quantity.toLong() } + action.basics.total > DeckValidation.MAX_CARDS)

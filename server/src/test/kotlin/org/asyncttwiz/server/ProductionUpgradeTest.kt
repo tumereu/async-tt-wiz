@@ -368,6 +368,28 @@ class ProductionUpgradeTest {
                 assertEquals(e<Int>("annSubmittedCopies") to e<Long>("annSubmittedBasics"), submitted.copies.size to submitted.basics.total)
                 assertEquals(e<Int>("annDeckEntries"), json.decodeFromString<DeckList>(decks.list(ann, null).body).decks
                     .single { it.name == "Ann's deck" }.let { json.decodeFromString<SavedDeck>(decks.read(ann, it.id).body).entries.size })
+                // V47 (Maybe): every stored deck keeps its Main and Side cards exactly; every stored cube becomes Main-only.
+                val owners = mapOf(e<String>("ann") to ann, e<String>("ben") to ben)
+                fun rows(table: String) = tables.getValue(table).map { it.jsonObject }
+                fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
+                fun JsonObject.number(key: String) = getValue(key).jsonPrimitive.content.toInt()
+                val deckRows = rows("deck_entry").groupBy { it.text("deck_id") }
+                assertTrue(deckRows.isNotEmpty())
+                for (deck in rows("saved_deck")) {
+                    val saved = json.decodeFromString<SavedDeck>(decks.read(owners.getValue(deck.text("account_id")), deck.text("id")).body)
+                    val stored = deckRows[deck.text("id")].orEmpty().sortedBy { it.number("position") }
+                    assertEquals(stored.map { SavedDeckEntry(SavedDeckSection.valueOf(it.text("section")), it.text("definition_digest"), it.number("quantity")) },
+                        saved.entries, deck.text("name"))
+                    assertEquals(0L, saved.deck.maybeboard)
+                }
+                val cubes = CubeService(runtime)
+                val cubeRows = rows("cube_entry").groupBy { it.text("cube_id") }
+                for (cube in rows("saved_cube")) {
+                    val saved = json.decodeFromString<SavedCube>(cubes.read(owners.getValue(cube.text("account_id")), cube.text("id")).body)
+                    val stored = cubeRows.getValue(cube.text("id")).sortedBy { it.number("position") }
+                    assertEquals(stored.map { SavedCubeEntry(it.text("definition_digest"), it.number("quantity"), SavedDeckSection.MAINBOARD) }, saved.entries)
+                    assertEquals(stored.sumOf { it.number("quantity").toLong() } to 0L, saved.cube.totalCopies to saved.cube.maybeCopies)
+                }
             }
         }
     }

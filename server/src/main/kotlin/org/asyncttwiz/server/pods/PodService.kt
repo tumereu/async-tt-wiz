@@ -140,7 +140,9 @@ class PodService(private val runtime: ServiceRuntime) {
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
         val entries = sql.select(CUBE_ENTRY.DEFINITION_DIGEST, CUBE_ENTRY.QUANTITY, DEFINITION.PAYLOAD)
             .from(CUBE_ENTRY).join(DEFINITION).on(DEFINITION.DIGEST.eq(CUBE_ENTRY.DEFINITION_DIGEST))
-            .where(CUBE_ENTRY.CUBE_ID.eq(cube.id)).orderBy(CUBE_ENTRY.POSITION).fetch().map {
+            // Only Main is drafted; Maybe never reaches a pod (DRF-050).
+            .where(CUBE_ENTRY.CUBE_ID.eq(cube.id)).and(CUBE_ENTRY.SECTION.eq(SavedDeckSection.MAINBOARD.name))
+            .orderBy(CUBE_ENTRY.POSITION).fetch().map {
                 val definition = json.decodeFromString<CardDefinition>(it[DEFINITION.PAYLOAD]!!)
                 val explicit = definition.faces.firstOrNull()?.sourceData?.let { data -> runCatching {
                     json.parseToJsonElement(data).jsonObject["colors"]?.jsonArray?.mapNotNull { color ->

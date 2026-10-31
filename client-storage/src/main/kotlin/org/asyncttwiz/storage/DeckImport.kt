@@ -5,7 +5,7 @@ import com.google.gson.JsonParser
 import java.util.Locale
 import org.asyncttwiz.protocol.DeckValidation
 
-enum class DeckSection(val title: String) { MAINBOARD("Mainboard"), SIDEBOARD("Sideboard") }
+enum class DeckSection(val title: String) { MAINBOARD("Mainboard"), SIDEBOARD("Sideboard"), MAYBEBOARD("Maybeboard") }
 data class ImportIssue(val line: Int, val message: String)
 data class ImportLine(val line: Int, val section: DeckSection, val quantity: Int,
     val name: String, val set: String?, val number: String?, val scryfallId: String? = null) {
@@ -26,10 +26,10 @@ data class DeckImportResult(val text: String, val entries: List<ResolvedDeckEntr
 /**
  * Common list syntaxes only: no legality or fuzzy substitution. Accepts Arena/MTGO/Moxfield/Archidekt/
  * MTGGoldfish text, Forge ([Main], Name|SET), XMage ([SET:number] Name) and CSV exports with a name column.
- * Commander/Companion sections join the main deck; maybeboard/considering and metadata sections are skipped.
+ * Commander/Companion sections join the main deck; maybeboard/considering go to Maybe; metadata sections are skipped.
  */
 object DeckTextParser {
-    private enum class Target { MAIN, SIDE, SKIP }
+    private enum class Target { MAIN, SIDE, MAYBE, SKIP }
     private val entry = Regex("([0-9]+)[xX]?\\s+(.+)")
     private val suffix = Regex("(.+?)\\s+\\(([A-Za-z0-9_-]+)\\)(?:\\s+(\\S+))?")
     private val xmage = Regex("\\[([A-Za-z0-9_-]+):([^\\]\\s]+)\\]\\s*(.+)")
@@ -43,7 +43,7 @@ object DeckTextParser {
         "deck" to Target.MAIN, "main" to Target.MAIN, "mainboard" to Target.MAIN, "main deck" to Target.MAIN,
         "commander" to Target.MAIN, "commanders" to Target.MAIN, "companion" to Target.MAIN, "companions" to Target.MAIN,
         "sideboard" to Target.SIDE, "side" to Target.SIDE,
-        "maybeboard" to Target.SKIP, "maybe" to Target.SKIP, "considering" to Target.SKIP,
+        "maybeboard" to Target.MAYBE, "maybe" to Target.MAYBE, "considering" to Target.MAYBE,
         "about" to Target.SKIP, "metadata" to Target.SKIP)
 
     private sealed interface Kind
@@ -58,23 +58,28 @@ object DeckTextParser {
         return if (prefixed || value.startsWith("NAME:") || value.startsWith("LAYOUT ")) Comment else null
     }
 
-    fun parse(text: String, maxCards: Int = DeckValidation.MAX_CARDS, includeSideboard: Boolean = true,
+    /** [sideboard] is where sideboard lines go: Side for decks, Maybe for cubes (which have no Side). */
+    fun parse(text: String, maxCards: Int = DeckValidation.MAX_CARDS, sideboard: DeckSection = DeckSection.SIDEBOARD,
         bareNames: Boolean = false): ParsedDeck {
         val lines = text.split(Regex("\\r\\n|\\n|\\r"))
         val result = mutableListOf<ImportLine>()
         val issues = mutableListOf<ImportIssue>()
         var total = 0L
         fun add(line: Int, target: Target, quantity: Int?, name: String, set: String?, number: String?, scryfall: String?) {
-            if (target == Target.SKIP || (!includeSideboard && target == Target.SIDE)) return
+            if (target == Target.SKIP) return
             if (quantity == null || quantity !in 1..maxCards) {
                 issues += ImportIssue(line, "Quantity must be a whole number from 1 to $maxCards.")
             } else if (total + quantity > maxCards) {
-                issues += ImportIssue(line, "A list may contain at most $maxCards cards including sideboard.")
+                issues += ImportIssue(line, "A list may contain at most $maxCards cards in all sections.")
             } else if (name.isBlank()) {
                 issues += ImportIssue(line, "Missing card name.")
             } else {
                 total += quantity
-                result += ImportLine(line, if (target == Target.SIDE) DeckSection.SIDEBOARD else DeckSection.MAINBOARD,
+                result += ImportLine(line, when (target) {
+                        Target.SIDE -> sideboard
+                        Target.MAYBE -> DeckSection.MAYBEBOARD
+                        else -> DeckSection.MAINBOARD
+                    },
                     quantity, name.replace(singleSlash, " // "), set?.uppercase(Locale.ROOT), number, scryfall)
             }
         }
@@ -105,10 +110,10 @@ object DeckTextParser {
                 }
                 var target = if (!explicit && blocks == 2 && blockOf[index] == 2) Target.SIDE else section
                 if (value.startsWith("SB:", ignoreCase = true)) {
-                    if (target != Target.SKIP) target = Target.SIDE
+                    if (target == Target.MAIN) target = Target.SIDE
                     value = value.substring(3).trimStart()
                 }
-                if (target == Target.SKIP || (!includeSideboard && target == Target.SIDE)) return@forEachIndexed
+                if (target == Target.SKIP) return@forEachIndexed
                 val match = entry.matchEntire(value)
                 if (match == null && !bareNames) {
                     issues += ImportIssue(line, "Use quantity Card Name, Deck or Sideboard. Unsupported section or entry: $value")
@@ -160,7 +165,7 @@ object DeckTextParser {
         for ((line, fields) in records.drop(1)) {
             if (fields.all(String::isBlank)) continue
             fun field(index: Int?) = index?.let(fields::getOrNull)?.trim()?.takeIf(String::isNotEmpty)
-            val target = if (field(maybe).equals("true", ignoreCase = true)) Target.SKIP
+            val target = if (field(maybe).equals("true", ignoreCase = true)) Target.MAYBE
                 else headers[field(column(csvBoard))?.lowercase(Locale.ROOT).orEmpty()] ?: Target.MAIN
             add(line, target, if (count == null) 1 else field(count)?.toIntOrNull(), field(name).orEmpty(),
                 field(column(csvSet))?.takeIf { setCode.matches(it) }, field(column(csvNumber)),

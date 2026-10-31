@@ -9,13 +9,12 @@ import java.util.UUID
 
 /** Immutable, volatile retry payload. Built on the import worker, not the UI thread. */
 data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck,
-    val target: String? = null, val mode: DeckImportMode = DeckImportMode.OVERWRITE,
-    val cover: String? = null, val editMetadata: Boolean = false) {
+    val target: String? = null, val cover: String? = null, val editMetadata: Boolean = false) {
+    /** Saving into an existing deck replaces its whole list. */
     fun update() = UpdateDeck(deck.requestId, name = deck.name.takeIf { editMetadata }, cover = cover,
-        contents = DeckContentsImport(deck.entries, mode))
+        contents = DeckContentsImport(deck.entries))
     companion object {
-        fun from(result: DeckImportResult, name: String, target: String? = null,
-            mode: DeckImportMode = DeckImportMode.OVERWRITE, cover: String? = null,
+        fun from(result: DeckImportResult, name: String, target: String? = null, cover: String? = null,
             retained: Map<String, CardDefinition> = emptyMap(), editMetadata: Boolean = false): DeckSavePlan {
             if (!result.resolved || name.isBlank() || !DeckValidation.text(name)) throw DeckFailure("invalid_deck")
             val definitions = linkedMapOf<String, SubmittedDefinition>()
@@ -36,7 +35,7 @@ data class DeckSavePlan(val definitions: SubmitDefinitions, val deck: CreateDeck
             val normalizedCover = normalizedDigests[cover] ?: cover
             if (normalizedCover != null && entries.none { it.definition == normalizedCover }) throw DeckFailure("invalid_cover")
             return DeckSavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
-                CreateDeck(UUID.randomUUID().toString(), name, entries), target, mode, normalizedCover, editMetadata)
+                CreateDeck(UUID.randomUUID().toString(), name, entries), target, normalizedCover, editMetadata)
         }
     }
 }
@@ -46,7 +45,6 @@ internal fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefini
 internal fun deckError(failure: Exception): String = when ((failure as? DeckFailure)?.code) {
     "not_found" -> "This saved deck is no longer available. Return to your collection to refresh."
     "invalid_cover" -> "Choose a card that is still in this deck."
-    "quantity_overflow" -> "Merged quantities exceed the supported number range. Edit the list or choose Overwrite. Your pasted list is kept."
     "invalid_deck" -> "Enter a deck name and check the quantities. Your pasted list is kept."
     "invalid_definition", "definitions_unavailable" -> "Card metadata could not be accepted. Edit the list or update card records and retry."
     "request_too_large" -> "This import exceeds the service transfer limit. Your pasted list is kept."

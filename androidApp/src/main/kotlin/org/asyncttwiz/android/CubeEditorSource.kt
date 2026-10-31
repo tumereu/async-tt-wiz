@@ -13,10 +13,15 @@ internal class CubeEditorSource(private val detail: CubeDetail) {
         val number = (raw?.get("number") as? JsonPrimitive)?.contentOrNull
         return definition.name + if (!set.isNullOrBlank() && !number.isNullOrBlank()) " ($set) $number" else ""
     }
-    val text = "Deck\n" + detail.saved.entries.joinToString("\n") { "${it.quantity} ${cardText(definitions.getValue(it.definition))}" }
+    private fun lines(section: SavedDeckSection) = detail.saved.entries.filter { it.section == section }
+        .map { "${it.quantity} ${cardText(definitions.getValue(it.definition))}" }
+    /** Main under "Deck", then Maybe under "Maybeboard" when the cube has any. */
+    val text = (listOf("Deck") + lines(SavedDeckSection.MAINBOARD) + lines(SavedDeckSection.MAYBEBOARD).let {
+        if (it.isEmpty()) it else listOf(DeckSection.MAYBEBOARD.title) + it
+    }).joinToString("\n")
     private val retained = detail.saved.entries.groupBy { cardText(definitions.getValue(it.definition)) }
-    fun resolve(text: String, includeSideboard: Boolean, lookup: (String, Boolean) -> DeckImportResult): DeckImportResult {
-        val parsed = CubeImportResolver.parse(text, includeSideboard)
+    fun resolve(text: String, lookup: (String) -> DeckImportResult): DeckImportResult {
+        val parsed = CubeImportResolver.parse(text)
         val issues = parsed.issues.toMutableList()
         val substitutions = mutableListOf<ImportIssue>()
         val occurrences = mutableMapOf<String, Int>()
@@ -34,13 +39,13 @@ internal class CubeEditorSource(private val detail: CubeDetail) {
                         line.number.orEmpty(), "English", if (index == 0) "a" else "b", face.scryfallId,
                         definition.token, face.otherFaceIds, face.sourceData ?: "{}")
                 }
-                listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, line.quantity, faces, listOf(line.line)))
+                listOf(ResolvedDeckEntry(line.section, line.quantity, faces, listOf(line.line)))
             } else {
-                val result = lookup("Deck\n${line.quantity} $key", false)
+                val result = lookup("Deck\n${line.quantity} $key")
                 metadata = result.catalog ?: metadata
                 issues += result.issues.map { it.copy(line = if (it.line > 0) line.line else 0) }
                 substitutions += result.substitutions.map { it.copy(line = line.line) }
-                result.entries.map { it.copy(sourceLines = listOf(line.line)) }
+                result.entries.map { it.copy(section = line.section, sourceLines = listOf(line.line)) }
             }
         }
         return DeckImportResult(text, if (issues.isEmpty()) entries else emptyList(), issues, metadata, substitutions)

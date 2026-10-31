@@ -13,14 +13,18 @@ enum class CubeDialog { RENAME, DELETE }
 data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boolean = false,
     val selected: String? = null, val detail: CubeDetail? = null, val busy: Boolean = false,
     val error: String? = null, val editing: Boolean = false, val target: String? = null,
-    val name: String = "", val text: String = "", val includeSideboard: Boolean = false,
+    val name: String = "", val text: String = "",
     val cobraInput: String = "", val provenance: String? = null, val result: DeckImportResult? = null,
     val dialog: CubeDialog? = null, val linkDialog: Boolean = false, val clipboardRead: Boolean = false,
     val saving: Boolean = false, val fetching: Boolean = false, val linkError: String? = null)
 
+/** A cube has Main and Maybe only. */
+internal fun ResolvedDeckEntry.cubeSection() =
+    if (section == DeckSection.MAINBOARD) SavedDeckSection.MAINBOARD else SavedDeckSection.MAYBEBOARD
+
 /** Only accepted server data is collection state; editor, lookup and retry intent are volatile. */
 class CubeController(private val api: Cubes, private val credential: () -> String?,
-    private val resolve: (String, Boolean) -> DeckImportResult,
+    private val resolve: (String) -> DeckImportResult,
     private val resolveCobra: (ParsedDeck) -> DeckImportResult,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
     private val fetchCobra: (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable {
@@ -80,7 +84,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (state.busy) return
         source = null; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
-            provenance = null, includeSideboard = false, result = null, error = null, linkDialog = false, clipboardRead = false,
+            provenance = null, result = null, error = null, linkDialog = false, clipboardRead = false,
             linkError = null)
     }
     fun edit() {
@@ -88,7 +92,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val detail = state.detail ?: return
         val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
-            text = retained.text, includeSideboard = false, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
+            text = retained.text, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
             result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null)
         lookup()
     }
@@ -98,7 +102,6 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     }
     fun name(value: String) { editInput(); pendingUpdate = null; state = state.copy(name = value, error = null) }
     fun text(value: String) { editInput(); state = state.copy(text = value, result = null, error = null) }
-    fun sideboard(value: Boolean) { editInput(); state = state.copy(includeSideboard = value, result = null) }
     fun cobraInput(value: String) {
         if (state.fetching) { epoch++; state = state.copy(busy = false, fetching = false) }
         state = state.copy(cobraInput = value, linkError = null)
@@ -130,7 +133,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val input = state; val retained = source; val cobra = cobraSource
         work { _ ->
             val result = if (cobra != null) {
-                val parsed = CubeImportResolver.parse(input.text, input.includeSideboard)
+                val parsed = CubeImportResolver.parse(input.text)
                 val occurrences = mutableMapOf<Triple<String, String?, String?>, Int>()
                 val lines = parsed.lines.map { line ->
                     val key = Triple(line.name, line.set, line.number)
@@ -140,7 +143,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                     line.copy(scryfallId = original?.scryfallId)
                 }
                 resolveCobra(parsed.copy(lines = lines))
-            } else retained?.resolve(input.text, input.includeSideboard, resolve) ?: resolve(input.text, input.includeSideboard)
+            } else retained?.resolve(input.text, resolve) ?: resolve(input.text)
             return@work { state = state.copy(result = result) }
         }
     }
@@ -156,7 +159,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 source = null; cobraSource = parsed; pendingSave = null
                 // An ordinary editable paste list: the list is replaced and a typed name is kept.
                 state = state.copy(text = parsed.text, name = state.name.ifBlank { id }, provenance = id,
-                    includeSideboard = false, result = result, linkDialog = false, linkError = null, error = null)
+                    result = result, linkDialog = false, linkError = null, error = null)
             }
         }
     }
@@ -168,7 +171,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         val cache = definitionCache
         var attempted = pendingSave
         state = state.copy(saving = true)
-        work(onFailure = { pendingSave = attempted.takeIf { state.text == input.text && state.name == input.name && state.includeSideboard == input.includeSideboard } }) { current ->
+        work(onFailure = { pendingSave = attempted.takeIf { state.text == input.text && state.name == input.name } }) { current ->
             val plan = attempted ?: run {
                 val definitions = linkedMapOf<String, SubmittedDefinition>()
                 val entries = input.result!!.entries.map { entry ->
@@ -176,8 +179,8 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                     if (!DeckValidation.definition(definition)) throw DeckFailure("invalid_definition")
                     val digest = DeckJson.digest(definition)
                     definitions[digest] = SubmittedDefinition(digest, definition)
-                    SavedCubeEntry(digest, entry.quantity)
-                }.groupBy { it.definition }.map { (digest, rows) -> SavedCubeEntry(digest, rows.sumOf { it.quantity }) }
+                    SavedCubeEntry(digest, entry.quantity, entry.cubeSection())
+                }.groupBy { it.section to it.definition }.map { (_, rows) -> rows.first().copy(quantity = rows.sumOf { it.quantity }) }
                 if (!CubeValidation.entries(entries)) throw DeckFailure("invalid_cube")
                 SavePlan(SubmitDefinitions(UUID.randomUUID().toString(), definitions.values.toList()),
                     CreateCube(UUID.randomUUID().toString(), input.name, entries, input.provenance), input.target)
@@ -192,7 +195,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             }
             return@work {
                 pendingSave = null
-                if (state.text == input.text && state.name == input.name && state.includeSideboard == input.includeSideboard) {
+                if (state.text == input.text && state.name == input.name) {
                     source = null; cobraSource = null; state = state.copy(editing = false, result = null)
                     open(saved.cube.id)
                 } else state = state.copy(target = saved.cube.id)

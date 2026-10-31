@@ -73,7 +73,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         }
         // One scroll for both sections; bottom room keeps the floating undo off the last row.
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("preparation"), contentPadding = PaddingValues(bottom = 80.dp)) {
-            for (source in SavedDeckSection.entries) {
+            for (source in SavedDeckSection.PREPARED) {
                 val title = source.label()
                 val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
                 visualDeckSection(source, deck.count(source), preparationGroups(deck, source, definitions), columns.count,

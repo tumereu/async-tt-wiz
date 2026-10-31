@@ -43,6 +43,21 @@ class PreparationTest {
         assertNull(before.players[0].deck) // Original accepted base was not mutated.
     }
 
+    // LOB-047: Maybe never reaches game preparation, neither its cards nor its card records.
+    @Test fun maybeCardsStayOutOfThePreparedDeckAndItsDefinitions() {
+        val considered = CardDefinition("Considered", listOf(DefinitionFace(id(22), "Considered")))
+        val maybe = SubmittedDefinition(DeckJson.digest(considered), considered)
+        val saved = source.copy(entries = source.entries + SavedDeckEntry(SavedDeckSection.MAYBEBOARD, maybe.digest, 4) +
+            SavedDeckEntry(SavedDeckSection.MAYBEBOARD, submitted.digest, 1))
+        val state = select(saved = saved, definitions = listOf(submitted, maybe)).state!!
+        val deck = state.players[0].deck!!
+        assertEquals(select().state!!.players[0].deck, deck)
+        assertEquals(0L, deck.count(SavedDeckSection.MAYBEBOARD))
+        assertEquals(listOf(submitted), state.definitions)
+        // A Maybe card's record is not even needed to choose the deck.
+        assertNotNull(select(saved = saved, definitions = listOf(submitted)).state)
+    }
+
     // TBL-076
     @Test fun existingSavedMultipartDeckNormalizesOnlyItsNewGameSnapshot() {
         val old = definition.copy(layout = "adventure")

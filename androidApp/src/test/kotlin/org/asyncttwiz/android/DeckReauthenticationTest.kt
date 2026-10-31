@@ -75,8 +75,8 @@ class DeckReauthenticationTest {
         } finally { api.close() }
     }
 
-    @Test fun sameAccountCreateAndMergeRetriesKeepUncertainPayloadAndDraftAcrossSignIn() {
-        listOf(false, true).forEach { merge ->
+    @Test fun sameAccountCreateAndExistingDeckImportRetriesKeepUncertainPayloadAndDraftAcrossSignIn() {
+        listOf(false, true).forEach { existing ->
             val worker = Worker(); val authWorker = Worker(); val accounts = AccountsApi(); val store = Store()
             var clears = 0
             val importer = DeckImportController({ resolved }, worker) { it() }
@@ -100,7 +100,7 @@ class DeckReauthenticationTest {
                             val text = request.body.toByteArray().decodeToString(); mutationBodies.add(text)
                             if (identities.add(text)) {
                                 effects++
-                                current = saved.copy(entries = saved.entries.map { it.copy(quantity = if (merge) 6 else 4) })
+                                current = saved.copy(entries = saved.entries.map { it.copy(quantity = 4) })
                             }
                             if (lostReplies-- > 0) {
                                 return@MockEngine respond("unavailable", HttpStatusCode.ServiceUnavailable)
@@ -116,7 +116,7 @@ class DeckReauthenticationTest {
             library = DeckLibraryController(api, auth::sessionToken, worker) { it() }
             importer.connectSave(api, auth::sessionToken) { library.open(it.deck.id) }
             try {
-                if (merge) { importer.openExisting(summary); importer.mode(DeckImportMode.MERGE) } else importer.open()
+                if (existing) importer.openExisting(summary) else importer.open()
                 importer.edit(resolved.text); importer.lookup(); worker.drain(); importer.review(); importer.name(summary.name)
                 importer.save(); worker.drain() // Committed but response lost: identity must survive the next 401.
                 assertNotNull(importer.state.error); assertEquals(1, effects)
@@ -131,15 +131,15 @@ class DeckReauthenticationTest {
                 // A delayed failure of the old request must not invalidate the replacement credential.
                 auth.authenticationRequired("A".repeat(43)); assertNotNull(auth.state.account)
                 revoked = false; importer.save(); worker.drain()
-                assertFalse(importer.state.active); assertEquals(if (merge) 1 else 2, effects)
-                assertEquals(if (merge) 4 else 5, mutationBodies.size)
+                assertFalse(importer.state.active); assertEquals(if (existing) 1 else 2, effects)
+                assertEquals(if (existing) 4 else 5, mutationBodies.size)
                 assertEquals(1, mutationBodies.take(4).distinct().size)
-                if (!merge) {
+                if (!existing) {
                     val coverUpdate = DeckJson.format.decodeFromString<UpdateDeck>(mutationBodies.last())
                     assertEquals(plan.deck.entries.first().definition, coverUpdate.cover)
                     assertNull(coverUpdate.contents)
                 }
-                assertEquals(if (merge) 6 else 4, library.state.detail!!.saved.entries.single().quantity)
+                assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
                 assertTrue(tokens.contains("Bearer " + "B".repeat(43)))
             } finally { importer.close(); library.close(); worker.drain(); auth.close(); authWorker.drain() }
         }

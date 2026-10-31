@@ -145,4 +145,39 @@ class CubeHttpTest {
             }
         }
     }
+    // DRF-007, DRF-050: a cube has Main and Maybe; the limit counts both, only Main is drafted.
+    @Test fun `cube Main and Maybe sections round trip count toward the limit and only Main reaches a pod`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val config = EphemeralPorts.settings(db.settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config)
+                val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
+                while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
+                    check(System.nanoTime() < deadline); Thread.sleep(20)
+                }
+                val owner = account(settings, "maybe-owner")
+                val cards = List(2) { index -> CardDefinition("Maybe card $index", listOf(DefinitionFace(id(), "Maybe card $index")))
+                    .let { SubmittedDefinition(DeckJson.digest(it), it) } }
+                assertEquals(200, request(settings, "POST", "/v1/definitions", json.encodeToString(SubmitDefinitions(id(), cards)), owner.token).statusCode())
+                // The same card may be in both sections.
+                val entries = listOf(SavedCubeEntry(cards[0].digest, 1999), SavedCubeEntry(cards[1].digest, 1),
+                    SavedCubeEntry(cards[0].digest, 1000, SavedDeckSection.MAYBEBOARD))
+                val created = request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Sections", entries)), owner.token)
+                assertEquals(201, created.statusCode(), created.body())
+                val saved = json.decodeFromString<SavedCube>(created.body())
+                assertEquals(entries, saved.entries)
+                assertEquals(2000L, saved.cube.totalCopies); assertEquals(1000L, saved.cube.maybeCopies)
+                assertEquals(saved, json.decodeFromString<SavedCube>(request(settings, "GET", "/v1/cubes/${saved.cube.id}", token = owner.token).body()))
+                for (bad in listOf(entries + SavedCubeEntry(cards[1].digest, 1, SavedDeckSection.MAYBEBOARD),
+                    listOf(SavedCubeEntry(cards[0].digest, 1, SavedDeckSection.SIDEBOARD)),
+                    entries + entries.last())) {
+                    assertEquals(400, request(settings, "POST", "/v1/cubes", json.encodeToString(CreateCube(id(), "Bad", bad)), owner.token).statusCode())
+                }
+                val pod = request(settings, "POST", "/v1/pods", json.encodeToString(CreatePod(id(), "Sections pod", saved.cube.id)), owner.token)
+                assertEquals(201, pod.statusCode(), pod.body())
+                assertEquals(2000L, json.decodeFromString<PodDetail>(pod.body()).source.totalCopies)
+            }
+        }
+    }
 }

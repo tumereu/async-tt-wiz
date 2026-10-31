@@ -133,7 +133,9 @@ object PreparationRules {
         if (source == null || source.deck.id != action.deckId) return reject("sourceUnavailable")
         if (source.deck.revision != action.sourceRevision) return reject("sourceChanged")
         if (!DeckValidation.create(CreateDeck(requestId, source.deck.name, source.entries))) return reject("invalidSource")
-        val needed = source.entries.map { it.definition }.toSet()
+        // Maybe never reaches a game: neither its cards nor their definitions join the prepared deck.
+        val prepared = source.entries.filter { it.section in SavedDeckSection.PREPARED }
+        val needed = prepared.map { it.definition }.toSet()
         val attached = definitions.associateBy { it.digest }
         if (attached.size != definitions.size || needed.any { digest -> attached[digest]?.let {
                 DeckValidation.definition(it.definition) && DeckJson.digest(it.definition) == digest
@@ -144,7 +146,7 @@ object PreparationRules {
             SubmittedDefinition(DeckJson.digest(definition), definition)
         }
         var index = 0L
-        val entries = source.entries.map { entry ->
+        val entries = prepared.map { entry ->
             PreparedEntry(physical.getValue(entry.definition).digest, entry.section, index.toString(), entry.quantity).also { index += entry.quantity }
         }
         val deck = PreparedDeck(CommandIds.output(requestId, "prepared-deck", 0), source.deck.id,

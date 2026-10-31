@@ -16,21 +16,23 @@ class CubeImportTest {
         repository.stage { index -> File(edition, "AllPrintings.json").inputStream().use { MtgJsonCatalog().import(it, index, metadata) } }
         return CubeImportResolver(repository)
     }
-    // DRF-007
-    @Test fun includeSideboardIsOffByDefaultAndIgnoredLinesDoNotCountOrFail() {
+    // DRF-003, DRF-007: a pasted cube's sideboard lines go to Maybe, and Maybe counts toward the 3000-copy limit.
+    @Test fun sideboardLinesGoToMaybeAndCountTowardTheLimit() {
         val resolver = resolver()
-        val text = "Deck\n2000 Quiet Lattice Bolt\nSideboard\n1000 Velvet Prism Engine\nSB: 1 Unknown card"
-        val mainOnly = resolver.resolve(text)
-        assertTrue(mainOnly.resolved, mainOnly.issues.toString())
-        assertEquals(2000L, mainOnly.count(DeckSection.MAINBOARD))
-        assertFalse(resolver.resolve(text, true).resolved)
-        val both = resolver.resolve(text.substringBefore("SB:"), true)
+        val text = "Deck\n2000 Quiet Lattice Bolt\nSideboard\n1000 Velvet Prism Engine"
+        val both = resolver.resolve(text)
         assertTrue(both.resolved, both.issues.toString())
-        assertEquals(3000L, both.count(DeckSection.MAINBOARD))
+        assertEquals(2000L, both.count(DeckSection.MAINBOARD))
+        assertEquals(1000L, both.count(DeckSection.MAYBEBOARD))
         assertEquals(0L, both.count(DeckSection.SIDEBOARD))
+        assertFalse(resolver.resolve("$text\nSB: 1 Quiet Lattice Bolt").resolved)
         assertFalse(resolver.resolve("3001 Quiet Lattice Bolt").resolved)
-        assertTrue(resolver.resolve("1 Quiet Lattice Bolt\n\nnot a valid sideboard entry").resolved)
-        assertTrue(resolver.resolve("1 Quiet Lattice Bolt\nSB: not a card").resolved)
+        // The same card may be in Main and Maybe.
+        val split = resolver.resolve("2 Quiet Lattice Bolt\nMaybeboard\n1 Quiet Lattice Bolt")
+        assertEquals(listOf(DeckSection.MAINBOARD to 2, DeckSection.MAYBEBOARD to 1), split.entries.map { it.section to it.quantity })
+        val blocks = resolver.resolve("1 Quiet Lattice Bolt\n\n1 Velvet Prism Engine")
+        assertEquals(1L, blocks.count(DeckSection.MAYBEBOARD))
+        assertFalse(resolver.resolve("1 Quiet Lattice Bolt\nSB: not a card").resolved)
     }
     // DRF-006
     @Test fun missingPrintingIsReportedButUnknownCardsBlockWithoutPartialEntries() {
@@ -47,15 +49,25 @@ class CubeImportTest {
         assertTrue(bad.issues.single().message.contains("Definitely Unknown"))
     }
     // DRF-009
-    @Test fun cubeCobraFixtureConvertsMainboardOnlyAndPreservesRequestedPrinting() {
-        val parsed = CubeCobraImport.parse(javaClass.getResource("/cubecobra.json")!!.readText())
+    @Test fun cubeCobraFixtureConvertsMainboardAndMaybeboardAndPreservesRequestedPrinting() {
+        val fixture = javaClass.getResource("/cubecobra.json")!!.readText()
+        val parsed = CubeCobraImport.parse(fixture)
         assertTrue(parsed.issues.isEmpty())
-        assertEquals(listOf(1, 2), parsed.lines.map { it.quantity })
+        assertEquals(listOf(1, 2, 1), parsed.lines.map { it.quantity })
+        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.MAYBEBOARD), parsed.lines.map { it.section })
+        // Its sideboard (Cube Cobra cubes have none in use) is ignored; the text puts Maybe under a header.
+        assertEquals(listOf("Quiet Lattice Bolt", "Velvet Prism Engine", "Not in the mainboard"), parsed.lines.map { it.name })
+        assertEquals("1 Quiet Lattice Bolt (ZPA) 2\n2 Velvet Prism Engine\nMaybeboard\n1 Not in the mainboard", parsed.text)
+        assertEquals(listOf(1, 2, 4), parsed.lines.map { it.line })
+        assertEquals(parsed.lines.map { it.section to it.quantity }, CubeImportResolver.parse(parsed.text).lines.map { it.section to it.quantity })
         assertEquals("00000000-0000-4000-8000-000000000099", parsed.lines.first().scryfallId)
         assertEquals("ZPA", parsed.lines.first().set)
-        val result = resolver().resolve(parsed)
+        val mainOnly = CubeCobraImport.parse(fixture.replace("Not in the mainboard", "Quiet Lattice Bolt"))
+        val result = resolver().resolve(mainOnly)
         assertTrue(result.resolved, result.issues.toString())
         assertEquals(3L, result.count(DeckSection.MAINBOARD))
+        assertEquals(1L, result.count(DeckSection.MAYBEBOARD))
+        assertFalse(resolver().resolve(parsed).resolved) // An unknown Maybe card blocks saving like any other.
         assertEquals(1, result.substitutions.size)
         assertEquals("synergy", CubeCobraImport.cubeId("https://cubecobra.com/cube/list/synergy?view=table"))
         assertEquals("synergy", CubeCobraImport.cubeId("synergy"))
@@ -63,6 +75,9 @@ class CubeImportTest {
         val broken = CubeCobraImport.parse("""{"cards":{"mainboard":[{"details":{"name":"Quiet Lattice Bolt"}},{"details":{}}]}}""")
         assertEquals(2, broken.issues.single().line)
         assertFalse(resolver().resolve(broken).resolved)
+        // Cube Cobra's basics are a separate list and never join the cube.
+        val basics = CubeCobraImport.parse("""{"basics":["00000000-0000-4000-8000-000000000001"],"cards":{"mainboard":[{"details":{"name":"Quiet Lattice Bolt"}}],"maybeboard":[]}}""")
+        assertEquals(listOf("Quiet Lattice Bolt"), basics.lines.map { it.name }); assertEquals("1 Quiet Lattice Bolt", basics.text)
     }
     @Test fun cubeCobraScryfallIdentityWinsOverConflictingPrintingMetadata() {
         val parsed = CubeCobraImport.parse("""{"cards":{"mainboard":[{"cardID":"f76be976-d1a3-58fb-9b57-abdf2c982a94","details":{"name":"Coppercloud Surveyor","set":"zpa","collector_number":"1"}}]}}""")
@@ -107,7 +122,12 @@ class CubeImportTest {
     // DRF-005, DRF-006
     @Test fun everyCubeCobraExportOfOneCubeResolvesToTheSameCards() {
         val resolver = CubeImportResolver(synergy())
-        val json = resolver.resolve(CubeCobraImport.parse(synergyFile("cubeJSON.json")))
+        // The real export's one maybeboard card is outside the small sample catalog; DRF-009 covers maybeboards.
+        val export = com.google.gson.JsonParser.parseString(synergyFile("cubeJSON.json")).asJsonObject
+        val maybe = CubeCobraImport.parse(export.toString()).lines.filter { it.section == DeckSection.MAYBEBOARD }
+        assertEquals(listOf("Children of Korlis"), maybe.map { it.name })
+        export.getAsJsonObject("cards").remove("maybeboard")
+        val json = resolver.resolve(CubeCobraImport.parse(export.toString()))
         assertTrue(json.resolved, json.issues.toString())
         assertTrue(json.substitutions.isEmpty(), json.substitutions.toString())
         assertEquals(19L, json.count(DeckSection.MAINBOARD))
@@ -132,19 +152,20 @@ class CubeImportTest {
         assertTrue(printing(resolver.resolve(synergyFile("forge.txt")), "Thalia, Guardian of Thraben").startsWith("SLD "))
     }
 
-    // DRF-005
-    @Test fun maybeboardRowsAndSectionsAreSkipped() {
+    // DRF-005: maybeboard rows and sections, and sideboard sections, go to Maybe.
+    @Test fun maybeboardRowsAndSectionsGoToMaybe() {
         val resolver = CubeImportResolver(synergy())
-        val plaintext = resolver.resolve(synergyFile("plaintext.txt") + "\r\n# maybeboard\r\nNot A Real Card\r\n")
+        val plaintext = resolver.resolve(synergyFile("plaintext.txt") + "\r\n# maybeboard\r\nWasteland\r\n")
         assertTrue(plaintext.resolved, plaintext.issues.toString())
-        assertEquals(19L, plaintext.count(DeckSection.MAINBOARD))
+        assertEquals(19L, plaintext.count(DeckSection.MAINBOARD)); assertEquals(1L, plaintext.count(DeckSection.MAYBEBOARD))
         val csv = resolver.resolve(synergyFile("csv.csv") +
-            "\"Not A Real Card\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"maybeboard\",\"true\",\"\",\"\",\"\",\"Line one\nline two\",\"-1\",\"false\",\"false\",\"Nobody\"\n" +
-            "\"Also Not Real\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"mainboard\",\"true\",\"\",\"\",\"\",\"\",\"-1\",\"false\",\"false\",\"Nobody\"\n")
+            "\"Wasteland\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"maybeboard\",\"true\",\"\",\"\",\"\",\"Line one\nline two\",\"-1\",\"false\",\"false\",\"Nobody\"\n" +
+            "\"Strip Mine\",\"1\",\"Instant\",\"W\",\"zzz\",\"1\",\"rare\",\"\",\"Owned\",\"Non-foil\",\"mainboard\",\"true\",\"\",\"\",\"\",\"\",\"-1\",\"false\",\"false\",\"Nobody\"\n")
         assertTrue(csv.resolved, csv.issues.toString())
-        assertEquals(19L, csv.count(DeckSection.MAINBOARD))
-        val forge = resolver.resolve(synergyFile("forge.txt") + "\n[Sideboard]\n1 Not A Real Card|ZZZ\n")
+        assertEquals(19L, csv.count(DeckSection.MAINBOARD)); assertEquals(2L, csv.count(DeckSection.MAYBEBOARD))
+        val forge = resolver.resolve(synergyFile("forge.txt") + "\n[Sideboard]\n1 Wasteland\n")
         assertTrue(forge.resolved, forge.issues.toString())
+        assertEquals(19L, forge.count(DeckSection.MAINBOARD)); assertEquals(1L, forge.count(DeckSection.MAYBEBOARD))
         val island = resolver.resolve("Island (M21)\nIsland|ZNR")
         assertTrue(island.resolved, island.issues.toString())
         assertTrue(island.substitutions.isEmpty())

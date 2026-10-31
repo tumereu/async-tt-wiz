@@ -386,14 +386,14 @@ class DeckHttpTest {
         }
     }
 
-    // LOB-065
-    @Test fun `contextual imports serialize additive sections preserve immutable content and recover original outcomes`() {
+    // An import into an existing deck replaces its whole list, Maybe included (merge import is gone).
+    @Test fun `contextual imports replace the list preserve immutable content and recover original outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val config = settings(db)
             lateinit var owner: SessionCreated
             lateinit var saved: SavedDeck
-            lateinit var merge: UpdateDeck
+            lateinit var replace: UpdateDeck
             lateinit var original: String
             val first = submitted(card())
             // Same claimed name, printing and face IDs, distinct actual content. Never rewrite the old snapshot.
@@ -409,31 +409,33 @@ class DeckHttpTest {
                 fun put(input: UpdateDeck, token: String = owner.token, target: String = path) =
                     request(settings, "PUT", target, json.encodeToString(input), token)
                 fun read() = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
-                val add = DeckContentsImport(listOf(initial.first().copy(quantity = 2)), DeckImportMode.MERGE)
-                merge = UpdateDeck(id(), contents = add)
-                assertEquals(401, request(settings, "PUT", path, json.encodeToString(merge)).statusCode())
-                assertEquals(404, put(merge.copy(requestId = id()), foreign.token).statusCode())
+                val add = DeckContentsImport(listOf(initial.first().copy(quantity = 2),
+                    initial.first().copy(section = SavedDeckSection.MAYBEBOARD, quantity = 1)))
+                replace = UpdateDeck(id(), contents = add)
+                assertEquals(401, request(settings, "PUT", path, json.encodeToString(replace)).statusCode())
+                assertEquals(404, put(replace.copy(requestId = id()), foreign.token).statusCode())
                 val pool = Executors.newFixedThreadPool(4)
                 try {
-                    val replies = pool.invokeAll(List(4) { Callable { put(merge) } }).map { it.get(30, TimeUnit.SECONDS) }
+                    val replies = pool.invokeAll(List(4) { Callable { put(replace) } }).map { it.get(30, TimeUnit.SECONDS) }
                     assertTrue(replies.all { it.statusCode() == 200 }, replies.map { it.body() }.toString())
                     original = replies.first().body(); assertTrue(replies.all { it.body() == original })
-                    assertEquals(listOf(6, 3), read().entries.map { it.quantity })
-                    val independent = pool.invokeAll(List(2) { Callable { put(merge.copy(requestId = id())) } })
+                    assertEquals(add.entries, read().entries)
+                    read().deck.let { assertEquals(listOf(2L, 0L, 1L), listOf(it.mainboard, it.sideboard, it.maybeboard)) }
+                    val independent = pool.invokeAll(List(2) { Callable { put(replace.copy(requestId = id())) } })
                         .map { it.get(30, TimeUnit.SECONDS) }
                     assertTrue(independent.all { it.statusCode() == 200 })
                 } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
-                assertEquals(listOf(10, 3), read().entries.map { it.quantity })
-                assertEquals(409, put(merge.copy(contents = add.copy(mode = DeckImportMode.OVERWRITE))).statusCode())
-                assertEquals(409, put(merge, target = "/v1/decks/${id()}").statusCode())
-                assertEquals(409, put(merge, foreign.token).statusCode())
+                assertEquals(add.entries, read().entries)
+                assertEquals(409, put(replace.copy(contents = add.copy(entries = add.entries.take(1)))).statusCode())
+                assertEquals(409, put(replace, target = "/v1/decks/${id()}").statusCode())
+                assertEquals(409, put(replace, foreign.token).statusCode())
                 assertEquals(400, put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest))))).statusCode())
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(changed)), foreign.token).statusCode())
                 assertEquals(400, put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest))))).statusCode())
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(changed)), owner.token).statusCode())
-                val both = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest)), DeckImportMode.MERGE)))
+                val both = put(UpdateDeck(id(), contents = DeckContentsImport(add.entries + initial.first().copy(definition = changed.digest))))
                 assertEquals(200, both.statusCode()); assertEquals(3, read().entries.size)
-                assertEquals(listOf(10, 3, 4), read().entries.map { it.quantity })
+                assertEquals(listOf(2, 1, 4), read().entries.map { it.quantity })
                 val firstRead = request(settings, "GET", "$path/definitions/${first.digest}", token = owner.token)
                 assertEquals(first, json.decodeFromString<SubmittedDefinition>(firstRead.body()))
                 assertEquals(changed, json.decodeFromString<SubmittedDefinition>(request(settings, "GET", "$path/definitions/${changed.digest}", token = owner.token).body()))
@@ -441,9 +443,10 @@ class DeckHttpTest {
                 val overwrite = put(UpdateDeck(id(), contents = DeckContentsImport(listOf(initial.first().copy(definition = changed.digest, quantity = 7)))))
                 assertEquals(200, overwrite.statusCode(), overwrite.body())
                 val current = read(); assertEquals(7L, current.deck.mainboard); assertEquals(0L, current.deck.sideboard)
+                assertEquals(0L, current.deck.maybeboard)
                 assertEquals(saved.deck.id, current.deck.id); assertEquals(saved.deck.createdAt, current.deck.createdAt)
                 assertEquals("Retained name", current.deck.name); assertEquals(changed.digest, current.deck.cover!!.definition)
-                assertEquals(original, put(merge).body()); assertEquals(current, read())
+                assertEquals(original, put(replace).body()); assertEquals(current, read())
                 assertEquals(2, count(db, "definition"))
                 // Pre-I08 metadata canonical identity is unchanged by the new optional contents field.
                 val renameId = id()
@@ -454,19 +457,19 @@ class DeckHttpTest {
                 """.trimIndent()) }
                 assertEquals("original pre-I08 outcome", put(UpdateDeck(renameId, name = "Old metadata")).body())
                 assertEquals(current, read())
-                println("PASS four duplicate Merges add once, concurrent independent Merges serialize, section/untouched retention, target/mode/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, default Overwrite clears sideboard and retains deck metadata, legacy retry identity")
+                println("PASS four duplicate replacements apply once, independent replacements serialize, Maybe kept, target/contents/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, replacing clears sideboard and retains deck metadata, legacy retry identity")
             }
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)
                 val path = "/v1/decks/${saved.deck.id}"
-                assertEquals(original, request(settings, "PUT", path, json.encodeToString(merge), owner.token).body())
+                assertEquals(original, request(settings, "PUT", path, json.encodeToString(replace), owner.token).body())
                 val current = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
                 assertEquals(listOf(7), current.entries.map { it.quantity })
                 assertEquals(200, request(settings, "DELETE", path, json.encodeToString(DeleteDeck(id())), owner.token).statusCode())
-                assertEquals(original, request(settings, "PUT", path, json.encodeToString(merge), owner.token).body())
-                assertEquals(404, request(settings, "PUT", path, json.encodeToString(merge.copy(requestId = id())), owner.token).statusCode())
+                assertEquals(original, request(settings, "PUT", path, json.encodeToString(replace), owner.token).body())
+                assertEquals(404, request(settings, "PUT", path, json.encodeToString(replace.copy(requestId = id())), owner.token).statusCode())
                 assertEquals(0, count(db, "saved_deck")); assertEquals(2, count(db, "definition"))
-                println("PASS actual service restart and deleted-target old Merge outcome recovery without reapplication/upsert; immutable snapshots retained")
+                println("PASS actual service restart and deleted-target old replacement outcome recovery without reapplication/upsert; immutable snapshots retained")
             }
         }
     }
@@ -487,7 +490,7 @@ class DeckHttpTest {
                 val before = current()
                 for (entries in listOf(emptyList(), listOf(entry, entry), listOf(entry.copy(quantity = -1)),
                     listOf(entry.copy(definition = "sha256:${"0".repeat(64)}")), listOf(entry.copy(quantity = Int.MAX_VALUE)))) {
-                    val bad = UpdateDeck(id(), contents = DeckContentsImport(entries, DeckImportMode.MERGE))
+                    val bad = UpdateDeck(id(), contents = DeckContentsImport(entries))
                     val result = put(bad); assertEquals(400, result.statusCode()); assertEquals(result.body(), put(bad).body())
                     assertEquals(before, current())
                 }

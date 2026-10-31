@@ -59,7 +59,8 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             }
             // The game preparation view, read-only: both sections in one scroll, tap inspects, hold previews.
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
-                for (section in SavedDeckSection.entries) {
+                // Main and Side only until this view shows Maybe.
+                for (section in SavedDeckSection.PREPARED) {
                     val title = if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
                     visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
                         preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->

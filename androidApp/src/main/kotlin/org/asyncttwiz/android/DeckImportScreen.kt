@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.*
-import org.asyncttwiz.protocol.DeckImportMode
 
 @Composable
 internal fun DeckImportScreen(controller: DeckImportController, landscape: Boolean,
@@ -54,22 +53,9 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
         return
     }
-    val modes: @Composable () -> Unit = {
-        if (state.target != null && !state.editing) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DeckImportMode.entries.forEach { mode ->
-                ScreenOutlinedButton(onClick = { controller.mode(mode) }, Modifier.weight(1f), enabled = !state.saving,
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mode == state.mode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface)) {
-                    EntryIcon(null, if (mode == DeckImportMode.OVERWRITE) "refresh" else "add"); Spacer(Modifier.width(8.dp))
-                    Text(if (mode == DeckImportMode.OVERWRITE) "Overwrite" else "Merge")
-                }
-            }
-        }
-    }
     ImportScaffold(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist",
         openNavigation, landscape, controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-deck",
         input = {
-            modes()
             DeckMetadataHeader(state.name, controller.currentCover, controller::name,
                 if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
             ImportListField(state.text, controller::edit, "Deck list", "deck-list")

@@ -94,19 +94,9 @@ class DeckService(private val runtime: ServiceRuntime) {
                     .where(ACCOUNT_DEFINITION.ACCOUNT_ID.eq(owner)).and(ACCOUNT_DEFINITION.DIGEST.`in`(needed))
                     .fetchSet(ACCOUNT_DEFINITION.DIGEST)
                 if (owned != needed) return@business error(400, "definitions_unavailable")
-                if (contents.mode == DeckImportMode.OVERWRITE) contents.entries else {
-                    // Content identity, never a guessed name/external-ID match. Preserve existing order.
-                    val merged = linkedMapOf<Pair<SavedDeckSection, String>, SavedDeckEntry>()
-                    for (entry in previous + contents.entries) {
-                        val key = entry.section to entry.definition
-                        val quantity = (merged[key]?.quantity?.toLong() ?: 0L) + entry.quantity
-                        if (quantity > Int.MAX_VALUE) return@business error(400, "quantity_overflow")
-                        merged[key] = entry.copy(quantity = quantity.toInt())
-                    }
-                    merged.values.toList()
-                }
+                // An import replaces the whole list (no merging).
+                contents.entries
             }
-            if (contents != null && !DeckValidation.entries(next)) return@business error(400, "invalid_deck")
             if (requestedCover != null && (!DeckValidation.digest(requestedCover) || next.none { it.definition == requestedCover }))
                 return@business error(400, "invalid_cover", "cover")
             val name = input.name ?: row.name!!
@@ -209,7 +199,8 @@ class DeckService(private val runtime: ServiceRuntime) {
         return DeckSummary(row.id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString(),
             entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },
             entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover,
-            row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) })
+            row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) },
+            entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() })
     }
 
     /** INSERT uniqueness waits for concurrent identical IDs, then reads the committed original result.

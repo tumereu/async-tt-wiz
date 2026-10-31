@@ -18,12 +18,17 @@ internal class DeckEditorSource(val detail: DeckDetail) {
         val number = field(definition, "number")
         return definition.name + if (!set.isNullOrBlank() && !number.isNullOrBlank()) " ($set) $number" else ""
     }
-    val text = SavedDeckSection.entries.joinToString("\n") { section ->
-        (listOf(if (section == SavedDeckSection.MAINBOARD) "Deck" else "Sideboard") +
-            detail.saved.entries.filter { it.section == section }.map {
+    // Maybeboard is listed only when the deck has Maybe cards; saving the text back keeps every section.
+    val text = SavedDeckSection.entries.filter { it != SavedDeckSection.MAYBEBOARD || detail.saved.entries.any { e -> e.section == it } }
+        .joinToString("\n") { section ->
+            (listOf(when (section) {
+                SavedDeckSection.MAINBOARD -> "Deck"
+                SavedDeckSection.SIDEBOARD -> "Sideboard"
+                SavedDeckSection.MAYBEBOARD -> "Maybeboard"
+            }) + detail.saved.entries.filter { it.section == section }.map {
                 "${it.quantity} ${cardText(detail.definitions.getValue(it.definition))}"
             }).joinToString("\n")
-    }
+        }
     private val retained = detail.definitions.values.groupBy { definition ->
         DeckTextParser.parse("1 ${cardText(definition)}").lines.single().let { Triple(it.name, it.set, it.number) }
     }

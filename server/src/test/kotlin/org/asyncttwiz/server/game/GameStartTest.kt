@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test
 
 class GameStartTest {
     // LOB-063
-    @Test fun `oversized create and merged contents are terminal validation errors`() {
+    @Test fun `oversized create and contents over the limit across every section are terminal validation errors`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
@@ -28,8 +28,11 @@ class GameStartTest {
                 val rejected = decks.create(a, input)
                 assertEquals(400, rejected.status); assertEquals("invalid_deck", json.decodeFromString<DeckError>(rejected.body).code)
                 assertEquals(rejected, decks.create(a, input))
-                val merged = UpdateDeck(id(), contents = DeckContentsImport(listOf(source.entries.first().copy(quantity = 1000)), DeckImportMode.MERGE))
-                assertEquals(400, decks.update(a, source.deck.id, merged).status)
+                // The limit counts Maybe too.
+                val first = source.entries.first()
+                val over = UpdateDeck(id(), contents = DeckContentsImport(listOf(first.copy(section = SavedDeckSection.MAINBOARD, quantity = 1000),
+                    first.copy(section = SavedDeckSection.MAYBEBOARD, quantity = 1))))
+                assertEquals(400, decks.update(a, source.deck.id, over).status)
                 assertEquals(source, json.decodeFromString<SavedDeck>(decks.read(a, source.deck.id).body))
             }
         }

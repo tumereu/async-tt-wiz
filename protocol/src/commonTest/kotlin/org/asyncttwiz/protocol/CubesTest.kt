@@ -17,6 +17,21 @@ class CubesTest {
         assertFalse(CubeValidation.name(" "))
         assertFalse(CubeValidation.provenance("../../elsewhere"))
     }
+    // DRF-007: Main and Maybe count toward the limit; a card may be in both; cubes have no Side.
+    @Test fun cubeSectionsShareTheLimitAndMainOnlyCubesKeepTheirWireForm() {
+        val other = "sha256:" + "b".repeat(64)
+        val main = SavedCubeEntry(digest, 2000); val maybe = SavedCubeEntry(digest, 1000, SavedDeckSection.MAYBEBOARD)
+        assertTrue(CubeValidation.entries(listOf(main, maybe)))
+        assertTrue(CubeValidation.entries(listOf(maybe)))
+        assertFalse(CubeValidation.entries(listOf(main, maybe, SavedCubeEntry(other, 1, SavedDeckSection.MAYBEBOARD))))
+        assertFalse(CubeValidation.entries(listOf(main, maybe, maybe.copy(quantity = 1))))
+        assertFalse(CubeValidation.entries(listOf(SavedCubeEntry(digest, 1, SavedDeckSection.SIDEBOARD))))
+        assertEquals("""{"definition":"$digest","quantity":2000}""", DeckJson.canonical(main))
+        assertEquals("""{"definition":"$digest","quantity":1000,"section":"MAYBEBOARD"}""", DeckJson.canonical(maybe))
+        val saved = SavedCube(CubeSummary("id", "Cube", "1", "t", "t", 2000, maybeCopies = 1000), listOf(main, maybe))
+        assertEquals(saved, DeckJson.format.decodeFromString<SavedCube>(DeckJson.canonical(saved)))
+        assertFalse("maybeCopies" in DeckJson.canonical(saved.cube.copy(maybeCopies = 0)))
+    }
     @Test fun definitionBatchLimitAndWireRoundTrip() {
         val input = ReadCubeDefinitions(List(250) { digest })
         assertTrue(CubeValidation.definitionRead(input.digests))

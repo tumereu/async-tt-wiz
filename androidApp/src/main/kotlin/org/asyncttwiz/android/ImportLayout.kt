@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -14,7 +13,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -122,16 +120,6 @@ internal fun ColumnScope.ImportListField(text: String, onText: (String) -> Unit,
 }
 
 @Composable
-internal fun ImportSideboardToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.heightIn(min = 48.dp).toggleable(checked, role = Role.Checkbox, onValueChange = onChange),
-        verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked, null)
-        Spacer(Modifier.width(4.dp))
-        Text("Include sideboard")
-    }
-}
-
-@Composable
 internal fun ImportError(message: String?) {
     if (message != null) Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
 }
@@ -140,8 +128,9 @@ internal fun ImportError(message: String?) {
 @Composable
 internal fun ImportResultSummary(result: DeckImportResult?, deck: Boolean, lineNumbers: Boolean) {
     result ?: return
-    if (result.entries.isNotEmpty()) Text(if (deck) "${result.count(DeckSection.MAINBOARD)} main · ${result.count(DeckSection.SIDEBOARD)} side"
-        else result.count(DeckSection.MAINBOARD).let { if (it == 1L) "1 card" else "$it cards" }, fontWeight = FontWeight.Bold)
+    val maybe = result.count(DeckSection.MAYBEBOARD).takeIf { it > 0 }?.let { " · $it maybe" }.orEmpty()
+    if (result.entries.isNotEmpty()) Text((if (deck) "${result.count(DeckSection.MAINBOARD)} main · ${result.count(DeckSection.SIDEBOARD)} side"
+        else result.count(DeckSection.MAINBOARD).let { if (it == 1L) "1 card" else "$it cards" }) + maybe, fontWeight = FontWeight.Bold)
     fun line(issue: ImportIssue) = (if (lineNumbers && issue.line > 0) "Line ${issue.line}: " else "") + issue.message
     result.substitutions.forEach {
         Text(line(it), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)

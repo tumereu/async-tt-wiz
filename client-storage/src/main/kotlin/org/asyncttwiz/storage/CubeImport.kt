@@ -7,14 +7,16 @@ import org.asyncttwiz.protocol.CubeValidation
 
 class CubeImportResolver(repository: CatalogRepository) {
     private val resolver = DeckImportResolver(repository)
-    fun resolve(text: String, includeSideboard: Boolean = false): DeckImportResult = resolve(parse(text, includeSideboard))
+    fun resolve(text: String): DeckImportResult = resolve(parse(text))
+    /** Cubes have Main and Maybe only: anything else becomes Maybe. */
     fun resolve(parsed: ParsedDeck): DeckImportResult = resolver.resolve(parsed.copy(lines = parsed.lines.map {
-        it.copy(section = DeckSection.MAINBOARD)
+        if (it.section == DeckSection.MAINBOARD) it else it.copy(section = DeckSection.MAYBEBOARD)
     }), CubeValidation.MAX_CARDS, allowSubstitutions = true)
     companion object {
-        /** Cube lists may also be bare card names, one copy per line (Cube Cobra plaintext export). */
-        fun parse(text: String, includeSideboard: Boolean = false): ParsedDeck =
-            DeckTextParser.parse(text, CubeValidation.MAX_CARDS, includeSideboard, bareNames = true)
+        /** Cube lists may also be bare card names, one copy per line (Cube Cobra plaintext export).
+         * Sideboard lines go to Maybe, as do maybeboard sections. */
+        fun parse(text: String): ParsedDeck =
+            DeckTextParser.parse(text, CubeValidation.MAX_CARDS, DeckSection.MAYBEBOARD, bareNames = true)
     }
 }
 
@@ -32,15 +34,18 @@ object CubeCobraImport {
         require(CubeValidation.provenance(id)) { "Enter a Cube Cobra URL or cube id." }
         return id
     }
+    /** Mainboard to Main and maybeboard to Maybe; the cube's basics (a separate list) are ignored.
+     * The text lists Main first, then a "Maybeboard" header and Maybe; line numbers are text lines. */
     fun parse(json: String): ParsedDeck {
         val root = JsonParser.parseString(json).asJsonObject
-        val cards = root.getAsJsonObject("cards")?.getAsJsonArray("mainboard")
-            ?: error("Cube Cobra response has no mainboard.")
+        val boards = root.getAsJsonObject("cards")
+        val cards = boards?.getAsJsonArray("mainboard") ?: error("Cube Cobra response has no mainboard.")
+        val maybe = boards.get("maybeboard")?.takeIf { it.isJsonArray }?.asJsonArray
         val lines = mutableListOf<ImportLine>()
         val issues = mutableListOf<ImportIssue>()
         val text = mutableListOf<String>()
-        cards.forEachIndexed { index, element ->
-            val line = index + 1
+        fun board(section: DeckSection, records: Iterable<com.google.gson.JsonElement>, label: String) = records.forEach { element ->
+            val line = text.size + 1
             try {
                 val card = element.asJsonObject
                 val details = card.getAsJsonObject("details") ?: card
@@ -51,11 +56,16 @@ object CubeCobraImport {
                 val set = (details.string("set") ?: details.string("setCode"))?.uppercase(Locale.ROOT)
                 val number = details.string("collector_number") ?: details.string("collectorNumber")
                 text += "$quantity $name" + if (set != null && number != null) " ($set) $number" else ""
-                lines += ImportLine(line, DeckSection.MAINBOARD, quantity, name, set.takeIf { number != null }, number.takeIf { set != null }, scryfall)
+                lines += ImportLine(line, section, quantity, name, set.takeIf { number != null }, number.takeIf { set != null }, scryfall)
             } catch (_: Exception) {
                 text += element.toString()
-                issues += ImportIssue(line, "Invalid Cube Cobra mainboard card: $element")
+                issues += ImportIssue(line, "Invalid Cube Cobra $label card: $element")
             }
+        }
+        board(DeckSection.MAINBOARD, cards, "mainboard")
+        if (maybe != null && !maybe.isEmpty) {
+            text += DeckSection.MAYBEBOARD.title
+            board(DeckSection.MAYBEBOARD, maybe, "maybeboard")
         }
         if (lines.sumOf { it.quantity.toLong() } > CubeValidation.MAX_CARDS) issues += ImportIssue(0, "A cube may contain at most 3000 copies.")
         if (cards.isEmpty) issues += ImportIssue(0, "Cube Cobra mainboard is empty.")

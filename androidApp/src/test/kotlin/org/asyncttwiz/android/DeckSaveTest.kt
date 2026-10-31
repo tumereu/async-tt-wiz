@@ -44,7 +44,10 @@ class DeckSaveTest {
         assertNull(submitted.definition.faces.first().imageUri)
         assertEquals(" Exact name ", plan.deck.name)
         assertEquals(listOf(4, 2), plan.deck.entries.map { it.quantity })
-        assertEquals(SavedDeckSection.entries, plan.deck.entries.map { it.section })
+        assertEquals(SavedDeckSection.PREPARED, plan.deck.entries.map { it.section })
+        val maybe = result().let { it.copy(entries = it.entries + it.entries.first().copy(section = DeckSection.MAYBEBOARD, quantity = 3)) }
+        assertEquals(SavedDeckSection.entries to listOf(4, 2, 3),
+            DeckSavePlan.from(maybe, "Maybe").deck.entries.let { entries -> entries.map { it.section } to entries.map { it.quantity } })
         assertFailsWith<DeckFailure> { DeckSavePlan.from(result(), " \n") }
     }
 
@@ -134,7 +137,8 @@ class DeckSaveTest {
         controller.close()
     }
 
-    @Test fun successfulMergeClosesEditorDespiteNameCorrectionAndCannotApplyQuantitiesAgain() {
+    // An import into an existing deck replaces its list and closes the editor once accepted.
+    @Test fun successfulImportIntoAnExistingDeckReplacesItsListAndClosesTheEditor() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
         val imported = result().let { it.copy(text = "Deck\n2 Front // Back", entries = listOf(it.entries.first().copy(quantity = 2))) }
         var accepted = SavedDeck(summary, listOf(DeckSavePlan.from(result(), summary.name).deck.entries.first()))
@@ -142,21 +146,16 @@ class DeckSaveTest {
         val controller = DeckImportController({ imported }, worker) { posts += it }
         controller.connectSave({ { plan ->
             attempts += plan
-            val contents = checkNotNull(plan.update().contents)
-            val entry = contents.entries.single()
-            val quantity = if (contents.mode == DeckImportMode.MERGE) accepted.entries.single().quantity + entry.quantity else entry.quantity
-            accepted = SavedDeck(summary, listOf(entry.copy(quantity = quantity)))
+            accepted = SavedDeck(summary, checkNotNull(plan.update().contents).entries)
             accepted
-        } }, { successes++; assertEquals(6, it.entries.single().quantity) })
+        } }, { successes++; assertEquals(2, it.entries.single().quantity) })
         controller.openExisting(summary); controller.edit(imported.text); controller.lookup()
         worker.drain(); posts.removeFirst()()
-        controller.mode(DeckImportMode.MERGE); controller.save(); controller.name("Corrected name")
+        controller.save()
         assertTrue(controller.state.active); assertTrue(controller.state.saving); assertEquals(4, accepted.entries.single().quantity)
         worker.drain(); posts.removeFirst()()
-        assertEquals(6, accepted.entries.single().quantity)
-        assertFalse(controller.state.active); assertEquals(1, successes)
-        controller.save(); worker.drain()
-        assertEquals(1, attempts.size); assertEquals(6, accepted.entries.single().quantity)
+        assertEquals(2, accepted.entries.single().quantity)
+        assertFalse(controller.state.active); assertEquals(1, successes); assertEquals(1, attempts.size)
         controller.close()
     }
 
@@ -195,31 +194,25 @@ class DeckSaveTest {
         assertTrue(library.state.decks.isEmpty()); assertFalse(library.state.loaded)
         library.refresh(); library.clear(); worker.drain(); assertEquals(2, api.pages)
     }
-    // LOB-065
-    @Test fun contextualImportCapturesTargetDefaultsOverwriteAndRetriesMergeWithoutChangingIdentity() {
+    @Test fun contextualImportCapturesTargetAndRetriesTheReplacementWithoutChangingIdentity() {
         val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
         val controller = DeckImportController({ result() }, worker) { posts += it }
         controller.connectSave({ { plan -> attempts += plan; throw DeckFailure("network") } }, { error("not accepted") })
         controller.openExisting(summary)
         assertEquals(summary.id, controller.state.target); assertEquals(summary.name, controller.state.name)
-        assertEquals(DeckImportMode.OVERWRITE, controller.state.mode)
         controller.edit(result().text); controller.lookup(); worker.drain(); posts.removeAt(0)(); controller.review()
-        controller.mode(DeckImportMode.MERGE); controller.save(); controller.mode(DeckImportMode.OVERWRITE)
-        worker.drain(); posts.removeAt(0)()
-        assertEquals(DeckImportMode.MERGE, controller.state.mode) // cannot retarget an in-flight save
+        controller.save(); worker.drain(); posts.removeAt(0)()
         controller.save(); worker.drain(); posts.removeAt(0)()
         assertEquals(attempts[0], attempts[1]); assertEquals(summary.id, attempts[0].target)
-        assertEquals(DeckImportMode.MERGE, attempts[0].update().contents!!.mode)
         assertNull(attempts[0].update().name)
         assertEquals(attempts[0].deck.entries.first().definition, attempts[0].update().cover)
         assertEquals(listOf(4, 2), attempts[0].update().contents!!.entries.map { it.quantity })
-        controller.editList(); controller.review(); controller.mode(DeckImportMode.OVERWRITE)
+        controller.editList(); controller.name("Renamed"); controller.review()
         controller.save(); worker.drain(); posts.removeAt(0)()
         assertNotEquals(attempts[1].deck.requestId, attempts[2].deck.requestId)
-        assertEquals(DeckImportMode.OVERWRITE, attempts[2].update().contents!!.mode)
         controller.back(); assertEquals(summary.id, controller.state.target); controller.back()
         controller.openExisting(summary.copy(id = second))
-        assertEquals(second, controller.state.target); assertEquals(DeckImportMode.OVERWRITE, controller.state.mode)
+        assertEquals(second, controller.state.target)
         assertEquals("", controller.state.text)
         controller.open(); assertNull(controller.state.target)
     }
@@ -264,7 +257,7 @@ class DeckSaveTest {
                     DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
                 } else DeckJson.format.encodeToString(DeckList(listOf(summary)))
                 else -> if (request.method == HttpMethod.Put) {
-                    assertEquals(plan.copy(target = summary.id, mode = DeckImportMode.MERGE).update(),
+                    assertEquals(plan.copy(target = summary.id).update(),
                         DeckJson.format.decodeFromString<UpdateDeck>(body!!))
                     DeckJson.format.encodeToString(SavedDeck(summary, plan.deck.entries))
                 } else if ("/definitions/" in request.url.encodedPath)
@@ -276,7 +269,7 @@ class DeckSaveTest {
         api.use { val token = "A".repeat(43)
             it.submit(token, plan.definitions); it.create(token, plan.deck); it.list(token)
             it.read(token, summary.id); it.definition(token, summary.id, plan.deck.entries.first().definition)
-            it.update(token, summary.id, plan.copy(target = summary.id, mode = DeckImportMode.MERGE).update())
+            it.update(token, summary.id, plan.copy(target = summary.id).update())
         }
         assertEquals(6, paths.size)
         for (status in listOf(401, 409, 503, 307)) {

@@ -123,18 +123,19 @@ class CubeService(private val runtime: ServiceRuntime) {
             .fetchSet(ACCOUNT_DEFINITION.DIGEST) == needed
     }
     private fun entries(sql: DSLContext, id: UUID) = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id))
-        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.definitionDigest!!, it.quantity!!) }
+        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.definitionDigest!!, it.quantity!!, SavedDeckSection.valueOf(it.section!!)) }
     private fun replace(sql: DSLContext, owner: UUID, id: UUID, entries: List<SavedCubeEntry>) {
         sql.deleteFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id)).execute()
         entries.forEachIndexed { index, entry ->
             sql.insertInto(CUBE_ENTRY).set(CUBE_ENTRY.CUBE_ID, id).set(CUBE_ENTRY.ACCOUNT_ID, owner)
-                .set(CUBE_ENTRY.POSITION, index).set(CUBE_ENTRY.DEFINITION_DIGEST, entry.definition)
+                .set(CUBE_ENTRY.POSITION, index).set(CUBE_ENTRY.SECTION, entry.section.name).set(CUBE_ENTRY.DEFINITION_DIGEST, entry.definition)
                 .set(CUBE_ENTRY.QUANTITY, entry.quantity).execute()
         }
     }
     private fun summary(row: SavedCubeRecord, entries: List<SavedCubeEntry>) = CubeSummary(row.id.toString(), row.name!!,
         row.revision.toString(), row.createdAt!!.toInstant().toString(), row.updatedAt!!.toInstant().toString(),
-        entries.sumOf { it.quantity.toLong() }, row.cubeCobraId)
+        entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() }, row.cubeCobraId,
+        entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() })
     private fun intent(id: String, input: JsonElement) = DeckJson.canonicalElement(buildJsonObject { put("cubeId", id); put("input", input) })
 
     private fun business(principal: AccountService.Principal, requestId: String, kind: String, canonical: String,

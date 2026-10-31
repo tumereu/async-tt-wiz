@@ -11,7 +11,7 @@ import kotlin.test.*
 class CubeControllerTest {
     @Test fun cobraClipboardIsReadOncePerEditorAndNeverStartsImport() {
         val worker = Worker(); val api = Api(); var fetches = 0; var reads = 0
-        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+        val controller = CubeController(api, { "token" }, { result() }, { result() }, worker, { it() },
             fetchCobra = { fetches++; DeckTextParser.parse("1 Retained card") })
         controller.newCube()
         controller.prefillCobra { reads++; "https://cubecobra.com/cube/list/early" }
@@ -34,7 +34,7 @@ class CubeControllerTest {
     // DRF-009
     @Test fun cobraImportReplacesTheListKeepsATypedNameAndCancelDropsTheFetch() {
         val worker = Worker(); val api = Api(); var fetches = 0
-        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+        val controller = CubeController(api, { "token" }, { result() }, { result() }, worker, { it() },
             fetchCobra = { fetches++; DeckTextParser.parse("1 Retained card") })
         controller.newCube(); controller.name("My cube"); controller.text("5 Old card")
         controller.openLink(); controller.cobraInput("fixture"); controller.importCobra()
@@ -51,7 +51,7 @@ class CubeControllerTest {
     @Test fun sharedCobraTextImportsItsCubeAndFetchFailuresKeepTheirReason() {
         val worker = Worker(); val api = Api(); val requested = mutableListOf<String>()
         var failure: Exception? = null
-        val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
+        val controller = CubeController(api, { "token" }, { result() }, { result() }, worker, { it() },
             fetchCobra = { id -> requested += id; failure?.let { throw it }; DeckTextParser.parse("1 Retained card") })
         controller.newCube()
         controller.cobraInput("Caleb Gannon's Powered Synergy Cube - Cube Cobra\nhttps://cubecobra.com/cube/list/synergy?view=table")
@@ -140,13 +140,13 @@ class CubeControllerTest {
     }
     private fun result(quantity: Int = 2) = DeckImportResult("$quantity Retained card",
         listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, quantity, listOf(CatalogPrinting(card.faces.first().faceId, card.name, "", "", "English", "a", null, false, emptyList(), "{}")), listOf(1))), emptyList(), null)
-    private fun controller(api: Api, worker: Worker, lookup: (String, Boolean) -> DeckImportResult = { _, _ -> result() }, post: (() -> Unit) -> Unit = { it() }, credential: () -> String? = { "token" }) =
+    private fun controller(api: Api, worker: Worker, lookup: (String) -> DeckImportResult = { result() }, post: (() -> Unit) -> Unit = { it() }, credential: () -> String? = { "token" }) =
         CubeController(api, credential, lookup, { result() }, worker, post,
             fetchCobra = { CubeCobraImport.parse("""{"cards":{"mainboard":[{"details":{"name":"Retained card"}}]}}""") })
 
     @Test fun editPrefillsAndPreservesMoreThanOneThousandAcceptedCopiesWithoutCatalog() {
         val api = Api(); val worker = Worker()
-        val controller = controller(api, worker, lookup = { _, _ -> error("Retained card must not be re-resolved") })
+        val controller = controller(api, worker, lookup = { error("Retained card must not be re-resolved") })
         controller.open(summary.id); worker.drain()
         controller.edit(); worker.drain()
         assertTrue(controller.state.text.contains("1500 Retained card"))
@@ -160,9 +160,24 @@ class CubeControllerTest {
         assertEquals(1, api.definitionBatches.size)
         controller.close(); worker.drain()
     }
+    // DRF-003: a cube's Maybe survives editing and saving, and pasted sideboard lines go to Maybe.
+    @Test fun editingACubeKeepsItsMaybeSectionAndSideboardLinesGoToMaybe() {
+        val api = Api(); val worker = Worker()
+        api.saved = SavedCube(summary.copy(maybeCopies = 2),
+            listOf(SavedCubeEntry(digest, 1500), SavedCubeEntry(digest, 2, SavedDeckSection.MAYBEBOARD)))
+        val controller = controller(api, worker, lookup = { error("Retained card must not be re-resolved") })
+        controller.open(summary.id); worker.drain(); controller.edit(); worker.drain()
+        assertEquals("Deck\n1500 Retained card\nMaybeboard\n2 Retained card", controller.state.text)
+        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD), controller.state.result!!.entries.map { it.section })
+        controller.text("Deck\n1500 Retained card\nSideboard\n3 Retained card"); controller.lookup(); worker.drain()
+        controller.save(); worker.drain()
+        assertEquals(listOf(SavedCubeEntry(digest, 1500), SavedCubeEntry(digest, 3, SavedDeckSection.MAYBEBOARD)),
+            api.updates.single().entries)
+        controller.close(); worker.drain()
+    }
     @Test fun createUnknownBlocksAndCobraProvenanceAndImmutableRetryAreRetained() {
         val api = Api(); val worker = Worker()
-        val controller = controller(api, worker, lookup = { text, _ -> DeckImportResult(text, emptyList(), listOf(ImportIssue(1, "Unknown card")), null) })
+        val controller = controller(api, worker, lookup = { text -> DeckImportResult(text, emptyList(), listOf(ImportIssue(1, "Unknown card")), null) })
         controller.newCube(); controller.name("New cube"); controller.text("1 Unknown card"); controller.lookup(); worker.drain()
         controller.save(); worker.drain(); assertTrue(api.creates.isEmpty())
         controller.cobraInput("https://cubecobra.com/cube/list/fixture"); controller.importCobra(); worker.drain()
@@ -287,15 +302,15 @@ class CubeControllerTest {
         assertTrue(api.definitionBatches[0].toSet().intersect(api.definitionBatches.drop(1).flatten().toSet()).isEmpty())
         controller.close(); worker.drain()
     }
-    @Test fun cobraRequestedIdentitySurvivesCheckboxAndTextQuantityEdits() {
+    @Test fun cobraRequestedIdentitySurvivesRelookupAndTextQuantityEdits() {
         val api = Api(); val worker = Worker()
         val requested = UUID.randomUUID().toString()
         val seen = mutableListOf<ParsedDeck>()
-        val controller = CubeController(api, { "token" }, { _, _ -> error("Cobra lines must retain their requested printing") },
+        val controller = CubeController(api, { "token" }, { error("Cobra lines must retain their requested printing") },
             { parsed -> seen += parsed; result() }, worker, { it() },
             fetchCobra = { CubeCobraImport.parse("""{"cards":{"mainboard":[{"cardID":"$requested","details":{"name":"Retained card"}}]}}""") })
         controller.newCube(); controller.cobraInput("fixture"); controller.importCobra(); worker.drain()
-        controller.sideboard(true); controller.lookup(); worker.drain()
+        controller.lookup(); worker.drain()
         controller.text("3 Retained card"); controller.lookup(); worker.drain()
         assertEquals(listOf(requested, requested, requested), seen.map { it.lines.single().scryfallId })
         assertEquals(3, seen.last().lines.single().quantity)

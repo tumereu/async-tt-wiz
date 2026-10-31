@@ -69,12 +69,17 @@ class DecksTest {
         val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 2)
         val input = """{"requestId":"$id","contents":{"entries":[{"section":"MAINBOARD","definition":"${entry.definition}","quantity":2}]}}"""
         val decoded = DeckJson.format.decodeFromString<UpdateDeck>(input)
-        assertEquals(DeckImportMode.OVERWRITE, decoded.contents!!.mode)
         assertNull(decoded.name); assertNull(decoded.cover)
         assertEquals(listOf(entry), decoded.contents!!.entries)
         val changed = card().copy(faces = listOf(card().faces.single().copy(corner = "3/4")))
         assertNotEquals(DeckJson.digest(card()), DeckJson.digest(changed))
         assertTrue(DeckValidation.entries(listOf(entry, entry.copy(section = SavedDeckSection.SIDEBOARD))))
+        // LOB-063: the 1000-card limit counts Maybe too.
+        val maybe = entry.copy(section = SavedDeckSection.MAYBEBOARD)
+        assertTrue(DeckValidation.entries(listOf(entry.copy(quantity = 999), maybe.copy(quantity = 1))))
+        assertFalse(DeckValidation.entries(listOf(entry.copy(quantity = 1000), maybe.copy(quantity = 1))))
+        // Merge import is gone: an import carries only the new list.
+        assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("]}}", "],\"mode\":\"MERGE\"}}")) }
         assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("\"entries\"", "\"unknown\"")) }
     }
 }

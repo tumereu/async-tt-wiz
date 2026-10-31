@@ -224,8 +224,9 @@ class LobbyDeckScreensTest {
         importer.openExisting(DeckSummary(id(), "Existing deck", "1", "date"))
         try {
             compose.setContent { ScreenTheme { DeckImportScreen(importer, true, null, null) } }
-            compose.onNodeWithText("Overwrite").assertExists()
-            compose.onNodeWithText("Merge").assertExists()
+            // Importing into an existing deck always replaces its list: no Overwrite/Merge choice.
+            compose.onNodeWithText("Overwrite").assertDoesNotExist()
+            compose.onNodeWithText("Merge").assertDoesNotExist()
             compose.onNodeWithTag("deck-list").performTextInput("1 Unknown")
             val before = compose.onNodeWithTag("deck-list").fetchSemanticsNode().boundsInRoot
             compose.mainClock.advanceTimeBy(500)

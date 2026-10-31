@@ -205,7 +205,7 @@ class ImportScreenTest {
     // DRF-003
     @Test fun cubeEditorIsThePasteListAndTheLinkDialogDoesNotImportClipboardAutomatically() {
         val worker = Worker()
-        val controller = CubeController(DeckApi("https://invalid.example"), { null }, { _, _ -> error("No lookup expected") },
+        val controller = CubeController(DeckApi("https://invalid.example"), { null }, { error("No lookup expected") },
             { error("No resolution expected") }, worker, { it() }, { error("No automatic fetch") })
         controller.newCube()
         clipboard("https://cubecobra.com/cube/list/runes")
@@ -213,6 +213,7 @@ class ImportScreenTest {
             compose.setContent { ScreenTheme { CubeScreen(controller, null) } }
             compose.onNodeWithText("Link").assertDoesNotExist()
             compose.onNodeWithTag("cube-name").assertExists()
+            compose.onNodeWithText("Include sideboard").assertDoesNotExist() // Sideboard lines go to Maybe instead.
             compose.onNodeWithTag("cube-list").assertExists()
             compose.onNodeWithTag("cube-url").assertDoesNotExist()
             compose.onNodeWithTag("open-import-link").performClick()
@@ -232,7 +233,7 @@ class ImportScreenTest {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val result = DeckImportResult("1 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))),
             emptyList(), null)
-        val controller = CubeController(DeckApi("https://invalid.example"), { "token" }, { _, _ -> result },
+        val controller = CubeController(DeckApi("https://invalid.example"), { "token" }, { result },
             { result }, worker, { it() }, { id ->
                 if (id == "missing") throw CubeCobraFailure("Cube Cobra cube missing was not found.")
                 fetched += id; DeckTextParser.parse("1 Rune Bear")
@@ -275,7 +276,7 @@ class ImportScreenTest {
     @Test fun pastedCubeListIsCheckedOnceShortlyAfterTypingStopsWithoutAnImportListButton() {
         val worker = Worker(); val lookups = mutableListOf<String>()
         val controller = CubeController(DeckApi("https://invalid.example"), { "token" },
-            { text, _ -> lookups += text; resolved(text) }, { error("No Cube Cobra resolution expected") }, worker, { it() },
+            { text -> lookups += text; resolved(text) }, { error("No Cube Cobra resolution expected") }, worker, { it() },
             { error("No Cube Cobra fetch expected") })
         controller.newCube()
         try {
@@ -320,7 +321,7 @@ class ImportScreenTest {
             override suspend fun cubeDefinition(token: String, id: String, digest: String): SubmittedDefinition = error("unused")
             override fun close() = Unit
         }
-        val controller = CubeController(api, { "token" }, { _, _ -> error("No lookup expected") }, { error("unused") }, worker, { it() })
+        val controller = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, worker, { it() })
         val drafted = mutableListOf<String>()
         controller.open(saved.cube.id); worker.drain()
         try {

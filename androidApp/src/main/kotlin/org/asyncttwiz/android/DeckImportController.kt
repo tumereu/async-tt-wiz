@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService
 data class DeckImportState(val active: Boolean = false, val text: String = "", val busy: Boolean = false,
     val result: DeckImportResult? = null, val preview: Boolean = false, val name: String = "",
     val saving: Boolean = false, val error: String? = null, val target: String? = null,
-    val mode: DeckImportMode = DeckImportMode.OVERWRITE, val editing: Boolean = false,
+    val editing: Boolean = false,
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
     val lookupFailed: Boolean = false, val linkDialog: Boolean = false, val url: String = "",
     val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null)
@@ -194,11 +194,6 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun mode(value: DeckImportMode) {
-        if (!closed && state.target != null && !state.saving && state.mode != value) {
-            retryPlan = null; state = state.copy(mode = value, error = null)
-        }
-    }
     fun exit() { epoch++; inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
@@ -258,14 +253,12 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             if (generation != epoch) return@execute
             var plan = previous
             try {
-                 if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target, input.mode,
+                 if (plan == null) plan = DeckSavePlan.from(checkNotNull(input.result), input.name, input.target,
                        cover, retained, input.editing)
                 val result = action(checkNotNull(plan))
                 runCatching { acceptedDefinitions(result.deck.id, plan.definitions.definitions) }
                 post { if (!closed && generation == epoch && state.active) {
-                    // A merged list is a delta, not an editable snapshot: never save it again after acceptance.
-                    if (input.mode == DeckImportMode.MERGE ||
-                        (state.text == input.text && state.name == input.name && state.cover == input.cover)) { exit(); saved(result) }
+                    if (state.text == input.text && state.name == input.name && state.cover == input.cover) { exit(); saved(result) }
                     else {
                         retryPlan = null
                         initial = input.copy(target = result.deck.id, editing = true)

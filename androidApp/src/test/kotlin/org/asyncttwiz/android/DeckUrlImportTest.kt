@@ -31,13 +31,18 @@ class DeckUrlImportTest {
         }
     }
 
-    @Test fun archidektPreservesQuantitiesAndSectionsAndOmitsMaybeboard() {
+    // LOB-061, LOB-062: Archidekt's Maybeboard category goes to Maybe.
+    @Test fun archidektPreservesQuantitiesAndSectionsAndKeepsMaybeboard() {
         val deck = DeckUrlImport.parse(DeckImportSite.ARCHIDEKT, fixture("archidekt.json"))
         assertEquals("Cooperative spells", deck.name)
         assertTrue(deck.parsed.issues.isEmpty())
-        assertEquals(listOf("Rune Spark", "Rune Captain", "Rune Shield"), deck.parsed.lines.map { it.name })
-        assertEquals(listOf(4, 1, 2), deck.parsed.lines.map { it.quantity })
-        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.SIDEBOARD), deck.parsed.lines.map { it.section })
+        assertEquals(listOf("Rune Spark", "Rune Captain", "Rune Shield", "Rune Wish"), deck.parsed.lines.map { it.name })
+        assertEquals(listOf(4, 1, 2, 3), deck.parsed.lines.map { it.quantity })
+        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.SIDEBOARD, DeckSection.MAYBEBOARD),
+            deck.parsed.lines.map { it.section })
+        assertTrue(deck.parsed.text.endsWith("Maybeboard\n3 Rune Wish"))
+        val withoutMaybe = DeckUrlImport.parse(DeckImportSite.ARCHIDEKT, fixture("archidekt.json").replace("\"Maybeboard\"", "\"Lands\""))
+        assertFalse("Maybeboard" in withoutMaybe.parsed.text)
     }
 
     @Test fun malformedProviderEntriesNeverBecomePartialSavableDecks() {

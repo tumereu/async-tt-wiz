@@ -39,7 +39,16 @@ data class CardDefinition(
 @Serializable data class SubmittedDefinition(val digest: String, val definition: CardDefinition)
 @Serializable data class SubmitDefinitions(val requestId: String, val definitions: List<SubmittedDefinition>)
 @Serializable data class DefinitionsAccepted(val digests: List<String>)
-@Serializable enum class SavedDeckSection { MAINBOARD, SIDEBOARD }
+/** A card list's sections. Decks have all three; cubes have Main and Maybe. Maybe holds cards being considered:
+ * never dealt, drafted or played, and not part of a game's prepared deck. */
+@Serializable enum class SavedDeckSection { MAINBOARD, SIDEBOARD, MAYBEBOARD;
+    companion object {
+        /** The sections a game or pod deck is prepared from, in order (LOB-047). */
+        val PREPARED = listOf(MAINBOARD, SIDEBOARD)
+        /** A cube's sections, in order. */
+        val CUBE = listOf(MAINBOARD, MAYBEBOARD)
+    }
+}
 @Serializable data class SavedDeckEntry(val section: SavedDeckSection, val definition: String, val quantity: Int)
 @Serializable data class CreateDeck(val requestId: String, val name: String, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckCover(val definition: String, val name: String, val scryfallId: String? = null, val imageUri: String? = null)
@@ -48,12 +57,14 @@ data class CardDefinition(
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class DeckSummary(val id: String, val name: String, val revision: String, val createdAt: String,
     val mainboard: Long = 0, val sideboard: Long = 0, val cover: DeckCover? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val draft: DraftDeckOrigin? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val draft: DraftDeckOrigin? = null,
+    /** Copies in Maybe; omitted when none. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeboard: Long = 0)
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
-/** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL. */
-@Serializable enum class DeckImportMode { OVERWRITE, MERGE }
-@Serializable data class DeckContentsImport(val entries: List<SavedDeckEntry>, val mode: DeckImportMode = DeckImportMode.OVERWRITE)
+/** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL.
+ * New contents always replace the whole list. */
+@Serializable data class DeckContentsImport(val entries: List<SavedDeckEntry>)
 @Serializable data class UpdateDeck(val requestId: String, val name: String? = null, val cover: String? = null,
     val contents: DeckContentsImport? = null)
 @Serializable data class DeleteDeck(val requestId: String)

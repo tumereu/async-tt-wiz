@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.asyncttwiz.protocol.SavedDeckSection
 import org.asyncttwiz.storage.DeckSection
 
 @Composable
@@ -109,7 +110,8 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                             }
                         }
                     }
-                    items(detail.saved.entries, key = { it.definition }) { entry ->
+                    // Main only until the saved list view shows Maybe.
+                    items(detail.saved.entries.filter { it.section == SavedDeckSection.MAINBOARD }, key = { it.definition }) { entry ->
                         Text("${entry.quantity} ${detail.definitions.getValue(entry.definition).name}")
                         HorizontalDivider()
                     }
@@ -145,7 +147,7 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
         if (state.linkDialog) controller.prefillCobra { clipboard.getText()?.text }
     }
     // Pasted lists resolve on their own, like deck lists; a failed attempt waits for the next edit.
-    LaunchedEffect(state.text, state.includeSideboard, state.busy) {
+    LaunchedEffect(state.text, state.busy) {
         delay(400)
         val current = controller.state
         if (current.text.isNotBlank() && current.result == null && current.error == null && !current.busy) controller.lookup()
@@ -153,12 +155,9 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
     ImportScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape,
         controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-cube",
         input = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ScreenTextField(state.name, controller::name, Modifier.weight(1f).testTag("cube-name")
-                    .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
-                    keyboardOptions = imeOptions(ImeAction.Next))
-                ImportSideboardToggle(state.includeSideboard, controller::sideboard)
-            }
+            ScreenTextField(state.name, controller::name, Modifier.fillMaxWidth().testTag("cube-name")
+                .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
+                keyboardOptions = imeOptions(ImeAction.Next))
             ImportListField(state.text, controller::text, "Card list", "cube-list")
         },
         feedback = {

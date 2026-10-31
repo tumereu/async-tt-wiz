@@ -320,7 +320,7 @@ class DeckImportTest {
             // Sideboard
             2x Path to Exile (md1) 3 [Sideboard]
             // Maybeboard
-            1x Not A Real Card (zzz) 1 [Maybeboard]
+            1x Wasteland [Maybeboard]
         """.trimIndent()
         val goldfish = "4 Swords to Plowshares [SLD]\n1 Solitude <borderless> [MH2]\n20 Island\n1 Thalia, Guardian of Thraben\n\n2 Path to Exile\n"
         val arena = """
@@ -339,7 +339,7 @@ class DeckImportTest {
             2 Path to Exile (MD1) 3
         """.trimIndent()
         val mtgo = "4 Swords to Plowshares\r\n20 Island\r\n1 Expansion/Explosion\r\n\r\n2 Path to Exile\r\n\r\n"
-        val commented = "# Deck\n// built for a test\n4 Swords to Plowshares\n20 Island\n1 Wasteland\n# Sideboard (2)\n2 Path to Exile\n# Considering\n1 Not A Real Card\n"
+        val commented = "# Deck\n// built for a test\n4 Swords to Plowshares\n20 Island\n1 Wasteland\n# Sideboard (2)\n2 Path to Exile\n# Considering\n1 Strip Mine\n"
         for ((label, text, main) in listOf(Triple("moxfield", moxfield, 26L), Triple("archidekt", archidekt, 26L),
             Triple("goldfish", goldfish, 26L), Triple("arena", arena, 26L), Triple("mtgo", mtgo, 25L), Triple("commented", commented, 25L))) {
             val result = resolver.resolve(text)
@@ -347,6 +347,8 @@ class DeckImportTest {
             assertEquals(main, result.count(DeckSection.MAINBOARD), label)
             assertEquals(2L, result.count(DeckSection.SIDEBOARD), label)
             assertEquals("Path to Exile", result.entries.single { it.section == DeckSection.SIDEBOARD }.printing.name, label)
+            // Maybeboard and Considering sections go to Maybe.
+            assertEquals(if (label in listOf("archidekt", "commented")) 1L else 0L, result.count(DeckSection.MAYBEBOARD), label)
         }
         assertEquals("ELD 39", resolver.resolve(moxfield).entries.single { it.printing.name.startsWith("Brazen") }.printing.let { "${it.set} ${it.number}" })
         assertEquals("Expansion // Explosion", resolver.resolve(mtgo).entries[2].printing.name)
@@ -356,8 +358,18 @@ class DeckImportTest {
     @Test fun sectionHeadersCommentsAndTagsAreParsedWithoutResolution() {
         val parsed = DeckTextParser.parse("Sideboard (15)\n1 A\n// Main\n2 B *F*\n#Commander\n3 C [Ramp]\n#Companion:\n4 D <extended> [M11]\n## a note\nMaybeboard\n5 E\n")
         assertEquals(emptyList<ImportIssue>(), parsed.issues)
-        assertEquals(listOf("A", "B", "C", "D"), parsed.lines.map { it.name })
-        assertEquals(listOf(DeckSection.SIDEBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD), parsed.lines.map { it.section })
+        assertEquals(listOf("A", "B", "C", "D", "E"), parsed.lines.map { it.name })
+        assertEquals(listOf(DeckSection.SIDEBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.MAINBOARD, DeckSection.MAYBEBOARD),
+            parsed.lines.map { it.section })
+        // Maybe headers in every common spelling, an "SB:" line inside Maybe stays there, and CSV maybeboard rows.
+        for (header in listOf("Maybeboard", "// Maybe", "# Considering (2)", "[Maybeboard]", "MAYBEBOARD:"))
+            assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD, DeckSection.MAYBEBOARD),
+                DeckTextParser.parse("1 A\n$header\n2 B\nSB: 3 C").lines.map { it.section }, header)
+        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD, DeckSection.MAYBEBOARD),
+            DeckTextParser.parse("Name,Count,Board,Maybeboard\nA,1,mainboard,false\nB,2,maybeboard,false\nC,3,mainboard,true").lines.map { it.section })
+        // A cube has no Side: its sideboard lines go to Maybe.
+        assertEquals(listOf(DeckSection.MAINBOARD, DeckSection.MAYBEBOARD),
+            DeckTextParser.parse("1 A\nSideboard\n1 B", sideboard = DeckSection.MAYBEBOARD).lines.map { it.section })
         assertTrue(parsed.lines.all { it.set == null })
         // Blank lines split main and sideboard only in a header-less list of exactly two blocks.
         assertEquals(List(3) { DeckSection.MAINBOARD }, DeckTextParser.parse("4 A\n\n2 B\n\n1 C").lines.map { it.section })

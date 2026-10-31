@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.GameSummary
 
@@ -68,14 +69,15 @@ internal fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
 
 /** Bare content for the shared menu panel; pod-screen cards keep their own presentation. */
 @Composable
-internal fun MenuPodRow(entry: QuickContinuePod, respond: (Boolean) -> Unit, responseEnabled: Boolean, open: () -> Unit) {
+internal fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, respond: (Boolean) -> Unit,
+    responseEnabled: Boolean, open: () -> Unit) {
     val pod = entry.pod
     val invite = entry.invitation
     Row(Modifier.fillMaxWidth().testTag("quick-pod-${entry.id}").clickable(onClick = open).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            (pod?.members ?: listOfNotNull(invite?.creator)).take(3).forEach { Avatar(it) }
-        }
+        // DRF-014: pods show the side menu's compact stack (DRF-015); an invitation keeps its creator's avatar.
+        if (pod != null) AvatarStack(podNavigationAvatars(pod.members, accountId), ring = Color.White, width = stackWidth)
+        else Box(Modifier.width(stackWidth)) { Avatar(requireNotNull(invite).creator) }
         Column(Modifier.weight(1f)) {
             Text(pod?.name ?: requireNotNull(invite).name, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)

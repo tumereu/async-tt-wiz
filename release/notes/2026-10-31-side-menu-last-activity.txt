@@ -1,0 +1,1 @@
+fix: Games in the side menu show when they were last played, like the other game lists, instead of the day they were created.

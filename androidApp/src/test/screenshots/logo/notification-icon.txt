@@ -1,0 +1,1 @@
+Notification status-bar icon, the white wizard hat silhouette, at 24, 48 and 96dp on a dark background.

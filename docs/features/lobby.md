@@ -28,7 +28,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-016** Under the Games button a panel lists up to 3 games in the shared game order (LOB-022), opening straight into the game; incoming invitations there have Accept and Decline buttons. The panel is hidden when empty. (r30)
 - **LOB-017** Under the Pods button a panel lists up to 3 pods and pod invitations in the shared pod order (DRF-013), invitations with Accept/Decline. Hidden when empty. (r35)
 - **LOB-018** The side menu lists Menu, Manage decks, Contacts, Settings, then Games with every game and incoming invitation as rows, then Pods with each pod's other members as a compact avatar stack. Landscape shows it as a permanent side area; portrait opens it from the hamburger. (r23)
-- **LOB-019** A side-menu game row shows the opponent's avatar, the game name, an "Invitation" label on its own line for invitations, and "opponent · status · date" on two lines. (?) code differs from r5: the side menu shows the creation date, while other game rows show last activity. (r30)
+- **LOB-019** A side-menu game row shows the opponent's avatar, the game name, an "Invitation" label on its own line for invitations, and "opponent · status · last activity" (the time if today, else the date) on two lines. (r35)
 - **LOB-020** Back from any section opened from the menu or side menu returns to the main menu, and Back again leaves the app; steps inside a section (Games → Choose opponent) go back one step. (r30)
 - **LOB-021** Tapping a side-menu game opens it; tapping an incoming invitation opens the Games screen to answer it. (r30)
 
@@ -105,7 +105,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Notifications and reminders
 
-- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", plus " · new message" after chat, and shows the time of the last event. (r28)
+- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", plus " · new message" after chat, and shows the time of the last event. Every notification shows the app logo as a single-colour status-bar icon. (?) (r35)
 - **LOB-073** A move notification comes 10 s after your opponent's last touch when it is your move (60 s otherwise), never while you have the game open; any input counts as activity (pan, inspect, chat). (r28)
 - **LOB-074** Leaving with the Home button still notifies; after you open a game and close it, your opponent's next moves notify with sound again. (r29)
 - **LOB-075** One reminder "<opponent> is waiting for you" comes 5 minutes after your opponent moved and went idle, if you have not moved since; just opening the game does not count, and it waits until 5 minutes after you leave. (r28)

@@ -392,7 +392,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 text(if (index == null) "${card(stack.entryId)} text mark cleared"
                     else "${card(stack.entryId)} marked: ${index + 1}${option?.let { " — $it" }.orEmpty()}", "Mark text")
             }
-            is StackAction.AddEffect -> text("${card(stack.sourceId)} effect → Stack", "Add effect")
+            // HIS-063: a face-down cast reads "Cast X face down", "Cast a card face down" for the opponent.
+            is StackAction.AddEffect -> if (stack.faceDown == true)
+                text("Cast ${card(stack.sourceId).let { if (it == "A card") "a card" else it }} face down", "Cast")
+                else text("${card(stack.sourceId)} effect → Stack", "Add effect")
             is StackAction.CopyEffect -> text("${card(stack.entryId)} copied → Stack top", "Copy effect")
             is StackAction.SetController -> text("${card(stack.occurrenceId)} Stack controller → ${historyPlayerName(stack.accountId, usernames)}", "Controller")
             is StackAction.ToggleTextMark -> {

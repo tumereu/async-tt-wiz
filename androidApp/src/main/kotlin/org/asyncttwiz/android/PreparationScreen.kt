@@ -48,21 +48,68 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
     val deck = preparation.players.find { it.accountId == actor }?.deck ?: return
     val connected = state.detail?.id in state.connectedGames
     val pending = state.detail?.id in state.pendingGames
+    val undo = controller.preparationUndoStep()
+    val definitions = remember(preparation.definitions) { preparation.definitions.associate { it.digest to it.definition } }
+    val sections = SavedDeckSection.PREPARED.map { source ->
+        val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
+        PreparationSection(source, opposite, deck.count(source), preparationGroups(deck, source, definitions),
+            basics = if (preparation.podRules == null) null else ({
+                PodBasicSteppers(PodGamePreparation.basics(deck, source), connected && !pending,
+                    deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS,
+                    if (source == SavedDeckSection.SIDEBOARD) source.label() else null) { land, delta -> controller.changePodBasic(land, delta, source) }
+            }))
+    }
+    PreparationLayout(state.ownPodDeckName ?: "Prepare deck", "preparation", DeckViewScreen.PREPARATION, connected,
+        state.transferFeedback, sections, object : PreparationMoves {
+            override fun capture(digest: String, source: SavedDeckSection) =
+                controller.captureTransfer(digest, source, false)?.let { transfer -> { controller.transfer(transfer) } }
+            override fun move(digest: String, source: SavedDeckSection, all: Boolean) =
+                controller.captureTransfer(digest, source, all)?.let(controller::transfer) == true
+            override fun inspect(digest: String) = controller.inspectPrepared(digest)
+        }, undo = if (undo == null) null else ({ controller.undoPreparation() }),
+        undoEnabled = connected && (undo !is PreparationStep.Basics || !pending), inspection = controller.inspection,
+        navigation = hamburger)
+}
+
+/** One section of a preparation screen: its cards, the section a swipe moves them to and optional basic land steppers. */
+internal class PreparationSection(val source: SavedDeckSection, val opposite: SavedDeckSection, val count: Long,
+    val groups: List<PreparationGroup>, val basics: (@Composable () -> Unit)? = null)
+
+/** What a preparation card does: [capture] the one-copy move a swipe commits on release, [move] one or all copies
+ * across from the menu, [inspect] the card. */
+internal interface PreparationMoves {
+    fun capture(digest: String, source: SavedDeckSection): (() -> Boolean)?
+    fun move(digest: String, source: SavedDeckSection, all: Boolean): Boolean
+    fun inspect(digest: String)
+}
+
+/** Withholds a preparation's cards until their first read, with a retry after a failure (see [InitialLoadArea]). */
+internal class PreparationLoad(val loaded: Boolean, val failed: Boolean, val retry: () -> Unit, val loading: Boolean)
+
+/**
+ * The preparation screen (LOB-047–LOB-051) shared by game deck preparation and Prepare cube (DRF-142): [title] with
+ * optional [navigation] and header [actions]; a line saying what last moved, or "Disconnected · preparation is
+ * read-only" while not [connected]; a columns control remembered for [columnsScreen]; one scrolling page of [sections]
+ * as pictures by type with swipe, tap menu and hold preview; and a floating Undo shown while [undo] is set. [tag]
+ * names the list ("preparation"), its cards ("preparation-card-…") and the Undo button ("preparation-undo").
+ */
+@Composable
+internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckViewScreen, connected: Boolean,
+    feedback: TransferFeedback?, sections: List<PreparationSection>?, moves: PreparationMoves, undo: (() -> Unit)?,
+    undoEnabled: Boolean, inspection: CardInspectionController, navigation: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}, load: PreparationLoad? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     val alpha = remember { Animatable(0f) }
-    val feedback = state.transferFeedback
     LaunchedEffect(feedback) {
         if (feedback != null) { alpha.snapTo(1f); alpha.animateTo(0f, tween(1500)) } else alpha.snapTo(0f)
     }
-    val undo = controller.preparationUndoStep()
-    val definitions = remember(preparation.definitions) { preparation.definitions.associate { it.digest to it.definition } }
     // One card popup at a time: the tap menu or the hold preview, whichever came last.
     val menus = remember { PodCardMenuOwner() }
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
-    val columns = rememberDeckViewColumns(DeckViewScreen.PREPARATION)
+    val columns = rememberDeckViewColumns(columnsScreen)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(state.ownPodDeckName ?: "Prepare deck", hamburger)
+        ScreenHeader(title, navigation, actions = actions)
         // Always allocated, including before the first move and after the text fades.
         Row(Modifier.fillMaxWidth().height(40.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (!connected) "Disconnected · preparation is read-only" else feedback?.text.orEmpty(), Modifier.weight(1f).alpha(if (!connected) 1f else alpha.value).semantics {
@@ -72,20 +119,15 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
             DeckViewColumnsControl(columns)
         }
         // One scroll for both sections; bottom room keeps the floating undo off the last row.
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("preparation"), contentPadding = PaddingValues(bottom = 80.dp)) {
-            for (source in SavedDeckSection.PREPARED) {
+        @Composable fun cards(modifier: Modifier) = LazyColumn(modifier.testTag(tag), contentPadding = PaddingValues(bottom = 80.dp)) {
+            for (section in sections.orEmpty()) {
+                val source = section.source
                 val title = source.label()
-                val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
-                visualDeckSection(source, deck.count(source), preparationGroups(deck, source, definitions), columns.count,
-                    basics = if (preparation.podRules == null) null else ({
-                        PodBasicSteppers(PodGamePreparation.basics(deck, source), connected && !pending,
-                            deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS,
-                            if (source == SavedDeckSection.SIDEBOARD) title else null) { land, delta -> controller.changePodBasic(land, delta, source) }
-                    })) { tile ->
+                visualDeckSection(source, section.count, section.groups, columns.count, basics = section.basics) { tile ->
                     val key = "$source/${tile.digest}"
-                    PreparationCard(tile, key, title, opposite, connected, menus,
-                        { all -> controller.captureTransfer(tile.digest, source, all) }, controller::transfer,
-                        { controller.inspectPrepared(tile.digest) },
+                    PreparationCard(tile, key, "$tag-card-$key", title, section.opposite, connected, menus,
+                        { moves.capture(tile.digest, source) }, { all -> moves.move(tile.digest, source, all) },
+                        { moves.inspect(tile.digest) },
                         onHold = { open ->
                             if (open) {
                                 menus.open = null
@@ -96,16 +138,20 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
                 }
             }
         }
+        if (load == null) cards(Modifier.weight(1f).fillMaxWidth())
+        else InitialLoadArea(load.loaded, Modifier.weight(1f).fillMaxWidth(), load.failed, load.retry, load.loading) {
+            cards(Modifier.fillMaxSize())
+        }
     }
         if (undo != null) {
-            val enabled = connected && (undo !is PreparationStep.Basics || !pending)
-            Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("preparation-undo"),
+            Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("$tag-undo"),
                 shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp) {
-                IconButton({ controller.undoPreparation() }, enabled = enabled, modifier = Modifier.semantics { contentDescription = "Undo" }) {
+                IconButton(undo, enabled = undoEnabled, modifier = Modifier.semantics { contentDescription = "Undo" }) {
                     TableChromeIcon("undo")
                 }
             }
         }
+        overlay()
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
@@ -113,7 +159,7 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
-    DeckCardInspection(controller.inspection)
+    DeckCardInspection(inspection)
 }
 
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
@@ -208,16 +254,16 @@ private class DeckCardSwipe { var tried = false; var commit: (() -> Boolean)? = 
 /** Tap opens the move menu, a short hold previews the card until release, a horizontal swipe either
  * way past the Build threshold moves one copy across. Only a real release commits; a cancelled gesture never moves. */
 @Composable
-private fun PreparationCard(tile: PreparationTile, key: String, title: String, opposite: SavedDeckSection, enabled: Boolean,
-    menus: PodCardMenuOwner, capture: (Boolean) -> PreparedTransfer?, submit: (PreparedTransfer) -> Boolean, inspect: () -> Unit,
+private fun PreparationCard(tile: PreparationTile, key: String, tag: String, title: String, opposite: SavedDeckSection,
+    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?, move: (Boolean) -> Boolean, inspect: () -> Unit,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
-    val currentSubmit by rememberUpdatedState(submit)
+    val currentMove by rememberUpdatedState(move)
     val name = tile.name
     val target = opposite.label()
-    fun move(all: Boolean) = currentCapture(all)?.let(currentSubmit) == true
-    SwipeDeckCard(tile, key, "preparation-card-$key", title, opposite, enabled, menus,
-        capture = { currentCapture(false)?.let { transfer -> { currentSubmit(transfer) } } }, inspect = inspect,
+    fun move(all: Boolean) = currentMove(all)
+    SwipeDeckCard(tile, key, tag, title, opposite, enabled, menus,
+        capture = { currentCapture() }, inspect = inspect,
         onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
             CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) })) { close ->

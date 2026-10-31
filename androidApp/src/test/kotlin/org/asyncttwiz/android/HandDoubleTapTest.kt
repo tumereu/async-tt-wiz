@@ -100,8 +100,8 @@ class HandDoubleTapTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
-    // HIS-085, STK-003, STK-005, SYS-010, TBL-090, ZON-008
-    @Test fun faceDownCastGoesStraightOntoTheBattlefieldAndOneUndoRestoresTheHand() {
+    // HIS-085, STK-003, STK-005, STK-006, SYS-010, TBL-090, ZON-008
+    @Test fun faceDownCastGoesThroughAFaceDownStackEntryOntoTheBattlefieldAndOneUndoRestoresTheHand() {
         val f = BasicTableFixture()
         val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = "Instant") })
         val digest = DeckJson.digest(definition)
@@ -128,18 +128,57 @@ class HandDoubleTapTest {
                 assertEquals("2/2", card.corner)
                 assertTrue(ManualDisclosure.permittedFaces(f.play, card, f.other, inspecting = true).isEmpty())
             }
-            // Never through the Stack: one face-down move per card, all in one batch.
+            // Per card a face-down entry (STK-005) and its resolve, which keeps the card face down; all in one batch.
             assertTrue(CombatStackRules.stack(f.play.board).cards.isEmpty())
             assertIs<GameAction.PlayBatch>(f.commands().single().action)
             val commands = f.commands().playMembers()
-            assertEquals(2, commands.size)
-            assertTrue(commands.all { (it.action as GameAction.Play).action.let { a -> a is PlayAction.MoveCard && a.faceDown == true &&
-                a.destination.containerId == field } })
+            assertEquals(4, commands.size)
+            for ((index, id) in listOf(f.id(42), f.id(42), f.id(43), f.id(43)).withIndex()) {
+                val action = assertIs<GameAction.Play>(commands[index].action).action
+                if (index % 2 == 0) assertEquals(StackAction.AddEffect(id, (assertIs<PlayAction.Stack>(action).action as StackAction.AddEffect)
+                    .expectedStackDigest, faceDown = true), action.action)
+                else assertIs<PlayAction.MoveCard>(action).let { move ->
+                    assertEquals(id, move.cardId); assertEquals(true, move.faceDown); assertEquals(field, move.destination.containerId)
+                    assertNotNull(move.removeStackEntryId)
+                }
+            }
             assertEquals(1, commands.map { it.invocationId }.distinct().size)
 
             var tree = GameplayTree(initial)
-            for (command in commands) tree = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
+            val boards = mutableListOf(initial)
+            for (command in commands) {
+                tree = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
+                boards += assertNotNull(tree.stateAt(tree.currentNodeId))
+            }
             assertEquals(f.play.board, tree.stateAt(tree.currentNodeId)!!.board)
+            // Play and resolve are separate timeline steps (like a hand double-tap).
+            assertNotEquals(boards[1].currentGroup!!.id, boards[2].currentGroup!!.id)
+
+            // On the Stack the opponent sees a card back; the real card stays in the Hand (STK-003).
+            val stacked = boards[1]
+            val entry = CombatStackRules.stack(stacked.board).cards.single()
+            assertEquals(hand, stacked.board.cards.single { it.id == f.id(42) }.containerId)
+            val castScene = TablePresentation.scene(f.game, stacked, f.other, 412f, 892f, false)
+            val shown = castScene.items.single { it.cardId == entry }
+            assertTrue(shown.covered)
+            assertEquals("", shown.value)
+            assertEquals("", shown.typeLine)
+            assertTrue(contentsEntries(stacked, PileContents(CombatStackRules.stack(stacked.board).id, "Stack",
+                listOf(entry), true), f.other).none { it.faceVisible })
+            assertTrue(stackTextOptions(stacked, entry, f.other).isEmpty())
+            // The ghost flies hand -> Stack -> battlefield (STK-006), a back all the way for the opponent.
+            val opponentStart = TablePresentation.scene(f.game, initial, f.other, 412f, 892f, false)
+            val resolvedScene = TablePresentation.scene(f.game, boards[2], f.other, 412f, 892f, false)
+            val animation = HistorySceneAnimation(opponentStart)
+            animation.retarget(castScene, 1f)
+            assertEquals(opponentStart.items.single { it.cardId == f.id(42) }.bounds,
+                animation.frame(0f).single { it.item.cardId == entry }.bounds)
+            assertTrue(animation.frame(.5f).single { it.item.cardId == entry }.item.covered)
+            animation.retarget(resolvedScene, 1f)
+            assertEquals(shown.bounds, animation.frame(0f).single { it.item.cardId == entry }.bounds)
+            assertEquals(resolvedScene.items.single { it.cardId == f.id(42) }.bounds,
+                animation.frame(1f).single { it.item.cardId == entry }.bounds)
+
             // One Undo takes back the whole cast: both cards are back in the Hand.
             val undo = GameCommand(f.id(990), GameScope(initial.gameId, playId = initial.id), GameAction.Undo, f.id(991), "1")
             val undone = assertNotNull(SelectiveUndo.change(tree, f.actor, undo).tree)

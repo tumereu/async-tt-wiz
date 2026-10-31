@@ -192,7 +192,8 @@ object CardVisibility {
         if (card.knownToAll) return true
         if (board.contentsDisplays.any { it.panelVersion >= 3 && it.containerId == card.containerId &&
                 card.id in it.cardIds && it.faceVisibleTo(card.id, viewer) }) return true
-        if (board.stackEffects.any { it.sourceId == card.id && it.frozen == null &&
+        // A face-down entry (STK-005) shows its hand source to nobody but the holder.
+        if (board.stackEffects.any { it.sourceId == card.id && it.frozen == null && !it.faceDown &&
                 (container.zone == PlayZone.HAND && container.accountId == card.owner ||
                     container.zone == PlayZone.LIBRARY && it.revealsLibrarySource) &&
                 it.id in board.containers.singleOrNull { c -> c.zone == PlayZone.STACK }?.cards.orEmpty() }) return true

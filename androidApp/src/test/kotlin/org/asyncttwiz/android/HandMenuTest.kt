@@ -71,33 +71,41 @@ class HandMenuTest {
         assertTrue(play.board.cards.filter { it.containerId == hand }.none { CardVisibility.isVisibleFaceUp(play.board, it, f.b) })
     }
     // STK-003, STK-005, SYS-010, TBL-090, ZON-008
-    @Test fun faceDownCastsTheWholeSelectionStraightOntoTheBattlefieldInOneBatchWithoutProjections() {
+    @Test fun faceDownCastsTheWholeSelectionThroughFaceDownStackEntriesOntoTheBattlefieldInOneBatch() {
         val (play, ids) = handPlay("Creature", "Instant")
         val singles = mutableListOf<PlayAction>()
-        val batches = mutableListOf<List<PlayAction>>()
+        val batches = mutableListOf<Pair<List<PlayAction>, String>>()
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> singles += action; true },
-            playBatch = { actions, _ -> batches += actions; true })
+            playBatch = { actions, requestId -> batches += actions to requestId; true })
         toolkit.openCard(TableScope(ids[0], ids))
         val bound = assertNotNull(toolkit.capture)
         handMenuTools(toolkit, play, bound, TableSelection(ids = ids.toSet()), emptyMap(), true).single { it.name == "Face down" }.click()
         assertTrue(singles.isEmpty())
-        val moves = batches.single().map { assertIs<PlayAction.MoveCard>(it) }
-        // Each card: Hand -> its owner's Battlefield face down in the main row, whatever its printed type; never the Stack.
-        assertEquals(ids, moves.map { it.cardId })
+        val (actions, requestId) = batches.single()
+        // Each card, whatever its printed type: a face-down entry, then its resolve onto the owner's Battlefield main row.
+        assertEquals(4, actions.size)
         val field = play.board.zoneContainer(f.a, PlayZone.BATTLEFIELD)!!.id
-        for (cast in moves) {
-            assertTrue(cast.faceDown == true && cast.removeStackEntryId == null && cast.expectedStackDigest == null)
-            assertEquals(field, cast.destination.containerId)
-            assertEquals(1, cast.destination.position?.y)
+        for ((index, id) in ids.withIndex()) {
+            val entry = assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(actions[2 * index]).action)
+            assertEquals(id, entry.sourceId)
+            assertEquals(true, entry.faceDown)
+            val resolve = assertIs<PlayAction.MoveCard>(actions[2 * index + 1])
+            assertEquals(id, resolve.cardId)
+            assertTrue(resolve.faceDown == true && resolve.removeStackEntryId != null)
+            assertEquals(field, resolve.destination.containerId)
+            assertEquals(1, resolve.destination.position?.y)
         }
         // The batch applies in order and nothing is disclosed to the opponent.
+        val envelope = GameCommand(requestId, GameScope(play.gameId, playId = play.id), GameAction.PlayBatch(emptyList()), play.id, "0")
         var state = play
-        for ((index, move) in moves.withIndex()) {
-            val change = GameplayRules.change(state, f.a, GameCommand(f.id("face-down-$index"),
-                GameScope(play.gameId, playId = play.id), GameAction.Play(move), f.id("invocation"), "1"))
+        for ((index, action) in actions.withIndex()) {
+            val change = GameplayRules.change(state, f.a, PlayBatches.member(envelope, index, action))
             assertNotNull(change.state, change.reason)
             assertTrue(change.mutation!!.transition.disclosures.isEmpty())
             state = change.state!!
+            // On the Stack the hand card stays hidden from the opponent.
+            if (index % 2 == 0) assertTrue(state.board.cards.filter { it.id in ids }
+                .none { CardVisibility.isVisibleFaceUp(state.board, it, f.b) })
         }
         assertTrue(ids.all { id -> state.board.cards.single { it.id == id }.let {
             it.isFaceDown && it.containerId == field && it.corner == "2/2" && !CardVisibility.isVisibleFaceUp(state.board, it, f.b) } })

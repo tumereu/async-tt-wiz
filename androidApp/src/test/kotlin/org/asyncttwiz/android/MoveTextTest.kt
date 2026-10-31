@@ -107,6 +107,15 @@ class MoveTextTest {
         assertEquals("Cast", text(move(opt, hand, stack)).label)
     }
 
+    // HIS-062, HIS-063, STK-005: since r35 a face-down cast is a face-down Stack entry; the text never names it to the opponent.
+    @Test fun aFaceDownEntryIsACastFaceDown() {
+        val entry = PlayAction.Stack(StackAction.AddEffect(opt, GameplayRules.stackDigest(before), faceDown = true))
+        says("Cast a card face down", entry, viewer = b)
+        says("Cast Opt face down", entry)
+        assertEquals("Cast", text(entry).label)
+        says("Opt effect → Stack", PlayAction.Stack(StackAction.AddEffect(opt, GameplayRules.stackDigest(before))))
+    }
+
     // HIS-063, HIS-065
     @Test fun intoTheGraveyardNeverClaimsWhy() {
         says("Discarded Opt", move(opt, hand, graveyard), viewer = b)

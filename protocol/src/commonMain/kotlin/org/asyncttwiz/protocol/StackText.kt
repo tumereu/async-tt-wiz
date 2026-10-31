@@ -29,11 +29,14 @@ object StackQuickActions {
         val source = state.board.containers.single { it.id == card.containerId }
         if (source.zone == zone) return remove
         val target = state.board.containers.single { it.accountId == card.owner && it.zone == zone }
+        // STK-005: a face-down entry resolves onto the battlefield still face down (a 2/2 in the main row).
+        val faceDown = zone == PlayZone.BATTLEFIELD && state.board.stackEffects.any { it.id == entryId && it.faceDown }
         // Coordinates run outwards-to-inwards for BOTH players. Row 0 is lands, row 1 the nearest main row.
         val destination = if (zone == PlayZone.BATTLEFIELD)
-            MoveDestination(target.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(state, target.id, card))
+            MoveDestination(target.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(state, target.id, card, faceDown = faceDown))
         else MoveDestination(target.id, MoveInsertion.UNORDERED)
         return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id,
-            MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId))
+            MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId,
+            faceDown = true.takeIf { faceDown }))
     }
 }

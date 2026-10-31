@@ -303,14 +303,34 @@ class PodScreensTest {
         compose.onNodeWithText(error).assertIsDisplayed()
     }
 
+    /** Opens the mode button's popup and chooses [name] there (DRF-020). */
+    private fun chooseMode(name: String) {
+        compose.onNodeWithTag("pod-mode").performClick()
+        compose.onNode(hasText("$name · ", substring = true) and hasAnyAncestor(hasTestTag("pod-modes"))).performClick()
+        compose.onNodeWithTag("pod-modes").assertDoesNotExist()
+    }
+
     // DRF-020
-    @Test fun modeChipsSwitchToGridDefaultsAndHideBoosterSettingsIncludingAdvanced() {
+    @Test fun theModeButtonOpensEveryModeWithItsPlayerRangeAndSwitchesToGridDefaults() {
         var settings by mutableStateOf(DraftSettings())
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
-        compose.onNodeWithText("Booster").assertIsSelected()
-        compose.onNodeWithText("Glimpse").assertDoesNotExist()
-        compose.onNodeWithText("Grid").assertExists().performClick().assertIsSelected()
+        compose.onNodeWithTag("pod-mode").assertIsDisplayed().assertTextContains("Booster")
+        compose.onNodeWithContentDescription("Change mode").assertIsDisplayed()
+        // Full width: as wide as the form.
+        assertEquals(compose.onRoot().fetchSemanticsNode().boundsInRoot.width,
+            compose.onNodeWithTag("pod-mode").fetchSemanticsNode().boundsInRoot.width, 1f)
+        compose.onNodeWithTag("pod-modes").assertDoesNotExist()
+        compose.onNodeWithTag("pod-mode").performClick()
+        val options = listOf("Booster · 2–8 players", "Grid · 2–4 players", "Rochester · 2–8 players", "Rotisserie · 2–8 players",
+            "Winston · 2–4 players", "Winchester · 2–4 players", "Sealed · 2–8 players")
+        options.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        compose.onNodeWithText("Booster · 2–8 players").assertIsSelected()
+        compose.onNodeWithText("Grid · 2–4 players").assertIsNotSelected()
+        compose.onNodeWithText("Glimpse", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Grid · 2–4 players").performClick()
+        compose.onNodeWithTag("pod-modes").assertDoesNotExist()
         compose.runOnIdle { assertEquals(DraftSettings.grid(), settings) }
+        compose.onNodeWithTag("pod-mode").assertTextContains("Grid")
         compose.onNodeWithText("18").assertExists()
         compose.onNodeWithText("Grids").assertExists()
         compose.onNodeWithText("Packs").assertDoesNotExist()
@@ -322,18 +342,23 @@ class PodScreensTest {
         }
         compose.onNode(twoPicks).assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(settings.twoPicks) }
-        compose.onNodeWithText("Booster").performClick()
+        chooseMode("Booster")
         compose.runOnIdle { assertEquals(DraftSettings.booster(), settings) }
         compose.onNodeWithText("Grids").assertDoesNotExist()
         compose.onNodeWithText("Two picks each").assertDoesNotExist()
         compose.onNodeWithText("Pack size").assertExists()
+        // A pod created as Glimpse reads Booster, and Booster is the checked mode.
+        compose.runOnIdle { settings = settings.copy(mode = DraftMode.GLIMPSE) }
+        compose.onNodeWithTag("pod-mode").assertTextContains("Booster").performClick()
+        compose.onNodeWithText("Booster · 2–8 players").assertIsSelected()
     }
 
     // DRF-020, DRF-022, DRF-151
-    @Test fun engineChipsLoadTheirDefaultsAndKeepTheSideboardLimit() {
+    @Test fun modesLoadTheirDefaultsAndKeepTheSideboardLimit() {
         var settings by mutableStateOf(DraftSettings(sideboardLimit = 7, librarians = 2))
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
-        compose.onNodeWithText("Sealed").performClick().assertIsSelected()
+        chooseMode("Sealed")
+        compose.onNodeWithTag("pod-mode").assertTextContains("Sealed")
         compose.runOnIdle { assertEquals(DraftSettings.sealed().copy(sideboardLimit = 7), settings) }
         compose.onNodeWithText("Cards each").assertExists()
         compose.onNodeWithText("Librarians").assertDoesNotExist()
@@ -351,7 +376,7 @@ class PodScreensTest {
         compose.onNode(twoPicks).assertIsEnabled()
         compose.runOnIdle { enabled = false }
         compose.onNode(twoPicks).assertIsNotEnabled()
-        compose.onNodeWithText("Grid").assertIsNotEnabled()
+        compose.onNodeWithTag("pod-mode").assertIsNotEnabled()
     }
 
     private val twoPicks = isToggleable() and !hasText("Fresh boosters")
@@ -365,14 +390,14 @@ class PodScreensTest {
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, enabled, source) { settings = it(settings) } } } }
         // Booster mode: shown, greyed and inert.
         compose.onNode(freshBoosters).assertExists().assertIsOn().assertIsNotEnabled()
-        compose.onNodeWithText("Grid").performClick()
+        chooseMode("Grid")
         compose.runOnIdle { assertTrue(settings.freshBoosters) }
         compose.onNode(freshBoosters).assertIsEnabled().performClick()
         compose.runOnIdle { assertFalse(settings.freshBoosters) }
         compose.onNode(freshBoosters).assertIsOff()
         // Switching modes keeps the choice; a cube source makes it inapplicable again.
-        compose.onNodeWithText("Booster").performClick()
-        compose.onNodeWithText("Grid").performClick()
+        chooseMode("Booster")
+        chooseMode("Grid")
         compose.runOnIdle { assertFalse(settings.freshBoosters) }
         compose.runOnIdle { source = PodSource("Cube", 540) }
         compose.onNode(freshBoosters).assertExists().assertIsNotEnabled()

@@ -24,7 +24,9 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val controller: String? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val isCopy: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "",
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealsLibrarySource: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealsLibrarySource: Boolean = false,
+    /** STK-005: a face-down cast's entry. It never shows its hand source to anyone but the source's holder. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean = false)
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
 @Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)
@@ -51,7 +53,9 @@ import kotlinx.serialization.Serializable
 @Serializable sealed interface StackAction {
     @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
     @Serializable @SerialName("toggleTextMark") data class ToggleTextMark(val entryId: String, val optionIndex: Int) : StackAction
-    @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String) : StackAction
+    /** [faceDown] (STK-005) adds a face-down entry; only a hand card may be cast face down. */
+    @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String,
+        @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null) : StackAction
     @Serializable @SerialName("copyEffect") data class CopyEffect(val entryId: String, val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("setController") data class SetController(val occurrenceId: String, val accountId: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
@@ -124,6 +128,8 @@ object CombatStackRules {
         return !card.isFaceDown && container.accountId == owner
     }
 
+    /** A face-down cast's entry (STK-005): shown as a card back to both players; only its holder may inspect it. */
+    fun faceDownEntry(board: BoardState, id: String): Boolean = board.stackEffects.any { it.id == id && it.faceDown }
     fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
         ?: occurrences(board.combat).singleOrNull { it.id == id }?.note
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
@@ -193,7 +199,8 @@ object CombatStackRules {
     fun valid(action: StackAction): Boolean = when (action) {
         is StackAction.MarkText -> DeckValidation.uuid(action.entryId) && (action.optionIndex == null || action.optionIndex >= 0)
         is StackAction.ToggleTextMark -> DeckValidation.uuid(action.entryId) && action.optionIndex >= 0
-        is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest)
+        is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest) &&
+            action.faceDown != false
         is StackAction.CopyEffect -> DeckValidation.uuid(action.entryId) && DeckValidation.digest(action.expectedStackDigest)
         is StackAction.SetController -> DeckValidation.uuid(action.occurrenceId) && DeckValidation.uuid(action.accountId)
         is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
@@ -291,9 +298,13 @@ object CombatStackRules {
                     if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
                     val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
                     if (!canProject(board, source, rulesVersion)) return reject("inapplicable")
+                    val faceDown = action.faceDown == true
+                    // STK-005: only a hand card is cast face down.
+                    if (faceDown && board.containers.none { it.id == source.containerId && it.zone == PlayZone.HAND })
+                        return reject("inapplicable")
                     val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
                         revealsLibrarySource = rulesVersion >= 21 && board.containers.any {
-                            it.id == source.containerId && it.zone == PlayZone.LIBRARY })
+                            it.id == source.containerId && it.zone == PlayZone.LIBRARY }, faceDown = faceDown)
                     if (effect.id in stack(board).cards || board.cards.any { it.id == effect.id }) return reject("invalidStructure")
                     board.copy(stackEffects = board.stackEffects + effect,
                         containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
@@ -311,7 +322,8 @@ object CombatStackRules {
                     val original = board.stackEffects.singleOrNull { it.id == action.entryId }
                     val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
                         original?.frozen, controller(board, action.entryId), isCopy = true,
-                        revealsLibrarySource = rulesVersion >= 21 && original?.revealsLibrarySource == true)
+                        revealsLibrarySource = rulesVersion >= 21 && original?.revealsLibrarySource == true,
+                        faceDown = original?.faceDown == true)
                     board.copy(stackEffects = board.stackEffects + effect,
                         containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
                 }

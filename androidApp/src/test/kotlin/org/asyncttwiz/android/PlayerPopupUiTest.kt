@@ -21,7 +21,7 @@ import kotlin.test.*
 class PlayerPopupUiTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun render(landscape: Boolean, empty: Boolean = false, toolkitHost: Boolean = true):
+    private fun render(landscape: Boolean, empty: Boolean = false):
         Triple<PlayState, TableToolkitController, List<PlayAction>> {
         val initial = TableFixture.play(library = 0)
         val play = initial.copy(board = initial.board.copy(players = initial.board.players.map {
@@ -32,13 +32,13 @@ class PlayerPopupUiTest {
         val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; true })
         compose.setContent { MaterialTheme {
             TableSurface(TableFixture.game, play, "a", landscape, Modifier.fillMaxSize(), connected = true,
-                onIntent = toolkit::handle, toolkit = toolkit.takeIf { toolkitHost })
+                onIntent = toolkit::handle, toolkit = toolkit)
         } }
         return Triple(play, toolkit, sent)
     }
 
-    private fun life(owner: String, landscape: Boolean = false, toolkitHost: Boolean = true) {
-        val (play, toolkit, sent) = render(landscape, toolkitHost = toolkitHost)
+    private fun life(owner: String, landscape: Boolean = false) {
+        val (play, toolkit, sent) = render(landscape)
         val scene = TablePresentation.scene(TableFixture.game, play, "a", if (landscape) 892f else 412f,
             if (landscape) 412f else 892f, landscape)
         compose.onNodeWithContentDescription(scene.items.single { it.id == "life/$owner" }.label).performClick()
@@ -53,7 +53,7 @@ class PlayerPopupUiTest {
         compose.onNodeWithContentDescription("Decrease life").performClick()
         assertEquals(listOf(PlayAction.AdjustLife(owner, "1"), PlayAction.AdjustLife(owner, "-1")), sent)
         compose.onNodeWithContentDescription("Set life").performClick()
-        if (toolkitHost) compose.runOnIdle {
+        compose.runOnIdle {
             assertEquals(ManualValue(ManualValueKind.LIFE), toolkit.manual.editor!!.field)
             assertEquals(owner, toolkit.manual.editor!!.scope.contextId)
         }
@@ -62,12 +62,11 @@ class PlayerPopupUiTest {
     // TRN-030, TRN-031
     @Test fun ownPortraitLife() = life("a")
     @Test fun opponentPortraitLife() = life("b")
-    @Test fun basicHostLife() = life("a", toolkitHost = false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeLife() = life("a", true)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeLife() = life("b", true)
 
-    private fun counters(owner: String, fallback: Boolean = false, toolkitHost: Boolean = true) {
-        val (play, toolkit, sent) = render(true, empty = fallback, toolkitHost = toolkitHost)
+    private fun counters(owner: String, fallback: Boolean = false) {
+        val (play, toolkit, sent) = render(true, empty = fallback)
         val scene = TablePresentation.scene(TableFixture.game, play, "a", 892f, 412f, true)
         if (fallback) {
             assertTrue(scene.items.none { it.owner == owner && it.kind == TableItemKind.COUNTER })
@@ -94,7 +93,7 @@ class PlayerPopupUiTest {
         assertEquals(listOf(PlayAction.AdjustCounter(CounterTarget.PLAYER, owner, CounterColor.RED, "1"),
             PlayAction.AdjustCounter(CounterTarget.PLAYER, owner, CounterColor.BLUE, "-1")), sent)
         compose.onNodeWithContentDescription("Set blue counter").performClick()
-        if (toolkitHost) compose.runOnIdle {
+        compose.runOnIdle {
             assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor!!.field)
             assertEquals(owner, toolkit.manual.editor!!.scope.contextId)
         }
@@ -105,8 +104,6 @@ class PlayerPopupUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeCounters() = counters("b")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeCounters() = counters("a", fallback = true)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeCounters() = counters("b", fallback = true)
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun basicHostCounters() = counters("a", toolkitHost = false)
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun basicHostEmptyCounters() = counters("a", fallback = true, toolkitHost = false)
 
     @Test fun lifeValueStillDrags() {
         val (play, _, sent) = render(false)

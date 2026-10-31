@@ -18,7 +18,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Pods list and navigation
 
 - **DRF-011** The main menu has a Pods entry between Games and Manage decks; the Pods screen has a New pod button at the top right. (r21)
-- **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with avatars, name and status, and pod invitations with Accept and Decline. (r35)
+- **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with avatars, name and status, and pod invitations with Accept and Decline. (?) (r35)
 - **DRF-013** Pod statuses read "Your pick · 2 packs", "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
 - **DRF-014** The main menu's Pods panel lists the first 3 pods and pod invitations of the shared pod order (DRF-013), invitations answered in place; it is hidden when empty. (r35)
 - **DRF-015** The side menu lists every pod under Pods, in the shared pod order (DRF-013), with a compact stack of the other members' avatars, the name and a two-line status. (r35)
@@ -190,7 +190,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Notifications
 
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked. (r16)
-- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (r35)
+- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (?) (r35)
 - **DRF-137** Other pod notifications: "New pod invitation", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r21)
 - **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. (r19)
 

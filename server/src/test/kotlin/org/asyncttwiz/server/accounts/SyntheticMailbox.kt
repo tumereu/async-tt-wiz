@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Assertions.*
 
 /** The existing real synthetic SMTP sink, not an injected delivery implementation. Never print messages. */
 class SyntheticMailbox(private val directory: Path) : AutoCloseable {
-    val port = freePort()
-    private val adminPort = freePort()
+    val port: Int
+    private val adminPort: Int
     private val token = java.util.HexFormat.of().formatHex(ByteArray(32).also(java.security.SecureRandom()::nextBytes))
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private val process: Process
@@ -28,19 +28,31 @@ class SyntheticMailbox(private val directory: Path) : AutoCloseable {
         Files.createDirectories(directory)
         Files.writeString(directory.resolve("admin-token"), token)
         val root = Path.of(System.getProperty("asyncttwiz.root"))
+        // The adapter binds port 0 itself and reports what it got. Picking a free port here and
+        // passing it on would leave it unowned until Python binds it; under a parallel suite run
+        // another fork can take it in that window and the adapter then fails to start.
+        val ports = directory.resolve("ports.json")
         process = ProcessBuilder("python3", root.resolve("tests/support/synthetic-adapter.py").toString(),
             "--fixtures", root.resolve("tests/fixtures/catalogs").toString(), "--origin", "http://127.0.0.1:18080",
             "--state-dir", directory.resolve("state").toString(), "--instance", "reset-tests", "--token-file",
-            directory.resolve("admin-token").toString(), "--http-port", freePort().toString(),
-            "--admin-port", adminPort.toString(), "--smtp-port", port.toString())
+            directory.resolve("admin-token").toString(), "--http-port", "0", "--admin-port", "0", "--smtp-port", "0",
+            "--ports-file", ports.toString())
             .redirectErrorStream(true).redirectOutput(directory.resolve("adapter.log").toFile()).start()
         val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+        fun failStart(): Nothing {
+            process.destroy(); process.waitFor(10, TimeUnit.SECONDS)
+            fail<Nothing>("Synthetic mailbox failed to start: " + Files.readString(directory.resolve("adapter.log")))
+        }
+        while (!Files.exists(ports)) {
+            if (!process.isAlive || System.nanoTime() > until) failStart()
+            Thread.sleep(20)
+        }
+        val bound = Json.parseToJsonElement(Files.readString(ports)).jsonObject
+        port = bound["smtp"]!!.jsonPrimitive.int
+        adminPort = bound["admin"]!!.jsonPrimitive.int
         while (true) {
             try { if (admin("/health/live").statusCode() == 200) break } catch (_: Exception) { }
-            if (!process.isAlive || System.nanoTime() > until) {
-                process.destroy(); process.waitFor(10, TimeUnit.SECONDS)
-                fail<Unit>("Synthetic mailbox failed to start: " + Files.readString(directory.resolve("adapter.log")))
-            }
+            if (!process.isAlive || System.nanoTime() > until) failStart()
             Thread.sleep(20)
         }
     }

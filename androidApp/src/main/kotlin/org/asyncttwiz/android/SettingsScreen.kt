@@ -25,7 +25,8 @@ internal fun appVersionText(versionName: String = BuildConfig.VERSION_NAME, vers
 
 @Composable
 internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () -> Unit, auth: AuthController?,
-    accountSettings: AccountSettingsSource? = rememberAccountSettingsSource(accountId, auth)) {
+    accountSettings: AccountSettingsSource? = rememberAccountSettingsSource(accountId, auth),
+    versionText: String = appVersionText()) {
     val preferences = rememberHistoryPlaybackPreferences(accountId)
     val scope = rememberCoroutineScope()
     val account = remember(accountSettings) { accountSettings?.let { AccountSettingsState(it, scope) } }
@@ -58,7 +59,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
             SettingsSection("About & account") {
                 WhatsNewEntry()
                 ProblemReportEntry { auth?.sessionToken() }
-                SelectionContainer { Text(appVersionText(), Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
+                SelectionContainer { Text(versionText, Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 SettingsActionRow("Log out", "logout", logout, Modifier.testTag("logout"), color = MaterialTheme.colorScheme.error)
             }

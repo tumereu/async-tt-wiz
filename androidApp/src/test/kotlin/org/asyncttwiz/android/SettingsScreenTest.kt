@@ -83,7 +83,9 @@ class SettingsScreenTest {
             it.seed(CatalogUiState(installed = CatalogMetadata("2026-10-26", "1", records = 124_555), loaded = true))
         }
         val source = FakeSettings()
-        compose.setContent { ScreenTheme { SettingsContent(catalog, "shots", {}, fixtures.auth, source) } }
+        compose.setContent { ScreenTheme { SettingsContent(catalog, "shots", {}, fixtures.auth, source,
+            // Fixed so the screenshots don't change with every commit.
+            versionText = appVersionText("0.0.0", 0, "debug", "0000000")) } }
         compose.waitForIdle()
         val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
         captureScreenRoboImage(File(directory, "$name-top.png").path)

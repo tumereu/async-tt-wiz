@@ -126,8 +126,8 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
         compose.onNodeWithContentDescription("Attack →").assertIsEnabled()
-        // No battlefield controls on a projection: those live on the real card (damage and EOT marks are the exception, CMB-003).
-        for (name in listOf("Set corner", "Declare without tapping", "Set blue counter", "Clone", "Stack"))
+        // No battlefield controls on a projection: those live on the real card (P/T, damage and EOT marks are the exception, CMB-003).
+        for (name in listOf("Declare without tapping", "Set blue counter", "Clone", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         compose.ringClick("Edit card note")
         compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
@@ -154,7 +154,11 @@ class CardRingInteractionTest {
             TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
         } }
         compose.waitForIdle()
-        for (name in listOf("Set damage", "Set EOT P/T", "Edit EOT note", "Edit EOT keywords")) compose.onNodeWithContentDescription(name).assertIsEnabled()
+        for (name in listOf("Set corner", "Set damage", "Set EOT P/T", "Edit EOT note", "Edit EOT keywords")) compose.onNodeWithContentDescription(name).assertIsEnabled()
+        // P/T edits the real card's permanent P/T, like the normal card menu's P/T.
+        compose.ringClick("Increase corner")
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustCorner(sentinel, CornerPart.BOTH, 1),
+            PlayAction.AdjustCorner(river, CornerPart.BOTH, 1)), batches.last()) }
         compose.ringClick("Increase damage")
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustDamage(sentinel, "1"), PlayAction.AdjustDamage(river, "1")), batches.last()) }
         compose.ringClick("Increase EOT P/T")

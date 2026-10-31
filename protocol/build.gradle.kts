@@ -10,6 +10,8 @@ kotlin {
     jvmToolchain(21)
     jvm {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+        // Deliberately one test JVM: GameplayDeltaTest's 20 ms selective-undo budget measures ~18 ms here
+        // even alone, and parallel forks pushed it over in every run tried.
         testRuns["test"].executionTask.configure { useJUnitPlatform() }
     }
     android {

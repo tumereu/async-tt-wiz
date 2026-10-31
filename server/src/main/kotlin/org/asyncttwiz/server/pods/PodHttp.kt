@@ -27,7 +27,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         try {
-            if (!runtime.ready()) { error(response, 503, "unavailable"); return true }
+            if (!runtime.admitting()) { error(response, 503, "unavailable"); return true }
             val token = request.getHeaders("Authorization").toList().singleOrNull()
                 ?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)

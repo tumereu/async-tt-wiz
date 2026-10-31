@@ -32,9 +32,9 @@ class ActivityFailure(val status: Int, val code: String) : RuntimeException(code
 class ActivityService(private val runtime: ServiceRuntime, private val clock: Clock = Clock.systemUTC()) {
     private fun now() = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
     private fun <T> transaction(work: (DSLContext) -> T): T = runtime.transaction { connection ->
-        val savepoint = connection.setSavepoint()
+        // A refusal rolls everything back; the commit that follows then has nothing to do.
         try { Result.success(work(DSL.using(connection, SQLDialect.POSTGRES))) }
-        catch (failure: ActivityFailure) { connection.rollback(savepoint); Result.failure<T>(failure) }
+        catch (failure: ActivityFailure) { connection.rollback(); Result.failure<T>(failure) }
     }.getOrThrow()
     private fun account(principal: AccountService.Principal) = UUID.fromString(principal.account.accountId)
 
@@ -191,9 +191,14 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
             .orderBy(activity).limit(101).fetch()
-        val entries = rows.take(100).map { row ->
-            val type = ActivityKind.valueOf(row[kind]!!)
-            val name = if (type.name.startsWith("POD_")) sql.select(POD.NAME).from(POD).where(POD.ID.eq(row[game])).fetchOne(POD.NAME) else null
+        val kinds = rows.take(100).map { ActivityKind.valueOf(it[kind]!!) }
+        // Pod names in one query, not one per entry.
+        val pods = rows.take(100).filterIndexed { index, _ -> kinds[index].name.startsWith("POD_") }.mapNotNull { it[game] }.toSet()
+        val podNames = if (pods.isEmpty()) emptyMap() else sql.select(POD.ID, POD.NAME).from(POD).where(POD.ID.`in`(pods)).fetch()
+            .associate { it[POD.ID]!! to it[POD.NAME] }
+        val entries = rows.take(100).mapIndexed { index, row ->
+            val type = kinds[index]
+            val name = if (type.name.startsWith("POD_")) podNames[row[game]] else null
             ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(), resourceName = name)
         }
         val more = rows.size > 100

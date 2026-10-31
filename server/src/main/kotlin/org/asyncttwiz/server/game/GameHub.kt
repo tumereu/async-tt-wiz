@@ -45,7 +45,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         tasks.add(workers.scheduleWithFixedDelay({ games.evictExpiredBaselines() }, 1, 1, TimeUnit.SECONDS))
     }
     private fun guarded(boundary: UnavailabilityBoundary, action: () -> Unit) {
-        try { if (runtime.ready()) action() }
+        try { if (runtime.admitting()) action() }
         catch (failure: OwnershipFailure) {
             // Ownership recovery still stops all workers until validation succeeds.
             runtime.recordUnavailability(boundary, failure)
@@ -88,7 +88,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
             session.addMessageHandler(String::class.java, MessageHandler.Whole<String> { receive(it) })
         }
         private fun principal(): AccountService.Principal {
-            if (!runtime.ready()) throw GameProtocolFailure("storageUnavailable", true)
+            if (!runtime.admitting()) throw GameProtocolFailure("storageUnavailable", true)
             return accounts.authenticate(token) ?: throw GameProtocolFailure("unauthorized")
         }
         private fun receive(text: String) {

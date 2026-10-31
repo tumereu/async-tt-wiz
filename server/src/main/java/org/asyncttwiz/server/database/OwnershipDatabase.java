@@ -7,6 +7,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 /** Server-internal, bounded connections, separate from the explicit migration interface. */
 final class OwnershipDatabase implements AutoCloseable {
+    private static final String ALIVE_BYPASS = "com.zaxxer.hikari.aliveBypassWindowMs";
     private final PGSimpleDataSource source = new PGSimpleDataSource();
     private final DatabaseSettings settings;
     private final HikariDataSource work;
@@ -32,6 +33,9 @@ final class OwnershipDatabase implements AutoCloseable {
         workSource.setOptions("-c statement_timeout=10000 -c lock_timeout=2000 -c idle_in_transaction_session_timeout=10000");
         workSource.setApplicationName("async-tt-wiz-work");
         // Lazy start: service-logback.xml must be active before pool/library diagnostics.
+        // Hikari would also send a validation query when borrowing a connection idle for over 500 ms,
+        // which on a quiet server is nearly every borrow; dead connections are handled at first use instead.
+        if (System.getProperty(ALIVE_BYPASS) == null) System.setProperty(ALIVE_BYPASS, Long.toString(Long.MAX_VALUE / 2));
         var config = new HikariDataSource();
         config.setDataSource(workSource);
         config.setPoolName("writer-work");
@@ -49,23 +53,17 @@ final class OwnershipDatabase implements AutoCloseable {
 
     Connection open() throws SQLException { return source.getConnection(); }
 
-    Connection openWork() throws SQLException {
-        // Validate even recently returned connections (Hikari normally skips these for 500ms).
-        // A backend may have died between transactions without a client-side socket error yet.
-        for (int attempt = 0; attempt < 2; attempt++) {
-            var connection = work.getConnection();
-            try {
-                if (connection.isValid(2)) return connection;
-            } catch (SQLException failure) {
-                work.evictConnection(connection);
-                throw failure;
-            }
-            work.evictConnection(connection);
-        }
-        throw new SQLException("Work connection validation failed", "08006");
-    }
+    /** Not validated on borrow (that costs a round trip per transaction): a backend that died while idle
+     * fails the first statement with a connection error, and WriterOwnership retries on a fresh one. */
+    Connection openWork() throws SQLException { return work.getConnection(); }
 
     void discard(Connection connection) { work.evictConnection(connection); }
+
+    /** After a dead connection: idle siblings likely died with it (a database restart), so replace them. */
+    void discardIdle() {
+        var pool = work.getHikariPoolMXBean();
+        if (pool != null) pool.softEvictConnections();
+    }
 
     @Override public void close() { work.close(); }
 

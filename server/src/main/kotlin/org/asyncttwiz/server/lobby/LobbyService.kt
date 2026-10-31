@@ -93,11 +93,11 @@ class LobbyService(private val runtime: ServiceRuntime) {
             Result(201, json.encodeToString(summary(sql, game)))
         }
 
-    fun summary(sql: DSLContext, id: UUID): GameSummary {
-        val game = sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle()
-        return summary(sql, game, if (game.lifecycle == "ACTIVE")
-            org.asyncttwiz.server.game.PlayStore.read(sql, id)?.board?.effectiveAttentionHolder else null)
-    }
+    fun summary(sql: DSLContext, id: UUID): GameSummary = summary(sql, sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle())
+
+    private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord): GameSummary =
+        summary(sql, game, if (game.lifecycle == "ACTIVE")
+            org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder else null)
 
     /** Execution already owns the locked game row and the reduced board. Do not reload either. */
     internal fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord,
@@ -127,13 +127,14 @@ class LobbyService(private val runtime: ServiceRuntime) {
             // Held pod challenges are listed too; the recipient sees them before their deck is in.
             val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
                 else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED")))
-            val ids = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            // The locked rows themselves, not just their ids: each summary then needs no second read of its game.
+            val rows = sql.select(*GAME.fields()).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(if (after == null) DSL.trueCondition() else GAME.ID.gt(UUID.fromString(after)))
-                .orderBy(GAME.ID).limit(101).forShare().fetch(GAME.ID)
+                .orderBy(GAME.ID).limit(101).forShare().fetchInto(GAME)
             // A game whose stored play can't be read is left out; opening it fails on its own (SYS-052).
-            val games = ids.take(100).mapNotNull { StoredData.orSkip("game", it) { summary(sql, it!!) } }
-            Result(200, json.encodeToString(GameList(games, if (ids.size > 100) ids[99].toString() else null)))
+            val games = rows.take(100).mapNotNull { StoredData.orSkip("game", it.id) { summary(sql, it) } }
+            Result(200, json.encodeToString(GameList(games, if (rows.size > 100) rows[99].id.toString() else null)))
         }
     }
 
@@ -142,11 +143,11 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return runtime.transaction { connection ->
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val actor = owner(principal)
-            val visible = sql.select(GAME.ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            val visible = sql.select(*GAME.fields()).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                 .where(GAME.ID.eq(UUID.fromString(id))).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED"))))
-                .forShare().fetchOne() != null
-            if (visible) Result(200, json.encodeToString(summary(sql, UUID.fromString(id)))) else error(404, "not_found")
+                .forShare().fetchOneInto(GAME)
+            if (visible != null) Result(200, json.encodeToString(summary(sql, visible))) else error(404, "not_found")
         }
     }
 

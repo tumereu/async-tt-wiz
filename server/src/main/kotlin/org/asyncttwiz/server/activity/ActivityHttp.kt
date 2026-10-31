@@ -28,7 +28,7 @@ class ActivityHttp @JvmOverloads constructor(private val runtime: ServiceRuntime
         }
         fun error(status: Int, code: String) = reply(status, ActivityWire.json.encodeToString(AccountError(code)))
         try {
-            if (!runtime.ready()) { error(503, "unavailable"); return true }
+            if (!runtime.admitting()) { error(503, "unavailable"); return true }
             val token = request.getHeaders("Authorization").toList().singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(401, "authentication_required"); return true }

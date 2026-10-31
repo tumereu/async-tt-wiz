@@ -66,7 +66,7 @@ class AccountHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
         response.setHeader("X-Content-Type-Options", "nosniff")
         // Secrets are header/POST-body only. No cookie authentication or forwarded-IP trust.
         try {
-            if (!runtime.ready()) { error(response, 503, "unavailable"); return true }
+            if (!runtime.admitting()) { error(response, 503, "unavailable"); return true }
             if (form?.handle(request, response) == true) return true
             security.doFilter(request, response) { _, _ -> dispatch(request, response) }
         } catch (failure: InvalidAccountField) {

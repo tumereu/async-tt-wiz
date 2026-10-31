@@ -11,6 +11,7 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.activity.ActivityService
 import org.asyncttwiz.server.decks.DeckService.Result
 import org.asyncttwiz.server.decks.DraftDeckStore
+import org.asyncttwiz.server.decks.StoredDefinitions
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.CubeEntry.CUBE_ENTRY
@@ -73,6 +74,14 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
         // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
         ?.let { stored(row) { GridEngine.resume(json.decodeFromString<GridState>(it.data())) } }
+    /** A pod's stored draft, decoded once per request. Settings are read only when there is a draft. */
+    private class Draft(val booster: DraftState?, val grid: GridState?)
+    private fun draft(row: PodRecord, settings: DraftSettings? = row.draftState?.let { settings(row) }): Draft {
+        val data = row.draftState ?: return Draft(null, null)
+        return if (settings!!.mode != DraftMode.GRID) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
+            // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
+            else Draft(null, stored(row) { GridEngine.resume(json.decodeFromString<GridState>(data.data())) })
+    }
     private fun pools(row: PodRecord) = gridState(row)?.pools ?: state(row)!!.pools
     private fun copies(row: PodRecord) = gridState(row)?.copies ?: state(row)!!.copies
     /** Grids the member can select from in a row if nobody else acts (see [GridEngine.consecutivePicks]). */
@@ -82,6 +91,10 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun identity(sql: DSLContext, id: UUID): AccountIdentity {
         return AccountService.identity(sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(id)).fetchSingle())
     }
+    /** Every identity a response names, in one query instead of one per account. */
+    private fun identities(sql: DSLContext, ids: Collection<UUID>): Map<UUID, AccountIdentity> =
+        if (ids.isEmpty()) emptyMap() else sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.`in`(ids.toSet())).fetch()
+            .associate { it.id!! to AccountService.identity(it) }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 
     private fun validateLibrarian(settings: DraftSettings): Result? {
@@ -685,7 +698,8 @@ class PodService(private val runtime: ServiceRuntime) {
             val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            member(sql, row, owner) ?: detail(sql, row, owner)
+            val members = members(sql, row.id!!)
+            if (members.none { it.accountId == owner }) error(404, "not_found") else detail(sql, row, owner, members = members)
         }
     }
 
@@ -694,66 +708,78 @@ class PodService(private val runtime: ServiceRuntime) {
         val owner = UUID.fromString(principal.account.accountId)
         val rows = sql.selectFrom(POD).where(POD.ID.`in`(sql.select(MEMBER.POD_ID).from(MEMBER).where(MEMBER.ACCOUNT_ID.eq(owner))))
             .orderBy(POD.ID).forShare().fetch()
-        // Membership is rechecked after each pod lock: a concurrent leave may have removed the caller.
+        // Membership is rechecked after the pod locks: a concurrent leave may have removed the caller.
         // A pod whose stored draft can't be read is left out; opening it fails on its own (SYS-052).
+        val memberships = if (rows.isEmpty()) emptyMap() else sql.selectFrom(MEMBER).where(MEMBER.POD_ID.`in`(rows.map { it.id }))
+            .orderBy(MEMBER.ACCOUNT_ID).fetch().groupBy { it.podId!! }
+        val invited = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
+            .where(INVITE.ACCOUNT_ID.eq(owner)).and(INVITE.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
+            .orderBy(INVITE.INVITED_AT.desc(), INVITE.POD_ID).fetch()
+        val names = identities(sql, rows.map { it.creatorId!! } + memberships.values.flatten().map { it.accountId!! } +
+            invited.map { it[POD.CREATOR_ID]!! })
         val pods = rows.mapNotNull { row -> StoredData.orSkip("pod", row.id) {
-            val members = members(sql, row.id!!)
+            val members = memberships[row.id].orEmpty()
             val mine = members.firstOrNull { it.accountId == owner } ?: return@orSkip null
-            val waiting = state(row)?.let { DraftEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(gridState(row), owner.toString())
+            val draft = draft(row)
+            val waiting = draft.booster?.let { DraftEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(draft.grid, owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
                 row.phase == "DRAFTED" && mine.submittedDeck == null -> PodAttention.BUILD
                 else -> PodAttention.NONE
             }
-            PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),
-                members.map { identity(sql, it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString())
+            PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
+                members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString())
         } }.sortedWith(compareBy<PodSummary> { it.attention.ordinal }.thenByDescending { it.updatedAt }.thenBy { it.id })
-        val invitations = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
-            .where(INVITE.ACCOUNT_ID.eq(owner)).and(INVITE.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
-            .orderBy(INVITE.INVITED_AT.desc(), INVITE.POD_ID).fetch().map {
-                PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, identity(sql, it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())
-            }
+        val invitations = invited.map {
+            PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())
+        }
         Result(200, json.encodeToString(PodList(pods, invitations)))
     }
 
-    /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only. */
-    private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200): Result {
-        val draft = state(row)
+    /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only.
+     * Each stored part is decoded once, and every named account is looked up in one query. */
+    private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200,
+        members: List<org.asyncttwiz.server.generated.tables.records.PodMemberRecord> = members(sql, row.id!!)): Result {
+        val settings = settings(row)
+        val stored = draft(row, settings)
+        val draft = stored.booster
         val view = draft?.let { DraftEngine.privateView(it, owner.toString()) }?.let { it.copy(marks = marks(sql, row, owner, it.head)) }
         val public = draft?.let(DraftEngine::publicStatus)
-        val grid = gridState(row)
+        val grid = stored.grid
         val gridView = grid?.let { PodGridView(GridEngine.publicView(it, owner.toString()), GridEngine.privateView(it, owner.toString())) }
-        val members = members(sql, row.id!!)
         val mine = members.first { it.accountId == owner }
         val visible = view?.head?.cards.orEmpty() + view?.queuedPacks.orEmpty().flatMap { it.cards } +
             view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
             (gridView?.publicView?.grids.orEmpty() + gridView?.publicView?.finishedGrids.orEmpty())
                 .flatMap { it.positions.filterNotNull() + it.slots.mapNotNull { slot -> slot.copy } } +
             gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded }
-        val definitions = visible.map { it.definition }.toSet()
-        val cards = if (definitions.isEmpty()) emptyList() else sql.selectFrom(DEFINITION).where(DEFINITION.DIGEST.`in`(definitions))
-            .orderBy(DEFINITION.DIGEST).fetch().map { SubmittedDefinition(it.digest!!,
-                StoredData.decode("card definition", it.digest) { json.decodeFromString<CardDefinition>(it.payload!!) }) }
+        val cards = StoredDefinitions.read(sql, visible.map { it.definition }.toSet())
         val set = setSource(row)
-        val sourceView = if (set == null) PodSource(row.sourceName!!, source(row).sumOf { it.quantity.toLong() }) else
+        val cube = source(row)
+        val sourceView = if (set == null) PodSource(row.sourceName!!, cube.sumOf { it.quantity.toLong() }) else
             PodSource(kind = PodSourceKind.SET, setCode = set.setCode, setName = set.setName,
                 boosterKind = if (set.recipe == null) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
                 boosterName = set.recipe?.name)
-        val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), identity(sql, row.creatorId!!),
-            settings(row), sourceView, supply(row, members.size),
+        val finite = settings.supply(members.size, cube)
+        val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
+        val pending = pending(sql, row.id!!)
+        val offAccount = row.autoStartOffAccount?.takeIf { row.autoStartOffReason != null && row.phase == "SETUP" && owner == row.creatorId }
+        val names = identities(sql, listOf(row.creatorId!!) + members.map { it.accountId!! } + pending.map { it.accountId!! } + listOfNotNull(offAccount))
+        val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
+            settings, sourceView, supply,
             members.map { member ->
                 val player = member.accountId.toString()
                 val progress = public?.members?.firstOrNull { it.player == player }
                 val waiting = progress?.packsWaiting ?: gridWaiting(grid, player)
-                PodMember(identity(sql, member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player } ?: 0,
+                PodMember(names.getValue(member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player } ?: 0,
                     row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null, waiting > 0)
-            }, pending(sql, row.id!!).map { identity(sql, it.accountId!!) }, row.draftAttemptId?.toString(), view,
+            }, pending.map { names.getValue(it.accountId!!) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) build(row, mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { build(row, it.data()) }, cards,
             row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck",
             row.phase == "SETUP" && row.autoStart == true,
             row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
-                ?.let { PodAutoStartOff(it, row.autoStartOffAccount?.let { account -> identity(sql, account) }) },
+                ?.let { PodAutoStartOff(it, offAccount?.let(names::getValue)) },
             notes(sql, row, owner))
         return Result(status, json.encodeToString(result))
     }

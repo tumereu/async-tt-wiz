@@ -59,9 +59,11 @@ class AccountService(private val runtime: ServiceRuntime, private val passwords:
         return SessionCreated(token, identity(row))
     }
 
+    /** One statement, no writer fence: the request's own transaction is fenced, and a revoked session is
+     * refused from the moment its revocation commits, as before. */
     fun authenticate(token: String): Principal? {
         if (!validTokenShape(token)) return null
-        return runtime.transaction { connection ->
+        return runtime.read { connection ->
             DSL.using(connection, SQLDialect.POSTGRES).select(ACCOUNT_SESSION.ID, *ACCOUNT.fields())
                 .from(ACCOUNT_SESSION).join(ACCOUNT).on(ACCOUNT.ID.eq(ACCOUNT_SESSION.ACCOUNT_ID))
                 .where(ACCOUNT_SESSION.TOKEN_HASH.eq(hash(token))).and(ACCOUNT_SESSION.REVOKED_AT.isNull)

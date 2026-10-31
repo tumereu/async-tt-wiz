@@ -46,7 +46,7 @@ class ProblemReportHttp @JvmOverloads constructor(private val runtime: ServiceRu
             if (!limits.allow("problem-report-ip", request.remoteAddr, 20, 600)) {
                 response.setHeader("Retry-After", "600"); error(response, 429, "try_later"); return true
             }
-            if (!runtime.ready()) { error(response, 503, "unavailable"); return true }
+            if (!runtime.admitting()) { error(response, 503, "unavailable"); return true }
             val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .decode(ByteBuffer.wrap(bytes)).toString()
             val input = AccountJson.format.decodeFromString<ProblemReport>(text)

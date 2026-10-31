@@ -121,9 +121,12 @@ class WriterOwnershipTest {
                     // must reject it after takeover.
                     db.connection().use { delayed ->
                         delayed.autoCommit = false
+                        // The advisory lock is held (by the replacement), so only the stale epoch can refuse.
+                        val holder = delayed.number("SELECT pid FROM pg_locks WHERE locktype = 'advisory' AND classid = 1096045655::oid AND objid = 1::oid AND granted").toInt()
                         assertEquals(OwnershipFailure.Reason.NOT_OWNER, assertThrows(OwnershipFailure::class.java) {
-                            WriterOwnership.lockEpoch(delayed, stale.epoch())
+                            WriterOwnership.lockEpoch(delayed, stale.epoch(), holder)
                         }.reason())
+                        WriterOwnership.lockEpoch(delayed, next.epoch(), holder)
                         delayed.rollback()
                     }
                     var entered = false

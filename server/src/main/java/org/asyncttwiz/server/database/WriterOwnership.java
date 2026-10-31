@@ -8,6 +8,8 @@ import java.util.Optional;
  * Closeable single-service ownership boundary. The service lifecycle calls refresh periodically;
  * token() probes existing ownership without reacquiring. Neither method is a cached ready flag.
  * Future mutating repositories must enter through transaction before taking game/stream locks.
+ * A transaction does not probe the ownership session separately: its fence statement checks the
+ * stored epoch and that the ownership session still holds the advisory lock, in one round trip.
  */
 public final class WriterOwnership implements AutoCloseable {
     // Stable two-int advisory namespace, shared by all service instances using this database.
@@ -17,13 +19,16 @@ public final class WriterOwnership implements AutoCloseable {
     private final OwnershipDatabase database;
     private final String diagnosticId = java.util.UUID.randomUUID().toString();
     private Connection lockConnection;
-    private Token current;
-    private boolean closed;
+    // Written under this monitor; read without it on the transaction path (the fence re-verifies).
+    private volatile Token current;
+    private volatile boolean closed;
 
     /** Opaque instance-bound capability, not a caller-supplied epoch or durable client token. */
     public static final class Token {
         private final long epoch;
-        private Token(long epoch) { this.epoch = epoch; }
+        /** Backend process of the ownership session that holds the advisory lock. */
+        private final int lockPid;
+        private Token(long epoch, int lockPid) { this.epoch = epoch; this.lockPid = lockPid; }
         public long epoch() { return epoch; }
         @Override public String toString() { return "WriterToken[epoch=" + epoch + "]"; }
     }
@@ -44,12 +49,14 @@ public final class WriterOwnership implements AutoCloseable {
         try {
             database.validateSchema();
             lockConnection = database.open();
+            int lockPid;
             try (var statement = lockConnection.createStatement();
-                 var rows = statement.executeQuery("SELECT pg_try_advisory_lock(" + LOCK_NAMESPACE + ", " + LOCK_ID + ")")) {
+                 var rows = statement.executeQuery("SELECT pg_try_advisory_lock(" + LOCK_NAMESPACE + ", " + LOCK_ID + "), pg_backend_pid()")) {
                 if (!rows.next() || !rows.getBoolean(1)) {
                     release();
                     return Optional.empty();
                 }
+                lockPid = rows.getInt(2);
             }
             lockConnection.setAutoCommit(false);
             long next;
@@ -66,7 +73,7 @@ public final class WriterOwnership implements AutoCloseable {
             lockConnection.setAutoCommit(true);
             // The singleton is the only durable runtime state implemented in this child.
             // Reload after commit; future inbox/outbox workers must join recovery before readiness.
-            current = new Token(next);
+            current = new Token(next, lockPid);
             if (!probe()) throw new OwnershipFailure(OwnershipFailure.Reason.DATABASE_UNAVAILABLE);
             diagnostic("acquired", null, next);
             return Optional.of(current);
@@ -90,6 +97,13 @@ public final class WriterOwnership implements AutoCloseable {
         return !closed && probe() ? Optional.of(current) : Optional.empty();
     }
 
+    /** The token as last verified, without a database probe: refresh verifies it periodically and every
+     * transaction's fence verifies it again before any work. Empty after observed loss or close. */
+    public Optional<Token> current() {
+        var token = current;
+        return !closed && token != null ? Optional.of(token) : Optional.empty();
+    }
+
     private boolean probe() {
         if (current == null || lockConnection == null) return false;
         try (var statement = lockConnection.createStatement();
@@ -111,33 +125,40 @@ public final class WriterOwnership implements AutoCloseable {
     }
 
     /** Shared epoch lock lasts through callback and commit; independent transactions stay concurrent. */
-    public <T> T transaction(Token token, Transaction<T> work) {
+    public <T> T transaction(Token token, Transaction<T> work) { return run(token, work, true); }
+
+    /**
+     * One read outside a transaction, for a single statement whose answer needs no fence (the bearer
+     * check): no epoch lock, no commit. Admission is the same; the caller's next fenced transaction
+     * still refuses a lost owner.
+     */
+    public <T> T read(Token token, Transaction<T> work) { return run(token, work, false); }
+
+    private <T> T run(Token token, Transaction<T> work, boolean fenced) {
         for (int attempt = 0; ; attempt++) {
-            synchronized (this) {
-                // A database restart can leave the same stored epoch but destroy the lock session.
-                // Do not admit using only an in-memory token, even before a periodic probe runs.
-                if (closed || token == null || token != current || !probe()) {
-                    throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
-                }
-            }
+            if (closed || token == null || token != current) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
             String phase = "open";
             try (var connection = database.openWork()) {
                 phase = "begin";
-                connection.setAutoCommit(false);
+                if (fenced) connection.setAutoCommit(false);
                 try {
-                    phase = "fence";
-                    lockEpoch(connection, token.epoch);
-                    synchronized (this) {
+                    if (fenced) {
+                        phase = "fence";
+                        // A database restart can leave the same stored epoch but destroy the lock session:
+                        // the fence checks the session too, so an in-memory token alone never admits.
+                        lockEpoch(connection, token.epoch, token.lockPid);
                         if (closed || current != token) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
                     }
                     phase = "callback";
                     T result = work.execute(connection);
-                    phase = "commit";
-                    connection.commit();
+                    if (fenced) {
+                        phase = "commit";
+                        connection.commit();
+                    }
                     phase = "close";
                     return result;
                 } catch (Exception failure) {
-                    try { connection.rollback(); } catch (SQLException ignored) { }
+                    if (fenced) try { connection.rollback(); } catch (SQLException ignored) { }
                     // Never return a failed session to the pool, including wrapped jOOQ failures.
                     if (connectionFailure(failure)) database.discard(connection);
                     throw failure;
@@ -150,7 +171,12 @@ public final class WriterOwnership implements AutoCloseable {
                 // No COMMIT was sent in these phases. PostgreSQL rolls back a lost session;
                 // replaying DB-only work is safe even if rollback failed. A commit/close
                 // failure has an uncertain or successful outcome: NEVER replay it.
-                if (attempt == 0 && connectionFailure(failure) && !phase.equals("commit") && !phase.equals("close")) continue;
+                // Pooled connections are not validated on borrow: one that died while idle fails
+                // its first statement here, and so may its idle siblings, so retry on a fresh one.
+                if (attempt == 0 && connectionFailure(failure) && !phase.equals("commit") && !phase.equals("close")) {
+                    database.discardIdle();
+                    continue;
+                }
                 // Even a driver/callback/close error's suppressed exceptions must not leak inputs.
                 if (failure instanceof OwnershipFailure safe) throw new OwnershipFailure(safe.reason());
                 throw new OwnershipFailure(OwnershipFailure.Reason.TRANSACTION_FAILED);
@@ -166,10 +192,15 @@ public final class WriterOwnership implements AutoCloseable {
         return false;
     }
 
-    /** Internal transaction entry, also exercised directly to prove the fence after a delayed probe. */
-    static void lockEpoch(Connection connection, long expectedEpoch) throws SQLException {
-        try (var statement = connection.createStatement(); var rows = statement.executeQuery(EPOCH + " FOR SHARE")) {
-            if (!rows.next() || rows.getLong(1) != expectedEpoch) {
+    /** Internal transaction entry, also exercised directly to prove the fence after a delayed probe:
+     * the stored epoch is still ours (shared row lock until commit) and our ownership session, process
+     * [lockPid], still holds the advisory lock. */
+    static void lockEpoch(Connection connection, long expectedEpoch, int lockPid) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                "SELECT epoch, EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = " + lockPid
+                + " AND classid = " + LOCK_NAMESPACE + "::oid AND objid = " + LOCK_ID + "::oid AND objsubid = 2 AND granted)"
+                + " FROM public.service_writer WHERE singleton = true FOR SHARE")) {
+            if (!rows.next() || rows.getLong(1) != expectedEpoch || !rows.getBoolean(2)) {
                 throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
             }
         }

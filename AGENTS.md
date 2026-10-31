@@ -21,6 +21,7 @@ works. Do not build anything outside the task you were given.
 | `docs/features/` | **Feature catalog**: every current behaviour, one line each, with IDs (`TBL-012`) |
 | `docs/roadmap.md` | Long-term product direction |
 | `docs/backlog.md` | Approved changes not built yet; an item you build is deleted there in the same commit |
+| `docs/specs/` | Specs of larger approved changes not built yet; deleted once built |
 | `docs/design/` | Older, larger spec. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/` |
 | `docs/design/02-experience/ui/` | UI mockups: `images/*.png` (portrait/landscape), `review.md` notes, `feedback.md` owner feedback |
 

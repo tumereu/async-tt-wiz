@@ -56,7 +56,7 @@ class LibraryActionsTest {
         ContentsDisplay(id(30), id(8), id(10), selection, 3, reveal, listOf(id(20), id(21), id(22)))
 
     // ZON-051
-    @Test fun fullContentsAreCategoryAlphabeticalIndependentOfLibraryPositionsAndSearchIsPersonal() {
+    @Test fun fullContentsAreGroupedByTypeIndependentOfLibraryPositionsAndSearchIsPersonal() {
         val current = state()
         val first = contentsEntries(current, display(), id(8))
         val reversed = contentsEntries(current, display().copy(cardIds = display().cardIds.reversed()), id(8))
@@ -65,6 +65,15 @@ class LibraryActionsTest {
         assertFalse(first.any { it.bottommost })
         assertEquals(listOf(id(21), id(22)), contentsEntries(current, display(), id(8), "alph").map { it.cardId })
         assertEquals(listOf(id(21), id(20)), current.board.containers.first().cards)
+    }
+
+    // SYS-051, ZON-037, ZON-051
+    @Test fun contentsTypeHeadersUseTheSharedTypeOrderAndHiddenCardsComeLast() {
+        val types = listOf("Land", "Artifact Land", "Enchantment", "Artifact", "Sorcery", "Kindred Instant", "Battle — Siege",
+            "Legendary Planeswalker — Jace", "Artifact Creature — Golem", "Conspiracy")
+        assertEquals(listOf("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Artifact", "Enchantment",
+            "Land", "Other", "Cards"), (types.map { cardTypeGroup(it).singular } + "Cards").sortedBy(::contentsCategoryRank))
+        assertEquals("Artifact", cardTypeGroup("Artifact Land").singular)
     }
 
     // ZON-050, ZON-052

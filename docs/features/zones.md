@@ -52,7 +52,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-034** Each mass pile move sends the cards to their owners' zones as one Undo step. (r29)
 - **ZON-035** Double-tapping a graveyard or exile pile opens its search view, as does Search in the pile menu (also while reviewing or offline). (r29)
 - **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history, is never shown to the opponent, and doesn't count toward the one-panel limit. (r35)
-- **ZON-037** The view groups cards under coloured type headers with counts like "Creature (3)" (non-empty types only), types and names alphabetical, copies grouped ×N. (r14)
+- **ZON-037** The view groups cards under coloured type headers with counts like "Creature (3)" (non-empty types only), types in the shared order (SYS-051), names alphabetical, copies grouped ×N. (r35)
 - **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties; changing the interaction mode keeps it open. (r29)
 
 ### Temp piles
@@ -72,7 +72,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-048** Only one Search, Look or Reveal panel can be open in the whole game; while one is open, every button that would open another is greyed out, with no message. (r10)
 - **ZON-049** Panel cards sit in up to 3 columns (2 each when two panels show), left to right then down, position 1 = library top; a partial last row starts at the left. (r14)
 - **ZON-050** Look shows the top N in order to the looker; the opponent sees a panel of backs with the count. Drag inside the panel to reorder (an insertion bar shows where). (r10)
-- **ZON-051** Search shows the whole library to the searcher sorted by type then name under type headers with counts, copies grouped ×N (a drag takes one); the opponent sees backs. Its type headers are alphabetical (Artifact, Battle, Creature, …), not the shared order (SYS-051). (r14)
+- **ZON-051** Search shows the whole library to the searcher sorted by type then name under type headers with counts, copies grouped ×N (a drag takes one); the opponent sees backs. Its type headers follow the shared order (SYS-051). (r35)
 - **ZON-052** Reveal N shows the top N face up to both players. (r8)
 - **ZON-053** Reveal hand / Reveal top from a Search or Look flips the card face up in the panel for both, then moves it on as a separate timeline step. (r8)
 - **ZON-054** Only the panel's opener sees a white-disc eye on the art of Look/Search cards the opponent can currently see. (r11)

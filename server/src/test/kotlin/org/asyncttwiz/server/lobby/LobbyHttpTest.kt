@@ -125,6 +125,37 @@ class LobbyHttpTest {
         }
     }
 
+    // LOB-006
+    @Test fun `two sessions of one account see the same saved decks contacts and games`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val phone = account(settings, "Owner", "owner@example.invalid")
+                val tablet = json.decodeFromString<SessionCreated>(request(settings, "POST", "/sessions",
+                    json.encodeToString(CreateSession("owner@example.invalid", "password😀"))).body())
+                assertNotEquals(phone.token, tablet.token); assertEquals(phone.account, tablet.account)
+                val friend = account(settings, "Friend", "friend@example.invalid")
+                val card = CardDefinition("Shared card", listOf(DefinitionFace(id(), "Shared card")))
+                val definition = SubmittedDefinition(DeckJson.digest(card), card)
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), phone.token).statusCode())
+                val deck = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Everywhere",
+                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 40))), phone.token).body())
+                assertEquals(200, post(settings, "/v1/contacts", AddContact(id(), friend.account.accountId), phone.token).statusCode())
+                val game = json.decodeFromString<GameSummary>(post(settings, "/v1/invitations",
+                    CreateInvitation(id(), friend.account.accountId, "Two devices"), phone.token).body())
+                for (session in listOf(phone, tablet)) {
+                    assertEquals(listOf(deck.deck), json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = session.token).body()).decks)
+                    assertEquals(deck, json.decodeFromString<SavedDeck>(request(settings, "GET", "/v1/decks/${deck.deck.id}", token = session.token).body()))
+                    assertEquals(definition, json.decodeFromString<SubmittedDefinition>(request(settings, "GET",
+                        "/v1/decks/${deck.deck.id}/definitions/${definition.digest}", token = session.token).body()))
+                    assertEquals(listOf(friend.account), json.decodeFromString<ContactList>(request(settings, "GET", "/v1/contacts", token = session.token).body()).contacts)
+                    assertEquals(listOf(game), json.decodeFromString<GameList>(request(settings, "GET", "/v1/games", token = session.token).body()).games)
+                }
+            }
+        }
+    }
+
     // LOB-030
     @Test fun `removing a contact is authenticated unilateral idempotent and preserves invitations`() {
         FreshDatabase().start().use { db ->

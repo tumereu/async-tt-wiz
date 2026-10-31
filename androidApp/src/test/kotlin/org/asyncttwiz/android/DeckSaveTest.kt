@@ -119,6 +119,21 @@ class DeckSaveTest {
         controller.close()
     }
 
+    // LOB-097
+    @Test fun savedDeckHandsItsCardsToTheArtworkDownloads() {
+        val worker = Worker(); val handed = mutableListOf<Pair<String, List<SubmittedDefinition>>>()
+        val attempts = mutableListOf<DeckSavePlan>()
+        val controller = DeckImportController({ result() }, worker) { it() }
+        controller.acceptedDefinitions = { deck, definitions -> handed += deck to definitions }
+        controller.connectSave({ { plan -> attempts += plan; SavedDeck(summary, plan.deck.entries) } }, {})
+        controller.open(); controller.edit(result().text); controller.lookup(); worker.drain()
+        controller.name("Deck"); controller.save()
+        assertTrue(handed.isEmpty(), "Nothing is downloaded before the server accepts the deck")
+        worker.drain()
+        assertEquals(listOf(summary.id to attempts.single().definitions.definitions), handed)
+        controller.close()
+    }
+
     @Test fun successfulMergeClosesEditorDespiteNameCorrectionAndCannotApplyQuantitiesAgain() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
         val imported = result().let { it.copy(text = "Deck\n2 Front // Back", entries = listOf(it.entries.first().copy(quantity = 2))) }

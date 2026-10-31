@@ -15,6 +15,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import androidx.compose.ui.graphics.toArgb
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import kotlin.test.assertEquals
@@ -186,6 +188,38 @@ class PodScreensTest {
         compose.onNodeWithText("Invitations").assertDoesNotExist()
         compose.onNodeWithText("No pending pod invitations.").assertDoesNotExist()
         compose.onNodeWithText("MY PODS (1)").assertIsDisplayed()
+    }
+
+    // DRF-013
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun podRowsReadTheirStatusInListOrderAndOnlyYourPickRowsAreHighlighted() {
+        fun pod(id: String, phase: PodPhase, attention: PodAttention, waiting: Int = 0) =
+            PodSummary(id, "Pod $id", phase, alice, listOf(alice, bob), attention, waiting, "2026-10-26T00:00:00Z")
+        val pods = listOf(pod("pick", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 2), pod("build", PodPhase.DRAFTED, PodAttention.BUILD),
+            pod("setup", PodPhase.SETUP, PodAttention.NONE), pod("drafting", PodPhase.DRAFTING, PodAttention.NONE),
+            pod("submitted", PodPhase.DRAFTED, PodAttention.NONE))
+        val statuses = listOf("Your pick · 2 packs", "Build your deck", "Setup", "Drafting", "Deck submitted")
+        assertEquals(statuses, pods.map(::podStatus))
+        var highlight = androidx.compose.ui.graphics.Color.Unspecified
+        var plain = androidx.compose.ui.graphics.Color.Unspecified
+        lateinit var view: android.view.View
+        compose.setContent { ScreenTheme {
+            view = androidx.compose.ui.platform.LocalView.current
+            highlight = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
+            plain = androidx.compose.material3.MaterialTheme.colorScheme.surface
+            PodsList(PodState(loaded = true, pods = pods), {}, { _, _ -> }, {})
+        } }
+        val tops = statuses.map { compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top }
+        assertEquals(tops.sorted(), tops, "Rows keep the server's order, pods needing you first")
+        val image = compose.runOnIdle {
+            android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
+                .also { view.draw(android.graphics.Canvas(it)) }
+        }
+        for (pod in pods) {
+            val row = compose.onNode(hasClickAction() and hasText(pod.name)).fetchSemanticsNode().boundsInRoot
+            val fill = image.getPixel(row.left.toInt() + 4, row.center.y.toInt())
+            assertEquals((if (pod.attention == PodAttention.YOUR_PICK) highlight else plain).toArgb(), fill, pod.name)
+        }
     }
 
     // DRF-121

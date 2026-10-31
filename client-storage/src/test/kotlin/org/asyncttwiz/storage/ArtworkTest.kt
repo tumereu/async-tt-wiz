@@ -55,6 +55,24 @@ class ArtworkTest {
         }
     }
 
+    // LOB-097
+    @Test fun aPictureIsDownloadedOnFirstUseAndServedFromThePhoneAfterARestart() {
+        val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image","art_crop":"$origin/art"}}""".toByteArray()
+        val urls = mutableListOf<String>()
+        val reference = ArtworkReference(id, 0, "v1", "art_crop")
+        val online = repository(ArtworkTransport { url, _, _, _ ->
+            urls += url
+            if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else ArtworkResponse(200, png(), "image/png")
+        }, cache("kept"))
+        assertTrue(urls.isEmpty(), "Nothing is downloaded before a picture is needed")
+        assertArrayEquals(png(), online.load(reference))
+        assertEquals(listOf("$origin/cards/$id", "$origin/art"), urls)
+        // A new cache over the same directory, as after the app restarts, with no network at all.
+        val restarted = repository(ArtworkTransport { _, _, _, _ -> error("offline") }, cache("kept"))
+        assertArrayEquals(png(), restarted.load(reference))
+        assertEquals(2, urls.size)
+    }
+
     @Test fun sizesRemainSeparateEvenWhenProviderReturnsTheSameImageUrl() {
         val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image","art_crop":"$origin/image"}}""".toByteArray()
         var imageCalls = 0

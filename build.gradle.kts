@@ -130,4 +130,13 @@ val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
         marker.get().asFile.apply { parentFile.mkdirs(); writeText("${defined.size} entries\n") }
     }
 }
-subprojects { tasks.withType<Test>().configureEach { dependsOn(checkFeatureCatalog) } }
+subprojects {
+    tasks.withType<Test>().configureEach {
+        dependsOn(checkFeatureCatalog)
+        // Test JVMs keep temp files in the module's build directory, not /tmp: here /tmp is a small in-memory disk,
+        // and Robolectric unpacks ~200 MB per test JVM that stays behind whenever a JVM is killed.
+        val tmp = layout.buildDirectory.dir("tmp/test-jvm").get().asFile
+        systemProperty("java.io.tmpdir", tmp.absolutePath)
+        doFirst { tmp.deleteRecursively(); tmp.mkdirs() }
+    }
+}

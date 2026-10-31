@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import android.graphics.Paint
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
@@ -98,21 +97,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val selectionState: MutableState<TableSelection> = toolkit?.selectionState ?: remember(play.id, accountId) { mutableStateOf(TableSelection()) }
     var layout by layoutState
     var selection by selectionState
-    var actions by remember(play.id, accountId) { mutableStateOf<TableIntent.Actions?>(null) }
     var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
-    var localStackBubble by remember(play.id, accountId) { mutableStateOf<String?>(null) }
-    val inspector = remember(play.id, accountId) { CardInspectionController() }
-    var inspectedCard by remember(play.id, accountId) { mutableStateOf<PlayCard?>(null) }
-    var peek by remember(play.id, accountId) { mutableStateOf<ManualInspection?>(null) }
     val peekScroll = rememberScrollState()
-    BackHandler(enabled = actions != null || localStackBubble != null || inspectedCard != null && inspector.state != null || peek != null) {
-        when {
-            inspector.state != null -> { inspector.close(); inspectedCard = null }
-            peek != null -> peek = null
-            actions != null -> actions = null
-            else -> localStackBubble = null
-        }
-    }
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
@@ -134,20 +120,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             when (intent) {
                 TableIntent.DismissTapUi -> {
                     DebugLatency.tap(game.id, "popupClosing")
-                    actions = null; toolkit?.dismissTapUi(); localStackBubble = null
+                    toolkit?.dismissTapUi()
                 }
                 is TableIntent.Peek -> {
                     if (intent.cardId != null) currentRuntime.pauseForInspection?.invoke()
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
-                    if (toolkit != null) toolkit.peek(intent.cardId)
-                    else peek = intent.cardId?.let { id ->
-                        val state = currentPlay
-                        CombatStackRules.inspection(state.board, id)?.let { card -> ManualInspection(state.gameId, state.id, id,
-                            ManualDisclosure.permittedFaces(state, card, accountId, inspecting = true).map { it.faceId },
-                            stackEntryId = id.takeIf { it in CombatStackRules.stack(state.board).cards }) }
-                    }
+                    toolkit?.peek(intent.cardId)
                 }
-                is TableIntent.StackBubbles -> if (toolkit != null) toolkit.showStackBubbles(intent.entryId) else localStackBubble = intent.entryId
+                is TableIntent.StackBubbles -> toolkit?.showStackBubbles(intent.entryId)
                 is TableIntent.SearchPile -> toolkit?.openPublicPile(intent.containerId, toggle = false)
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
                 is TableIntent.Scroll -> layout = if (intent.vertical)
@@ -156,22 +136,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Selection -> if (!currentRuntime.reviewing) { beforeSelection = selection; selection = intent.selection }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
-                    if (toolkit == null) actions = captured else {
+                    if (toolkit != null) {
                         val item = owner.actionItem
                         if (item != null) toolkit.open(captured, item, currentSelection)
                     }
                 }
-                is TableIntent.Inspect -> {
-                    if (toolkit != null) { toolkit.inspect(intent.cardId); return@TableGestureCoordinator }
-                    val state = currentPlay
-                    val card = state.board.cards.firstOrNull { it.id == intent.cardId }
-                    val permitted = TablePresentation.inspection(state, accountId, intent.cardId)
-                    if (card != null && permitted != null) {
-                        inspectedCard = card
-                        inspector.open(InspectedCard.retained(card.definition, permitted),
-                            permitted.faces.indexOfFirst { it.faceId == card.faceId }, flippedOnTable(state.definitions.firstOrNull { it.digest == card.definition }?.definition ?: permitted, card.faceId))
-                    }
-                }
+                is TableIntent.Inspect -> toolkit?.inspect(intent.cardId)
                 is TableIntent.Ping -> {
                     val captured = pressedPing
                     pressedPing = null
@@ -179,7 +149,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         currentRuntime.ping?.invoke(captured)
                 }
                 else -> {
-                    if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
+                    if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                     val sent = currentWritable && callback?.invoke(intent) == true
                     if (intent is TableIntent.Rotate && intent.toggle) {
                         gestureError = if (sent) null else "Rotation not queued. Reconnect and try again."
@@ -191,14 +161,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
         }, density = density, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) }, diagnostic = { event ->
             if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
-            DebugLatency.tap(game.id, event, actions != null || toolkit?.popupItem != null)
+            DebugLatency.tap(game.id, event, toolkit?.popupItem != null)
         })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     var clockEpoch by remember(coordinator) { mutableIntStateOf(0) }
     var pointerTime by remember(coordinator) { mutableLongStateOf(0L) }
-    DisposableEffect(coordinator) { onDispose { coordinator.cancel(); inspector.close() } }
+    DisposableEffect(coordinator) { onDispose { coordinator.cancel() } }
     LaunchedEffect(coordinator) {
         // Tick only an active recognition window, not an always-running animation at an idle table.
         // Relative frame time also supports Compose's controlled test clock (not wall-clock polling).
@@ -225,7 +195,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             pointerTime = t; clockEpoch++; preview = coordinator.preview; pressedPing = null
         },
         cancel = { coordinator.cancel(); clockEpoch++; preview = coordinator.preview; pressedPing = null },
-        dismiss = { actions = null; toolkit?.dismissTapUi(); localStackBubble = null },
+        dismiss = { toolkit?.dismissTapUi() },
         ringDown = { p, t, card ->
             val point = coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y)
             val state = currentPlay
@@ -264,7 +234,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
             val bubble = presented?.stackBubbles
             if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
-                toolkit?.showStackBubbles(null); localStackBubble = null
+                toolkit?.showStackBubbles(null)
             }
         }
     }) {
@@ -311,7 +281,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             withFrameNanos { }
             settled?.invoke(play.currentNodeId)
         }
-        val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry ?: localStackBubble
+        val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry
         // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
         // and clipping are shared once per frame, not repeated for every accessibility child.
         val rendered = remember(animation, targetScene, bubbleId, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
@@ -324,7 +294,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         } }
         val scene = targetScene
         JankTableState(runtime.reviewing, selection.mode,
-            toolkit?.panel ?: "card".takeIf { actions != null || toolkit?.capture != null || toolkit?.manual?.scope != null },
+            toolkit?.panel ?: "card".takeIf { toolkit?.capture != null || toolkit?.manual?.scope != null },
             previewDragging, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
         val semanticItems = remember(animation, targetScene, animationRevision) {
@@ -335,8 +305,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         LaunchedEffect(toolkit, bubbleId, IdentityKey(play)) {
             // The rendered history/animation boundary can briefly lag the session prediction during
             // acceptance. Validate personal focus against the session, not that older rendered board.
-            if (toolkit != null) toolkit.refreshStackBubbles()
-            else if (bubbleId != null && bubbleId != CombatStackRules.stack(play.board).cards.firstOrNull()) localStackBubble = null
+            toolkit?.refreshStackBubbles()
         }
         LaunchedEffect(IdentityKey(play), layout.localPileId) {
             if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
@@ -531,7 +500,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             }
             if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
-                if (intent is TableIntent.StackDestination) { toolkit?.showStackBubbles(null); localStackBubble = null }
+                if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                 callback?.invoke(intent)
             }
         }
@@ -597,41 +566,12 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
                 onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
         }
-        AnimatedCardRingAnchors(rendered, actions != null || toolkit?.capture != null) {
+        AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
          if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { if (!runtime.reviewing) selection = selection.toggle(it) }, accepted,
               tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
               selectionEnabled = !runtime.reviewing)
-        actions?.let { captured ->
-            val item = scene.items.firstOrNull { it.id == captured.itemId } ?: captured.scope?.contextId?.let { id ->
-                play.board.cards.singleOrNull { it.id == id }?.let { card ->
-                    TableItem("card/$id", TableBounds(0f, 0f, 0f, 0f), "Card Actions", "", card.owner,
-                        play.board.containers.single { it.id == card.containerId }.zone, kind = TableItemKind.CARD, cardId = id)
-                }
-            }
-            if (item == null) SideEffect { actions = null }
-            else if (item.zone == PlayZone.STACK) ManageStackDialog(play, accountId, writable, { actions = null },
-                perform = { if (currentWritable) callback?.invoke(it) }, cardActions = { id ->
-                    val scope = TableScope(id, listOf(id))
-                    actions = TableIntent.Actions("card/$id", scope, BasicTableController.sources(play, listOf(id)))
-                })
-            else TableActionsScreen(game, play, accountId,
-                captured, item, selection, writable, landscape, dismiss = { actions = null },
-                inspect = { id -> coordinator.inspect(item.copy(cardId = id)) },
-                 select = { id -> if (!runtime.reviewing) selection = selection.toggle(id) },
-                open = { id ->
-                    val scope = selection.scope(id, play.board.cards.map { it.id })
-                    actions = TableIntent.Actions("card/$id", scope, BasicTableController.sources(play, scope.cardIds))
-                }, request = { intent -> if (currentWritable) callback?.invoke(intent) == true else false },
-                submit = { action, invocation ->
-                    // The normal production request adapter also handles player Set editors.
-                    if (currentWritable) callback?.invoke(TableIntent.Submit(action, invocation)) == true else false
-                })
-        }
         }
     }
-    CardInspection(inspector, token = inspectedCard?.token == true,
-        owner = inspectedCard?.let { if (it.owner == accountId) OwnTableColor else OpponentTableColor })
-    peek?.let { GameplayCardInspection(play, accountId, it, { peek = null }, peek = true, peekScroll = peekScroll) }
     }
 }
 

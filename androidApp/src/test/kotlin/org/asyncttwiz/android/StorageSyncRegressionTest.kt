@@ -126,7 +126,8 @@ class StorageSyncRegressionTest {
         }
         @Suppress("UNCHECKED_CAST")
         fun downloads(): Map<String, *> = worker.submit<Map<String, *>> {
-            (GameSession::class.java.getDeclaredField("downloads").also { it.isAccessible = true }.get(session) as Map<String, *>).toMap()
+            val catchUp = GameSession::class.java.getDeclaredField("catchUp").also { it.isAccessible = true }.get(session)
+            (TreeCatchUp::class.java.getDeclaredField("downloads").also { it.isAccessible = true }.get(catchUp) as Map<String, *>).toMap()
         }.get(10, TimeUnit.SECONDS)
         override fun close() { session.close(); assertTrue(worker.awaitTermination(10, TimeUnit.SECONDS)); storage.close() }
     }

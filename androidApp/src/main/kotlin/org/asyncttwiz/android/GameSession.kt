@@ -2,10 +2,14 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.asyncttwiz.storage.GameplayTreeStore
+
+/** One watched game's server stream: its open/resume state and the authorized generation. */
+internal data class SessionStream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
+    var head: Boolean = false, var opening: Boolean = false, var opened: Boolean = false,
+    var lastGeneration: String? = null, var recoveryIds: List<String> = emptyList(), var awaitingReady: Boolean = false)
 
 /** Main-thread, process-memory queue. Results settle intent; only revisioned reads change accepted state. */
 class GameSession(private val connection: GameConnection, private val credential: () -> String?,
@@ -22,17 +26,6 @@ class GameSession(private val connection: GameConnection, private val credential
     private val personalChat: GameChat = GameChat(),
     private val openedGame: () -> String? = { null }) : AutoCloseable {
     private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
-    // Only treeWorker touches these coordinators and their mutable materializations.
-    private val downloads = mutableMapOf<String, Pair<GameplayTreeStore, TreeDownload>>()
-    private fun download(cache: GameplayTreeStore): TreeDownload {
-        downloads[cache.gameId]?.takeIf { it.first === cache }?.let { return it.second }
-        return TreeDownload(cache, uiThread).also { downloads[cache.gameId] = cache to it }
-    }
-    private fun evictDownload(gameId: String) {
-        caches.remove(gameId)?.invalidate()
-        if (!treeWorker.isShutdown) treeWorker.execute { downloads.remove(gameId) }
-    }
-    private fun presentation(value: PublishedDownloadedTree) = value.generation.copy(tree = value.generation.tree.materializedCopy())
     private val reconnectTrace = ReconnectRecorder(BuildConfig.DIAGNOSTICS, now, record = reconnectTelemetry)
     private var backgrounded = false
     private var resumePending = false
@@ -53,14 +46,8 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun latencySubmitted(command: GameCommand, predicted: Boolean) {
         if (BuildConfig.DIAGNOSTICS) latencyTrace?.submitted(command.requestId, predicted)
     }
-    private val caches = ConcurrentHashMap<String, GameplayTreeStore>()
-    private val observedPlays = ConcurrentHashMap<String, String>()
-    private val restoring = mutableSetOf<String>()
-    private data class Stream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
-        var head: Boolean = false, var opening: Boolean = false, var opened: Boolean = false,
-        var lastGeneration: String? = null, var recoveryIds: List<String> = emptyList(), var awaitingReady: Boolean = false)
     private val processId = UUID.randomUUID().toString()
-    private val streams = linkedMapOf<String, Stream>()
+    private val streams = linkedMapOf<String, SessionStream>()
     private val summaries = mutableMapOf<String, GameSummary>()
     private val unavailableGames = mutableSetOf<String>()
     private val pending = linkedMapOf<String, GameCommand>()
@@ -75,33 +62,38 @@ class GameSession(private val connection: GameConnection, private val credential
         if (presences[gameId]?.let { PresenceText.same(it, next) } != true) presences[gameId] = next
     }
     private val plays = mutableMapOf<String, GameplayReplica>()
-    private data class Recovery(val ids: List<String>, val notAdmitted: Set<String>, var through: String, val playId: String?,
-        val tail: MutableList<GameRevision> = mutableListOf())
-    private val recoveries = mutableMapOf<String, Recovery>()
-    // The server refused to transfer this play: it is no longer current. Its remaining historical
-    // deliveries (e.g. a resume from an old cursor) must not restart catch-up. One entry per game.
-    private val supersededPlays = mutableMapOf<String, String>()
-    // Main-thread receipt cursor, distinct from the worker's published cursor. Heartbeats may
-    // observe a committed head while its contiguous deltas are still waiting for disk work.
-    private val treeThrough = mutableMapOf<String, String>()
-    private val treeHead = mutableMapOf<String, String>()
-    private data class HeadGap(val since: Long, var through: String)
-    private val headGaps = mutableMapOf<String, HeadGap>()
     @Volatile private var account: String? = null
     private data class ResultIntent(val command: GameCommand, val actor: String, var commitRevision: String? = null)
     private val resultIntents = linkedMapOf<String, ResultIntent>()
-    private val scope = object : SessionScope {
+    private val scope = object : TreeCatchUp.Session {
         override val closed get() = this@GameSession.closed
         override val epoch get() = this@GameSession.epoch
         override val account get() = this@GameSession.account
         override fun sameAccount() = this@GameSession.sameAccount()
         override fun post(action: () -> Unit) = this@GameSession.post(action)
         override fun statusChanged() = this@GameSession.statusChanged()
+        override val token get() = this@GameSession.token
+        override fun credential() = this@GameSession.credential()
+        override fun stream(gameId: String) = streams[gameId]
+        override fun replica(gameId: String) = this@GameSession.replica(gameId)
+        override fun retained(gameId: String) = plays[gameId]
+        override fun summary(gameId: String) = summaries[gameId]
+        override fun pending(gameId: String) = pending.values.filter { it.scope.gameId == gameId }
+        override fun sent(requestId: String) = requestId in sent
+        override fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, play: PlayState?) =
+            this@GameSession.install(game, revision, preparation, play)
+        override fun result(result: GameResult) = this@GameSession.result(result)
+        override fun clearError() { error = null }
+        override fun flush() = this@GameSession.flush()
+        override fun recoveryReady() = this@GameSession.recoveryReady()
+        override fun connectionUnavailable(cause: String) = this@GameSession.connectionUnavailable(cause)
+        override fun send(message: GameClientMessage) = this@GameSession.send(message)
     }
     private val chats = SessionChat(scope, connection, personalChat, now, openedGame,
         syncable = { ready && available(it) && it in streams }, available = ::available)
-    private val reviews = SessionHistoryReview(scope, reviewWorker, ::checkAccount, plays::get, summaries::get, caches::get, observedPlays::get)
-    private val inspections = InspectionObservers(scope, plays::get, observedPlays::get)
+    private val catchUp = TreeCatchUp(scope, connection, treeCache, treeWorker, uiThread, now, reconnectTrace, chats)
+    private val reviews = SessionHistoryReview(scope, reviewWorker, ::checkAccount, plays::get, summaries::get, catchUp::cache, catchUp::observedPlay)
+    private val inspections = InspectionObservers(scope, plays::get, catchUp::observedPlay)
     fun chat(gameId: String) = chats.chat(gameId)
     fun chatLoaded(gameId: String) = chats.chatLoaded(gameId)
     fun presentedChat(gameId: String, ids: Set<String>) = chats.presentedChat(gameId, ids)
@@ -152,9 +144,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** Everything the server had when the app returned to the foreground has been received and
      * published for this game, so a resumed table may decide live vs. timeline mode. */
-    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId) && gameId !in headGaps &&
-        treeThrough[gameId]?.let { through -> plays[gameId]?.revision?.let { newerOrEqual(it, through) }
-            ?: (summaries[gameId]?.lifecycle != GameLifecycle.ACTIVE) } != false
+    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId) && catchUp.caughtUp(gameId)
     /** Only a previously authorized, retained active play may capture originals during a short
      * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
     private fun activeRequest(game: GameSummary, captureDuringRecovery: Boolean = false): Boolean {
@@ -166,11 +156,11 @@ class GameSession(private val connection: GameConnection, private val credential
         val started = connectionDemand.getOrPut(game.id, now)
         tick()
         // Do not extend an uncertain old socket's predicted chain before its outcomes are known.
-        if (!captureDuringRecovery && (game.id in uncertainGames || game.id in recoveries)) return false
+        if (!captureDuringRecovery && (game.id in uncertainGames || catchUp.recovering(game.id))) return false
         return now() - started < 3_000
     }
     fun available(gameId: String) = gameId !in unavailableGames && summaries[gameId]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)
-    fun ready(gameId: String) = ready && available(gameId) && gameId !in recoveries && streams[gameId]?.let { it.generation != null && it.head } == true
+    fun ready(gameId: String) = ready && available(gameId) && !catchUp.recovering(gameId) && streams[gameId]?.let { it.generation != null && it.head } == true
     /** A negative ordinary read fences personal context, not uncertain admitted originals. */
     fun unavailable(gameId: String) {
         unavailableGames.add(gameId); clearContext(gameId)
@@ -179,12 +169,9 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun clearContext(gameId: String) {
         ownPodDeckNames.remove(gameId); presences.remove(gameId)
-        observedPlays.remove(gameId)
-        evictDownload(gameId)
+        catchUp.remove(gameId)
         inspections.remove(gameId)
-        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId); treeThrough.remove(gameId); treeHead.remove(gameId)
-        recoveries.remove(gameId); supersededPlays.remove(gameId)
-        headGaps.remove(gameId)
+        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)
         chats.remove(gameId)
         resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
         streams[gameId]?.head = false
@@ -214,15 +201,10 @@ class GameSession(private val connection: GameConnection, private val credential
         checkAccount()
         for (game in games) {
             install(game, game.revision, null, null)
-            streams.getOrPut(game.id) { Stream() }
+            streams.getOrPut(game.id) { SessionStream() }
         }
         tick()
-        if (treeCache != null) for (game in games) {
-            val current = summary(game)
-            observePlay(current)
-            if (current.lifecycle == GameLifecycle.ACTIVE && current.playId != null &&
-                plays[game.id]?.accepted == null && restoring.add(game.id)) loadCached(current)
-        }
+        if (treeCache != null) for (game in games) catchUp.watch(summary(game))
     }
     fun tick() {
         if (closed) return
@@ -266,7 +248,7 @@ class GameSession(private val connection: GameConnection, private val credential
         } else if (welcome) {
             openStreams()
             streams.keys.forEach(chats::syncChatRead)
-            checkHeadGaps()
+            catchUp.checkHeadGaps()
             // The server's traffic lease counts protocol messages, not WebSocket control pings.
             if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
         }
@@ -532,32 +514,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
-                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId == supersededPlays[message.gameId])
-                    supersededPlays.remove(message.gameId)
+                catchUp.headArrived(message.summary)
                 chats.installChatHead(message)
-                observePlay(message.summary)
-                recoveries[message.gameId]?.let { if (newerOrEqual(message.revision, it.through)) it.through = message.revision }
-                if (message.play != null) {
-                    if (treeHead[message.gameId]?.let { newerOrEqual(it, message.revision) } != true)
-                        treeHead[message.gameId] = message.revision
-                    val replica = replica(message.gameId)
-                    if (replica.revision == message.revision) {
-                        streams[message.gameId]?.head = true
-                    } else if (treeCache == null && !message.retainedTreeRequired && replica.accepted == null && replica.root(message)) {
-                        install(message.summary, message.revision, null, message.play)
-                        streams[message.gameId]?.head = true
-                    } else if (treeThrough[message.gameId]?.let { newerOrEqual(it, message.revision) } == true) {
-                        // Publication will mark this stream ready. Queued work is not a revision gap.
-                    } else if (replica.revision?.let { newerOrEqual(it, message.revision) } != true) {
-                        if (replica.accepted?.id == message.summary.playId && message.gameId !in recoveries) {
-                            // Heads read committed state before the publication worker necessarily
-                            // sends its deltas. Keep using the materialized replica during that race.
-                            headGaps.getOrPut(message.gameId) { HeadGap(now(), message.revision) }.let {
-                                if (newerOrEqual(message.revision, it.through)) it.through = message.revision
-                            }
-                        } else recover(message.gameId, message.revision, "headAhead:local=${replica.revision}:queued=${treeThrough[message.gameId]}:head=${message.revision}")
-                    }
-                } else {
+                if (!catchUp.head(message)) {
                     install(message.summary, message.revision, message.preparation, null)
                     streams[message.gameId]?.head = true
                 }
@@ -576,28 +535,13 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.chatMessage?.let { chats.installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
-                if (superseded(message)) {
+                if (catchUp.superseded(message)) {
                     // History of a play that is no longer current: nothing to catch up or observe.
                     correlateSelections(message); flush(); statusChanged(); return
                 }
-                observePlay(message.summary)
+                catchUp.observePlay(message.summary)
                 if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) {
-                    recoveries[message.gameId]?.let {
-                        it.tail.add(message)
-                        if (newerOrEqual(message.resultRevision, it.through)) it.through = message.resultRevision
-                    }
-                    val replica = replica(message.gameId)
-                    if (treeCache != null && message.gameId !in recoveries) {
-                        applyTree(message)
-                    } else if (treeCache != null && message.gameId in recoveries) {
-                        // Recovery owns one isolated generation and its interleaved tail.
-                    } else if (replica.accepted == null && message.play != null && message.play!!.currentNodeId == message.play!!.root.id) {
-                        replica.root(GameHead(message.gameId, message.resultRevision, message.summary, play = message.play))
-                        install(message.summary, message.resultRevision, null, message.play)
-                    } else if (replica.apply(message)) install(message.summary, message.resultRevision, null, replica.accepted)
-                    else {
-                        if (message.gameId !in recoveries) { recover(message.gameId, message.resultRevision, "replica:${replica.applyFailure}"); recoveries[message.gameId]?.tail?.add(message) }
-                    }
+                    catchUp.revision(message)
                 } else install(message.summary, message.resultRevision, message.preparation, null)
                 // A correlated accepted revision is enough even when its result has not arrived yet.
                 correlateSelections(message)
@@ -631,7 +575,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 presence(message.gameId, message.opponent)
             is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
         }
-        checkHeadGaps()
+        catchUp.checkHeadGaps()
         flush()
         recoveryReady()
         statusChanged()
@@ -647,7 +591,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (game.id in unavailableGames && old != null && revision == old.revision &&
             game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return
         if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)
-        observePlay(game)
+        catchUp.observePlay(game)
         if (play != null) {
             require(game.lifecycle == GameLifecycle.ACTIVE && play.gameId == game.id && play.id == game.playId &&
                 play.preparationRound == game.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
@@ -656,7 +600,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
         if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) preparations.accept(game, revision, preparation)
         if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || play != null || ended(game)) acceptedRevisions[game.id] = revision
-        if (play != null && treeHead[game.id]?.let { newerOrEqual(revision, it) } == true)
+        if (play != null && catchUp.reachesHead(game.id, revision))
             streams[game.id]?.head = true
         if (summaries[game.id]?.let { newerOrEqual(revision, it.revision) } != false) summaries[game.id] = game
         retireSelections(game.id)
@@ -716,7 +660,7 @@ class GameSession(private val connection: GameConnection, private val credential
         for ((id, command) in pending) {
             val stream = streams.getValue(command.scope.gameId)
             if (id !in sent && available(command.scope.gameId) && stream.generation != null && stream.head) {
-                if (command.scope.gameId in recoveries) continue
+                if (catchUp.recovering(command.scope.gameId)) continue
                 if (!send(command.copy(generation = stream.generation!!))) return
                 sent.add(id)
             }
@@ -737,269 +681,6 @@ class GameSession(private val connection: GameConnection, private val credential
         error = compatibilityError
         statusChanged()
     }
-    private fun checkHeadGaps() {
-        // Bounded by watched games, never by their action histories. Receiving contiguous deltas
-        // is sufficient; a slow disk/publication worker must not cause another tree download.
-        for ((gameId, gap) in headGaps.toMap()) {
-            val through = treeThrough[gameId] ?: plays[gameId]?.revision
-            if (through?.let { newerOrEqual(it, gap.through) } == true) headGaps.remove(gameId)
-            else if (now() - gap.since >= 2_000) {
-                recover(gameId, gap.through, "headDeltaGraceExpired:local=$through:head=${gap.through}")
-            }
-        }
-    }
-    private fun recover(gameId: String, through: String, reason: String = "explicitHistoryDownload") {
-        if (gameId in recoveries) return
-        val stream = streams[gameId] ?: return
-        headGaps.remove(gameId)
-        reconnectTrace.start(gameId, "headRequiresCatchUp")
-        reconnectTrace.step(gameId, reason.take(160))
-        reconnectTrace.step(gameId, "catchUpStart")
-        DebugJank.catchUp(gameId, true)
-        treeThrough.remove(gameId)
-        stream.head = false
-        val ids = pending.values.filter { it.scope.gameId == gameId }.map { it.requestId }
-        val recovery = Recovery(ids, ids.filter { it !in sent }.toSet(), through, observedPlays[gameId])
-        recoveries[gameId] = recovery
-        val generation = epoch; val current = token
-        fun rejected(code: String) = post {
-            if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery)
-                recoveryRejected(gameId, recovery, code)
-        }
-        if (treeCache != null && connection.treeTransfer(gameId, recovery.ids, ::rejected) { transfer -> post {
-            if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery) {
-                if (transfer == null) { recoveries.remove(gameId); connectionUnavailable("treeManifestFailed") }
-                else { reconnectTrace.step(gameId, "treeManifestReceived"); stageTree(gameId, recovery, transfer, generation, current) }
-            }
-        } }) return
-        if (!connection.baseline(gameId, recovery.ids, ::rejected) { baseline -> post {
-            if (!closed && generation == epoch && current == credential() && sameAccount() && recoveries[gameId] === recovery) {
-                recoveries.remove(gameId)
-                val installed = runCatching {
-                    requireNotNull(baseline)
-                    require(baseline.snapshot.head.gameId == gameId)
-                    require(baseline.statuses.map { it.requestId }.toSet() == recovery.ids.toSet())
-                    val replica = replica(gameId)
-                    val local = pending.values.filter { it.scope.gameId == gameId && it.requestId !in recovery.ids && it.requestId !in sent }
-                    val correlated = baseline.copy(statuses = baseline.statuses.map {
-                        if (it.status == "unknown" && it.requestId in recovery.notAdmitted) it.copy(status = "notAdmitted") else it } +
-                        local.map { GameRequestStatus(it.requestId, "notAdmitted") })
-                    if (!replica.baseline(correlated, recovery.tail, recovery.through)) return@runCatching false
-                    val latest = recovery.tail.maxByOrNull { GameWire.ordinal(it.resultRevision) }
-                        ?.takeIf { it.resultRevision == replica.revision }
-                    val head = baseline.snapshot.head
-                    install(latest?.summary ?: head.summary, replica.revision!!, null, replica.accepted)
-                    chats.installChatHead(head)
-                    recovery.tail.forEach { update -> update.chatMessage?.let {
-                        chats.installChat(gameId, update.resultRevision, listOf(it), snapshot = false)
-                    } }
-                    for (status in baseline.statuses) if (status.status == "final") result(status.result!!)
-                    true
-                }.getOrDefault(false)
-                if (installed) { stream.head = true; error = null; flush(); recoveryReady(); statusChanged() } else connectionUnavailable("baselineFailed")
-            }
-        } }) { recoveries.remove(gameId); connectionUnavailable("baselineNotStarted") }
-    }
-
-    /** The server has no transferable current play (ended, back in the lobby, replaced or no longer
-     * accessible). That is game state, not connectivity: retire only this catch-up, never the shared
-     * connection, and re-read the authoritative head from the newest known revision. */
-    private fun recoveryRejected(gameId: String, recovery: Recovery, code: String) {
-        recoveries.remove(gameId)
-        recovery.playId?.let { supersededPlays[gameId] = it }
-        treeThrough.remove(gameId); headGaps.remove(gameId)
-        reconnectTrace.step(gameId, "catchUpRejected:$code")
-        DebugJank.catchUp(gameId, false)
-        val cursor = listOfNotNull(recovery.through, summaries[gameId]?.revision).maxBy(GameWire::ordinal)
-        send(SubscribeGame(gameId, cursor))
-        statusChanged()
-    }
-
-    /** O(1): a delivery for a play that newer knowledge (a later summary of another lifecycle/play,
-     * or a refused transfer) already retired. Catching it up could only fail against the server. */
-    private fun superseded(message: GameRevision): Boolean {
-        val play = message.summary.playId?.takeIf { message.summary.lifecycle == GameLifecycle.ACTIVE } ?: return false
-        if (supersededPlays[message.gameId] == play) return true
-        val known = summaries[message.gameId] ?: return false
-        return GameWire.ordinal(known.revision) > GameWire.ordinal(message.resultRevision) &&
-            (known.lifecycle != GameLifecycle.ACTIVE || known.playId != play)
-    }
-
-    private fun observePlay(game: GameSummary) {
-        val play = game.playId.takeIf { game.lifecycle == GameLifecycle.ACTIVE }
-        if (play == null) observedPlays.remove(game.id) else observedPlays.put(game.id, play)
-        recoveries[game.id]?.takeIf { it.playId != play }?.let {
-            recoveries.remove(game.id)
-            treeThrough.remove(game.id); treeHead.remove(game.id); headGaps.remove(game.id)
-            DebugJank.catchUp(game.id, false)
-        }
-        caches[game.id]?.takeIf { it.playId != play }?.let { evictDownload(game.id) }
-    }
-
-    private fun loadCached(game: GameSummary) {
-        val playId = game.playId ?: return; val owner = account ?: return
-        val createCache = treeCache ?: return
-        val generation = epoch
-        fun valid() = !closed && generation == epoch && account == owner && sameAccount() && observedPlays[game.id] == playId
-        treeWorker.execute {
-            val published = runCatching {
-                if (!valid()) return@runCatching null
-                val cache = caches[game.id]?.takeIf { it.isCurrent() } ?: (createCache(owner, game.id, playId) ?: return@runCatching null).also {
-                    if (!valid()) it.invalidate()
-                    caches[game.id] = it
-                }
-                cache.guard(::valid)
-                download(cache).accepted()?.takeIf {
-                    it.generation.tree.stateAt(it.generation.tree.currentNodeId) != null }
-            }.getOrNull()
-            val prepared = published?.let(::presentation)
-            post {
-                restoring.remove(game.id)
-                if (!valid() || published == null || plays[game.id]?.revision?.let {
-                        GameWire.ordinal(it) >= published.version.revision } == true) return@post
-                val at = published.version.revision.toString()
-                val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
-                val head = GameHead(game.id, at, game.copy(revision = at), play = endpoint)
-                val replica = replica(game.id)
-                if (replica.published(head, prepared, at, emptyList(), emptyList(), published.history)) {
-                    install(head.summary, at, null, replica.accepted); statusChanged()
-                }
-            }
-        }
-    }
-
-    private fun delta(update: GameRevision): TreeRecordDelta {
-        // Shared metadata/communication owners can advance the game revision without changing the
-        // tree. They still advance the SAME accepted cursor; never erase history or force a second
-        // cache/journal. An unmatched full board without tree records fails closed to baseline.
-        require(update.treeDelta != null || update.play == null)
-        return TreeRecordDelta(update.gameId, requireNotNull(update.summary.playId),
-            GameWire.ordinal(update.baseRevision), GameWire.ordinal(update.resultRevision), update.treeDelta?.upserts.orEmpty(),
-            update.treeDelta?.removals.orEmpty().map { it.kind to it.id })
-    }
-
-    private fun stageTree(gameId: String, recovery: Recovery, transfer: GameplayTreeTransfer, generation: Long, current: String?) {
-        val playId = transfer.manifest.playId
-        val owner = account ?: return connectionUnavailable("recoveryAccountMissing")
-        val createCache = treeCache ?: return
-        val tail = recovery.tail.toList().sortedBy { GameWire.ordinal(it.resultRevision) }
-        val through = recovery.through
-        fun valid() = !closed && generation == epoch && current == credential() && sameAccount() && observedPlays[gameId] == playId
-        fun deliver(published: PublishedDownloadedTree?, appliedTail: List<GameRevision>) {
-            if (!valid() || recoveries[gameId] !== recovery) return
-            if (published != null && GameWire.ordinal(recovery.through) > published.version.revision) {
-                val late = recovery.tail.filter { GameWire.ordinal(it.resultRevision) > published.version.revision }
-                    .distinctBy { it.resultRevision }.sortedBy { GameWire.ordinal(it.resultRevision) }
-                if (late.firstOrNull()?.baseRevision == published.version.revision.toString() &&
-                    late.last().resultRevision == recovery.through) {
-                    // Staging can take seconds. Arrivals during it are a delta tail, not a reason
-                    // to discard a complete baseline and start another expensive download.
-                    treeWorker.execute {
-                        val caughtUp = runCatching {
-                            var next = published
-                            for (update in late) {
-                                if (!valid()) return@runCatching null
-                                next = (download(requireNotNull(caches[gameId])).apply(delta(update)) as? TreePublication.Published)?.value
-                                    ?: return@runCatching null
-                            }
-                            next
-                        }.getOrNull()
-                        val prepared = caughtUp?.let { it.copy(generation = presentation(it)) }
-                        post { deliver(prepared, appliedTail + late) }
-                    }
-                    return
-                }
-            }
-            recoveries.remove(gameId)
-            if (published == null || GameWire.ordinal(recovery.through) > published.version.revision) {
-                recover(gameId, recovery.through, "stagedTreeBehindOrFailed"); return
-            }
-            val replica = replica(gameId)
-            if (!replica.published(requireNotNull(transfer.manifest.head), published.generation,
-                published.version.revision.toString(), transfer.manifest.statuses, appliedTail, published.history)) { connectionUnavailable("treePublicationFailed"); return }
-            val summary = appliedTail.lastOrNull { it.resultRevision == replica.revision }?.summary ?: transfer.manifest.head!!.summary
-            install(summary, replica.revision!!, null, replica.accepted)
-            val head = requireNotNull(transfer.manifest.head)
-            chats.installChatHead(head)
-            appliedTail.forEach { update -> update.chatMessage?.let { chats.installChat(gameId, update.resultRevision, listOf(it), snapshot = false) } }
-            for (status in transfer.manifest.statuses) if (status.status == "final") result(requireNotNull(status.result))
-            streams[gameId]?.head = true; error = null; flush(); recoveryReady(); statusChanged()
-        }
-        treeWorker.execute {
-            if (!valid()) return@execute
-            val published = runCatching {
-                require(transfer.manifest.statuses.map { it.requestId }.toSet() == recovery.ids.toSet())
-                transfer.manifest.statuses.forEach { status ->
-                    require(status.status in setOf("final", "pending", "unknown"))
-                    if (status.status == "final") require(status.result?.requestId == status.requestId &&
-                        status.result?.scope == GameScope(gameId, playId = playId))
-                }
-                val cache = caches[gameId]?.takeIf { it.playId == playId && it.isCurrent() }
-                    ?: (createCache(owner, gameId, playId) ?: return@runCatching null).also {
-                    if (!valid()) it.invalidate()
-                    caches[gameId] = it
-                }
-                cache.guard(::valid)
-                if (!valid()) return@runCatching null
-                val download = download(cache)
-                val staged = download.stage(transfer.plan) { index -> if (valid()) transfer.openChunk(index) else null }
-                    ?: return@runCatching null
-                if (!valid()) return@runCatching null
-                val result = download.publish(staged, tail.filter { GameWire.ordinal(it.resultRevision) > transfer.plan.revision }
-                    .map(::delta), GameWire.ordinal(through))
-                (result as? TreePublication.Published)?.value?.takeIf { value ->
-                    value.generation.tree.stateAt(value.generation.tree.currentNodeId) != null }
-            }.getOrNull()
-            val prepared = published?.let { it.copy(generation = presentation(it)) }
-            post { deliver(prepared, tail) }
-        }
-    }
-
-    private fun applyTree(update: GameRevision) {
-        val queued = treeThrough[update.gameId] ?: plays[update.gameId]?.revision
-        if (queued != null && newerOrEqual(queued, update.resultRevision)) return
-        if (queued == null || queued != update.baseRevision) {
-            recover(update.gameId, update.resultRevision, "deltaGap:queued=$queued:base=${update.baseRevision}:result=${update.resultRevision}")
-            recoveries[update.gameId]?.tail?.add(update)
-            return
-        }
-        treeThrough[update.gameId] = update.resultRevision
-        val generation = epoch; val current = token; val playId = update.summary.playId
-        fun valid() = !closed && generation == epoch && current == credential() && sameAccount() && observedPlays[update.gameId] == playId
-        treeWorker.execute {
-            if (!valid()) return@execute
-            var reason = "cacheMissing"
-            val published = runCatching {
-                val result = caches[update.gameId]?.let { cache ->
-                    // The retained owner survives reconnect. Renew its operation fence only on
-                    // this serial worker, after this socket operation passed its own epoch check.
-                    cache.guard(::valid)
-                    download(cache).let {
-                    it.apply(delta(update)).also { _ -> reason = it.failure ?: "endpointMissing" }
-                } }
-                val value = result as? TreePublication.Published
-                value?.value?.takeIf { it.generation.tree.stateAt(it.generation.tree.currentNodeId) != null }
-            }.onFailure { failure ->
-                val check = failure.stackTrace.firstOrNull { it.className.startsWith("org.asyncttwiz") }
-                reason = "${failure.javaClass.simpleName}:${check?.fileName}:${check?.lineNumber}"
-            }.getOrNull()
-            val prepared = published?.let(::presentation)
-            post {
-                if (!valid() || update.gameId in recoveries) return@post
-                if (published == null) { recover(update.gameId, update.resultRevision, "treeApply:$reason"); return@post }
-                val replica = replica(update.gameId)
-                if (plays[update.gameId]?.revision?.let { GameWire.ordinal(it) >= published.version.revision } == true) return@post
-                val endpoint = prepared!!.tree.stateAt(prepared.tree.currentNodeId)
-                val head = GameHead(update.gameId, update.resultRevision, update.summary, play = endpoint)
-                if (replica.published(head, prepared, published.version.revision.toString(), emptyList(), listOf(update), published.history, animate = true)) {
-                    if (treeHead[update.gameId]?.let { newerOrEqual(replica.revision!!, it) } != false)
-                        streams[update.gameId]?.head = true
-                    install(update.summary, replica.revision!!, null, replica.accepted); statusChanged()
-                    flush(); recoveryReady()
-                }
-            }
-        }
-    }
     private fun checkAccount() {
         val current = accountId() ?: return
         if (account != null && current != account) clear()
@@ -1011,11 +692,11 @@ class GameSession(private val connection: GameConnection, private val credential
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; resumePing = null; token = null; connection.disconnect(); sent.clear(); chats.disconnected()
-        recoveries.clear(); treeThrough.clear(); treeHead.clear(); headGaps.clear(); presences.clear()
+        catchUp.disconnected(); presences.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
-    fun clear() { inspections.clear(); caches.values.forEach { it.invalidate() }; caches.clear(); observedPlays.clear(); restoring.clear(); disconnect(); reviews.clear(); if (!treeWorker.isShutdown) treeWorker.execute { downloads.clear() }; pending.clear(); resultIntents.clear(); preparations.clear(); plays.clear();
-        ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); supersededPlays.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
+    fun clear() { inspections.clear(); catchUp.clear(); disconnect(); reviews.clear(); pending.clear(); resultIntents.clear(); preparations.clear(); plays.clear();
+        ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)

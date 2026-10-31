@@ -20,8 +20,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
-import com.github.takahirom.roborazzi.captureRoboImage
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import org.junit.Rule
 import org.junit.Test
@@ -77,6 +75,10 @@ class TableScreenshotTest {
         }
         val output = File("$SCREENSHOTS/$name.png")
         requireNotNull(output.parentFile).mkdirs()
+        val caption = (if (name.startsWith("device-")) "Small phone screen, " else "") +
+            "${if (landscape) "landscape" else "portrait"} table mid-game on your turn, " +
+            (if (paused) "reviewing history with the timeline panel open" else "live play") +
+            (if (hand > 5) ", $hand cards in each hand" else "") + (if (controls) ", Table actions menu open" else "") + "."
         if (controls) {
             compose.onNodeWithContentDescription("Table actions").performClick()
             compose.onNodeWithText("Table actions").assertExists()
@@ -84,8 +86,8 @@ class TableScreenshotTest {
             compose.onNodeWithText("Redo").assertDoesNotExist()
             compose.onNodeWithContentDescription("Game controls").assertDoesNotExist()
             compose.waitForIdle()
-            captureScreenRoboImage(output.path)
-        } else compose.onRoot().captureRoboImage(output.path)
+            captureShot(output.path, caption.replaceFirstChar { it.uppercase() })
+        } else compose.onRoot().captureShot(output.path, caption.replaceFirstChar { it.uppercase() })
         val image = ImageIO.read(output)
         if (name.startsWith("device-")) {
             assertEquals(if (landscape) 1280 else 720, image.width)
@@ -120,7 +122,8 @@ class TableScreenshotTest {
         compose.onNodeWithContentDescription("Dismiss message").assertIsDisplayed()
         val output = File("$SCREENSHOTS/table-floating-error.png")
         requireNotNull(output.parentFile).mkdirs()
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureShot(output.path,
+            "Portrait table mid-game with a floating error message about a refused undo, shown above the table controls.")
         val image = ImageIO.read(output)
         assertEquals(412, image.width)
         assertEquals(892, image.height)
@@ -255,7 +258,35 @@ class TableScreenshotTest {
         compose.waitForIdle()
         val output = File("$SCREENSHOTS/gameplay-$kind${if (turn != null) "-custom-turn" else ""}-${if (landscape) "landscape" else "portrait"}.png")
         requireNotNull(output.parentFile).mkdirs()
-        captureScreenRoboImage(output.path)
+        val shown = when (kind) {
+            "card-actions" -> "card menu open on your Meadow Sentinel"
+            "owner-choice" -> "card menu open on an opponent-owned 2/4 creature with blue counter 3 on your battlefield"
+            "player-actions" -> "your player menu open with its counters"
+            "table-actions" -> "Table actions menu open"
+            "phase-picker" -> "phase and step picker open"
+            "action-tooltip" -> "card menu open on your Meadow Sentinel, holding Inspect to show its name tooltip"
+            "library-actions" -> "your library menu open"
+            "die" -> "Roll die… tapped in the Table actions menu"
+            "life-drag" -> "mid-drag holding your life total (20) and dragging up"
+            "counter-drag" -> "mid-drag holding your blue counter (3) and dragging down"
+            "token-ping-reveal" -> "a Soldier token, two numbered pings and your top two library cards revealed"
+            "value-editor" -> "P/T value editor open from your Meadow Sentinel's card menu"
+            "link-actions" -> "link actions open for your Meadow Sentinel"
+            "pile-contents" -> "actions open for your two-card graveyard"
+            "stack-contents" -> "Stack contents open, holding one Meadow Sentinel effect"
+            "combat-actions" -> "Combat actions menu open for your attacking Meadow Sentinel"
+            "stack-actions" -> "Stack actions menu open for a Meadow Sentinel effect on the Stack"
+            "token-catalog" -> "token catalog open with an empty search result"
+            "token-actions" -> "token actions open from your Meadow Sentinel"
+            "card-inspection" -> "Inspect view open for your Meadow Sentinel"
+            else -> error("No caption for $kind")
+        }
+        val moment = when {
+            kind == "phase-picker" -> "the opponent's turn 4, draw step"
+            turn != null -> "your turn's cleanup step"
+            else -> "your turn 4, main phase"
+        }
+        captureShot(output.path, "${if (landscape) "Landscape" else "Portrait"} table on $moment: $shown.")
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)

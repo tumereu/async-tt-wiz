@@ -8,7 +8,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -53,7 +52,15 @@ class TableLayoutScreenshotTest {
         val counterSuffix = counterOwners.singleOrNull()?.let { "-counters-$it" }.orEmpty()
         val output = File("$SCREENSHOTS/layout-${if (populated) "populated" else "empty"}-${if (landscape) "landscape" else "portrait"}$counterSuffix.png")
         output.parentFile!!.mkdirs()
-        compose.onRoot().captureRoboImage(output.path)
+        val counters = when (counterOwners) {
+            setOf("a", "b") -> "both players' counters set"
+            setOf("a") -> "only your counters set"
+            setOf("b") -> "only the opponent's counters set"
+            else -> "counters zero or blank"
+        }
+        compose.onRoot().captureShot(output.path, "${if (landscape) "Landscape" else "Portrait"} table layout " +
+            (if (populated) "mid-game, with a card on the Stack and one in the opponent's exile" else "with no cards anywhere") +
+            ", your life -105, opponent's 120, $counters.")
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)

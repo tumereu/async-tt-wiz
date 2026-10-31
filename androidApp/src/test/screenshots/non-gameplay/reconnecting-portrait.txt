@@ -1,0 +1,1 @@
+Portrait game table behind the Reconnecting dialog, which offers Back to games list.

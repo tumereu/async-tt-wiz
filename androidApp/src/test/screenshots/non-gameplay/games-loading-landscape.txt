@@ -1,0 +1,1 @@
+Landscape Games list while it refreshes in the background, with no loading text.

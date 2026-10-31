@@ -1,0 +1,1 @@
+Change highlight layer alone on white, before player A's blue counter drops from 1 to 0.

@@ -1,0 +1,1 @@
+Landscape deck import screen replacing the saved Training deck's list with a pasted, resolved list.

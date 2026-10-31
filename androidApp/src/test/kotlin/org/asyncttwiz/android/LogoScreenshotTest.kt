@@ -26,7 +26,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,14 +54,14 @@ class LogoScreenshotTest {
         }
         compose.onNodeWithContentDescription("Wizard hat").assertIsDisplayed()
         compose.onNodeWithText("ATW").assertIsDisplayed()
-        capture("logo-wordmark")
+        capture("logo-wordmark", "App logo: wizard hat with the ATW wordmark on white, as shown in the app.")
     }
 
     @Test fun markAt48dp() {
         compose.setContent {
             Image(painterResource(R.drawable.atw_logo), "Wizard hat", Modifier.size(48.dp).testTag("capture"))
         }
-        capture("logo-48dp", 48)
+        capture("logo-48dp", "Wizard hat logo on its own at its small 48dp size.", 48)
     }
 
     @Test fun launcherSquare() = launcher("square")
@@ -126,13 +125,19 @@ class LogoScreenshotTest {
                 }
             }
         }
-        capture("launcher-$mask", 192)
+        val look = when (mask) {
+            "square" -> "square"
+            "circle" -> "round"
+            "squircle" -> "rounded-square"
+            else -> "themed (single-colour, round)"
+        }
+        capture("launcher-$mask", "Home-screen app icon drawn large with a $look launcher mask.", 192)
     }
 
-    private fun capture(name: String, side: Int? = null) {
+    private fun capture(name: String, caption: String, side: Int? = null) {
         val output = File("$SCREENSHOTS/logo/$name.png")
         output.parentFile!!.mkdirs()
-        compose.onNodeWithTag("capture").captureRoboImage(output.path)
+        compose.onNodeWithTag("capture").captureShot(output.path, caption)
         val image = ImageIO.read(output)
         assertTrue(image.width > 0 && image.height > 0)
         if (side != null) {

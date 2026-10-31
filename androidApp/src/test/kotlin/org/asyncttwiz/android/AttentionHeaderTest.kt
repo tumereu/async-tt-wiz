@@ -8,7 +8,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.captureRoboImage
 import java.io.File
 import javax.imageio.ImageIO
 import org.asyncttwiz.protocol.*
@@ -51,7 +50,9 @@ class AttentionHeaderTest {
             val pill = compose.onNodeWithContentDescription("Your move")
             pill.assertIsDisplayed().assertIsEnabled()
             val liveImage = File("$SCREENSHOTS/move-frame-live-$wide.png").also { it.parentFile!!.mkdirs() }
-            compose.onRoot().captureRoboImage(liveImage.path)
+            val orientation = if (wide) "Landscape" else "Portrait"
+            compose.onRoot().captureShot(liveImage.path,
+                "$orientation table header in live play on your turn and move: game name, Your move pill and phase, no move frame.")
             val livePixels = ImageIO.read(liveImage)
             assertNotEquals(OwnTableColor.toArgb(), livePixels.getRGB(3, livePixels.height / 2), "No move frame in play")
             val bounds = pill.fetchSemanticsNode().boundsInRoot
@@ -67,7 +68,8 @@ class AttentionHeaderTest {
             compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.PassAttention), sent); sent.clear() }
             compose.runOnIdle { reviewing.value = true }
             val reviewImage = File("$SCREENSHOTS/move-frame-review-$wide.png")
-            compose.onRoot().captureRoboImage(reviewImage.path)
+            compose.onRoot().captureShot(reviewImage.path,
+                "$orientation table header on your turn and move while reviewing history: Your move pill disabled, no move frame.")
             val reviewPixels = ImageIO.read(reviewImage)
             assertNotEquals(OwnTableColor.toArgb(), reviewPixels.getRGB(3, reviewPixels.height / 2), "No move frame in review")
             pill.assertIsNotEnabled().performTouchInput { click() }

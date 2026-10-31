@@ -13,7 +13,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import android.graphics.Paint
 import javax.imageio.ImageIO
 import org.asyncttwiz.protocol.*
@@ -82,7 +81,9 @@ class CardSettingsUiTest {
             val name = if (annotations) "card-annotations" else "card-sizes"
             val file = File("$SCREENSHOTS/$name-${if (landscape) "landscape" else "portrait"}-$scale-$zoom.png")
             file.parentFile!!.mkdirs()
-            captureScreenRoboImage(file.path)
+            val situation = "${if (landscape) "Landscape" else "Portrait"} table in combat, look panel open, every card noted and " +
+                "countered; card size ${if (annotations) 1f else scale}x, text ${scale}x, zoom ${zoom}x"
+            captureShot(file.path, "$situation.")
             if (!annotations && scale == 3f && zoom == 1f) {
                 val home = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
                     if (landscape) 412f else 892f, landscape, appearance = preferences.read())
@@ -94,7 +95,8 @@ class CardSettingsUiTest {
                         y = card.bounds.center.y - world.viewport.center.y))
                     compose.runOnIdle { toolkit.layoutState.value = TableLayoutState(camera = camera) }
                     compose.waitForIdle()
-                    captureScreenRoboImage("${file.path.removeSuffix(".png")}-${if (field.owner == f.a) "own" else "opponent"}-panned.png")
+                    captureShot("${file.path.removeSuffix(".png")}-${if (field.owner == f.a) "own" else "opponent"}-panned.png",
+                        "$situation, panned to ${if (field.owner == f.a) "your" else "the opponent's"} battlefield.")
                 }
             }
             if (annotations) {

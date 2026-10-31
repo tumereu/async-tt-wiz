@@ -1,0 +1,1 @@
+Landscape table header in live play on your turn and move: game name, Your move pill and phase, no move frame.

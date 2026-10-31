@@ -1,0 +1,1 @@
+Face-down Stack card after its controller changes: only the card's border pulses.

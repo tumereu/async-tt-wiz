@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
 import org.junit.Rule
@@ -264,7 +263,54 @@ class NonGameplayScreenshotTest(private val screen: String) {
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
         val output = File("$SCREENSHOTS/non-gameplay/$screen-${if (landscape) "landscape" else "portrait"}.png")
         output.parentFile!!.mkdirs()
-        captureScreenRoboImage(output.path)
+        val shown = when (screen) {
+            "sign-in" -> "sign-in screen with email and password filled in and the error Email or password not recognised"
+            "register" -> "create-account screen with username, email and password filled in"
+            "register-scrolled" -> "create-account screen with fields filled in, scrolled down to the Sign in link"
+            "reset-email" -> "password reset request screen after sending, saying a reset link is on its way"
+            "new-password" -> "choose-new-password screen with a new password typed in"
+            "home" -> "main menu for signed-in alex: Games, Pods, Manage decks, Contacts and Settings"
+            "navigation-open" -> if (landscape) "main menu for signed-in alex beside the navigation panel"
+                else "Games list with the navigation drawer opened over it"
+            "navigation-accounts" -> "navigation ${if (landscape) "panel" else "drawer"} with the account switcher " +
+                "for alex and riley, scrolled to Add account"
+            "play" -> "Games list for alex: riley's pending invitation with Accept and Decline, then two games with riley"
+            "games-loading" -> "Games list while it refreshes in the background, with no loading text"
+            "catalog-startup" -> "first-start Download card records? dialog over the main menu: 450 MB on a metered connection, with Exit and Download"
+            "catalog-update" -> "Update card records? dialog over the main menu: 450 MB on a metered connection, with Not now and Download"
+            "catalog-checking" -> "Games screen while card records are checked in the background, with no status text"
+            "records-downloading" -> "Games screen while card records download, showing 160 of 450 MB done"
+            "records-downloading-unknown" -> "Games screen while card records download with unknown total size, showing indeterminate progress"
+            "records-indexing" -> "Games screen while downloaded card records are indexed, showing bytes and cards processed"
+            "contacts" -> "Contacts screen with riley and morgan, and a search for sam showing one result"
+            "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create"
+            "waiting-invite" -> "game lobby after riley declined the invitation, your deck chosen, with Change deck and Prepare deck"
+            "game-context" -> "Games list with the options dialog of game Azure Spark open, offering Delete game"
+            "delete-game" -> "Games list with the Delete game confirmation for Azure Spark, with Keep game and Delete game"
+            "cancel-lobby" -> "game lobby with the Cancel game confirmation, with Keep game and Cancel game"
+            "lobby-select-deck" -> "game lobby where riley is ready and you have not chosen a deck yet"
+            "choose-lobby-deck" -> "game lobby with the deck picker open on three saved decks, the first selected"
+            "prepare-deck" -> "deck preparation in the game lobby just after moving one Meadow Sentinel to the sideboard"
+            "prepare-deck-faded" -> "deck preparation in the game lobby in its 3-column picture view, no recent move"
+            "ready-waiting" -> "game lobby with your deck chosen and you ready, waiting for riley"
+            "decks" -> "Manage decks screen listing three saved decks"
+            "deck-detail" -> "saved Training deck in its picture view: 60-card mainboard and sideboard in the default 3 columns"
+            "deck-detail-columns" -> "saved Training deck in its picture view with the column setting changed to 5"
+            "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Save as deck"
+            "deck-edit" -> "Training deck opened for editing as a text list, with Save and a deck cover choice"
+            "deck-edit-cover" -> "Training deck opened for editing with the Choose cover picker open"
+            "deck-art" -> "saved Training deck with a Meadow Sentinel card opened in the Inspect view"
+            "choose-cover" -> "saved Training deck with the Choose deck cover dialog open"
+            "delete-deck" -> "saved Training deck with the delete-deck confirmation open"
+            "import-edit" -> "deck import screen replacing the saved Training deck's list with a pasted, resolved list"
+            "import-errors" -> "deck import screen for a pasted list with one error: Unknown Card could not be resolved"
+            "import-save" -> "deck import preview of a resolved pasted list, ready to save as Training deck"
+            "import-link" -> "deck import screen with the import-from-link dialog holding an Archidekt deck address"
+            "reconnecting" -> "game table behind the Reconnecting dialog, which offers Back to games list"
+            "gameplay-chat" -> "game table with the chat panel open on three messages between you and your opponent"
+            else -> error("No caption for $screen")
+        }
+        captureShot(output.path, "${if (landscape) "Landscape" else "Portrait"} $shown.")
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)

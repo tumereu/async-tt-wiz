@@ -1,0 +1,1 @@
+Change highlight layer alone on white for a card cast onto the Stack: note change played backwards, mid-animation.

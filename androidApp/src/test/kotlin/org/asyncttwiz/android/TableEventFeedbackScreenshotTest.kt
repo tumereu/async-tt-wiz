@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -54,7 +53,8 @@ class TableEventFeedbackScreenshotTest {
         compose.onNodeWithText("Heads / win").assertIsDisplayed()
         val file = File("$SCREENSHOTS/table-rolls-both-players.png")
         requireNotNull(file.parentFile).mkdirs()
-        compose.onRoot().captureRoboImage(file.path)
+        compose.onRoot().captureShot(file.path, "Result chips alone on white, portrait: player A's d20 → 14 and d6 → 2, " +
+            "player B's coin flip heads, each on the roller's battlefield half.")
         val image = ImageIO.read(file)
         for (field in scene.fields) {
             val fill = (if (field.owner == "a") OwnTableColor else OpponentTableColor).toArgb()
@@ -78,7 +78,8 @@ class TableEventFeedbackScreenshotTest {
         }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.mainClock.advanceTimeBy(10_000); compose.waitForIdle()
-        compose.onRoot().captureRoboImage("$SCREENSHOTS/table-roll-stopped.png")
+        compose.onRoot().captureShot("$SCREENSHOTS/table-roll-stopped.png",
+            "Result chips alone on white while stopped on player A's d20 roll in history: the d20 → 14 chip stays after 10 seconds.")
         compose.onNodeWithText("d20 → 14").assertIsDisplayed()
         compose.runOnIdle { feedback.present(play, true, emptyMap()) }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
@@ -103,12 +104,13 @@ class TableEventFeedbackScreenshotTest {
             TableEventFeedbackOverlay(feedback, "a", "a", scene, { scene })
         } }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
-        fun capture(name: String): java.awt.image.BufferedImage {
+        fun capture(name: String, caption: String): java.awt.image.BufferedImage {
             val file = File("$SCREENSHOTS/$name.png")
-            requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureRoboImage(file.path)
+            requireNotNull(file.parentFile).mkdirs(); compose.onRoot().captureShot(file.path, caption)
             return ImageIO.read(file)
         }
-        val held = capture("table-ping-linger-held")
+        val held = capture("table-ping-linger-held",
+            "Ping overlay alone on white just after moving past a ping on player A: an unnumbered ghost ring lingers there.")
         assertEquals(Color.White.toArgb(), held.getRGB(point.x.toInt(), point.y.toInt()), "No numbered badge at the ghost centre")
         fun ringPixels(image: java.awt.image.BufferedImage) = ((point.x - 12).toInt()..(point.x + 12).toInt()).sumOf { x ->
             ((point.y - 12).toInt()..(point.y + 12).toInt()).count { y -> image.getRGB(x, y) == OwnTableColor.toArgb() }
@@ -117,7 +119,8 @@ class TableEventFeedbackScreenshotTest {
         compose.onAllNodes(hasClickAction()).assertCountEquals(0)
         compose.onAllNodes(hasContentDescription("Ping", substring = true)).assertCountEquals(0)
         compose.mainClock.advanceTimeBy(2_750); compose.waitForIdle()
-        assertEquals(0, ringPixels(capture("table-ping-linger-fading")), "Ghost ring should no longer be opaque during fade")
+        assertEquals(0, ringPixels(capture("table-ping-linger-fading",
+            "Ping overlay alone on white, 2.75 seconds after moving past a ping on player A: its ghost ring is fading out.")), "Ghost ring should no longer be opaque during fade")
         compose.mainClock.advanceTimeBy(400); compose.waitForIdle()
         compose.runOnIdle { assertTrue(feedback.pings.isEmpty()) }
     }

@@ -1,0 +1,1 @@
+Portrait table header on your turn and move while reviewing history: Your move pill disabled, no move frame.

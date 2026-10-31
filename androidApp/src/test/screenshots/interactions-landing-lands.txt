@@ -1,0 +1,1 @@
+Portrait table in combat, dragging a hand card onto your battlefield's lands row: landing placeholders show where it would go.

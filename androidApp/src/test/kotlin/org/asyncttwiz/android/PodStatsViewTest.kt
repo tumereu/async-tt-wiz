@@ -8,7 +8,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.Rule
 import org.junit.Test
@@ -95,7 +94,8 @@ class PodStatsViewTest {
         assertTrue(legend.bottom <= types.top && types.bottom <= mana.top)
         assertTrue(types.bottom - types.top < 80.dp, "Nine types wrap into at most a few rows: ${types.bottom - types.top}")
         val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics: " +
+            "card type counts wrap between the curve legend and the mana table.")
     }
 
     // DRF-113

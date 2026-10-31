@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.*
 import org.junit.After
 import org.junit.Rule
@@ -36,7 +35,13 @@ class PanelRevisionUiTest {
         compose.waitForIdle()
         val file = File("$SCREENSHOTS/r13-panels-${if (landscape) "landscape" else "portrait"}-${if (reveal) "reveal" else selection.name}${if (zone == PlayZone.GRAVEYARD) "" else "-${zone.name}"}.png")
         file.parentFile!!.mkdirs()
-        compose.onRoot().captureRoboImage(file.path)
+        val shown = when {
+            reveal -> "revealing your library's top two cards"
+            selection == ContentsSelection.ALL -> "searching your library"
+            else -> "looking at your library's top two cards"
+        }
+        compose.onRoot().captureShot(file.path, "${if (landscape) "Landscape" else "Portrait"} table with two left panels: $shown, " +
+            "and your ${if (zone == PlayZone.EXILE) "exile" else "graveyard"} holding one card opened for browsing.")
         val count = f.commands().size
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
             // A clear point on the battlefield, outside both left panels and the Stack.
@@ -68,11 +73,13 @@ class PanelRevisionUiTest {
         val orientation = if (landscape) "landscape" else "portrait"
         val output = File("$SCREENSHOTS/r13-stack-$orientation.png")
         output.parentFile!!.mkdirs()
-        compose.onRoot().captureRoboImage(output.path)
+        compose.onRoot().captureShot(output.path, "${orientation.replaceFirstChar { it.uppercase() }} table after your battlefield card " +
+            "puts two effects on the Stack: the top Stack entry's action bubbles are open.")
         compose.runOnIdle { ui.showStackBubbles(null); ui.manual.player(f.play, f.actor) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-        compose.onRoot().captureRoboImage("$SCREENSHOTS/r13-values-$orientation.png")
+        compose.onRoot().captureShot("$SCREENSHOTS/r13-values-$orientation.png", "${orientation.replaceFirstChar { it.uppercase() }} table with " +
+            "two effects on the Stack, after closing the Stack bubbles and opening your player menu (life and counters).")
     }
 
     @Test fun stackAndValuesPortrait() = stackAndValues(false)

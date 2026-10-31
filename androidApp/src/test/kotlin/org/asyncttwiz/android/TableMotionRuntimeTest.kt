@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.captureRoboImage
 import java.io.File
 import javax.imageio.ImageIO
 import org.asyncttwiz.protocol.*
@@ -201,7 +200,8 @@ class TableMotionRuntimeTest {
             val during = node.fetchSemanticsNode().boundsInRoot
             assertTrue(during.width > 40f, "Mid-rotation AABB must include the whole diagonal face: $during")
             val image = File("$SCREENSHOTS/selection-rotation-$tapped.png").also { it.parentFile!!.mkdirs() }
-            compose.onRoot().captureRoboImage(image.path)
+            compose.onRoot().captureShot(image.path, "Portrait table with player A's selected battlefield card mid-way through " +
+                "${if (tapped) "tapping" else "untapping"}: the blue selection border turns with the card.")
             val pixels = ImageIO.read(image)
             val blue = 0xff397ccc.toInt()
             assertNotEquals(blue, pixels.getRGB((during.left + 2).toInt(), (during.top + 2).toInt()),

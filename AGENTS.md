@@ -49,7 +49,9 @@ catalog wins. Where neither says, ask rather than pick.
 - Screenshot tests compare against committed images in
   `androidApp/src/test/screenshots/`. Re-record only for an intended visual
   change (`./scripts/gradle.sh :androidApp:testDebugUnitTest -Pscreenshots=record
-  --tests <Class>`) and list the changed images in your final reply.
+  --tests <Class>`) and list the changed images in your final reply. Every
+  committed screenshot is captured with the `captureShot` caption helper; its
+  caption says in one plain sentence what the picture shows and how the test got there.
 - Changed screenshots and catalog entries block releases until the owner has
   reviewed them (`scripts/review.sh screenshots|catalog`). Only the owner
   approves: never run `scripts/review.sh approve` or move the `catalog-approved`

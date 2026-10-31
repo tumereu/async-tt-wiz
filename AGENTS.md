@@ -34,8 +34,15 @@ catalog wins. Where neither says, ask rather than pick.
 - Every catalog entry is a feature the owner wants kept. A task changes or
   removes an entry only when the task names that behaviour. If your work would
   change any other entry, stop and ask instead of choosing.
-- When the owner approves a new or changed behaviour, update its catalog entry
-  in the same commit as the code.
+- The owner approves the exact text of every new or changed entry, details
+  included (wording, defaults, sizes, limits), before it is built. Your task
+  names those entries; write them exactly as approved, in the same commit as
+  the code.
+- If you must decide something the approved text doesn't cover, choose the
+  plainest option, mark that entry `(?)` and list it under "decisions needing
+  owner review" in your final reply. Nothing with an unreviewed `(?)` is released.
+- If the app turns out to differ from an entry, don't reword the entry to
+  match the app (or the app to match the entry); report it and let the owner decide.
 - Tests that protect an entry mention its ID in the test name or a comment
   above it (`// TBL-012`). Changing or deleting such a test requires the entry
   to change in the same commit.

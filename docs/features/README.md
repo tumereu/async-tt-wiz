@@ -34,8 +34,10 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 
 - A task changes or removes an entry only when the task names that behaviour.
   If work would change any other entry, stop and ask the owner.
-- Every new user-visible behaviour the owner approves gets an entry in the same
-  commit as the code.
+- The owner approves the exact text of new and changed entries before they are
+  built. Details an implementer had to choose are marked `(?)` until the owner
+  reviews them; nothing with an unreviewed `(?)` is released.
+- When the app and an entry disagree, the owner decides which one changes.
 - Tests that protect an entry mention its ID (see `AGENTS.md`).
 - `checkFeatureCatalog` runs before every test task: IDs must be unique and in their
   area's file, and every ID cited by a test, an entry or the backlog must exist.

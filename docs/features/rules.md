@@ -6,7 +6,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 
 - **SYS-001** A two-player cooperative tabletop for Android, Magic: The Gathering first. The app records and shows what happened and the players interpret the rules: there is no rules referee or priority tracker, and the app never works out costs, targets or resolution. Turn/step tracking, combat and Stack views and quick actions are conveniences that run only when a player starts them. (r1)
 - **SYS-002** Change only what was requested. Moving a card keeps its state unless a visible, consistent exception applies (for example, leaving the battlefield resets it). Nothing is guessed from card names or rules text. (r13)
-- **SYS-003** Finished edits save and sync automatically. There is no Send button, no required explanation and no routine confirmation. (r1)
+- **SYS-003** Finished edits save and sync automatically. There is no Send button (chat messages excepted), no required explanation and no routine confirmation. (r1)
 - **SYS-004** Each history step is one change, such as moving or tapping one card. Bulk controls record a sequence of single changes, and one invocation still counts as one Undo. (r15)
 - **SYS-005** Personal UI state stays on the device and is never shared: camera, selection, open menus, timeline review position, playback and card-size settings. (r4)
 - **SYS-006** Undo is only a convenience. No feature works by undoing something (withdrawing a result suggestion, for example, is its own event), so a refused undo never blocks a feature. (r18)
@@ -22,7 +22,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-013** Playing and viewing a game need a connection; there is no offline queue of actions and no offline mode. An action made while the connection is briefly lost waits up to 3 s and is sent once, as soon as the connection is back. (r1)
 - **SYS-014** After a reconnect, actions that were already sent are recovered automatically: no duplicates and no manual resend. If the app process dies, it restarts from the server's state, and actions it had not sent yet may be lost. (r1)
 - **SYS-015** Recovery from missed updates is automatic. There is no manual "download history" or resync button. (r15)
-- **SYS-016** Losing the connection shows nothing by itself. Only when an action has waited 3 s for the server does "Reconnecting…" / "Game actions unavailable." appear, with a "Back to games list" button; from then on actions are refused until the connection is back. The dialog can be dismissed. (?) not verified whether actions stay blocked after dismissing (r1)
+- **SYS-016** Losing the connection shows nothing by itself. Only when an action has waited 3 s for the server does "Reconnecting…" / "Game actions unavailable." appear, with a "Back to games list" button; from then on actions are refused until the connection is back. The dialog can be dismissed; you stay on the table and actions are still refused. (r1)
 - **SYS-017** Opening a game shows "Loading table…" until the table loads or really fails. It never flashes "Table unavailable" first. (r13)
 - **SYS-018** Lobby buttons stay enabled while the app reconnects. A tap waits for the connection and then goes through. (r21)
 - **SYS-019** Coming back from the background never bounces or jumps the layout, and the interruption itself shows no error. (r7)

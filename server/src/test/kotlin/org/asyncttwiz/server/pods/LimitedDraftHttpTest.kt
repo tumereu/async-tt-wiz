@@ -149,4 +149,49 @@ class LimitedDraftHttpTest {
         f.invite(invited, f.players[4])
         assertEquals(PodAutoStartOff("too_many_players"), f.get(f.a, invited).autoStartOff)
     }
+
+    /** An approximate-booster set (no recipe): packs take the configured size. */
+    private fun setUpload(): PodSetSource {
+        val definitions = List(12) { index ->
+            val card = CardDefinition("Set fixture $index", listOf(DefinitionFace(id(), "Set fixture $index")))
+            SubmittedDefinition(DeckJson.digest(card), card)
+        }
+        val cards = definitions.mapIndexed { index, definition ->
+            SetSourceCard(definition.digest, "00000000-0000-4000-8000-${index.toString().padStart(12, '0')}",
+                listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index % 3])
+        }
+        return PodSetSource(SetSourceSnapshot("TST", "Uploaded test set", cards), definitions)
+    }
+
+    // DRF-142, DRF-139: Sealed has no draft phase; every pool is private and goes straight to Build.
+    @Test fun `Sealed deals private pools from a cube or boosters and goes straight to Build`() = fixture { f ->
+        val pod = f.create(DraftSettings.sealed().copy(cardsPerPlayer = 40))
+        f.join(pod, f.b, f.c)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        assertEquals(PodPhase.DRAFTED, started.phase)
+        val details = listOf(f.a, f.b, f.c).map { f.get(it, pod) }
+        for (detail in details) {
+            val limited = detail.limited!!
+            assertEquals(DraftMode.SEALED, limited.mode)
+            assertEquals(40, limited.pool.size)
+            assertEquals(limited.pool.map { it.id }.toSet(), detail.build!!.copies.map { it.copyId }.toSet())
+            assertNull(detail.draft); assertNull(detail.grid)
+            // Only the caller's own cards are named.
+            assertEquals(limited.pool.map { it.definition }.toSet(), detail.definitions.map { it.digest }.toSet())
+        }
+        assertEquals(120, details.flatMap { it.limited!!.pool }.map { it.id }.distinct().size)
+        for (who in listOf(f.a, f.b, f.c)) {
+            assertEquals(PodAttention.BUILD, f.list(who).pods.single { it.id == pod }.attention)
+            assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+            assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        }
+        val attempt = details[1].draftAttemptId!!
+        assertTrue(json.decodeFromString<PodDetail>(f.send(f.b, "POST", "/v1/pods/$pod/submit", SubmitPodDeck(id(), attempt))).submitted)
+        // From a set: each player opens their own boosters.
+        val set = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Set sealed", setSource = setUpload(),
+            mode = DraftMode.SEALED, settings = DraftSettings.sealed().copy(packsPerPlayer = 2, cardsPerPack = 10)), 201)).id
+        f.join(set, f.b)
+        assertEquals(PodPhase.DRAFTED, json.decodeFromString<PodDetail>(f.start(set)).phase)
+        assertEquals(listOf(20, 20), listOf(f.a, f.b).map { f.get(it, set).limited!!.pool.size })
+    }
 }

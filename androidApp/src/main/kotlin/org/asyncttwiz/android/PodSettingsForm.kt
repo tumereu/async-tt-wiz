@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -118,7 +119,7 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
 }
 
 /** Mode chips (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
-internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID)
+internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.SEALED)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
@@ -157,7 +158,8 @@ internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodS
 @Composable
 internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
     source: PodSource = PodSource(), change: ((DraftSettings) -> DraftSettings) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // The chips wrap onto a second row when they don't fit.
+    FlowRow(Modifier.testTag("pod-mode-chips"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PodModeChips.forEach { mode -> FilterChip(podModeChip(settings.mode) == mode,
             { change { podModeSettings(mode, it) } }, enabled = enabled,
             label = { Text(podModeName(mode)) }) }

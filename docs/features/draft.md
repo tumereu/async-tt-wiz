@@ -29,7 +29,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-017** The pod name field has a shuffle button that suggests another random fantasy name. (r16)
 - **DRF-018** The source shows as its name (or "No source") with an edit button opening a Source dialog with searchable Cubes | Sets tabs and a Manage cubes button. (r17)
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
-- **DRF-020** Mode chips Booster and Grid load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (r35)
+- **DRF-020** Mode chips Booster, Grid and Sealed (wrapping onto more rows when they don't fit) load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (?) (r35)
 - **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once; Rochester 3 packs per player × 15 cards, packs open at once one per player; Rotisserie 45 cards per player; Winston 3 packs per player, 3 piles; Winchester 3 packs per player, 4 piles; Sealed 6 boosters per player from a set, 45 cards per player from a cube. Winston and Winchester packs from a cube hold 15 cards. (?) (r35)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. (r29)
 - **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60; Rochester, Winston and Winchester packs per player 1–15 and pack size 5–30; Rochester packs open at once 1 up to all (any count above the number of packs opens them all); Rotisserie and cube Sealed cards per player 5–225; Winston piles 2–6, Winchester piles 2–8; set Sealed boosters per player 1–30. (?) (r35)
@@ -119,6 +119,10 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar at the top left of the card art. (r34) (?)
 - **DRF-086** Discarded cards of a finished grid are dimmed and refill cards are marked "New"; a refilled grid shows its "Before refill" and "After refill" boards framed together. (r34) (?)
 - **DRF-087** Grid boards and everyone's picks of grids you have seen are public to the pod. (r16)
+
+### Rochester, Rotisserie, Winston, Winchester and Sealed
+
+- **DRF-142** Sealed has no draft phase: at the start every player gets a private pool (set: their own boosters opened; cube: random cards without replacement) and the pod goes straight to Build with "Draft complete: build your deck". (?) (r35)
 
 ### Set boosters
 

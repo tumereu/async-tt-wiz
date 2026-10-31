@@ -42,4 +42,31 @@ class LimitedEngineTest {
         assertEquals(DraftSupply(135, 100), DraftSettings.winston().supply(3, cube(100)))
         assertEquals(DraftSupply(180, 100), DraftSettings.sealed().supply(4, cube(100)))
     }
+
+    private val set = SetSourceSnapshot("TST", "Test set", List(30) { index ->
+        SetSourceCard("sha256:" + index.toString(16).padStart(64, '0'), "00000000-0000-4000-8000-" + index.toString().padStart(12, '0'),
+            listOf(SetCardRarity.COMMON, SetCardRarity.UNCOMMON, SetCardRarity.RARE)[index % 3])
+    })
+
+    // DRF-142: Sealed deals every pool at the start, with no draft phase.
+    @Test fun sealedDealsPrivatePoolsFromACubeOrBoosters() {
+        val settings = DraftSettings.sealed().copy(cardsPerPlayer = 20)
+        val state = LimitedEngine.startFromCube(players, cube(100), settings, seed)
+        assertTrue(state.finished)
+        assertEquals(players.toSet(), state.pools.keys)
+        assertTrue(state.pools.values.all { it.size == 20 })
+        assertEquals(80, state.pools.values.flatten().distinct().size) // without replacement
+        assertTrue(state.queues.values.all { it.isEmpty() })
+        assertEquals(state, LimitedEngine.startFromCube(players.reversed(), cube(100), settings, seed))
+        assertNotEquals(state.pools, LimitedEngine.startFromCube(players, cube(100), settings, otherSeed).pools)
+        assertFailsWith<IllegalArgumentException> { LimitedEngine.startFromCube(players, cube(79), settings, seed) }
+        val view = LimitedEngine.view(state, "bob")
+        assertEquals(state.pools.getValue("bob"), view.pool.map { it.id })
+        assertTrue(view.board.isEmpty() && view.piles.isEmpty() && view.picks.isEmpty())
+        // From a set: each player opens their own boosters.
+        val boosters = LimitedEngine.startFromSet(players.take(2), set, DraftSettings.sealed().copy(packsPerPlayer = 3, cardsPerPack = 10), seed)
+        assertTrue(boosters.finished)
+        assertTrue(boosters.pools.values.all { it.size == 30 })
+        assertEquals(60, boosters.copies.size)
+    }
 }

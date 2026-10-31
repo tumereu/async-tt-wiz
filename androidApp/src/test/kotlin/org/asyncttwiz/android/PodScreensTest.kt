@@ -307,6 +307,17 @@ class PodScreensTest {
         compose.onNodeWithText("Pack size").assertExists()
     }
 
+    // DRF-020, DRF-022, DRF-142
+    @Test fun engineChipsLoadTheirDefaultsAndKeepTheSideboardLimit() {
+        var settings by mutableStateOf(DraftSettings(sideboardLimit = 7, librarians = 2))
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
+        compose.onNodeWithText("Sealed").performClick().assertIsSelected()
+        compose.runOnIdle { assertEquals(DraftSettings.sealed().copy(sideboardLimit = 7), settings) }
+        compose.onNodeWithText("Cards each").assertExists()
+        compose.onNodeWithText("Librarians").assertDoesNotExist()
+        compose.onNodeWithText("Keep").assertDoesNotExist()
+    }
+
     // DRF-028
     @Test fun twoPicksIsOnlyEnabledWithExactlyTwoMembersAndCreatorPermission() {
         var members by mutableIntStateOf(3)

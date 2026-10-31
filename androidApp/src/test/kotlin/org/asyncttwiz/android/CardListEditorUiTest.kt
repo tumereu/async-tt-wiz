@@ -257,7 +257,7 @@ class CardListEditorUiTest {
         } finally { cubes.close() }
     }
 
-    // LOB-056, LOB-057, SYS-053: a saved deck shows Maybe in its section colour when it has Maybe cards; Rename opens the dialog.
+    // LOB-056, LOB-057, SYS-054: a saved deck shows Maybe in its section colour when it has Maybe cards; Rename opens the dialog.
     @Test fun savedDeckShowsMaybeAndRename() {
         val library = fixture.library
         library.seed(library.state.copy(detail = detail.copy(saved = detail.saved.copy(entries = detail.saved.entries +

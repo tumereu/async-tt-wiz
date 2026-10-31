@@ -19,7 +19,7 @@ enum class CardListKind(val sections: List<DeckSection>, val maxCards: Int, val 
 internal fun DeckSection.saved() = SavedDeckSection.valueOf(name)
 internal fun SavedDeckSection.list() = DeckSection.valueOf(name)
 
-/** SYS-053: section colours used everywhere a section appears: Main green, Side blue, Maybe yellow. */
+/** SYS-054: section colours used everywhere a section appears: Main green, Side blue, Maybe yellow. */
 internal val SectionMaybeYellow = Color(0xFFE0B000)
 /** The Maybe colour for text, outlines and chips behind white text, where plain yellow would be hard to read. */
 internal val SectionMaybeAmber = Color(0xFF9A6B00)

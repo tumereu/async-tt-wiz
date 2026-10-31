@@ -39,7 +39,7 @@ class CardListScreenshotTest {
     private fun printing(name: String) = CatalogPrinting("p-$name", name, "NEW", "9", "English", "", null, false, emptyList(),
         "{\"type\":\"${types.getValue(name)}\"}")
 
-    // LOB-106, LOB-107, SYS-053
+    // LOB-106, LOB-107, SYS-054
     @Test fun searchPortrait() = search(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun searchLandscape() = search(true)
 
@@ -67,7 +67,7 @@ class CardListScreenshotTest {
             "the Main | Side | Maybe destination on Main and Done · +3 cards.")
     }
 
-    // LOB-105, LOB-107, DRF-003, SYS-053
+    // LOB-105, LOB-107, DRF-003, SYS-054
     @Test fun cubeEditPortrait() = cubeEdit(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cubeEditLandscape() = cubeEdit(true)
 
@@ -98,7 +98,7 @@ class CardListScreenshotTest {
             "Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, the round Add cards button and Save.")
     }
 
-    // DRF-141, DRF-142, SYS-053
+    // DRF-141, DRF-142, SYS-054
     @Test fun prepareCubePortrait() = prepareCube(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun prepareCubeLandscape() = prepareCube(true)
 

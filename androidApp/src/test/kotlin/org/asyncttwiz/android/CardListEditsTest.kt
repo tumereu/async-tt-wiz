@@ -102,7 +102,7 @@ class CardListEditsTest {
         assertEquals("0 main", cardListSummary(CardListKind.DECK, emptyList()))
     }
 
-    // SYS-053: one colour per section.
+    // SYS-054: one colour per section.
     @Test fun sectionsHaveTheirOwnColours() {
         assertEquals(PodPickGreen, SavedDeckSection.MAINBOARD.sectionColor())
         assertEquals(PodBuildBlue, SavedDeckSection.SIDEBOARD.sectionColor())

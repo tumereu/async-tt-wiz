@@ -126,7 +126,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **STK-002** A hand card's entry is shown face up to both players while it is on the Stack. (r2)
 - **STK-003** Stack entries are always upright and can't be tapped. A real card is never in the Stack itself; only entries pointing at it are (STK-001). (r35)
 - **STK-004** A hand card double-tapped onto the Stack (ZON-004) that is a non-land permanent on all its faces resolves onto the main battlefield row by itself; play and resolve are one Undo. (r15)
-- **STK-005** "Face down" in the hand menu puts the card on the Stack face down, and it resolves straight onto the battlefield, still face down (2/2). (r21) (?) since r35 the card goes straight from the hand onto its owner's battlefield face down in one event; it no longer passes through the Stack (STK-003).
+- **STK-005** "Face down" in the hand menu puts a face-down entry for the card on the Stack (the opponent sees a back), which resolves by itself like a creature (STK-004): the card goes from the hand onto its owner's battlefield face down (2/2). Play and resolve are one Undo. (r35)
 - **STK-006** Adding an entry shows a ghost card flying from the card to the Stack; removing one flies back. An entry leaving to the graveyard, battlefield or exile flies to that destination. Undo reverses the flight. (r14)
 
 ### Stack display

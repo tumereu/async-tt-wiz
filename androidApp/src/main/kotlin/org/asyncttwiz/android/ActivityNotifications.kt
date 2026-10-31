@@ -59,7 +59,7 @@ class ActivityNotifications(private val context: Context, private val podName: (
         val pending = PendingIntent.getActivity(context, 0, route, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val gameText = notice.hint.notice?.let(::gameNotificationText)
         val notification = Notification.Builder(context, ActivityChannels.channel(notice.hint.kind))
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, notice.hint.resourceName ?: podName(notice.hint.gameId))
                 else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else gameText?.title ?: "Game activity")
             .setContentText(gameText?.text)

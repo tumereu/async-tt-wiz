@@ -21,6 +21,21 @@ class ActivityShownNotificationsTest {
         Notification.Builder(context, ActivityChannels.DRAFT_ACTIVITY).setSmallIcon(android.R.drawable.ic_dialog_info).build())
     private fun active() = manager.activeNotifications.map { it.tag }.toSet()
 
+    // LOB-072
+    @Test fun everyNotificationUsesTheLogoSilhouetteAsItsStatusBarIcon() {
+        org.robolectric.Shadows.shadowOf(context as android.app.Application).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        val notifications = ActivityNotifications(context) { "Cube night" }
+        notifications.channels()
+        val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", true)
+        org.asyncttwiz.protocol.ActivityKind.entries.forEach { kind ->
+            notifications.post(owner, ActivityNotice("${kind.name}:x", org.asyncttwiz.protocol.ActivityHint(kind.name, kind, "x", "1",
+                notice = content.takeIf { kind == org.asyncttwiz.protocol.ActivityKind.GAME }), silent = false))
+        }
+        val posted = manager.activeNotifications
+        assertEquals(org.asyncttwiz.protocol.ActivityKind.entries.size, posted.size)
+        posted.forEach { assertEquals(R.drawable.ic_notification, it.notification.smallIcon.resId, it.tag) }
+    }
+
     // DRF-138, LOB-078
     @Test fun openingAGamePodOrThePodListClearsOnlyItsOwnNotifications() {
         ActivityNotifications(context).channels()

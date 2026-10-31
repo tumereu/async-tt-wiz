@@ -64,6 +64,41 @@ class LogoScreenshotTest {
         capture("logo-48dp", "Wizard hat logo on its own at its small 48dp size.", 48)
     }
 
+    // LOB-072: the status-bar icon at 24, 48 and 96dp, drawn as Android draws it, on a dark status bar.
+    @Test fun notificationIconOnDark() {
+        compose.setContent {
+            androidx.compose.foundation.layout.Row(Modifier.testTag("capture").background(Color(0xFF202124)).padding(8.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                for (side in listOf(24, 48, 96)) Image(painterResource(R.drawable.ic_notification), null, Modifier.size(side.dp))
+            }
+        }
+        capture("notification-icon", "Notification status-bar icon, the white wizard hat silhouette, at 24, 48 and 96dp on a dark background.")
+    }
+
+    // LOB-072: status bars use only alpha, so every painted pixel must be the same white and the shape must fit the icon box.
+    @Test fun notificationIconIsOneWhiteSilhouette() {
+        val side = 240
+        val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        val icon = requireNotNull(context.getDrawable(R.drawable.ic_notification))
+        icon.setBounds(0, 0, side, side)
+        icon.draw(AndroidCanvas(bitmap))
+        var painted = 0
+        var opaque = 0
+        for (y in 0 until side) for (x in 0 until side) {
+            val pixel = bitmap.getPixel(x, y)
+            val alpha = android.graphics.Color.alpha(pixel)
+            if (alpha == 0) continue
+            painted++
+            if (alpha == 255) opaque++
+            assertEquals(0xFFFFFF, pixel and 0xFFFFFF, "Colour at $x,$y")
+            // 1dp of the 24dp box (10px here) stays clear on every side.
+            assertTrue(x in 10 until side - 10 && y in 10 until side - 10, "Artwork outside the icon box at $x,$y")
+        }
+        assertTrue(opaque > side * side / 6, "The silhouette must be a solid shape")
+        assertTrue(painted < side * side * 2 / 3, "The silhouette must not fill the box")
+    }
+
     @Test fun launcherSquare() = launcher("square")
     @Test fun launcherCircle() = launcher("circle")
     @Test fun launcherSquircle() = launcher("squircle")

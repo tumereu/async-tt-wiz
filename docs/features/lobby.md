@@ -105,7 +105,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Notifications and reminders
 
-- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", plus " · new message" after chat, and shows the time of the last event. (r28)
+- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", plus " · new message" after chat, and shows the time of the last event. Every notification shows the app logo as a single-colour status-bar icon. (?) (r35)
 - **LOB-073** A move notification comes 10 s after your opponent's last touch when it is your move (60 s otherwise), never while you have the game open; any input counts as activity (pan, inspect, chat). (r28)
 - **LOB-074** Leaving with the Home button still notifies; after you open a game and close it, your opponent's next moves notify with sound again. (r29)
 - **LOB-075** One reminder "<opponent> is waiting for you" comes 5 minutes after your opponent moved and went idle, if you have not moved since; just opening the game does not count, and it waits until 5 minutes after you leave. (r28)

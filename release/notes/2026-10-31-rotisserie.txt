@@ -1,0 +1,1 @@
+add: New pod mode Rotisserie: the whole pool lies face up and players take one card each in turn, with a search field to find cards.

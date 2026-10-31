@@ -19,7 +19,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-011** The main menu has a Pods entry between Games and Manage decks; the Pods screen has a New pod button at the top right. (r21)
 - **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with avatars, name and status, and pod invitations with Accept and Decline. (?) (r35)
-- **DRF-013** Pod statuses read "Your pick · 2 packs", "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
+- **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston and Winchester), "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (?) (r35)
 - **DRF-014** The main menu's Pods panel lists the first 3 pods and pod invitations of the shared pod order (DRF-013), invitations answered in place; it is hidden when empty. (r35)
 - **DRF-015** The side menu lists every pod under Pods, in the shared pod order (DRF-013), with a compact stack of the other members' avatars, the name and a two-line status. (r35)
 
@@ -29,7 +29,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-017** The pod name field has a shuffle button that suggests another random fantasy name. (r16)
 - **DRF-018** The source shows as its name (or "No source") with an edit button opening a Source dialog with searchable Cubes | Sets tabs and a Manage cubes button. (r17)
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
-- **DRF-020** Mode chips Booster, Grid and Sealed (wrapping onto more rows when they don't fit) load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (?) (r35)
+- **DRF-020** Mode chips Booster, Grid, Rotisserie and Sealed (wrapping onto more rows when they don't fit) load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (?) (r35)
 - **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once; Rochester 3 packs per player × 15 cards, packs open at once one per player; Rotisserie 45 cards per player; Winston 3 packs per player, 3 piles; Winchester 3 packs per player, 4 piles; Sealed 6 boosters per player from a set, 45 cards per player from a cube. Winston and Winchester packs from a cube hold 15 cards. (?) (r35)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. (r29)
 - **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60; Rochester, Winston and Winchester packs per player 1–15 and pack size 5–30; Rochester packs open at once 1 up to all (any count above the number of packs opens them all); Rotisserie and cube Sealed cards per player 5–225; Winston piles 2–6, Winchester piles 2–8; set Sealed boosters per player 1–30. (?) (r35)
@@ -123,6 +123,8 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Rochester, Rotisserie, Winston, Winchester and Sealed
 
 - **DRF-142** Sealed has no draft phase: at the start every player gets a private pool (set: their own boosters opened; cube: random cards without replacement) and the pod goes straight to Build with "Draft complete: build your deck". (?) (r35)
+- **DRF-143** Rotisserie: the whole pool lies face up (cube: players × cards per player, drawn at random; set: boosters opened until there are enough, all their cards); players take one card per turn in snake order (seat order, then back) until each has their cards; turns are sequential. (?) (r35)
+- **DRF-144** The Rotisserie pick screen is one scrolling panel of the whole pool, sorted like Build columns (W U B R G, multicolour, colourless, then name), under a line like "Your pick · Pick 4 of 90" ("Waiting for <name> · …" on another's turn) and a "Search cards" field using the catalog search syntax; taken cards stay greyed with the picker's small avatar (as in Grid). On your turn tap a card to frame it, then "Pick <card name>" takes it; tapping a taken card, any card on another's turn or the framed card again opens the inspector; holding previews it. (?) (r35)
 
 ### Set boosters
 
@@ -195,11 +197,11 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Notifications
 
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked. (r16)
-- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (?) (r35)
+- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid, Rotisserie, Winston and Winchester: your turn; Rochester: your pick in a pack) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (?) (r35)
 - **DRF-137** Other pod notifications: "New pod invitation", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r21)
 - **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. (r19)
 
 ### Privacy
 
-- **DRF-139** Each member sees only their own packs, pool, build and pod deck; others see status and counts only. The creator has no extra view. (r16)
+- **DRF-139** Each member sees only their own packs, pool, build and pod deck; others see status and counts only. Rochester's open packs, the Rotisserie pool, Winchester's piles and Grid boards are public with who took what; Winston piles show only the cards you have seen. The creator has no extra view. (?) (r35)
 - **DRF-140** The server owns seating, shuffling, packs, queues, awards and progress; retried requests never double a pick, submit, start, leave or challenge. (r16)

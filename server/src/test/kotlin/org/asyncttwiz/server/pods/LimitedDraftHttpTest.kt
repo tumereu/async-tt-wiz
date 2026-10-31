@@ -194,4 +194,54 @@ class LimitedDraftHttpTest {
         assertEquals(PodPhase.DRAFTED, json.decodeFromString<PodDetail>(f.start(set)).phase)
         assertEquals(listOf(20, 20), listOf(f.a, f.b).map { f.get(it, set).limited!!.pool.size })
     }
+
+    // DRF-143, DRF-136, DRF-087: snake turns over HTTP, "Your pick" when a turn begins, a public board, private pools.
+    @Test fun `Rotisserie HTTP snake turns notifications retries and end`() = fixture { f ->
+        val pod = f.create(DraftSettings.rotisserie().copy(cardsPerPlayer = 5))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        assertEquals(PodPhase.DRAFTING, started.phase)
+        val seating = started.limited!!.seating.map(f::session)
+        val (first, second) = seating
+        val attempt = started.draftAttemptId!!
+        fun turn(who: SessionCreated, status: Int = 200, card: String? = null, at: Int? = null): String {
+            val view = f.get(who, pod).limited!!
+            val free = card ?: view.board.first { it.pickedBy == null }.copy.id
+            return f.turn(who, pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, at ?: view.turn, free), status)
+        }
+        assertEquals("not_your_turn", f.code(turn(second, 409, at = 0)))
+        assertEquals("stale_turn", f.code(turn(first, 409, at = 1)))
+        assertEquals(PodAttention.YOUR_PICK, f.list(first.let { it }).pods.single().attention)
+        assertEquals(DraftMode.ROTISSERIE, f.list(first).pods.single().mode)
+        assertEquals(1, f.waiting(first).count { it.gameId == pod })
+        assertTrue(f.waiting(second).none { it.gameId == pod })
+        // A retried request is answered once.
+        val view = f.get(first, pod).limited!!
+        val retry = PodTurn(id(), attempt, LimitedAction.TAKE_CARD, 0, view.board.first().copy.id)
+        val answer = f.turn(first, pod, retry)
+        assertEquals(answer, f.turn(first, pod, retry))
+        val order = mutableListOf(first)
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val current = f.session(f.get(f.a, pod).limited!!.currentPlayer!!)
+            order += current
+            turn(current)
+        }
+        assertEquals(listOf(first, second, second, first, first, second, second, first, first, second), order)
+        // Each turn that begins notifies once; the second of two picks in a row does not.
+        assertEquals(3, f.count(ActivityKind.POD_YOUR_PICK, pod, first))
+        assertEquals(3, f.count(ActivityKind.POD_YOUR_PICK, pod, second))
+        for (who in seating) {
+            val detail = f.get(who, pod)
+            assertEquals(PodPhase.DRAFTED, detail.phase)
+            assertEquals(5, detail.limited!!.pool.size)
+            assertEquals(5, detail.build!!.copies.size)
+            // The board is public: everyone sees all ten cards and who took them.
+            assertEquals(10, detail.limited!!.board.count { it.pickedBy != null })
+            assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+        }
+        val booster = f.create(DraftSettings.booster().copy(packsPerPlayer = 1, cardsPerPack = 3))
+        f.join(booster, f.b)
+        val draft = json.decodeFromString<PodDetail>(f.start(booster))
+        assertEquals("wrong_draft_mode", f.code(f.turn(f.a, booster, PodTurn(id(), draft.draftAttemptId!!, LimitedAction.TAKE_CARD, 0, "x"), 409)))
+    }
 }

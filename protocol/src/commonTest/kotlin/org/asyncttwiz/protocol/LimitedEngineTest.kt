@@ -69,4 +69,46 @@ class LimitedEngineTest {
         assertTrue(boosters.pools.values.all { it.size == 30 })
         assertEquals(60, boosters.copies.size)
     }
+
+    private fun move(state: LimitedDraftState, player: String, action: LimitedAction, card: String? = null, packId: String? = null,
+        pile: Int? = null, turn: Int = state.turn): LimitedResult = LimitedEngine.act(state, LimitedMove(player, action, turn, card, packId, pile))
+    private fun ok(result: LimitedResult): LimitedDraftState = assertNotNull(result.state, "rejected: ${result.reason}")
+
+    // DRF-143: snake order one card at a time until everyone has their cards; the whole pool is public.
+    @Test fun rotisserieSnakesThroughTheWholePoolUntilEveryoneHasTheirCards() {
+        val three = players.take(3)
+        var state = LimitedEngine.startFromCube(three, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        assertEquals(15, state.board.size)
+        val seating = state.seating
+        val order = mutableListOf<String>()
+        while (!state.finished) {
+            val player = state.queues.entries.single { it.value.isNotEmpty() }.key
+            val view = LimitedEngine.view(state, player)
+            assertEquals(player, view.currentPlayer)
+            assertEquals(15, view.turns)
+            if (state.turn == 0) {
+                val other = three.first { it != player }
+                assertEquals(LimitedRejection.NOT_YOUR_TURN, move(state, other, LimitedAction.TAKE_CARD, state.board[0]).reason)
+                assertEquals(LimitedRejection.UNKNOWN_CARD, move(state, player, LimitedAction.TAKE_CARD, "missing").reason)
+                assertEquals(LimitedRejection.STALE_TURN, move(state, player, LimitedAction.TAKE_CARD, state.board[0], turn = 1).reason)
+                assertEquals(LimitedRejection.WRONG_ACTION, move(state, player, LimitedAction.TAKE_PILE, pile = 0).reason)
+            }
+            val free = view.board.first { it.pickedBy == null }.copy.id
+            val taken = view.board.firstOrNull { it.pickedBy != null }?.copy?.id
+            if (taken != null) assertEquals(LimitedRejection.UNKNOWN_CARD, move(state, player, LimitedAction.TAKE_CARD, taken).reason)
+            // The pick badge: two in a row at the snake's turns, otherwise one; nothing for the others.
+            assertEquals(if (state.turn % 3 == 2 && state.turn < 14) 2 else 1, LimitedEngine.consecutivePicks(state, player))
+            assertTrue(three.filter { it != player }.all { LimitedEngine.consecutivePicks(state, it) == 0 })
+            order += player
+            state = ok(move(state, player, LimitedAction.TAKE_CARD, free))
+        }
+        val (x, y, z) = seating
+        assertEquals(listOf(x, y, z, z, y, x, x, y, z, z, y, x, x, y, z), order)
+        assertTrue(state.pools.values.all { it.size == 5 })
+        assertEquals(LimitedRejection.DRAFT_FINISHED, move(state, x, LimitedAction.TAKE_CARD, state.board[0]).reason)
+        // Every member sees every card and who took it.
+        val view = LimitedEngine.view(state, y)
+        assertTrue(view.board.all { it.pickedBy != null })
+        assertEquals(state.pools.getValue(y).toSet(), view.board.filter { it.pickedBy == y }.map { it.copy.id }.toSet())
+    }
 }

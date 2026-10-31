@@ -2,7 +2,7 @@
 # Owner review gates. Releases are blocked until the owner has approved every catalog
 # and screenshot change (scripts/prep-release.sh checks both).
 #   scripts/review.sh catalog        diff of catalog changes since the last approval (difftastic)
-#   scripts/review.sh screenshots    page with every changed screenshot, before and after
+#   scripts/review.sh screenshots    viewer: changed screenshots one at a time, approved | now, with captions
 #   scripts/review.sh approve        owner only: mark the committed catalog and screenshots (HEAD) approved
 #   scripts/review.sh check          exit 1 if anything is unapproved (used by prep-release.sh)
 set -euo pipefail
@@ -26,29 +26,13 @@ catalog)
     git -c diff.external='difft --display=inline' diff "$CATALOG_TAG" -- "$CATALOG"
     ;;
 screenshots)
+    # One screenshot at a time: approved | now, with the caption the test writes next to each image
+    # (foo.png → foo.txt). A changed caption alone also counts as a change.
     out=build/screenshot-review
-    rm -rf "$out"; mkdir -p "$out/before"
-    rows=""
-    while IFS=$'\t' read -r status path rest; do
-        [[ $status == R* ]] && { old=$path; path=$rest; } || old=$path
-        [[ $path == *.png ]] || continue
-        name=${path#"$SHOTS"/}
-        before="" after=""
-        if [[ $status != A ]]; then
-            mkdir -p "$out/before/$(dirname "$name")"
-            git show "$SHOTS_TAG:$old" > "$out/before/$name"
-            before="<img src=\"before/$name\">"
-        fi
-        [[ -f $path ]] && after="<img src=\"../../$path\">"
-        rows+="<tr><td colspan=2 class=name>${status:0:1} $name</td></tr><tr><td>${before:-<i>new</i>}</td><td>${after:-<i>removed</i>}</td></tr>"
-    done < <(git diff --name-status "$SHOTS_TAG" -- "$SHOTS"; git ls-files --others --exclude-standard -- "$SHOTS" | sed 's/^/A\t/')
-    [[ -n $rows ]] || { echo "No screenshot changes since the last approval."; exit 0; }
-    cat > "$out/index.html" <<HTML
-<!doctype html><meta charset=utf-8><title>Screenshot review</title>
-<style>body{font-family:sans-serif;background:#222;color:#eee}td{vertical-align:top;padding:4px}
-img{max-width:48vw;border:1px solid #555}.name{padding-top:24px;font-weight:bold}</style>
-<h1>Screenshots changed since the last approval</h1><p>Left: approved. Right: now.</p><table>$rows</table>
-HTML
+    rm -rf "$out"; mkdir -p "$out"
+    cp scripts/screenshot-review.html "$out/index.html"
+    { git diff --name-status "$SHOTS_TAG" -- "$SHOTS"; git ls-files --others --exclude-standard -- "$SHOTS" | sed 's/^/A\t/'; } |
+        python3 -I scripts/screenshot-review.py "$SHOTS_TAG" "$SHOTS" "$out" || exit 1
     echo "$out/index.html"
     command -v explorer.exe >/dev/null && explorer.exe "$(wslpath -w "$out/index.html")" || true
     ;;

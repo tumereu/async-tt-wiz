@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>Screenshot review</title>
+<!-- Opened by scripts/review.sh screenshots, which writes data.js (window.SHOTS) next to a copy of this page. -->
+<style>
+  html, body { margin: 0; height: 100%; background: #1e1e1e; color: #eee; font-family: sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { padding: 10px 16px; display: flex; gap: 16px; align-items: baseline; border-bottom: 1px solid #444; }
+  #count { font-weight: bold; white-space: nowrap; }
+  #name { color: #aaa; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #caption { padding: 10px 16px; font-size: 18px; }
+  #oldcaption { padding: 0 16px 8px; color: #aaa; font-size: 14px; }
+  main { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 0 16px; }
+  figure { flex: 1; min-width: 0; margin: 0; display: flex; flex-direction: column; }
+  figcaption { color: #aaa; font-size: 13px; padding: 4px 0; }
+  .frame { flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; }
+  .frame img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid #555; }
+  .missing { color: #888; font-style: italic; padding: 40px; }
+  main.flip #beforeFig { display: none; }
+  footer { padding: 8px 16px; display: flex; gap: 12px; align-items: center; border-top: 1px solid #444; }
+  textarea { flex: 1; background: #2a2a2a; color: #eee; border: 1px solid #555; font: inherit; height: 2.6em; }
+  button { background: #333; color: #eee; border: 1px solid #666; padding: 6px 12px; cursor: pointer; }
+  .keys { color: #888; font-size: 13px; }
+  #done { display: none; padding: 40px; font-size: 18px; }
+  #done pre { background: #2a2a2a; padding: 12px; white-space: pre-wrap; }
+</style>
+<header><span id=count></span><span id=name></span></header>
+<div id=caption></div>
+<div id=oldcaption></div>
+<main id=view>
+  <figure id=beforeFig><figcaption>Approved</figcaption><div class=frame id=before></div></figure>
+  <figure id=afterFig><figcaption id=afterLabel>Now</figcaption><div class=frame id=after></div></figure>
+</main>
+<div id=done></div>
+<footer>
+  <button id=prev>← Prev</button><button id=next>Next →</button><button id=flip>Flip (Space)</button>
+  <textarea id=note placeholder="Note on this screenshot (N to focus, Esc to leave)"></textarea>
+  <button id=summary>Notes</button>
+  <span class=keys>←/→ move · Space flip · N note</span>
+</footer>
+<script src="data.js"></script>
+<script>
+const shots = window.SHOTS, $ = id => document.getElementById(id);
+const store = 'shot-review-notes:' + window.SHOTS_KEY;
+const notes = JSON.parse(localStorage.getItem(store) || '{}');
+let i = 0, flipped = false;
+
+function img(src) { return src ? `<img src="${src}">` : ''; }
+function show() {
+  $('done').style.display = 'none'; $('view').style.display = '';
+  const s = shots[i];
+  $('count').textContent = `${i + 1} / ${shots.length}` + (s.status === 'A' ? ' · new' : s.status === 'D' ? ' · removed' : '');
+  $('name').textContent = s.name;
+  $('caption').textContent = s.caption || s.oldCaption || '(no caption)';
+  $('oldcaption').textContent = s.oldCaption && s.caption && s.oldCaption !== s.caption ? 'Was: ' + s.oldCaption : '';
+  $('before').innerHTML = s.before ? img(s.before) : '<div class=missing>No approved image: this screenshot is new.</div>';
+  const afterSrc = flipped && s.before ? s.before : s.after;
+  $('after').innerHTML = afterSrc ? img(afterSrc) : '<div class=missing>Removed: no test makes this screenshot any more.</div>';
+  $('afterLabel').textContent = flipped ? (s.before ? 'Approved (Space to flip back)' : 'Now (no approved image)') : 'Now';
+  $('view').classList.toggle('flip', flipped);
+  $('note').value = notes[s.name] || '';
+}
+function go(d) { flipped = false; i = Math.max(0, Math.min(shots.length - 1, i + d)); show(); }
+function summary() {
+  const lines = shots.filter(s => notes[s.name]).map(s => `${s.name}: ${notes[s.name]}`);
+  $('view').style.display = 'none'; $('done').style.display = 'block';
+  $('done').innerHTML = lines.length
+    ? `<p>${lines.length} note(s). Copy and paste them to Claude:</p><pre>${lines.join('\n').replace(/</g, '&lt;')}</pre><p>Esc or ←/→ to go back.</p>`
+    : '<p>No notes. If everything looked right, approve with <code>scripts/review.sh approve</code>.</p><p>Esc or ←/→ to go back.</p>';
+}
+$('prev').onclick = () => go(-1); $('next').onclick = () => go(1);
+$('flip').onclick = () => { flipped = !flipped; show(); };
+$('summary').onclick = summary;
+$('note').oninput = e => {
+  const v = e.target.value.trim(); if (v) notes[shots[i].name] = v; else delete notes[shots[i].name];
+  localStorage.setItem(store, JSON.stringify(notes));
+};
+document.addEventListener('keydown', e => {
+  if (e.target === $('note')) { if (e.key === 'Escape') $('note').blur(); return; }
+  if (e.key === 'ArrowRight') { if (i === shots.length - 1 && $('done').style.display !== 'block') summary(); else go(1); }
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === 'Escape') show();
+  else if (e.key === ' ') { e.preventDefault(); flipped = !flipped; show(); }
+  else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); $('note').focus(); }
+});
+if (shots.length) show(); else { $('view').style.display = 'none'; $('done').style.display = 'block'; $('done').textContent = 'No screenshot changes since the last approval.'; }
+</script>

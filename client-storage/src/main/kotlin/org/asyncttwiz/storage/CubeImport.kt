@@ -34,12 +34,13 @@ object CubeCobraImport {
         require(CubeValidation.provenance(id)) { "Enter a Cube Cobra URL or cube id." }
         return id
     }
-    /** Mainboard to Main and maybeboard to Maybe; the cube's basics (a separate list) are ignored.
+    /** Mainboard to Main and maybeboard to Maybe (either may be empty); the cube's basics (a separate list) are ignored.
      * The text lists Main first, then a "Maybeboard" header and Maybe; line numbers are text lines. */
     fun parse(json: String): ParsedDeck {
         val root = JsonParser.parseString(json).asJsonObject
         val boards = root.getAsJsonObject("cards")
-        val cards = boards?.getAsJsonArray("mainboard") ?: error("Cube Cobra response has no mainboard.")
+        boards ?: error("Cube Cobra response has no card lists.")
+        val cards = boards.get("mainboard")?.takeIf { it.isJsonArray }?.asJsonArray ?: com.google.gson.JsonArray()
         val maybe = boards.get("maybeboard")?.takeIf { it.isJsonArray }?.asJsonArray
         val lines = mutableListOf<ImportLine>()
         val issues = mutableListOf<ImportIssue>()
@@ -68,7 +69,8 @@ object CubeCobraImport {
             board(DeckSection.MAYBEBOARD, maybe, "maybeboard")
         }
         if (lines.sumOf { it.quantity.toLong() } > CubeValidation.MAX_CARDS) issues += ImportIssue(0, "A cube may contain at most 3000 copies.")
-        if (cards.isEmpty) issues += ImportIssue(0, "Cube Cobra mainboard is empty.")
+        // A partial cube with only a maybeboard imports as Maybe; only a cube with no cards at all is refused.
+        if (lines.isEmpty() && issues.isEmpty()) issues += ImportIssue(0, "This Cube Cobra cube has no cards.")
         return ParsedDeck(text.joinToString("\n"), lines, issues)
     }
     private fun JsonObject.string(key: String) = get(key)?.takeUnless { it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }

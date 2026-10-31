@@ -79,6 +79,17 @@ class CubeImportTest {
         val basics = CubeCobraImport.parse("""{"basics":["00000000-0000-4000-8000-000000000001"],"cards":{"mainboard":[{"details":{"name":"Quiet Lattice Bolt"}}],"maybeboard":[]}}""")
         assertEquals(listOf("Quiet Lattice Bolt"), basics.lines.map { it.name }); assertEquals("1 Quiet Lattice Bolt", basics.text)
     }
+    // DRF-009: a partial cube with only a maybeboard imports into Maybe; only a cube with no cards is refused.
+    @Test fun cubeCobraCubeWithOnlyAMaybeboardImportsAndAnEmptyCubeIsRefused() {
+        val partial = CubeCobraImport.parse("""{"cards":{"mainboard":[],"maybeboard":[{"details":{"name":"Quiet Lattice Bolt"}}]}}""")
+        assertTrue(partial.issues.isEmpty())
+        assertEquals(listOf(DeckSection.MAYBEBOARD), partial.lines.map { it.section })
+        assertEquals("Maybeboard\n1 Quiet Lattice Bolt", partial.text)
+        val noMainboardKey = CubeCobraImport.parse("""{"cards":{"maybeboard":[{"details":{"name":"Quiet Lattice Bolt"}}]}}""")
+        assertTrue(noMainboardKey.issues.isEmpty())
+        assertEquals(listOf("This Cube Cobra cube has no cards."),
+            CubeCobraImport.parse("""{"cards":{"mainboard":[],"maybeboard":[]}}""").issues.map { it.message })
+    }
     @Test fun cubeCobraScryfallIdentityWinsOverConflictingPrintingMetadata() {
         val parsed = CubeCobraImport.parse("""{"cards":{"mainboard":[{"cardID":"f76be976-d1a3-58fb-9b57-abdf2c982a94","details":{"name":"Coppercloud Surveyor","set":"zpa","collector_number":"1"}}]}}""")
         val result = resolver().resolve(parsed)

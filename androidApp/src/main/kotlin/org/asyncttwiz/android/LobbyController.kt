@@ -6,8 +6,6 @@ import org.asyncttwiz.protocol.*
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 
-data class GameNameDraft(val recipient: AccountIdentity, val name: String)
-enum class ContactsTab { CONTACTS, SEARCH }
 data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
     val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,
     val importing: Boolean = false, val error: String? = null, val loaded: Boolean = false)
@@ -35,12 +33,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private var shownTrees: List<Any?> = emptyList()
     @Volatile private var epoch = 0L
     private var closed = false
-    private var searchVersion = 0L
-    private var pendingCreate: CreateInvitation? = null
-    private data class PodChallenge(val podId: String, val input: ChallengeFromPod, val submission: SubmitDefinitions)
-    private var pendingChallenge: PodChallenge? = null
-    private var pendingRecipient: AccountIdentity? = null
-    private val pendingAdds = mutableMapOf<String, AddContact>()
     private var pickerVersion = 0L
     private val latest = mutableMapOf<String, GameSummary>()
     private var routeVersion = 0L
@@ -81,7 +73,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     private val queue: LobbyActionQueue = LobbyActionQueue(scope, session)
     private val refresher: LobbyRefresh = LobbyRefresh(scope, api, credential, worker, post, session, clock)
-    fun clear() { queue.clear(); historyOwner?.close(); historyOwner = null; epoch++; searchVersion++; pickerVersion++; routeVersion++; refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); pendingCreate = null; pendingChallenge = null; pendingRecipient = null; pendingAdds.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    private val contactBook: LobbyContacts = LobbyContacts(scope, api, credential, worker, post, refresher::fence, ::begin)
+    private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
+        suggest, basicLandDefinitions)
+    fun clear() { queue.clear(); historyOwner?.close(); historyOwner = null; epoch++; contactBook.clear(); pickerVersion++; routeVersion++; refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -185,16 +180,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val current = (listOfNotNull(state.detail) + state.games).find { it.id == game.id }?.let { session?.summary(it) ?: it }
         val capture = accountId()?.let { GameDeletion(game, it) } ?: return false
         return !closed && capture.matches(current, accountId()) && session?.deleteGame(game) == true
-    }
-    fun respond(game: GameSummary, accept: Boolean) {
-        if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
-        // A held pod challenge can be declined at once; accepting waits for the player's submitted deck.
-        if (accept && game.invitationHeld) return
-        session?.submit(game, if (accept) GameAction.AcceptInvitation else GameAction.DeclineInvitation)
-    }
-    fun reinvite(game: GameSummary) {
-        if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return
-        queue.whenReady(game.id, "reinvite") { session?.submit(game, GameAction.Reinvite) }
     }
     internal fun offersSetupCancellation(game: GameSummary): Boolean {
         val current = session?.summary(game) ?: game
@@ -494,149 +479,28 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         preparationUndo = preparationUndo.push(captured.gameId, captured.roundId, captured.deckId, PreparationStep.Moved(captured))
         return true
     }
-    fun query(value: String) { searchVersion++; state = state.copy(query = value, results = emptyList(), searching = false, searched = false, searchError = null) }
-    fun search() {
-        if (closed) return
-        val token = credential() ?: return
-        if (state.query.isBlank()) { state = state.copy(searchError = "Enter a username."); return }
-        val query = state.query; val generation = epoch; val version = ++searchVersion
-        state = state.copy(searching = true, searchError = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch && version == searchVersion }) { api.search(token, query) } } }
-            post { if (!closed && generation == epoch && version == searchVersion) state = state.copy(searching = false,
-                searched = true, results = result.getOrNull()?.users ?: state.results, searchError = result.exceptionOrNull()?.let(::lobbyError)) }
-        }
-    }
-    fun contacts(chooseOpponent: Boolean) {
-        state = state.copy(choosingOpponent = chooseOpponent, contactsTab = ContactsTab.CONTACTS, contactFilter = "")
-    }
-    fun contactsTab(tab: ContactsTab) { state = state.copy(contactsTab = tab) }
-    fun filterContacts(value: String) { state = state.copy(contactFilter = value) }
-    fun requestRemoveContact(contact: AccountIdentity) { if (!state.mutating) state = state.copy(removingContact = contact) }
-    fun dismissRemoveContact() { state = state.copy(removingContact = null) }
-    fun removeContact() {
-        val contact = state.removingContact ?: return
-        val token = credential() ?: return
-        if (closed || state.mutating) return
-        val generation = epoch
-        // Fence a list read started before this removal so it cannot resurrect the contact.
-        refresher.fence()
-        state = state.copy(mutating = true, busy = false, removingContact = null, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.remove(token, contact.accountId) } } }
-            post { if (!closed && generation == epoch) {
-                state = state.copy(mutating = false, contacts = if (result.isSuccess) state.contacts.filterNot { it.accountId == contact.accountId } else state.contacts,
-                    error = result.exceptionOrNull()?.let(::lobbyError))
-            } }
-        }
-    }
+    fun respond(game: GameSummary, accept: Boolean) = invitations.respond(game, accept)
+    fun reinvite(game: GameSummary) = invitations.reinvite(game)
+    fun query(value: String) = contactBook.query(value)
+    fun search() = contactBook.search()
+    fun contacts(chooseOpponent: Boolean) = contactBook.contacts(chooseOpponent)
+    fun contactsTab(tab: ContactsTab) = contactBook.contactsTab(tab)
+    fun filterContacts(value: String) = contactBook.filterContacts(value)
+    fun requestRemoveContact(contact: AccountIdentity) = contactBook.requestRemoveContact(contact)
+    fun dismissRemoveContact() = contactBook.dismissRemoveContact()
+    fun removeContact() = contactBook.removeContact()
     fun invite(contact: AccountIdentity) {
         if (state.contacts.any { it.accountId == contact.accountId }) begin(contact)
         else add(contact, inviteAfter = true)
     }
-    fun add(contact: AccountIdentity, inviteAfter: Boolean = false) {
-        if (closed || state.mutating || state.contacts.any { it.accountId == contact.accountId }) return
-        val token = credential() ?: return
-        val input = pendingAdds.getOrPut(contact.accountId) { AddContact(UUID.randomUUID().toString(), contact.accountId) }
-        val generation = epoch
-        refresher.fence()
-        state = state.copy(mutating = true, busy = false, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.add(token, input) } } }
-            post { if (!closed && generation == epoch) {
-                val saved = result.getOrNull()
-                if (saved != null) pendingAdds.remove(contact.accountId)
-                state = state.copy(mutating = false, contacts = if (saved == null) state.contacts else
-                    (state.contacts.filterNot { it.accountId == saved.accountId } + saved), error = result.exceptionOrNull()?.let(::lobbyError))
-                if (saved != null && inviteAfter) begin(saved)
-            } }
-        }
-    }
-    fun begin(contact: AccountIdentity) {
-        if (closed || state.mutating || state.contacts.none { it.accountId == contact.accountId }) return
-        val pending = pendingCreate
-        state = state.copy(draft = if (pending == null) GameNameDraft(contact, suggest())
-            else GameNameDraft(pendingRecipient!!, pending.gameName), uncertain = pending != null, error = null)
-    }
-    fun name(value: String) { if (!state.mutating && pendingCreate == null) state = state.copy(draft = state.draft?.copy(name = value), error = null) }
-    fun reroll() { if (!state.mutating && pendingCreate == null) name(suggest()) }
-    fun dismiss() { if (!state.mutating) state = state.copy(draft = null, error = null) }
-    fun create() {
-        if (closed || state.mutating) return
-        val draft = state.draft ?: return
-        if (!LobbyValidation.name(draft.name)) { state = state.copy(error = "Enter a game name."); return }
-        val token = credential() ?: return
-        val input = pendingCreate ?: CreateInvitation(UUID.randomUUID().toString(), draft.recipient.accountId, draft.name)
-        pendingCreate = input; pendingRecipient = draft.recipient
-        val generation = epoch
-        state = state.copy(mutating = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            val result = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.create(token, input) } } }
-            post { if (!closed && generation == epoch) {
-                val game = result.getOrNull()
-                if (game != null) {
-                    pendingCreate = null; pendingRecipient = null
-                    state = state.copy(mutating = false, draft = null, uncertain = false)
-                    // An idempotent create response is an original outcome, not current lifecycle state.
-                    if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
-                    else refresh()
-                } else {
-                    val failure = result.exceptionOrNull()
-                    val terminal = (failure as? LobbyFailure)?.code in listOf("invalid_name", "contact_required", "invalid_request", "request_conflict")
-                    if (terminal) { pendingCreate = null; pendingRecipient = null }
-                    state = state.copy(mutating = false, uncertain = !terminal, error = lobbyError(failure!!))
-                }
-            } }
-        }
-    }
-    fun retryPodChallenge() {
-        val request = pendingChallenge ?: return
-        challengeFromPod(request.podId, request.input.opponentId, request.input.gameName)
-    }
-    /** Pod UI supplies a suggested name; retries retain the original name and request identities. */
-    fun challengeFromPod(podId: String, opponentId: String, gameName: String) {
-        if (closed || state.mutating) return
-        val token = credential() ?: return
-        val decks = deckApi ?: return
-        val resolve = basicLandDefinitions ?: return
-        val previous = pendingChallenge
-        if (previous != null && (previous.podId != podId || previous.input.opponentId != opponentId)) {
-            state = state.copy(error = "Retry the original pod challenge before creating another."); return
-        }
-        if (previous == null && !LobbyValidation.name(gameName)) { state = state.copy(error = "Enter a game name."); return }
-        val generation = epoch
-        state = state.copy(mutating = true, error = null)
-        worker.execute {
-            if (generation != epoch) return@execute
-            var captured = previous
-            val result = runCatching { runBlocking {
-                val request = captured ?: resolve().let { definitions ->
-                    PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName, definitions),
-                        SubmitDefinitions(UUID.randomUUID().toString(), definitions))
-                }.also { captured = it }
-                serviceRetry(current = { generation == epoch }) { decks.submit(token, request.submission) }
-                serviceRetry(current = { generation == epoch }) { api.challengeFromPod(token, request.podId, request.input) }
-            } }
-            post { if (!closed && generation == epoch) {
-                val game = result.getOrNull()
-                val failure = result.exceptionOrNull()
-                val code = when (failure) { is LobbyFailure -> failure.code; is DeckFailure -> failure.code; else -> null }
-                val terminal = code in listOf("not_found", "opponent_not_member", "invalid_opponent",
-                    "deck_not_submitted", "invalid_name", "invalid_request", "request_conflict", "invalid_basic_definitions", "invalid_deck", "invalid_definition")
-                pendingChallenge = if (game != null || terminal) null else captured
-                state = state.copy(mutating = false, error = failure?.let(::lobbyError),
-                    retryPodChallengeName = pendingChallenge?.input?.gameName)
-                if (game != null) {
-                    if (latest[game.id]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED) && sessionAvailable(game.id)) open(game.id)
-                    else refresh()
-                }
-            } }
-        }
-    }
+    fun add(contact: AccountIdentity, inviteAfter: Boolean = false) = contactBook.add(contact, inviteAfter)
+    fun begin(contact: AccountIdentity) = invitations.begin(contact)
+    fun name(value: String) = invitations.name(value)
+    fun reroll() = invitations.reroll()
+    fun dismiss() = invitations.dismiss()
+    fun create() = invitations.create()
+    fun retryPodChallenge() = invitations.retryPodChallenge()
+    fun challengeFromPod(podId: String, opponentId: String, gameName: String) = invitations.challengeFromPod(podId, opponentId, gameName)
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") {
         leaveUnavailable()
         state = state.copy(error = message)
@@ -700,13 +564,3 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun refresh(background: Boolean = false) = refresher.refresh(background)
     override fun close() { closed = true; clear(); session?.close(); worker.execute { api.close(); deckApi?.close() }; worker.shutdown() }
 }
-
-internal val gameNameAdjectives = listOf("Azure", "Crackling", "Moonlit", "Silver", "Arcane", "Velvet", "Ember", "Wandering",
-    "Ancient", "Astral", "Amber", "Bewitched", "Celestial", "Crimson", "Crystal", "Duskborn", "Eldritch", "Enchanted",
-    "Fabled", "Frosted", "Gilded", "Glimmering", "Hallowed", "Hidden", "Iridescent", "Jade", "Luminous", "Misty",
-    "Mystic", "Obsidian", "Opal", "Radiant", "Runic", "Sapphire", "Shimmering", "Silent", "Starlit", "Twilight", "Verdant", "Whispering")
-internal val gameNameNouns = listOf("Spark", "Mist", "Wand", "Grove", "Rune", "Prism", "Dragon", "Lantern",
-    "Amulet", "Beacon", "Chalice", "Citadel", "Comet", "Crown", "Dawn", "Echo", "Familiar", "Flame", "Gale", "Gate",
-    "Grimoire", "Haven", "Hydra", "Isle", "Labyrinth", "Lotus", "Moon", "Oracle", "Phoenix", "Portal", "Relic", "Sanctum",
-    "Scepter", "Sigil", "Spire", "Star", "Tempest", "Thicket", "Tower", "Wisp")
-internal fun gameNameSuggestion(): String = gameNameAdjectives.random() + " " + gameNameNouns.random()
